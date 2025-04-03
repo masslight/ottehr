@@ -183,7 +183,10 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionListItem}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{

@@ -324,7 +324,7 @@ test.describe('Tests interacting with appointment state', () => {
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+          .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible(DEFAULT_TIMEOUT);
     });
@@ -376,7 +376,7 @@ test.describe('Tests interacting with appointment state', () => {
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+          .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible(DEFAULT_TIMEOUT);
     });
