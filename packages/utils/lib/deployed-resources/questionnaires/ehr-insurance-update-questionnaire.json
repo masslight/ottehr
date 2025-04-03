@@ -388,7 +388,13 @@
             "type": "choice",
             "answerOption": [
               {
-                "valueString": "TODO"
+                "valueString": "Male gender identity"
+              },
+              {
+                "valueString": "Female gender identity"
+              },
+              {
+                "valueString": "Non-binary gender identity"
               }
             ]
           },

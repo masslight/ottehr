@@ -1086,6 +1086,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'guardian-number': patientFieldPaths.parentGuardianPhone,
   'patient-ethnicity': patientFieldPaths.ethnicity,
   'patient-race': patientFieldPaths.race,
+  'patient-gender-identity': patientFieldPaths.genderIdentity,
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
   'insurance-carrier': coverageFieldPaths.carrier,
