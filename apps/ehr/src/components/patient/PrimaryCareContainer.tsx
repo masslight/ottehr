@@ -33,10 +33,10 @@ export const PrimaryCareContainer: FC = () => {
         )}
       />
       <Box sx={{ display: isActive ? 'contents' : 'none' }}>
-        <Row label="First name" inputId={FormFields.firstName.key} required={isActive}>
+        <Row label="First name" inputId={FormFields.firstName.key}>
           <FormTextField name={FormFields.firstName.key} control={control} id={FormFields.firstName.key} />
         </Row>
-        <Row label="Last name" inputId={FormFields.lastName.key} required={isActive}>
+        <Row label="Last name" inputId={FormFields.lastName.key}>
           <FormTextField name={FormFields.lastName.key} control={control} id={FormFields.lastName.key} />
         </Row>
         <Row label="Practice name" inputId={FormFields.practiceName.key}>
