@@ -785,6 +785,18 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
+    },
+    "AI-INTERVIEW-GENERATE-DIAGNOSTIC-REPORT": {
+      "name": "AI-INTERVIEW-GENERATE-DIAGNOSTIC-REPORT",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/subscriptions/ai-interview/generate-diagnostic-report/index",
+      "zip": ".dist/zips/ai-interview-generate-diagnostic-report.zip",
+      "subscription": {
+        "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
+        "reason": "Generate a diagnostic report from chat with AI",
+        "event": "create"
+      }
     }
   },
   "fhirResources": {

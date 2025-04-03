@@ -22,7 +22,6 @@ import {
   Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
@@ -31,7 +30,11 @@ import {
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
-import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
+import {
+  createOystehrClient,
+  getVideoRoomResourceExtension,
+  isNonPaperworkQuestionnaireResponse,
+} from '../../../shared/helpers';
 import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
