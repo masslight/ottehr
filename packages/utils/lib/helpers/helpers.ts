@@ -188,7 +188,7 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
-const formatPhoneNumberForQuestionarie = (phone: string): string => {
+export const formatPhoneNumberForQuestionarie = (phone: string): string => {
   if (phone.length !== 10) {
     throw new Error('Invalid phone number');
   }
@@ -212,6 +212,12 @@ export const isoToDateObject = (isoString: string): { year: string; month: strin
   };
 };
 
+export const DEMO_VISIT_STREET_ADDRESS = `${DateTime.now().toFormat('yyyyMMdd')} Test Line`;
+export const DEMO_VISIT_STREET_ADDRESS_OPTIONAL = 'Apt 4B';
+export const DEMO_VISIT_CITY = 'New York';
+export const DEMO_VISIT_STATE = 'NY';
+export const DEMO_VISIT_ZIP = '06001';
+
 export function getContactInformationAnswers({
   willBe18 = false,
   isNewPatient = false,
@@ -224,11 +230,11 @@ export function getContactInformationAnswers({
   },
   birthSex = 'Female',
   address = {
-    street: `${DateTime.now().toFormat('yyyyMMdd')} Test Line`,
-    street2: 'Apt 4B',
-    city: 'New York',
-    state: 'NY',
-    zip: '06001',
+    street: DEMO_VISIT_STREET_ADDRESS,
+    street2: DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
+    city: DEMO_VISIT_CITY,
+    state: DEMO_VISIT_STATE,
+    zip: DEMO_VISIT_ZIP,
   },
   email = 'test-email@test-domain-1237843298123.co',
   phoneNumber = '(202) 733-9622',

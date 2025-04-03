@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { Paper, FormControl, Typography, MenuItem, Alert, Grid, Select, useTheme } from '@mui/material';
+import { Alert, FormControl, Grid, MenuItem, Paper, Select, Typography, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { ASQObservationDTO, ASQ_FIELD, ASQKeys, ObservationDTO, asqLabels } from 'utils';
-import { useAppointmentStore } from '../../../../telemed';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ASQKeys, ASQObservationDTO, ASQ_FIELD, ObservationDTO, asqLabels } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useChartData } from '../../hooks/useChartData';
+import { useAppointmentStore } from '../../../../telemed';
 import { useZapEHRAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';
 import { CSSModal } from '../CSSModal';
 
@@ -15,14 +14,12 @@ const isASQObservationDTO = (obs: ObservationDTO): obs is ASQObservationDTO => {
 export const ASQ: React.FC = () => {
   const theme = useTheme();
   const apiClient = useZapEHRAPIClient();
-  const { chartData, updateObservation, encounter } = getSelectors(useAppointmentStore, [
+  const { chartData, updateObservation, encounter, isChartDataLoading } = getSelectors(useAppointmentStore, [
     'chartData',
     'updateObservation',
     'encounter',
+    'isChartDataLoading',
   ]);
-  const { isLoading: isChartDataLoading } = useChartData({
-    encounterId: encounter?.id || '',
-  });
 
   const [asqValue, setAsqValue] = useState<ASQKeys | ''>('');
   const [isUpdating, setIsUpdating] = useState(false);

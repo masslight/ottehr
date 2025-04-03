@@ -259,6 +259,14 @@ export class Paperwork {
     await this.page.keyboard.press('Tab');
     await expect(this.locator.numberErrorText).not.toBeVisible();
   }
+  async checkEmailValidations(email: any): Promise<void> {
+    await email.fill('abcd1');
+    await this.locator.clickContinueButton(false);
+    await expect(this.locator.emailErrorText).toBeVisible();
+    await email.fill('example@test.com');
+    await this.page.keyboard.press('Tab');
+    await expect(this.locator.emailErrorText).not.toBeVisible();
+  }
   async checkZipValidations(zipField: Locator): Promise<void> {
     await zipField.fill('123');
     await this.locator.clickContinueButton(false);

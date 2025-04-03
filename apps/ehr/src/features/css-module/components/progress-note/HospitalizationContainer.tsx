@@ -1,10 +1,11 @@
 import { FC } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { getSelectors } from 'utils';
 import { useAppointmentStore } from '../../../../telemed';
 
 export const HospitalizationContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const theme = useTheme();
 
   const episodeOfCare = chartData?.episodeOfCare;
 
@@ -13,7 +14,11 @@ export const HospitalizationContainer: FC = () => {
       <Typography variant="h5" color="primary.dark">
         Hospitalization
       </Typography>
-      {episodeOfCare?.map((item) => <Typography key={item.resourceId}>{item.display}</Typography>)}
+      {episodeOfCare?.length ? (
+        episodeOfCare.map((item) => <Typography key={item.resourceId}>{item.display}</Typography>)
+      ) : (
+        <Typography color={theme.palette.text.secondary}>No hospitalizations</Typography>
+      )}
     </Box>
   );
 };

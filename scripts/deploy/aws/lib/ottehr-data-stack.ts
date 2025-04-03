@@ -22,5 +22,6 @@ function uploadWebsiteAssets(scope: Construct, website: 'intake' | 'ehr', bucket
   new s3deploy.BucketDeployment(scope, `upload-${website}-to-s3-bucket`, {
     destinationBucket: bucket,
     sources: [s3deploy.Source.asset(`../../../apps/${website}/build`)],
+    memoryLimit: 2048,
   });
 }
