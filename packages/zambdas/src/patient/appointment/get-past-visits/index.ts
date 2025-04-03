@@ -12,7 +12,7 @@ import {
   getSecret,
   getVisitStatus,
   mapStatusToTelemed,
-  SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';
@@ -59,7 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const scheduleResources = allResources.filter((resource) => {
       const extensionTemp = (resource as { extension?: Array<{ url: string }> }).extension;
-      const extensionSchedule = extensionTemp?.find((extension) => extension.url === SCHEDULE_EXTENSION_URL);
+      const extensionSchedule = extensionTemp?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL);
       return !!extensionSchedule;
     });
 
