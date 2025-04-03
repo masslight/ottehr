@@ -77,10 +77,13 @@ export const ResponsibleInformationContainer: FC = () => {
           dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
         />
       </Row>
-      <Row label={FormFields.birthSex.label} required>
+      <Row
+        label={FormFields.birthSex.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
+        required
+      >
         <FormSelect
           name={FormFields.birthSex.key}
-          data-testid={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
           control={control}
           options={SEX_OPTIONS}
           rules={{
