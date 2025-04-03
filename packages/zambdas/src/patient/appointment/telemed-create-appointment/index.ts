@@ -1,7 +1,6 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  Account,
   Appointment,
   Bundle,
   Encounter,
@@ -230,7 +229,6 @@ interface TransactionInput {
   questionnaire: Questionnaire;
   additionalInfo?: string;
   patient?: Patient;
-  account?: Account;
   createPatientRequest?: BatchInputPostRequest<Patient>;
   listRequests: BatchInputRequest<List>[];
   updatePatientRequest?: BatchInputRequest<Patient>;
