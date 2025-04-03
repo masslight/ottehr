@@ -92,6 +92,10 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
           name: '_include:iterate',
           value: 'Appointment:location',
         },
+        {
+          name: '_revinclude:iterate',
+          value: 'List:patient',
+        },
       ],
     })
   ).unbundle();
