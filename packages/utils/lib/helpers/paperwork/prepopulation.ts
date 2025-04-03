@@ -118,6 +118,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   console.log('documents: ', JSON.stringify(documents, null, 2));
   console.log('insurance related resources: ', JSON.stringify(accountInfo, null, 2));
 
+  const patientFirstName = getFirstName(patient) ?? '';
+  const patientLastName = getLastName(patient) ?? '';
+
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = item.item ?? [].filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -141,11 +144,11 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           if (linkId === 'is-new-qrs-patient') {
             answer = makeAnswer(isNewQrsPatient, 'Boolean');
           }
-          if (linkId === 'patient-first-name') {
-            answer = makeAnswer(getFirstName(patient) ?? '');
+          if (linkId === 'patient-first-name' && patientFirstName) {
+            answer = makeAnswer(patientFirstName);
           }
-          if (linkId === 'patient-last-name') {
-            answer = makeAnswer(getLastName(patient) ?? '');
+          if (linkId === 'patient-last-name' && patientLastName) {
+            answer = makeAnswer(patientLastName);
           }
           if (linkId === 'patient-street-address' && patientAddressLine1) {
             answer = makeAnswer(patientAddressLine1);
@@ -456,7 +459,10 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientEmail);
     }
     if (linkId === 'patient-number' && patientPhone) {
-      answer = makeAnswer(formatPhoneNumberDisplay(patientPhone));
+      const formatted = formatPhoneNumberDisplay(patientPhone);
+      if (formatted) {
+        answer = makeAnswer(formatted);
+      }
     }
     if (linkId === 'patient-birth-sex' && patientSex) {
       answer = makeAnswer(patientSex);
@@ -792,8 +798,9 @@ interface MapGuantorItemsInput {
 const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, items } = input;
 
-  const phone =
-    guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? '';
+  const phone = formatPhoneNumberDisplay(
+    guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
+  );
   let birthSex: string | undefined;
   if (guarantorResource?.gender) {
     const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
@@ -841,7 +848,7 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
       answer = makeAnswer(birthSex);
     }
     if (linkId === 'responsible-party-number' && phone) {
-      answer = makeAnswer(formatPhoneNumberDisplay(phone));
+      answer = makeAnswer(phone);
     }
     return {
       linkId,
