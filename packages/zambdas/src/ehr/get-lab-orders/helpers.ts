@@ -381,20 +381,27 @@ export const parseLabOrderStatus = (
   const finalResults = [...orderedFinalResults, ...reflexFinalResults];
   const prelimResults = [...orderedPrelimResults, ...reflexPrelimResults];
 
-  //  reviewed: Task(RFRT).status = 'completed' and DR the Task is basedOn have DR.status = ‘final’
-  for (let i = 0; i < finalTasks.length; i++) {
-    const task = finalTasks[i];
+  const hasCompletedPSTTask = taskPST?.status === 'completed';
+  const isActiveServiceRequest = serviceRequest.status === 'active';
 
-    if (task.status !== 'completed') {
-      continue;
-    }
+  // 'pending': If the SR.status == draft and a pre-submission task exists
+  if (serviceRequest.status === 'draft' && taskPST?.status === 'ready') {
+    return ExternalLabsStatus.pending;
+  }
 
-    const relatedResults = parseResultByTask(task, finalResults);
-    const hasFinalResults = relatedResults.some((result) => result.status === 'final');
+  // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
+  const isSentStatus = hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0;
 
-    if (hasFinalResults) {
-      return ExternalLabsStatus.reviewed;
-    }
+  if (isSentStatus) {
+    return ExternalLabsStatus.sent;
+  }
+
+  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
+  const hasPrelimResults = prelimResults.length > 0;
+  const isPreliminaryStatus = hasPrelimResults && hasCompletedPSTTask && isActiveServiceRequest;
+
+  if (isPreliminaryStatus) {
+    return ExternalLabsStatus.prelim;
   }
 
   // received: Task(RFRT).status = 'ready' and DR the Task is basedOn have DR.status = ‘final’
@@ -413,26 +420,20 @@ export const parseLabOrderStatus = (
     }
   }
 
-  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
-  const hasPrelimResults = prelimResults.length > 0;
-  const hasCompletedPSTTask = taskPST?.status === 'completed';
-  const isActiveServiceRequest = serviceRequest.status === 'active';
-  const isPreliminaryStatus = hasPrelimResults && hasCompletedPSTTask && isActiveServiceRequest;
+  //  reviewed: Task(RFRT).status = 'completed' and DR the Task is basedOn have DR.status = ‘final’
+  for (let i = 0; i < finalTasks.length; i++) {
+    const task = finalTasks[i];
 
-  if (isPreliminaryStatus) {
-    return ExternalLabsStatus.prelim;
-  }
+    if (task.status !== 'completed') {
+      continue;
+    }
 
-  // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
-  const isSentStatus = hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0;
+    const relatedResults = parseResultByTask(task, finalResults);
+    const hasFinalResults = relatedResults.some((result) => result.status === 'final');
 
-  if (isSentStatus) {
-    return ExternalLabsStatus.sent;
-  }
-
-  // 'pending': If the SR.status == draft and a pre-submission task exists
-  if (serviceRequest.status === 'draft' && taskPST?.status === 'ready') {
-    return ExternalLabsStatus.pending;
+    if (hasFinalResults) {
+      return ExternalLabsStatus.reviewed;
+    }
   }
 
   // unparsed status, for debugging purposes
@@ -514,6 +515,7 @@ export const parsePerformed = (serviceRequest: ServiceRequest): string => {
 
 /**
  * Returns results sorted by date, the most recent results are first
+ * If Preliminary results are present, and there are Final results with the same code, the corresponding Preliminary results are filtered out
  */
 export const parseResults = (
   serviceRequest: ServiceRequest,
@@ -561,6 +563,12 @@ export const parseResults = (
     }
   }
 
+  const orderedFinalCodes = extractCodesFromResults(orderedFinalResults);
+  const reflexFinalCodes = extractCodesFromResults(reflexFinalResults);
+
+  deletePrelimResultsIfFinalExists(orderedPrelimResults, orderedFinalCodes);
+  deletePrelimResultsIfFinalExists(reflexPrelimResults, reflexFinalCodes);
+
   // todo: check the sort approach is correct
   return {
     orderedFinalResults: Array.from(orderedFinalResults.values()).sort((a, b) =>
@@ -576,6 +584,25 @@ export const parseResults = (
       compareDates(a.meta?.lastUpdated, b.meta?.lastUpdated)
     ),
   };
+};
+
+const extractCodesFromResults = (resultsMap: Map<string, DiagnosticReport>): Set<string> => {
+  const codes = new Set<string>();
+  resultsMap.forEach((result) => {
+    result.code?.coding?.forEach((coding) => {
+      if (coding.code) codes.add(coding.code);
+    });
+  });
+  return codes;
+};
+
+const deletePrelimResultsIfFinalExists = (prelimMap: Map<string, DiagnosticReport>, finalCodes: Set<string>): void => {
+  prelimMap.forEach((prelim, id) => {
+    const hasFinal = prelim.code?.coding?.some((coding) => coding.code && finalCodes.has(coding.code));
+    if (hasFinal) {
+      prelimMap.delete(id);
+    }
+  });
 };
 
 /**
@@ -834,8 +861,9 @@ export const parseOrderDetails = ({
 
 /**
  * Parses the tasks for a service request
- * Returns the PST, RFRT ordered, RPRT reflex, and RPRT tasks sorted by authoredOn date, and some useful data.
- * The most recent tasks are first.
+ * Returns the PST, RFRT ordered, RPRT reflex, and RPRT tasks sorted by authoredOn date, and some useful data
+ * The most recent tasks are first
+ * Preliminary Tasks are filtered out if there are corresponding final results
  */
 export const parseTasks = ({
   tasks,
@@ -864,6 +892,8 @@ export const parseTasks = ({
 
   const PST = parseTaskPST(tasks, serviceRequest.id);
 
+  // parseResults returns filtered prelim results if there are final results with the same code
+  // so we can just use the results from parseResults as base for filtering tasks
   const { orderedFinalResults, reflexFinalResults, orderedPrelimResults, reflexPrelimResults } = parseResults(
     serviceRequest,
     results

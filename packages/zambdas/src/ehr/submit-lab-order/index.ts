@@ -364,7 +364,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
     };
   } catch (error) {
-    console.log(error);
+    console.log('submit lab order error:', JSON.stringify(error));
     return {
       body: JSON.stringify({ message: 'Error submitting a lab order' }),
       statusCode: 500,
