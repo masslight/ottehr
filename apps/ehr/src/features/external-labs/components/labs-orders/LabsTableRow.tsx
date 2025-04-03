@@ -1,10 +1,10 @@
 import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Chip, Button, Typography } from '@mui/material';
+import { TableCell, TableRow, Box, Button, Typography } from '@mui/material';
 import { formatDate, LabOrderDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { otherColors } from '../../../../CustomThemeProvider';
-import { getStatusColor } from './labs.helpers';
+import { LabTableStatusChip } from './LabTableStatusChip';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
@@ -58,17 +58,7 @@ export const LabsTableRow = ({
       case 'accessionNumber':
         return labOrderData.accessionNumbers.join(', ');
       case 'status':
-        return (
-          <Chip
-            label={(labOrderData.orderStatus || 'pending').toUpperCase()}
-            size="small"
-            sx={{
-              backgroundColor: getStatusColor(labOrderData.orderStatus || 'pending'),
-              borderRadius: '4px',
-              fontWeight: 'bold',
-            }}
-          />
-        );
+        return <LabTableStatusChip status={labOrderData.orderStatus} />;
       case 'psc':
         return labOrderData.isPSC ? 'PSC' : '';
       case 'actions':

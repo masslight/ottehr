@@ -1,4 +1,6 @@
-export const getStatusColor = (status: string): string => {
+import { ExternalLabsStatus } from 'utils';
+
+export const getStatusColor = (status: ExternalLabsStatus): string => {
   switch (status) {
     case 'pending':
       return '#E0E0E0';

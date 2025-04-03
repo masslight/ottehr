@@ -59,7 +59,7 @@ export const mapResourcesToLabOrderDTOs = (
       appointmentId,
       providerName, // ordered by
       diagnoses,
-      orderedLabStatus: orderStatus,
+      orderStatus,
       reflexResultsCount,
       isPSC,
       dx,
@@ -71,7 +71,6 @@ export const mapResourcesToLabOrderDTOs = (
       lastResultReceivedDate,
       accessionNumbers,
       history,
-      orderStatus,
     };
   });
 };

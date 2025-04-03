@@ -43,7 +43,7 @@ export type LabsTableColumn =
   | 'psc'
   | 'actions';
 
-interface LabsTableProps {
+type LabsTableProps = {
   patientId?: string;
   encounterId?: string;
   columns: LabsTableColumn[];
@@ -52,7 +52,7 @@ interface LabsTableProps {
   titleText?: string;
   redirectToOrderCreateIfOrdersEmpty?: boolean;
   onCreateOrder?: () => void;
-}
+};
 
 export const LabsTable = ({
   patientId,

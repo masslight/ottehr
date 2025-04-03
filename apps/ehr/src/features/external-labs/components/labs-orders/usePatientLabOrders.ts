@@ -15,29 +15,6 @@ interface DeleteOrderParams {
   encounterId?: string;
 }
 
-interface UsePatientLabOrdersOptionsByServiceRequestId {
-  patientId?: undefined;
-  encounterId?: undefined;
-  serviceRequestId: string;
-}
-
-interface UsePatientLabOrdersOptionsByEncounterId {
-  patientId?: undefined;
-  encounterId: string;
-  serviceRequestId?: undefined;
-}
-
-interface UsePatientLabOrdersOptionsByPatientId {
-  patientId: string;
-  encounterId?: undefined;
-  serviceRequestId?: undefined;
-}
-
-type UsePatientLabOrdersOptions =
-  | UsePatientLabOrdersOptionsByServiceRequestId
-  | UsePatientLabOrdersOptionsByEncounterId
-  | UsePatientLabOrdersOptionsByPatientId;
-
 interface UsePatientLabOrdersResult {
   labOrders: LabOrderDTO[];
   loading: boolean;
@@ -57,7 +34,11 @@ interface UsePatientLabOrdersResult {
   DeleteOrderDialog: ReactElement | null;
 }
 
-export const usePatientLabOrders = (options: UsePatientLabOrdersOptions): UsePatientLabOrdersResult => {
+export const usePatientLabOrders = (options: {
+  patientId?: string;
+  encounterId?: string;
+  serviceRequestId?: string;
+}): UsePatientLabOrdersResult => {
   const { oystehrZambda } = useApiClients();
   const { patientId, encounterId, serviceRequestId } = options;
   const [labOrders, setLabOrders] = useState<LabOrderDTO[]>([]);
