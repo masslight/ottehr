@@ -355,7 +355,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
             answer = makeAnswer(patientEmail);
           }
           if (linkId === 'mobile-opt-in' && patientSendMarketing) {
-            answer = makeAnswer(patientSendMarketing);
+            answer = makeAnswer(patientSendMarketing, 'Boolean');
           }
           if (linkId === 'patient-number' && formattedVerifiedPhoneNumber) {
             answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
@@ -936,7 +936,7 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
       answer = makeAnswer(patientPointOfDiscovery);
     }
     if (linkId === 'mobile-opt-in' && patientSendMarketing) {
-      answer = makeAnswer(patientSendMarketing);
+      answer = makeAnswer(patientSendMarketing, 'Boolean');
     }
     if (linkId === 'preferred-language' && patientPreferredLanguage) {
       answer = makeAnswer(patientPreferredLanguage);
