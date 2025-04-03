@@ -1,7 +1,7 @@
 import { expect, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PatientHeader } from './PatientHeader';
-import { formatPhoneNumber, formatPhoneNumberForQuestionarie } from 'utils';
+import { formatPhoneNumberForQuestionarie } from 'utils';
 
 export enum Field {
   PATIENT_LAST_NAME,
@@ -413,8 +413,9 @@ export class PatientInformationPage {
   async verifyPhoneFromResponsibleContainer(phone: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input')
-    ).toHaveValue(formatPhoneNumberForQuestionarie(phone));
+    ).toHaveValue(phone);
   }
+
   async clearPhoneFromResponsibleContainer(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.phoneInput).locator('input').click();
     for (let i = 0; i <= 20; i++) {
