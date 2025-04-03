@@ -35,10 +35,13 @@ export const ResponsibleInformationContainer: FC = () => {
 
   return (
     <Section title="Responsible party information" dataTestId={dataTestIds.responsiblePartyInformationContainer.id}>
-      <Row label={FormFields.relationship.label} required>
+      <Row
+        label={FormFields.relationship.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
+        required
+      >
         <FormSelect
           name={FormFields.relationship.key}
-          data-testid={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
           control={control}
           options={RELATIONSHIP_OPTIONS}
           rules={{

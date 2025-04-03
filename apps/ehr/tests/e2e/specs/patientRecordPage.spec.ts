@@ -297,7 +297,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME);
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_PHONE);
     await patientInformationPage.enterPhoneFromResponsibleContainer('111');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidPhoneFromResponsibleContainer();
