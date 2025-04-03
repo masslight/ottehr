@@ -486,37 +486,36 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
     physician?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString ?? '';
   const phone = physician?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? '';
   const address = physician?.address?.[0]?.text ?? '';
+  let firstName: string | undefined;
+  let lastName: string | undefined;
+
+  if (physician) {
+    firstName = getFirstName(physician);
+    lastName = getLastName(physician);
+  }
 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
     const { linkId } = item;
 
-    if (linkId === 'pcp-first') {
-      if (physician) {
-        answer = makeAnswer(getFirstName(physician) ?? '');
-      } else {
-        answer = makeAnswer('');
-      }
+    if (linkId === 'pcp-first' && firstName) {
+      makeAnswer(firstName);
     }
-    if (linkId === 'pcp-last') {
-      if (physician) {
-        answer = makeAnswer(getLastName(physician) ?? '');
-      } else {
-        answer = makeAnswer('');
-      }
+    if (linkId === 'pcp-last' && lastName) {
+      makeAnswer(lastName);
     }
 
-    if (linkId === 'pcp-practice') {
+    if (linkId === 'pcp-practice' && practiceName) {
       // not really sure where this will come from yet...
       answer = makeAnswer(practiceName);
     }
 
-    if (linkId === 'pcp-address') {
+    if (linkId === 'pcp-address' && address) {
       // not really sure where this will come from yet...
       answer = makeAnswer(address);
     }
 
-    if (linkId === 'pcp-number') {
+    if (linkId === 'pcp-number' && phone) {
       answer = makeAnswer(phone);
     }
     if (linkId === 'pcp-active') {
