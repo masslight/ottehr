@@ -1,8 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, getSecret, PractitionerLicense, RoleType, Secrets } from 'utils';
+import {
+  FHIR_IDENTIFIER_NPI,
+  getSecret,
+  makeQualificationForPractitioner,
+  PractitionerLicense,
+  RoleType,
+  Secrets,
+} from 'utils';
 import { createOystehrClient } from '../../shared/helpers';
-import { makeQualificationForPractitioner } from '../../shared/practitioners';
 import { getRoleId } from '../../shared/rolesUtils';
 import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
