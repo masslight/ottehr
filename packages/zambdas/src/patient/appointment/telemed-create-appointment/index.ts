@@ -364,7 +364,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: encExtensions,
   };
 
-  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
+  const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
 
   let currentPatientAccount: Account | undefined;
   if (patient !== undefined) {
@@ -391,7 +391,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     verifiedPhoneNumber: verifiedPhoneNumber,
     contactInfo: contactInfo,
     documents,
-    insuranceInfo,
+    accountInfo,
   });
 
   const questionnaireResponse: QuestionnaireResponse = {

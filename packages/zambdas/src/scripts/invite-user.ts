@@ -7,8 +7,13 @@ import {
   PROVIDER_RULES,
   PRESCRIBER_RULES,
 } from '../shared/';
-import { AllStatesValues, PractitionerLicense, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
-import { makeQualificationForPractitioner } from '../shared/practitioners';
+import {
+  AllStatesValues,
+  makeQualificationForPractitioner,
+  PractitionerLicense,
+  SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL
+} from 'utils';
 import Oystehr, { AccessPolicy, Role, RoleListItem } from '@oystehr/sdk';
 
 const DEFAULTS = {
