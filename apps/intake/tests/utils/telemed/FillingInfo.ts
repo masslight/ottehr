@@ -58,7 +58,6 @@ export class FillingInfo {
     const firstName = `TM-UserFN${this.getRandomString()}`;
     const lastName = `TM-UserLN${this.getRandomString()}`;
     const email = `dvoshchuk+${firstName}@masslight.com`;
-    const enteredReason = this.getRandomString();
     await this.page.getByPlaceholder('First name').click();
     await this.page.getByPlaceholder('First name').fill(firstName);
     await this.page.getByPlaceholder('Last name').click();
@@ -76,8 +75,7 @@ export class FillingInfo {
     await this.page.locator('#reasonForVisit').click();
     const reasonForVisit: string = (await this.page.getByRole('option').first().textContent()) || '';
     await this.page.getByRole('option').first().click({ timeout: 5000 });
-    await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
-    return { firstName, lastName, birthSex, email, thisEmailBelongsTo, reasonForVisit, enteredReason };
+    return { firstName, lastName, birthSex, email, thisEmailBelongsTo, reasonForVisit };
   }
 
   async fillReasonForVisit() {
