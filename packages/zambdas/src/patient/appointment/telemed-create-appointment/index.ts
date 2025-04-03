@@ -141,15 +141,8 @@ export async function createAppointment(
 ): Promise<CreateAppointmentUCTelemedResponse> {
   const { locationState, patient, user, unconfirmedDateOfBirth, secrets } = input;
 
-  const {
-    listRequests,
-    createPatientRequest,
-    updatePatientRequest,
-    maybeFhirPatient,
-    account,
-    verifiedPhoneNumber,
-    isEHRUser,
-  } = await generatePatientRelatedRequests(user, patient, oystehr);
+  const { listRequests, createPatientRequest, updatePatientRequest, maybeFhirPatient, verifiedPhoneNumber, isEHRUser } =
+    await generatePatientRelatedRequests(user, patient, oystehr);
 
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
@@ -192,7 +185,6 @@ export async function createAppointment(
     encounter,
   } = await performTransactionalFhirRequests({
     patient: maybeFhirPatient,
-    account,
     reasonForVisit: patient?.reasonForVisit || '',
     questionnaire,
     startTime,
@@ -260,7 +252,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const {
     oystehr,
     patient,
-    account,
     reasonForVisit,
     questionnaire,
     startTime,
@@ -378,7 +369,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
     patient: patientToUse,
-    account,
     // location,
     isNewQrsPatient: createPatientRequest?.resource !== undefined,
     newPatientDob: createPatientRequest?.resource?.birthDate,

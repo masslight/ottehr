@@ -2,7 +2,6 @@ import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest, User } f
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  Account,
   Appointment,
   AppointmentParticipant,
   Bundle,
@@ -179,15 +178,8 @@ export async function createAppointment(
     questionnaireCanonical: questionnaireUrl,
   } = input;
 
-  const {
-    verifiedPhoneNumber,
-    listRequests,
-    createPatientRequest,
-    updatePatientRequest,
-    isEHRUser,
-    maybeFhirPatient,
-    account,
-  } = await generatePatientRelatedRequests(user, patient, oystehr);
+  const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
+    await generatePatientRelatedRequests(user, patient, oystehr);
 
   let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : slot;
   startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
@@ -226,7 +218,6 @@ export async function createAppointment(
     questionnaire,
   } = await performTransactionalFhirRequests({
     patient: maybeFhirPatient,
-    account,
     reasonForVisit: patient?.reasonForVisit || '',
     startTime,
     endTime,
@@ -311,7 +302,6 @@ interface TransactionInput {
   additionalInfo?: string;
   unconfirmedDateOfBirth?: string;
   patient?: Patient;
-  account?: Account;
   newPatientDob?: string;
   createPatientRequest?: BatchInputPostRequest<Patient>;
   listRequests: BatchInputRequest<List>[];
@@ -330,7 +320,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const {
     oystehr,
     patient,
-    account,
     schedule,
     scheduleType,
     questionnaire,
@@ -490,7 +479,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
     patient: patientToUse,
-    account,
     isNewQrsPatient: createPatientRequest?.resource !== undefined,
     verifiedPhoneNumber,
     contactInfo,

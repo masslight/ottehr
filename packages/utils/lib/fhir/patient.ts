@@ -1,6 +1,5 @@
 import Oystehr from '@oystehr/sdk';
 import {
-  Account,
   Address,
   Appointment,
   CodeableConcept,
@@ -152,12 +151,11 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
   oystehr: Oystehr
 ): Promise<{
   patient: Patient | undefined;
-  account?: Account;
   verifiedPhoneNumber: string | undefined;
   relatedPerson: RelatedPerson | undefined;
 }> {
   const response = (
-    await oystehr.fhir.search<Patient | Person | Account | RelatedPerson>({
+    await oystehr.fhir.search<Patient | Person | RelatedPerson>({
       resourceType: 'Patient',
       params: [
         {
@@ -167,10 +165,6 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
         {
           name: '_revinclude',
           value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'Account:patient',
         },
         {
           name: '_revinclude:iterate',
@@ -183,10 +177,6 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
   const patient = response.find((res) => {
     return res.resourceType === 'Patient';
   }) as Patient;
-
-  const account = response.find((res) => {
-    return res.resourceType === 'Account';
-  }) as Account;
 
   const person = response.find((res) => {
     return res.resourceType === 'Person';
@@ -205,7 +195,7 @@ export async function getPatientResourceWithVerifiedPhoneNumber(
     return false;
   })?.value;
 
-  return { patient, account, verifiedPhoneNumber, relatedPerson };
+  return { patient, verifiedPhoneNumber, relatedPerson };
 }
 
 export function getPatientFirstName(patient: Patient): string | undefined {

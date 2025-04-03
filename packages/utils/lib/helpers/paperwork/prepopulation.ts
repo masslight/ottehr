@@ -8,7 +8,6 @@ import {
   QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
-  Account,
 } from 'fhir/r4b';
 import {
   getFirstName,
@@ -32,7 +31,6 @@ import { PRACTICE_NAME_URL } from '../../types';
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrepopulationInput {
   patient: Patient;
-  account?: Account;
   appointmentStartTime: string;
   isNewQrsPatient: boolean;
   verifiedPhoneNumber: string | undefined;
@@ -48,7 +46,6 @@ interface PrepopulationInput {
 export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): QuestionnaireResponseItem[] => {
   const {
     patient,
-    account,
     newPatientDob,
     unconfirmedDateOfBirth,
     appointmentStartTime: startTime,
@@ -116,7 +113,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   }
 
   const responsibleParty =
-    account?.guarantor?.[0].party.type === 'RelatedPerson' ? (account.contained?.[0] as RelatedPerson) : undefined;
+    accountInfo?.account?.guarantor?.[0].party.type === 'RelatedPerson'
+      ? (accountInfo.account.contained?.[0] as RelatedPerson)
+      : undefined;
 
   const responsiblePartyRelationship = responsibleParty?.relationship?.find(
     (rel) =>
@@ -145,7 +144,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     }
   }
 
-  const selfResponsible = account?.guarantor?.[0].party.type === 'Patient';
+  const selfResponsible = accountInfo?.account?.guarantor?.[0].party.type === 'Patient';
 
   const photoIdFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'photo-id-front')
