@@ -196,7 +196,7 @@ export const createSamplePrebookAppointments = async ({
     const results = await Promise.all(appointmentPromises);
 
     // Filter out failed attempts
-    const successfulAppointments = results.filter((data) => data.error !== undefined) as CreateAppointmentResponse[];
+    const successfulAppointments = results.filter((data) => data.error === undefined) as CreateAppointmentResponse[];
 
     if (successfulAppointments.length > 0) {
       return successfulAppointments[0]; // Return the first successful appointment
