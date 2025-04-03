@@ -34,7 +34,11 @@ import {
   getVisitStatusHistory,
   isTruthy,
 } from 'utils';
-import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
+import {
+  createOystehrClient,
+  getRelatedPersonsFromResourceList,
+  isNonPaperworkQuestionnaireResponse,
+} from '../../shared/helpers';
 import { sortAppointments } from '../../shared/queueingUtils';
 import {
   mergeResources,
@@ -48,7 +52,6 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface GetAppointmentsInput {
   searchDate: string;
