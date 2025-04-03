@@ -1,7 +1,6 @@
 import { Box, Checkbox, FormControlLabel, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { Row, Section } from '../layout';
 import { FormTextField } from '../form';
 import { FormFields as AllFormFields } from '../../constants';
@@ -34,21 +33,11 @@ export const PrimaryCareContainer: FC = () => {
         )}
       />
       <Box sx={{ display: isActive ? 'contents' : 'none' }}>
-        <Row label="First name" inputId={FormFields.firstName.key} required={isActive}>
-          <FormTextField
-            name={FormFields.firstName.key}
-            control={control}
-            rules={isActive && { required: REQUIRED_FIELD_ERROR_MESSAGE }}
-            id={FormFields.firstName.key}
-          />
+        <Row label="First name" inputId={FormFields.firstName.key}>
+          <FormTextField name={FormFields.firstName.key} control={control} id={FormFields.firstName.key} />
         </Row>
-        <Row label="Last name" inputId={FormFields.lastName.key} required={isActive}>
-          <FormTextField
-            name={FormFields.lastName.key}
-            control={control}
-            rules={isActive && { required: REQUIRED_FIELD_ERROR_MESSAGE }}
-            id={FormFields.lastName.key}
-          />
+        <Row label="Last name" inputId={FormFields.lastName.key}>
+          <FormTextField name={FormFields.lastName.key} control={control} id={FormFields.lastName.key} />
         </Row>
         <Row label="Practice name" inputId={FormFields.practiceName.key}>
           <FormTextField name={FormFields.practiceName.key} control={control} id={FormFields.practiceName.key} />
