@@ -4,14 +4,9 @@ import { Box, Button, Typography, useTheme, Stack } from '@mui/material';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
 
-interface ExternalLabOrdersListPageProps {
-  appointmentID?: string;
-  encounterId?: string;
-}
-
 const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
 
-export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps> = () => {
+export const ExternalLabOrdersListPage: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const encounterId = useAppointmentStore((state) => state.encounter?.id);

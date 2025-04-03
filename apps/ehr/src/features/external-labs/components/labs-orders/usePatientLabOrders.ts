@@ -15,10 +15,28 @@ interface DeleteOrderParams {
   encounterId?: string;
 }
 
-interface UsePatientLabOrdersOptions {
-  patientId?: string;
-  encounterId?: string;
+interface UsePatientLabOrdersOptionsByServiceRequestId {
+  patientId?: undefined;
+  encounterId?: undefined;
+  serviceRequestId: string;
 }
+
+interface UsePatientLabOrdersOptionsByEncounterId {
+  patientId?: undefined;
+  encounterId: string;
+  serviceRequestId?: undefined;
+}
+
+interface UsePatientLabOrdersOptionsByPatientId {
+  patientId: string;
+  encounterId?: undefined;
+  serviceRequestId?: undefined;
+}
+
+type UsePatientLabOrdersOptions =
+  | UsePatientLabOrdersOptionsByServiceRequestId
+  | UsePatientLabOrdersOptionsByEncounterId
+  | UsePatientLabOrdersOptionsByPatientId;
 
 interface UsePatientLabOrdersResult {
   labOrders: LabOrderDTO[];
@@ -39,9 +57,9 @@ interface UsePatientLabOrdersResult {
   DeleteOrderDialog: ReactElement | null;
 }
 
-export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): UsePatientLabOrdersResult => {
+export const usePatientLabOrders = (options: UsePatientLabOrdersOptions): UsePatientLabOrdersResult => {
   const { oystehrZambda } = useApiClients();
-  const { patientId, encounterId } = options;
+  const { patientId, encounterId, serviceRequestId } = options;
   const [labOrders, setLabOrders] = useState<LabOrderDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -65,6 +83,10 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
       params.encounterId = encounterId;
     }
 
+    if (serviceRequestId) {
+      params.serviceRequestId = serviceRequestId;
+    }
+
     if (orderableItemCodeFilter) {
       params.orderableItemCode = orderableItemCodeFilter;
     }
@@ -78,7 +100,7 @@ export const usePatientLabOrders = (options: UsePatientLabOrdersOptions = {}): U
     }
 
     return params;
-  }, [patientId, encounterId, orderableItemCodeFilter, visitDateFilter]);
+  }, [patientId, encounterId, serviceRequestId, orderableItemCodeFilter, visitDateFilter]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNubmer: number): GetLabOrdersParameters => {

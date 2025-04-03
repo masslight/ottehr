@@ -40,7 +40,6 @@ export const mapResourcesToLabOrderDTOs = (
       accessionNumbers,
       orderAddedDate,
       lastResultReceivedDate,
-      orderedLabStatus,
       visitDate,
       typeLab,
       locationLab,
@@ -52,6 +51,7 @@ export const mapResourcesToLabOrderDTOs = (
       performedBy,
       appointmentId,
       history,
+      orderStatus,
     } = parseOrderDetails({ tasks, serviceRequest, results, appointments, encounters, practitioners });
 
     return {
@@ -59,7 +59,7 @@ export const mapResourcesToLabOrderDTOs = (
       appointmentId,
       providerName, // ordered by
       diagnoses,
-      orderedLabStatus,
+      orderedLabStatus: orderStatus,
       reflexResultsCount,
       isPSC,
       dx,
@@ -71,6 +71,7 @@ export const mapResourcesToLabOrderDTOs = (
       lastResultReceivedDate,
       accessionNumbers,
       history,
+      orderStatus,
     };
   });
 };
@@ -726,7 +727,7 @@ export const parseOrderDetails = ({
   practitioners: Practitioner[];
 }): {
   orderId: string;
-  orderedLabStatus: ExternalLabsStatus;
+  orderStatus: ExternalLabsStatus;
   accessionNumbers: string[];
   orderAddedDate: string;
   lastResultReceivedDate: string;
@@ -779,7 +780,7 @@ export const parseOrderDetails = ({
       .filter(Boolean)
       .sort((a, b) => compareDates(a, b))[0] || '';
 
-  const orderedLabStatus = parseLabOrderStatus(serviceRequest, tasks, results);
+  const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results);
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
@@ -844,7 +845,7 @@ export const parseOrderDetails = ({
     accessionNumbers,
     lastResultReceivedDate,
     orderAddedDate,
-    orderedLabStatus,
+    orderStatus,
     visitDate,
     typeLab,
     locationLab,

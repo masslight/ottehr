@@ -68,7 +68,7 @@ export interface LabOrderDTO {
   orderAddedDate: string; // Task PST authoredOn
   providerName: string; // SR.requester name
   diagnoses: DiagnosisDTO[]; // SR.reasonCode
-  orderedLabStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
+  orderStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
   reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;

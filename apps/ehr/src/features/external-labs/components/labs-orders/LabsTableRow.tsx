@@ -60,10 +60,10 @@ export const LabsTableRow = ({
       case 'status':
         return (
           <Chip
-            label={(labOrderData.orderedLabStatus || 'pending').toUpperCase()}
+            label={(labOrderData.orderStatus || 'pending').toUpperCase()}
             size="small"
             sx={{
-              backgroundColor: getStatusColor(labOrderData.orderedLabStatus || 'pending'),
+              backgroundColor: getStatusColor(labOrderData.orderStatus || 'pending'),
               borderRadius: '4px',
               fontWeight: 'bold',
             }}
@@ -72,7 +72,7 @@ export const LabsTableRow = ({
       case 'psc':
         return labOrderData.isPSC ? 'PSC' : '';
       case 'actions':
-        if (allowDelete && labOrderData.orderedLabStatus === 'pending') {
+        if (allowDelete && labOrderData.orderStatus === 'pending') {
           return (
             <Button
               onClick={handleDeleteClick}
