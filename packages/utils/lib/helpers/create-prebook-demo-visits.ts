@@ -27,7 +27,6 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
-import { error } from 'console';
 
 interface AppointmentData {
   firstNames?: string[];
