@@ -77,7 +77,11 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
-
+  const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
+    ?.valueBoolean;
+  const patientCommonWellConsent = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`
+  )?.valueBoolean;
   const patientEthnicity = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
     ?.valueCodeableConcept?.coding?.[0]?.display;
   const patientRace = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
@@ -351,6 +355,12 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           }
           if (linkId === 'patient-email' && patientEmail) {
             answer = makeAnswer(patientEmail);
+          }
+          if (linkId === 'mobile-opt-in' && patientSendMarketing !== undefined) {
+            answer = makeAnswer(patientSendMarketing, 'Boolean');
+          }
+          if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
+            answer = makeAnswer(patientCommonWellConsent, 'Boolean');
           }
           if (linkId === 'patient-number' && formattedVerifiedPhoneNumber) {
             answer = makeAnswer(formatPhoneNumberDisplay(formattedVerifiedPhoneNumber));
@@ -828,14 +838,14 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
     if (linkId === 'patient-point-of-discovery' && patientPointOfDiscovery) {
       answer = makeAnswer(patientPointOfDiscovery);
     }
-    if (linkId === 'mobile-opt-in' && patientSendMarketing) {
-      answer = makeAnswer(patientSendMarketing);
+    if (linkId === 'mobile-opt-in' && patientSendMarketing !== undefined) {
+      answer = makeAnswer(patientSendMarketing, 'Boolean');
     }
     if (linkId === 'preferred-language' && patientPreferredLanguage) {
       answer = makeAnswer(patientPreferredLanguage);
     }
-    if (linkId === 'common-well-consent' && patientCommonWellConsent) {
-      answer = makeAnswer(patientCommonWellConsent);
+    if (linkId === 'common-well-consent' && patientCommonWellConsent !== undefined) {
+      answer = makeAnswer(patientCommonWellConsent, 'Boolean');
     }
     return {
       linkId,

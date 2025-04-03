@@ -121,10 +121,10 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.sendMarketing.key}
             control={control}
             render={({ field }) => (
-              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
+              <Select {...field} value={String(field.value) || ''} variant="standard" sx={{ width: '100%' }}>
                 {[
-                  { value: true, label: 'Yes' },
-                  { value: false, label: 'No' },
+                  { value: 'true', label: 'Yes' },
+                  { value: 'false', label: 'No' },
                 ].map((option) => (
                   <MenuItem key={String(option.value)} value={String(option.value)}>
                     {option.label}
@@ -187,7 +187,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             render={({ field }) => (
               <Select
                 {...field}
-                value={field.value || ''}
+                value={String(field.value) || ''}
                 variant="standard"
                 sx={{ width: '100%' }}
                 onChange={(e) => {
@@ -196,8 +196,8 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
                 }}
               >
                 {[
-                  { value: true, label: 'Yes' },
-                  { value: false, label: 'No' },
+                  { value: 'true', label: 'Yes' },
+                  { value: 'false', label: 'No' },
                 ].map((option) => (
                   <MenuItem key={String(option.value)} value={String(option.value)}>
                     {option.label}
