@@ -879,6 +879,7 @@ export async function createDocumentResources(
         };
       }),
       references: {
+        subject: { reference: `Patient/${patientID}` },
         context: { related: [{ reference: `Patient/${patientID}` }] },
       },
       display: 'Patient data Document',
@@ -901,6 +902,7 @@ export async function createDocumentResources(
         };
       }),
       references: {
+        subject: { reference: `Patient/${patientID}` },
         context: { related: [{ reference: `Patient/${patientID}` }] },
       },
       display: 'Health insurance card',
@@ -956,8 +958,9 @@ export async function createDocumentResources(
   }
 
   console.log('docsToSave len', docsToSave.length);
+  let newListResources = listResources;
   for (const d of docsToSave) {
-    await createFilesDocumentReferences({
+    const result = await createFilesDocumentReferences({
       files: d.files,
       type: {
         coding: [
@@ -983,12 +986,13 @@ export async function createDocumentResources(
       references: d.references,
       oystehr,
       generateUUID: randomUUID,
-      listResources,
+      listResources: newListResources,
       meta: {
         // for backward compatibility. TODO: remove this
         tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
       },
     });
+    newListResources = result.listResources ?? listResources;
   }
 }
 
@@ -1082,7 +1086,11 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'guardian-number': patientFieldPaths.parentGuardianPhone,
   'patient-ethnicity': patientFieldPaths.ethnicity,
   'patient-race': patientFieldPaths.race,
+  'patient-gender-identity': patientFieldPaths.genderIdentity,
+  'patient-sexual-orientation': patientFieldPaths.sexualOrientation,
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
+  'mobile-opt-in': patientFieldPaths.sendMarketing,
+  'common-well-consent': patientFieldPaths.commonWellConsent,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
   'policy-holder-first-name': relatedPersonFieldPaths.firstName,
@@ -1178,8 +1186,15 @@ export function createMasterRecordPatchOperations(
     // Remove '-2' suffix for secondary fields
     const baseFieldId = item.linkId === 'patient-street-address-2' ? item.linkId : item.linkId.replace(/-2$/, '');
 
-    const fullPath = paperworkToPatientFieldMap[baseFieldId];
+    let fullPath = paperworkToPatientFieldMap[baseFieldId];
     if (!fullPath) return;
+
+    // Change index if path is changeable
+    if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
+      const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+
+      fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
+    }
 
     const { resourceType, path } = extractResourceTypeAndPath(fullPath);
 
@@ -1233,8 +1248,8 @@ export function createMasterRecordPatchOperations(
         }
 
         if (item.linkId === 'patient-preferred-name') {
-          const prefferedNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
-          const currentPath = path.replace(/name\/\d+/, `name/${prefferedNameIndex}`);
+          const preferredNameIndex = patient.name?.findIndex((name) => name.use === 'nickname');
+          const currentPath = path.replace(/name\/\d+/, `name/${preferredNameIndex}`);
           const currentValue = getCurrentValue(patient, currentPath);
 
           if (value !== currentValue) {
@@ -1252,7 +1267,9 @@ export function createMasterRecordPatchOperations(
         // Handle array fields
         const { isArray, parentPath } = getArrayInfo(path);
         if (isArray) {
-          const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient);
+          const effectiveArrayValue = getEffectiveValue(patient, parentPath, tempOperations.patient) as
+            | string[]
+            | undefined;
 
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
@@ -1279,18 +1296,20 @@ export function createMasterRecordPatchOperations(
             const cleanArray = currentArray.filter(
               (item, index) => item !== undefined || index < currentArray.length - 1
             );
-            const operation: Operation =
-              cleanArray.length > 0
-                ? {
-                    op: effectiveArrayValue === undefined ? 'add' : 'replace',
-                    path: arrayPath,
-                    value: cleanArray,
-                  }
-                : {
-                    op: 'remove',
-                    path: arrayPath,
-                  };
-            tempOperations.patient.push(operation);
+            if (effectiveArrayValue === undefined || areArraysDifferent(effectiveArrayValue, cleanArray)) {
+              const operation: Operation =
+                cleanArray.length > 0
+                  ? {
+                      op: effectiveArrayValue === undefined ? 'add' : 'replace',
+                      path: arrayPath,
+                      value: cleanArray,
+                    }
+                  : {
+                      op: 'remove',
+                      path: arrayPath,
+                    };
+              tempOperations.patient.push(operation);
+            }
           }
           return;
         }
@@ -1532,7 +1551,7 @@ function getEffectiveValue(
   resource: PatientMasterRecordResource,
   path: string,
   patchOperations: Operation[]
-): string | boolean | number | undefined {
+): string | boolean | number | string[] | undefined {
   let effectiveValue = getCurrentValue(resource, path);
   patchOperations.forEach((operation) => {
     if (operation.path === path) {
@@ -1659,6 +1678,22 @@ function getFieldName(resource: PatientMasterRecordResource, path: string): stri
   }
 
   return pathToLinkIdMap[path] || 'unknown-field';
+}
+
+function areArraysDifferent(source: string[], target: string[]): boolean {
+  // Quick length check
+  if (source.length !== target.length) {
+    return true;
+  }
+
+  // Content comparison (order matters)
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] !== target[i]) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 interface GetCoveragesInput {

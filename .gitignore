@@ -15,8 +15,6 @@ test-results/
 playwright/
 playwright-report/
 playwright/.cache/
-.vscode/settings.json
-
 
 dist
 packages/ui-components/dist/*

@@ -217,12 +217,13 @@ function createOystehrClientFromSecrets(token: string, secrets: Secrets | null):
   return createOystehrClient(token, FHIR_API, PROJECT_API);
 }
 
-export const performEffectWithEnvFile = async (callback: (config: any) => void): Promise<void> => {
+export const performEffectWithEnvFile = async (callback: (config: any) => Promise<void>): Promise<void> => {
   const env = process.argv[2];
   let config: any;
   try {
     const configPath = path.resolve(__dirname, `../../.env/${env}.json`);
     config = await import(configPath);
+    config = { ...config, env };
   } catch (e) {
     console.error(e);
     throw new Error(`can't import config for the environment: '${env}'`);
