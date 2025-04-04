@@ -127,6 +127,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           orderableItem: selectedLab,
           psc,
         });
+        await addAdditionalDxToEncounter();
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const error = e as any;
@@ -143,16 +144,23 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     setSubmitting(false);
   };
 
-  const handleAdditionalDxSelection = (dx: DiagnosisDTO): void => {
-    // save dx to the encounter and to the chart data state
-    const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
-    console.log('alreadyExistsOnEncounter', alreadyExistsOnEncounter);
-    if (!alreadyExistsOnEncounter) {
-      const preparedValue: DiagnosisDTO = { ...dx, isPrimary: false, addedViaLabOrder: true };
-      try {
+  const addAdditionalDxToEncounter = async (): Promise<void> => {
+    const dxToAdd: DiagnosisDTO[] = [];
+    orderDx.forEach((dx) => {
+      const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
+      if (!alreadyExistsOnEncounter) {
+        dxToAdd.push({
+          ...dx,
+          isPrimary: false,
+          addedViaLabOrder: true,
+        });
+      }
+    });
+    if (dxToAdd.length > 0) {
+      await new Promise<void>((resolve, reject) => {
         saveChartData(
           {
-            diagnosis: [preparedValue],
+            diagnosis: dxToAdd,
           },
           {
             onSuccess: (data) => {
@@ -163,13 +171,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   diagnosis: [...allDx],
                 });
               }
+              resolve();
+            },
+            onError: (error) => {
+              reject(error);
             },
           }
         );
-        setOrderDx([...orderDx, dx]);
-      } catch (e) {
-        console.log('error adding dx', e);
-      }
+      });
     }
   };
 
@@ -277,7 +286,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   onChange={(event: any, selectedDx: any) => {
                     const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
                     if (!alreadySelected) {
-                      handleAdditionalDxSelection(selectedDx);
+                      setOrderDx([...orderDx, selectedDx]);
                     } else {
                       enqueueSnackbar('This Dx is already added to the order', {
                         variant: 'error',
