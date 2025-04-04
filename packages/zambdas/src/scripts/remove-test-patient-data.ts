@@ -7,7 +7,7 @@ import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpe
 const exec = promisify(execCb);
 
 const deleteTestPatientsData = async (config: any): Promise<void> => {
-  const env = process.argv[3];
+  const env = config.env;
 
   const oystehr = await createOystehrClientFromConfig(config);
 
@@ -68,7 +68,7 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
 };
 
 async function removeOldAppointments(config: any): Promise<void> {
-  const env = process.argv[3];
+  const env = config.env;
 
   const oystehr = await createOystehrClientFromConfig(config);
 

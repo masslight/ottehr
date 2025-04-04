@@ -190,6 +190,22 @@ export class Locators {
   inviteeContactEmail: Locator;
   inviteeContactPhone: Locator;
   emailErrorText: Locator;
+  currentMedicationsChipStatus: Locator;
+  currentAllergiesChipStatus: Locator;
+  medicalHistoryChipStatus: Locator;
+  surgicalHistoryChipStatus: Locator;
+  additionalQuestionsChipStatus: Locator;
+  patientConditionChipStatus: Locator;
+  schoolWorkNotesChipStatus: Locator;
+  inviteParticipantChipStatus: Locator;
+  currentMedicationsEditButton: Locator;
+  currentAllergiesEditButton: Locator;
+  medicalHistoryEditButton: Locator;
+  surgicalHistoryEditButton: Locator;
+  additionalQuestionsEditButton: Locator;
+  patientConditionEditButton: Locator;
+  schoolWorkNotesEditButton: Locator;
+  inviteParticipantEditButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -420,6 +436,24 @@ export class Locators {
     this.responsiblePartyChipStatus = page.locator('[data-testid="responsible-party-page-status"] div');
     this.photoIdChipStatus = page.locator('[data-testid="photo-id-page-status"] div');
     this.consentFormsChipStatus = page.locator('[data-testid="consent-forms-page-status"] div');
+
+    // Paperwork Telemed - Review and Submit locators
+    this.currentMedicationsEditButton = page.getByTestId('current-medications-page-edit');
+    this.currentAllergiesEditButton = page.getByTestId('allergies-page-edit');
+    this.medicalHistoryEditButton = page.getByTestId('medical-history-page-edit');
+    this.surgicalHistoryEditButton = page.getByTestId('surgical-history-page-edit');
+    this.additionalQuestionsEditButton = page.getByTestId('additional-page-edit');
+    this.patientConditionEditButton = page.getByTestId('patient-condition-page-edit');
+    this.schoolWorkNotesEditButton = page.getByTestId('school-work-note-page-edit');
+    this.inviteParticipantEditButton = page.getByTestId('invite-participant-page-edit');
+    this.currentMedicationsChipStatus = page.locator('[data-testid="current-medications-page-status"] div');
+    this.currentAllergiesChipStatus = page.locator('[data-testid="allergies-page-status"] div');
+    this.medicalHistoryChipStatus = page.locator('[data-testid="medical-history-page-status"] div');
+    this.surgicalHistoryChipStatus = page.locator('[data-testid="surgical-history-page-status"] div');
+    this.additionalQuestionsChipStatus = page.locator('[data-testid="additional-page-status"] div');
+    this.patientConditionChipStatus = page.locator('[data-testid="patient-condition-page-status"] div');
+    this.schoolWorkNotesChipStatus = page.locator('[data-testid="school-work-note-page-status"] div');
+    this.inviteParticipantChipStatus = page.locator('[data-testid="invite-participant-page-status"] div');
   }
 
   private getInputByValue(value: string): Locator {

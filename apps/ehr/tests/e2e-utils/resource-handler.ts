@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -23,6 +23,7 @@ import {
   TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
+import { fetchWithOystAuth } from './helpers/tests-utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -78,7 +79,7 @@ export type CreateTestAppointmentInput = {
 };
 
 export class ResourceHandler {
-  private apiClient!: Oystehr;
+  apiClient!: Oystehr;
   private authToken!: string;
   private resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
   private zambdaId: string;
@@ -267,7 +268,7 @@ export class ResourceHandler {
               },
             ],
           })
-        ).unbundle()[0];
+        ).unbundle()[0] as Appointment;
 
         if (appointment.meta?.tag?.find((tag) => tag.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code)) {
           return;
@@ -370,5 +371,35 @@ export class ResourceHandler {
       throw new Error(`Patient for appointment ${appointmentId} not found`);
     }
     return patientId;
+  }
+
+  async getTestsUserAndPractitioner(): Promise<{
+    id: string;
+    name: string;
+    email: string;
+    practitioner: Practitioner;
+  }> {
+    await this.initPromise;
+    const users = await fetchWithOystAuth<
+      {
+        id: string;
+        name: string;
+        email: string;
+        profile: string;
+      }[]
+    >('GET', 'https://project-api.zapehr.com/v1/user', this.authToken);
+
+    const user = users?.find((user) => user.email === process.env.TEXT_USERNAME);
+    if (!user) throw new Error('Failed to find authorized user');
+    const practitioner = (await this.apiClient.fhir.get({
+      resourceType: 'Practitioner',
+      id: user.profile.replace('Practitioner/', ''),
+    })) as Practitioner;
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      practitioner,
+    };
   }
 }

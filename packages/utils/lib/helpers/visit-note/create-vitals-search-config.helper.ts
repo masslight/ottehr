@@ -8,7 +8,6 @@ import {
 
 export interface VitalsSearchConfig {
   fieldName: Extract<keyof ChartDataFields, 'vitalsObservations'>;
-  vitalFiledName: VitalFieldNames;
   searchParams: SearchParams;
 }
 
@@ -18,7 +17,6 @@ export const createVitalsSearchConfig = (
 ): VitalsSearchConfig => {
   return {
     fieldName: 'vitalsObservations',
-    vitalFiledName: vitalFieldName,
     searchParams: {
       _search_by: searchBy,
       _include: 'Observation:performer',
