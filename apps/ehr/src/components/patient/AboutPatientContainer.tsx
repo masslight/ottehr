@@ -62,7 +62,7 @@ export const AboutPatientContainer: FC = () => {
           name={FormFields.birthDate.key}
           control={control}
           required={true}
-          data-testid={dataTestIds.patientInformationContainer.patientDateOfBirth}
+          dataTestId={dataTestIds.patientInformationContainer.patientDateOfBirth}
         />
       </Row>
       <Row label="Preferred pronouns">
