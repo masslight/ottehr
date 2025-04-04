@@ -74,27 +74,7 @@ export function LocationsSelect(): ReactElement {
     return actualSelectedLocationsOptions;
   }, [locationsIds, locations]);
 
-  // const handleLocationChange = (event: any, newValue: any): void => {
-  //   const selectedLocation = newValue
-  //     ? locations.find((locationTemp) => locationTemp.id === newValue.value)
-  //     : undefined;
-  //   if (!selectedLocation || !selectedLocation.id) {
-  //     return;
-  //   }
-
-  //   console.log('selected location in handle location change', selectedLocation);
-  //   useTrackingBoardStore.setState({ locationsIds: [selectedLocation.id] });
-  // };
-
   const handleLocationsChange = useCallback((event: any, selectedOptions: LocationsDropdownOption[]): void => {
-    // const hadSelectedLocations = (locationsIds && locationsIds.length > 0) ?? false;
-    // if (hadSelectedLocations) {
-    //   // if at least one US state has been previously selected and the user chooses "All States" option
-    //   // from the dropdown then clear all previous US states selection
-    //   useTrackingBoardStore.setState({ locationsIds: null });
-    //   return;
-    // }
-
     const locationsIds = selectedOptions
       .filter((locationOption) => !!locationOption.value)
       .map((locationOption) => locationOption.value!);

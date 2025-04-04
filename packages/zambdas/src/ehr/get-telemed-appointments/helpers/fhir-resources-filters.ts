@@ -67,10 +67,6 @@ export const filterAppointmentsFromResources = (
       .map((part) => part?.actor?.reference?.split('/')[1])
       .filter(isTruthy);
 
-    console.log('appointmentId: ' + appointment.id);
-    console.log('apptLocationIds: ' + JSON.stringify(apptLocationIds));
-    console.log('locationsIdsFilter: ' + JSON.stringify(locationsIdsFilter));
-
     if (locationsIdsFilter && !apptLocationIds.some((id) => locationsIdsFilter.includes(id))) {
       return;
     }
