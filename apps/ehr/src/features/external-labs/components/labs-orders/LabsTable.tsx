@@ -100,7 +100,7 @@ export const LabsTable = ({
   };
 
   const onRowClick = (labOrderData: LabOrderDTO): void => {
-    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.orderId));
+    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
@@ -318,7 +318,7 @@ export const LabsTable = ({
               <TableBody>
                 {labOrders.map((order) => (
                   <LabsTableRow
-                    key={order.orderId}
+                    key={order.serviceRequestId}
                     labOrderData={order}
                     onDeleteOrder={() => onDeleteOrder(order)}
                     onRowClick={() => onRowClick(order)}

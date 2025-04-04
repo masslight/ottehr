@@ -17,7 +17,11 @@ interface CollectionInstructions {
 }
 
 // todo fix typo in name
-export const Questionarie: React.FC = () => {
+export const Questionarie: React.FC<{
+  showActionButtons?: boolean;
+  showOrderInfo?: boolean;
+  isAOECollapsed?: boolean;
+}> = ({ showActionButtons = true, showOrderInfo = true, isAOECollapsed = false }) => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
   const [serviceRequest, setServiceRequest] = useState<OrderDetails | undefined>(undefined);
@@ -81,6 +85,9 @@ export const Questionarie: React.FC = () => {
       serviceRequest={serviceRequest}
       _onCollectionSubmit={handleSampleCollectionTaskChange}
       oystehr={oystehrZambda}
+      showActionButtons={showActionButtons}
+      showOrderInfo={showOrderInfo}
+      isAOECollapsed={isAOECollapsed}
     />
   );
 };

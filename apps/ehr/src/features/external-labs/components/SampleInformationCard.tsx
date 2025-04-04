@@ -1,4 +1,4 @@
-import { Paper, Stack } from '@mui/material';
+import { Box, Paper, Stack } from '@mui/material';
 // import { DatePicker, TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
@@ -24,7 +24,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDat
   // const timeFormName = 'collection-time';
 
   return (
-    <>
+    <Box sx={{ mt: 2 }}>
       <AccordionCard
         label={'Order information'}
         collapsed={collapsed}
@@ -112,6 +112,6 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDat
           </Stack>
         </Paper>
       </AccordionCard>
-    </>
+    </Box>
   );
 };

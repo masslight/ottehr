@@ -6,10 +6,11 @@ import { QuestionnaireItem } from 'fhir/r4b';
 
 interface AOEProps {
   questions: QuestionnaireItem[];
+  isCollapsed?: boolean;
 }
 
-export const AOECard: React.FC<AOEProps> = ({ questions }) => {
-  const [collapsed, setCollapsed] = useState(false);
+export const AOECard: React.FC<AOEProps> = ({ questions, isCollapsed = false }) => {
+  const [collapsed, setCollapsed] = useState(isCollapsed);
   const [isLoading, _setLoading] = useState(false);
 
   return (
