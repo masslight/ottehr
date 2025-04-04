@@ -3,7 +3,7 @@ import { input, password } from '@inquirer/prompts';
 import dotenv from 'dotenv';
 import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
-import { DEFAULT_TESTING_SLUG } from '../packages/intake/zambdas/scripts/setup-default-locations';
+import { DEFAULT_TESTING_SLUG } from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
@@ -26,6 +26,8 @@ interface EhrConfig {
   TEXT_PASSWORD?: string;
   AUTH0_CLIENT?: string;
   AUTH0_SECRET?: string;
+  AUTH0_CLIENT_TESTS?: string;
+  AUTH0_SECRET_TESTS?: string;
   LOCATION?: string;
   LOCATION_ID?: string;
   WEBSITE_URL?: string;
@@ -132,21 +134,17 @@ export async function createTestEnvFiles(): Promise<void> {
   try {
     const skipPrompts = process.argv.includes('--skip-prompts');
 
-    const ehrZambdaEnv: Record<string, string> = JSON.parse(
-      fs.readFileSync(`packages/ehr/zambdas/.env/${environment}.json`, 'utf8')
+    const zambdaEnv: Record<string, string> = JSON.parse(
+      fs.readFileSync(`packages/zambdas/.env/${environment}.json`, 'utf8')
     );
 
     const ehrUiEnv: Record<string, string> = dotenv.parse(fs.readFileSync(`apps/ehr/env/.env.${environment}`, 'utf8'));
-
-    const intakeZambdaEnv: Record<string, string> = JSON.parse(
-      fs.readFileSync(`packages/intake/zambdas/.env/${environment}.json`, 'utf8')
-    );
 
     const intakeUiEnv: Record<string, string> = dotenv.parse(
       fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
     );
 
-    const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(ehrZambdaEnv);
+    const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(zambdaEnv);
 
     let existingEhrConfig: EhrConfig = {};
     let existingIntakeConfig: IntakeConfig = {};
@@ -212,16 +210,18 @@ export async function createTestEnvFiles(): Promise<void> {
     const ehrConfig: EhrConfig = {
       TEXT_USERNAME: ehrTextUsername,
       TEXT_PASSWORD: ehrTextPassword,
-      AUTH0_CLIENT: ehrZambdaEnv.AUTH0_CLIENT,
-      AUTH0_SECRET: ehrZambdaEnv.AUTH0_SECRET,
+      AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
+      AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
+      AUTH0_CLIENT_TESTS: existingEhrConfig.AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET_TESTS: existingEhrConfig.AUTH0_SECRET_TESTS,
       LOCATION: locationName,
       LOCATION_ID: locationId,
       WEBSITE_URL: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL,
-      FHIR_API: ehrZambdaEnv.FHIR_API,
-      AUTH0_ENDPOINT: ehrZambdaEnv.AUTH0_ENDPOINT,
-      AUTH0_AUDIENCE: ehrZambdaEnv.AUTH0_AUDIENCE,
+      FHIR_API: zambdaEnv.FHIR_API,
+      AUTH0_ENDPOINT: zambdaEnv.AUTH0_ENDPOINT,
+      AUTH0_AUDIENCE: zambdaEnv.AUTH0_AUDIENCE,
       PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
-      PROJECT_API_ZAMBDA_URL: intakeUiEnv.VITE_APP_PROJECT_API_URL,
+      PROJECT_API_ZAMBDA_URL: ehrUiEnv.VITE_APP_PROJECT_API_ZAMBDA_URL,
       CREATE_APPOINTMENT_ZAMBDA_ID: ehrUiEnv.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
       CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID: intakeUiEnv.VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
@@ -237,14 +237,16 @@ export async function createTestEnvFiles(): Promise<void> {
       TEXT_PASSWORD: textPassword,
       SLUG_ONE: locationSlug,
       STATE_ONE: locationState,
-      AUTH0_CLIENT: intakeZambdaEnv.AUTH0_CLIENT,
-      AUTH0_SECRET: intakeZambdaEnv.AUTH0_SECRET,
+      AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
+      AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
+      AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
+      AUTH0_SECRET_TESTS: existingIntakeConfig.AUTH0_SECRET_TESTS,
       LOCATION: locationName,
       LOCATION_ID: locationId,
-      WEBSITE_URL: intakeZambdaEnv.WEBSITE_URL,
-      FHIR_API: intakeZambdaEnv.FHIR_API,
-      AUTH0_ENDPOINT: intakeZambdaEnv.AUTH0_ENDPOINT,
-      AUTH0_AUDIENCE: intakeZambdaEnv.AUTH0_AUDIENCE,
+      WEBSITE_URL: zambdaEnv.WEBSITE_URL,
+      FHIR_API: zambdaEnv.FHIR_API,
+      AUTH0_ENDPOINT: zambdaEnv.AUTH0_ENDPOINT,
+      AUTH0_AUDIENCE: zambdaEnv.AUTH0_AUDIENCE,
       PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
     };
 

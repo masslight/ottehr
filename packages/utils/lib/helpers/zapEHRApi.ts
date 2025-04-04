@@ -6,8 +6,7 @@ export const getZapEHRApiHelpers = <T extends Record<string, string>>(
   ZambdaNames: T,
   zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined>,
   zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean>,
-  isAppLocalProvided: boolean,
-  isAppLocal: boolean
+  isAppLocalProvided: boolean
 ): {
   verifyZambdaProvidedAndNotLocalThrowErrorOtherwise: (
     zambdaID: string | undefined,
@@ -28,10 +27,6 @@ export const getZapEHRApiHelpers = <T extends Record<string, string>>(
       throw new Error(`${String(zambdaName)} zambda environment variable could not be loaded`);
     }
     return true;
-  };
-
-  const chooseJson = (json: any): any => {
-    return isAppLocal ? json : json.output;
   };
 
   const makeZapRequest = async <TResponse, TPayload>(
@@ -86,3 +81,7 @@ export function NotFoundApointmentErrorHandler(error: any): void {
     throw error;
   }
 }
+
+export const chooseJson = (json: any): any => {
+  return json.output;
+};

@@ -8,14 +8,9 @@ const isCI = Boolean(process.env.CI);
 const supportedApps = ['ehr', 'intake'] as const;
 
 const ports = {
-  ehr: {
-    frontend: 4002,
-    backend: 4001,
-  },
-  intake: {
-    frontend: 3002,
-    backend: 3001,
-  },
+  intake: 3002,
+  ehr: 4002,
+  backend: 3000,
 } as const;
 
 const envMapping = {
@@ -51,7 +46,7 @@ const clearPorts = (): void => {
   if (isCI) {
     return;
   }
-  for (const port of [ports.ehr.frontend, ports.ehr.backend, ports.intake.frontend, ports.intake.backend]) {
+  for (const port of [ports.intake, ports.ehr, ports.backend]) {
     try {
       const pid = execSync(`lsof -ti :${port}`).toString().trim();
       if (pid) {
@@ -65,7 +60,7 @@ const clearPorts = (): void => {
 
 const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   return new Promise((resolve, reject) => {
-    const process = spawn('wait-on', [`http://localhost:${ports[app].frontend}`, '--timeout', '60000'], {
+    const process = spawn('wait-on', [`http://localhost:${ports[app]}`, '--timeout', '60000'], {
       shell: true,
       stdio: 'inherit',
     });
@@ -78,6 +73,14 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
         reject(new Error(`Failed to start ${app}`));
       }
     });
+  });
+};
+
+const startZambdas = (): void => {
+  spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
+    shell: true,
+    stdio: 'inherit',
+    env: { ...process.env, ENV: envMapping['ehr'][ENV] },
   });
 };
 
@@ -140,6 +143,7 @@ const setupTestDeps = async (): Promise<void> => {
 };
 
 const startApps = async (): Promise<void> => {
+  startZambdas();
   for (const app of supportedApps) {
     console.log(`Starting ${app} application...`);
     await startApp(app);

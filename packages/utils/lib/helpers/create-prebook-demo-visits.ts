@@ -104,7 +104,7 @@ export const createSamplePrebookAppointments = async ({
   authToken,
   phoneNumber,
   createAppointmentZambdaId,
-  intakeZambdaUrl,
+  zambdaUrl,
   selectedLocationId,
   demoData,
   projectId,
@@ -113,18 +113,18 @@ export const createSamplePrebookAppointments = async ({
   authToken: string;
   phoneNumber: string;
   createAppointmentZambdaId: string;
-  intakeZambdaUrl: string;
+  zambdaUrl: string;
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
-}): Promise<CreateAppointmentResponse | null> => {
+}): Promise<CreateAppointmentResponse | { error: string }> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
 
   if (!oystehr) {
     console.log('oystehr client is not defined');
-    return null;
+    return { error: 'no oystehr client' };
   }
 
   try {
@@ -148,17 +148,14 @@ export const createSamplePrebookAppointments = async ({
           selectedLocationId
         );
 
-        const createAppointmentResponse = await fetch(
-          `${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify(randomPatientInfo),
-          }
-        );
+        const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(randomPatientInfo),
+        });
 
         if (!createAppointmentResponse.ok) {
           throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
@@ -174,17 +171,10 @@ export const createSamplePrebookAppointments = async ({
 
         if (!appointmentData) {
           console.error('Error: appointment data is null');
-          return null;
+          return { error: 'appointment data is null' };
         }
 
-        await processPrebookPaperwork(
-          appointmentData,
-          randomPatientInfo,
-          intakeZambdaUrl,
-          authToken,
-          projectId,
-          serviceMode
-        );
+        await processPrebookPaperwork(appointmentData, randomPatientInfo, zambdaUrl, authToken, projectId, serviceMode);
 
         // If it's a virtual appointment, mark it as 'arrived'
         if (serviceMode === ServiceMode.virtual) {
@@ -198,21 +188,27 @@ export const createSamplePrebookAppointments = async ({
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
-        return null;
+        return { error: (error as any).message || JSON.stringify(error) };
       }
     });
 
     // Wait for all appointments to complete
     const results = await Promise.all(appointmentPromises);
 
-    // Filter out failed attempts (null values)
-    const successfulAppointments = results.filter((data) => data !== null) as CreateAppointmentResponse[];
+    // Filter out failed attempts
+    const successfulAppointments = results.filter((data) => data.error === undefined) as CreateAppointmentResponse[];
 
     if (successfulAppointments.length > 0) {
       return successfulAppointments[0]; // Return the first successful appointment
     }
 
-    throw new Error('All appointment creation attempts failed.');
+    throw new Error(
+      `All appointment creation attempts failed. ${JSON.stringify(
+        results.find((r) => r.error !== undefined),
+        null,
+        2
+      )}`
+    );
   } catch (error) {
     console.error('Error creating appointments:', error);
     throw error;

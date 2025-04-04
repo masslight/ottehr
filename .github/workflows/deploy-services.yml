@@ -6,14 +6,6 @@ env:
 on:
   workflow_dispatch:
     inputs:
-      service:
-        description: 'Service to deploy'
-        required: true
-        type: choice
-        default: 'ehr'
-        options:
-          - ehr
-          - intake
       environment:
         description: 'Environment name'
         required: true
@@ -48,7 +40,7 @@ jobs:
 
     runs-on: ubuntu-latest-16-cores
     timeout-minutes: 15
-    
+
     permissions:
       id-token: write # Required for OIDC
       contents: write # Required for version bumping
@@ -61,21 +53,8 @@ jobs:
           - "20"
 
     steps:
-      - name: Set Service-Specific Variables
-        id: vars
-        run: |
-          if [[ "${{ github.event.inputs.service }}" == "ehr" ]]; then
-            echo "PACKAGE_LOCATION=apps/ehr" >> $GITHUB_ENV
-            echo "ZAMBDAS_LOCATION=packages/ehr/zambdas" >> $GITHUB_ENV
-            echo "SLACK_NOTIFICATION_SERVICE_NAME=ehr" >> $GITHUB_ENV
-          elif [[ "${{ github.event.inputs.service }}" == "intake" ]]; then
-            echo "PACKAGE_LOCATION=apps/intake" >> $GITHUB_ENV
-            echo "ZAMBDAS_LOCATION=packages/intake/zambdas" >> $GITHUB_ENV
-            echo "SLACK_NOTIFICATION_SERVICE_NAME=intake-ui" >> $GITHUB_ENV
-          fi
-
       - name: Install SSH Client
-        uses: webfactory/ssh-agent@v0.7.0
+        uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
         with:
           ssh-private-key: |
             ${{ secrets.DEPLOY_OTTEHR_KEY }}
@@ -85,45 +64,41 @@ jobs:
         if: ${{ github.event.inputs.environment == 'demo' && !(github.event.inputs.confirmProduction == 'Yes') }}
         run: echo 'Please confirm you want to deploy to demo.' && exit 1
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
         with:
           ssh-key: ${{ secrets.BUMP_VERSION_KEY }}
 
       - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@7c12f8017d5436eb855f1ed4399f037a36fbd9e8 # v2 (v2.5.2)
         with:
           node-version: ${{ matrix.node-version }}
 
       - name: TruffleHog -- Check for secrets committed to the repository
-        uses: trufflesecurity/trufflehog@v3.82.13
+        uses: trufflesecurity/trufflehog@1aa1871f9ae24a8c8a3a48a9345514acf42beb39 # v3.82.13
         with:
           extra_args: --only-verified
 
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        run: |
-          cd ${{ github.workspace }}/${{ env.PACKAGE_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
-          cd ${{ github.workspace }}/${{ env.ZAMBDAS_LOCATION }} && npm version ${{ github.event.inputs.versionType }} --no-git-tag-version
-      
+        run: cd ${{ github.workspace }} && npm version ${{ github.event.inputs.versionType }} --allow-same-version --no-git-tag-version
+
       - name: Get Version Number from package.json
         id: package-version
-        uses: martinbeentjes/npm-get-version-action@v1.1.0
-        with:
-          path: ${{ env.PACKAGE_LOCATION }}
-      
+        uses: martinbeentjes/npm-get-version-action@95bc31c6dd3145896c110e382f840bb1e750d09c # v1.1.0
+
       - name: Create Pull Request to the base branch with version bump
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        uses: peter-evans/create-pull-request@v5
+        uses: peter-evans/create-pull-request@4e1beaa7521e8b457b572c090b25bd3db56bf1c5 # v5 (v5.0.3)
         with:
           branch: version-bump-${{ github.run_id }}
           commit-message: Bump version to ${{ steps.package-version.outputs.current-version }}
           title: "Version Bump ${{ steps.package-version.outputs.current-version }}"
           body: "This PR updates package versions automatically."
-      
+
       - name: Auto-merge PR
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
         run: |
-          gh pr merge --auto --squash version-bump-${{ github.run_id }}
+          gh pr merge --auto --squash --delete-branch version-bump-${{ github.run_id }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -131,61 +106,64 @@ jobs:
         run: npm ci
 
       - name: Check out secrets repo to grab the env file.
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3 (3.6.0)
         with:
           repository: masslight/ottehr-secrets
           ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
           path: 'secrets'
 
-      - name: Move zambda secrets file into service zambdas dir.
-        run: mkdir -p ${{ env.ZAMBDAS_LOCATION }}/.env; cp secrets/zambdas/* ${{ env.ZAMBDAS_LOCATION }}/.env
+      - name: Move zambda secrets file into zambdas dir.
+        run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env
 
-      - name: Move app secrets file into service app dir.
-        run: mkdir -p ${{ env.PACKAGE_LOCATION }}/env; cp secrets/${{ github.event.inputs.service }}/app/.env.${{ github.event.inputs.environment }} ${{ env.PACKAGE_LOCATION }}/env
-
-      - name: Lint directories
+      - name: Move app secrets file into app dirs.
         run: |
-          if [[ "${{ github.event.inputs.service }}" == "ehr" ]]; then
-            npm run ehr:lint
-          elif [[ "${{ github.event.inputs.service }}" == "intake" ]]; then
-            npm run intake:lint
-          fi
+          mkdir -p apps/intake/env; cp secrets/intake/app/.env.${{ github.event.inputs.environment }} apps/intake/env
+          mkdir -p apps/ehr/env; cp secrets/ehr/app/.env.${{ github.event.inputs.environment }} apps/ehr/env
+
+      - name: Lint Intake
+        run: npm run intake:lint
+
+      - name: Lint EHR
+        run: npm run ehr:lint
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v3
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3 (v3.0.2)
         with:
           role-to-assume: arn:aws:iam::381491874541:role/deploy-ottehr
           aws-region: us-east-1
 
-      - name: Deploy app
-        run: cd ${{ env.PACKAGE_LOCATION }} && npm run ci-deploy:${{ env.ENVIRONMENT }}
+      - name: Deploy Intake
+        run: cd apps/intake && npm run ci-deploy:${{ env.ENVIRONMENT }}
+
+      - name: Deploy EHR
+        run: cd apps/ehr && npm run ci-deploy:${{ env.ENVIRONMENT }}
 
       - name: Deploy zambdas
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && ENV=${{ env.ENVIRONMENT }} npm run deploy-zambdas ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && ENV=${{ env.ENVIRONMENT }} npm run deploy-zambdas ${{ env.ENVIRONMENT }}
 
       - name: Update user roles
-        if: ${{ github.event.inputs.service == 'ehr' }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run update-user-roles ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run update-user-roles ${{ env.ENVIRONMENT }}
 
       - name: Ensure insurance plans and payer orgs created from CSV
-        if: ${{ github.event.inputs.service == 'ehr' }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run update-insurances-and-payer-orgs ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run update-insurances-and-payer-orgs ${{ env.ENVIRONMENT }}
 
       - name: Setup secrets in Oystehr console
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-zapehr-secrets ${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run setup-secrets ${{ env.ENVIRONMENT }}
 
       - name: Ensure deployed resources are in place
         env:
           ENV:  ${{ env.ENVIRONMENT }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run setup-deployed-resources
+        run: cd packages/zambdas && npm run setup-deployed-resources
 
       - name: Create/update in-house medication resources
-        if: ${{ github.event.inputs.service == 'ehr' }}
-        run: cd ${{ env.ZAMBDAS_LOCATION }} && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
+        run: cd packages/zambdas && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
+
+      - name: Setup Document explorer resources
+        run: cd packages/zambdas && npm run setup-document-explorer --env=${{ env.ENVIRONMENT }}
 
       - name: Notify Slack
         if: always()
-        uses: edge/simple-slack-notify@v1.1.2
+        uses: edge/simple-slack-notify@d841831738af1d83ecc27186e722322145c21488 # v1.1.2
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           BRANCH: ${{ github.ref }}
@@ -197,8 +175,7 @@ jobs:
           failure_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build failed'
           cancelled_text: '${env.GITHUB_WORKFLOW} (${env.GITHUB_RUN_NUMBER}) build was cancelled'
           fields: |
-            [{ "title": "Service", "value": "${env.SLACK_NOTIFICATION_SERVICE_NAME}", "short": true },
-            { "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
+            [{ "title": "Action URL", "value": "${env.GITHUB_SERVER_URL}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}"},
             { "title": "Branch", "value": "${env.BRANCH}", "short": true },
             { "title": "Environment", "value": "${env.ENVIRONMENT}", "short": true },
             { "title": "Version", "value": "${env.PACKAGE_VERSION}", "short": true }]

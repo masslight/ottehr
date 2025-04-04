@@ -1,105 +1,86 @@
 import { FC } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { getPronounsFromExtension, patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { PRONOUN_OPTIONS, SEX_OPTIONS } from '../../constants';
-import { dataTestIds } from '../../constants/data-test-ids';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../form';
 import { Row, Section } from '../layout';
-import { usePatientStore } from '../../state/patient.store';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { FormFields as AllFormFields } from '../../constants';
+
+const FormFields = AllFormFields.patientSummary;
 
 export const AboutPatientContainer: FC = () => {
-  const { patient, updatePatientField } = usePatientStore();
   const { control } = useFormContext();
-
-  if (!patient) return null;
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = event.target;
-    updatePatientField(name, value);
-  };
 
   return (
     <Section title="Patient information">
-      <Row label="Last name" inputId="patient-last-name" required>
+      <Row label="Last name" inputId={FormFields.lastName.key} required>
         <FormTextField
-          name={patientFieldPaths.lastName}
+          name={FormFields.lastName.key}
           control={control}
-          defaultValue={patient?.name?.[0]?.family}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id="patient-last-name"
-          onChangeHandler={handleChange}
+          id={FormFields.lastName.key}
           data-testid={dataTestIds.patientInformationContainer.patientLastName}
         />
       </Row>
-      <Row label="First name" inputId="patient-first-name" required>
+      <Row label="First name" inputId={FormFields.firstName.key} required>
         <FormTextField
-          name={patientFieldPaths.firstName}
+          name={FormFields.firstName.key}
           control={control}
-          defaultValue={patient?.name?.[0]?.given?.[0]}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          id="patient-first-name"
-          onChangeHandler={handleChange}
+          id={FormFields.firstName.key}
           data-testid={dataTestIds.patientInformationContainer.patientFirstName}
         />
       </Row>
-      <Row label="Middle name" inputId="patient-middle-name">
+      <Row label="Middle name" inputId={FormFields.middleName.key}>
         <FormTextField
-          name={patientFieldPaths.middleName}
+          name={FormFields.middleName.key}
           control={control}
-          defaultValue={patient?.name?.[0]?.given?.[1]}
-          id="patient-middle-name"
-          onChangeHandler={handleChange}
+          id={FormFields.middleName.key}
+          data-testid={dataTestIds.patientInformationContainer.patientMiddleName}
         />
       </Row>
-      <Row label="Suffix" inputId="patient-suffix">
+      <Row label="Suffix" inputId={FormFields.suffix.key}>
         <FormTextField
-          name={patientFieldPaths.suffix}
+          name={FormFields.suffix.key}
           control={control}
-          defaultValue={patient?.name?.[0]?.suffix?.[0]}
-          id="patient-suffix"
-          onChangeHandler={handleChange}
+          id={FormFields.suffix.key}
+          data-testid={dataTestIds.patientInformationContainer.patientSuffix}
         />
       </Row>
-      <Row label="Preffered name" inputId="patient-preffered-name">
+      <Row label="Preferred name" inputId={FormFields.preferredName.key}>
         <FormTextField
-          name={patientFieldPaths.preferredName}
+          name={FormFields.preferredName.key}
           control={control}
-          defaultValue={patient?.name?.[1]?.given?.[0]}
-          id="patient-preffered-name"
-          onChangeHandler={handleChange}
+          id={FormFields.preferredName.key}
+          data-testid={dataTestIds.patientInformationContainer.patientPreferredName}
         />
       </Row>
-      <Row label="Date of birth" inputId="patient-date-of-birth" required>
+      <Row label="Date of birth" inputId={FormFields.birthDate.key} required>
         <DatePicker
-          id="patient-date-of-birth"
-          name={patientFieldPaths.birthDate}
+          id={FormFields.birthDate.key}
+          name={FormFields.birthDate.key}
           control={control}
           required={true}
-          defaultValue={patient?.birthDate}
-          onChange={(dateStr) => {
-            updatePatientField(patientFieldPaths.birthDate, dateStr);
-          }}
+          dataTestId={dataTestIds.patientInformationContainer.patientDateOfBirth}
         />
       </Row>
       <Row label="Preferred pronouns">
         <FormSelect
-          name={patientFieldPaths.preferredPronouns}
+          name={FormFields.pronouns.key}
           control={control}
           options={PRONOUN_OPTIONS}
-          defaultValue={patient ? getPronounsFromExtension(patient) : ''}
-          onChangeHandler={handleChange}
+          data-testid={dataTestIds.patientInformationContainer.patientPreferredPronouns}
         />
       </Row>
       <Row label="Birth sex" required>
         <FormSelect
-          name={patientFieldPaths.gender}
+          name={FormFields.birthSex.key}
           control={control}
           options={SEX_OPTIONS}
-          defaultValue={patient?.gender}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
-          onChangeHandler={handleChange}
           data-testid={dataTestIds.patientInformationContainer.patientBirthSex}
         />
       </Row>

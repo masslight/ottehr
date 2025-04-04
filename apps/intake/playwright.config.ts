@@ -31,11 +31,11 @@ export default defineConfig({
   },
   timeout: 120000,
   expect: {
-    timeout: 20000,
+    timeout: 30000,
   },
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
-  workers: process.env.CI ? 4 : undefined,
+  workers: process.env.CI ? 6 : undefined,
 
   /* Configure projects for major browsers */
   projects: [

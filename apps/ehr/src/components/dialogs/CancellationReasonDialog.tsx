@@ -16,6 +16,7 @@ import {
 import { Appointment, Encounter } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
 import { cancelAppointment } from '../../api/api';
+import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
 import { CancelAppointmentParameters, CancellationReasonOptions } from '../../types/types';
 
@@ -34,7 +35,7 @@ export default function CancellationReasonDialog({
   encounter,
   open,
 }: CancellationReasonDialogProps): ReactElement {
-  const { oystehrZambdaIntake } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const [cancellationReason, setCancellationReason] = useState<CancellationReasonOptions | ''>('');
   const [cancelLoading, setCancelLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
@@ -73,8 +74,8 @@ export default function CancellationReasonDialog({
     let response;
     let apiErr = false;
     try {
-      if (!oystehrZambdaIntake) throw new Error('Zambda client not found');
-      response = await cancelAppointment(oystehrZambdaIntake, zambdaParams);
+      if (!oystehrZambda) throw new Error('Zambda client not found');
+      response = await cancelAppointment(oystehrZambda, zambdaParams);
     } catch (error) {
       console.log(`Failed to cancel appointment: ${error}`);
       apiErr = true;
@@ -122,6 +123,7 @@ export default function CancellationReasonDialog({
             <FormControl required sx={{ mt: 2, width: '100%' }}>
               <InputLabel id="select-label">Cancelation reason</InputLabel>
               <Select
+                data-testid={dataTestIds.visitDetailsPage.cancelationReasonDropdown}
                 labelId="select-label"
                 id="select"
                 label="Cancelation reason"
@@ -141,6 +143,7 @@ export default function CancellationReasonDialog({
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
           <LoadingButton
+            data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
             loading={cancelLoading}
             type="submit"
             variant="contained"

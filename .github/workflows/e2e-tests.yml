@@ -20,8 +20,7 @@ on:
     paths:
       - 'apps/ehr/**'
       - 'apps/intake/**'
-      - 'packages/ehr/**'
-      - 'packages/intake/**'
+      - 'packages/zambdas/**'
       - 'packages/utils/**'
       - 'packages/ui-components/**'
       - '.github/**'
@@ -40,7 +39,7 @@ jobs:
           - "20"
       fail-fast: false
     runs-on: ubuntu-latest-8-cores
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -62,6 +61,14 @@ jobs:
             ${{ runner.os }}-build-
             ${{ runner.os }}-
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Cache user.json
         if: matrix.app == 'intake'
         uses: actions/cache@v3
@@ -79,9 +86,8 @@ jobs:
       - name: Setup environment
         run: |
           setup_env() {
-            local app=$1
-            mkdir -p "packages/$app/zambdas/.env"
-            cp secrets/zambdas/* "packages/$app/zambdas/.env"
+            mkdir -p "packages/zambdas/.env"
+            cp secrets/zambdas/* "packages/zambdas/.env"
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env"* "apps/$app/env/"
@@ -94,7 +100,7 @@ jobs:
       - name: Install dependencies
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       
       - name: Run E2E tests
         run: |

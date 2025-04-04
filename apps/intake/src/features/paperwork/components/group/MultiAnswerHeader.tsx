@@ -5,6 +5,7 @@ import { FC, useMemo } from 'react';
 import { IntakeQuestionnaireItem } from 'utils';
 import { getPaperworkFieldId, useFormValues } from '../../useFormHelpers';
 import { useFormContext } from 'react-hook-form';
+import { dataTestIds } from '../../../../helpers/data-test-ids';
 
 interface MultiAnswerHeader {
   item: IntakeQuestionnaireItem;
@@ -77,7 +78,7 @@ const MultiAnswerHeader: FC<MultiAnswerHeader> = ({ item, parentItem }) => {
               removeItem(index);
             }}
           >
-            <img alt="delete icon" src={deleteIcon} width={18} />
+            <img alt="delete icon" src={deleteIcon} width={18} data-testid={dataTestIds.deletedButton} />
           </IconButton>
         </Box>
       ))}

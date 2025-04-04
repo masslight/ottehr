@@ -24,15 +24,13 @@ export const getZapEHR_RCM_API = (
     'get claims': getClaimsZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
-  const isAppLocal = params.isAppLocal === 'true';
 
   const { makeZapRequest } = getZapEHRApiHelpers(
     oystehr,
     ZambdaNames,
     zambdasToIdsMap,
     zambdasPublicityMap,
-    isAppLocalProvided,
-    isAppLocal
+    isAppLocalProvided
   );
 
   const getClaims = async (parameters: ClaimsQueueGetRequest): Promise<ClaimsQueueGetResponse> => {

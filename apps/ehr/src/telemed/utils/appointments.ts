@@ -12,7 +12,7 @@ import {
   TelemedAppointmentStatusEnum,
   TelemedStatusHistoryElement,
 } from 'utils';
-import { TelemedAppointmentData } from '../state';
+import { VisitResources } from '../state';
 import { diffInMinutes } from './diffInMinutes';
 
 export const ApptTabToStatus: Record<ApptTelemedTab, TelemedAppointmentStatus[]> = {
@@ -157,14 +157,12 @@ export const updateEncounterStatusHistory = (
   return history;
 };
 
-export const createRefreshableAppointmentData = (
-  originalData: TelemedAppointmentData[]
-): RefreshableAppointmentData => {
+export const createRefreshableAppointmentData = (originalData: VisitResources[]): RefreshableAppointmentData => {
   const photoUrls = extractPhotoUrlsFromAppointmentData(originalData);
   return { patientConditionPhotoUrls: photoUrls };
 };
 
-export const extractPhotoUrlsFromAppointmentData = (appointment: TelemedAppointmentData[]): string[] => {
+export const extractPhotoUrlsFromAppointmentData = (appointment: VisitResources[]): string[] => {
   return (
     (appointment
       ?.filter(
@@ -178,7 +176,7 @@ export const extractPhotoUrlsFromAppointmentData = (appointment: TelemedAppointm
   );
 };
 
-export const extractReviewAndSignAppointmentData = (data: TelemedAppointmentData[]): ReviewAndSignData | undefined => {
+export const extractReviewAndSignAppointmentData = (data: VisitResources[]): ReviewAndSignData | undefined => {
   const appointment = data?.find(
     (resource: FhirResource) => resource.resourceType === 'Appointment'
   ) as unknown as Appointment;
@@ -276,7 +274,13 @@ export const TelemedAppointmentStatusToPalette: {
 
 export type GetAppointmentsRequestParams = Pick<
   GetTelemedAppointmentsInput,
-  'usStatesFilter' | 'providersFilter' | 'dateFilter' | 'groupsFilter' | 'patientFilter' | 'statusesFilter'
+  | 'usStatesFilter'
+  | 'providersFilter'
+  | 'dateFilter'
+  | 'groupsFilter'
+  | 'patientFilter'
+  | 'statusesFilter'
+  | 'locationsIdsFilter'
 >;
 
 export const APPT_STATUS_MAP: {

@@ -22,11 +22,11 @@ import { DateTime } from 'luxon';
 import { FC, useCallback, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
+  calculatePatientAge,
   getQuestionnaireResponseByLinkId,
   INTERPRETER_PHONE_NUMBER,
   mapStatusToTelemed,
   TelemedAppointmentStatusEnum,
-  calculatePatientAge,
 } from 'utils';
 import { EditPatientDialog } from '../../../components/dialogs';
 import { adjustTopForBannerHeight } from '../../../constants';
@@ -36,7 +36,7 @@ import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import CancelVisitDialog from '../../components/CancelVisitDialog';
 import InviteParticipant from '../../components/InviteParticipant';
-import { useChartDataArrayValue, useGetAppointmentAccessibility } from '../../hooks';
+import { useGetAppointmentAccessibility } from '../../hooks';
 import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../../state';
 import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
 import { ERX } from './ERX';
@@ -52,10 +52,16 @@ enum Gender {
 export const AppointmentSidePanel: FC = () => {
   const theme = useTheme();
 
-  const { appointment, encounter, patient, location, questionnaireResponse, isChartDataLoading } = getSelectors(
-    useAppointmentStore,
-    ['isChartDataLoading', 'appointment', 'patient', 'encounter', 'location', 'questionnaireResponse']
-  );
+  const { appointment, encounter, patient, location, questionnaireResponse, isChartDataLoading, chartData } =
+    getSelectors(useAppointmentStore, [
+      'isChartDataLoading',
+      'appointment',
+      'patient',
+      'encounter',
+      'location',
+      'questionnaireResponse',
+      'chartData',
+    ]);
 
   const user = useEvolveUser();
 
@@ -66,7 +72,7 @@ export const AppointmentSidePanel: FC = () => {
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
-  const { values: allergies } = useChartDataArrayValue('allergies');
+  const { allergies } = chartData || {};
 
   const formattedReasonForVisit = appointment?.description && addSpacesAfterCommas(appointment.description);
 
@@ -194,8 +200,11 @@ export const AppointmentSidePanel: FC = () => {
             Allergies:{' '}
             {isChartDataLoading
               ? 'Loading...'
-              : allergies.length > 0
-              ? allergies.map((allergy) => allergy.name).join(', ')
+              : allergies && allergies.length > 0
+              ? allergies
+                  .filter((allergy) => allergy.current === true)
+                  .map((allergy) => allergy.name)
+                  .join(', ')
               : 'No known allergies'}
           </Typography>
 

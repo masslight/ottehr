@@ -1,9 +1,9 @@
 import React from 'react';
-import { ButtonRounded } from './RoundedButton';
+import { CSS_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
 import { useGetChartData } from '../../../telemed';
 import { useZapEHRAPIClient } from '../../../telemed/hooks/useOystehrAPIClient';
-import { PRIVATE_EXTENSION_BASE_URL, NOTE_TYPE, CSS_NOTE_ID } from 'utils';
 import { useInternalNotesModal } from '../hooks/useInternalNotes';
+import { ButtonRounded } from './RoundedButton';
 
 const icon = (
   <svg width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -30,10 +30,7 @@ export const InternalNotes = ({ encounterId }: { encounterId: string }): React.R
           _search_by: 'encounter',
           _sort: '-_lastUpdated',
           _count: 1000,
-          _tag: {
-            type: 'token',
-            value: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${CSS_NOTE_ID}`,
-          },
+          _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.INTERNAL}|${CSS_NOTE_ID}`,
         },
       },
     },

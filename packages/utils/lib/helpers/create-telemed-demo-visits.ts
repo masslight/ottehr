@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Location, Patient } from 'fhir/r4b';
+import { Address, Location, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import { CreateAppointmentUCTelemedResponse, PatientInfo, PersonSex, SubmitPaperworkParameters } from '../types';
@@ -33,6 +33,7 @@ interface AppointmentData {
     value: string;
   }[];
   address?: Address[];
+  customLocationId?: string;
 }
 
 interface DemoConfig {
@@ -41,13 +42,27 @@ interface DemoConfig {
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
 
-interface CreateAppointmentInput {
+export interface CreateAppointmentInput {
   locationState: string;
   patient: PatientInfo;
   // user: User;
   unconfirmedDateOfBirth: string;
   // secrets: Secrets | null;
 }
+
+export type GetPaperworkAnswers = ({
+  patientInfo,
+  zambdaUrl,
+  authToken,
+  projectId,
+  appointmentId,
+}: {
+  patientInfo: CreateAppointmentInput;
+  zambdaUrl: string;
+  authToken: string;
+  projectId: string;
+  appointmentId: string;
+}) => Promise<QuestionnaireResponseItem[]>;
 
 const DEFAULT_FIRST_NAMES = [
   'Alice',
@@ -103,7 +118,7 @@ const generateRandomPatientInfo = async (
   oystehr: Oystehr,
   phoneNumber?: string,
   demoData?: DemoAppointmentData,
-  selectedLocationId?: string
+  locationState?: string
 ): Promise<CreateAppointmentInput> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
@@ -144,7 +159,8 @@ const generateRandomPatientInfo = async (
   ).unbundle();
 
   const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
-  const randomTelemedLocationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id!;
+  const randomTelemedLocationState =
+    telemedOffices[Math.floor(Math.random() * telemedOffices.length)].address?.state || '';
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
 
   const patientData = {
@@ -163,7 +179,7 @@ const generateRandomPatientInfo = async (
   return {
     patient: patientData,
     unconfirmedDateOfBirth: randomDateOfBirth,
-    locationState: selectedLocationId || randomTelemedLocationId, // ?
+    locationState: locationState || randomTelemedLocationState, // ?
   };
 };
 
@@ -172,20 +188,22 @@ export const createSampleTelemedAppointments = async ({
   authToken,
   phoneNumber,
   createAppointmentZambdaId,
-  intakeZambdaUrl,
-  selectedLocationId,
+  zambdaUrl,
+  locationState,
   demoData,
   projectId,
+  paperworkAnswers,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
   phoneNumber: string;
   createAppointmentZambdaId: string;
   islocal: boolean;
-  intakeZambdaUrl: string;
-  selectedLocationId?: string;
+  zambdaUrl: string;
+  locationState?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
+  paperworkAnswers?: GetPaperworkAnswers;
 }): Promise<CreateAppointmentUCTelemedResponse | null> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -202,19 +220,16 @@ export const createSampleTelemedAppointments = async ({
     // Run all appointment creations in parallel
     const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
       try {
-        const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, selectedLocationId);
+        const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, locationState);
 
-        const createAppointmentResponse = await fetch(
-          `${intakeZambdaUrl}/zambda/${createAppointmentZambdaId}/execute`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${authToken}`,
-            },
-            body: JSON.stringify(patientInfo),
-          }
-        );
+        const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(patientInfo),
+        });
 
         if (!createAppointmentResponse.ok) {
           throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
@@ -235,7 +250,7 @@ export const createSampleTelemedAppointments = async ({
           return null;
         }
 
-        await processPaperwork(appointmentData, patientInfo, intakeZambdaUrl, authToken, projectId);
+        await processPaperwork(appointmentData, patientInfo, zambdaUrl, authToken, projectId, paperworkAnswers);
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
@@ -264,9 +279,10 @@ export const createSampleTelemedAppointments = async ({
 const processPaperwork = async (
   appointmentData: CreateAppointmentUCTelemedResponse,
   patientInfo: any,
-  intakeZambdaUrl: string,
+  zambdaUrl: string,
   authToken: string,
-  projectId: string
+  projectId: string,
+  paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
     const appointmentId = appointmentData.appointmentId;
@@ -278,33 +294,35 @@ const processPaperwork = async (
 
     await makeSequentialPaperworkPatches(
       questionnaireResponseId,
-      [
-        getContactInformationAnswers({
-          firstName: patientInfo.patient.firstName,
-          lastName: patientInfo.patient.lastName,
-          birthDate,
-          email: patientInfo.patient.email,
-          phoneNumber: patientInfo.patient.phoneNumber,
-          birthSex: patientInfo.patient.sex,
-        }),
-        getPatientDetailsStepAnswers({}),
-        getMedicationsStepAnswers(),
-        getAllergiesStepAnswers(),
-        getMedicalConditionsStepAnswers(),
-        getSurgicalHistoryStepAnswers(),
-        getAdditionalQuestionsAnswers(),
-        getPaymentOptionSelfPayAnswers(),
-        getResponsiblePartyStepAnswers({}),
-        getSchoolWorkNoteStepAnswers(),
-        getConsentStepAnswers({}),
-        getInviteParticipantStepAnswers(),
-      ],
-      intakeZambdaUrl,
+      paperworkAnswers
+        ? await paperworkAnswers({ patientInfo, appointmentId, authToken, zambdaUrl, projectId })
+        : [
+            getContactInformationAnswers({
+              firstName: patientInfo.patient.firstName,
+              lastName: patientInfo.patient.lastName,
+              birthDate,
+              email: patientInfo.patient.email,
+              phoneNumber: patientInfo.patient.phoneNumber,
+              birthSex: patientInfo.patient.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getMedicationsStepAnswers(),
+            getAllergiesStepAnswers(),
+            getMedicalConditionsStepAnswers(),
+            getSurgicalHistoryStepAnswers(),
+            getAdditionalQuestionsAnswers(),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getSchoolWorkNoteStepAnswers(),
+            getConsentStepAnswers({}),
+            getInviteParticipantStepAnswers(),
+          ],
+      zambdaUrl,
       authToken,
       projectId
     );
 
-    const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+    const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

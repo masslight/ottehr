@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
-import { CreateAppointmentUCTelemedResponse } from 'utils';
+import { cleanAppointment, waitForResponseWithData } from 'test-utils';
+import { chooseJson, CreateAppointmentUCTelemedResponse } from 'utils';
 import { Homepage } from '../../utils/in-person/Homepage';
 import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
@@ -11,8 +11,8 @@ const appointmentIds: string[] = [];
 test.beforeEach(async ({ page }) => {
   page.on('response', async (response) => {
     if (response.url().includes('/telemed-create-appointment')) {
-      const { resources } = (await response.json()) as CreateAppointmentUCTelemedResponse;
-      const id = resources?.appointment.id;
+      const { resources, appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
+      const id = appointmentId || resources?.appointment.id;
 
       if (id) {
         appointmentIds.push(id);
@@ -50,7 +50,7 @@ test.describe.serial('Past Visits - Empty State', () => {
     await fillingInfo.fillDOBless18();
 
     await page.getByRole('button', { name: 'Continue' }).click();
-    await page.waitForResponse((response) => response.url().includes('/telemed-create-appointment/'));
+    await waitForResponseWithData(page, '/telemed-create-appointment/');
   });
 
   test('should show empty state when no past visits exist', async ({ page }) => {
@@ -60,6 +60,7 @@ test.describe.serial('Past Visits - Empty State', () => {
     await homepage.clickPastVisitsButton();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
 
     await homepage.clickContinue();
@@ -75,6 +76,7 @@ test.describe.serial('Past Visits - Empty State', () => {
     await homepage.clickPastVisitsButton();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
 
     await homepage.clickContinue();

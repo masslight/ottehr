@@ -1,5 +1,5 @@
 import { TelemedCallStatuses } from 'utils';
-import { Secrets } from 'zambda-utils';
+import { Secrets } from '../../../secrets';
 
 export interface ChangeTelemedAppointmentStatusInput {
   appointmentId: string;
