@@ -99,22 +99,6 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
     patientSex = 'Intersex';
   }
 
-  const pcp = patient.contained?.find(
-    (resource): resource is Practitioner => resource.resourceType === 'Practitioner' && resource.active === true
-  );
-  const pcpPractice = pcp?.extension?.find((e) => e.url === PRACTICE_NAME_URL)?.valueString;
-  const pcpAddress = pcp?.address?.[0]?.text;
-  const pcpPhoneNumber = pcp?.telecom?.[0]?.value;
-
-  let formattedPcpPhoneNumber: string | undefined;
-  if (pcpPhoneNumber) {
-    try {
-      formattedPcpPhoneNumber = formatPhoneNumberDisplay(pcpPhoneNumber);
-    } catch (e) {
-      console.log('unable to format phone number', pcpPhoneNumber);
-    }
-  }
-
   const responsibleParty =
     accountInfo?.account?.guarantor?.[0].party.type === 'RelatedPerson'
       ? (accountInfo.account.contained?.[0] as RelatedPerson)
@@ -396,30 +380,10 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
             answer,
           };
         });
-      } else if (item.linkId === 'primary-care-physician-page') {
-        return itemItems.map((item) => {
-          let answer: QuestionnaireResponseItemAnswer[] | undefined;
-          const { linkId } = item;
-          if (linkId === 'pcp-first' && pcp) {
-            answer = makeAnswer(getFirstName(pcp) ?? '');
-          }
-          if (linkId === 'pcp-last' && pcp) {
-            answer = makeAnswer(getLastName(pcp) ?? '');
-          }
-          if (linkId === 'pcp-practice' && pcpPractice) {
-            answer = makeAnswer(pcpPractice);
-          }
-          if (linkId === 'pcp-address' && pcpAddress) {
-            answer = makeAnswer(pcpAddress);
-          }
-          if (linkId === 'pcp-number' && formattedPcpPhoneNumber) {
-            answer = makeAnswer(formattedPcpPhoneNumber);
-          }
-
-          return {
-            linkId,
-            answer,
-          };
+      } else if (PCP_ITEMS.includes(item.linkId)) {
+        return mapPCPToQuestionnaireResponseItems({
+          items: itemItems,
+          physician: accountInfo?.primaryCarePhysician,
         });
       } else if (item.linkId === 'responsible-party-page') {
         return itemItems.map((item) => {
@@ -978,10 +942,10 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
     const { linkId } = item;
 
     if (linkId === 'pcp-first' && firstName) {
-      makeAnswer(firstName);
+      answer = makeAnswer(firstName);
     }
     if (linkId === 'pcp-last' && lastName) {
-      makeAnswer(lastName);
+      answer = makeAnswer(lastName);
     }
 
     if (linkId === 'pcp-practice' && practiceName) {
