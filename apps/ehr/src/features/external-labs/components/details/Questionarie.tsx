@@ -16,6 +16,7 @@ interface CollectionInstructions {
   collectionInstructions: string;
 }
 
+// todo fix typo in name
 export const Questionarie: React.FC = () => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
@@ -72,16 +73,14 @@ export const Questionarie: React.FC = () => {
   }
 
   return (
-    taskStatus === 'pending' && (
-      <OrderCollection
-        aoe={aoe}
-        collectionInstructions={collectionInstructions}
-        specimen={specimen}
-        serviceRequestID={serviceRequestID}
-        serviceRequest={serviceRequest}
-        _onCollectionSubmit={handleSampleCollectionTaskChange}
-        oystehr={oystehrZambda}
-      />
-    )
+    <OrderCollection
+      aoe={aoe}
+      collectionInstructions={collectionInstructions}
+      specimen={specimen}
+      serviceRequestID={serviceRequestID}
+      serviceRequest={serviceRequest}
+      _onCollectionSubmit={handleSampleCollectionTaskChange}
+      oystehr={oystehrZambda}
+    />
   );
 };

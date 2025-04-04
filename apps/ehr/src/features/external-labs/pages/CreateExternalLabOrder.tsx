@@ -18,7 +18,14 @@ import {
 import { LoadingButton } from '@mui/lab';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppointmentStore, useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
+import {
+  useAppointmentStore,
+  useGetIcd10Search,
+  useDebounce,
+  ActionsList,
+  DeleteIconButton,
+  useSaveChartData,
+} from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -27,6 +34,7 @@ import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
+import { enqueueSnackbar } from 'notistack';
 
 enum LoadingState {
   initial,
@@ -48,10 +56,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
-  const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
+  const { mutate: saveChartData } = useSaveChartData();
+  const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
     'chartData',
     'encounter',
     'appointment',
+    'setPartialChartData',
   ]);
 
   const { diagnosis } = chartData || {};
@@ -110,6 +120,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     const paramsSatisfied = orderDx.length && practitionerId && selectedLab;
     if (oystehrZambda && paramsSatisfied) {
       try {
+        await addAdditionalDxToEncounter();
         await createLabOrder(oystehrZambda, {
           dx: orderDx,
           encounter,
@@ -131,6 +142,44 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       setError(errorMessage);
     }
     setSubmitting(false);
+  };
+
+  const addAdditionalDxToEncounter = async (): Promise<void> => {
+    const dxToAdd: DiagnosisDTO[] = [];
+    orderDx.forEach((dx) => {
+      const alreadyExistsOnEncounter = diagnosis?.find((d) => d.code === dx.code);
+      if (!alreadyExistsOnEncounter) {
+        dxToAdd.push({
+          ...dx,
+          isPrimary: false,
+          addedViaLabOrder: true,
+        });
+      }
+    });
+    if (dxToAdd.length > 0) {
+      await new Promise<void>((resolve, reject) => {
+        saveChartData(
+          {
+            diagnosis: dxToAdd,
+          },
+          {
+            onSuccess: (data) => {
+              const returnedDiagnosis = data.chartData.diagnosis || [];
+              const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
+              if (allDx) {
+                setPartialChartData({
+                  diagnosis: [...allDx],
+                });
+              }
+              resolve();
+            },
+            onError: (error) => {
+              reject(error);
+            },
+          }
+        );
+      });
+    }
   };
 
   if (loadingState === LoadingState.loadedWithError) {
@@ -194,6 +243,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
                         if (!alreadySelected) {
                           setOrderDx([...orderDx, selectedDx]);
+                        } else {
+                          enqueueSnackbar('This Dx is already added to the order', {
+                            variant: 'error',
+                          });
                         }
                       }
                     }}
@@ -234,6 +287,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
                     if (!alreadySelected) {
                       setOrderDx([...orderDx, selectedDx]);
+                    } else {
+                      enqueueSnackbar('This Dx is already added to the order', {
+                        variant: 'error',
+                      });
                     }
                   }}
                   loading={isSearching}
