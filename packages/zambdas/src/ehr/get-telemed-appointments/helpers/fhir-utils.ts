@@ -8,10 +8,10 @@ import {
   allLicensesForPractitioner,
   isLocationVirtual,
 } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
 import { LocationIdToAbbreviationMap } from './types';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export const getAllResourcesFromFhir = async (
   oystehr: Oystehr,
@@ -177,7 +177,7 @@ const locationIdsForAppointmentsSearch = async (
   return mapStatesToLocationIds([], virtualLocationsMap);
 };
 
-export const getAllPrefilteredFhirResources = async (
+export const getAllPrefilteredFhirResourcesByCredentialingCriteria = async (
   oystehrm2m: Oystehr,
   oystehrCurrentUser: Oystehr,
   params: GetTelemedAppointmentsInput,
