@@ -166,6 +166,7 @@ export function formatDateForFHIR(date: string): string {
   return outputDate;
 }
 
+// todo: maybe add option shouldThrowError with default 'false'
 export function formatDate(date: DateTime | string, format?: string): string {
   const FALLBACK = '-';
 

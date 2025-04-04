@@ -13,6 +13,7 @@ export interface OrderDetails {
   diagnosis: string;
   patientName: string;
   orderName: string;
+  orderTypeDetail: string;
   orderingPhysician: string;
   orderDateTime: string;
   labName: string;

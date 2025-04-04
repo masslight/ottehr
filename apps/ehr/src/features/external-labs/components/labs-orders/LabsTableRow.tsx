@@ -1,25 +1,25 @@
 import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Chip, Button, Typography } from '@mui/material';
+import { TableCell, TableRow, Box, Button, Typography } from '@mui/material';
 import { formatDate, LabOrderDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { otherColors } from '../../../../CustomThemeProvider';
-import { getStatusColor } from './labs.helpers';
+import { LabTableStatusChip } from './LabTableStatusChip';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
   labOrderData: LabOrderDTO;
   onDeleteOrder?: () => void;
-  onRowClick: () => void;
   allowDelete?: boolean;
+  onRowClick?: () => void;
 }
 
 export const LabsTableRow = ({
   labOrderData,
   onDeleteOrder,
-  onRowClick,
   columns,
   allowDelete = false,
+  onRowClick,
 }: LabsTableRowProps): ReactElement => {
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
@@ -58,21 +58,11 @@ export const LabsTableRow = ({
       case 'accessionNumber':
         return labOrderData.accessionNumbers.join(', ');
       case 'status':
-        return (
-          <Chip
-            label={(labOrderData.orderedLabStatus || 'pending').toUpperCase()}
-            size="small"
-            sx={{
-              backgroundColor: getStatusColor(labOrderData.orderedLabStatus || 'pending'),
-              borderRadius: '4px',
-              fontWeight: 'bold',
-            }}
-          />
-        );
+        return <LabTableStatusChip status={labOrderData.orderStatus} />;
       case 'psc':
         return labOrderData.isPSC ? 'PSC' : '';
       case 'actions':
-        if (allowDelete && labOrderData.orderedLabStatus === 'pending') {
+        if (allowDelete && labOrderData.orderStatus === 'pending') {
           return (
             <Button
               onClick={handleDeleteClick}
@@ -94,11 +84,11 @@ export const LabsTableRow = ({
 
   return (
     <TableRow
-      onClick={onRowClick}
       sx={{
         '&:hover': { backgroundColor: '#f5f5f5' },
         cursor: 'pointer',
       }}
+      onClick={onRowClick}
     >
       {columns.map((column) => (
         <TableCell key={column}>{renderCellContent(column)}</TableCell>

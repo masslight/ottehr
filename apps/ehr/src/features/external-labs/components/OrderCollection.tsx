@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
-import { Button, Stack } from '@mui/material';
+import { Button, Stack, Typography } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { SampleInformationCard } from './SampleInformationCard';
@@ -10,7 +10,9 @@ import { OrderDetails } from 'utils';
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
+import { getPresignedFileUrl } from '../../../helpers/files.helper';
 
 interface CollectionInstructions {
   container: string;
@@ -45,7 +47,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 }) => {
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
+  const navigate = useNavigate();
   const { id: appointmentID } = useParams();
+  const { getAccessTokenSilently } = useAuth0();
   // const currentUser = useEvolveUser();
 
   // NEW TODO: will probably end up getting rid of a lot of this state since it will be held in the form state
@@ -53,6 +57,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // TODO: might want to do this in a useMemo for perf
 
   const [submitLoading, setSubmitLoading] = useState(false);
+  const [error, setError] = useState<boolean>(false);
 
   // TODO: need to add a submit handler that works the react-hook-form way
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
@@ -62,7 +67,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       if (!oystehr) {
         throw new Error('oystehr client is undefined');
       }
-      console.log(data);
+      setError(false);
       Object.keys(data).forEach((item) => {
         if (!data[item]) {
           delete data[item];
@@ -84,15 +89,31 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         }
       });
 
-      await submitLabOrder(oystehr, {
-        serviceRequestID: serviceRequestID,
-        data: data,
-      });
-      setSubmitLoading(false);
+      try {
+        const request: any = await submitLabOrder(oystehr, {
+          serviceRequestID: serviceRequestID,
+          data: data,
+        });
+        const token = await getAccessTokenSilently();
+        const url = request.url;
+        const urlTemp = await getPresignedFileUrl(url, token);
+        if (!urlTemp) {
+          throw new Error('error with a presigned url');
+        }
+        const orderForm = await (await fetch(urlTemp)).blob();
+        const pdfUrl = URL.createObjectURL(orderForm);
+        console.log(pdfUrl);
+        window.open(pdfUrl);
+        setSubmitLoading(false);
+        setError(false);
+        navigate(`/in-person/${appointmentID}/external-lab-orders`);
+      } catch (error) {
+        console.log('error with lab order', error);
+        setSubmitLoading(false);
+        setError(true);
+      }
     }
     updateFhir().catch((error) => console.log(error));
-
-    setSubmitLoading(false);
     console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
@@ -117,6 +138,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             </Button>
           </Link>
           <Stack>
+            {error && (
+              <Typography variant="body1" color="error">
+                Error submitting lab order
+              </Typography>
+            )}
             <LoadingButton
               loading={submitLoading}
               variant="contained"

@@ -1,8 +1,9 @@
 import Oystehr from '@oystehr/sdk';
-import { ServiceRequest, QuestionnaireResponse, Practitioner, Task, Account, Coverage } from 'fhir/r4b';
+import { ServiceRequest, QuestionnaireResponse, Practitioner, Task, Patient, Account, Coverage } from 'fhir/r4b';
 
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
+  patient: Patient;
   questionnaireResponse: QuestionnaireResponse;
   practitioner: Practitioner;
   task: Task;
@@ -10,7 +11,7 @@ export type LabOrderResources = {
 
 export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
   const serviceRequestTemp = (
-    await oystehr.fhir.search<ServiceRequest | QuestionnaireResponse | Practitioner | Task>({
+    await oystehr.fhir.search<ServiceRequest | QuestionnaireResponse | Patient | Practitioner | Task>({
       resourceType: 'ServiceRequest',
       params: [
         {
@@ -20,6 +21,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
         {
           name: '_revinclude',
           value: 'Task:based-on',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:subject',
         },
         {
           name: '_revinclude',
@@ -35,6 +40,9 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const serviceRequestsTemp: ServiceRequest[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp) => resourceTemp.resourceType === 'ServiceRequest'
   );
+  const patientsTemp: Patient[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp) => resourceTemp.resourceType === 'Patient'
+  );
   const practitionersTemp: Practitioner[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp) => resourceTemp.resourceType === 'Practitioner'
   );
@@ -47,6 +55,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
 
   if (serviceRequestsTemp?.length !== 1) {
     throw new Error('service request is not found');
+  }
+
+  if (patientsTemp?.length !== 1) {
+    throw new Error('patient is not found');
   }
 
   if (practitionersTemp?.length !== 1) {
@@ -62,12 +74,14 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   }
 
   const serviceRequest = serviceRequestsTemp?.[0];
+  const patient = patientsTemp?.[0];
   const practitioner = practitionersTemp?.[0];
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
 
   return {
     serviceRequest: serviceRequest,
+    patient,
     practitioner,
     questionnaireResponse: questionnaireResponse,
     task,
