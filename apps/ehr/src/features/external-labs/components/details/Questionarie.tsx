@@ -71,17 +71,17 @@ export const Questionarie: React.FC = () => {
     return null;
   }
 
-  return (
-    taskStatus === 'pending' && (
-      <OrderCollection
-        aoe={aoe}
-        collectionInstructions={collectionInstructions}
-        specimen={specimen}
-        serviceRequestID={serviceRequestID}
-        serviceRequest={serviceRequest}
-        _onCollectionSubmit={handleSampleCollectionTaskChange}
-        oystehr={oystehrZambda}
-      />
-    )
+  return taskStatus === 'pending' ? (
+    <OrderCollection
+      aoe={aoe}
+      collectionInstructions={collectionInstructions}
+      specimen={specimen}
+      serviceRequestID={serviceRequestID}
+      serviceRequest={serviceRequest}
+      _onCollectionSubmit={handleSampleCollectionTaskChange}
+      oystehr={oystehrZambda}
+    />
+  ) : (
+    <></>
   );
 };
