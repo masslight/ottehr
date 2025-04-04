@@ -56,9 +56,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
 
     console.time('get-schedule-from-slug');
-    const { schedule, groupItems } = await getSchedule(oystehr, scheduleType, slug);
+    const { schedule, groupItems, owner } = await getSchedule(oystehr, scheduleType, slug);
     console.timeEnd('get-schedule-from-slug');
     const now = DateTime.now();
+
+    console.log('schedule retrieved from getScheduleUtil:', JSON.stringify(schedule, null, 2));
 
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
       getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
@@ -85,20 +87,20 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('organizing location information for response');
     const locationInformationWithClosures: AvailableLocationInformation = getLocationInformationWithClosures(
       oystehr,
-      schedule,
+      owner,
       now
     );
 
     console.log('getting wait time based on longest waiting patient at location');
     console.time('get_waiting_minutes');
-    const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, schedule);
+    const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, owner);
     console.timeEnd('get_waiting_minutes');
     console.time('synchronous_data_processing');
     const { telemedAvailable, availableSlots } = await getAvailableSlotsForSchedule(
       oystehr,
-      schedule,
+      owner,
       DateTime.now(),
-      groupItems
+      groupItems.map((gi) => gi.owner)
     );
     console.timeEnd('synchronous_data_processing');
 
@@ -106,7 +108,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       if (availableSlots.includes(specificSlot)) {
         console.log('making the selected slot unavailable');
         console.time('mark_slot_busy');
-        const specificSlotResource = await makeSlotTentativelyBusy(specificSlot, schedule, oystehr);
+        const specificSlotResource = await makeSlotTentativelyBusy(specificSlot, owner, oystehr);
         console.timeEnd('mark_slot_busy');
         console.log('tentatively busy slot: ', specificSlotResource?.id);
       } else {
@@ -115,7 +117,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
 
     const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
-    const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, schedule);
+    const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, owner);
 
     const response: GetScheduleResponse = {
       message: 'Successfully retrieved all available slot times',

@@ -26,6 +26,7 @@ export enum APIErrorCode {
   INVALID_RESOURCE_ID = 4202,
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
+  MISCONFIGURED_SCHEDULING_GROUP = 4302,
 }
 
 export interface APIError {
@@ -161,6 +162,11 @@ export const SCHEDULE_NOT_FOUND_ERROR = {
   message: 'Schedule could not be found',
 };
 
+export const SCHEDULE_NOT_FOUND_CUSTOM_ERROR = (message: string): APIError => ({
+  code: APIErrorCode.SCHEDULE_NOT_FOUND,
+  message,
+});
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -202,5 +208,12 @@ export const ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = (resourceType: string): API
   return {
     code: APIErrorCode.ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
     message: `No code to map the ${resourceType} resource type to a QuestionnaireItemAnswerOption; extend the code in the get-answer-options zambda`,
+  };
+};
+
+export const MISCONFIGURED_SCHEDULING_GROUP = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MISCONFIGURED_SCHEDULING_GROUP,
+    message,
   };
 };

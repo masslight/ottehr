@@ -1,7 +1,23 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
-import { SCHEDULE_NOT_FOUND_ERROR } from 'utils';
+import {
+  Appointment,
+  Encounter,
+  HealthcareService,
+  Location,
+  Patient,
+  Practitioner,
+  PractitionerRole,
+  RelatedPerson,
+  Schedule,
+} from 'fhir/r4b';
+import {
+  MISCONFIGURED_SCHEDULING_GROUP,
+  SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
+  SCHEDULE_NOT_FOUND_ERROR,
+  ScheduleStrategy,
+  scheduleStrategyForHealthcareService,
+} from 'utils';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
   const response: Patient = await oystehr.fhir.get({
@@ -12,16 +28,55 @@ export async function getPatientResource(patientID: string, oystehr: Oystehr): P
   return response;
 }
 
+interface ScheduleAndOwner {
+  schedule: Schedule;
+  owner: Location | Practitioner;
+}
+
+interface BaseScheduleResponse {
+  owner: HealthcareService | Location | Practitioner;
+  schedule: Schedule | undefined;
+  groupItems: ScheduleAndOwner[];
+}
+interface PooledGroupScheduleResponse extends BaseScheduleResponse {
+  type: 'group';
+  strategy: ScheduleStrategy.poolsAll | ScheduleStrategy.poolsLocations | ScheduleStrategy.poolsProviders;
+}
+
+interface NonPooledGroupScheduleResponse extends Omit<BaseScheduleResponse, 'schedule'> {
+  schedule: Schedule;
+  type: 'group';
+  strategy: ScheduleStrategy.owns;
+}
+
+interface NonGroupScheduleResponse extends Omit<BaseScheduleResponse, 'schedule'> {
+  schedule: Schedule;
+  type: 'location' | 'provider';
+}
+
+export type GetScheduleResponse =
+  | PooledGroupScheduleResponse
+  | NonPooledGroupScheduleResponse
+  | NonGroupScheduleResponse;
 export async function getSchedule(
   oystehr: Oystehr,
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
-): Promise<{
-  schedule: Location | Practitioner | HealthcareService;
-  groupItems: (Location | Practitioner | HealthcareService)[];
-}> {
+): Promise<GetScheduleResponse> {
+  const fhirType = (() => {
+    if (scheduleType === 'location') {
+      return 'Location';
+    }
+    if (scheduleType === 'provider') {
+      return 'Practitioner';
+    }
+    return 'HealthcareService';
+  })();
   // get specific schedule resource with all the slots
-  const searchParams: SearchParam[] = [{ name: 'identifier', value: slug }];
+  const searchParams: SearchParam[] = [
+    { name: 'identifier', value: slug },
+    { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
+  ];
 
   let resourceType;
   if (scheduleType === 'location') {
@@ -47,35 +102,153 @@ export async function getSchedule(
       {
         name: '_include:iterate',
         value: 'PractitionerRole:practitioner',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'HealthcareService:location',
+      },
+      {
+        name: '_include:iterate',
+        value: 'PractitionerRole:service',
       }
     );
   }
 
   console.log('searching for resource with search params: ', searchParams);
-  const availableSchedule = (
-    await oystehr.fhir.search<Location | Practitioner | HealthcareService>({
+  const scheduleResources = (
+    await oystehr.fhir.search<Location | Practitioner | HealthcareService | Schedule | PractitionerRole>({
       resourceType,
       params: searchParams,
     })
   ).unbundle();
 
-  if (availableSchedule.length === 0) {
-    console.log(`schedule ${slug} is not found`);
+  const scheduleOwner = scheduleResources.find((res) => {
+    return res.resourceType === fhirType && res.identifier?.[0]?.value === slug;
+  }) as Location | Practitioner | HealthcareService;
+
+  let hsSchedulingStrategy: ScheduleStrategy | undefined;
+  if (scheduleOwner?.resourceType === 'HealthcareService') {
+    hsSchedulingStrategy = scheduleStrategyForHealthcareService(scheduleOwner as HealthcareService);
+  }
+  if (hsSchedulingStrategy === undefined) {
+    throw MISCONFIGURED_SCHEDULING_GROUP(
+      `HealthcareService/${scheduleOwner?.id} needs to be (configured with a scheduling strategy)[todo: link to docs] in order to be used as a schedule provider.`
+    );
+  }
+
+  if (scheduleOwner === undefined) {
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
 
-  const schedule: Location | Practitioner | HealthcareService = availableSchedule[0];
-
-  if (!schedule.id) {
-    throw new Error('schedule id is not defined');
+  if (scheduleResources.length === 0) {
+    console.log(`schedule for ${fhirType} with identifier "${slug}" was not found`);
+    throw SCHEDULE_NOT_FOUND_ERROR;
   }
-  console.log(`successfully retrieved schedule with id ${schedule.id}`);
-  return {
-    schedule,
-    groupItems: availableSchedule.filter(
-      (resourceTemp) => resourceTemp.resourceType === 'Location' || resourceTemp.resourceType === 'Practitioner'
-    ),
-  };
+
+  const schedule = scheduleResources.find((res) => {
+    return res.resourceType === 'Schedule' && res.actor?.[0]?.reference === `${fhirType}/${scheduleOwner.id}`;
+  }) as Schedule | undefined;
+
+  //const schedule: Location | Practitioner | HealthcareService = scheduleResources[0];
+
+  if (!schedule?.id && (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns)) {
+    throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
+      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite (schedule extension json)[todo: link to docs].`
+    );
+  }
+
+  const groupItems: ScheduleAndOwner[] = [];
+  if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsProviders) {
+    const practitioners: Practitioner[] = [];
+    const schedules: Schedule[] = [];
+
+    scheduleResources.forEach((res) => {
+      if (res.resourceType === 'Practitioner') {
+        practitioners.push(res);
+      }
+      if (res.resourceType === 'Schedule') {
+        schedules.push(res);
+      }
+    });
+
+    schedules.forEach((sched) => {
+      const owner = sched.actor[0]?.reference ?? '';
+      const [ownerResourceType, ownerId] = owner.split('/');
+      if (ownerResourceType === 'Practitioner' && ownerId) {
+        const practitioner = practitioners.find((prac) => {
+          prac.id === ownerId;
+        });
+        if (practitioner) {
+          groupItems.push({
+            schedule: sched,
+            owner: practitioner,
+          });
+        }
+      }
+    });
+  }
+
+  // todo: there's clearly a generic func to be extracted here...
+  if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsLocations) {
+    const locations: Location[] = [];
+    const schedules: Schedule[] = [];
+
+    scheduleResources.forEach((res) => {
+      if (res.resourceType === 'Location') {
+        locations.push(res);
+      }
+      if (res.resourceType === 'Schedule') {
+        schedules.push(res);
+      }
+    });
+
+    schedules.forEach((sched) => {
+      const owner = sched.actor[0]?.reference ?? '';
+      const [ownerResourceType, ownerId] = owner.split('/');
+      if (ownerResourceType === 'Location' && ownerId) {
+        const location = locations.find((prac) => {
+          prac.id === ownerId;
+        });
+        if (location) {
+          groupItems.push({
+            schedule: sched,
+            owner: location,
+          });
+        }
+      }
+    });
+  }
+
+  if (scheduleType === 'group' && hsSchedulingStrategy === ScheduleStrategy.owns && schedule) {
+    return {
+      owner: scheduleOwner,
+      type: scheduleType,
+      strategy: hsSchedulingStrategy,
+      schedule,
+      groupItems,
+    };
+  } else if (scheduleType === 'group' && hsSchedulingStrategy !== ScheduleStrategy.owns) {
+    return {
+      owner: scheduleOwner,
+      type: scheduleType,
+      strategy: hsSchedulingStrategy,
+      schedule,
+      groupItems,
+    };
+  } else if (scheduleType !== 'group') {
+    if (schedule === undefined) {
+      throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
+        `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite (schedule extension json)[todo: link to docs].`
+      );
+    }
+    return {
+      owner: scheduleOwner,
+      type: scheduleType,
+      schedule,
+      groupItems,
+    };
+  }
+  throw new Error('Unexpected state prevented schedule resolution');
 }
 
 export async function updatePatientResource(
