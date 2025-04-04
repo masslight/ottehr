@@ -98,7 +98,8 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
     >
       <Card sx={{ p: 2, backgroundColor: otherColors.coachingVisit, borderRadius: 2 }} elevation={0}>
         <Typography color="primary.main">
-          Choose a default payment method you'd like to be charged for any amount not covered by insurance.
+          Please select your preferred payment method for any outstanding balance not covered by your insurance
+          provider. If you are self-paying, the selected card will be charged for the total amount due.
         </Typography>
       </Card>
       {isInitialLoad ? (
