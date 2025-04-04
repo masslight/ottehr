@@ -58,7 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const requests: BatchInputRequest<FhirResource>[] = [];
 
-    const serviceRequestCode = fromateSrCode(orderableItem);
+    const serviceRequestCode = formatSrCode(orderableItem);
     const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
       return {
         coding: [
@@ -220,7 +220,7 @@ const formatAoeQR = (
   };
 };
 
-const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
+const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
   const coding: Coding[] = [
     {
       system: OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -228,6 +228,12 @@ const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest
       display: orderableItem.item.itemName,
     },
   ];
+  if (orderableItem.item.itemLoinc) {
+    coding.push({
+      system: 'http://loinc.org',
+      code: orderableItem.item.itemLoinc,
+    });
+  }
   return {
     coding,
     text: orderableItem.item.itemName,
