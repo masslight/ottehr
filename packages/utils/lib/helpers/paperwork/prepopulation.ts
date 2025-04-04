@@ -546,10 +546,10 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
     const { linkId } = item;
 
     if (linkId === 'pcp-first' && firstName) {
-      makeAnswer(firstName);
+      answer = makeAnswer(firstName);
     }
     if (linkId === 'pcp-last' && lastName) {
-      makeAnswer(lastName);
+      answer = makeAnswer(lastName);
     }
 
     if (linkId === 'pcp-practice' && practiceName) {
