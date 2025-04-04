@@ -26,6 +26,7 @@ export enum APIErrorCode {
   INVALID_RESOURCE_ID = 4202,
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
+  MISSING_PATIENT_COVERAGE_INFO = 4303,
 }
 
 export interface APIError {
@@ -203,4 +204,9 @@ export const ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = (resourceType: string): API
     code: APIErrorCode.ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
     message: `No code to map the ${resourceType} resource type to a QuestionnaireItemAnswerOption; extend the code in the get-answer-options zambda`,
   };
+};
+
+export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
+  code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
+  message: 'No coverage information found for this patient',
 };
