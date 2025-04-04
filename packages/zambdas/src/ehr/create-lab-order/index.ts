@@ -337,13 +337,12 @@ const getAdditionalResources = async (
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
     if (resource.resourceType === 'ActivityDefinition')
       activityDefinitionSearchResults.push(resource as ActivityDefinition);
-    if (resource.resourceType === 'Coverage') coverageSearchResults.push(resource as Coverage);
+    if (resource.resourceType === 'Coverage' && resource.status === 'active')
+      coverageSearchResults.push(resource as Coverage);
     if (resource.resourceType === 'Patient') patientId = resource.id;
     if (resource.resourceType === 'Location') location = resource as Location;
-    if (resource.resourceType === 'Account') {
-      const fhirAccount = resource as Account;
-      if (fhirAccount.status === 'active') accountSearchResults.push(fhirAccount);
-    }
+    if (resource.resourceType === 'Account' && resource.status === 'active')
+      accountSearchResults.push(resource as Account);
   });
 
   if (accountSearchResults.length !== 1)
