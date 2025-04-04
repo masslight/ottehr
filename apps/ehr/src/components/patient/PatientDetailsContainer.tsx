@@ -121,7 +121,16 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.sendMarketing.key}
             control={control}
             render={({ field }) => (
-              <Select {...field} value={String(field.value) || ''} variant="standard" sx={{ width: '100%' }}>
+              <Select
+                {...field}
+                value={String(field.value) || ''}
+                variant="standard"
+                sx={{ width: '100%' }}
+                onChange={(e) => {
+                  const boolValue = e.target.value === 'true';
+                  field.onChange(boolValue);
+                }}
+              >
                 {[
                   { value: 'true', label: 'Yes' },
                   { value: 'false', label: 'No' },
@@ -150,16 +159,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.language.key}
             control={control}
             render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ''}
-                variant="standard"
-                sx={{ width: '100%' }}
-                onChange={(e) => {
-                  const boolValue = e.target.value === 'true';
-                  field.onChange(boolValue);
-                }}
-              >
+              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
                 {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
                   <MenuItem key={value} value={value}>
                     {key}
