@@ -1,17 +1,18 @@
 import { Box, Checkbox, FormControl, FormControlLabel, Grid, InputLabel, MenuItem, Select } from '@mui/material';
+import Oystehr from '@oystehr/sdk';
+import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FC, useEffect, useState } from 'react';
+import { ApptTelemedTab } from 'utils';
 import DateSearch from '../../../components/DateSearch';
+import GroupSelect from '../../../components/GroupSelect';
+import ProvidersSelect from '../../../components/ProvidersSelect';
+import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useTrackingBoardStore } from '../../state';
 import { UnsignedFor } from '../../utils';
+import { LocationsSelect } from './LocationSelect';
 import { StateSelect } from './StateSelect';
-import { HealthcareService, Practitioner } from 'fhir/r4b';
-import { useApiClients } from '../../../hooks/useAppClients';
-import Oystehr from '@oystehr/sdk';
-import ProvidersSelect from '../../../components/ProvidersSelect';
-import GroupSelect from '../../../components/GroupSelect';
-import { ApptTelemedTab } from 'utils';
 
 const selectOptions = [
   {
@@ -104,6 +105,9 @@ export const TrackingBoardFilters: FC<{ tab: ApptTelemedTab }> = (props) => {
   return (
     <Box sx={{ padding: 2, display: 'flex', flexDirection: 'column' }}>
       <Grid container spacing={2}>
+        <Grid item xs={6}>
+          <LocationsSelect />
+        </Grid>
         <Grid item xs={6}>
           <StateSelect />
         </Grid>

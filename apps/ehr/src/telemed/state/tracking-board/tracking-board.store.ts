@@ -1,6 +1,6 @@
-import { create } from 'zustand';
 import { DateTime } from 'luxon';
 import { PatientFilterType, TelemedAppointmentInformation } from 'utils';
+import { create } from 'zustand';
 import { UnsignedFor } from '../../utils';
 
 type TrackingBoardState = {
@@ -11,6 +11,7 @@ type TrackingBoardState = {
   selectedStates: string[] | null;
   providers: string[] | null;
   groups: string[] | null;
+  locationsIds: string[] | null;
   unsignedFor: UnsignedFor;
   availableStates: string[];
   showOnlyNext: boolean;
@@ -28,6 +29,7 @@ const TRACKING_BOARD_INITIAL: TrackingBoardState = {
   date: DateTime.local(),
   selectedStates: null,
   providers: null,
+  locationsIds: null,
   groups: null,
   unsignedFor: UnsignedFor.under12,
   availableStates: [],
