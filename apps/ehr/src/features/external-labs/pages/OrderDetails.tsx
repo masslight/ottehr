@@ -14,7 +14,7 @@ export const OrderDetailsPage: React.FC = () => {
   });
 
   // todo: validate response on the get-lab-orders zambda and use labOrder[0]
-  const labOrder = labOrders.find((order) => order.orderId === serviceRequestId);
+  const labOrder = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
 
   const status = labOrder?.orderStatus;
 
@@ -23,7 +23,7 @@ export const OrderDetailsPage: React.FC = () => {
   }
 
   if (status === 'pending' || status === 'sent') {
-    return <DetailsWithoutResults />;
+    return <DetailsWithoutResults labOrder={labOrder} />;
   }
 
   return <DetailsWithResults labOrder={labOrder} />;
