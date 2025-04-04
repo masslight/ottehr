@@ -120,6 +120,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     const paramsSatisfied = orderDx.length && practitionerId && selectedLab;
     if (oystehrZambda && paramsSatisfied) {
       try {
+        await addAdditionalDxToEncounter();
         await createLabOrder(oystehrZambda, {
           dx: orderDx,
           encounter,
@@ -127,7 +128,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
           orderableItem: selectedLab,
           psc,
         });
-        await addAdditionalDxToEncounter();
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const error = e as any;

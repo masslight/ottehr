@@ -139,9 +139,7 @@ export const DiagnosesContainer: FC = () => {
 
   const addedViaLabOrderInfo = (
     <GenericToolTip title="Added during lab order" placement="right">
-      <span>
-        <InfoOutlinedIcon style={{ color: otherColors.disabled, height: '15px', width: '15px' }} />
-      </span>
+      <InfoOutlinedIcon style={{ color: otherColors.disabled, height: '15px', width: '15px' }} />
     </GenericToolTip>
   );
 
