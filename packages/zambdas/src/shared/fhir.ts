@@ -12,6 +12,7 @@ import {
   Schedule,
 } from 'fhir/r4b';
 import {
+  BookableScheduleData,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
@@ -28,41 +29,11 @@ export async function getPatientResource(patientID: string, oystehr: Oystehr): P
   return response;
 }
 
-interface ScheduleAndOwner {
-  schedule: Schedule;
-  owner: Location | Practitioner;
-}
-
-interface BaseScheduleResponse {
-  owner: HealthcareService | Location | Practitioner;
-  schedule: Schedule | undefined;
-  groupItems: ScheduleAndOwner[];
-}
-interface PooledGroupScheduleResponse extends BaseScheduleResponse {
-  type: 'group';
-  strategy: ScheduleStrategy.poolsAll | ScheduleStrategy.poolsLocations | ScheduleStrategy.poolsProviders;
-}
-
-interface NonPooledGroupScheduleResponse extends Omit<BaseScheduleResponse, 'schedule'> {
-  schedule: Schedule;
-  type: 'group';
-  strategy: ScheduleStrategy.owns;
-}
-
-interface NonGroupScheduleResponse extends Omit<BaseScheduleResponse, 'schedule'> {
-  schedule: Schedule;
-  type: 'location' | 'provider';
-}
-
-export type GetScheduleResponse =
-  | PooledGroupScheduleResponse
-  | NonPooledGroupScheduleResponse
-  | NonGroupScheduleResponse;
-export async function getSchedule(
+export async function getSchedules(
   oystehr: Oystehr,
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
-): Promise<GetScheduleResponse> {
+): Promise<BookableScheduleData> {
   const fhirType = (() => {
     if (scheduleType === 'location') {
       return 'Location';
@@ -110,7 +81,9 @@ export async function getSchedule(
       {
         name: '_include:iterate',
         value: 'PractitionerRole:service',
-      }
+      },
+      { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
+      { name: '_revinclude:iterate', value: 'Schedule:actor:Location' }
     );
   }
 
@@ -157,7 +130,7 @@ export async function getSchedule(
     );
   }
 
-  const groupItems: ScheduleAndOwner[] = [];
+  const scheduleList: BookableScheduleData['scheduleList'] = [];
   if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsProviders) {
     const practitioners: Practitioner[] = [];
     const schedules: Schedule[] = [];
@@ -176,10 +149,10 @@ export async function getSchedule(
       const [ownerResourceType, ownerId] = owner.split('/');
       if (ownerResourceType === 'Practitioner' && ownerId) {
         const practitioner = practitioners.find((prac) => {
-          prac.id === ownerId;
+          return prac.id === ownerId;
         });
         if (practitioner) {
-          groupItems.push({
+          scheduleList.push({
             schedule: sched,
             owner: practitioner,
           });
@@ -206,11 +179,11 @@ export async function getSchedule(
       const owner = sched.actor[0]?.reference ?? '';
       const [ownerResourceType, ownerId] = owner.split('/');
       if (ownerResourceType === 'Location' && ownerId) {
-        const location = locations.find((prac) => {
-          prac.id === ownerId;
+        const location = locations.find((loc) => {
+          return loc.id === ownerId;
         });
         if (location) {
-          groupItems.push({
+          scheduleList.push({
             schedule: sched,
             owner: location,
           });
@@ -219,36 +192,14 @@ export async function getSchedule(
     });
   }
 
-  if (scheduleType === 'group' && hsSchedulingStrategy === ScheduleStrategy.owns && schedule) {
-    return {
-      owner: scheduleOwner,
+  return {
+    metadata: {
       type: scheduleType,
       strategy: hsSchedulingStrategy,
-      schedule,
-      groupItems,
-    };
-  } else if (scheduleType === 'group' && hsSchedulingStrategy !== ScheduleStrategy.owns) {
-    return {
-      owner: scheduleOwner,
-      type: scheduleType,
-      strategy: hsSchedulingStrategy,
-      schedule,
-      groupItems,
-    };
-  } else if (scheduleType !== 'group') {
-    if (schedule === undefined) {
-      throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
-        `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite (schedule extension json)[todo: link to docs].`
-      );
-    }
-    return {
-      owner: scheduleOwner,
-      type: scheduleType,
-      schedule,
-      groupItems,
-    };
-  }
-  throw new Error('Unexpected state prevented schedule resolution');
+    },
+    scheduleList,
+    owner: scheduleOwner, // this probable isn't needed. just the ref can go in metadata
+  };
 }
 
 export async function updatePatientResource(

@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment as FhirAppointment, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { Appointment as FhirAppointment, HealthcareService, Location, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
@@ -8,7 +8,7 @@ import {
   SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
   SecretsKeys,
-  getAvailableSlotsForSchedule,
+  getAvailableSlotsForSchedules,
   getSecret,
 } from 'utils';
 import { topLevelCatch, ZambdaInput } from '../../shared';
@@ -72,7 +72,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('getting all appointment resources');
     const allResources = (
-      await oystehr.fhir.search<FhirResource>({
+      await oystehr.fhir.search<FhirAppointment | Slot | Schedule | Location | HealthcareService | Practitioner>({
         resourceType: 'Appointment',
         params: [
           {
@@ -83,6 +83,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             name: '_include',
             value: 'Appointment:actor',
           },
+          {
+            name: '_include',
+            value: 'Appointment:slot',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Slot:schedule',
+          },
         ],
       })
     ).unbundle();
@@ -90,26 +98,30 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const fhirAppointment = allResources.find((resource) => resource.resourceType === 'Appointment') as FhirAppointment;
     const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
     const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-    const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner'); // todo is this right ?
-    let scheduleResource: Location | HealthcareService | Practitioner | undefined;
+    const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
+    // todo: use the slot to get the schedule owner and get rid of all this other stuff
+    const fhirSlot = allResources.find((resource) => resource.resourceType === 'Slot') as Slot;
+    const fhirSchedule = allResources.find((resource) => resource.resourceType === 'Schedule') as Schedule;
+
+    let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
     if (fhirLocation) {
-      scheduleResource = fhirLocation as Location;
+      scheduleOwner = fhirLocation as Location;
     } else if (fhirHS) {
-      scheduleResource = fhirHS as HealthcareService;
+      scheduleOwner = fhirHS as HealthcareService;
     } else if (fhirPractitioner) {
-      scheduleResource = fhirPractitioner as Practitioner;
+      scheduleOwner = fhirPractitioner as Practitioner;
     }
 
     if (!fhirAppointment) {
       throw APPOINTMENT_NOT_FOUND_ERROR;
     }
 
-    if (!scheduleResource) {
+    if (!scheduleOwner) {
       console.log('scheduleResource is missing');
       throw SCHEDULE_NOT_FOUND_ERROR;
     }
 
-    const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleResource);
+    const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleOwner);
 
     const appointment: Appointment = {
       start: fhirAppointment.start || 'Unknown',
@@ -118,7 +130,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       visitType: fhirAppointment.appointmentType?.text || 'Unknown',
     };
 
-    const { availableSlots } = await getAvailableSlotsForSchedule(oystehr, scheduleResource, DateTime.now());
+    console.log('current appointment slot: ', fhirSlot);
+    // todo: consider whether we really need to be getting avaialble slots when getting appointment details
+    // why do we need to do this?
+    const { availableSlots } = await getAvailableSlotsForSchedules({
+      now: DateTime.now(),
+      scheduleList: [{ schedule: fhirSchedule, owner: scheduleOwner }],
+      busySlots: [],
+    });
 
     const response: GetAppointmentDetailsResponse = {
       appointment,

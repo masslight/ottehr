@@ -12,6 +12,7 @@ import {
   ScheduleStrategy,
   SCHEDULE_NUM_DAYS,
   SCHEDULE_EXTENSION_URL,
+  BookableScheduleData,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -154,7 +155,7 @@ export function getWaitingMinutes(now: DateTime, encounters: Encounter[]): numbe
 }
 
 export function getScheduleDetails(
-  scheduleResource: Location | Practitioner | HealthcareService
+  scheduleResource: Location | Practitioner | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
   console.log(
     `extracting schedule and possible overrides from extention on ${scheduleResource.resourceType}`,
@@ -170,7 +171,7 @@ export function getScheduleDetails(
   return { schedule, scheduleOverrides, closures };
 }
 
-export function getTimezone(schedule: Location | Practitioner | HealthcareService): string {
+export function getTimezone(schedule: Location | Practitioner | HealthcareService | Schedule): string {
   const timezone = schedule.extension?.find(
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;
@@ -288,14 +289,13 @@ export function getSlotCapacityMapForDayAndSchedule(
 
 interface RemoveBusySlotsInput {
   slotCapacityMap: SlotCapacityMap;
-  appointments: Appointment[];
   busySlots: Slot[];
   // buffer? leaving this out for now as it's not clear it's needed
 }
 
 export const removeBusySlots = (input: RemoveBusySlotsInput): string[] => {
-  const { slotCapacityMap: timeSlots, appointments, busySlots } = input;
-  return distributeTimeSlots(timeSlots, appointments, busySlots);
+  const { slotCapacityMap: timeSlots, busySlots } = input;
+  return distributeTimeSlots(timeSlots, [], busySlots);
 };
 
 export function getPostTelemedSlots(
@@ -344,14 +344,14 @@ function getSlotsForDayPostTelemed(
   return distributeTimeSlots(timeSlots, appointments, []);
 }
 
-interface GetSlotsInput {
+interface GetSlotCapacityMapInput {
   now: DateTime;
   finishDate: DateTime;
   scheduleExtension: ScheduleExtension;
   timezone: string;
 }
 // returns all slots given current time, schedule, and timezone, irrespective of booked/busy status of any of those slots
-export const getAllSlotsAsCapacityMap = (input: GetSlotsInput): SlotCapacityMap => {
+export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
   const { schedule, scheduleOverrides, closures } = scheduleExtension;
   const nowForTimezone = now.setZone(timezone);
@@ -366,13 +366,15 @@ export const getAllSlotsAsCapacityMap = (input: GetSlotsInput): SlotCapacityMap 
   return slots;
 };
 
-export function getAvailableSlots(
-  now: DateTime,
-  numDays: number,
-  schedule: Location | Practitioner | HealthcareService,
-  appointments: Appointment[],
-  busySlots: Slot[]
-): string[] {
+interface GetAvailableSlotsInput {
+  now: DateTime;
+  numDays: number;
+  schedule: Schedule;
+  busySlots: Slot[]; // todo: add these in upstream
+}
+
+export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
+  const { now, numDays, schedule, busySlots } = input;
   const timezone = getTimezone(schedule);
   const scheduleDetails = getScheduleDetails(schedule);
   if (!scheduleDetails) {
@@ -389,7 +391,6 @@ export function getAvailableSlots(
 
   const availableSlots = removeBusySlots({
     slotCapacityMap,
-    appointments,
     busySlots,
   });
 
@@ -660,29 +661,29 @@ export async function addWaitingMinutesToAppointment(
   return res;
 }
 
-export const getAvailableSlotsForSchedule = async (
-  oystehr: Oystehr,
-  scheduleResource: Location | HealthcareService | Practitioner,
-  now: DateTime,
-  groupItems?: (Location | Practitioner | HealthcareService)[]
-): Promise<{ availableSlots: string[]; telemedAvailable: string[] }> => {
+interface GetSlotsInput {
+  scheduleList: BookableScheduleData['scheduleList'];
+  now: DateTime;
+  busySlots?: Slot[];
+}
+
+export const getAvailableSlotsForSchedules = async (
+  input: GetSlotsInput
+): Promise<{
+  availableSlots: string[];
+  telemedAvailable: string[];
+}> => {
+  const { now, scheduleList } = input;
   const telemedAvailable: string[] = [];
   const availableSlots: string[] = [];
-  const schedules: (Location | Practitioner | HealthcareService)[] = [];
 
-  const slug = scheduleResource?.identifier?.find(
-    (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug'
-  )?.value;
-
-  if (!slug) {
-    console.log(`no slug on schedule resource, ${scheduleResource.id}`);
-    throw new Error(`no slug on schedule resource, ${scheduleResource.id}`);
-  }
-
+  const schedules: Schedule[] = scheduleList.map((scheduleTemp) => scheduleTemp.schedule);
+  /*
   const [appointments, busySlots] = await Promise.all([
     getAppointments(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
     checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
   ]);
+
 
   if (scheduleResource.resourceType === 'Location' || scheduleResource.resourceType === 'Practitioner') {
     schedules.push(scheduleResource);
@@ -714,19 +715,27 @@ export const getAvailableSlotsForSchedule = async (
     }
     schedules.push(...getSchedulesForGroup(scheduleResource, groupItems));
   }
+    */
 
   schedules.forEach((scheduleTemp) => {
     try {
-      const prebookAndWalkinAppointments = filterAppointmentsByType(appointments, [
+      // todo: find existing appointments and busy slots
+      /*filterAppointmentsByType(appointments, [
         VisitType.PreBook,
         VisitType.WalkIn,
-      ]);
-      const postTelemedAppointments = filterAppointmentsByType(appointments, [VisitType.PostTelemed]);
+      ]);*/
+      const busySlots: Slot[] = []; // checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleTemp);
+      // const postTelemedAppointments = filterAppointmentsByType(appointments, [VisitType.PostTelemed]);
       console.log('getting post telemed slots');
-      telemedAvailable.push(...getPostTelemedSlots(now, scheduleTemp, postTelemedAppointments));
+      // telemedAvailable.push(...getPostTelemedSlots(now, scheduleTemp, postTelemedAppointments));
       console.log('getting available slots to display');
       availableSlots.push(
-        ...getAvailableSlots(now, SCHEDULE_NUM_DAYS, scheduleTemp, prebookAndWalkinAppointments, busySlots)
+        ...getAvailableSlots({
+          now,
+          numDays: SCHEDULE_NUM_DAYS,
+          schedule: scheduleTemp,
+          busySlots,
+        })
       );
     } catch (err) {
       console.error(`Error trying to get slots for schedule item: ${scheduleTemp.resourceType}/${scheduleTemp.id}`);

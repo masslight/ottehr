@@ -1,18 +1,20 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, HealthcareService, Location, Patient, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
+  BookableScheduleData,
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
+  ScheduleType,
   Secrets,
   checkValidBookingTime,
-  getAvailableSlotsForSchedule,
+  getAvailableSlotsForSchedules,
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
@@ -33,6 +35,7 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import { getSlugForBookableResource } from '../../bookable/helpers';
 
 export interface UpdateAppointmentInput {
   appointmentID: string;
@@ -75,7 +78,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('getting appointment and related schedule resource');
 
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | HealthcareService | Practitioner>({
+      await oystehr.fhir.search<Appointment | Location | HealthcareService | Practitioner | Slot | Schedule>({
         resourceType: 'Appointment',
         params: [
           {
@@ -85,6 +88,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           {
             name: '_include',
             value: 'Appointment:actor',
+          },
+          {
+            name: '_include',
+            value: 'Appointment:slot',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Slot:schedule',
           },
         ],
       })
@@ -112,22 +123,58 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
     const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-    const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner'); // todo is this right ?
-    let scheduleResource: Location | HealthcareService | Practitioner | undefined;
+    const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
+    const fhirSchedule = allResources.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
+
+    let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
     if (fhirLocation) {
-      scheduleResource = fhirLocation as Location;
+      scheduleOwner = fhirLocation as Location;
     } else if (fhirHS) {
-      scheduleResource = fhirHS as HealthcareService;
+      scheduleOwner = fhirHS as HealthcareService;
     } else if (fhirPractitioner) {
-      scheduleResource = fhirPractitioner as Practitioner;
+      scheduleOwner = fhirPractitioner as Practitioner;
     }
 
-    if (!scheduleResource) {
+    if (!scheduleOwner || !fhirSchedule) {
       console.log('scheduleResource is missing');
       throw SCHEDULE_NOT_FOUND_ERROR;
     }
+    let scheduleType: ScheduleType;
+    if (scheduleOwner.resourceType === 'Location') {
+      scheduleType = ScheduleType.location;
+    } else if (scheduleOwner.resourceType === 'Practitioner') {
+      scheduleType = ScheduleType.provider;
+    } else {
+      scheduleType = ScheduleType.group;
+    }
 
-    const { availableSlots } = await getAvailableSlotsForSchedule(oystehr, scheduleResource, DateTime.now());
+    const slug = getSlugForBookableResource(scheduleOwner);
+    if (!slug) {
+      // todo: better error message?
+      throw new Error('slug is missing');
+    }
+
+    // note: what should be happening here instead is that a Slot resource will be passed in with info about the schedule
+    // the rescheduled appointment will be against, rather than trying to infer it from time and original appointment
+    // this is an important change to make before merging
+    const scheduleData: BookableScheduleData = {
+      scheduleList: [
+        {
+          schedule: fhirSchedule,
+          owner: scheduleOwner,
+        },
+      ],
+      owner: scheduleOwner,
+      metadata: {
+        type: scheduleType,
+      },
+    };
+
+    const { availableSlots } = await getAvailableSlotsForSchedules({
+      now: DateTime.now(),
+      scheduleList: scheduleData.scheduleList,
+      busySlots: [], // todo: add busy slots or refactor - see previous todo, these can be queried form the passed in slot
+    });
 
     if (availableSlots.includes(slot)) {
       console.log('slot is available');
@@ -161,7 +208,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // const user = await appClient.getMe();
     const relatedPerson = await getRelatedPersonForPatient(fhirPatient.id || '', oystehr);
     if (relatedPerson) {
-      const timezone = scheduleResource.extension?.find(
+      const timezone = scheduleOwner.extension?.find(
         (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString;
       const smsNumber = getSMSNumberForIndividual(relatedPerson);
@@ -172,7 +219,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           `RelatedPerson/${relatedPerson.id}`,
           originalDate.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
           secrets,
-          scheduleResource,
+          scheduleOwner,
           appointmentID,
           fhirAppointment.appointmentType?.text || '',
           language,

@@ -1,4 +1,4 @@
-import { Account, Identifier } from 'fhir/r4b';
+import { Account, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -245,6 +245,23 @@ export enum ScheduleStrategy {
   poolsLocations = 'pools-locations',
   poolsProviders = 'pools-providers',
   poolsAll = 'pools-all',
+}
+
+interface ScheduleAndOwner {
+  schedule: Schedule;
+  owner: Location | Practitioner | HealthcareService;
+}
+
+interface BaseScheduleResponse {
+  owner: HealthcareService | Location | Practitioner;
+  scheduleList: ScheduleAndOwner[];
+}
+interface ScheduleMetaData {
+  type: 'location' | 'provider' | 'group';
+  strategy?: ScheduleStrategy;
+}
+export interface BookableScheduleData extends BaseScheduleResponse {
+  metadata: ScheduleMetaData;
 }
 
 export const ScheduleStrategyCoding = {

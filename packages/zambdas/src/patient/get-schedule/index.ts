@@ -7,7 +7,7 @@ import {
   AvailableLocationInformation,
   GetScheduleResponse,
   SecretsKeys,
-  getAvailableSlotsForSchedule,
+  getAvailableSlotsForSchedules,
   getOpeningTime,
   getScheduleDetails,
   getSecret,
@@ -22,7 +22,7 @@ import {
   createOystehrClient,
   getAuth0Token,
   getLocationInformation,
-  getSchedule,
+  getSchedules,
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
@@ -56,11 +56,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
 
     console.time('get-schedule-from-slug');
-    const { schedule, groupItems, owner } = await getSchedule(oystehr, scheduleType, slug);
+    const scheduleData = await getSchedules(oystehr, scheduleType, slug);
+    const { scheduleList, owner, metadata } = scheduleData;
     console.timeEnd('get-schedule-from-slug');
     const now = DateTime.now();
 
-    console.log('schedule retrieved from getScheduleUtil:', JSON.stringify(schedule, null, 2));
+    console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
+    console.log('owner retrieved from getScheduleUtil:', JSON.stringify(owner, null, 2));
+    console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
 
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
       getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
@@ -96,12 +99,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, owner);
     console.timeEnd('get_waiting_minutes');
     console.time('synchronous_data_processing');
-    const { telemedAvailable, availableSlots } = await getAvailableSlotsForSchedule(
-      oystehr,
-      owner,
-      DateTime.now(),
-      groupItems.map((gi) => gi.owner)
-    );
+    const { telemedAvailable, availableSlots } = await getAvailableSlotsForSchedules({
+      now: DateTime.now(),
+      scheduleList,
+    });
     console.timeEnd('synchronous_data_processing');
 
     if (specificSlot) {
