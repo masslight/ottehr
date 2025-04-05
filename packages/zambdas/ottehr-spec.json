@@ -385,6 +385,17 @@
       "src": "src/ehr/get-create-lab-order-resources/index",
       "zip": ".dist/zips/get-create-lab-order-resources.zip"
     },
+    "CREATE_REVIEW_LAB_RESULTS_TASK": {
+      "name": "CREATE_REVIEW_LAB_RESULTS_TASK",
+      "type": "subscription",
+      "runtime": "nodejs20.x",
+      "src": "src/subscriptions/create-review-lab-results-task/index",
+      "zip": ".dist/zips/create-review-lab-results-task.zip",
+      "subscription": {
+        "criteria": "DiagnosticReport?category=OSL",
+        "reason": "Received new preliminary or final lab result"
+      }
+    },
     "PAPERWORK-TO-PDF": {
       "name": "PAPERWORK-TO-PDF",
       "type": "http_auth",
