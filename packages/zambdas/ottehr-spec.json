@@ -21,10 +21,6 @@
       "name": "AUTH0_SECRET",
       "value": "#var/AUTH0_SECRET"
     },
-    "DEFAULT_BILLING_RESOURCE": {
-      "name": "DEFAULT_BILLING_RESOURCE",
-      "value": "#var/DEFAULT_BILLING_RESOURCE"
-    },
     "FHIR_API": {
       "name": "FHIR_API",
       "value": "#var/FHIR_API"
@@ -140,14 +136,6 @@
     "TELEMED_CLIENT_SECRET": {
       "name": "TELEMED_CLIENT_SECRET",
       "value": "#var/TELEMED_CLIENT_SECRET"
-    },
-    "IN_PERSON_PREVISIT_QUESTIONNAIRE": {
-      "name": "IN_PERSON_PREVISIT_QUESTIONNAIRE",
-      "value": "#var/IN_PERSON_PREVISIT_QUESTIONNAIRE"
-    },
-    "VIRTUAL_PREVISIT_QUESTIONNAIRE": {
-      "name": "VIRTUAL_PREVISIT_QUESTIONNAIRE",
-      "value": "#var/VIRTUAL_PREVISIT_QUESTIONNAIRE"
     },
     "CANDID_CLIENT_ID": {
       "name": "CANDID_CLIENT_ID",
