@@ -58,7 +58,6 @@ export class FillingInfo {
     const firstName = `TM-UserFN${this.getRandomString()}`;
     const lastName = `TM-UserLN${this.getRandomString()}`;
     const email = `dvoshchuk+${firstName}@masslight.com`;
-
     await this.page.getByPlaceholder('First name').click();
     await this.page.getByPlaceholder('First name').fill(firstName);
     await this.page.getByPlaceholder('Last name').click();
@@ -76,7 +75,6 @@ export class FillingInfo {
     await this.page.locator('#reasonForVisit').click();
     const reasonForVisit: string = (await this.page.getByRole('option').first().textContent()) || '';
     await this.page.getByRole('option').first().click({ timeout: 5000 });
-
     return { firstName, lastName, birthSex, email, thisEmailBelongsTo, reasonForVisit };
   }
 
@@ -133,18 +131,14 @@ export class FillingInfo {
     const randomMonth = this.getRandomElement(this.months);
     const randomDay = this.getRandomInt(1, 28).toString();
     const randomYear = this.getRandomInt(YearMin, YearMax).toString();
-    // await this.page.getByText('Month').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(0).click({ force: true });
+    await this.page.getByRole('combobox').nth(0).click();
+    await expect(this.page.getByRole('option', { name: randomMonth })).toBeVisible();
     await this.page.getByRole('option', { name: randomMonth }).click();
-    // await this.page.waitForTimeout(3000);
-
-    //  await this.page.getByText('Day').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
+    await this.page.getByRole('combobox').nth(1).click();
+    await expect(this.page.getByRole('option', { name: randomDay, exact: true })).toBeVisible();
     await this.page.getByRole('option', { name: randomDay, exact: true }).click();
-    // await this.page.waitForTimeout(3000);
-
-    //  await this.page.getByText('Year').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
+    await this.page.getByRole('combobox').nth(2).click();
+    await expect(this.page.getByRole('option', { name: randomYear })).toBeVisible();
     await this.page.getByRole('option', { name: randomYear }).click();
 
     return { randomMonth, randomDay, randomYear };
