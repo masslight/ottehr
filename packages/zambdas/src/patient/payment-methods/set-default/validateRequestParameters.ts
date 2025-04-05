@@ -1,9 +1,15 @@
-import { PaymentMethodSetDefaultParameters, Secrets } from 'utils';
+import { NOT_AUTHORIZED, PaymentMethodSetDefaultParameters, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
+import { getStripeCustomerId } from '../helpers';
 
 export function validateRequestParameters(
   input: ZambdaInput
 ): PaymentMethodSetDefaultParameters & { secrets: Secrets | null } {
+  const authorization = input.headers.Authorization;
+  if (!authorization) {
+    throw NOT_AUTHORIZED;
+  }
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -23,4 +29,12 @@ export function validateRequestParameters(
     paymentMethodId,
     secrets: input.secrets,
   };
+}
+
+interface ComplexValidationInput {
+  patientId: string;
+  oystehrClient: Oystehr;
+}
+export async function complexValidation(input: ComplexValidationInput): Promise<{ stripeCustomerId: string }> {
+  return getStripeCustomerId(input);
 }

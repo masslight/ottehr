@@ -97,6 +97,7 @@ export type FormItemType =
   | 'Form list'
   | 'Attachment'
   | 'Credit Card'
+  | 'Call Out'
   | undefined;
 
 export type PromiseReturnType<T> = T extends Promise<infer R> ? R : never;

@@ -1,20 +1,13 @@
-import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
-import { getAuth0Token, getUser, lambdaResponse, ZambdaInput } from '../../../shared';
-import { deletePaymentMethodRequest } from '../helpers';
-import { validateRequestParameters } from './validateRequestParameters';
+import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getStripeClient, validateUserHasAccessToPatienAccount } from '../helpers';
+import { complexValidation, validateRequestParameters } from './validateRequestParameters';
+import { STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR } from 'utils';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrM2MClientToken: string;
+let m2MClientToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const authorization = input.headers.Authorization;
-    if (!authorization) {
-      console.log('User is not authenticated yet');
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
     console.group('validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
@@ -29,34 +22,41 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    let user: User;
-    try {
-      console.log('getting user');
-      user = await getUser(authorization.replace('Bearer ', ''), secrets);
-      console.log(`user: ${user.name} (profile ${user.profile})`);
-    } catch (error) {
-      console.log('getUser error:', error);
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
-    if (!zapehrM2MClientToken) {
+    if (!m2MClientToken) {
       console.log('getting m2m token for service calls');
-      zapehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+      m2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }
 
-    const response = await deletePaymentMethodRequest(
-      getSecret(SecretsKeys.PROJECT_API, secrets),
-      zapehrM2MClientToken,
-      beneficiaryPatientId,
-      user.profile,
-      paymentMethodId
-    );
+    const oystehrClient = createOystehrClient(m2MClientToken, secrets);
 
-    return lambdaResponse(200, response || {});
+    void (await validateUserHasAccessToPatienAccount(
+      { beneficiaryPatientId, secrets, zambdaInput: input },
+      oystehrClient
+    ));
+
+    const { stripeCustomerId } = await complexValidation({ patientId: beneficiaryPatientId, oystehrClient });
+    const stripeClient = getStripeClient(secrets);
+
+    // check if payment method is assigned to the customer to begin with, before updating the
+    // customer invoice settings
+    const paymentMethod = await stripeClient.paymentMethods.retrieve(paymentMethodId);
+    if (paymentMethod !== undefined && paymentMethod.customer === stripeCustomerId) {
+      const detachedPaymentMethod = await stripeClient.paymentMethods.detach(paymentMethodId);
+      console.log(
+        `Payment method (${detachedPaymentMethod.id}) successfully detached from customer (${paymentMethod.customer}).`
+      );
+    } else {
+      console.error(
+        `Stripe payment method with ID ${paymentMethod.id} belongs to ${paymentMethod.customer} and not ${stripeCustomerId}`
+      );
+      throw STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR;
+    }
+
+    return lambdaResponse(204, null);
   } catch (error: any) {
     console.error(error);
-    return lambdaResponse(500, { error: 'Internal error' });
+    return topLevelCatch('payment-methods-delete', error, input.secrets);
   }
 };

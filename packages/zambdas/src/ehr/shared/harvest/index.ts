@@ -105,11 +105,15 @@ import {
   getSecret,
   Secrets,
   SecretsKeys,
+  getStripeCustomerIdFromAccount,
+  getEmailForIndividual,
+  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   getPatchOperationToAddOrUpdatePreferredName,
 } from 'utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
+import Stripe from 'stripe';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -3238,5 +3242,25 @@ export const updatePatientAccountFromQuestionnaire = async (
   } catch (error: unknown) {
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
     throw error;
+  }
+};
+
+interface UpdateStripeCustomerInput {
+  account: Account;
+  guarantorResource: RelatedPerson | Patient;
+  stripeClient: Stripe;
+}
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
+  const { guarantorResource, account } = input;
+  const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+  const email = getEmailForIndividual(guarantorResource);
+  const name = getFullName(guarantorResource);
+  if (stripeCustomerId) {
+    await input.stripeClient.customers.update(stripeCustomerId, {
+      email,
+      name,
+    });
+  } else {
+    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }
 };

@@ -39,7 +39,8 @@
   "CANDID_CLIENT_ID": "",
   "CANDID_CLIENT_SECRET": "",
   "CANDID_ENV": "",
-  "STRIPE_PUBLIC_KEY": "",
-  "STRIPE_SECRET_KEY": "",
-  "ANTHROPIC_API_KEY": ""
+  "ANTHROPIC_API_KEY": "",
+  "STRIPE_PUBLIC_KEY": "the_public_api_key_from_your_stripe_account",
+  "STRIPE_SECRET_KEY": "the_private_api_key_from_your_stripe_account",
+  "STRIPE_PAYMENT_METHOD_TYPES": "the_payment_types_your_stripe_account_accepts"
 }

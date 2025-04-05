@@ -1,19 +1,22 @@
-import { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, SecretsKeys } from 'utils';
-import { getAuth0Token, getUser, lambdaResponse, ZambdaInput } from '../../../shared';
-import { postPaymentMethodListRequest } from '../helpers';
+import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getStripeClient, validateUserHasAccessToPatienAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
+import {
+  CreditCardInfo,
+  FHIR_RESOURCE_NOT_FOUND,
+  getStripeCustomerIdFromAccount,
+  ListPaymentMethodsZambdaOutput,
+} from 'utils';
+import { Account } from 'fhir/r4b';
+import Stripe from 'stripe';
+import { DateTime } from 'luxon';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrM2MClientToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    const authorization = input.headers.Authorization;
-    if (!authorization) {
-      console.log('User is not authenticated yet');
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
     console.group('validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
     try {
@@ -28,16 +31,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    let user: User;
-    try {
-      console.log('getting user');
-      user = await getUser(authorization.replace('Bearer ', ''), secrets);
-      console.log(`user: ${user.name} (profile ${user.profile})`);
-    } catch (error) {
-      console.log('getUser error:', error);
-      return lambdaResponse(401, { message: 'Unauthorized' });
-    }
-
     if (!zapehrM2MClientToken) {
       console.log('getting m2m token for service calls');
       zapehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
@@ -45,16 +38,82 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have a token, no need to update');
     }
 
-    const response = await postPaymentMethodListRequest(
-      getSecret(SecretsKeys.PROJECT_API, secrets),
-      zapehrM2MClientToken,
-      beneficiaryPatientId,
-      user.profile
-    );
+    const oystehrClient = createOystehrClient(zapehrM2MClientToken, secrets);
+    void (await validateUserHasAccessToPatienAccount(
+      { beneficiaryPatientId, secrets, zambdaInput: input },
+      oystehrClient
+    ));
 
-    return lambdaResponse(200, response);
+    const stripeClient = getStripeClient(secrets);
+
+    const accountResources = await getAccountAndCoverageResourcesForPatient(beneficiaryPatientId, oystehrClient);
+    const account: Account | undefined = accountResources.account;
+
+    if (!account?.id) {
+      throw FHIR_RESOURCE_NOT_FOUND('Account');
+    }
+    const output: ListPaymentMethodsZambdaOutput = { cards: [] };
+    const customerId = account ? getStripeCustomerIdFromAccount(account) : undefined;
+    if (customerId !== undefined) {
+      const customer = await stripeClient.customers.retrieve(customerId, {
+        expand: ['invoice_settings.default_payment_method', 'sources'],
+      });
+      const paymentMethods = (
+        await stripeClient.customers.listPaymentMethods(customer.id, {
+          type: 'card',
+        })
+      )?.data;
+      console.log('payment methods', paymentMethods, JSON.stringify(customer, null, 2));
+      if (
+        customer !== undefined &&
+        customer.deleted !== true &&
+        customer.invoice_settings?.default_payment_method !== undefined &&
+        customer.invoice_settings?.default_payment_method !== null
+      ) {
+        const defaultPaymentMethod: Stripe.PaymentMethod = customer.invoice_settings
+          ?.default_payment_method as Stripe.PaymentMethod;
+        if (
+          defaultPaymentMethod !== undefined &&
+          defaultPaymentMethod.type === 'card' &&
+          defaultPaymentMethod.card !== undefined
+        ) {
+          const allCards = paymentMethods.map((pm) => {
+            return {
+              id: pm.id,
+              brand: pm.card!.brand,
+              expMonth: pm.card!.exp_month,
+              expYear: pm.card!.exp_year,
+              lastFour: pm.card!.last4,
+              default: pm.id === defaultPaymentMethod.id,
+            };
+          });
+          output.cards = filterExpired(allCards).sort((a, b) => {
+            if (a.default && !b.default) {
+              return -1;
+            }
+            if (!a.default && b.default) {
+              return 1;
+            }
+            return 0;
+          });
+        }
+      }
+    }
+
+    return lambdaResponse(200, output);
   } catch (error: any) {
     console.error(error);
-    return lambdaResponse(500, { error: 'Internal error' });
+    return topLevelCatch('payment-methods-list', error, input.secrets);
   }
+};
+
+const filterExpired = (cardList: CreditCardInfo[]): CreditCardInfo[] => {
+  const isExpired = (month: number, year: number): boolean => {
+    const today = DateTime.now();
+    const expDay = DateTime.fromObject({ year, month }).endOf('month');
+    return expDay < today;
+  };
+  return cardList.filter((card) => {
+    return !isExpired(card.expMonth, card.expYear);
+  });
 };
