@@ -217,6 +217,14 @@ export const DEMO_VISIT_STREET_ADDRESS_OPTIONAL = 'Apt 4B';
 export const DEMO_VISIT_CITY = 'New York';
 export const DEMO_VISIT_STATE = 'NY';
 export const DEMO_VISIT_ZIP = '06001';
+export const DEMO_VISIT_RESPONSIBLE_RELATIONSHIP = 'Legal Guardian';
+export const DEMO_VISIT_RESPONSIBLE_FIRST_NAME = 'fwe';
+export const DEMO_VISIT_RESPONSIBLE_LAST_NAME = 'sf';
+export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
+export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
+export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
+export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(233) 333-3333';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -387,21 +395,23 @@ export function getPatientDetailsStepAnswers({
 }
 
 export function getResponsiblePartyStepAnswers({
-  relationship = 'Legal Guardian',
-  firstName = 'fwe',
-  lastName = 'sf',
+  relationship = DEMO_VISIT_RESPONSIBLE_RELATIONSHIP,
+  firstName = DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
+  lastName = DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   birthDate = {
-    day: '13',
-    month: '05',
-    year: '1900',
+    day: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
+    month: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
+    year: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR,
   },
-  birthSex = 'Intersex',
+  birthSex = DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
+  phone = DEMO_VISIT_RESPONSIBLE_PHONE,
 }: {
   firstName?: string;
   relationship?: string;
   birthDate?: { day: string; month: string; year: string };
   birthSex?: string;
   lastName?: string;
+  phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'responsible-party-page',
@@ -429,6 +439,14 @@ export function getResponsiblePartyStepAnswers({
       {
         linkId: 'responsible-party-birth-sex',
         answer: [{ valueString: birthSex }],
+      },
+      {
+        linkId: 'responsible-party-number',
+        answer: [
+          {
+            valueString: phone,
+          },
+        ],
       },
     ],
   };
