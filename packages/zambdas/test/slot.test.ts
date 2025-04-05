@@ -204,7 +204,7 @@ describe('test front end slot display: different capacities, no buffers, no busy
         scheduleExtension: scheduleDTO,
         now: time,
         finishDate: time.plus({ days: 1 }),
-        timezone: getTimezone(location),
+        timezone: getTimezone(schedule),
       })
     );
     const testSlots = getAvailableSlots({ now: time, schedule, numDays: 1, busySlots: [] });
