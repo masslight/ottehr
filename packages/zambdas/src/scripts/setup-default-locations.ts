@@ -42,9 +42,9 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   });
   console.log('Received all locations from fhir.');
 
-  const telemedStates: string[] = [];
-  filterVirtualLocations(allLocations.entry as Resource[]).map((location) => {
-    if (location?.address && location.address.state) telemedStates.push(location.address.state);
+  const telemedStates: string[] = filterVirtualLocations(allLocations.entry as Resource[]).flatMap((location) => {
+    if (location?.address && location.address.state) return [location.address.state];
+    return [];
   });
 
   console.log('Filtered all virtual telemed locations.');
