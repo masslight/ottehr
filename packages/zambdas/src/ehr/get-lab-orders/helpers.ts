@@ -899,7 +899,7 @@ export const parseLResultsDetails = (
     { results: reflexPrelimResults, tasks: reflexPrelimTasks, type: 'Reflex test' as const },
   ].forEach(({ results, tasks, type }) => {
     results.forEach((report) => {
-      const details = parseResultDetails(report, tasks);
+      const details = parseResultDetails(report, tasks, serviceRequest);
       if (details) resultsDetails.push({ ...details, testType: type });
     });
   });
@@ -909,13 +909,16 @@ export const parseLResultsDetails = (
 
 export const parseResultDetails = (
   result: DiagnosticReport,
-  tasks: Task[]
+  tasks: Task[],
+  serviceRequest: ServiceRequest
 ): Omit<LabOrderResultDetails, 'testType'> | null => {
   const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
 
-  if (!task?.id || !result?.id) {
+  if (!task?.id || !result?.id || !serviceRequest.id) {
     return null;
   }
+
+  const PSTTask = parseTaskPST(tasks, serviceRequest.id);
 
   return {
     testName: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
@@ -927,6 +930,10 @@ export const parseResultDetails = (
         ? ExternalLabsStatus.reviewed
         : result.status === 'preliminary'
         ? ExternalLabsStatus.prelim
+        : serviceRequest.status === 'draft' && PSTTask?.status === 'ready'
+        ? ExternalLabsStatus.pending
+        : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
+        ? ExternalLabsStatus.sent
         : ExternalLabsStatus.unparsed,
     diagnosticReportId: result.id,
     taskId: task.id,
