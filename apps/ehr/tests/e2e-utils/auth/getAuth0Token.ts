@@ -2,6 +2,9 @@ export async function getAuth0Token(): Promise<string> {
   const AUTH0_ENDPOINT = process.env.AUTH0_ENDPOINT;
   let AUTH0_CLIENT: string;
   let AUTH0_SECRET: string;
+  if (!AUTH0_ENDPOINT || !process.env.AUTH0_CLIENT || !process.env.AUTH0_SECRET) {
+    throw new Error('❌ Missing auth0 credentials');
+  }
   if (process.env.AUTH0_CLIENT_TESTS && process.env.AUTH0_SECRET_TESTS) {
     AUTH0_CLIENT = process.env.AUTH0_CLIENT_TESTS;
     AUTH0_SECRET = process.env.AUTH0_SECRET_TESTS;
