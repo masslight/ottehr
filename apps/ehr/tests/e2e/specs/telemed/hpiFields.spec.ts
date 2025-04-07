@@ -29,7 +29,7 @@ async function checkDropdownNoOptions(
   await expect(dropdownNoOptions).toHaveText(message);
 }
 
-test.describe('Check all fields common functionality, without changing state', () => {
+test.describe('Check all hpi fields common functionality, without changing data', () => {
   const resourceHandler = new ResourceHandler('telemed');
   const startTypingMessage = 'Start typing to load results';
   const searchOptionThatNotInList = 'undefined';
@@ -111,11 +111,11 @@ test.describe('Medical conditions', async () => {
 
   test.describe.configure({ mode: 'serial' });
 
-  test('Should check options has condition, and select it', async () => {
+  test('Should search medical condition, and select it', async () => {
     await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput, conditionName);
   });
 
-  test('Should check options has search ICD10 pattern, and select it', async () => {
+  test('Should search medical condition by ICD10 code, and select it', async () => {
     await checkDropdownHasOptionAndSelectIt(
       page,
       dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput,
@@ -144,7 +144,7 @@ test.describe('Medical conditions', async () => {
     });
   });
 
-  test('Should check conditions appear in Review&Sign tab', async () => {
+  test('Should check medical conditions appear in Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer)).toHaveText(
       new RegExp(conditionName, 'i')
@@ -154,7 +154,7 @@ test.describe('Medical conditions', async () => {
     );
   });
 
-  test('Should delete condition', async () => {
+  test('Should delete medical condition', async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsList)).toBeVisible();
 
@@ -166,7 +166,7 @@ test.describe('Medical conditions', async () => {
     await expect(medicalConditionListItem).not.toBeVisible();
   });
 
-  test('Should confirm condition deleted', async () => {
+  test('Should confirm medical condition deleted, in HPI and in Review&Sign tabs', async () => {
     await test.step('Confirm deletion in hpi tab', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
@@ -235,7 +235,7 @@ test.describe('Current medications', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton)).toBeEnabled();
   });
 
-  test('Should check scheduled medication is saved', async () => {
+  test('Should check scheduled medication is saved in HPI tab', async () => {
     const scheduledMedicationList = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledList);
     await expect(scheduledMedicationList).toHaveText(RegExp(scheduledMedicationName, 'i'));
     await expect(scheduledMedicationList).toHaveText(RegExp(scheduledMedicationDose, 'i'));
@@ -267,7 +267,7 @@ test.describe('Current medications', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton)).toBeEnabled();
   });
 
-  test('Should check as needed medication is saved', async () => {
+  test('Should check as needed medication is saved in HPI tab', async () => {
     const asNeededMedicationList = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededList);
     await expect(asNeededMedicationList).toHaveText(RegExp(asNeededMedicationName, 'i'));
     await expect(asNeededMedicationList).toHaveText(RegExp(asNeededMedicationDose, 'i'));
@@ -275,7 +275,7 @@ test.describe('Current medications', () => {
     await expect(asNeededMedicationList).toHaveText(RegExp(asNeededMedicationTime, 'i'));
   });
 
-  test('Should test required fields', async () => {
+  test('Should test required fields validation works', async () => {
     const medicationInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput).locator('label');
     await expect(medicationInput).toHaveClass(/Mui-required/);
     const doseInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput).locator('label');
@@ -292,7 +292,7 @@ test.describe('Current medications', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton)).toBeEnabled();
   });
 
-  test('Should check medications on Review&Sign tab', async () => {
+  test('Should check medications are saved on Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer)).toBeVisible();
     await expect(page.getByText(RegExp(scheduledMedicationName, 'i'))).toBeVisible();
@@ -362,7 +362,7 @@ test.describe('Known allergies', () => {
 
   test.describe.configure({ mode: 'serial' });
 
-  test('Should check options has known allergy, and select it', async () => {
+  test('Should search known allergy, and select it', async () => {
     await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyName);
   });
 
