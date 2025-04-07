@@ -150,7 +150,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
   test('PPO-4 Payment option - Select self pay and click [Continue]', async () => {
     await paperwork.selectSelfPayPayment();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
   });
   test('PPO-5 Payment option - Go back from next page, payment option opens', async () => {
     await locator.clickBackButton();
@@ -161,7 +161,7 @@ test.describe('Payment option - Check Self pay and insurance options', () => {
     await locator.clickContinueButton();
     await paperwork.selectSelfPayPayment();
     await locator.clickContinueButton();
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await paperwork.checkCorrectPageOpens('Credit card details');
   });
 });
 test.describe('Primary Insurance', () => {

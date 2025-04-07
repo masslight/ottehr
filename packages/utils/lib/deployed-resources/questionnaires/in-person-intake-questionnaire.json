@@ -2377,18 +2377,8 @@
       {
         "linkId": "card-payment-page",
         "type": "group",
+        "text": "Credit card details",
         "item": [
-          {
-            "linkId": "credit-card-details-text",
-            "text": "Credit card details",
-            "type": "display",
-            "extension": [
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-                "valueString": "h3"
-              }
-            ]
-          },
           {
             "linkId": "valid-card-on-file",
             "type": "boolean",
