@@ -790,7 +790,7 @@
       "name": "EHR-GET-SCHEDULE",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/schedule/get-schedule/index",
+      "src": "src/ehr/schedules/get-schedule/index",
       "zip": ".dist/zips/ehr-get-schedule.zip"
     }
   },

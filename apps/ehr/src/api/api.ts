@@ -364,6 +364,8 @@ export const getSchedule = async (scheduleId: string, oystehr: Oystehr): Promise
       throw new Error('get employees environment variable could not be loaded');
     }
 
+    console.log('EHR_GET_SCHEDULE_ZAMBDA_ID', EHR_GET_SCHEDULE_ZAMBDA_ID);
+
     const response = await oystehr.zambda.execute({
       id: EHR_GET_SCHEDULE_ZAMBDA_ID,
       scheduleId,
