@@ -207,6 +207,44 @@ test.describe('Tests interacting with appointment state', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).toBeVisible();
   });
 
+  test('Unassign appointment, and check in "Ready for provider"', async () => {
+    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+
+    await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign).click();
+    await telemedDialogConfirm(page);
+    await awaitAppointmentsTableToBeVisible(page);
+    await expect(
+      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id))
+    ).toBeVisible();
+  });
+
+  test('Check message for patient', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardChatButton(resourceHandler.appointment.id!)).click();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.chatModalDescription)).toBeVisible();
+
+    const expectedSms =
+      'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
+    await expect(page.getByText(expectedSms)).toBeVisible({ timeout: 25000 });
+  });
+
+  test('Buttons on visit page should not appear', async () => {
+    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonUnassign)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.cancelThisVisitButton)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.inviteParticipant)).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).not.toBeVisible();
+  });
+
+  test('Assign my appointment back', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe).click();
+    await telemedDialogConfirm(page);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip)).toHaveText(
+      TelemedAppointmentStatusEnum['pre-video']
+    );
+  });
+
   test('Patient provided hpi data', async () => {
     await test.step('Medical conditions provided by patient', async () => {
       await expect(
