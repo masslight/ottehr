@@ -22,6 +22,7 @@ import {
   Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
@@ -33,7 +34,6 @@ import {
 import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 const CHUNK_SIZE = 50;
 
