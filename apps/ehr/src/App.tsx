@@ -35,7 +35,7 @@ import { FeatureFlagsProvider } from './features/css-module/context/featureFlags
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientFollowup from './components/patient/PatientFollowup';
 import AddPatientFollowup from './components/patient/AddPatientFollowup';
-import SchedulePage from './pages/Schedule';
+import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import AddSchedulePage from './pages/AddSchedulePage';
 import('@photonhealth/elements').catch(console.log);

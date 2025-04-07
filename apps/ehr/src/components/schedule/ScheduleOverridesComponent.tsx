@@ -1,4 +1,4 @@
-import React, { useState, ReactElement, Fragment, useMemo } from 'react';
+import React, { useState, ReactElement, Fragment, useMemo, useEffect } from 'react';
 import {
   Paper,
   Box,
@@ -20,42 +20,42 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { DateTime } from 'luxon';
 import DateSearch from '../DateSearch';
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import OfficeClosures from './OfficeClosures';
 import ScheduleOverridesDialog from './ScheduleOverridesDialog';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { OVERRIDE_DATE_FORMAT, datesCompareFn } from '../../helpers/formatDateTime';
-import { Closure, ScheduleExtension, DOW, Day, Overrides, ClosureType } from '../../types/types';
-import { SCHEDULE_EXTENSION_URL } from 'utils';
+import { Closure, DOW, Day, Overrides, ClosureType } from '../../types/types';
+import { ScheduleExtension } from 'utils';
 
 interface ScheduleOverridesProps {
-  item: Location | Practitioner | HealthcareService;
+  model: ScheduleExtension;
   dayOfWeek: string;
-  overrides: Overrides | undefined;
+  loading: boolean;
   closures: Closure[] | undefined;
-  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
-  setOverrides: React.Dispatch<React.SetStateAction<Overrides | undefined>>;
+  update: (overrides: Overrides | undefined) => Promise<void>;
   setClosures: (closures: Closure[] | undefined) => void;
-  updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   setToastMessage: React.Dispatch<React.SetStateAction<string | undefined>>;
   setToastType: React.Dispatch<React.SetStateAction<AlertColor | undefined>>;
   setSnackbarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-export function ScheduleOverrides({
-  item,
-  setItem,
-  overrides,
+export function ScheduleOverridesComponent({
+  model,
   closures,
-  setOverrides,
+  loading,
+  update,
   setClosures,
-  updateItem,
   setToastMessage,
   setToastType,
   setSnackbarOpen,
 }: ScheduleOverridesProps): ReactElement {
   const [isScheduleOverridesDialogOpen, setIsScheduleOverridesDialogOpen] = useState<boolean>(false);
   const [overridesOpen, setOverridesOpen] = React.useState<{ [index: string]: boolean }>({});
+  const [overrides, setOverrides] = React.useState<Overrides | undefined>(model.scheduleOverrides);
+
+  useEffect(() => {
+    setOverrides(model.scheduleOverrides);
+  }, [model.scheduleOverrides]);
 
   const setToastWarning = (message: string): void => {
     setToastMessage(message);
@@ -180,27 +180,21 @@ export function ScheduleOverrides({
                                 const overridesTemp = { ...overrides };
                                 const dateFormatted = date?.toLocaleString(DateTime.DATE_SHORT);
                                 if (dateFormatted) {
-                                  const scheduleExtension = item.extension?.find(
-                                    (extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL
-                                  )?.valueString;
-                                  if (scheduleExtension) {
-                                    const { schedule } = JSON.parse(scheduleExtension) as ScheduleExtension;
-                                    const currentDayOfWeek = date?.toFormat('cccc').toLowerCase() as DOW;
-                                    const currentDayInfo = currentDayOfWeek && schedule?.[currentDayOfWeek as DOW];
-
-                                    if (currentDayInfo) {
-                                      overridesTemp[dateFormatted] = {
-                                        open: currentDayInfo.open,
-                                        close: currentDayInfo.close,
-                                        openingBuffer: currentDayInfo.openingBuffer,
-                                        closingBuffer: currentDayInfo.closingBuffer,
-                                        hours: currentDayInfo.hours || [],
-                                      };
-                                    } else {
-                                      overridesTemp[dateFormatted] = overridesTemp[override];
-                                    }
-                                    delete overridesTemp[override];
+                                  const schedule = model.schedule;
+                                  const currentDayOfWeek = date?.toFormat('cccc').toLowerCase() as DOW;
+                                  const currentDayInfo = currentDayOfWeek && schedule?.[currentDayOfWeek as DOW];
+                                  if (currentDayInfo) {
+                                    overridesTemp[dateFormatted] = {
+                                      open: currentDayInfo.open,
+                                      close: currentDayInfo.close,
+                                      openingBuffer: currentDayInfo.openingBuffer,
+                                      closingBuffer: currentDayInfo.closingBuffer,
+                                      hours: currentDayInfo.hours || [],
+                                    };
+                                  } else {
+                                    overridesTemp[dateFormatted] = overridesTemp[override];
                                   }
+                                  delete overridesTemp[override];
                                 }
                                 setOverrides(overridesTemp);
                               }}
@@ -381,12 +375,13 @@ export function ScheduleOverrides({
           </Box>
         </form>
         <ScheduleOverridesDialog
-          item={item}
-          setItem={setItem}
-          setIsScheduleOverridesDialogOpen={setIsScheduleOverridesDialogOpen}
+          loading={loading}
           handleClose={() => setIsScheduleOverridesDialogOpen(false)}
           open={isScheduleOverridesDialogOpen}
-          updateItem={updateItem}
+          handleConfirm={() => {
+            void update(overrides);
+            setIsScheduleOverridesDialogOpen(false);
+          }}
         />
       </Paper>
     </>

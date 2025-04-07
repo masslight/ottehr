@@ -8,6 +8,7 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
+  ScheduleDTO,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -47,6 +48,7 @@ const GET_EMPLOYEES_ZAMBDA_ID = import.meta.env.VITE_APP_GET_EMPLOYEES_ZAMBDA_ID
 const GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID;
 const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID;
 const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
+const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -348,6 +350,23 @@ export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesRespon
 
     const response = await oystehr.zambda.execute({
       id: GET_EMPLOYEES_ZAMBDA_ID,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getSchedule = async (scheduleId: string, oystehr: Oystehr): Promise<ScheduleDTO> => {
+  try {
+    if (GET_EMPLOYEES_ZAMBDA_ID == null) {
+      throw new Error('get employees environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: EHR_GET_SCHEDULE_ZAMBDA_ID,
+      scheduleId,
     });
     return chooseJson(response);
   } catch (error: unknown) {

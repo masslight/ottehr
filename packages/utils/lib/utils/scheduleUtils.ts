@@ -1,5 +1,15 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Appointment, Location, Schedule, Slot, Encounter, Practitioner, HealthcareService, Resource } from 'fhir/r4b';
+import {
+  Appointment,
+  Location,
+  Schedule,
+  Slot,
+  Encounter,
+  Practitioner,
+  HealthcareService,
+  Resource,
+  FhirResource,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Closure,
@@ -22,6 +32,7 @@ import {
 } from './dateUtils';
 
 export const FIRST_AVAILABLE_SLOT_OFFSET_IN_MINUTES = 14;
+
 export interface WaitTimeRange {
   low: number;
   high: number;
@@ -83,6 +94,24 @@ export interface ScheduleExtension {
   schedule: DailySchedule;
   scheduleOverrides: ScheduleOverrides;
   closures: Closure[] | undefined;
+}
+
+export interface ScheduleDTOOwner {
+  type: FhirResource['resourceType'];
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  detailText?: string; // to take place of Location.address.line[0]
+  infoMessage?: string;
+  hoursOfOperation?: Location['hoursOfOperation'];
+}
+export interface ScheduleDTO {
+  id: string;
+  owner: ScheduleDTOOwner;
+  timezone: string;
+  schema: ScheduleExtension;
+  bookingLink?: string;
 }
 
 export type SlotCapacityMap = { [slot: string]: number };

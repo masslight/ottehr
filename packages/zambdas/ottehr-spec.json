@@ -785,6 +785,13 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
+    },
+    "EHR-GET-SCHEDULE": {
+      "name": "EHR-GET-SCHEDULE",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/schedule/get-schedule/index",
+      "zip": ".dist/zips/ehr-get-schedule.zip"
     }
   },
   "fhirResources": {

@@ -12,28 +12,26 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { Address, HealthcareService, Identifier, Location, Practitioner } from 'fhir/r4b';
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import Schedule from '../components/schedule/Schedule';
-import { getName } from '../components/ScheduleInformation';
+import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
-import { Operation } from 'fast-json-patch';
-import { getTimezone } from '../helpers/formatDateTime';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import { SCHEDULE_EXTENSION_URL } from 'utils';
+import { isValidUUID, ScheduleDTO } from 'utils';
+import { useQuery } from 'react-query';
+import { getSchedule } from '../api/api';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
-const START_SCHEDULE =
+/*const START_SCHEDULE =
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
 const IDENTIFIER_SLUG = 'https://fhir.ottehr.com/r4/slug';
-export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
+export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';*/
 const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
 
 export function getResource(
@@ -55,7 +53,7 @@ export default function SchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
   const { oystehr } = useApiClients();
   const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group';
-  const id = useParams().id as string;
+  const scheduleId = useParams().id as string;
 
   if (!scheduleType) {
     throw new Error('scheduleType is not defined');
@@ -63,70 +61,36 @@ export default function SchedulePage(): ReactElement {
 
   // state variables
   const [tabName, setTabName] = useState('schedule');
-  const [item, setItem] = useState<Location | Practitioner | HealthcareService | undefined>(undefined);
-  const [isItemActive, setIsItemActive] = useState<boolean>(false);
+  // const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
+  const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
   const [slug, setSlug] = useState<string | undefined>(undefined);
-  const [timezone, setTimezone] = useState<string | undefined>(undefined);
   const [saveLoading, setSaveLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   const defaultIntakeUrl = `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${scheduleType}`;
 
-  const isActive = (item: Location | Practitioner | HealthcareService): boolean => {
-    if (item.resourceType === 'Location') {
-      return item.status === 'active';
-    } else {
-      return item.active || false;
+  const { oystehrZambda } = useApiClients();
+  const { isLoading, isFetching, isError, isSuccess } = useQuery(
+    ['ehr-get-schedule', { zambdaClient: oystehrZambda }],
+    () => (oystehrZambda ? getSchedule(scheduleId, oystehrZambda) : null),
+    {
+      onSuccess: (response) => {
+        if (response !== null) {
+          setItem(response);
+        }
+      },
+      enabled: !!oystehrZambda && isValidUUID(scheduleId ?? ''),
     }
-  };
+  );
 
-  // get the location from the database
-  useEffect(() => {
-    async function getItem(schedule: 'Location' | 'Practitioner' | 'HealthcareService'): Promise<void> {
-      if (!oystehr) {
-        return;
-      }
-      const itemTemp: Location | Practitioner | HealthcareService = (await oystehr.fhir.get({
-        resourceType: schedule,
-        id: id,
-      })) as any;
-      setItem(itemTemp);
-      const slugTemp = itemTemp?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
-      setSlug(slugTemp?.value);
-      setTimezone(getTimezone(itemTemp));
-      setIsItemActive(isActive(itemTemp));
-    }
-    void getItem(getResource(scheduleType));
-  }, [oystehr, id, scheduleType]);
-
-  // utility functions
-  const addressStringFromAddress = (address: Address): string => {
-    let addressString = '';
-    if (address.line) {
-      addressString += `, ${address.line}`;
-    }
-    if (address.city) {
-      addressString += `, ${address.city}`;
-    }
-    if (address.state) {
-      addressString += `, ${address.state}`;
-    }
-    if (address.postalCode) {
-      addressString += `, ${address.postalCode}`;
-    }
-    // return without trailing comma
-
-    if (addressString !== '') {
-      addressString = addressString.substring(2);
-    }
-    return addressString;
-  };
+  console.log('scheduleFetchState (loading/fetching/error/success): ', isLoading, isFetching, isError, isSuccess);
 
   // handle functions
   const handleTabChange = (event: React.SyntheticEvent, newTabName: string): void => {
     setTabName(newTabName);
   };
 
+  /*
   const getStatusOperationJSON = (
     resourceType: 'Location' | 'Practitioner' | 'HealthcareService',
     active: boolean
@@ -196,6 +160,7 @@ export default function SchedulePage(): ReactElement {
     })) as Location;
     setItem(patchedResource);
   }
+    */
 
   async function onSave(event: any): Promise<void> {
     event.preventDefault();
@@ -204,7 +169,7 @@ export default function SchedulePage(): ReactElement {
       return;
     }
     setSaveLoading(true);
-    const identifiers = item?.identifier || [];
+    /*const identifiers = item?.identifier || [];
     // make a copy of identifier
     let identifiersTemp: Identifier[] | undefined = [...identifiers];
     const hasIdentifiers = identifiersTemp.length > 0;
@@ -298,32 +263,22 @@ export default function SchedulePage(): ReactElement {
       operations: patchOperations,
     });
 
-    setItem(itemTemp as Location | Practitioner | HealthcareService);
+    setItem(itemTemp as Location | Practitioner | HealthcareService);*/
     setSaveLoading(false);
   }
 
-  const setStatus = async (item: Location | Practitioner | HealthcareService, isActive: boolean): Promise<void> => {
+  const setActiveStatus = async (isActive: boolean): Promise<void> => {
     if (!oystehr) {
       throw new Error('oystehr client is not defined');
     }
+    console.log('setting active status to', isActive);
+  };
 
-    if (!item.id) {
-      throw new Error('item id is not defined');
+  const updateTimezone = async (tz: string | null): Promise<void> => {
+    if (!oystehr) {
+      throw new Error('oystehr client is not defined');
     }
-
-    if (item.resourceType === 'Location') {
-      item.status = isActive ? 'active' : 'inactive';
-    } else {
-      item.active = isActive;
-    }
-    setItem(item);
-    setIsItemActive(isActive);
-
-    await oystehr.fhir.patch({
-      resourceType: item.resourceType,
-      id: item.id,
-      operations: [getStatusOperationJSON(item.resourceType, isActive)],
-    });
+    console.log('updating timezone to: ', tz);
   };
 
   return (
@@ -335,20 +290,18 @@ export default function SchedulePage(): ReactElement {
             <CustomBreadcrumbs
               chain={[
                 { link: '/schedules', children: 'Schedules' },
-                { link: '#', children: getName(item) || <Skeleton width={150} /> },
+                { link: '#', children: item?.owner?.name || <Skeleton width={150} /> },
               ]}
             />
 
             {/* Page title */}
             <Typography variant="h3" color="primary.dark" marginTop={1}>
-              {getName(item)}
+              {item?.owner?.name || <Skeleton width={150} />}
             </Typography>
             {/* Address line */}
-            {(item.resourceType === 'Location' || item.resourceType === 'Practitioner') && (
+            {item?.owner.detailText && (
               <Typography marginBottom={1} fontWeight={400}>
-                {item.resourceType === 'Location'
-                  ? item.address && addressStringFromAddress(item.address)
-                  : item.address && addressStringFromAddress(item.address[0])}
+                {item.owner.detailText}
               </Typography>
             )}
             {/* Tabs */}
@@ -371,25 +324,16 @@ export default function SchedulePage(): ReactElement {
               >
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
                   {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
-                  {['location', 'provider'].includes(scheduleType) &&
-                    (item.extension?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
-                      ?.valueString ? (
-                      <Schedule id={id} item={item} setItem={setItem}></Schedule>
-                    ) : (
-                      <Typography variant="body1">
-                        This {scheduleType} doesn&apos;t have a schedule.{' '}
-                        <Button type="button" variant="contained" onClick={createSchedule}>
-                          Create a new schedule
-                        </Button>
-                      </Typography>
-                    ))}
+                  {scheduleType !== 'group' && (
+                    <ScheduleComponent id={scheduleId} item={item} loading={false} update={onSave}></ScheduleComponent>
+                  )}
                 </TabPanel>
                 {/* General tab */}
                 <TabPanel value="general">
                   <Paper sx={{ marginBottom: 2, padding: 3 }}>
                     <Box display={'flex'} alignItems={'center'}>
-                      <Switch checked={isItemActive} onClick={() => setStatus(item, !isItemActive)} />
-                      <Typography>{isItemActive ? 'Active' : 'Inactive'}</Typography>
+                      <Switch checked={item.owner.active} onClick={() => setActiveStatus(!item.owner.active)} />
+                      <Typography>{item.owner.active ? 'Active' : 'Inactive'}</Typography>
                     </Box>
                     <hr />
                     <br />
@@ -435,10 +379,10 @@ export default function SchedulePage(): ReactElement {
                         options={TIMEZONES}
                         renderInput={(params) => <TextField {...params} label="Timezone" />}
                         sx={{ marginTop: 2, width: '250px' }}
-                        value={timezone}
-                        onChange={(event, newValue) => {
+                        value={item.timezone}
+                        onChange={(_event, newValue) => {
                           if (newValue) {
-                            setTimezone(newValue);
+                            void updateTimezone(newValue);
                           }
                         }}
                       />

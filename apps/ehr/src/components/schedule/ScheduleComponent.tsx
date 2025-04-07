@@ -17,14 +17,12 @@ import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import React, { ReactElement, useMemo } from 'react';
 import { ScheduleCapacity } from './ScheduleCapacity';
-import { HealthcareService, Location, LocationHoursOfOperation, Practitioner } from 'fhir/r4b';
-import { ScheduleOverrides } from './ScheduleOverrides';
+import { ScheduleOverridesComponent } from './ScheduleOverridesComponent';
 import { otherColors } from '../../CustomThemeProvider';
 import { DateTime } from 'luxon';
-import { Operation } from 'fast-json-patch';
-import { Closure, Day, Overrides, ScheduleExtension, Weekday, Weekdays } from '../../types/types';
-import { useApiClients } from '../../hooks/useAppClients';
-import { SCHEDULE_EXTENSION_URL } from 'utils';
+import { Closure, Day, Overrides, Weekday, Weekdays } from '../../types/types';
+// import { useApiClients } from '../../hooks/useAppClients';
+import { ScheduleDTO, sleep } from 'utils';
 
 interface InfoForDayProps {
   day: Weekday;
@@ -279,28 +277,32 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
 }
 
 interface ScheduleProps {
-  item: Location | Practitioner | HealthcareService;
+  item: ScheduleDTO;
   id: string;
-  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
+  loading: boolean;
+  update: (scheduleData: any) => Promise<void>;
 }
 
-export default function Schedule({ item, setItem }: ScheduleProps): ReactElement {
+export default function ScheduleComponent({ item, update, loading }: ScheduleProps): ReactElement {
   const today = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
   const [dayOfWeek, setDayOfWeek] = React.useState(today);
-  const [days, setDays] = React.useState<Weekdays | undefined>(undefined);
-  const [overrides, setOverrides] = React.useState<Overrides | undefined>(undefined);
-  const [closures, setClosures] = React.useState<Closure[]>();
-  const [loading, setLoading] = React.useState<boolean>(false);
-  const { oystehr } = useApiClients();
+  const [days, setDays] = React.useState<Weekdays | undefined>(item.schema.schedule);
+  const [closures, setClosures] = React.useState<Closure[] | undefined>(item.schema.closures);
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
+  const [savingOverrides, setSavingOverrides] = React.useState<boolean>(false);
 
   const handleTabChange = (event: React.SyntheticEvent, newDayOfWeek: string): void => {
     setDayOfWeek(newDayOfWeek);
   };
 
-  function getWorkingHoursOperation(): Operation | undefined {
+  const handleUpdate = async (data: any): Promise<void> => {
+    console.log('handling update', data);
+    await update(data);
+  };
+
+  /*function getWorkingHoursOperation(): Operation | undefined {
     if (!days) {
       return;
     }
@@ -333,7 +335,7 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
       return undefined;
     }
 
-    if (item.resourceType === 'Location') {
+    if (item.owner.hoursOfOperation) {
       return {
         op: item.hoursOfOperation ? 'replace' : 'add',
         path: '/hoursOfOperation',
@@ -342,9 +344,9 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
     } else {
       return undefined;
     }
-  }
+  }*/
 
-  async function updateItem(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+  /*async function updateItem(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     const extensionTemp = item.extension;
     const extensionSchedule = extensionTemp?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL);
@@ -394,23 +396,24 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
     } finally {
       setLoading(false);
     }
-  }
+  }*/
+
+  const saveOverrides = async (overrides: Overrides | undefined): Promise<void> => {
+    setSavingOverrides(true);
+    console.log('handling overrides', overrides);
+    await sleep(500);
+    setSavingOverrides(false);
+  };
 
   const handleSnackBarClose = (): void => {
     setSnackbarOpen(false);
   };
 
   React.useEffect(() => {
-    const scheduleExtension = item.extension?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
-      ?.valueString;
-
-    if (scheduleExtension) {
-      const { schedule, scheduleOverrides, closures } = JSON.parse(scheduleExtension) as ScheduleExtension;
-      setDays(schedule);
-      setOverrides(scheduleOverrides);
-      setClosures(closures);
-    }
-  }, [item.extension]);
+    setDays(item.schema.schedule);
+    // setOverrides(item.schema.scheduleOverrides);
+    setClosures(item.schema.closures ?? []);
+  }, [item]);
 
   return (
     <>
@@ -473,7 +476,7 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
                       setDays(daysTemp);
                     }}
                     dayOfWeek={dayOfWeek}
-                    updateItem={updateItem}
+                    updateItem={handleUpdate}
                     loading={loading}
                   ></InfoForDay>
                 </TabPanel>
@@ -492,15 +495,13 @@ export default function Schedule({ item, setItem }: ScheduleProps): ReactElement
           </Alert>
         </Snackbar>
       </TabContext>
-      <ScheduleOverrides
-        overrides={overrides}
+      <ScheduleOverridesComponent
+        loading={savingOverrides}
         closures={closures}
-        item={item}
+        model={item.schema}
         dayOfWeek={dayOfWeek}
-        setItem={setItem}
-        setOverrides={setOverrides}
         setClosures={setClosures}
-        updateItem={updateItem}
+        update={saveOverrides}
         setToastMessage={setToastMessage}
         setToastType={setToastType}
         setSnackbarOpen={setSnackbarOpen}

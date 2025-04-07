@@ -11,24 +11,21 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
-import React, { Dispatch, MouseEventHandler, ReactElement, SetStateAction, useState } from 'react';
+import { MouseEventHandler, ReactElement } from 'react';
 import { otherColors } from '../../CustomThemeProvider';
 
 interface ScheduleOverridesDialogProps {
-  item: Location | Practitioner | HealthcareService;
-  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
+  loading: boolean;
   handleClose: MouseEventHandler<HTMLButtonElement>;
   open: boolean;
-  setIsScheduleOverridesDialogOpen: Dispatch<SetStateAction<boolean>>;
-  updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  handleConfirm: () => void;
 }
 
 export default function ScheduleOverridesDialog({
   handleClose,
   open,
-  updateItem,
-  setIsScheduleOverridesDialogOpen,
+  loading,
+  handleConfirm,
 }: ScheduleOverridesDialogProps): ReactElement {
   const buttonSx = {
     fontWeight: '700',
@@ -37,7 +34,6 @@ export default function ScheduleOverridesDialog({
   };
 
   const theme = useTheme();
-  const [loading, setLoading] = useState<boolean>(false);
 
   return (
     <Dialog
@@ -80,11 +76,8 @@ export default function ScheduleOverridesDialog({
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'flex-start' }}>
         <form
-          onSubmit={async (event) => {
-            setLoading(true);
-            await updateItem(event);
-            setIsScheduleOverridesDialogOpen(false);
-            setLoading(false);
+          onSubmit={() => {
+            handleConfirm();
           }}
         >
           <LoadingButton

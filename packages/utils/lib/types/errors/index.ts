@@ -19,6 +19,7 @@ export enum APIErrorCode {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = 4015,
   BILLING_PROVIDER_NOT_FOUND = 4016,
   FHIR_RESOURCE_NOT_FOUND = 4017,
+  SCHEDULE_OWNER_NOT_FOUND = 4018,
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   MISSING_REQUEST_BODY = 4200,
@@ -27,6 +28,7 @@ export enum APIErrorCode {
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
   MISCONFIGURED_SCHEDULING_GROUP = 4302,
+  MISSING_SCHEDULE_EXTENSION = 4304,
 }
 
 export interface APIError {
@@ -162,6 +164,11 @@ export const SCHEDULE_NOT_FOUND_ERROR = {
   message: 'Schedule could not be found',
 };
 
+export const SCHEDULE_OWNER_NOT_FOUND_ERROR = {
+  code: APIErrorCode.SCHEDULE_NOT_FOUND,
+  message: 'Schedule.actor could not be found',
+};
+
 export const SCHEDULE_NOT_FOUND_CUSTOM_ERROR = (message: string): APIError => ({
   code: APIErrorCode.SCHEDULE_NOT_FOUND,
   message,
@@ -216,4 +223,9 @@ export const MISCONFIGURED_SCHEDULING_GROUP = (message: string): APIError => {
     code: APIErrorCode.MISCONFIGURED_SCHEDULING_GROUP,
     message,
   };
+};
+export const MISSING_SCHEDULE_EXTENSION_ERROR = {
+  code: APIErrorCode.MISSING_SCHEDULE_EXTENSION,
+  // todo: link to the documentation
+  message: 'The schedule extension is missing from the Schedule resource',
 };
