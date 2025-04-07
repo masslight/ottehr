@@ -389,7 +389,7 @@
       "name": "CREATE_REVIEW_LAB_RESULTS_TASK",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/subscriptions/create-review-lab-results-task/index",
+      "src": "src/subscriptions/diagnostic-report/create-review-lab-results-task/index",
       "zip": ".dist/zips/create-review-lab-results-task.zip",
       "subscription": {
         "criteria": "DiagnosticReport?category=OSL",

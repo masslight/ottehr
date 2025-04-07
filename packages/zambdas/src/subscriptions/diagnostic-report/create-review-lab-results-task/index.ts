@@ -2,11 +2,11 @@ import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task } from 'fhir/r4b';
 import { Secrets } from 'utils';
-import { ZambdaInput } from '../../shared/types';
+import { ZambdaInput } from '../../../shared/types';
 import { validateRequestParameters } from './validateRequestParameters';
 import { LAB_ORDER_TASK } from 'utils';
-import { createOystehrClient } from '../../shared/helpers';
-import { getAuth0Token, topLevelCatch } from '../../shared';
+import { createOystehrClient } from '../../../shared/helpers';
+import { getAuth0Token, topLevelCatch } from '../../../shared';
 
 export interface ReviewLabResultSubscriptionInput {
   diagnosticReport: DiagnosticReport;
@@ -73,7 +73,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // make the new task
     const newTask: Task = {
       resourceType: 'Task',
-      intent: 'reflex-order', // TODO: should this be 'order' instead?
+      intent: 'order',
       basedOn: [
         {
           type: 'DiagnosticReport',
