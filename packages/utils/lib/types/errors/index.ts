@@ -28,6 +28,7 @@ export enum APIErrorCode {
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
   STRIPE_CUSTOMER_ID_NOT_FOUND = 4302,
   STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
+  MISSING_PATIENT_COVERAGE_INFO = 4304,
 }
 
 export interface APIError {
@@ -215,4 +216,9 @@ export const STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR: APIError = {
 export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
   code: APIErrorCode.STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED,
   message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
+};
+
+export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
+  code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
+  message: 'No coverage information found for this patient',
 };

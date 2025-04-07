@@ -1,5 +1,4 @@
-import { describe, it, expect, assert } from 'vitest';
-import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import { BatchInputPostRequest } from '@oystehr/sdk';
 import {
   Account,
   Coverage,
@@ -9,30 +8,31 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID, flattenItems } from 'utils';
-import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
-import { BatchInputPostRequest } from '@oystehr/sdk';
+import { COVERAGE_MEMBER_IDENTIFIER_BASE, flattenItems, INSURANCE_PLAN_PAYER_META_TAG_CODE, isValidUUID } from 'utils';
+import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import { v4 as uuidv4 } from 'uuid';
+import { assert, describe, expect, it } from 'vitest';
+import {
+  createAccount,
+  createContainedGuarantor,
+  extractAccountGuarantor,
+  getAccountOperations,
+  GetAccountOperationsOutput,
+  getCoverageResources,
+  getCoverageUpdateResourcesFromUnbundled,
+  getPatientAddressPatchOps,
+  getPrimaryPolicyHolderFromAnswers,
+  getSecondaryPolicyHolderFromAnswers,
+  resolveCoverageUpdates,
+  resolveGuarantor,
+} from '../../../../ehr/shared/harvest';
 import {
   expectedAccountGuarantorFromQR1 as rawAGQR1,
   expectedPrimaryPolicyHolderFromQR1 as rawPPHQR1,
   expectedSecondaryPolicyHolderFromQR1 as rawSPHQR1,
 } from './data/expected-coverage-resources-qr1';
 import { fillReferences } from './helpers';
-import {
-  getCoverageResources,
-  getPatientAddressPatchOps,
-  getPrimaryPolicyHolderFromAnswers,
-  getSecondaryPolicyHolderFromAnswers,
-  extractAccountGuarantor,
-  createContainedGuarantor,
-  createAccount,
-  resolveCoverageUpdates,
-  resolveGuarantor,
-  getAccountOperations,
-  getCoverageUpdateResourcesFromUnbundled,
-  GetAccountOperationsOutput,
-} from '../../../../ehr/shared/harvest';
 
 const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
 
@@ -3194,7 +3194,7 @@ const insurancePlans1: InsurancePlan[] = [
     meta: {
       tag: [
         {
-          code: 'insurance-payer-plan',
+          code: INSURANCE_PLAN_PAYER_META_TAG_CODE,
         },
       ],
       versionId: 'dd91938c-7dac-4713-80bf-d813e4e798e5',
@@ -3255,7 +3255,7 @@ const insurancePlans1: InsurancePlan[] = [
     meta: {
       tag: [
         {
-          code: 'insurance-payer-plan',
+          code: INSURANCE_PLAN_PAYER_META_TAG_CODE,
         },
       ],
       versionId: 'b8833d6b-9530-4db2-af23-ed18ede74c56',
