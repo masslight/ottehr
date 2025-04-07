@@ -10,7 +10,7 @@ export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
 
-  const { labOrders, loading } = usePatientLabOrders({
+  const { labOrders, loading, updateTask } = usePatientLabOrders({
     serviceRequestId,
   });
 
@@ -33,7 +33,7 @@ export const OrderDetailsPage: React.FC = () => {
 
   return (
     <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
-      <DetailsWithResults labOrder={labOrder} />
+      <DetailsWithResults labOrder={labOrder} updateTask={updateTask} />
     </WithLabBreadcrumbs>
   );
 };

@@ -134,6 +134,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:get-lab-orders',
           'Zambda:Function:get-lab-order-details',
           'Zambda:Function:submit-lab-order',
+          'Zambda:Function:update-lab-order-resources',
         ],
         action: ['Zambda:InvokeFunction'],
         effect: 'Allow',

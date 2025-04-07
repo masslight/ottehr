@@ -843,7 +843,7 @@ export const parseOrderDetails = ({
     return history;
   })();
 
-  const resultDetails = parseLResultsDetails(serviceRequest, results, tasks);
+  const resultsDetails = parseLResultsDetails(serviceRequest, results, tasks);
 
   return {
     orderId,
@@ -862,7 +862,7 @@ export const parseOrderDetails = ({
     performedBy,
     appointmentId,
     history,
-    resultsDetails: resultDetails,
+    resultsDetails,
   };
 };
 
@@ -920,7 +920,7 @@ export const parseResultDetails = (
 
   const PSTTask = parseTaskPST(tasks, serviceRequest.id);
 
-  return {
+  const details = {
     testName: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
     labStatus:
       // todo: move status checkers to helper
@@ -939,6 +939,8 @@ export const parseResultDetails = (
     taskId: task.id,
     receivedDate: task.authoredOn || '',
   };
+
+  return details;
 };
 
 /**

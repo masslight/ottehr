@@ -1,7 +1,13 @@
 import { useCallback, useState, useEffect, ReactElement } from 'react';
-import { EMPTY_PAGINATION, LabOrderDTO, DEFAULT_LABS_ITEMS_PER_PAGE, GetLabOrdersParameters } from 'utils';
+import {
+  EMPTY_PAGINATION,
+  LabOrderDTO,
+  DEFAULT_LABS_ITEMS_PER_PAGE,
+  GetLabOrdersParameters,
+  UpdateLabOrderResourceParams,
+} from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getLabOrders, deleteLabOrder } from '../../../../api/api';
+import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
 import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
 
@@ -32,6 +38,7 @@ interface UsePatientLabOrdersResult {
   deleteOrder: (params: DeleteOrderParams) => Promise<boolean>;
   onDeleteOrder: (order: LabOrderDTO, encounterIdOverride?: string) => void;
   DeleteOrderDialog: ReactElement | null;
+  updateTask: ({ taskId, event }: UpdateLabOrderResourceParams) => Promise<void>;
 }
 
 export const usePatientLabOrders = (options: {
@@ -222,6 +229,19 @@ export const usePatientLabOrders = (options: {
     encounterId,
   });
 
+  const updateTask = useCallback(
+    async ({ taskId, event }: UpdateLabOrderResourceParams): Promise<void> => {
+      if (!oystehrZambda) {
+        console.error('oystehrZambda is not defined');
+        return;
+      }
+
+      await updateLabOrderResources(oystehrZambda, { taskId, event });
+      await fetchLabOrders(getCurrentSearchParamsForPage(1));
+    },
+    [oystehrZambda, fetchLabOrders, getCurrentSearchParamsForPage]
+  );
+
   return {
     labOrders,
     loading,
@@ -239,5 +259,6 @@ export const usePatientLabOrders = (options: {
     onDeleteOrder,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
+    updateTask,
   };
 };

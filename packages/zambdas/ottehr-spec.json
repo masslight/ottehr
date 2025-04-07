@@ -824,6 +824,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/submit-lab-order/index",
       "zip": ".dist/zips/submit-lab-order.zip"
+    },
+    "UPDATE-LAB-ORDER-RESOURCES": {
+      "name": "UPDATE-LAB-ORDER-RESOURCES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-lab-order-resources/index",
+      "zip": ".dist/zips/update-lab-order-resources.zip"
     }
   },
   "fhirResources": {

@@ -155,3 +155,10 @@ export interface LabOrderResourcesRes {
   coverageName: string;
   labs: OrderableItemSearchResult[];
 }
+
+export const VALID_LAB_ORDER_UPDATE_EVENTS = ['reviewed'] as const;
+
+export interface UpdateLabOrderResourceParams {
+  taskId: string;
+  event: (typeof VALID_LAB_ORDER_UPDATE_EVENTS)[number];
+}
