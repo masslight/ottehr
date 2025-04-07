@@ -319,72 +319,7 @@ export class PatientInformationPage {
     );
   }
 
-  async selectSexualOrientation(sexualOrientation: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.sexualOrientation).click();
-    await this.#page.getByText(sexualOrientation, { exact: true }).click();
-  }
-
-  async verifySexualOrientation(sexualOrientation: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.sexualOrientation).locator('input')
-    ).toHaveValue(sexualOrientation);
-  }
-
-  async selectGenderIdentity(genderIdentity: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity).click();
-    await this.#page.getByText(genderIdentity, { exact: true }).click();
-  }
-
-  async verifyGenderIdentity(genderIdentity: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity).locator('input')
-    ).toHaveValue(genderIdentity);
-  }
-
-  async selectHowDidYouHear(howDidYouHear: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.howDidYouHearAboutUs).click();
-    await this.#page.getByText(howDidYouHear, { exact: true }).click();
-  }
-
-  async verifyHowDidYouHear(howDidYouHear: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.howDidYouHearAboutUs).locator('input')
-    ).toHaveValue(howDidYouHear);
-  }
-
-  async selectSendMarketingMessages(sendMarketingMessages: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.sendMarketingMessages).click();
-    await this.#page.getByText(sendMarketingMessages, { exact: true }).click();
-  }
-
-  async verifySendMarketingMessages(sendMarketingMessages: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.sendMarketingMessages).locator('input')
-    ).toHaveValue(sendMarketingMessages);
-  }
-
-  async selectPreferredLanguage(preferredLanguage: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.preferredLanguage).click();
-    await this.#page.getByText(preferredLanguage, { exact: true }).click();
-  }
-
-  async verifyPreferredLanguage(preferredLanguage: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.preferredLanguage).locator('input')
-    ).toHaveValue(preferredLanguage);
-  }
-  async selectCommonWellConsent(commonWellConsent: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent).click();
-    await this.#page.getByText(commonWellConsent, { exact: true }).click();
-  }
-
-  async verifyCommonWellConsent(commonWellConsent: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent).locator('input')
-    ).toHaveValue(commonWellConsent);
-  }
-
-  async selectRelationship(relationship: string): Promise<void> {
+  async selectRelationshipFromResponsibleContainer(relationship: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.relationshipDropdown).click();
     await this.#page.getByText(relationship, { exact: true }).click();
   }
