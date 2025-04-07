@@ -3,6 +3,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
+  Account,
   Appointment,
   Encounter,
   FhirResource,
@@ -166,7 +167,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
     try {
       const bundleResources = flattenBundleResources(accountBundle);
-      const accountResource = bundleResources.find((res) => res.resourceType === 'Account');
+      const accountResource = bundleResources.find((res) => res.resourceType === 'Account') as Account;
       if (accountResource) {
         const guarantorReference = getActiveAccountGuarantorReference(accountResource);
         if (guarantorReference) {
