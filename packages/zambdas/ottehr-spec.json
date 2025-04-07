@@ -788,7 +788,7 @@
     },
     "AI-INTERVIEW-GENERATE-DIAGNOSTIC-REPORT": {
       "name": "AI-INTERVIEW-GENERATE-DIAGNOSTIC-REPORT",
-      "type": "http_auth",
+      "type": "subscription",
       "runtime": "nodejs20.x",
       "src": "src/subscriptions/ai-interview/generate-diagnostic-report/index",
       "zip": ".dist/zips/ai-interview-generate-diagnostic-report.zip",
