@@ -368,3 +368,7 @@ test('Check state, ethnicity, race, relationship to patient are required', async
   await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PATIENT_RACE);
   await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
 });
+
+test('fail', async () => {
+  fail();
+});

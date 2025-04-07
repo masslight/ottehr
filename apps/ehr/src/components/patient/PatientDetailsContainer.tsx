@@ -82,21 +82,11 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           }}
         />
       </Row>
-      <Row label="Sexual orientation">
-        <FormSelect
-          name={FormFields.sexualOrientation.key}
-          control={control}
-          options={SEXUAL_ORIENTATION_OPTIONS}
-          data-testid={dataTestIds.patientDetailsContainer.sexualOrientation}
-        />
+      <Row label="Sexual orientation" dataTestId={dataTestIds.patientDetailsContainer.sexualOrientation}>
+        <FormSelect name={FormFields.sexualOrientation.key} control={control} options={SEXUAL_ORIENTATION_OPTIONS} />
       </Row>
-      <Row label="Gender identity">
-        <FormSelect
-          name={FormFields.genderIdentity.key}
-          control={control}
-          options={GENDER_IDENTITY_OPTIONS}
-          data-testid={dataTestIds.patientDetailsContainer.genderIdentity}
-        />
+      <Row label="Gender identity" dataTestId={dataTestIds.patientDetailsContainer.genderIdentity}>
+        <FormSelect name={FormFields.genderIdentity.key} control={control} options={GENDER_IDENTITY_OPTIONS} />
       </Row>
       {genderIdentityCurrentValue === 'Non-binary gender identity' && (
         <Box
@@ -111,13 +101,8 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           </Box>
         </Box>
       )}
-      <Row label="How did you hear about us?">
-        <FormSelect
-          name={FormFields.pointOfDiscovery.key}
-          control={control}
-          options={POINT_OF_DISCOVERY_OPTIONS}
-          data-testid={dataTestIds.patientDetailsContainer.howDidYouHearAboutUs}
-        />
+      <Row label="How did you hear about us?" dataTestId={dataTestIds.patientDetailsContainer.howDidYouHearAboutUs}>
+        <FormSelect name={FormFields.pointOfDiscovery.key} control={control} options={POINT_OF_DISCOVERY_OPTIONS} />
       </Row>
       <Box
         sx={{
