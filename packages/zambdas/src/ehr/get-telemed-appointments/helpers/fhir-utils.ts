@@ -11,7 +11,7 @@ import {
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
 import { LocationIdToAbbreviationMap } from './types';
-import { isNonPaperworkQuestionnaireResponse } from '../../../shared';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export const getAllResourcesFromFhir = async (
   oystehr: Oystehr,

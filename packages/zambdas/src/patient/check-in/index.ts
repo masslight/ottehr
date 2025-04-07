@@ -13,7 +13,7 @@ import {
   Secrets,
   TaskIndicator,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse, topLevelCatch, ZambdaInput } from '../../shared';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import '../../shared/instrument.mjs';
 import {
   captureSentryException,
@@ -27,6 +27,7 @@ import {
 import { getUser } from '../../shared/auth';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface CheckInInput {
   appointment: string;

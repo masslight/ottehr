@@ -17,12 +17,12 @@ import {
   createOystehrClient,
   getAuth0Token,
   getUser,
-  isNonPaperworkQuestionnaireResponse,
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
 import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPatientsInput {
   patientID?: string;

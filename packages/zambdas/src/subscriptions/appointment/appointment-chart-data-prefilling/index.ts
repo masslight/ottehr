@@ -30,13 +30,10 @@ import {
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
 } from '../../../shared/chart-data';
-import {
-  createOystehrClient,
-  getVideoRoomResourceExtension,
-  isNonPaperworkQuestionnaireResponse,
-} from '../../../shared/helpers';
+import { createOystehrClient, getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { createExamObservations } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 const CHUNK_SIZE = 50;
 
