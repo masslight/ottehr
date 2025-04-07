@@ -25,7 +25,6 @@ import {
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
 } from '../../types';
-import { capitalize } from 'lodash-es';
 import { PRACTICE_NAME_URL } from '../../types';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
@@ -1139,7 +1138,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       answer = makeAnswer(primarySubscriberBirthSex);
     }
     if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
-      answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
+      answer = makeAnswer(secondarySubscriberBirthSex);
     }
     if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
       answer = makeAnswer(relationshipToInsured);
