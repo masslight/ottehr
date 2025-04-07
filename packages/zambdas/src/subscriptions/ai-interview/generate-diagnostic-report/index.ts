@@ -10,16 +10,18 @@ export const INTERVIEW_COMPLETED = 'Interview completed.';
 const PROMPT = `I'll give you a transcript of a chat between a healthcare provider and a patient. 
 Please generate history of present illness, past medical history, past surgical history, medications history, 
 allergies, social history, family history and potential diagnoses with ICD-10 codes for the patient. 
-Please present the response in JSON format. The transcript:`;
+Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
+Use a single string property in JSON for each section except potential diagnoses. 
+The transcript: `;
 
 const AI_RESPONSE_KEY_TO_LOINC = {
-  history_of_present_illness: '10164-2',
-  past_medical_history: '10158-4',
-  past_surgical_history: '10167-5',
-  medications_history: '10160-0',
+  historyOfPresentIllness: '10164-2',
+  pastMedicalHistory: '10158-4',
+  pastSurgicalHistory: '10167-5',
+  medicationsHistory: '10160-0',
   allergies: '10155-0',
-  social_history: '10166-7',
-  family_history: '10157-6',
+  socialHistory: '10166-7',
+  familyHistory: '10157-6',
 };
 
 let oystehrToken: string;
@@ -39,10 +41,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const aiResponseString = (
       await invokeChatbot([{ role: 'user', content: PROMPT + '\n' + chatTranscript }], secrets)
     ).content.toString();
+    console.log(`AI response: "${aiResponseString}"`);
     const aiResponse = JSON.parse(aiResponseString);
     const observations = createObservations(aiResponse);
     const oystehr = await createOystehr(secrets);
-    const diagnosticReport = await oystehr.fhir.create<DiagnosticReport>({
+    const diagnosticReport: DiagnosticReport = {
       resourceType: 'DiagnosticReport',
       status: 'final',
       category: [
@@ -68,27 +71,27 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         return { reference: '#' + observation.id };
       }),
       contained: observations,
-      extension: aiResponse.potential_diagnoses?.map(
-        (diagnosis: { diagnosis: any; icd10_code: string; rationale: string }) => {
-          return {
-            ...FHIR_EXTENSION.DiagnosticReport.potentialDiagnosis,
-            valueCodeableConcept: {
-              coding: [
-                {
-                  system: 'http://hl7.org/fhir/sid/icd-10',
-                  code: diagnosis.icd10_code,
-                  display: diagnosis.diagnosis,
-                },
-              ],
-            },
-            text: diagnosis.rationale,
-          };
-        }
-      ),
-    });
+      extension: aiResponse.potentialDiagnoses?.map((diagnosis: { diagnosis: any; icd10: string }) => {
+        return {
+          ...FHIR_EXTENSION.DiagnosticReport.potentialDiagnosis,
+          valueCodeableConcept: {
+            coding: [
+              {
+                system: 'http://hl7.org/fhir/sid/icd-10',
+                code: diagnosis.icd10,
+                display: diagnosis.diagnosis,
+              },
+            ],
+          },
+        };
+      }),
+    };
+    console.log(`Creating DiagnosticReport: "${JSON.stringify(diagnosticReport, null, 2)}"`);
+    const createdDiagnosticReport = await oystehr.fhir.create<DiagnosticReport>(diagnosticReport);
+    console.log(`Created DiagnosticReport/${createdDiagnosticReport.id}`);
     return {
       statusCode: 200,
-      body: JSON.stringify(`Successfully created DiagnosticReport/${diagnosticReport.id}`),
+      body: JSON.stringify(`Successfully created DiagnosticReport/${createdDiagnosticReport.id}`),
     };
   } catch (error: any) {
     console.log('error', error, error.issue);
