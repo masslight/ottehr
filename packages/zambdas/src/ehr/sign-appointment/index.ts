@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
+import { FhirResource } from 'fhir/r4b';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -95,9 +96,19 @@ export const performEffect = async (
     isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
 
-  const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
-    (promise) => promise.response
-  );
+  const [chartDataPromiseResponse, additionalChartDataPromiseResponse] = await Promise.all([
+    chartDataPromise,
+    additionalChartDataPromise,
+  ]);
+  const { response: chartData, publishExcuseNotesOps } = chartDataPromiseResponse;
+  const { response: additionalChartData } = additionalChartDataPromiseResponse;
+
+  try {
+    await oystehr.fhir.batch<FhirResource>({ requests: publishExcuseNotesOps });
+  } catch (error) {
+    console.log('Error publishing excuse notes...', error, JSON.stringify(error));
+    throw new Error('Unable to publish excuse notes');
+  }
 
   console.log('Chart data received');
   const pdfInfo = await composeAndCreateVisitNotePdf(

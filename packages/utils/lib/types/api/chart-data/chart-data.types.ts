@@ -1,3 +1,4 @@
+import { BatchInputRequest } from '@oystehr/sdk';
 import {
   AllergyIntolerance,
   ClinicalImpression,
@@ -78,6 +79,7 @@ export type ChartDataResources =
 export interface ChartDataWithResources {
   chartData: GetChartDataResponse;
   chartResources: Resource[];
+  publishExcuseNotesOps: BatchInputRequest<DocumentReference>[];
 }
 
 export interface SaveableDTO {
