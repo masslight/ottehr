@@ -1,166 +1,143 @@
-import { CreditCardInfo } from 'utils';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import {
+  ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+  FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
+  getStripeCustomerIdFromAccount,
+  NOT_AUTHORIZED,
+  Secrets,
+  SecretsKeys,
+  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
+  userHasAccessToPatient,
+} from 'utils';
+import Stripe from 'stripe';
+import Oystehr, { User } from '@oystehr/sdk';
+import { Account, Identifier } from 'fhir/r4b';
+import { Zambda } from '@oystehr/sdk/dist/cjs/resources/classes/zambda';
+import { getUser, ZambdaInput } from '../../shared';
 
-export async function postPaymentMethodSetupRequest(
-  apiUrl: string,
-  token: string,
-  beneficiaryPatientId: string,
-  payorProfile: string
-): Promise<any> {
-  const serviceUrl = `${apiUrl}/payment/payment-method/setup`;
-  const payorPatientId = payorProfile.replace('Patient/', '');
+export interface BasePaymentMgmtInput {
+  secrets: Secrets | null;
+  token: string;
+  beneficiaryPatientId: string;
+  payorProfile: string;
+  stripeCustomerId?: string;
+}
 
-  console.debug(
-    `Posting to payment setup service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
-  );
-
-  return fetch(serviceUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    method: 'POST',
-    body: JSON.stringify({ beneficiaryPatientId: beneficiaryPatientId, payorPatientId: payorPatientId }),
-  }).then((response) => {
-    if (!response.ok) {
-      console.log(`Error setting up payment method. Status: ${response.statusText}`);
-      throw new Error(response.statusText);
-    }
-    return response.json();
+export const getBillingAccountForPatient = async (
+  patientId: string,
+  oystehrClient: Oystehr
+): Promise<Account | undefined> => {
+  const accounts = await oystehrClient.fhir.search<Account>({
+    resourceType: 'Account',
+    params: [
+      {
+        name: 'patient',
+        value: `Patient/${patientId}`,
+      },
+      {
+        name: 'status',
+        value: 'active',
+      },
+      {
+        name: 'type',
+        value: 'PBILLACCT',
+      },
+    ],
   });
-}
+  return accounts.unbundle()[0];
+};
 
-export async function postPaymentMethodSetDefaultRequest(
-  apiUrl: string,
-  token: string,
-  beneficiaryPatientId: string,
-  payorProfile: string,
-  paymentMethodId: string
-): Promise<any> {
-  const serviceUrl = `${apiUrl}/payment/payment-method/set-default`;
-  const payorPatientId = payorProfile.replace('Patient/', '');
-
-  console.debug(
-    `Posting to payment set-default service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
-  );
-
-  return fetch(serviceUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    method: 'POST',
-    body: JSON.stringify({
-      beneficiaryPatientId: beneficiaryPatientId,
-      payorPatientId: payorPatientId,
-      paymentMethodId: paymentMethodId,
-    }),
-  }).then((response) => {
-    if (!response.ok) {
-      console.log(`Error setting a default payment method. Status: ${response.statusText}`);
-      throw new Error(response.statusText);
-    }
-  });
-}
-
-export async function deletePaymentMethodRequest(
-  apiUrl: string,
-  token: string,
-  beneficiaryPatientId: string,
-  payorProfile: string,
-  paymentMethodId: string
-): Promise<any> {
-  const serviceUrl = `${apiUrl}/payment/payment-method`;
-  const payorPatientId = payorProfile.replace('Patient/', '');
-
-  console.debug(
-    `Posting to payment delete service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
-  );
-
-  return fetch(serviceUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    method: 'DELETE',
-    body: JSON.stringify({
-      beneficiaryPatientId: beneficiaryPatientId,
-      payorPatientId: payorPatientId,
-      paymentMethodId: paymentMethodId,
-    }),
-  }).then((response) => {
-    if (!response.ok) {
-      console.log(`Error deleting payment method ${paymentMethodId}. Status: ${response.statusText}`);
-      throw new Error(response.statusText);
-    }
-  });
-}
-
-export async function postPaymentMethodListRequest(
-  apiUrl: string,
-  token: string,
-  beneficiaryPatientId: string,
-  payorProfile: string
-): Promise<any> {
-  const serviceUrl = `${apiUrl}/payment/payment-method/list`;
-  const payorPatientId = payorProfile.replace('Patient/', '');
-
-  console.debug(
-    `Posting to payment method list service at ${serviceUrl} for beneficiary patient ${beneficiaryPatientId} and payor ${payorPatientId}`
-  );
-
-  return fetch(serviceUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    method: 'POST',
-    body: JSON.stringify({ beneficiaryPatientId: beneficiaryPatientId, payorPatientId: payorPatientId }),
-  })
-    .then((response) => {
-      if (!response.ok) {
-        console.log(`Error listing payment methods for payor ${payorPatientId}. Status: ${response.statusText}`);
-        throw new Error(response.statusText);
-      }
-      return response.json();
-    })
-    .then((json) => {
-      const data: PaymentMethodsFromJSON = json as PaymentMethodsFromJSON;
-      const paymentMethods: PaymentMethods = {
-        cards: [],
-      };
-
-      let defaultId: string;
-      if (data.default !== undefined) {
-        defaultId = data.default.id;
-        paymentMethods.default = convert(data.default, defaultId);
-      }
-      paymentMethods.cards.push(...data.cards.map((jsonCard) => convert(jsonCard, defaultId)));
-
-      return paymentMethods;
-    });
-}
-
-interface PaymentMethods {
-  cards: CreditCardInfo[];
-  default?: CreditCardInfo;
-}
-
-interface PaymentMethodsFromJSON {
-  cards: CreditCardInfoFromJSON[];
-  default?: CreditCardInfoFromJSON;
-}
-
-interface CreditCardInfoFromJSON {
+export interface PaymentCard {
   id: string;
   brand: string;
   expirationMonth: number;
   expirationYear: number;
   lastFour: string;
+  cardholder?: string;
+}
+export interface StripeEnvironmentConfig {
+  publicKey: string;
+  secretKey: string;
 }
 
-function convert(jsonCard: CreditCardInfoFromJSON, defaultId?: string): CreditCardInfo {
-  return {
-    id: jsonCard.id,
-    brand: jsonCard.brand,
-    expMonth: jsonCard.expirationMonth,
-    expYear: jsonCard.expirationYear,
-    lastFour: jsonCard.lastFour,
-    default: jsonCard.id === defaultId,
-  };
+export interface StripeEnvironment extends StripeEnvironmentConfig {
+  paymentMethodTypes: string;
+  apiVersion: string;
 }
+
+const validateStripeEnvironment = (secrets: Secrets | null): StripeEnvironment => {
+  const secretKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY, secrets);
+  const publicKey = getSecret(SecretsKeys.STRIPE_PUBLIC_KEY, secrets);
+
+  if (!secretKey) {
+    throw '"STRIPE_SECRET_KEY" environment variable was not set.';
+  }
+  if (!publicKey) {
+    throw '"STRIPE_PUBLIC_KEY" environment variable was not set.';
+  }
+
+  return {
+    publicKey,
+    secretKey,
+    paymentMethodTypes: 'card',
+    apiVersion: '2024-04-10',
+  };
+};
+
+export function getStripeClient(secrets: Secrets | null): Stripe {
+  const env = validateStripeEnvironment(secrets);
+  return new Stripe(env.secretKey, {
+    // @ts-expect-error default api version older than sdk
+    apiVersion: env.apiVersion,
+  });
+}
+
+export const makeStripeCustomerId = (stripeId: string): Identifier => {
+  return {
+    system: ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
+    value: stripeId,
+  };
+};
+
+interface StripeAccountValidationInput {
+  patientId: string;
+  oystehrClient: Oystehr;
+}
+export async function getStripeCustomerId(input: StripeAccountValidationInput): Promise<{ stripeCustomerId: string }> {
+  const { patientId, oystehrClient } = input;
+
+  const patientAccount = await getBillingAccountForPatient(patientId, oystehrClient);
+  if (!patientAccount) {
+    throw FHIR_RESOURCE_NOT_FOUND('Account');
+  }
+  const stripeCustomerId = getStripeCustomerIdFromAccount(patientAccount);
+  if (!stripeCustomerId) {
+    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
+  }
+  return { stripeCustomerId };
+}
+
+interface PatientAccountCheckInput {
+  beneficiaryPatientId: string;
+  secrets: Secrets | null;
+  zambdaInput: ZambdaInput;
+}
+export const validateUserHasAccessToPatienAccount = async (
+  input: PatientAccountCheckInput,
+  oystehrClient: Oystehr
+): Promise<User> => {
+  const { beneficiaryPatientId, secrets, zambdaInput } = input;
+  const authorization = zambdaInput.headers.Authorization;
+  if (!authorization) {
+    console.log('authorization header not found');
+    throw NOT_AUTHORIZED;
+  }
+  const user = await getUser(authorization.replace('Bearer ', ''), secrets);
+  const userAccess = await userHasAccessToPatient(user, beneficiaryPatientId, oystehrClient);
+  if (!userAccess) {
+    console.log('no user access to patient');
+    throw NOT_AUTHORIZED;
+  }
+  return user;
+};

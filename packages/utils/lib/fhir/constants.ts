@@ -433,3 +433,5 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
   seriousFailure: '8',
   majorFailure: '12',
 };
+
+export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';

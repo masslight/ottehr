@@ -27,8 +27,10 @@ export enum APIErrorCode {
   INVALID_RESOURCE_ID = 4202,
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
-  MISCONFIGURED_SCHEDULING_GROUP = 4302,
-  MISSING_SCHEDULE_EXTENSION = 4304,
+  STRIPE_CUSTOMER_ID_NOT_FOUND = 4302,
+  STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
+  MISCONFIGURED_SCHEDULING_GROUP = 4304,
+  MISSING_SCHEDULE_EXTENSION = 4305,
 }
 
 export interface APIError {
@@ -228,4 +230,14 @@ export const MISSING_SCHEDULE_EXTENSION_ERROR = {
   code: APIErrorCode.MISSING_SCHEDULE_EXTENSION,
   // todo: link to the documentation
   message: 'The schedule extension is missing from the Schedule resource',
+};
+
+export const STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR: APIError = {
+  code: APIErrorCode.STRIPE_CUSTOMER_ID_NOT_FOUND,
+  message: 'No identifier for a Stripe customer was found on the billing Account resource associated with the patient',
+};
+
+export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
+  code: APIErrorCode.STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED,
+  message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
 };
