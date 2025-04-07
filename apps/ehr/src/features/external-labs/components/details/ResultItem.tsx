@@ -1,7 +1,7 @@
 import { ReactElement } from 'react';
 import { Box, Button, Switch, Typography, Divider, useTheme } from '@mui/material';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
-import { LabOrderDTO, LabOrderResultDetails } from 'utils';
+import { ExternalLabsStatus, LabOrderDTO, LabOrderResultDetails } from 'utils';
 import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
 
 interface ResultItemProps {
@@ -80,17 +80,20 @@ export const ResultItem = ({
             <Typography variant="body2">Show Results on the Patient Portal</Typography>
           </Box>
 
-          <Button
-            variant="contained"
-            onClick={onMarkAsReviewed}
-            sx={{
-              borderRadius: '50px',
-              textTransform: 'none',
-            }}
-            color="primary"
-          >
-            Mark as Reviewed
-          </Button>
+          {labOrder.orderStatus === ExternalLabsStatus.reviewed ||
+          labOrder.orderStatus === ExternalLabsStatus.received ? (
+            <Button
+              variant="contained"
+              onClick={onMarkAsReviewed}
+              sx={{
+                borderRadius: '50px',
+                textTransform: 'none',
+              }}
+              color="primary"
+            >
+              {resultDetails.labStatus === ExternalLabsStatus.reviewed ? 'Update' : 'Mark as Reviewed'}
+            </Button>
+          ) : null}
         </Box>
       </Box>
     </div>
