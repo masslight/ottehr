@@ -16,11 +16,11 @@ The transcript: `;
 
 const AI_RESPONSE_KEY_TO_LOINC = {
   historyOfPresentIllness: '10164-2',
-  pastMedicalHistory: '10158-4',
-  pastSurgicalHistory: '10167-5',
+  pastMedicalHistory: '11348-0',
+  pastSurgicalHistory: '47519-4',
   medicationsHistory: '10160-0',
-  allergies: '10155-0',
-  socialHistory: '10166-7',
+  allergies: '48765-2',
+  socialHistory: '29762-2',
   familyHistory: '10157-6',
 };
 
