@@ -133,6 +133,7 @@ export type PatientFilterType = 'my-patients' | 'all-patients';
 export interface GetTelemedAppointmentsInput {
   dateFilter?: string;
   usStatesFilter?: string[];
+  locationsIdsFilter?: string[];
   providersFilter?: string[];
   groupsFilter?: string[];
   patientFilter: PatientFilterType;

@@ -131,6 +131,7 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:version',
           'Zambda:Function:ai-interview-start',
           'Zambda:Function:ai-interview-handle-answer',
+          'Zambda:Function:ai-interview-persist-consent',
         ],
         action: ['Zambda:InvokeFunction'],
         effect: 'Allow',

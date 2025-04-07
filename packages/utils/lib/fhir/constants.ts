@@ -32,6 +32,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM_TAX = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -273,7 +274,7 @@ export const ScheduleStrategyCoding = {
   },
 };
 
-interface ListConfig {
+export interface ListConfig {
   title: string;
   display: string;
   documentTypeCode: string | string[];

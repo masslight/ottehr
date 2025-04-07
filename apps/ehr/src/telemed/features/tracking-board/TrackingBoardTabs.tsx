@@ -1,25 +1,21 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Tab } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
+import { ApptTelemedTab } from 'utils';
+import CreateDemoVisits from '../../../components/CreateDemoVisits';
 import Loading from '../../../components/Loading';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useZapEHRAPIClient } from '../../hooks/useOystehrAPIClient';
 import { useGetTelemedAppointments, useTrackingBoardStore } from '../../state';
 import { ApptTabToStatus } from '../../utils';
 import { TrackingBoardTable } from './TrackingBoardTable';
-import CreateDemoVisits from '../../../components/CreateDemoVisits';
-import { dataTestIds } from '../../../constants/data-test-ids';
-import { ApptTelemedTab } from 'utils';
 
 export function TrackingBoardTabs(): ReactElement {
-  const { alignment, selectedStates, date, providers, groups, setAppointments } = getSelectors(useTrackingBoardStore, [
-    'alignment',
-    'selectedStates',
-    'providers',
-    'groups',
-    'date',
-    'setAppointments',
-  ]);
+  const { alignment, selectedStates, date, providers, groups, setAppointments, locationsIds } = getSelectors(
+    useTrackingBoardStore,
+    ['alignment', 'selectedStates', 'providers', 'groups', 'date', 'setAppointments', 'locationsIds']
+  );
 
   const [value, setValue] = useState<ApptTelemedTab>(ApptTelemedTab.ready);
 
@@ -41,6 +37,7 @@ export function TrackingBoardTabs(): ReactElement {
     {
       apiClient,
       usStatesFilter: actualStatesFilter,
+      locationsIdsFilter: locationsIds || undefined,
       providersFilter: providers || undefined,
       groupsFilter: groups || undefined,
       patientFilter: alignment,

@@ -274,7 +274,13 @@ export const TelemedAppointmentStatusToPalette: {
 
 export type GetAppointmentsRequestParams = Pick<
   GetTelemedAppointmentsInput,
-  'usStatesFilter' | 'providersFilter' | 'dateFilter' | 'groupsFilter' | 'patientFilter' | 'statusesFilter'
+  | 'usStatesFilter'
+  | 'providersFilter'
+  | 'dateFilter'
+  | 'groupsFilter'
+  | 'patientFilter'
+  | 'statusesFilter'
+  | 'locationsIdsFilter'
 >;
 
 export const APPT_STATUS_MAP: {

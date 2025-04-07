@@ -187,6 +187,7 @@ export const dataTestIds = {
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
+    footerButtonUnassign: 'telemed-appointment-footer-button-unassign',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiMedicalConditionsLoadingSkeleton: 'telemed-medical-conditions-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
@@ -215,6 +216,9 @@ export const dataTestIds = {
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
+    cancelThisVisitButton: 'telemed-cancel-this-visit-button',
+    inviteParticipant: 'telemed-invite-participant-button',
+    editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
