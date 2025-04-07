@@ -17,14 +17,20 @@ type ExamRecord = { [field in ExamCardsNames | ExamFieldsNames]?: ExamObservatio
 const objectToArray: (object: ExamRecord) => ExamObservationDTO[] = (object) => Object.values(object);
 
 export const createAdditionalQuestions = (questionnaireResponse: QuestionnaireResponse): ObservationDTO[] => {
-  return Object.values(AdditionalBooleanQuestionsFieldsNames).map((field) => {
-    const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
-    const valueString = response?.answer?.[0]?.valueString;
-    return {
-      field,
-      value: convertToBoolean(valueString) || false,
-    };
-  });
+  return Object.values(AdditionalBooleanQuestionsFieldsNames)
+    .filter((field) => {
+      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      const valueString = response?.answer?.[0]?.valueString;
+      return valueString !== undefined;
+    })
+    .map((field) => {
+      const response = getQuestionnaireResponseByLinkId(field, questionnaireResponse);
+      const valueString = response?.answer?.[0]?.valueString;
+      return {
+        field,
+        value: convertToBoolean(valueString) || false,
+      };
+    });
 };
 
 export function createExamObservations(isInPersonAppointment?: boolean): ExamObservationDTO[] {
