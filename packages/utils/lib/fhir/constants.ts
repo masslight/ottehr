@@ -161,6 +161,14 @@ export const FHIR_EXTENSION = {
       url: `${TERMINOLOGY_BASE_URL}/condition-clinical`,
     },
   },
+  DiagnosticReport: {
+    potentialDiagnosis: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/potential-diagnosis`,
+    },
+    category: {
+      url: `${TERMINOLOGY_BASE_URL}/diagnostic-report-category`,
+    },
+  },
 } as const;
 
 export type FHIR_EXTENSION_TYPE = typeof FHIR_EXTENSION;
