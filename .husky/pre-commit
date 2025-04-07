@@ -1,2 +1,5 @@
+git stash --staged
+git stash --include-untracked
+git stash pop "stash@{1}"
 npm run lint:fix
 git add .
