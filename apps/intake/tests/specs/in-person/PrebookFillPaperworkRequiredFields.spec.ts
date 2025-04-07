@@ -66,7 +66,7 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Credit card details');
   });
-  test('PRF-4 Skip Card selection and proceed to repsonsible party page', async () => {
+  test('PRF-4 Skip Card selection and proceed to responsible party page', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
