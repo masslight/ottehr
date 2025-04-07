@@ -42,6 +42,7 @@
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",
     "short-uuid": "^4.2.2",
+    "stripe": "^17.7.0",
     "utils": "*"
   },
   "devDependencies": {
