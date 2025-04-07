@@ -1,183 +1,118 @@
-import { FC } from 'react';
+import { FC, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { isPhoneNumberValid, patientFieldPaths, REQUIRED_FIELD_ERROR_MESSAGE, standardizePhoneNumber } from 'utils';
+import { phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
-import { RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
+import { PatientGuarantorFields, RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
-import { usePatientStore } from '../../state/patient.store';
 import { dataTestIds } from '../../constants/data-test-ids';
+import InputMask from '../InputMask';
+import { FormFields as AllFormFields } from '../../constants';
 
+const FormFields = AllFormFields.responsibleParty;
+const LocalDependentFields = [
+  FormFields.firstName.key,
+  FormFields.lastName.key,
+  FormFields.birthDate.key,
+  FormFields.birthSex.key,
+  FormFields.phone.key,
+];
 export const ResponsibleInformationContainer: FC = () => {
-  const { patient, updatePatientField } = usePatientStore();
+  const { control, watch, setValue } = useFormContext();
 
-  const { control, setValue } = useFormContext();
+  const patientData = watch(PatientGuarantorFields);
+  const localData = watch(LocalDependentFields);
+  const selfSelected = watch(FormFields.relationship.key) === 'Self';
 
-  if (!patient) return null;
-
-  const contactIndex = patient.contact?.findIndex(
-    (contact) =>
-      contact.relationship?.some(
-        (rel) =>
-          rel.coding?.some(
-            (code) => code.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && code.code === 'BP'
-          )
-      )
-  );
-
-  const responsiblePartyIndex = patient?.contact ? (contactIndex === -1 ? patient.contact.length : contactIndex) : 0;
-
-  const responsiblePartyContact =
-    responsiblePartyIndex !== undefined ? patient?.contact?.[responsiblePartyIndex] : undefined;
-
-  const responsiblePartyFullNamePath = patientFieldPaths.responsiblePartyName.replace(
-    /contact\/\d+/,
-    `contact/${responsiblePartyIndex}`
-  );
-
-  const responsiblePartyFirstNamePath = patientFieldPaths.responsiblePartyFirstName.replace(
-    /contact\/\d+/,
-    `contact/${responsiblePartyIndex}`
-  );
-
-  const responsiblePartyLastNamePath = patientFieldPaths.responsiblePartyLastName.replace(
-    /contact\/\d+/,
-    `contact/${responsiblePartyIndex}`
-  );
-
-  const responsiblePartyRelationshipPath = patientFieldPaths.responsiblePartyRelationship.replace(
-    /contact\/\d+/,
-    `contact/${responsiblePartyIndex}`
-  );
-
-  const responsiblePartyBirthDatePath = patientFieldPaths.responsiblePartyBirthDate.replace(
-    /contact\/\d+/,
-    `contact/${responsiblePartyIndex}`
-  );
-
-  const responsiblePartyGenderPath = patientFieldPaths.responsiblePartyGender.replace(
-    /contact\/\d+/,
-    `contact/${responsiblePartyIndex}`
-  );
-
-  const relationship = responsiblePartyContact?.relationship?.find(
-    (rel) => rel.coding?.some((coding) => coding.system === 'http://hl7.org/fhir/relationship')
-  )?.coding?.[0].display;
-
-  const fullName =
-    responsiblePartyContact?.name?.family && responsiblePartyContact?.name?.given?.[0]
-      ? `${responsiblePartyContact.name.family}, ${responsiblePartyContact.name.given[0]}`
-      : '';
-
-  const birthDate = responsiblePartyContact?.extension?.[0].valueString;
-
-  const birthSex = responsiblePartyContact?.gender;
-
-  const phoneNumberIndex = responsiblePartyContact?.telecom
-    ? responsiblePartyContact?.telecom?.findIndex((telecom) => telecom.system === 'phone')
-    : -1;
-
-  const phone = responsiblePartyContact?.telecom?.[phoneNumberIndex]?.value;
-
-  const responsiblePartyPhonePath = patientFieldPaths.responsiblePartyPhone
-    .replace(/contact\/\d+/, `contact/${responsiblePartyIndex}`)
-    .replace(/telecom\/\d+/, `telecom/${phoneNumberIndex}`);
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value } = event.target;
-    const fieldType = name === responsiblePartyPhonePath ? 'phone' : undefined;
-    updatePatientField(name, value, undefined, fieldType);
-  };
-
-  const handleResponsiblePartyNameChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const value = e.target.value;
-
-    // Auto-format: If there's a space between words but no comma, add the comma
-    const formattedValue = value.includes(',')
-      ? value
-      : value.replace(/(\w+)\s+(\w+)/, (_, lastName, firstName) => `${lastName}, ${firstName}`);
-    // Update the input value with formatted version
-    setValue(patientFieldPaths.responsiblePartyName, formattedValue);
-    const [lastName = '', firstName = ''] = formattedValue.split(',').map((part) => part.trim());
-
-    // Update both name parts
-    handleChange({
-      target: {
-        name: responsiblePartyLastNamePath,
-        value: lastName,
-      },
-    } as any);
-
-    handleChange({
-      target: {
-        name: responsiblePartyFirstNamePath,
-        value: firstName,
-      },
-    } as any);
-  };
+  useEffect(() => {
+    if (selfSelected) {
+      for (let i = 0; i < localData.length; i++) {
+        if (patientData[i] && localData[i] !== patientData[i]) {
+          setValue(LocalDependentFields[i], patientData[i]);
+        }
+      }
+    }
+  }, [localData, patientData, selfSelected, setValue]);
 
   return (
-    <Section dataTestId={dataTestIds.responsiblePartyInformationContainer.id} title="Responsible party information">
-      <Row label="Relationship" required>
+    <Section title="Responsible party information" dataTestId={dataTestIds.responsiblePartyInformationContainer.id}>
+      <Row
+        label={FormFields.relationship.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
+        required
+      >
         <FormSelect
-          data-testid={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
-          name={responsiblePartyRelationshipPath}
+          name={FormFields.relationship.key}
           control={control}
           options={RELATIONSHIP_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value: string) => RELATIONSHIP_OPTIONS.some((option) => option.value === value),
           }}
-          defaultValue={RELATIONSHIP_OPTIONS.find((option) => option.value === relationship)?.value}
-          onChangeHandler={handleChange}
         />
       </Row>
-      <Row label="Full name" required inputId="responsible-party-full-name">
+      <Row label={FormFields.firstName.label} required inputId={FormFields.firstName.key}>
         <FormTextField
-          data-testid={dataTestIds.responsiblePartyInformationContainer.fullName}
-          name={responsiblePartyFullNamePath}
+          name={FormFields.firstName.key}
+          data-testid={dataTestIds.responsiblePartyInformationContainer.firstName}
           control={control}
-          defaultValue={fullName}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-          onChangeHandler={handleResponsiblePartyNameChange}
-          id="responsible-party-full-name"
+          id={FormFields.firstName.key}
+          disabled={selfSelected}
         />
       </Row>
-      <Row label="Date of birth" required>
+      <Row label={FormFields.lastName.label} required inputId={FormFields.lastName.key}>
+        <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.lastName}
+          name={FormFields.lastName.key}
+          control={control}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+          id={FormFields.lastName.key}
+          disabled={selfSelected}
+        />
+      </Row>
+      <Row label={FormFields.birthDate.label} required>
         <DatePicker
-          name={responsiblePartyBirthDatePath}
+          name={FormFields.birthDate.key}
           control={control}
           required={true}
-          defaultValue={birthDate}
-          onChange={(dateStr) => {
-            updatePatientField(responsiblePartyBirthDatePath, dateStr);
-          }}
+          defaultValue={''}
+          disabled={selfSelected}
+          dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
         />
       </Row>
-      <Row label="Birth sex" required>
+      <Row
+        label={FormFields.birthSex.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
+        required
+      >
         <FormSelect
-          data-testid={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
-          name={responsiblePartyGenderPath}
+          name={FormFields.birthSex.key}
           control={control}
           options={SEX_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
           }}
           required={true}
-          defaultValue={birthSex}
-          onChangeHandler={handleChange}
+          disabled={selfSelected}
         />
       </Row>
-      <Row label="Phone" inputId="responsible-party-phone">
+      <Row label={FormFields.phone.label} inputId={FormFields.phone.key}>
         <FormTextField
+          id={FormFields.phone.key}
+          name={FormFields.phone.key}
           data-testid={dataTestIds.responsiblePartyInformationContainer.phoneInput}
-          id="responsible-party-phone"
-          name={responsiblePartyPhonePath}
           control={control}
-          defaultValue={standardizePhoneNumber(phone)}
-          rules={{
-            validate: (value: string) => !value || isPhoneNumberValid(value) || 'Must be 10 digits',
+          inputProps={{ mask: '(000) 000-0000' }}
+          InputProps={{
+            inputComponent: InputMask as any,
           }}
-          onChangeHandler={handleChange}
+          rules={{
+            validate: (value: string) => {
+              if (!value) return true;
+              return phoneRegex.test(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+            },
+          }}
+          disabled={selfSelected}
         />
       </Row>
     </Section>

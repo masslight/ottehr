@@ -1,6 +1,6 @@
 import { Operation } from 'fast-json-patch';
 import { DateTime } from 'luxon';
-import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
+import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
 
 /**
  * This functions handles empty encounter status history and always guarantees that

@@ -85,7 +85,7 @@ export const isNPIValid = (npi: string): boolean => {
 };
 
 export function formatPhoneNumberDisplay(phoneNumber: string): string {
-  const cleaned = ('' + phoneNumber).replace(/\D/g, '');
+  const cleaned = ('' + phoneNumber.slice(-10)).replace(/\D/g, '');
   const match = cleaned.match(/^(\d{3})(\d{3})(\d{4})$/);
 
   if (match) {
@@ -188,7 +188,7 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
-const formatPhoneNumberForQuestionarie = (phone: string): string => {
+export const formatPhoneNumberForQuestionarie = (phone: string): string => {
   if (phone.length !== 10) {
     throw new Error('Invalid phone number');
   }
@@ -212,6 +212,20 @@ export const isoToDateObject = (isoString: string): { year: string; month: strin
   };
 };
 
+export const DEMO_VISIT_STREET_ADDRESS = `${DateTime.now().toFormat('yyyyMMdd')} Test Line`;
+export const DEMO_VISIT_STREET_ADDRESS_OPTIONAL = 'Apt 4B';
+export const DEMO_VISIT_CITY = 'New York';
+export const DEMO_VISIT_STATE = 'NY';
+export const DEMO_VISIT_ZIP = '06001';
+export const DEMO_VISIT_RESPONSIBLE_RELATIONSHIP = 'Legal Guardian';
+export const DEMO_VISIT_RESPONSIBLE_FIRST_NAME = 'fwe';
+export const DEMO_VISIT_RESPONSIBLE_LAST_NAME = 'sf';
+export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
+export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
+export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
+export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(233) 333-3333';
+
 export function getContactInformationAnswers({
   willBe18 = false,
   isNewPatient = false,
@@ -224,11 +238,11 @@ export function getContactInformationAnswers({
   },
   birthSex = 'Female',
   address = {
-    street: '123 Main Street',
-    street2: 'Apt 4B',
-    city: 'Orlando',
-    state: 'FL',
-    zip: '32801',
+    street: DEMO_VISIT_STREET_ADDRESS,
+    street2: DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
+    city: DEMO_VISIT_CITY,
+    state: DEMO_VISIT_STATE,
+    zip: DEMO_VISIT_ZIP,
   },
   email = 'test-email@test-domain-1237843298123.co',
   phoneNumber = '(202) 733-9622',
@@ -381,21 +395,23 @@ export function getPatientDetailsStepAnswers({
 }
 
 export function getResponsiblePartyStepAnswers({
-  relationship = 'Legal Guardian',
-  firstName = 'fwe',
-  lastName = 'sf',
+  relationship = DEMO_VISIT_RESPONSIBLE_RELATIONSHIP,
+  firstName = DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
+  lastName = DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   birthDate = {
-    day: '13',
-    month: '05',
-    year: '1900',
+    day: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
+    month: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
+    year: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR,
   },
-  birthSex = 'Intersex',
+  birthSex = DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
+  phone = DEMO_VISIT_RESPONSIBLE_PHONE,
 }: {
   firstName?: string;
   relationship?: string;
   birthDate?: { day: string; month: string; year: string };
   birthSex?: string;
   lastName?: string;
+  phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'responsible-party-page',
@@ -423,6 +439,14 @@ export function getResponsiblePartyStepAnswers({
       {
         linkId: 'responsible-party-birth-sex',
         answer: [{ valueString: birthSex }],
+      },
+      {
+        linkId: 'responsible-party-number',
+        answer: [
+          {
+            valueString: phone,
+          },
+        ],
       },
     ],
   };

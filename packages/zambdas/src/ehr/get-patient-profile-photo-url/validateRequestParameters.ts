@@ -1,5 +1,5 @@
 import { UpdatePatientPhotoInput } from '.';
-import { ZambdaInput } from 'zambda-utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): UpdatePatientPhotoInput {
   if (!input.body) {

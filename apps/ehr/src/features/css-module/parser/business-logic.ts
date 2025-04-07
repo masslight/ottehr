@@ -1,12 +1,12 @@
 import { DateTime } from 'luxon';
-import { PatientValues, ProcessedData, QuestionnaireResponseValues } from './types';
+import { PatientValues, VisitMappedData, QuestionnaireResponseValues } from './types';
 import { LBS_TO_KG_FACTOR, WEIGHT_ROUNDING_PRECISION } from './constants';
 import { DATE_FORMAT, DISPLAY_DATE_FORMAT } from 'utils';
 
 export const getPatientInfoWithFallback = (
   patient: PatientValues,
   questionnaire: QuestionnaireResponseValues
-): Partial<ProcessedData> => ({
+): Partial<VisitMappedData> => ({
   firstName: patient.firstName ?? questionnaire.firstName,
   lastName: patient.lastName ?? questionnaire.lastName,
   birthDate: patient.birthDate ?? questionnaire.birthDate,

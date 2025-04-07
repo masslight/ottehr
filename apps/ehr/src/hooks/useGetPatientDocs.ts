@@ -6,27 +6,12 @@ import { useApiClients } from './useAppClients';
 import { SearchParam } from '@oystehr/sdk';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
-
-// //TODO: remove
-// function timeout(ms: number): Promise<void> {
-//   return new Promise((resolve) => setTimeout(resolve, ms));
-// }
-// //TODO: remove
-// async function sleep(period: number): Promise<void> {
-//   console.log(`Sleeping for ${period / 1000} seconds`);
-//   await timeout(period);
-//   console.log(`resuming program`);
-// }
+import { chooseJson } from 'utils';
 
 const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 
-const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
 const CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID = import.meta.env
   .VITE_APP_CREATE_PATIENT_UPLOAD_DOCUMENT_URL_ZAMBDA_ID;
-
-function chooseJson(json: any, isLocal: string): any {
-  return isLocal === 'true' ? json : json.output;
-}
 
 export type PatientDocumentsFolder = {
   id?: string;
@@ -441,8 +426,7 @@ const usePatientDocsActions = ({ patientId }: { patientId: string }): UsePatient
         console.log(createUploadDocumentRes);
 
         const { z3Url, presignedUploadUrl, documentRefId, folderId } = chooseJson(
-          createUploadDocumentRes,
-          VITE_APP_IS_LOCAL
+          createUploadDocumentRes
         ) as UploadDocumentZambdaResponse;
 
         console.log('uploading file to Z3 ...');

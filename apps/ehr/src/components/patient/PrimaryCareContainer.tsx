@@ -1,51 +1,30 @@
-import { Checkbox, FormControlLabel, Typography } from '@mui/material';
-import { Practitioner } from 'fhir/r4b';
+import { Box, Checkbox, FormControlLabel, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { patientFieldPaths, PRACTICE_NAME_URL, REQUIRED_FIELD_ERROR_MESSAGE, standardizePhoneNumber } from 'utils';
-import { usePatientStore } from '../../state/patient.store';
 import { Row, Section } from '../layout';
 import { FormTextField } from '../form';
+import { FormFields as AllFormFields } from '../../constants';
+import InputMask from '../InputMask';
+
+const FormFields = AllFormFields.primaryCarePhysician;
 export const PrimaryCareContainer: FC = () => {
-  const { control, watch } = useFormContext();
-  const { patient, updatePatientField } = usePatientStore();
-  if (!patient) return null;
+  const { control, watch, setValue } = useFormContext();
 
-  const pcp = patient?.contained?.find(
-    (resource) => resource.resourceType === 'Practitioner' && resource.active === true
-  ) as Practitioner;
-  const practiceName = pcp?.extension?.find((e: { url: string }) => e.url === PRACTICE_NAME_URL)?.valueString;
-
-  const handleChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const { name, value, type, checked } = event.target;
-    const fieldType = name === patientFieldPaths.pcpPhone ? 'phone' : undefined;
-    updatePatientField(name, type === 'checkbox' ? checked : value, undefined, fieldType);
-  };
+  const isActive = watch(FormFields.active.key, true);
 
   return (
-    <Section title="Primary Care Physician">
+    <Section title="Primary care physician">
       <Controller
-        name={patientFieldPaths.pcpActive}
+        name={FormFields.active.key}
         control={control}
-        defaultValue={pcp?.active ?? false}
-        render={({ field: { onChange, value, ...field } }) => (
+        render={({ field: { value } }) => (
           <FormControlLabel
             control={
               <Checkbox
-                {...field}
                 checked={!value}
-                onChange={(e) => {
-                  const newActiveValue = !e.target.checked;
-                  onChange(newActiveValue);
-                  handleChange({
-                    ...e,
-                    target: {
-                      ...e.target,
-                      type: e.target.type,
-                      name: patientFieldPaths.pcpActive,
-                      checked: newActiveValue,
-                    },
-                  });
+                onClick={(e) => {
+                  const checked = (e.target as HTMLInputElement).checked;
+                  setValue(FormFields.active.key, !checked, { shouldDirty: true });
                 }}
               />
             }
@@ -53,60 +32,31 @@ export const PrimaryCareContainer: FC = () => {
           />
         )}
       />
-      {watch(patientFieldPaths.pcpActive) && (
-        <>
-          <Row label="First name" inputId="pcp-first-name" required>
-            <FormTextField
-              name={patientFieldPaths.pcpFirstName}
-              control={control}
-              defaultValue={pcp?.name?.[0]?.given?.[0]}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-first-name"
-              onChangeHandler={handleChange}
-            />
-          </Row>
-          <Row label="Last name" inputId="pcp-last-name" required>
-            <FormTextField
-              name={patientFieldPaths.pcpLastName}
-              control={control}
-              defaultValue={pcp?.name?.[0]?.family}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-last-name"
-              onChangeHandler={handleChange}
-            />
-          </Row>
-          <Row label="Practice name" inputId="practice-name" required>
-            <FormTextField
-              name={patientFieldPaths.practiceName}
-              control={control}
-              defaultValue={practiceName}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="practice-name"
-              onChangeHandler={handleChange}
-            />
-          </Row>
-          <Row label="Address" inputId="pcp-street-address" required>
-            <FormTextField
-              name={patientFieldPaths.pcpStreetAddress}
-              control={control}
-              defaultValue={pcp?.address?.[0]?.line?.[0]}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-street-address"
-              onChangeHandler={handleChange}
-            />
-          </Row>
-          <Row label="Mobile" inputId="pcp-mobile" required>
-            <FormTextField
-              name={patientFieldPaths.pcpPhone}
-              control={control}
-              defaultValue={standardizePhoneNumber(pcp?.telecom?.[0]?.value)}
-              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
-              id="pcp-mobile"
-              onChangeHandler={handleChange}
-            />
-          </Row>
-        </>
-      )}
+      <Box sx={{ display: isActive ? 'contents' : 'none' }}>
+        <Row label="First name" inputId={FormFields.firstName.key}>
+          <FormTextField name={FormFields.firstName.key} control={control} id={FormFields.firstName.key} />
+        </Row>
+        <Row label="Last name" inputId={FormFields.lastName.key}>
+          <FormTextField name={FormFields.lastName.key} control={control} id={FormFields.lastName.key} />
+        </Row>
+        <Row label="Practice name" inputId={FormFields.practiceName.key}>
+          <FormTextField name={FormFields.practiceName.key} control={control} id={FormFields.practiceName.key} />
+        </Row>
+        <Row label="Address" inputId={FormFields.address.key}>
+          <FormTextField name={FormFields.address.key} control={control} id={FormFields.address.key} />
+        </Row>
+        <Row label="Mobile" inputId={FormFields.phone.key}>
+          <FormTextField
+            name={FormFields.phone.key}
+            control={control}
+            id={FormFields.phone.key}
+            inputProps={{ mask: '(000) 000-0000' }}
+            InputProps={{
+              inputComponent: InputMask as any,
+            }}
+          />
+        </Row>
+      </Box>
     </Section>
   );
 };

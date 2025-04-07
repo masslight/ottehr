@@ -1,6 +1,5 @@
-import { GetTelemedAppointmentsInput } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { ZambdaInput } from 'zambda-utils';
+import { GetTelemedAppointmentsInput, Secrets } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
@@ -11,7 +10,9 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { dateFilter, usStatesFilter, statusesFilter, patientFilter } = JSON.parse(input.body);
+  const { dateFilter, usStatesFilter, statusesFilter, patientFilter, locationsIdsFilter } = JSON.parse(
+    input.body
+  ) as GetTelemedAppointmentsInput;
 
   if (statusesFilter === undefined) {
     throw new Error('These fields are required: "statusesFilter"');
@@ -33,5 +34,6 @@ export function validateRequestParameters(
     statusesFilter,
     secrets: input.secrets,
     userToken,
+    locationsIdsFilter,
   };
 }

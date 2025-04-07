@@ -1,6 +1,6 @@
 import { CSS_NOTE_ID, NOTE_TYPE, PRIVATE_EXTENSION_BASE_URL } from 'utils';
-import { GenericNotesConfig } from '../generic-notes-list/types';
 import { GenericNoteList } from '../generic-notes-list/GenericNoteList';
+import { GenericNotesConfig } from '../generic-notes-list/types';
 
 const screeningNotesConfig: GenericNotesConfig = {
   apiConfig: {
@@ -9,10 +9,7 @@ const screeningNotesConfig: GenericNotesConfig = {
     searchParams: {
       _sort: '-_lastUpdated',
       _count: 1000,
-      _tag: {
-        type: 'token',
-        value: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.SCREENING}|${CSS_NOTE_ID}`,
-      },
+      _tag: `${PRIVATE_EXTENSION_BASE_URL}/${NOTE_TYPE.SCREENING}|${CSS_NOTE_ID}`,
     },
   },
   locales: {

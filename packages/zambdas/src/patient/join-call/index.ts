@@ -11,21 +11,22 @@ import {
   JoinCallInput,
   JoinCallResponse,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
+  SecretsKeys,
   TELEMED_VIDEO_ROOM_CODE,
   createOystehrClient,
   getAppointmentResourceById,
   getRelatedPersonForPatient,
+  getSecret,
   getVirtualServiceResourceExtension,
   userHasAccessToPatient,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret, lambdaResponse } from 'zambda-utils';
+import { lambdaResponse, ZambdaInput } from '../../shared';
 import {
   getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
   searchInvitedParticipantResourcesByEncounterId,
-} from '../shared';
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -127,8 +128,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     let userProfile: string;
     let relatedPersonRef: string | undefined;
     if (isInvitedParticipant) {
-      const emailAddress = claims.sub || '';
-      if (!(await isParticipantInvited(emailAddress, videoEncounter.id, oystehr))) {
+      const subject = claims.sub || '';
+      if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
         return lambdaResponse(401, { message: 'Unauthorized' });
       }
       userProfile = await getM2MUserProfile(zapehrToken, projectApiURL, telemedClientId);
@@ -251,11 +252,18 @@ async function addUserToVideoEncounterIfNeeded(
   }
 }
 
-async function isParticipantInvited(emailAddress: string, encounterId: string, oystehr: Oystehr): Promise<boolean> {
+async function isParticipantInvited(subject: string, encounterId: string, oystehr: Oystehr): Promise<boolean> {
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isEmail = emailPattern.test(subject);
+
   const relatedPersons = await searchInvitedParticipantResourcesByEncounterId(encounterId, oystehr);
-  const emailAddresses: string[] = JSONPath({ path: '$..telecom[?(@.system == "email")].value', json: relatedPersons });
-  console.log('Email addresses that were invited:', emailAddresses);
-  return emailAddresses.includes(emailAddress);
+  const telecom: string[] = JSONPath({
+    path: `$..telecom[?(@.system == "${isEmail ? 'email' : 'phone'}")].value`,
+    json: relatedPersons,
+  });
+  console.log(`${isEmail ? 'Email addresses' : 'Phone numbers'} that were invited:`, telecom);
+
+  return telecom.includes(subject);
 }
 
 async function joinTelemedMeeting(

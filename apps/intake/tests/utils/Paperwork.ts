@@ -85,6 +85,22 @@ export class Paperwork {
     await expect(this.locator.flowHeading).toBeVisible();
     await expect(this.locator.flowHeading).toHaveText('Contact information');
   }
+  async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<void> {
+    await this.fillContactInformationRequiredFields();
+    await this.locator.clickContinueButton();
+    await this.fillPatientDetailsRequiredFields();
+    await this.locator.clickContinueButton();
+    await this.skipPrimaryCarePhysician();
+    await this.locator.clickContinueButton();
+    await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillResponsiblePartyDataSelf();
+    await this.locator.clickContinueButton();
+    await this.skipPhotoID();
+    await this.locator.clickContinueButton();
+    await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+  }
   async fillContactInformationRequiredFields(): Promise<void> {
     await this.fillPatientState();
     await this.fillStreetAddress();
@@ -200,6 +216,13 @@ export class Paperwork {
     await this.fillPointOfDiscovery();
     await this.fillPreferredLanguage();
   }
+  async fillPatientDetailsTelemedAllFields(): Promise<void> {
+    await this.fillPatientDetailsAllFields();
+    await this.fillRelayServiceNo();
+  }
+  async fillRelayServiceNo(): Promise<void> {
+    await this.locator.relayServiceNo.check();
+  }
   async skipPrimaryCarePhysician(): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
   }
@@ -235,6 +258,14 @@ export class Paperwork {
     await number.fill('1234567890');
     await this.page.keyboard.press('Tab');
     await expect(this.locator.numberErrorText).not.toBeVisible();
+  }
+  async checkEmailValidations(email: any): Promise<void> {
+    await email.fill('abcd1');
+    await this.locator.clickContinueButton(false);
+    await expect(this.locator.emailErrorText).toBeVisible();
+    await email.fill('example@test.com');
+    await this.page.keyboard.press('Tab');
+    await expect(this.locator.emailErrorText).not.toBeVisible();
   }
   async checkZipValidations(zipField: Locator): Promise<void> {
     await zipField.fill('123');
@@ -457,10 +488,9 @@ export class Paperwork {
     await this.page.getByRole('option', { name: relationship }).click();
     return { relationship };
   }
-  async checkImagesAreSaved(frontImage: Locator, backImage: Locator): Promise<void> {
+  async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();
-    await expect(frontImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
-    await expect(backImage).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
+    await expect(image).toHaveText(`We already have this! It was saved on ${today}. Click to re-upload.`);
   }
   async fillConsentForms(): Promise<{ signature: string; relationshipConsentForms: string; consentFullName: string }> {
     await this.validateAllOptions(
@@ -480,6 +510,26 @@ export class Paperwork {
     await this.locator.consentSignerRelationship.click();
     await this.page.getByRole('option', { name: relationshipConsentForms }).click();
     return { signature, relationshipConsentForms, consentFullName };
+  }
+  async checkAllChipsAreCompletedInPerson(): Promise<void> {
+    await expect(this.locator.contactInformationChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.patientDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.pcpChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.insuranceDetailsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.responsiblePartyChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.photoIdChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.consentFormsChipStatus).toHaveAttribute('data-testid', 'completed');
+  }
+  async checkAllChipsAreCompletedTelemed(): Promise<void> {
+    await this.checkAllChipsAreCompletedInPerson();
+    await expect(this.locator.currentMedicationsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.currentAllergiesChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.medicalHistoryChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.surgicalHistoryChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.additionalQuestionsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.patientConditionChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.schoolWorkNotesChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.inviteParticipantChipStatus).toHaveAttribute('data-testid', 'completed');
   }
   async validateAllOptions(locator: any, optionsList: string[], type: string): Promise<void> {
     await locator.click();

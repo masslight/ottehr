@@ -1,12 +1,18 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, makeQualificationForPractitioner, PractitionerLicense, RoleType } from 'utils';
-import { getSecret, Secrets } from 'zambda-utils';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../shared/helpers';
-import { getRoleId } from '../shared/rolesUtils';
-import { ZambdaInput } from 'zambda-utils';
+import {
+  FHIR_IDENTIFIER_NPI,
+  getSecret,
+  makeQualificationForPractitioner,
+  PractitionerLicense,
+  RoleType,
+  Secrets,
+} from 'utils';
+import { createOystehrClient } from '../../shared/helpers';
+import { getRoleId } from '../../shared/rolesUtils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken } from '../../shared';
 
 export interface UpdateUserInput {
   secrets: Secrets | null;

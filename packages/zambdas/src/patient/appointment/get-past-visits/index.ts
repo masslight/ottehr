@@ -5,15 +5,17 @@ import {
   AppointmentStatus,
   appointmentTypeMap,
   createOystehrClient,
+  getAppointmentTimezone,
   getParticipantIdFromAppointment,
   GetPastVisitsResponse,
   getPatientsForUser,
+  getSecret,
   getVisitStatus,
   mapStatusToTelemed,
+  TIMEZONE_EXTENSION_URL,
+  SecretsKeys,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, SecretsKeys } from 'zambda-utils';
-import { checkOrCreateM2MClientToken, getUser } from '../../shared';
+import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';
 import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -51,14 +53,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         body: JSON.stringify({ appointments: [] }),
       };
     }
+
     console.log('awaiting allResources');
     const allResources = await getFhirResources(oystehr, patientIDs, patientId);
 
+    const scheduleResources = allResources.filter((resource) => {
+      const extensionTemp = (resource as { extension?: Array<{ url: string }> }).extension;
+      const extensionSchedule = extensionTemp?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL);
+      return !!extensionSchedule;
+    });
+
     console.log('allResources awaited');
+
     const locations = allResources.filter((resource) => resource.resourceType === 'Location') as Location[];
     const encountersMap = mapEncountersToAppointmentIds(allResources);
     const appointments: AppointmentInformationIntake[] = [];
     const pastVisitStatuses = ['fulfilled', 'cancelled'];
+
     allResources
       .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
       .forEach((appointmentTemp) => {
@@ -78,9 +89,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
 
         const stateId = encounter?.location?.[0]?.location?.reference?.split('/')?.[1];
-
         const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
 
+        const timezone = getAppointmentTimezone(fhirAppointment, scheduleResources);
         const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
         const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
 
@@ -109,6 +120,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           appointmentStatus: fhirAppointment.status,
           status: status,
           state: { code: stateCode, id: stateId },
+          timezone: timezone,
           type: appointmentType,
         };
         appointments.push(appointment);

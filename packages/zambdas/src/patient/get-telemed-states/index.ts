@@ -1,10 +1,7 @@
-import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Location } from 'fhir/r4b';
-import { GetTelemedLocationsResponse, PUBLIC_EXTENSION_BASE_URL, TelemedLocation, createOystehrClient } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { SecretsKeys, getSecret } from 'zambda-utils';
-import { getAuth0Token } from '../shared';
+import { GetTelemedLocationsResponse, SecretsKeys, createOystehrClient, getSecret, getTelemedLocations } from 'utils';
+import { ZambdaInput } from '../../shared';
+import { getAuth0Token } from '../../shared';
 
 let zapehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -46,24 +43,3 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   }
 };
-
-async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLocation[] | undefined> {
-  const resources = (
-    await oystehr.fhir.search<Location>({
-      resourceType: 'Location',
-      params: [],
-    })
-  ).unbundle();
-
-  const telemedLocations = resources.filter(
-    (location) =>
-      location.extension?.some(
-        (ext) => ext.url === `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release` && ext.valueCoding?.code === 'vi'
-      )
-  );
-
-  return telemedLocations.map((location) => ({
-    state: location.address?.state || '',
-    available: location.status === 'active',
-  }));
-}

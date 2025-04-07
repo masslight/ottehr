@@ -18,21 +18,32 @@ import {
   CreateAppointmentUCTelemedParams,
   CreateAppointmentUCTelemedResponse,
   createOystehrClient,
+  FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   formatPhoneNumber,
+  getPatchOperationForNewMetaTag,
+  getSecret,
   makePrepopulatedItemsForPatient,
   OTTEHR_MODULE,
   PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
   RequiredAllProps,
+  Secrets,
+  SecretsKeys,
   ServiceMode,
   userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { ZambdaInput } from 'zambda-utils';
-import { getSecret, Secrets, SecretsKeys, topLevelCatch } from 'zambda-utils';
-import { AuditableZambdaEndpoints, checkOrCreateM2MClientToken, createAuditEvent, getUser } from '../../shared';
-import { createUpdateUserRelatedResources, generatePatientRelatedRequests } from '../../shared/appointment';
+import {
+  AuditableZambdaEndpoints,
+  checkOrCreateM2MClientToken,
+  createAuditEvent,
+  createUpdateUserRelatedResources,
+  generatePatientRelatedRequests,
+  getUser,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import {
   getCurrentQuestionnaireForServiceType,
   getEncounterClass,
@@ -349,7 +360,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: encExtensions,
   };
 
-  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
+  const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
 
   const canonUrl = `${questionnaire.url}|${questionnaire.version}`;
   const patientToUse = createPatientRequest?.resource ?? patient ?? { resourceType: 'Patient' };
@@ -365,7 +376,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     verifiedPhoneNumber: verifiedPhoneNumber,
     contactInfo: contactInfo,
     documents,
-    insuranceInfo,
+    accountInfo,
   });
 
   const questionnaireResponse: QuestionnaireResponse = {
@@ -415,8 +426,14 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const bundle = await oystehr.fhir.transaction<Appointment | Encounter | Patient | List | QuestionnaireResponse>(
     transactionInput
   );
+  const resources = extractResourcesFromBundle(bundle, patient);
 
-  return extractResourcesFromBundle(bundle, patient);
+  await oystehr.fhir.patch({
+    resourceType: 'Appointment',
+    id: resources.appointment.id!,
+    operations: [getPatchOperationForNewMetaTag(resources.appointment, FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG)],
+  });
+  return resources;
 };
 
 const extractResourcesFromBundle = (bundle: Bundle<Resource>, maybePatient?: Patient): TransactionOutput => {

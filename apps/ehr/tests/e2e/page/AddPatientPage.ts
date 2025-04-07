@@ -128,3 +128,8 @@ export async function expectAddPatientPage(page: Page): Promise<AddPatientPage> 
   await expect(page.locator('h3').getByText('Add Patient')).toBeVisible();
   return new AddPatientPage(page);
 }
+
+export async function openAddPatientPage(page: Page): Promise<AddPatientPage> {
+  await page.goto(`/visits/add`);
+  return expectAddPatientPage(page);
+}

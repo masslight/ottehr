@@ -1,10 +1,11 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { chooseJson, CreateAppointmentUCTelemedResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { UploadImage } from '../../utils/UploadImage';
-import { FillingInfo } from '../../utils/telemed/FillingInfo';
-import { Paperwork } from '../../utils/telemed/Paperwork';
+import { UploadDocs } from '../../utils/UploadDocs';
 import { Locators } from '../../utils/locators';
+import { FillingInfo } from '../../utils/telemed/FillingInfo';
+import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
 
 enum PersonSex {
@@ -32,7 +33,7 @@ test.describe('Start virtual visit with required information only', async () => 
   let context: BrowserContext;
   let page: Page;
   let fillingInfo: FillingInfo;
-  let paperwork: Paperwork;
+  let paperwork: PaperworkTelemed;
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
 
@@ -47,13 +48,13 @@ test.describe('Start virtual visit with required information only', async () => 
     context = await browser.newContext();
     page = await context.newPage();
     fillingInfo = new FillingInfo(page);
-    paperwork = new Paperwork(page);
+    paperwork = new PaperworkTelemed(page);
     locators = new Locators(page);
     telemedFlow = new TelemedVisitFlow(page);
 
     page.on('response', async (response) => {
       if (response.url().includes('/telemed-create-appointment/')) {
-        const { appointmentId } = await response.json();
+        const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
         if (appointmentId && !appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
         }
@@ -285,7 +286,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   let context: BrowserContext;
   let page: Page;
   let fillingInfo: FillingInfo;
-  let paperwork: Paperwork;
+  let paperwork: PaperworkTelemed;
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
 
@@ -300,13 +301,13 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     context = await browser.newContext();
     page = await context.newPage();
     fillingInfo = new FillingInfo(page);
-    paperwork = new Paperwork(page);
+    paperwork = new PaperworkTelemed(page);
     locators = new Locators(page);
     telemedFlow = new TelemedVisitFlow(page);
 
     page.on('response', async (response) => {
       if (response.url().includes('/telemed-create-appointment/')) {
-        const { appointmentId } = await response.json();
+        const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
         if (appointmentId && !appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
         }
@@ -456,7 +457,6 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   test('Should fill in current medications', async () => {
     await clickContinueButton();
     await clickContinueButton(); // skip page with no required fields
-
     await paperwork.fillAndCheckFilledCurrentMedications();
   });
 
@@ -527,7 +527,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await uploadPhotoButton.click();
     await expect(page.getByText('Patient condition photo')).toBeVisible();
 
-    const uploadPhoto = new UploadImage(page);
+    const uploadPhoto = new UploadDocs(page);
     await uploadPhoto.fillPatientCondition();
     await page.getByText('Save').click();
 

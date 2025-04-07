@@ -23,10 +23,12 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
       .first();
     const location = (await locationOption.textContent()) ?? undefined;
     await locationOption.click();
-
+    await expect(this.locator.firstAvailableTime).toBeVisible();
+    const title = await this.locator.pageTitle.textContent();
+    const locationTitle = title ? title.replace('Book a visit at ', '').trim() : null;
     const selectedSlot = await this.fillingInfo.selectRandomSlot();
     await this.continue();
-    return { selectedSlot: { time: selectedSlot.time, fullSlot: selectedSlot.fullSlot }, location };
+    return { selectedSlot: { time: selectedSlot.time, fullSlot: selectedSlot.fullSlot }, location, locationTitle };
   }
 
   async startVisitFullFlow(): Promise<StartVisitResponse> {
@@ -36,9 +38,14 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();
     await this.completeBooking();
     await this.page.waitForURL(/\/visit/);
+    const bookingURL = this.page.url();
+    const match = bookingURL.match(/visit\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
     return {
       patientBasicInfo,
       slotAndLocation,
+      bookingURL,
+      bookingUUID,
     };
   }
 }

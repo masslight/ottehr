@@ -8,6 +8,7 @@ import {
   allLicensesForPractitioner,
   isLocationVirtual,
 } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { joinLocationsIdsForFhirSearch } from './helpers';
 import { mapStatesToLocationIds, mapTelemedStatusToEncounterAndAppointment } from './mappers';
 import { LocationIdToAbbreviationMap } from './types';
@@ -95,7 +96,9 @@ export const getAllResourcesFromFhir = async (
       value: joinLocationsIdsForFhirSearch(locationIds),
     });
   }
-  return (await oystehr.fhir.search<FhirResource>(fhirSearchParams)).unbundle();
+  return (await oystehr.fhir.search<FhirResource>(fhirSearchParams))
+    .unbundle()
+    .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 };
 
 export const getPractLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
@@ -174,7 +177,7 @@ const locationIdsForAppointmentsSearch = async (
   return mapStatesToLocationIds([], virtualLocationsMap);
 };
 
-export const getAllPrefilteredFhirResources = async (
+export const getAllPrefilteredFhirResourcesByCredentialingCriteria = async (
   oystehrm2m: Oystehr,
   oystehrCurrentUser: Oystehr,
   params: GetTelemedAppointmentsInput,

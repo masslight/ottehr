@@ -26,11 +26,24 @@ import {
 } from '../../types';
 import Oystehr from '@oystehr/sdk';
 import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
+import { DateTime } from 'luxon';
+import { DOB_DATE_FORMAT } from '../../utils';
+import _ from 'lodash';
 
 export interface OptionConfig {
   label: string;
   value: string;
 }
+
+const stringValTypes = ['text', 'choice', 'open-choice', 'string'];
+
+const isReferenceValueTypeItem = (item: IntakeQuestionnaireItem): boolean => {
+  return item.answerLoadingOptions?.answerSource !== undefined;
+};
+
+const isStringValueTypeItem = (item: IntakeQuestionnaireItem): boolean => {
+  return stringValTypes.includes(item.type) && !isReferenceValueTypeItem(item);
+};
 
 export const oldToCurrentOptionMappings: { [linkId: string]: { [oldValue: string]: string } } = {
   'patient-pronouns': {
@@ -256,6 +269,9 @@ const structureExtension = (item: QuestionnaireItem): QuestionnaireItemExtension
     if (option.answerSource || item.answerValueSet) {
       answerLoadingOptions = option;
     }
+  }
+  if (item.linkId === 'insurance-carrier') {
+    console.log('answerLoadingOptions', JSON.stringify(answerLoadingOptions), JSON.stringify(item));
   }
   let inputWidth = extension.find((ext) => {
     return ext.url === OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS.inputWidth;
@@ -548,4 +564,85 @@ export const convertQuesitonnaireItemToQRLinkIdMap = (
     },
     {} as { [key: string]: QuestionnaireResponseItem }
   );
+};
+
+export const makeQRResponseItem = (
+  value: any,
+  item: IntakeQuestionnaireItem
+): QuestionnaireResponseItem | undefined => {
+  const base = { linkId: item.linkId };
+  try {
+    if (isStringValueTypeItem(item)) {
+      if (item.acceptsMultipleAnswers) {
+        const answer = value?.map((val: string) => {
+          const valueString = val?.trimStart();
+          return { valueString };
+        });
+        return { ...base, answer };
+      }
+      let valueString = value.trimStart();
+      // restrict user from ever entering non-numeric digits
+      if (item.dataType === 'ZIP') {
+        valueString = valueString.replace(/[^0-9]/g, '');
+      }
+      if (valueString.length > 0) {
+        return { ...base, answer: [{ valueString }] };
+      }
+    } else if (isReferenceValueTypeItem(item)) {
+      if (item.acceptsMultipleAnswers) {
+        const answer = value;
+        return { ...base, answer };
+      } else {
+        const valueReference = value;
+        if (valueReference?.reference) {
+          return { ...base, answer: [{ valueReference }] };
+        } else {
+          return { ...base, answer: [] };
+        }
+      }
+    } else if (item.type === 'boolean') {
+      return { ...base, answer: [{ valueBoolean: value ?? false }] };
+    } else if (item.type === 'attachment') {
+      // the file upload component will give us the attachment directly; de don't pull it from an event
+      return { ...base, answer: [{ valueAttachment: value }] };
+    } else if (item.type === 'date' && item.dataType === 'DOB') {
+      if (typeof value === 'object') {
+        const luxonDate = DateTime.fromObject(value);
+        if (luxonDate.isValid) {
+          const dateString = luxonDate.toFormat(DOB_DATE_FORMAT);
+          return { ...base, answer: [{ valueString: dateString }] };
+        }
+      } else if (typeof value === 'string' && value.length > 0) {
+        return { ...base, answer: [{ valueString: value }] };
+      }
+    }
+  } catch (e) {
+    console.error('error making QR response item', e, item, value);
+  }
+
+  console.log('returning base', value, item);
+  return base;
+};
+
+export const itemContainsAnyAnswer = (item: QuestionnaireResponseItem): boolean => {
+  if (item.answer) {
+    return item.answer.some((answer) => {
+      return Object.values(answer).some((val) => {
+        return val !== undefined;
+      });
+    });
+  } else if (item.item) {
+    return item.item.some((subItem) => {
+      return itemContainsAnyAnswer(subItem);
+    });
+  }
+  return false;
+};
+
+export const pruneEmptySections = (qr: QuestionnaireResponse): QuestionnaireResponse => {
+  const prunedQR = _.cloneDeep(qr);
+  //console.log('qr.item', qr.item);
+  prunedQR.item = prunedQR.item?.filter((item) => itemContainsAnyAnswer(item));
+  //console.log('pruned qr.item', prunedQR.item);
+  return prunedQR;
 };

@@ -15,25 +15,25 @@ export class CommonLocatorsHelper {
     const downloadPromise = this.page.waitForEvent('download');
     await linkLocator.click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+    await expect.soft(download.suggestedFilename()).toMatch(/\.pdf$/);
   }
 
   async checkPatientNameIsCorrect({ firstName, lastName }: { firstName: string; lastName: string }): Promise<void> {
-    await expect(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+    await expect.soft(this.page.getByText(`${firstName} ${lastName}`)).toBeVisible();
   }
 
   async checkSlotIsCorrect(selectedSlot?: string): Promise<void> {
     if (!selectedSlot) {
       throw new Error('Selected slot must not be empty or undefined');
     }
-    await expect(this.page.getByText(`${selectedSlot}`)).toBeVisible();
+    await expect.soft(this.page.getByText(`${selectedSlot}`)).toBeVisible();
   }
 
   async checkLocationValueIsCorrect(location: string | null): Promise<void> {
     if (!location) {
       throw new Error('Location must not be empty or undefined');
     }
-    await expect(this.page.getByText(`${location}`)).toBeVisible();
+    await expect.soft(this.page.getByText(`${location}`)).toBeVisible();
   }
 
   async clickContinue(): Promise<void> {
@@ -60,5 +60,9 @@ export class CommonLocatorsHelper {
     // Using year 2000 as it's a leap year, ensuring February 29th is valid
     const date = DateTime.fromFormat(`${monthStr} ${dayStr} 2000`, 'MMM d yyyy', { locale: 'en' });
     return date.isValid ? { monthNumber: date.toFormat('MM'), dayNumber: date.toFormat('dd') } : null;
+  }
+  async clearField(locator: Locator): Promise<void> {
+    await locator.click({ clickCount: 3 });
+    await locator.press('Backspace');
   }
 }

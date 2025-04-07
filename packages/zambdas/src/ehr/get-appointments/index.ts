@@ -20,6 +20,7 @@ import {
   PHOTO_ID_CARD_CODE,
   SMSModel,
   SMSRecipient,
+  Secrets,
   ZAP_SMS_MEDIUM_CODE,
   appointmentTypeForAppointment,
   flattenItems,
@@ -33,10 +34,8 @@ import {
   getVisitStatusHistory,
   isTruthy,
 } from 'utils';
-import { Secrets, ZambdaInput } from 'zambda-utils';
-import { topLevelCatch } from '../shared/errors';
-import { checkOrCreateM2MClientToken, createOystehrClient, getRelatedPersonsFromResourceList } from '../shared/helpers';
-import { sortAppointments } from '../shared/queueingUtils';
+import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
+import { sortAppointments } from '../../shared/queueingUtils';
 import {
   mergeResources,
   parseEncounterParticipants,
@@ -48,6 +47,8 @@ import {
   timezoneMap,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface GetAppointmentsInput {
   searchDate: string;
@@ -65,7 +66,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
 
-    // searchDate should be in UTC(Zulu) format
+    // Appointment dates in the resource are stored in Zulu (UTC) format:
+    // "start": "2025-03-21T00:15:00.000Z",
+    // "end": "2025-03-21T00:30:00.000Z",
+    // But in local time (e.g., America/New_York) this may actually be 2025-03-20.
+    // We should use the appointment's timezone to request the correct appointments.
+    // The approach: use date without timezone from client and convert it to Zulu (UTC)
+    // with the appointment's timezone.
     const { visitType, searchDate, locationID, providerIDs, groupIDs, secrets } = validatedParameters;
 
     console.groupEnd();
@@ -110,10 +117,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             resourceType: resource.resourceType,
           });
 
-          const searchParams = makeEncounterSearchParams({
+          const searchParams = await makeEncounterSearchParams({
             resourceId: resource.resourceId,
             resourceType: resource.resourceType,
             cacheKey,
+            oystehr,
           });
 
           return {
@@ -162,7 +170,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               : Promise.resolve(null);
 
           const [appointmentResponse, encounters] = await Promise.all([appointmentPromise, encounterPromise]);
-          const appointments = appointmentResponse.unbundle();
+          const appointments = appointmentResponse
+            .unbundle()
+            .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
           return { appointments, encounters };
         })
@@ -585,12 +595,12 @@ const makeAppointmentInformation = (
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'full-name') &&
     flattenedItems.find((item: { linkId: string }) => item.linkId === 'consent-form-signer-relationship');
   const docRefComplete = (type: string, frontTitle: string): boolean => {
-    const docFound = allDocRefs.find(
+    const docFound = allDocRefs.filter(
       (document) =>
         document.context?.related?.find((related) => related.reference === `Patient/${patient?.id}`) &&
         document.type?.text === type
     );
-    return !!docFound?.content.find((content) => content.attachment.title === frontTitle);
+    return !!docFound.find((doc) => doc.content.find((content) => content.attachment.title === frontTitle));
   };
   const idCard = docRefComplete('Photo ID cards', 'photo-id-front');
   const insuranceCard = docRefComplete('Insurance cards', 'insurance-card-front');

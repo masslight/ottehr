@@ -1,11 +1,10 @@
 import { Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AllStatesToNames, FacilitiesTelemed, GetChartDataResponse, StateType } from 'utils';
-import { Secrets } from 'zambda-utils';
-import { PdfInfo } from '../../shared/pdf/pdf-utils';
-import { createReceiptPdf } from '../../shared/pdf/receipt-pdf';
-import { GetPaymentDataResponse, ReceiptData } from '../../shared/pdf/types';
-import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
+import { AllStatesToNames, FacilitiesTelemed, GetChartDataResponse, Secrets, StateType } from 'utils';
+import { PdfInfo } from '../../../shared/pdf/pdf-utils';
+import { createReceiptPdf } from '../../../shared/pdf/receipt-pdf';
+import { GetPaymentDataResponse, ReceiptData } from '../../../shared/pdf/types';
+import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
 
 export async function postChargeIssueRequest(apiUrl: string, token: string, encounterId?: string): Promise<any> {
   const serviceUrl = `${apiUrl}/payment/charge/issue`;

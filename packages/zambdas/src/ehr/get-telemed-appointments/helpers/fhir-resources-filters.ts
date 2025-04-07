@@ -1,7 +1,7 @@
 import { Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse, Resource } from 'fhir/r4b';
-import { AppointmentLocation, mapEncounterStatusHistory, TelemedCallStatuses } from 'utils';
-import { mapStatusToTelemed, removePrefix } from '../../shared/appointment/helpers';
-import { getVideoRoomResourceExtension } from '../../shared/helpers';
+import { AppointmentLocation, isTruthy, mapEncounterStatusHistory, TelemedCallStatuses } from 'utils';
+import { mapStatusToTelemed, removePrefix } from '../../../shared/appointment/helpers';
+import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { getLocationIdFromAppointment } from './helpers';
 import { mapQuestionnaireToEncountersIds, mapTelemedEncountersToAppointmentsIdsMap } from './mappers';
 import { AppointmentPackage, LocationIdToAbbreviationMap } from './types';
@@ -29,7 +29,7 @@ export const filterPatientForAppointment = (appointment: Appointment, allResourc
 };
 
 const filterPractitionerForEncounter = (allResources: Resource[], encounter: Encounter): Practitioner | undefined => {
-  console.log('encounter for my appoinement: ' + JSON.stringify(encounter));
+  // console.log('encounter for appoinement: ' + JSON.stringify(encounter));
   const practitionerRef = encounter.participant?.find((part) => part.individual?.reference?.includes('Practitioner/'))
     ?.individual?.reference;
   if (practitionerRef) {
@@ -42,7 +42,8 @@ const filterPractitionerForEncounter = (allResources: Resource[], encounter: Enc
 export const filterAppointmentsFromResources = (
   allResources: Resource[],
   statusesFilter: TelemedCallStatuses[],
-  virtualLocationsMap: LocationIdToAbbreviationMap
+  virtualLocationsMap: LocationIdToAbbreviationMap,
+  locationsIdsFilter?: string[]
 ): AppointmentPackage[] => {
   const resultAppointments: AppointmentPackage[] = [];
   const appointmentEncounterMap: { [key: string]: Encounter } = mapTelemedEncountersToAppointmentsIdsMap(allResources);
@@ -57,6 +58,16 @@ export const filterAppointmentsFromResources = (
     }
     if (!appointment.start) {
       console.log('No start time for appointment');
+      return;
+    }
+
+    // add location filtering
+    const apptLocationIds = appointment.participant
+      ?.filter((part) => part.actor?.reference?.includes('Location/'))
+      .map((part) => part?.actor?.reference?.split('/')[1])
+      .filter(isTruthy);
+
+    if (locationsIdsFilter && !apptLocationIds.some((id) => locationsIdsFilter.includes(id))) {
       return;
     }
 

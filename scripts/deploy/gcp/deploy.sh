@@ -19,22 +19,27 @@ else
 fi
 
 pwd
-cd ./scripts/deploy
+pushd ./scripts/deploy
+# deploy dir has its own npm module
+npm install
 npx ts-node ./gcp/deploy.ts
-cd ../..
+popd
 
-cd ../../packages/zambdas
+pushd packages/zambdas
 ENV=$environment npm run deploy-zambdas $environment
-ENV=$environment npm run setup-zapehr-secrets $environment
+ENV=$environment npm run setup-secrets $environment
 ENV=$environment npm run setup-deployed-resources $environment
+popd
 
-cd ../../../apps/intake
+pushd apps/intake
 npm run build:env --env=$environment
+popd
 
-cd ../../../apps/ehr
+pushd apps/ehr
 npm run build:env --env=$environment
+popd
 
-cd ../../scripts/deploy/gcp
+pushd scripts/deploy/gcp
 terraform init
 terraform apply
-
+popd

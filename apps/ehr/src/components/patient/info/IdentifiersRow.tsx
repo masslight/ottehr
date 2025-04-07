@@ -1,23 +1,21 @@
 import { Box, Skeleton, Tooltip, Typography } from '@mui/material';
 import { FC } from 'react';
-import { useGetPatient } from '../../../hooks/useGetPatient';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
 type Props = {
+  loading?: boolean;
   id?: string;
 };
 
-export const IdentifiersRow: FC<Props> = ({ id }) => {
-  const { loading, patient } = useGetPatient(id);
-
+export const IdentifiersRow: FC<Props> = ({ id, loading }) => {
   return (
     <Box sx={{ display: 'flex', gap: 2 }}>
       {loading ? (
         <Skeleton width={300} />
       ) : (
-        <Tooltip title={patient?.id}>
+        <Tooltip title={id}>
           <Typography variant="body2" data-testid={dataTestIds.patientHeader.patientId}>
-            PID: {patient?.id}
+            PID: {id ?? '?'}
           </Typography>
         </Tooltip>
       )}
