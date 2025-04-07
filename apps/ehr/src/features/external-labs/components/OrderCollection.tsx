@@ -3,7 +3,6 @@ import { LoadingButton } from '@mui/lab';
 import { Button, Stack, Typography } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
-import { SampleInformationCard } from './SampleInformationCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import Oystehr from '@oystehr/sdk';
 import { OrderDetails } from 'utils';
@@ -44,11 +43,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // collectionInstructions,
   specimen: _2,
   serviceRequestID,
-  serviceRequest,
+  // serviceRequest,
   _onCollectionSubmit,
   oystehr,
   showActionButtons = true,
-  showOrderInfo = true,
+  // showOrderInfo = true,
   isAOECollapsed = false,
 }) => {
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
@@ -128,7 +127,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
         <AOECard questions={aoe} isCollapsed={isAOECollapsed} />
         {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
-        {showOrderInfo && (
+        {/* {showOrderInfo && (
           <SampleInformationCard
             orderAddedDateTime={serviceRequest.orderDateTime}
             orderingPhysician={serviceRequest.orderingPhysician || ''}
@@ -137,7 +136,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             // showInPatientPortal={showInPatientPortal}
             showInPatientPortal={true}
           />
-        )}
+        )} */}
         {/* <OrderHistoryCard /> */}
         {showActionButtons && (
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
