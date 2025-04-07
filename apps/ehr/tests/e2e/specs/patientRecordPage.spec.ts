@@ -14,6 +14,11 @@ import { expectPatientRecordPage } from '../page/PatientRecordPage';
 import {
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
+  DEMO_VISIT_MARKETING_MESSAGING,
+  DEMO_VISIT_PATIENT_ETHNICITY,
+  DEMO_VISIT_PATIENT_RACE,
+  DEMO_VISIT_POINT_OF_DISCOVERY,
+  DEMO_VISIT_PREFERRED_LANGUAGE,
   DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
@@ -50,6 +55,12 @@ const NEW_PATIENT_EMAIL = 'testemail@getMaxListeners.com';
 const NEW_PATIENT_MOBILE = '2027139680';
 const NEW_PATIENT_ETHNICITY = 'Hispanic or Latino';
 const NEW_PATIENT_RACE = 'Asian';
+const NEW_PATIENT_SEXUAL_ORIENTATION = 'Straight';
+const NEW_PATIENT_GENDER_IDENTITY = 'Female';
+const NEW_PATIENT_HOW_DID_YOU_HEAR = 'Webinar';
+const NEW_SEND_MARKETING_MESSAGES = 'No';
+const NEW_PREFERRED_LANGUAGE = 'Spanish';
+const NEW_COMMON_WELL_CONSENT = 'Yes';
 const NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER = 'Parent';
 const NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER = 'First name';
 const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
@@ -327,6 +338,40 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+  });
+
+  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
+    await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
+    await patientInformationPage.verifyMarketingMessaging(DEMO_VISIT_MARKETING_MESSAGING ? 'Yes' : 'No');
+    await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
+  });
+
+  test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
+    await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
+    await patientInformationPage.selectSexualOrientation(NEW_PATIENT_SEXUAL_ORIENTATION);
+    await patientInformationPage.selectGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.selectHowDidYouHear(NEW_PATIENT_HOW_DID_YOU_HEAR);
+    await patientInformationPage.selectMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
+    await patientInformationPage.selectPreferredLanguage(NEW_PREFERRED_LANGUAGE);
+    await patientInformationPage.selectCommonwellConsent(NEW_COMMON_WELL_CONSENT);
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+
+    await patientInformationPage.verifyPatientEthnicity(NEW_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyPatientRace(NEW_PATIENT_RACE);
+    await patientInformationPage.verifySexualOrientation(NEW_PATIENT_SEXUAL_ORIENTATION);
+    await patientInformationPage.verifyGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.verifyHowDidYouHear(NEW_PATIENT_HOW_DID_YOU_HEAR);
+    await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
+    await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
+    await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
   });
 });
 
