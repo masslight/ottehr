@@ -24,11 +24,15 @@ export const OrderDetailsPage: React.FC = () => {
   }
 
   if (status === 'pending' || status === 'sent') {
-    return <DetailsWithoutResults labOrder={labOrder} />;
+    return (
+      <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
+        <DetailsWithoutResults labOrder={labOrder} />
+      </WithLabBreadcrumbs>
+    );
   }
 
   return (
-    <WithLabBreadcrumbs sectionName="Lab Order Details">
+    <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
       <DetailsWithResults labOrder={labOrder} />
     </WithLabBreadcrumbs>
   );
