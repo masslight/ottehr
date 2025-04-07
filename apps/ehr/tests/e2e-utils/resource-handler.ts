@@ -217,11 +217,6 @@ export class ResourceHandler {
               projectId: process.env.PROJECT_ID!,
               paperworkAnswers: this.#paperworkAnswers,
             });
-
-      if ('error' in appointmentData) {
-        throw new Error(appointmentData.error);
-      }
-
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
@@ -396,7 +391,7 @@ export class ResourceHandler {
   }
 
   async patientIdByAppointmentId(appointmentId: string): Promise<string> {
-    const appointment = await this.apiClient.fhir.get<Appointment>({
+    const appointment = await this.#apiClient.fhir.get<Appointment>({
       resourceType: 'Appointment',
       id: appointmentId,
     });
@@ -415,7 +410,7 @@ export class ResourceHandler {
     email: string;
     practitioner: Practitioner;
   }> {
-    await this.initPromise;
+    await this.#initPromise;
     const users = await fetchWithOystAuth<
       {
         id: string;
@@ -423,11 +418,11 @@ export class ResourceHandler {
         email: string;
         profile: string;
       }[]
-    >('GET', 'https://project-api.zapehr.com/v1/user', this.authToken);
+    >('GET', 'https://project-api.zapehr.com/v1/user', this.#authToken);
 
     const user = users?.find((user) => user.email === process.env.TEXT_USERNAME);
     if (!user) throw new Error('Failed to find authorized user');
-    const practitioner = (await this.apiClient.fhir.get({
+    const practitioner = (await this.#apiClient.fhir.get({
       resourceType: 'Practitioner',
       id: user.profile.replace('Practitioner/', ''),
     })) as Practitioner;
