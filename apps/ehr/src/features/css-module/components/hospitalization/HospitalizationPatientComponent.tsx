@@ -22,7 +22,7 @@ export const HospitalizationPatientComponent: FC = () => {
     >
       {isAppointmentLoading ? (
         <PatientSideListSkeleton />
-      ) : hospitalizations ? (
+      ) : hospitalizations?.length ? (
         hospitalizations.map((answer, index, arr) => (
           <Box key={index}>
             <Typography>{answer}</Typography>

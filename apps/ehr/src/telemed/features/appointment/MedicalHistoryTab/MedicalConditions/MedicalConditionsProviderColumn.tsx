@@ -246,7 +246,6 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-  const featureFlags = useFeatureFlags();
   const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
@@ -273,7 +272,7 @@ const AddMedicalConditionField: FC = () => {
       const newValue = {
         code: data.code,
         display: data.display,
-        current: featureFlags.css || undefined,
+        current: true,
       };
       useAppointmentStore.setState((prevState) => ({
         chartData: {

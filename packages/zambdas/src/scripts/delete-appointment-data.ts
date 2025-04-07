@@ -30,7 +30,7 @@ const generateDeleteAndUpdateRequests = (allResources: FhirResource[]): [BatchIn
   const deleteRequests: BatchInputDeleteRequest[] = [];
   const updateRequests: BatchInputPatchRequest<Person>[] = [];
 
-  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0];
+  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as Person;
 
   allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')

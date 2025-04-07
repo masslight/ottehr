@@ -122,7 +122,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       .setProtectedHeader({ alg })
       .setIssuedAt()
       .setIssuer(PROJECT_WEBSITE)
-      .setSubject(emailAddress)
+      .setSubject(emailAddress || phoneNumber)
       .setAudience(`${websiteUrl}/waiting-room/appointment/${appointmentId}`)
       .setExpirationTime('24h')
       .sign(secret);

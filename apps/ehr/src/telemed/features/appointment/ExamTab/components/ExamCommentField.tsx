@@ -1,16 +1,8 @@
-import React, { ReactElement, useMemo, useState } from 'react';
 import { Box, CircularProgress, TextField } from '@mui/material';
+import { ReactElement, useEffect, useState } from 'react';
 import { ExamCardsNames, InPersonExamCardsNames } from 'utils';
-import {
-  EXAM_OBSERVATIONS_CARDS,
-  IN_PERSON_EXAM_OBSERVATIONS_CARDS,
-  useDeleteChartData,
-  useExamObservationsStore,
-  useInPersonExamObservationsStore,
-  useSaveChartData,
-} from '../../../../state';
 import { useDebounce } from '../../../../hooks';
-import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { useExamObservations } from '../../../../hooks/useExamObservations';
 
 type ExamCommentFieldProps<T extends ExamCardsNames | InPersonExamCardsNames = ExamCardsNames> = {
   name: T;
@@ -21,63 +13,35 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
 ): ReactElement => {
   const { name } = props;
 
-  const { css } = useFeatureFlags();
-
-  /* eslint-disable react-hooks/rules-of-hooks */
-  const field = css
-    ? useInPersonExamObservationsStore((state) => state[name as InPersonExamCardsNames])
-    : useExamObservationsStore((state) => state[name as ExamCardsNames]);
-  const [value, setValue] = useState(field.note || '');
-
-  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
-  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
-
-  const isLoading = useMemo(() => isSaveLoading || isDeleteLoading, [isSaveLoading, isDeleteLoading]);
+  const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
 
   const { debounce } = useDebounce();
 
-  const onValueChange = (text: string): void => {
-    debounce(() => {
-      text = text.trim();
+  const onChange = (value: string): void => {
+    value = value.trim();
 
-      if (text) {
-        saveChartData(
-          {
-            examObservations: [{ ...field, note: text }],
-          },
-          {
-            onSuccess: (data) => {
-              data.chartData.examObservations?.forEach((exam) =>
-                useExamObservationsStore.setState({ [exam.field]: exam })
-              );
-            },
-          }
-        );
-      } else {
-        deleteChartData(
-          {
-            examObservations: [{ ...field, note: text }],
-          },
-          {
-            onSuccess: (_data) => {
-              useExamObservationsStore.setState({
-                [name]: css
-                  ? IN_PERSON_EXAM_OBSERVATIONS_CARDS[name as InPersonExamCardsNames]
-                  : EXAM_OBSERVATIONS_CARDS[name as ExamCardsNames],
-              });
-            },
-          }
-        );
-      }
-    });
+    if (value) {
+      debounce(() => {
+        update({ ...field, note: value });
+      });
+    } else {
+      deleteField(field);
+    }
   };
+
+  const [value, setValue] = useState(field.note || '');
+
+  useEffect(() => {
+    setValue(field.note || '');
+  }, [field.note]);
 
   return (
     <TextField
       value={value}
       onChange={(e) => {
+        console.log('e.target.value', e.target.value);
         setValue(e.target.value);
-        onValueChange(e.target.value);
+        onChange(e.target.value);
       }}
       size="small"
       label="Provider comment"

@@ -108,7 +108,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             required: REQUIRED_FIELD_ERROR_MESSAGE,
             validate: (value, ctxt) => {
               // todo: this validation concept would be good to lift into the paperwork validation engine
-              const otherGroupKey = InsurancePriorityOptions.find((key) => key !== FormFields.insuranceCarrier.key);
+              const otherGroupKey = InsurancePriorityOptions.find((key) => key !== FormFields.insurancePriority.key);
               let otherGroupValue: 'Primary' | 'Secondary' | undefined;
               if (otherGroupKey) {
                 otherGroupValue = ctxt[otherGroupKey];

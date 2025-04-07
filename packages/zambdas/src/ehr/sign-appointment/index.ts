@@ -11,7 +11,7 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
   getCriticalUpdateTagOp,
-  progressNoteChartDataRequestedFields,
+  getProgressNoteChartDataRequestedFields,
   PROJECT_MODULE,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
@@ -92,7 +92,7 @@ export const performEffect = async (
   const additionalChartDataPromise = getChartData(
     oystehr,
     visitResources.encounter.id!,
-    isInPersonAppointment ? progressNoteChartDataRequestedFields : telemedProgressNoteChartDataRequestedFields
+    isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
 
   const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(

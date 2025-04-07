@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Location, Resource } from 'fhir/r4b';
 import { PUBLIC_EXTENSION_BASE_URL, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from './constants';
+import { TelemedLocation } from '../types';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
   return Boolean(
@@ -58,6 +59,22 @@ export async function getTelemedLocation(oystehr: Oystehr, state: string): Promi
   ).unbundle();
 
   return resources.find((location) => isLocationVirtual(location));
+}
+
+export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLocation[] | undefined> {
+  const resources = (
+    await oystehr.fhir.search<Location>({
+      resourceType: 'Location',
+      params: [],
+    })
+  ).unbundle();
+
+  const telemedLocations = resources.filter((location) => isLocationVirtual(location));
+
+  return telemedLocations.map((location) => ({
+    state: location.address?.state || '',
+    available: location.status === 'active',
+  }));
 }
 
 export const TELEMED_INITIAL_STATES = ['NJ', 'OH'];

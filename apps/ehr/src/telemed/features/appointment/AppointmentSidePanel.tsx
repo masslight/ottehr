@@ -41,6 +41,7 @@ import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../..
 import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
 import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 enum Gender {
   'male' = 'Male',
@@ -164,7 +165,10 @@ export const AppointmentSidePanel: FC = () => {
             </Typography>
 
             {!isReadOnly && (
-              <IconButton onClick={() => setIsEditDialogOpen(true)}>
+              <IconButton
+                onClick={() => setIsEditDialogOpen(true)}
+                data-testid={dataTestIds.telemedEhrFlow.editPatientButtonSideBar}
+              >
                 <EditOutlinedIcon sx={{ color: theme.palette.primary.main }} />
               </IconButton>
             )}
@@ -201,7 +205,10 @@ export const AppointmentSidePanel: FC = () => {
             {isChartDataLoading
               ? 'Loading...'
               : allergies && allergies.length > 0
-              ? allergies.map((allergy) => allergy.name).join(', ')
+              ? allergies
+                  .filter((allergy) => allergy.current === true)
+                  .map((allergy) => allergy.name)
+                  .join(', ')
               : 'No known allergies'}
           </Typography>
 
@@ -331,6 +338,7 @@ export const AppointmentSidePanel: FC = () => {
                 }}
                 startIcon={<PersonAddAltOutlinedIcon />}
                 onClick={() => setIsInviteParticipantOpen(true)}
+                data-testid={dataTestIds.telemedEhrFlow.inviteParticipant}
               >
                 Invite participant
               </Button>
@@ -347,6 +355,7 @@ export const AppointmentSidePanel: FC = () => {
               }}
               startIcon={<CancelOutlinedIcon />}
               onClick={() => setIsCancelDialogOpen(true)}
+              data-testid={dataTestIds.telemedEhrFlow.cancelThisVisitButton}
             >
               Cancel this visit
             </Button>

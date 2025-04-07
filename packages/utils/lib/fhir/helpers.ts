@@ -319,7 +319,7 @@ export async function createFilesDocumentReferences(
     }
 
     // Update lists
-    let updatedListResources: List[] | undefined = undefined;
+    let updatedListResources = listResources;
     if (listResources) {
       const newListResources: List[] = [];
       for (const [typeCode, newEntries] of Object.entries(newEntriesByType)) {

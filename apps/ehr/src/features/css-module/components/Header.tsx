@@ -71,7 +71,15 @@ export const Header = (): JSX.Element => {
   const gender = format(mappedData?.gender, 'Gender');
   const language = format(mappedData?.preferredLanguage, 'Lang');
   const dob = format(mappedData?.DOB, 'DOB', true);
-  const allergies = format(chartData?.allergies?.map((allergy) => allergy.name)?.join(', '), 'Allergy', true, 'none');
+  const allergies = format(
+    chartData?.allergies
+      ?.filter((allergy) => allergy.current === true)
+      ?.map((allergy) => allergy.name)
+      ?.join(', '),
+    'Allergy',
+    true,
+    'none'
+  );
   const reasonForVisit = format(appointment?.description, 'Reason for Visit');
   const userId = format(patient?.id);
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
