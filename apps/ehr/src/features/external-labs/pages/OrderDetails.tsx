@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
+import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 
 export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
@@ -26,5 +27,9 @@ export const OrderDetailsPage: React.FC = () => {
     return <DetailsWithoutResults labOrder={labOrder} />;
   }
 
-  return <DetailsWithResults labOrder={labOrder} />;
+  return (
+    <WithLabBreadcrumbs sectionName="Lab Order Details">
+      <DetailsWithResults labOrder={labOrder} />
+    </WithLabBreadcrumbs>
+  );
 };
