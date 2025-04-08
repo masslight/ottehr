@@ -172,6 +172,14 @@
     "ANTHROPIC_API_KEY": {
       "name": "ANTHROPIC_API_KEY",
       "value": "#var/ANTHROPIC_API_KEY"
+    },
+    "ADVAPACS_CLIENT_ID": {
+      "name": "ADVAPACS_CLIENT_ID",
+      "value": "#var/ADVAPACS_CLIENT_ID"
+    },
+    "ADVAPACS_CLIENT_SECRET": {
+      "name": "ADVAPACS_CLIENT_SECRET",
+      "value": "#var/ADVAPACS_CLIENT_SECRET"
     }
   },
   "zambdas": {
@@ -785,6 +793,13 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
+    },
+    "RADIOLOGY-CREATE-ORDER": {
+      "name": "RADIOLOGY-CREATE-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/create-order/index",
+      "zip": ".dist/zips/radiology-create-order.zip"
     }
   },
   "fhirResources": {
@@ -796,7 +811,10 @@
         "patient": "patient-id",
         "title": "My Questions"
       },
-      "managedFields": ["name", "title"]
+      "managedFields": [
+        "name",
+        "title"
+      ]
     }
   },
   "apps": {
@@ -819,7 +837,9 @@
           "effect": "Allow"
         }
       ],
-      "roles": ["#ref/EHR_SUPER_ADMIN"]
+      "roles": [
+        "#ref/EHR_SUPER_ADMIN"
+      ]
     }
   },
   "roles": {

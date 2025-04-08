@@ -1,6 +1,7 @@
 import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
+  chooseJson,
   Closure,
   CreateAppointmentInputParams,
   GetEligibilityParameters,
@@ -9,6 +10,8 @@ import {
   GetScheduleRequestParams,
   GetScheduleResponse,
   HandleAnswerInput,
+  isApiError,
+  isoStringFromMDYString,
   PatchPaperworkParameters,
   PatientInfo,
   PersistConsentInput,
@@ -18,9 +21,6 @@ import {
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   VisitType,
-  chooseJson,
-  isApiError,
-  isoStringFromMDYString,
 } from 'utils';
 import {
   CancelAppointmentParameters,
