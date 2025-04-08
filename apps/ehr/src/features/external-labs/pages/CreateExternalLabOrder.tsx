@@ -29,7 +29,6 @@ import {
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import useEvolveUser from '../../../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
@@ -49,9 +48,7 @@ interface CreateExternalLabOrdersProps {
 export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = () => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
-  const user = useEvolveUser();
   const navigate = useNavigate();
-  const practitionerId = user?.profile.replace('Practitioner/', '');
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -94,10 +91,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         setLabs(labsFetched);
       } catch (e) {
         console.error('error loading resources', e);
-        const error = e as any;
-        const errorMessage = error?.message
-          ? [error?.message]
-          : ['There was an error fetching resources to order this lab'];
+        const errorMessage = ['There was an error fetching resources to order this lab'];
         setError(errorMessage);
         loadingError = true;
       } finally {
@@ -117,21 +111,21 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
-    const paramsSatisfied = orderDx.length && practitionerId && selectedLab;
+    const paramsSatisfied = orderDx.length && selectedLab;
     if (oystehrZambda && paramsSatisfied) {
       try {
         await addAdditionalDxToEncounter();
         await createLabOrder(oystehrZambda, {
           dx: orderDx,
           encounter,
-          practitionerId,
           orderableItem: selectedLab,
           psc,
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const error = e as any;
-        const errorMessage = error?.message ? [error?.message] : ['There was an error ordering this lab'];
+        console.log('error', JSON.stringify(error));
+        const errorMessage = ['There was an error ordering this lab'];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {

@@ -29,6 +29,7 @@ import { createOystehrClient } from '../../shared/helpers';
 import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
+import { getUser } from '../../shared';
 
 let m2mtoken: string;
 
@@ -36,12 +37,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { dx, encounter, practitionerId, orderableItem, psc, secrets } = validatedParameters;
+    const { dx, encounter, orderableItem, psc, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
+
+    const userToken = input.headers.Authorization.replace('Bearer ', '');
+    const user = await getUser(userToken, secrets);
+    const practitionerId = user?.profile.replace('Practitioner/', '');
+    if (practitionerId) throw new Error('User submitting lab has must have a Practitioner resource linked');
 
     console.log('encounter id', encounter.id);
     const { labOrganization, coverage, location, patientId, existingActivityDefinition } = await getAdditionalResources(
