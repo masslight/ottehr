@@ -120,6 +120,7 @@ export const DetailsWithoutResults: React.FC = () => {
               specimen={specimen}
               serviceRequestID={serviceRequestID}
               serviceRequest={serviceRequest}
+              accountNumber={serviceRequest.accountNumber}
               _onCollectionSubmit={handleSampleCollectionTaskChange}
               oystehr={oystehrZambda}
             />

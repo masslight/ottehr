@@ -26,7 +26,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
-    const { serviceRequestID, data, secrets } = validateRequestParameters(input);
+    const { serviceRequestID, accountNumber, data, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
@@ -281,7 +281,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
       body: JSON.stringify({
         serviceRequest: `ServiceRequest/${serviceRequest.id}`,
-        accountNumber: 'teset',
+        accountNumber: accountNumber,
       }),
     });
     if (!submitLabRequest.ok) {
