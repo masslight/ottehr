@@ -18,33 +18,33 @@ const ExcuseNoteContent = ({
 }: {
   appointmentID: string;
   docType: string;
-}): JSX.Element | undefined => {
+}): JSX.Element | null => {
   const apiClient = useZapEHRAPIClient();
   const openExternalLink = useOpenExternalLink();
   const { data } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(appointmentID), appointmentID);
 
-  return (
-    data?.files[docType] && (
-      <>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-          <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
-            {docType} note
-          </Typography>
-          <Button
-            variant="text"
-            startIcon={<DownloadIcon />}
-            onClick={() => {
-              openExternalLink(data.files[docType].presignedUrl || '');
-            }}
-            disabled={!data?.files[docType].presignedUrl}
-          >
-            Download PDF
-          </Button>
-        </Box>
+  return data?.files[docType] ? (
+    <>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+        <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+          {docType} note
+        </Typography>
+        <Button
+          variant="text"
+          startIcon={<DownloadIcon />}
+          onClick={() => {
+            openExternalLink(data.files[docType].presignedUrl || '');
+          }}
+          disabled={!data?.files[docType].presignedUrl}
+        >
+          Download PDF
+        </Button>
+      </Box>
 
-        <Divider sx={{ my: 3 }} />
-      </>
-    )
+      <Divider sx={{ my: 3 }} />
+    </>
+  ) : (
+    <></>
   );
 };
 
