@@ -52,22 +52,22 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     })
   )?.unbundle();
   const serviceRequestsTemp: ServiceRequest[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'ServiceRequest'
+    (resourceTemp): resourceTemp is ServiceRequest => resourceTemp.resourceType === 'ServiceRequest'
   );
   const patientsTemp: Patient[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'Patient'
+    (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
   );
   const practitionersTemp: Practitioner[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'Practitioner'
+    (resourceTemp): resourceTemp is Practitioner => resourceTemp.resourceType === 'Practitioner'
   );
   const questionnaireResponsesTemp: QuestionnaireResponse[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'QuestionnaireResponse'
+    (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
   );
   const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'Task'
+    (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp) => resourceTemp.resourceType === 'Organization'
+    (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
   );
 
   if (serviceRequestsTemp?.length !== 1) {
