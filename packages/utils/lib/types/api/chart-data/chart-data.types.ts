@@ -79,7 +79,7 @@ export type ChartDataResources =
 export interface ChartDataWithResources {
   chartData: GetChartDataResponse;
   chartResources: Resource[];
-  publishExcuseNotesOps: BatchInputRequest<DocumentReference>[];
+  publishExcuseNotesOps?: BatchInputRequest<DocumentReference>[];
 }
 
 export interface SaveableDTO {
