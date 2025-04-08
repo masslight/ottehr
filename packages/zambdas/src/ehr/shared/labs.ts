@@ -1,5 +1,14 @@
 import Oystehr from '@oystehr/sdk';
-import { ServiceRequest, QuestionnaireResponse, Practitioner, Task, Patient, Account, Coverage } from 'fhir/r4b';
+import {
+  ServiceRequest,
+  QuestionnaireResponse,
+  Practitioner,
+  Task,
+  Patient,
+  Account,
+  Coverage,
+  Organization,
+} from 'fhir/r4b';
 
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
@@ -7,11 +16,12 @@ export type LabOrderResources = {
   questionnaireResponse: QuestionnaireResponse;
   practitioner: Practitioner;
   task: Task;
+  organization: Organization;
 };
 
 export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
   const serviceRequestTemp = (
-    await oystehr.fhir.search<ServiceRequest | QuestionnaireResponse | Patient | Practitioner | Task>({
+    await oystehr.fhir.search<ServiceRequest | QuestionnaireResponse | Patient | Practitioner | Task | Organization>({
       resourceType: 'ServiceRequest',
       params: [
         {
@@ -34,6 +44,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
           name: '_include',
           value: 'ServiceRequest:requester',
         },
+        {
+          name: '_include',
+          value: 'ServiceRequest:performer',
+        },
       ],
     })
   )?.unbundle();
@@ -51,6 +65,9 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   );
   const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp) => resourceTemp.resourceType === 'Task'
+  );
+  const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp) => resourceTemp.resourceType === 'Organization'
   );
 
   if (serviceRequestsTemp?.length !== 1) {
@@ -73,11 +90,16 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     throw new Error('task is not found');
   }
 
+  if (orgsTemp?.length !== 1) {
+    throw new Error('performing lab Org not found');
+  }
+
   const serviceRequest = serviceRequestsTemp?.[0];
   const patient = patientsTemp?.[0];
   const practitioner = practitionersTemp?.[0];
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
+  const organization = orgsTemp?.[0];
 
   return {
     serviceRequest: serviceRequest,
@@ -85,6 +107,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     practitioner,
     questionnaireResponse: questionnaireResponse,
     task,
+    organization,
   };
 }
 
