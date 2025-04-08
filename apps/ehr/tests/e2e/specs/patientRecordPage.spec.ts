@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { BrowserContext, Page, test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
@@ -12,6 +12,7 @@ import {
 import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
 import {
+  chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
@@ -59,6 +60,9 @@ const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
+let context: BrowserContext;
+let page: Page;
+
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
     await resourceHandler.setResources();
@@ -82,6 +86,20 @@ test.describe('Patient Record Page non-mutating tests', () => {
 
 test.describe('Patient Record Page mutating tests', () => {
   let appointmentIds: string[] = [];
+
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
+    page.on('response', async (response) => {
+      if (response.url().includes('/create-appointment/')) {
+        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
+        if (appointment && !appointmentIds.includes(appointment)) {
+          console.log('Created appointment: ', appointment);
+          appointmentIds.push(appointment);
+        }
+      }
+    });
+  });
 
   test.beforeEach(async ({ page }) => {
     await resourceHandler.setResources();
@@ -355,7 +373,6 @@ test.describe('Patient Record Page mutating tests', () => {
     if (!appointmentId) {
       throw new Error('Appointment ID should be present in the response');
     }
-    appointmentIds.push(appointmentId);
 
     const patientId = await resourceHandler.patientIdByAppointmentId(appointmentId);
     const patientInformationPage = await openPatientInformationPage(page, patientId);
