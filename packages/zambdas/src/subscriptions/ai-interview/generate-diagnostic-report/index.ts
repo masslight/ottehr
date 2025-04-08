@@ -1,8 +1,17 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Observation, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { createOystehrClient, FHIR_EXTENSION, getSecret, Secrets, SecretsKeys } from 'utils';
-import { configSentry, getAuth0Token, validateJsonBody, ZambdaInput } from '../../../shared';
-import Oystehr from '@oystehr/sdk';
+import { Condition, Encounter, Observation, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
+import { AI_OBSERVATION_META_SYSTEM, createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  configSentry,
+  getAuth0Token,
+  makeDiagnosisConditionResource,
+  makeObservationResource,
+  parseCreatedResourcesBundle,
+  saveResourceRequest,
+  validateJsonBody,
+  ZambdaInput,
+} from '../../../shared';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
@@ -14,15 +23,15 @@ Please present a response in JSON format. Don't add markdown. Use property names
 Use a single string property in JSON for each section except potential diagnoses. 
 The transcript: `;
 
-const AI_RESPONSE_KEY_TO_LOINC = {
-  historyOfPresentIllness: '10164-2',
-  pastMedicalHistory: '11348-0',
-  pastSurgicalHistory: '47519-4',
-  medicationsHistory: '10160-0',
-  allergies: '48765-2',
-  socialHistory: '29762-2',
-  familyHistory: '10157-6',
-};
+const AI_RESPONSE_KEYS = [
+  'historyOfPresentIllness',
+  'pastMedicalHistory',
+  'pastSurgicalHistory',
+  'medicationsHistory',
+  'allergies',
+  'socialHistory',
+  'familyHistory',
+];
 
 let oystehrToken: string;
 
@@ -43,55 +52,26 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     ).content.toString();
     console.log(`AI response: "${aiResponseString}"`);
     const aiResponse = JSON.parse(aiResponseString);
-    const observations = createObservations(aiResponse);
     const oystehr = await createOystehr(secrets);
-    const diagnosticReport: DiagnosticReport = {
-      resourceType: 'DiagnosticReport',
-      status: 'final',
-      category: [
-        {
-          coding: [
-            {
-              system: FHIR_EXTENSION.DiagnosticReport.potentialDiagnosis.url,
-              code: 'ai-chat',
-            },
-          ],
-        },
-      ],
-      code: {
-        coding: [
-          {
-            system: 'http://loinc.org',
-            code: '10164-2',
-          },
-        ],
-      },
-      encounter: questionnaireResponse.encounter,
-      result: observations.map((observation) => {
-        return { reference: '#' + observation.id };
-      }),
-      contained: observations,
-      extension: aiResponse.potentialDiagnoses?.map((diagnosis: { diagnosis: any; icd10: string }) => {
-        return {
-          ...FHIR_EXTENSION.DiagnosticReport.potentialDiagnosis,
-          valueCodeableConcept: {
-            coding: [
-              {
-                system: 'http://hl7.org/fhir/sid/icd-10',
-                code: diagnosis.icd10,
-                display: diagnosis.diagnosis,
-              },
-            ],
-          },
-        };
-      }),
-    };
-    console.log(`Creating DiagnosticReport: "${JSON.stringify(diagnosticReport, null, 2)}"`);
-    const createdDiagnosticReport = await oystehr.fhir.create<DiagnosticReport>(diagnosticReport);
-    console.log(`Created DiagnosticReport/${createdDiagnosticReport.id}`);
+    const encounter = await oystehr.fhir.get<Encounter>({
+      resourceType: 'Encounter',
+      id: questionnaireResponse.encounter?.reference?.split('/')[1] ?? '',
+    });
+    const requests: BatchInputPostRequest<Observation | Condition>[] = [];
+    const patientId = encounter.subject?.reference?.split('/')[1];
+    requests.push(...createObservations(aiResponse, encounter.id!, patientId!));
+    requests.push(...createDiagnosis(aiResponse, encounter.id!, patientId!));
+    console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
+    const transactionBundle = await oystehr.fhir.transaction({
+      requests: requests,
+    });
+    const createdResources = parseCreatedResourcesBundle(transactionBundle)
+      .map((resource) => resource.resourceType + '/' + resource.id)
+      .join(',');
+    console.log('Created ' + createdResources);
     return {
       statusCode: 200,
-      body: JSON.stringify(`Successfully created DiagnosticReport/${createdDiagnosticReport.id}`),
+      body: JSON.stringify(`Successfully created ` + createdResources),
     };
   } catch (error: any) {
     console.log('error', error, error.issue);
@@ -121,30 +101,47 @@ function createChatTranscript(questionnaireResponse: QuestionnaireResponse): str
     .join('\n');
 }
 
-function createObservations(aiResponse: any): Observation[] {
-  return Object.entries(AI_RESPONSE_KEY_TO_LOINC).flatMap(([key, loinc]) => {
+function createObservations(
+  aiResponse: any,
+  encounterId: string,
+  patientId: string
+): BatchInputPostRequest<Observation>[] {
+  return AI_RESPONSE_KEYS.flatMap((key) => {
     if (aiResponse[key] != null) {
-      return [createObservation(aiResponse[key], loinc)];
+      return [
+        saveResourceRequest(
+          makeObservationResource(
+            encounterId,
+            patientId,
+            '',
+            {
+              field: key,
+              value: aiResponse[key],
+            },
+            AI_OBSERVATION_META_SYSTEM
+          )
+        ),
+      ];
     }
     return [];
   });
 }
 
-function createObservation(text: string, code: string): Observation {
-  return {
-    resourceType: 'Observation',
-    id: code,
-    status: 'final',
-    code: {
-      coding: [
+function createDiagnosis(aiResponse: any, encounterId: string, patientId: string): BatchInputPostRequest<Condition>[] {
+  return aiResponse.potentialDiagnoses?.map((diagnosis: { diagnosis: any; icd10: string }) => {
+    return saveResourceRequest(
+      makeDiagnosisConditionResource(
+        encounterId,
+        patientId,
         {
-          system: 'http://loinc.org',
-          code: code,
+          code: diagnosis.icd10,
+          display: diagnosis.diagnosis,
+          isPrimary: false,
         },
-      ],
-    },
-    valueString: text,
-  };
+        'ai-potential-diagnosis'
+      )
+    );
+  });
 }
 
 function validateInput(input: ZambdaInput): Input {

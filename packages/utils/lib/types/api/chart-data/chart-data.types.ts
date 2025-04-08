@@ -15,6 +15,7 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import {
+  AI_OBSERVATION_FIELD,
   ASQ_FIELD,
   ASQKeys,
   HISTORY_OBTAINED_FROM_FIELD,
@@ -135,6 +136,7 @@ export interface AllergyDTO extends SaveableDTO {
 export const EXAM_OBSERVATION_META_SYSTEM = 'exam-observation-field';
 
 export const ADDITIONAL_QUESTIONS_META_SYSTEM = 'additional-questions-field';
+export const AI_OBSERVATION_META_SYSTEM = 'ai-observation';
 
 export const PATIENT_VITALS_META_SYSTEM = 'patient-vitals-field';
 
@@ -256,6 +258,11 @@ export type ObservationSeenInLastThreeYearsDTO = {
 export type ASQObservationDTO = {
   field: typeof ASQ_FIELD;
   value: ASQKeys;
+} & SaveableDTO;
+
+export type AiObservationDTO = {
+  field: AI_OBSERVATION_FIELD;
+  value: string;
 } & SaveableDTO;
 
 export interface CPTCodeDTO extends SaveableDTO {

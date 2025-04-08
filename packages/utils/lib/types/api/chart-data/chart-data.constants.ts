@@ -22,7 +22,8 @@ export type ProviderChartDataFieldsNames =
   | 'addendum-note'
   | typeof NOTHING_TO_EAT_OR_DRINK_ID
   | typeof CSS_NOTE_ID
-  | 'birth-history';
+  | 'birth-history'
+  | 'ai-potential-diagnosis';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 
@@ -167,3 +168,12 @@ export enum VitalsOxygenSatObservationMethod {
   OnRoomAir = 'On room air',
   OnSupplementalO2 = 'On supplemental O2',
 }
+
+export type AI_OBSERVATION_FIELD =
+  | 'historyOfPresentIllness'
+  | 'pastMedicalHistory'
+  | 'pastSurgicalHistory'
+  | 'medicationsHistory'
+  | 'allergies'
+  | 'socialHistory'
+  | 'familyHistory';
