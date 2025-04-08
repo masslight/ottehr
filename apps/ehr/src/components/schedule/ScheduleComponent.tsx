@@ -17,12 +17,11 @@ import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import React, { ReactElement, useMemo } from 'react';
 import { ScheduleCapacity } from './ScheduleCapacity';
-import { ScheduleOverridesComponent } from './ScheduleOverridesComponent';
+import { ScheduleOverridesComponent, UpdateOverridesInput } from './ScheduleOverridesComponent';
 import { otherColors } from '../../CustomThemeProvider';
 import { DateTime } from 'luxon';
-import { Closure, Day, Overrides, Weekday, Weekdays } from '../../types/types';
-// import { useApiClients } from '../../hooks/useAppClients';
-import { ScheduleDTO, sleep } from 'utils';
+import { Day, Weekday } from '../../types/types';
+import { DailySchedule, DOW, HourOfDay, ScheduleDTO, UpdateScheduleParams } from 'utils';
 
 interface InfoForDayProps {
   day: Weekday;
@@ -64,7 +63,7 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
   const timeMenuItems = useMemo(
     () =>
       Array.from({ length: 24 }, (_, i) => (
-        <MenuItem value={i}>
+        <MenuItem key={i} value={i}>
           {i % 12 || 12} {i < 12 ? 'AM' : 'PM'}
         </MenuItem>
       )),
@@ -280,14 +279,13 @@ interface ScheduleProps {
   item: ScheduleDTO;
   id: string;
   loading: boolean;
-  update: (scheduleData: any) => Promise<void>;
+  update: (scheduleData: UpdateScheduleParams) => Promise<void>;
 }
 
 export default function ScheduleComponent({ item, update, loading }: ScheduleProps): ReactElement {
   const today = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
   const [dayOfWeek, setDayOfWeek] = React.useState(today);
-  const [days, setDays] = React.useState<Weekdays | undefined>(item.schema.schedule);
-  const [closures, setClosures] = React.useState<Closure[] | undefined>(item.schema.closures);
+  const [days, setDays] = React.useState<DailySchedule | undefined>(item.schema.schedule);
   const [toastMessage, setToastMessage] = React.useState<string | undefined>(undefined);
   const [toastType, setToastType] = React.useState<AlertColor | undefined>(undefined);
   const [snackbarOpen, setSnackbarOpen] = React.useState<boolean>(false);
@@ -297,9 +295,10 @@ export default function ScheduleComponent({ item, update, loading }: SchedulePro
     setDayOfWeek(newDayOfWeek);
   };
 
-  const handleUpdate = async (data: any): Promise<void> => {
-    console.log('handling update', data);
-    await update(data);
+  const handleScheduleUpdate = async (event: any): Promise<void> => {
+    event.preventDefault();
+    //console.log('handling update', event.target, new FormData(event.target), days);
+    await update({ scheduleId: item.id, schedule: days });
   };
 
   /*function getWorkingHoursOperation(): Operation | undefined {
@@ -398,10 +397,10 @@ export default function ScheduleComponent({ item, update, loading }: SchedulePro
     }
   }*/
 
-  const saveOverrides = async (overrides: Overrides | undefined): Promise<void> => {
+  const saveOverrides = async (overrides: UpdateOverridesInput): Promise<void> => {
     setSavingOverrides(true);
     console.log('handling overrides', overrides);
-    await sleep(500);
+    await update({ scheduleId: item.id, ...overrides });
     setSavingOverrides(false);
   };
 
@@ -412,7 +411,6 @@ export default function ScheduleComponent({ item, update, loading }: SchedulePro
   React.useEffect(() => {
     setDays(item.schema.schedule);
     // setOverrides(item.schema.scheduleOverrides);
-    setClosures(item.schema.closures ?? []);
   }, [item]);
 
   return (
@@ -469,14 +467,19 @@ export default function ScheduleComponent({ item, update, loading }: SchedulePro
               Object.keys(days).map((day) => (
                 <TabPanel value={day} key={day}>
                   <InfoForDay
-                    day={days[day]}
+                    day={days[day as DOW]}
                     setDay={(dayTemp: Day) => {
                       const daysTemp = days;
-                      daysTemp[day] = { ...dayTemp, workingDay: days[day].workingDay };
+                      daysTemp[day as DOW] = {
+                        ...dayTemp,
+                        open: dayTemp.open as HourOfDay,
+                        close: dayTemp.close as HourOfDay,
+                        workingDay: days[day as DOW].workingDay,
+                      };
                       setDays(daysTemp);
                     }}
                     dayOfWeek={dayOfWeek}
-                    updateItem={handleUpdate}
+                    updateItem={handleScheduleUpdate}
                     loading={loading}
                   ></InfoForDay>
                 </TabPanel>
@@ -497,10 +500,8 @@ export default function ScheduleComponent({ item, update, loading }: SchedulePro
       </TabContext>
       <ScheduleOverridesComponent
         loading={savingOverrides}
-        closures={closures}
         model={item.schema}
         dayOfWeek={dayOfWeek}
-        setClosures={setClosures}
         update={saveOverrides}
         setToastMessage={setToastMessage}
         setToastType={setToastType}

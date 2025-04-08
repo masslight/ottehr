@@ -24,16 +24,18 @@ import OfficeClosures from './OfficeClosures';
 import ScheduleOverridesDialog from './ScheduleOverridesDialog';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { OVERRIDE_DATE_FORMAT, datesCompareFn } from '../../helpers/formatDateTime';
-import { Closure, DOW, Day, Overrides, ClosureType } from '../../types/types';
-import { ScheduleExtension } from 'utils';
+import { Closure, DOW, Day, ClosureType } from '../../types/types';
+import { HourOfDay, ScheduleExtension, ScheduleOverrides } from 'utils';
 
+export interface UpdateOverridesInput {
+  scheduleOverrides: ScheduleOverrides;
+  closures: Closure[];
+}
 interface ScheduleOverridesProps {
   model: ScheduleExtension;
   dayOfWeek: string;
   loading: boolean;
-  closures: Closure[] | undefined;
-  update: (overrides: Overrides | undefined) => Promise<void>;
-  setClosures: (closures: Closure[] | undefined) => void;
+  update: (data: UpdateOverridesInput) => Promise<void>;
   setToastMessage: React.Dispatch<React.SetStateAction<string | undefined>>;
   setToastType: React.Dispatch<React.SetStateAction<AlertColor | undefined>>;
   setSnackbarOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -41,21 +43,21 @@ interface ScheduleOverridesProps {
 
 export function ScheduleOverridesComponent({
   model,
-  closures,
   loading,
   update,
-  setClosures,
   setToastMessage,
   setToastType,
   setSnackbarOpen,
 }: ScheduleOverridesProps): ReactElement {
   const [isScheduleOverridesDialogOpen, setIsScheduleOverridesDialogOpen] = useState<boolean>(false);
   const [overridesOpen, setOverridesOpen] = React.useState<{ [index: string]: boolean }>({});
-  const [overrides, setOverrides] = React.useState<Overrides | undefined>(model.scheduleOverrides);
+  const [overrides, setOverrides] = React.useState<ScheduleOverrides | undefined>(model.scheduleOverrides);
+  const [closures, setClosures] = React.useState<Closure[] | undefined>(model.closures ?? []);
 
   useEffect(() => {
     setOverrides(model.scheduleOverrides);
-  }, [model.scheduleOverrides]);
+    setClosures(model.closures ?? []);
+  }, [model]);
 
   const setToastWarning = (message: string): void => {
     setToastMessage(message);
@@ -66,7 +68,7 @@ export function ScheduleOverridesComponent({
   const timeMenuItems = useMemo(
     () =>
       Array.from({ length: 24 }, (_, i) => (
-        <MenuItem value={i}>
+        <MenuItem key={i} value={i}>
           {i % 12 || 12} {i < 12 ? 'AM' : 'PM'}
         </MenuItem>
       )),
@@ -118,9 +120,9 @@ export function ScheduleOverridesComponent({
           onChange={(updatedFrom) => {
             const overridesTemp = { ...overrides };
             if (type === 'Open') {
-              overridesTemp[override].open = Number(updatedFrom.target.value);
+              overridesTemp[override].open = Number(updatedFrom.target.value) as HourOfDay;
             } else if (type === 'Close') {
-              overridesTemp[override].close = Number(updatedFrom.target.value);
+              overridesTemp[override].close = Number(updatedFrom.target.value) as HourOfDay;
             }
             setOverrides(overridesTemp);
           }}
@@ -168,13 +170,13 @@ export function ScheduleOverridesComponent({
                 {overrides &&
                   Object.keys(overrides)
                     .sort(datesCompareFn(OVERRIDE_DATE_FORMAT))
-                    .map((override, index) => (
-                      <Fragment key={`override-${index}`}>
+                    .map((dateString) => (
+                      <Fragment key={`override-${dateString}`}>
                         <TableRow>
                           <TableCell>
                             {/* Date Select */}
                             <DateSearch
-                              date={DateTime.fromFormat(override, 'D')}
+                              date={DateTime.fromFormat(dateString, 'D')}
                               setDate={(date) => {
                                 // get default override values from schedule for selected day
                                 const overridesTemp = { ...overrides };
@@ -192,9 +194,9 @@ export function ScheduleOverridesComponent({
                                       hours: currentDayInfo.hours || [],
                                     };
                                   } else {
-                                    overridesTemp[dateFormatted] = overridesTemp[override];
+                                    overridesTemp[dateFormatted] = overridesTemp[dateString];
                                   }
-                                  delete overridesTemp[override];
+                                  delete overridesTemp[dateString];
                                 }
                                 setOverrides(overridesTemp);
                               }}
@@ -205,7 +207,7 @@ export function ScheduleOverridesComponent({
                           </TableCell>
                           <TableCell>
                             {/* Open Select */}
-                            {createOpenCloseSelectField('Open', override)}
+                            {createOpenCloseSelectField('Open', dateString)}
                           </TableCell>
                           <TableCell>
                             {/* Opening Buffer Select */}
@@ -215,10 +217,10 @@ export function ScheduleOverridesComponent({
                                 labelId="opening-buffer-label"
                                 label="Opening buffer"
                                 id="opening-buffer"
-                                value={overrides[override].openingBuffer}
+                                value={overrides[dateString].openingBuffer}
                                 onChange={(updatedFrom) => {
                                   const overridesTemp = { ...overrides };
-                                  overridesTemp[override].openingBuffer = Number(updatedFrom.target.value);
+                                  overridesTemp[dateString].openingBuffer = Number(updatedFrom.target.value);
                                   setOverrides(overridesTemp);
                                 }}
                                 sx={{
@@ -238,7 +240,7 @@ export function ScheduleOverridesComponent({
                           </TableCell>
                           <TableCell>
                             {/* Close Select */}
-                            {createOpenCloseSelectField('Close', override)}
+                            {createOpenCloseSelectField('Close', dateString)}
                           </TableCell>
                           <TableCell>
                             {/* closing buffer select */}
@@ -248,10 +250,10 @@ export function ScheduleOverridesComponent({
                                 labelId="closing-buffer-label"
                                 label="Closing buffer"
                                 id="closing-buffer"
-                                value={overrides[override].closingBuffer}
+                                value={overrides[dateString].closingBuffer}
                                 onChange={(updatedClosing) => {
                                   const overridesTemp = { ...overrides };
-                                  overridesTemp[override].closingBuffer = Number(updatedClosing.target.value);
+                                  overridesTemp[dateString].closingBuffer = Number(updatedClosing.target.value);
                                   setOverrides(overridesTemp);
                                 }}
                                 size="small"
@@ -279,7 +281,7 @@ export function ScheduleOverridesComponent({
                               }}
                               onClick={() => {
                                 const overridesOpenTemp = { ...overridesOpen };
-                                overridesOpenTemp[override] = !overridesOpenTemp[override];
+                                overridesOpenTemp[dateString] = !overridesOpenTemp[dateString];
                                 setOverridesOpen(overridesOpenTemp);
                               }}
                             >
@@ -291,7 +293,7 @@ export function ScheduleOverridesComponent({
                               color="error"
                               onClick={() => {
                                 const overridesTemp = { ...overrides };
-                                delete overridesTemp[override];
+                                delete overridesTemp[dateString];
                                 setOverrides(overridesTemp);
                               }}
                             >
@@ -300,18 +302,22 @@ export function ScheduleOverridesComponent({
                           </TableCell>
                         </TableRow>
 
-                        {overridesOpen[override] && (
+                        {overridesOpen[dateString] && (
                           <TableRow>
                             <TableCell colSpan={7}>
                               <ScheduleCapacity
-                                day={overrides[override]}
+                                day={overrides[dateString]}
                                 setDay={(dayTemp: Day) => {
-                                  overrides[override] = dayTemp;
+                                  overrides[dateString] = {
+                                    ...dayTemp,
+                                    open: dayTemp.open as HourOfDay,
+                                    close: dayTemp.close as HourOfDay,
+                                  };
                                 }}
-                                openingHour={overrides[override].open}
-                                closingHour={overrides[override].close}
-                                openingBuffer={overrides[override].openingBuffer}
-                                closingBuffer={overrides[override].closingBuffer}
+                                openingHour={overrides[dateString].open}
+                                closingHour={overrides[dateString].close}
+                                openingBuffer={overrides[dateString].openingBuffer}
+                                closingBuffer={overrides[dateString].closingBuffer}
                               />
                             </TableCell>
                           </TableRow>
@@ -367,10 +373,6 @@ export function ScheduleOverridesComponent({
               >
                 Save Changes
               </Button>
-              <Typography sx={{ marginTop: 1 }}>
-                Please note if you save changes to Schedule Overrides or Closed Dates, edits to Working Hours will be
-                saved too.
-              </Typography>
             </Box>
           </Box>
         </form>
@@ -379,7 +381,7 @@ export function ScheduleOverridesComponent({
           handleClose={() => setIsScheduleOverridesDialogOpen(false)}
           open={isScheduleOverridesDialogOpen}
           handleConfirm={() => {
-            void update(overrides);
+            void update({ scheduleOverrides: overrides ?? {}, closures: closures ?? [] });
             setIsScheduleOverridesDialogOpen(false);
           }}
         />

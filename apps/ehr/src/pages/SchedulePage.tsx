@@ -22,9 +22,10 @@ import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import { isValidUUID, ScheduleDTO } from 'utils';
-import { useQuery } from 'react-query';
-import { getSchedule } from '../api/api';
+import { APIError, isApiError, isValidUUID, ScheduleDTO, TIMEZONES, UpdateScheduleParams } from 'utils';
+import { useMutation, useQuery } from 'react-query';
+import { getSchedule, updateSchedule } from '../api/api';
+import { enqueueSnackbar } from 'notistack';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
@@ -32,7 +33,6 @@ const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
   '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
 const IDENTIFIER_SLUG = 'https://fhir.ottehr.com/r4/slug';
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';*/
-const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
 
 export function getResource(
   scheduleType: 'location' | 'provider' | 'group'
@@ -45,7 +45,7 @@ export function getResource(
     return 'HealthcareService';
   }
 
-  console.log(`'scheduleType unknown ${scheduleType}`);
+  console.log(`scheduleType unknown ${scheduleType}`);
   throw new Error('scheduleType unknown');
 }
 
@@ -64,13 +64,12 @@ export default function SchedulePage(): ReactElement {
   // const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
   const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
   const [slug, setSlug] = useState<string | undefined>(undefined);
-  const [saveLoading, setSaveLoading] = useState<boolean>(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
   const defaultIntakeUrl = `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${scheduleType}`;
 
   const { oystehrZambda } = useApiClients();
-  const { isLoading, isFetching, isError, isSuccess } = useQuery(
+  const { isLoading, isFetching, isRefetching, isError, isSuccess, refetch } = useQuery(
     ['ehr-get-schedule', { zambdaClient: oystehrZambda }],
     () => (oystehrZambda ? getSchedule(scheduleId, oystehrZambda) : null),
     {
@@ -82,6 +81,31 @@ export default function SchedulePage(): ReactElement {
       enabled: !!oystehrZambda && isValidUUID(scheduleId ?? ''),
     }
   );
+
+  const saveScheduleChanges = useMutation({
+    mutationFn: async (params: UpdateScheduleParams) => {
+      if (oystehrZambda) {
+        const response = await updateSchedule(params, oystehrZambda);
+        return response;
+      }
+      throw new Error('fhir client not defined or patient id not provided');
+    },
+    onError: (error: any) => {
+      if (isApiError(error)) {
+        const message = (error as APIError).message;
+        enqueueSnackbar(message, { variant: 'error' });
+      } else {
+        enqueueSnackbar('Something went wrong! Schedule changes could not be saved.', { variant: 'error' });
+      }
+    },
+    onSuccess: async () => {
+      const newItem = (await refetch()).data;
+      if (newItem) {
+        setItem(newItem);
+      }
+      enqueueSnackbar('Schedule changes saved successfully!', { variant: 'success' });
+    },
+  });
 
   console.log('scheduleFetchState (loading/fetching/error/success): ', isLoading, isFetching, isError, isSuccess);
 
@@ -162,109 +186,12 @@ export default function SchedulePage(): ReactElement {
   }
     */
 
-  async function onSave(event: any): Promise<void> {
-    event.preventDefault();
-    if (!oystehr) {
+  async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
+    if (!oystehrZambda) {
       console.log('oystehr client is not defined');
       return;
     }
-    setSaveLoading(true);
-    /*const identifiers = item?.identifier || [];
-    // make a copy of identifier
-    let identifiersTemp: Identifier[] | undefined = [...identifiers];
-    const hasIdentifiers = identifiersTemp.length > 0;
-    const hasSlug = item?.identifier?.find((identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG);
-    const removingSlug = !slug || slug === '';
-    const updatedSlugIdentifier: Identifier = {
-      system: IDENTIFIER_SLUG,
-      value: slug,
-    };
-
-    let slugChanged = true;
-    if (removingSlug && !hasSlug) {
-      console.log('Removing slug but none set');
-      slugChanged = false;
-    } else if (removingSlug && hasSlug) {
-      console.log('Removing slug from identifiers');
-      const identifiersUpdated = item?.identifier?.filter(
-        (identifierTemp) => identifierTemp.system !== IDENTIFIER_SLUG
-      );
-      identifiersTemp = identifiersUpdated;
-    } else if (!hasIdentifiers) {
-      console.log('No identifiers, adding one');
-      identifiersTemp = [updatedSlugIdentifier];
-    } else if (hasIdentifiers && !hasSlug) {
-      console.log('Has identifiers without a slug, adding one');
-      identifiersTemp.push(updatedSlugIdentifier);
-    } else if (hasIdentifiers && hasSlug) {
-      console.log('Has identifiers with a slug, replacing one');
-      const identifierIndex = item?.identifier?.findIndex(
-        (identifierTemp) => identifierTemp.system === IDENTIFIER_SLUG
-      );
-
-      if (identifierIndex !== undefined && identifiers) {
-        identifiersTemp[identifierIndex] = updatedSlugIdentifier;
-      }
-    }
-    const operation: Operation | undefined = slugChanged
-      ? {
-          op: !hasIdentifiers ? 'add' : 'replace',
-          path: '/identifier',
-          value: identifiersTemp,
-        }
-      : undefined;
-
-    // update timezone
-    let timezoneOperation: Operation | undefined;
-    const timezoneExtensionIndex = item?.extension?.findIndex((ext) => ext.url === TIMEZONE_EXTENSION_URL);
-    if (timezoneExtensionIndex !== undefined && timezoneExtensionIndex >= 0) {
-      // if there is no change in timezone, do nothing
-      if (item?.extension?.[timezoneExtensionIndex]?.valueString === timezone) {
-        console.log('No change in timezone');
-      }
-      // if there is an existing timezone, replace it
-      else {
-        console.log('Replacing existing timezone');
-        timezoneOperation = {
-          op: 'replace',
-          path: `/extension/${timezoneExtensionIndex}/valueString`,
-          value: timezone,
-        };
-      }
-    }
-    // if there is no timezone, add one
-    else {
-      console.log('Adding new timezone');
-      timezoneOperation = {
-        op: 'add',
-        path: '/extension',
-        value: [
-          {
-            url: TIMEZONE_EXTENSION_URL,
-            valueString: timezone,
-          },
-        ],
-      };
-    }
-
-    const patchOperations: Operation[] = [operation, timezoneOperation].filter(
-      (operation) => operation !== undefined
-    ) as Operation[];
-
-    if (patchOperations.length === 0) {
-      console.log('No operations to save');
-      setSaveLoading(false);
-      return;
-    }
-
-    const itemTemp = await oystehr.fhir.patch({
-      resourceType: getResource(scheduleType),
-      id: id,
-      operations: patchOperations,
-    });
-
-    setItem(itemTemp as Location | Practitioner | HealthcareService);*/
-    setSaveLoading(false);
+    saveScheduleChanges.mutate({ ...params });
   }
 
   const setActiveStatus = async (isActive: boolean): Promise<void> => {
@@ -325,7 +252,12 @@ export default function SchedulePage(): ReactElement {
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
                   {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
                   {scheduleType !== 'group' && (
-                    <ScheduleComponent id={scheduleId} item={item} loading={false} update={onSave}></ScheduleComponent>
+                    <ScheduleComponent
+                      id={scheduleId}
+                      item={item}
+                      loading={false}
+                      update={onSaveSchedule}
+                    ></ScheduleComponent>
                   )}
                 </TabPanel>
                 {/* General tab */}
@@ -338,7 +270,11 @@ export default function SchedulePage(): ReactElement {
                     <hr />
                     <br />
 
-                    <form onSubmit={(event) => onSave(event)}>
+                    <form
+                      onSubmit={(event) => {
+                        console.log('submit slug called', event);
+                      }}
+                    >
                       <TextField
                         label="Slug"
                         value={slug}
@@ -387,7 +323,7 @@ export default function SchedulePage(): ReactElement {
                         }}
                       />
                       <br />
-                      <LoadingButton type="submit" loading={saveLoading} variant="contained" sx={{ marginTop: 2 }}>
+                      <LoadingButton type="submit" loading={isRefetching} variant="contained" sx={{ marginTop: 2 }}>
                         Save
                       </LoadingButton>
                     </form>

@@ -75,25 +75,23 @@ export default function ScheduleOverridesDialog({
         </Box>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'flex-start' }}>
-        <form
-          onSubmit={() => {
+        <LoadingButton
+          loading={loading}
+          variant="contained"
+          color="primary"
+          size="medium"
+          sx={buttonSx}
+          type="submit"
+          onClick={(e) => {
+            e.preventDefault();
             handleConfirm();
           }}
         >
-          <LoadingButton
-            loading={loading}
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
-            type="submit"
-          >
-            Confirm schedule change
-          </LoadingButton>
-          <Button variant="text" onClick={handleClose} size="medium" sx={buttonSx}>
-            Cancel
-          </Button>
-        </form>
+          Confirm schedule change
+        </LoadingButton>
+        <Button variant="text" onClick={handleClose} size="medium" sx={buttonSx}>
+          Cancel
+        </Button>
       </DialogActions>
     </Dialog>
   );

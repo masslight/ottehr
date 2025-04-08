@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
+import { Address, ContactPoint, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
 import {
   chooseJson,
   ConversationMessage,
@@ -9,6 +9,7 @@ import {
   GetUserParams,
   GetUserResponse,
   ScheduleDTO,
+  UpdateScheduleParams,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -49,6 +50,7 @@ const GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PAT
 const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID;
 const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
 const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAMBDA_ID;
+const UPDATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_SCHEDULE_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -360,15 +362,30 @@ export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesRespon
 
 export const getSchedule = async (scheduleId: string, oystehr: Oystehr): Promise<ScheduleDTO> => {
   try {
-    if (GET_EMPLOYEES_ZAMBDA_ID == null) {
-      throw new Error('get employees environment variable could not be loaded');
+    if (EHR_GET_SCHEDULE_ZAMBDA_ID == null) {
+      throw new Error('ehr-get-schedule zambda environment variable could not be loaded');
     }
-
-    console.log('EHR_GET_SCHEDULE_ZAMBDA_ID', EHR_GET_SCHEDULE_ZAMBDA_ID);
 
     const response = await oystehr.zambda.execute({
       id: EHR_GET_SCHEDULE_ZAMBDA_ID,
       scheduleId,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const updateSchedule = async (params: UpdateScheduleParams, oystehr: Oystehr): Promise<Schedule> => {
+  try {
+    if (UPDATE_SCHEDULE_ZAMBDA_ID == null) {
+      throw new Error('update-schedule zambda environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_SCHEDULE_ZAMBDA_ID,
+      ...params,
     });
     return chooseJson(response);
   } catch (error: unknown) {

@@ -31,6 +31,7 @@ export enum APIErrorCode {
   STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
   MISCONFIGURED_SCHEDULING_GROUP = 4304,
   MISSING_SCHEDULE_EXTENSION = 4305,
+  INVALID_INPUT = 4340,
 }
 
 export interface APIError {
@@ -240,4 +241,11 @@ export const STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR: APIError = {
 export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
   code: APIErrorCode.STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED,
   message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
+};
+
+export const INVALID_INPUT_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.INVALID_INPUT,
+    message,
+  };
 };

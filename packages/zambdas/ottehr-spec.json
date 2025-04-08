@@ -792,6 +792,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/schedules/get-schedule/index",
       "zip": ".dist/zips/ehr-get-schedule.zip"
+    },
+    "UPDATE-SCHEDULE": {
+      "name": "UPDATE-SCHEDULE",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/schedules/update-schedule/index",
+      "zip": ".dist/zips/update-schedule.zip"
     }
   },
   "fhirResources": {
