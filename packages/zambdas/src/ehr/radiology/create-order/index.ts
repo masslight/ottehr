@@ -1,8 +1,15 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, ServiceRequest } from 'fhir/r4b';
+import { Encounter, Patient, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { CreateRadiologyZambdaOrderInput, CreateRadiologyZambdaOrderOutput, RoleType, Secrets } from 'utils';
+import {
+  CreateRadiologyZambdaOrderInput,
+  CreateRadiologyZambdaOrderOutput,
+  getSecret,
+  RoleType,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
 import { validateInput, validateSecrets } from './validation';
 
@@ -49,7 +56,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
     const callerUser = await getCallerUserWithAccessToken(validatedInput.callerAccessToken, secrets);
     await accessCheck(callerUser);
 
-    const output = await performEffect(validatedInput, callerUser.profile, oystehr);
+    const output = await performEffect(validatedInput, callerUser.profile, secrets, oystehr);
 
     return {
       statusCode: 200,
@@ -80,13 +87,14 @@ const getCallerUserWithAccessToken = async (token: string, secrets: Secrets): Pr
 
 const performEffect = async (
   validatedInput: ValidatedInput,
-  practitionerId: string,
+  practitionerRelativeReference: string,
+  secrets: Secrets,
   oystehr: Oystehr
 ): Promise<CreateRadiologyZambdaOrderOutput> => {
   const { body } = validatedInput;
 
   // Create the order in FHIR
-  const ourServiceRequest = await writeOurServiceRequest(body, practitionerId, oystehr);
+  const ourServiceRequest = await writeOurServiceRequest(body, practitionerRelativeReference, oystehr);
   if (!ourServiceRequest.id) {
     throw new Error('Error creating service request, id is missing');
   }
@@ -94,7 +102,7 @@ const performEffect = async (
   // Send the order to AdvaPACS
   let advaPacsServiceRequest: ServiceRequest | null = null;
   try {
-    advaPacsServiceRequest = await writeAdvaPACSServiceRequest(ourServiceRequest);
+    advaPacsServiceRequest = await syncToAdvaPACS(ourServiceRequest, secrets, oystehr);
   } catch (error) {
     console.error('Error sending order to AdvaPACS: ', error);
     // Roll back creation of our service request
@@ -111,13 +119,13 @@ const performEffect = async (
 
 const writeOurServiceRequest = (
   validatedBody: EnhancedBody,
-  practitionerId: string,
+  practitionerRelativeReference: string,
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
   const { encounter, diagnosis, cpt, stat } = validatedBody;
   const serviceRequest: ServiceRequest = {
     resourceType: 'ServiceRequest',
-    status: 'draft',
+    status: 'active',
     intent: 'order',
     identifier: [
       {
@@ -139,7 +147,7 @@ const writeOurServiceRequest = (
       reference: `Encounter/${encounter.id}`,
     },
     requester: {
-      reference: `Practitioner/${practitionerId}`,
+      reference: practitionerRelativeReference,
     },
     priority: stat ? 'stat' : 'routine',
     code: {
@@ -165,8 +173,135 @@ const writeOurServiceRequest = (
   return oystehr.fhir.create<ServiceRequest>(serviceRequest);
 };
 
-const writeAdvaPACSServiceRequest = (ourServiceRequest: ServiceRequest): ServiceRequest => {
-  return ourServiceRequest; // TODO: implement the actual AdvaPACS service request
+const syncToAdvaPACS = async (
+  ourServiceRequest: ServiceRequest,
+  secrets: Secrets,
+  oystehr: Oystehr
+): Promise<ServiceRequest> => {
+  try {
+    const advapacsClientId = getSecret(SecretsKeys.ADVAPACS_CLIENT_ID, secrets);
+    const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
+    const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
+
+    const advaPacsPatient = await writeOrGetAdvaPacsPatient(ourServiceRequest, advapacsAuthString, oystehr);
+
+    return await writeAdvaPacsServiceRequest(ourServiceRequest, advaPacsPatient, advapacsAuthString);
+  } catch (error) {
+    console.log('sync to AdvaPACS error: ', error);
+    throw error;
+  }
+};
+
+const getOurSubject = async (patientRelativeReference: string, oystehr: Oystehr): Promise<Patient> => {
+  try {
+    return await oystehr.fhir.get<Patient>({
+      resourceType: 'Patient',
+      id: patientRelativeReference.split('/')[1],
+    });
+  } catch (error) {
+    throw new Error('Error while trying to fetch our subject patient');
+  }
+};
+
+const writeOrGetAdvaPacsPatient = async (
+  ourServiceRequest: ServiceRequest,
+  advapacsAuthString: string,
+  oystehr: Oystehr
+): Promise<Patient> => {
+  const ourPatient = await getOurSubject(ourServiceRequest.subject?.reference || '', oystehr);
+
+  // find patient in advapacs
+  const advapacsPatientResponse = await fetch(
+    `https://usa1.api.integration.advapacs.com/fhir/Patient?identifier=${ourPatient.id}`,
+    {
+      method: 'GET',
+      headers: {
+        Authorization: advapacsAuthString,
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+  if (!advapacsPatientResponse.ok) {
+    throw new Error(advapacsPatientResponse.statusText);
+  }
+  const advaPacsPatientSearchResponse = await advapacsPatientResponse.json();
+  let advaPacsPatient: Patient | undefined;
+
+  if (advaPacsPatientSearchResponse.total === 1) {
+    console.log('Found patient in AdvaPACS');
+    // found exactly one, happy path!
+    advaPacsPatient = advaPacsPatientSearchResponse.entry?.[0];
+  } else if (advaPacsPatientSearchResponse.total === 0) {
+    console.log('No patient found in AdvaPACS, creating it');
+    // could not find the patient, create it
+    const patientToCreate: Patient = {
+      resourceType: 'Patient',
+      identifier: [
+        {
+          // advapacs FHIR does not allow us to specify a code system, but it does accept a bare value.
+          // the assumption here is that there will only be one Identifier on these Patient resources in advapacs.
+          value: ourPatient.id,
+        },
+      ],
+      name: ourPatient.name,
+      birthDate: ourPatient.birthDate,
+      gender: ourPatient.gender,
+    };
+    console.log('alex patient, ', patientToCreate);
+    const advapacsResponse = await fetch(`https://usa1.api.integration.advapacs.com/fhir/Patient`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: advapacsAuthString,
+      },
+      body: JSON.stringify(patientToCreate),
+    });
+    if (!advapacsResponse.ok) {
+      throw new Error(advapacsResponse.statusText);
+    }
+
+    advaPacsPatient = await advapacsResponse.json();
+  } else {
+    console.log('Multiple patients found in AdvaPACS, could not sync');
+    throw new Error('Multiple patients found in AdvaPACS, could not sync');
+  }
+
+  if (advaPacsPatient == null) {
+    throw new Error('writeOrGetAdvaPacsPatient - AdvaPACS patient is null after search / create flow');
+  }
+
+  console.log('AdvaPACS patient: ', JSON.stringify(advaPacsPatient));
+
+  return advaPacsPatient;
+};
+
+const writeAdvaPacsServiceRequest = async (
+  ourServiceRequest: ServiceRequest,
+  advaPacsPatient: Patient,
+  advapacsAuthString: string
+): Promise<ServiceRequest> => {
+  const advaPacsServiceRequest: ServiceRequest = {
+    resourceType: 'ServiceRequest',
+    status: ourServiceRequest.status,
+    identifier: ourServiceRequest.identifier,
+    intent: ourServiceRequest.intent,
+    subject: {
+      reference: `Patient/${advaPacsPatient.id}`,
+    },
+  };
+  const advapacsResponse = await fetch(`https://usa1.api.integration.advapacs.com/fhir/ServiceRequest`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: advapacsAuthString,
+    },
+    body: JSON.stringify(advaPacsServiceRequest),
+  });
+  if (!advapacsResponse.ok) {
+    throw new Error(advapacsResponse.statusText);
+  }
+
+  return await advapacsResponse.json();
 };
 
 const rollbackOurServiceRequest = async (ourServiceRequest: ServiceRequest, oystehr: Oystehr): Promise<void> => {
