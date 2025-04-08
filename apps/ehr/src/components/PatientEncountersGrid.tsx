@@ -238,6 +238,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <MenuItem value="Walk-in In-Person Visit">Walk-in In-Person Visit</MenuItem>
           <MenuItem value="Post Telemed Lab Only">Post Telemed Lab Only</MenuItem>
           <MenuItem value="Pre-booked In-Person Visit">Pre-booked In-Person Visit</MenuItem>
+          <MenuItem value="Pre-booked Telemed">Pre-booked Telemed</MenuItem>
           <MenuItem value="Telemed">Telemed</MenuItem>
         </TextField>
 
