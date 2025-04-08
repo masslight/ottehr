@@ -1,11 +1,12 @@
-import { BrowserContext, Page, expect, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
-import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
-import { UploadImage } from '../../utils/UploadImage';
+import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
+import { UploadDocs } from '../../utils/UploadDocs';
 
 let page: Page;
 let context: BrowserContext;
@@ -19,12 +20,13 @@ let surgicalHistory: Awaited<ReturnType<PaperworkTelemed['fillAndCheckFilledSurg
 let allergies: Awaited<ReturnType<PaperworkTelemed['fillAndCheckFilledCurrentAllergies']>>;
 let additionalQuestions: Awaited<ReturnType<PaperworkTelemed['fillAndCheckAdditionalQuestions']>>;
 let locator: Locators;
-let uploadPhoto: UploadImage;
+let uploadDocs: UploadDocs;
 let pcpData: Awaited<ReturnType<Paperwork['fillPrimaryCarePhysician']>>;
 let insuranceData: Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCards']>>;
 let secondaryInsuranceData: Awaited<ReturnType<Paperwork['fillSecondaryInsuranceAllFieldsWithoutCards']>>;
 let responsiblePartyData: Awaited<ReturnType<Paperwork['fillResponsiblePartyDataNotSelf']>>;
 let consentFormsData: Awaited<ReturnType<Paperwork['fillConsentForms']>>;
+let inviteeData: Awaited<ReturnType<PaperworkTelemed['fillInviteParticipant']>>;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
@@ -33,7 +35,7 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = await response.json();
+      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
       if (appointment && !appointmentIds.includes(appointment)) {
         appointmentIds.push(appointment);
       }
@@ -43,7 +45,7 @@ test.beforeAll(async ({ browser }) => {
   paperwork = new Paperwork(page);
   paperworkTelemed = new PaperworkTelemed(page);
   locator = new Locators(page);
-  uploadPhoto = new UploadImage(page);
+  uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
   bookingData = await flowClass.startVisitFullFlow();
 });
@@ -449,25 +451,27 @@ test.describe('Primary Insurance', () => {
     );
   });
   test('Primary Insurance - Upload and Clear Insurance cards', async () => {
-    const uploadedFrontPhoto = await uploadPhoto.fillInsuranceFront();
+    const uploadedFrontPhoto = await uploadDocs.fillInsuranceFront();
     await locator.clearImage.click();
     await expect(uploadedFrontPhoto).toBeHidden();
-    const uploadedBackPhoto = await uploadPhoto.fillInsuranceBack();
+    const uploadedBackPhoto = await uploadDocs.fillInsuranceBack();
     await locator.clearImage.click();
     await expect(uploadedBackPhoto).toBeHidden();
   });
   test('Primary Insurance - Upload images, reload page, check images are saved', async () => {
-    await uploadPhoto.fillInsuranceFront();
-    await uploadPhoto.fillInsuranceBack();
+    await uploadDocs.fillInsuranceFront();
+    await uploadDocs.fillInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.insuranceFrontImage, locator.insuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.insuranceBackImage);
   });
   test('Primary Insurance - Add secondary insurance with empty fields, remove secondary insurance, continue with primary insurance', async () => {
     await locator.addSecondaryInsurance.click();
@@ -554,25 +558,27 @@ test.describe('Secondary Insurance', () => {
     );
   });
   test('Secondary Insurance - Upload and Clear Insurance cards', async () => {
-    const uploadedFrontPhoto = await uploadPhoto.fillSecondaryInsuranceFront();
+    const uploadedFrontPhoto = await uploadDocs.fillSecondaryInsuranceFront();
     await locator.clearImage.click();
     await expect(uploadedFrontPhoto).toBeHidden();
-    const uploadedBackPhoto = await uploadPhoto.fillSecondaryInsuranceBack();
+    const uploadedBackPhoto = await uploadDocs.fillSecondaryInsuranceBack();
     await locator.clearImage.click();
     await expect(uploadedBackPhoto).toBeHidden();
   });
   test('Secondary Insurance - Upload images, reload page, check images are saved', async () => {
-    await uploadPhoto.fillSecondaryInsuranceFront();
-    await uploadPhoto.fillSecondaryInsuranceBack();
+    await uploadDocs.fillSecondaryInsuranceFront();
+    await uploadDocs.fillSecondaryInsuranceBack();
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Responsible party information');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.secondaryInsuranceFrontImage, locator.secondaryInsuranceBackImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceFrontImage);
+    await paperwork.checkImagesIsSaved(locator.secondaryInsuranceBackImage);
   });
   test('Secondary Insurance - Policy holder address is the same checkbox', async () => {
     await paperwork.checkPolicyAddressIsTheSameCheckbox(true);
@@ -674,24 +680,179 @@ test.describe('Photo ID - Upload photo', () => {
     );
   });
   test('PPID-3 Upload and Clear images', async () => {
-    const uploadedFrontPhoto = await uploadPhoto.fillPhotoFrontID();
+    const uploadedFrontPhoto = await uploadDocs.fillPhotoFrontID();
     await locator.clearImage.click();
     await expect(uploadedFrontPhoto).toBeHidden();
-    const uploadedBackPhoto = await uploadPhoto.fillPhotoBackID();
+    const uploadedBackPhoto = await uploadDocs.fillPhotoBackID();
     await locator.clearImage.click();
     await expect(uploadedBackPhoto).toBeHidden();
   });
   test('PPID-5 Upload images, reload page, check images are saved', async () => {
-    await uploadPhoto.fillPhotoFrontID();
-    await uploadPhoto.fillPhotoBackID();
+    await uploadDocs.fillPhotoFrontID();
+    await uploadDocs.fillPhotoBackID();
     await page.reload();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
   });
   test('PPID-6 Open next page, click [Back] - check images are saved', async () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Patient condition');
     await locator.clickBackButton();
-    await paperwork.checkImagesAreSaved(locator.photoIdFrontImage, locator.photoIdBackImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdFrontImage);
+    await paperwork.checkImagesIsSaved(locator.photoIdBackImage);
+  });
+});
+test.describe('Patient condition', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PPC-1 Open Patient condition', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/patient-condition`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Patient condition');
+  });
+  test('PPC-2 Patient condition - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PPC-3 Upload and Clear image', async () => {
+    const uploadedPhoto = await uploadDocs.fillPatientConditionPhotoPaperwork();
+    await locator.clearImage.click();
+    await expect(uploadedPhoto).toBeHidden();
+  });
+  test('PPC-4 Upload image, reload page, check image is saved', async () => {
+    await uploadDocs.fillPatientConditionPhotoPaperwork();
+    await page.reload();
+    await paperwork.checkImagesIsSaved(locator.photoPatientCondition);
+  });
+  test('PPC-5 Open next page, click [Back] - check images are saved', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Do you need a school or work note?');
+    await locator.clickBackButton();
+    await paperwork.checkImagesIsSaved(locator.photoPatientCondition);
+  });
+});
+test.describe('School/work notes', () => {
+  test.describe.configure({ mode: 'serial' });
+  let uploadedSchoolTemplate;
+  let uploadedWorkTemplate;
+  test('PSWN-1 Open School/work note', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/school-work-note`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Do you need a school or work note?');
+  });
+  test('PSWN-2 School/work note - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PSWN-3 Check required fields', async () => {
+    await paperwork.checkRequiredFields('"Select option:"', 'Do you need a school or work note?', false);
+  });
+  test('PSWN-4 Select Neither option, templates block is hidden', async () => {
+    await locator.neitherNotes.click();
+    await expect(locator.templatesBlock).not.toBeVisible();
+  });
+  test('PSWN-5 Select School Only, Upload school template block is visible', async () => {
+    await locator.schoolOnlyNotes.click();
+    await expect(locator.templatesBlock).toBeVisible();
+    await expect(locator.schoolTemplateLabel).toBeVisible();
+    await expect(locator.uploadSchoolTemplate).toBeVisible();
+    await expect(locator.workTemplateLabel).not.toBeVisible();
+    await expect(locator.uploadWorkTemplate).not.toBeVisible();
+  });
+  test('PSWN-6 Select Work Only, Upload work template block is visible', async () => {
+    await locator.workOnlyNotes.click();
+    await expect(locator.templatesBlock).toBeVisible();
+    await expect(locator.schoolTemplateLabel).not.toBeVisible();
+    await expect(locator.uploadSchoolTemplate).not.toBeVisible();
+    await expect(locator.workTemplateLabel).toBeVisible();
+    await expect(locator.uploadWorkTemplate).toBeVisible();
+  });
+  test('PSWN-7 Select school and work notes, Upload school and work template blocks are visible', async () => {
+    await locator.schoolAndWorkNotes.click();
+    await expect(locator.templatesBlock).toBeVisible();
+    await expect(locator.schoolTemplateLabel).toBeVisible();
+    await expect(locator.uploadSchoolTemplate).toBeVisible();
+    await expect(locator.workTemplateLabel).toBeVisible();
+    await expect(locator.uploadWorkTemplate).toBeVisible();
+  });
+  test('PSWN-8 Select School Only, open next page, click on [Back] - check School only is selected', async () => {
+    await locator.schoolOnlyNotes.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await locator.clickBackButton();
+    await expect(locator.schoolOnlyNotes).toBeChecked();
+  });
+  test('PSWN-9 Select Work Only, open next page, click on [Back] - check Work only is selected', async () => {
+    await locator.workOnlyNotes.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await locator.clickBackButton();
+    await expect(locator.workOnlyNotes).toBeChecked();
+  });
+  test('PSWN-10 Select both school and work notes, open next page, click on [Back] - check School and work option is selected', async () => {
+    await locator.schoolAndWorkNotes.click();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await locator.clickBackButton();
+    await expect(locator.schoolAndWorkNotes).toBeChecked();
+  });
+  test('PSWN-11 Upload and remove school template', async () => {
+    uploadedSchoolTemplate = await uploadDocs.uploadFile(locator.uploadSchoolTemplate, locator.schoolNoteFile);
+    await expect(uploadedSchoolTemplate.uploadedFile).toBeVisible();
+    await locator.removeFile.click();
+    await expect(uploadedSchoolTemplate.uploadedFile).toBeHidden();
+  });
+  test('PSWN-12 Upload and remove work template', async () => {
+    uploadedWorkTemplate = await uploadDocs.uploadFile(locator.uploadWorkTemplate, locator.workNoteFile);
+    await expect(uploadedWorkTemplate.uploadedFile).toBeVisible();
+    await locator.removeFile.click();
+    await expect(uploadedWorkTemplate.uploadedFile).toBeHidden();
+  });
+  test('PSWN-13 Check school note link value', async () => {
+    uploadedSchoolTemplate = await uploadDocs.uploadFile(locator.uploadSchoolTemplate, locator.schoolNoteFile);
+    const currentLink = await locator.schoolNoteFile.getAttribute('href');
+    await expect(uploadedSchoolTemplate.link).toBe(currentLink);
+  });
+  test('PSWN-14 Check work note link value', async () => {
+    uploadedWorkTemplate = await uploadDocs.uploadFile(locator.uploadWorkTemplate, locator.workNoteFile);
+    const currentLink = await locator.workNoteFile.getAttribute('href');
+    await expect(uploadedWorkTemplate.link).toBe(currentLink);
+  });
+  test('PSWN-15 Check work note link opens pdf', async () => {
+    await commonLocatorsHelper.checkLinkOpensPdf(locator.workNoteFile);
+  });
+  test('PSWN-16 Check school note link opens pdf', async () => {
+    await commonLocatorsHelper.checkLinkOpensPdf(locator.schoolNoteFile);
+  });
+  test('PSWN-17 Open next page, click [Back] - check templates are saved', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await locator.clickBackButton();
+    await expect(uploadedSchoolTemplate.uploadedFile).toBeVisible();
+    await expect(uploadedWorkTemplate.uploadedFile).toBeVisible();
+  });
+  // Need to remove skip for PSWN-18,PSWN-19, PSWN-20, when https://github.com/masslight/ottehr/issues/1671 is fixed
+  test.skip('PSWN-18 Open next page, click [Back] - check school/work link values are correct', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Complete consent forms');
+    await locator.clickBackButton();
+    const currentSchoolLink = await locator.schoolNoteFile.getAttribute('href');
+    await expect(uploadedSchoolTemplate.link).toBe(currentSchoolLink);
+    const currentWorkLink = await locator.workNoteFile.getAttribute('href');
+    await expect(uploadedWorkTemplate.link).toBe(currentWorkLink);
+  });
+  test.skip('PSWN-19 Check school note link value after reload', async () => {
+    await page.reload();
+    const currentLink = await locator.schoolNoteFile.getAttribute('href');
+    await expect(uploadedSchoolTemplate.link).toBe(currentLink);
+  });
+  test.skip('PSWN-20 Check work note link value after reload', async () => {
+    await page.reload();
+    const currentLink = await locator.workNoteFile.getAttribute('href');
+    await expect(uploadedWorkTemplate.link).toBe(currentLink);
   });
 });
 test.describe('Consent forms - Check and fill all fields', () => {
@@ -737,5 +898,101 @@ test.describe('Consent forms - Check and fill all fields', () => {
     await expect(locator.signature).toHaveValue(consentFormsData.signature);
     await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
     await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
+  });
+});
+test.describe('Invite participant', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PIP-1 Open invite screen', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/invite-participant`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+  });
+  test('PIP-2 Invite participant - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PIP-3 Invite participant - Check required fields', async () => {
+    await paperwork.checkRequiredFields(
+      '"Is anyone joining this visit from another device?"',
+      'Would you like someone to join this call?',
+      false
+    );
+  });
+  test('PIP-4 Invite participant - Select "No" and click Continue', async () => {
+    await paperworkTelemed.fillAndCheckNoInviteParticipant();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+  });
+  test('PIP-5 Invite participant - Select "Yes" and check required fields', async () => {
+    await locator.inviteParticipantYes.click();
+    await paperwork.checkRequiredFields(
+      '"First name","Last name","Preferable contact"',
+      'Would you like someone to join this call?',
+      true
+    );
+  });
+  test('PIP-6 Invite participant - Select "Yes" and "Email", check required fields', async () => {
+    await locator.inviteeContactEmail.click();
+    await paperwork.checkRequiredFields(
+      '"First name","Last name","Email address"',
+      'Would you like someone to join this call?',
+      true
+    );
+  });
+  test('PIP-7 Invite participant - Select "Yes" and "Phone", check required fields', async () => {
+    await locator.inviteeContactPhone.click();
+    await paperwork.checkRequiredFields(
+      '"First name","Last name","Phone number"',
+      'Would you like someone to join this call?',
+      true
+    );
+  });
+  test('PIP-8 Invite participant - Check phone validations', async () => {
+    await paperwork.checkPhoneValidations(locator.inviteePhone);
+  });
+  test('PIP-9 Invite participant - Check email validations', async () => {
+    await paperwork.checkEmailValidations(locator.inviteeEmail);
+  });
+  test('PIP-10 Invite participant by phone', async () => {
+    inviteeData = await paperworkTelemed.fillInviteParticipant('phone');
+  });
+  test('PIP-11 Invite participant by phone - data is saved after reload', async () => {
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
+    await expect(locator.inviteeContactPhone).toBeChecked();
+  });
+  test('PIP-12 Invite participant by phone - data is saved after coming back', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
+    await expect(locator.inviteeContactPhone).toBeChecked();
+  });
+  test('PIP-13 Invite participant by email', async () => {
+    inviteeData = await paperworkTelemed.fillInviteParticipant('email');
+  });
+  test('PIP-14 Invite participant by email - data is saved after reload', async () => {
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
+    await expect(locator.inviteeContactEmail).toBeChecked();
+  });
+  test('PIP-15 Invite participant by email - data is saved after coming back', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
+    await expect(locator.inviteeContactEmail).toBeChecked();
   });
 });

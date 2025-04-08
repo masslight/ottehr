@@ -7,6 +7,7 @@ import { PaperworkTelemed } from './Paperwork';
 export interface SlotAndLocation {
   selectedSlot: { time: string; fullSlot: string };
   location: string;
+  locationTitle?: string | null;
 }
 
 export interface StartVisitResponse {
@@ -59,7 +60,7 @@ export abstract class BaseTelemedFlow {
 
   async fillNewPatientDataAndContinue(): Promise<PatientBasicInfo> {
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
-    const patientDob = await this.fillingInfo.fillDOBless18();
+    const patientDob = await this.fillingInfo.fillDOBgreater18();
     await this.continue();
     return {
       firstName: bookingData.firstName,

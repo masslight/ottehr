@@ -1,9 +1,10 @@
-import { BrowserContext, Page, expect, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
-import { Locators } from '../../utils/locators';
-import { ModifyPage } from '../../utils/ModifyPage';
+import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CancelPage } from '../../utils/CancelPage';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
+import { Locators } from '../../utils/locators';
+import { ModifyPage } from '../../utils/ModifyPage';
 
 let context: BrowserContext;
 let page: Page;
@@ -14,7 +15,7 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = await response.json();
+      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
       if (appointment && !appointmentIds.includes(appointment)) {
         appointmentIds.push(appointment);
       }

@@ -1,5 +1,6 @@
-import { BrowserContext, Page, expect, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { StartInPersonFlow } from '../../utils/in-person/StartInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -19,7 +20,7 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = await response.json();
+      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
       if (appointment && !appointmentIds.includes(appointment)) {
         appointmentIds.push(appointment);
       }
@@ -60,20 +61,25 @@ test.describe.serial('Start now In person visit - Paperwork submission flow with
     await paperwork.skipPrimaryCarePhysician();
     await paperwork.selectSelfPayPayment();
     await commonLocatorsHelper.clickContinue();
+    await expect(locator.flowHeading).toHaveText('Credit card details');
+  });
+  test('SNPRF-4 Skip Card selection and proceed to responsible party page', async () => {
+    await commonLocatorsHelper.clickContinue();
+    await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
   });
-  test('SNPRF-4 Fill responsible party details', async () => {
+  test('SNPRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
-  test('SNPRF-5 Skip photo ID and complete consent forms', async () => {
+  test('SNPRF-6 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
-  test('SNPRF-6 Submit paperwork', async () => {
+  test('SNPRF-7 Submit paperwork', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.checkInHeading).toBeVisible();
   });

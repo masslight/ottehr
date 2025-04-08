@@ -1,14 +1,15 @@
+import { Attachment } from 'fhir/r4b';
+import { promises as fsPromises } from 'fs';
+import { DateTime } from 'luxon';
+import { dirname, join, resolve } from 'path';
+import { fileURLToPath } from 'url';
 import {
   addContentTypeToAttachement,
+  chooseJson,
   GetPresignedFileURLInput,
   PatchPaperworkParameters,
   PresignUploadUrlResponse,
 } from 'utils';
-import { Attachment } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { dirname, join, resolve } from 'path';
-import { promises as fsPromises } from 'fs';
-import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -61,7 +62,9 @@ export async function getPatientConditionPhotosStepAnswers({
     );
   }
 
-  const presignedFileUrlBody = (await presignedFileUrlResponse.json()) as PresignUploadUrlResponse;
+  const presignedFileUrlBody = chooseJson(await presignedFileUrlResponse.json()) as PresignUploadUrlResponse;
+
+  console.log(presignedFileUrlBody);
   const uploadResponse = await fetch(presignedFileUrlBody.presignedURL, {
     method: 'PUT',
     headers: {
