@@ -1,9 +1,9 @@
 import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
-  muiCloseIcon: 'CloseIcon',
+  closeIcon: 'CloseIcon',
   loadingSpinner: 'loading-spinner',
-  muiDeleteOutlinedIcon: 'DeleteOutlinedIcon',
+  deleteOutlinedIcon: 'DeleteOutlinedIcon',
   header: {
     userName: 'header-user-name',
   },

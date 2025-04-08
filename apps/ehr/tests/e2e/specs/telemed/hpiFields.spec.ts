@@ -162,7 +162,7 @@ test.describe('Medical conditions', async () => {
       .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionListItem)
       .filter({ hasText: new RegExp(conditionName, 'i') })
       .first();
-    await medicalConditionListItem.getByTestId(dataTestIds.muiDeleteOutlinedIcon).click();
+    await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(medicalConditionListItem).not.toBeVisible();
   });
 
@@ -276,14 +276,18 @@ test.describe('Current medications', () => {
   });
 
   test('Should test required fields validation works', async () => {
-    const medicationInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput).locator('label');
-    await expect(medicationInput).toHaveClass(/Mui-required/);
-    const doseInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput).locator('label');
-    await expect(doseInput).toHaveClass(/Mui-required/);
-    const dateInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput).locator('label');
-    await expect(dateInput).toHaveClass(/Mui-required/);
-    const timeInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput).locator('label');
-    await expect(timeInput).toHaveClass(/Mui-required/);
+    const medicationInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput);
+    await expect(medicationInput.locator('label')).toHaveClass(/Mui-required/);
+    await expect(medicationInput.locator('input')).toHaveAttribute('required');
+    const doseInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput);
+    await expect(doseInput.locator('label')).toHaveClass(/Mui-required/);
+    await expect(doseInput.locator('input')).toHaveAttribute('required');
+    const dateInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput);
+    await expect(dateInput.locator('label')).toHaveClass(/Mui-required/);
+    await expect(dateInput.locator('input')).toHaveAttribute('required');
+    const timeInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput);
+    await expect(timeInput.locator('label')).toHaveClass(/Mui-required/);
+    await expect(timeInput.locator('input')).toHaveAttribute('required');
     await page
       .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput)
       .locator('input')
@@ -312,7 +316,7 @@ test.describe('Current medications', () => {
       .filter({ hasText: new RegExp(scheduledMedicationName, 'i') })
       .first();
 
-    await scheduledMedicationListItem.getByTestId(dataTestIds.muiDeleteOutlinedIcon).click();
+    await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(scheduledMedicationListItem).not.toBeVisible();
   });
 
@@ -328,7 +332,7 @@ test.describe('Current medications', () => {
       .filter({ hasText: new RegExp(asNeededMedicationName, 'i') })
       .first();
 
-    await asNeededMedicationListItem.getByTestId(dataTestIds.muiDeleteOutlinedIcon).click();
+    await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(asNeededMedicationListItem).not.toBeVisible();
   });
 
@@ -396,7 +400,7 @@ test.describe('Known allergies', () => {
       .getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesListItem)
       .filter({ hasText: new RegExp(knownAllergyName, 'i') })
       .first();
-    await knownAllergyListItem.getByTestId(dataTestIds.muiDeleteOutlinedIcon).click();
+    await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(knownAllergyListItem).not.toBeVisible();
   });
 
