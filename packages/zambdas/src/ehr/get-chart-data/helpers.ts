@@ -1,5 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
+import { Bundle, DocumentReference, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
 import {
   addSearchParams,
   ChartDataFields,
@@ -200,7 +200,9 @@ export function convertSearchResultsToResponse(
   };
 
   const resources = parseBundleResources(bundle);
-  const documentResources = resources.filter((resource) => resource.resourceType === 'DocumentReference');
+  const documentResources = resources.filter(
+    (resource) => resource.resourceType === 'DocumentReference'
+  ) as DocumentReference[];
   const publishExcuseNotesOps = createPublishExcuseNotesOps(documentResources);
 
   const chartDataResources: Resource[] = [];
