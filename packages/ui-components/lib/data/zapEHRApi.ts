@@ -380,7 +380,7 @@ export const getZapEHRAPI = (
     return await makeZapRequest('set default payment method', parameters);
   };
 
-  const setupPaymentMethod = async (parameters: PaymentMethodSetupParameters): Promise<{ clientSecret: string }> => {
+  const setupPaymentMethod = async (parameters: PaymentMethodSetupParameters): Promise<string> => {
     return await makeZapRequest('setup payment method', parameters);
   };
 

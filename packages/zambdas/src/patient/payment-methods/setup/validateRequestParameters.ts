@@ -1,9 +1,13 @@
-import { PaymentMethodSetupParameters, Secrets } from 'utils';
+import { NOT_AUTHORIZED, PaymentMethodSetupParameters, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
-): PaymentMethodSetupParameters & { secrets: Secrets | null } {
+): PaymentMethodSetupParameters & { secrets: Secrets | null } & { authorization: any } {
+  const authorization = input.headers.Authorization;
+  if (!authorization) {
+    throw NOT_AUTHORIZED;
+  }
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -17,5 +21,6 @@ export function validateRequestParameters(
   return {
     beneficiaryPatientId,
     secrets: input.secrets,
+    authorization,
   };
 }
