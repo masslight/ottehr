@@ -145,6 +145,7 @@ export interface LabResultsData extends ExternalLabsData {
   reportDate: string;
   specimenSource: string;
   Dx: string;
+  labType: string;
   specimenDescription: string;
   specimenValue: string;
   specimenReferenceRange: string;
