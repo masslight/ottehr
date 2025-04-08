@@ -9,9 +9,9 @@ import {
   SyncUserResponse,
   allLicensesForPractitioner,
   getPractitionerNPIIdentitifier,
+  makeQualificationForPractitioner,
 } from 'utils';
 import { createOystehrClient } from '../../shared/helpers';
-import { makeQualificationForPractitioner } from '../../shared/practitioners';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken } from '../../shared';

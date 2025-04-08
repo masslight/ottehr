@@ -46,15 +46,25 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
     });
   };
 
-  const formatDateTime = useMemo(() => {
+  const formatOrderDateTime = useMemo(() => {
     if (!medication.dateTimeCreated) return '-';
 
     const dt = DateTime.fromISO(medication.dateTimeCreated);
 
     if (!dt.isValid) return '-';
 
-    return dt.toFormat('MM/dd/yyyy HH:mm a');
+    return dt.toFormat('MM/dd/yyyy hh:mm a');
   }, [medication.dateTimeCreated]);
+
+  const formatGivenDateTime = useMemo(() => {
+    if (!medication.dateGiven || !medication.timeGiven) return '-';
+
+    const dt = DateTime.fromFormat(`${medication.dateGiven} ${medication.timeGiven}`, 'yyyy-MM-dd HH:mm:ss');
+
+    if (!dt.isValid) return '-';
+
+    return dt.toFormat('MM/dd/yyyy hh:mm a');
+  }, [medication.dateGiven, medication.timeGiven]);
 
   return (
     <TableRow
@@ -75,7 +85,6 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       onClick={handleRowClick}
       {...getRippleHandlers()}
     >
-      <StyledTouchRipple ref={rippleRef} center={false} />
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableMedicationCell} sx={columnStyles.medication}>
         <MedicationBarcodeScan medication={medication} />
       </TableCell>
@@ -85,7 +94,14 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
       <TableCell data-testid={dataTestIds.inHouseMedicationsPage.marTableRouteCell} sx={columnStyles.route}>
         {searchRouteByCode(medication.route)?.display || '-'}
       </TableCell>
-      <TableCell sx={columnStyles.orderDateTime}>{formatDateTime}</TableCell>
+      <TableCell sx={columnStyles.orderDateTime}>{formatOrderDateTime}</TableCell>
+      <TableCell sx={columnStyles.orderDateTime}>{medication.providerCreatedTheOrder}</TableCell>
+      {!isPending && (
+        <>
+          <TableCell sx={columnStyles.orderDateTime}>{formatGivenDateTime}</TableCell>
+          <TableCell sx={columnStyles.orderDateTime}>{medication.administeredProvider || ''}</TableCell>
+        </>
+      )}
       <TableCell
         data-testid={dataTestIds.inHouseMedicationsPage.marTableInstructionsCell}
         sx={columnStyles.instructions}
@@ -98,6 +114,7 @@ export const MarTableRow: React.FC<MarTableRowProps> = ({ medication, columnStyl
           <MedicationActions medication={medication} />
         </Box>
       </TableCell>
+      <StyledTouchRipple ref={rippleRef} center={false} />
     </TableRow>
   );
 };

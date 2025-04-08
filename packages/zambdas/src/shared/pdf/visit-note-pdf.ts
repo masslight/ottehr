@@ -323,43 +323,53 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
-  if (data.medications && data.medications.length > 0) {
+  if (data.medications) {
     drawBlockHeader('Medications');
-    data.medications?.forEach((medication) => {
-      pdfClient.drawText(medication, textStyles.regularText);
-    });
+    data.medications.length
+      ? data.medications.forEach((medication) => {
+          pdfClient.drawText(medication, textStyles.regularText);
+        })
+      : pdfClient.drawText('No current medications', textStyles.regularText);
     separateLine();
   }
 
-  if (data.allergies && data.allergies.length > 0) {
+  if (data.allergies) {
     drawBlockHeader('Allergies');
-    data.allergies?.forEach((allergy) => {
-      pdfClient.drawText(allergy, textStyles.regularText);
-    });
+    data.allergies.length
+      ? data.allergies.forEach((allergy) => {
+          pdfClient.drawText(allergy, textStyles.regularText);
+        })
+      : pdfClient.drawText('No known allergies', textStyles.regularText);
     separateLine();
   }
 
-  if (data.medicalConditions && data.medicalConditions.length > 0) {
+  if (data.medicalConditions) {
     drawBlockHeader('Medical Conditions');
-    data.medicalConditions.forEach((medicalCondition) => {
-      pdfClient.drawText(medicalCondition, textStyles.regularText);
-    });
+    data.medicalConditions.length
+      ? data.medicalConditions.forEach((medicalCondition) => {
+          pdfClient.drawText(medicalCondition, textStyles.regularText);
+        })
+      : pdfClient.drawText('No known medical conditions', textStyles.regularText);
     separateLine();
   }
 
-  if (data.surgicalHistory && data.surgicalHistory.length > 0) {
+  if (data.surgicalHistory) {
     drawBlockHeader('Surgical history');
-    data.surgicalHistory.forEach((record) => {
-      regularText(record);
-    });
+    data.surgicalHistory.length
+      ? data.surgicalHistory.forEach((record) => {
+          regularText(record);
+        })
+      : regularText('No surgical history recorded');
     separateLine();
   }
 
-  if (data.hospitalization && data.hospitalization.length > 0) {
+  if (data.hospitalization) {
     drawBlockHeader('Hospitalization');
-    data.hospitalization.forEach((record) => {
-      regularText(record);
-    });
+    data.hospitalization.length
+      ? data.hospitalization.forEach((record) => {
+          regularText(record);
+        })
+      : regularText('No hospitalization recorded');
     separateLine();
   }
 

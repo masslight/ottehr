@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import { cleanAppointment, waitForResponseWithData } from 'test-utils';
-import { CreateAppointmentUCTelemedResponse } from 'utils';
+import { chooseJson, CreateAppointmentUCTelemedResponse } from 'utils';
 import { Homepage } from '../../utils/in-person/Homepage';
 import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
@@ -11,7 +11,7 @@ const appointmentIds: string[] = [];
 test.beforeEach(async ({ page }) => {
   page.on('response', async (response) => {
     if (response.url().includes('/telemed-create-appointment')) {
-      const { resources, appointmentId } = (await response.json()) as CreateAppointmentUCTelemedResponse;
+      const { resources, appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
       const id = appointmentId || resources?.appointment.id;
 
       if (id) {

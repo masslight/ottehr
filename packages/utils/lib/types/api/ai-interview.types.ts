@@ -7,3 +7,7 @@ export interface HandleAnswerInput {
   linkId: string;
   answer: string;
 }
+
+export interface PersistConsentInput {
+  appointmentId: string;
+}

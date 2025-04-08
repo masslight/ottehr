@@ -1,5 +1,3 @@
-export * from './helpers';
-
 export interface Secrets {
   [secretName: string]: string;
 }
@@ -59,5 +57,6 @@ export enum SecretsKeys {
   CANDID_ENV = 'CANDID_ENV',
   STRIPE_PUBLIC_KEY = 'STRIPE_PUBLIC_KEY',
   STRIPE_SECRET_KEY = 'STRIPE_SECRET_KEY',
+  STRIPE_PAYMENT_METHOD_TYPES = 'STRIPE_PAYMENT_METHOD_TYPES',
   ANTHROPIC_API_KEY = 'ANTHROPIC_API_KEY',
 }

@@ -265,10 +265,15 @@ export function formatDateTimeToLocaleString(datetime: string, format: 'date' | 
   }
 }
 
-export const formatVisitDate = (dateString: string, format: string): string => {
+export const formatVisitDate = (dateString: string, format: string, timezone?: string): string => {
+  let date = DateTime.fromISO(dateString);
+  if (timezone) {
+    date = date.setZone(timezone);
+  }
+
   if (format == 'birth') {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return date.toLocaleString(options);
   } else if (format == 'visit') {
     const options: Intl.DateTimeFormatOptions = {
       year: 'numeric',
@@ -278,7 +283,7 @@ export const formatVisitDate = (dateString: string, format: string): string => {
       minute: 'numeric',
       hour12: true,
     };
-    return new Date(dateString).toLocaleDateString('en-US', options);
+    return date.toLocaleString(options);
   }
   return dateString;
 };
