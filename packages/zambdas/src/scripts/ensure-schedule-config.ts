@@ -1,4 +1,4 @@
-import { BatchInputPostRequest, BatchInputPutRequest, default as Oystehr } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   SCHEDULE_EXTENSION_URL,
@@ -9,7 +9,7 @@ import { createOystehrClient } from '../shared';
 import fs from 'fs';
 
 type EnsureScheduleResult =  { telemedError: null | Error, inPersonGroupError: null | Error };
-const ensureSchedules = async (envConfig: any, env: string): Promise<EnsureScheduleResult> => {
+const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> => {
   const token = await getAuth0Token(envConfig);
 
   const results: EnsureScheduleResult = { telemedError: null, inPersonGroupError: null };
@@ -33,8 +33,8 @@ const ensureSchedules = async (envConfig: any, env: string): Promise<EnsureSched
     ],
     })).unbundle();
 
-    const schedules = telemedLocationAndSchedules.filter((sched) => sched.resourceType === 'Schedule');
-    const telemedLocations = telemedLocationAndSchedules.filter((loc) => loc.resourceType === 'Location');
+    const schedules = telemedLocationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
+    const telemedLocations = telemedLocationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
     const locationUpdateRequests: BatchInputPutRequest<Location>[] = [];
@@ -131,8 +131,8 @@ const ensureSchedules = async (envConfig: any, env: string): Promise<EnsureSched
     ],
     })).unbundle();
 
-    const schedules = practitionersAndSchedules.filter((sched) => sched.resourceType === 'Schedule');
-    const practitioners = practitionersAndSchedules.filter((pract) => pract.resourceType === 'Practitioner');
+    const schedules = practitionersAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
+    const practitioners = practitionersAndSchedules.filter((pract) => pract.resourceType === 'Practitioner') as Practitioner[];
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
     const practitionerUpdateRequests: BatchInputPutRequest<Practitioner>[] = [];
@@ -218,7 +218,7 @@ const main = async (): Promise<void> => {
    const env = process.argv[2];
   
     const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
-    const { telemedError, inPersonGroupError } = await ensureSchedules(envConfig, env);
+    const { telemedError, inPersonGroupError } = await ensureSchedules(envConfig);
     if (telemedError === null && inPersonGroupError === null) {
       console.log('Schedule resources configured successfully');
     }

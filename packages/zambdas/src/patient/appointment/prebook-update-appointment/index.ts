@@ -176,7 +176,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       busySlots: [], // todo: add busy slots or refactor - see previous todo, these can be queried form the passed in slot
     });
 
-    if (availableSlots.includes(slot)) {
+    if (availableSlots.map((si) => si.slot.start).includes(slot)) {
       console.log('slot is available');
     } else {
       console.log('slot is unavailable', slot);

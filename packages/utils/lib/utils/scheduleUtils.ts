@@ -23,6 +23,8 @@ import {
   SCHEDULE_NUM_DAYS,
   SCHEDULE_EXTENSION_URL,
   BookableScheduleData,
+  ScheduleAndOwner,
+  getFullName,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -30,6 +32,7 @@ import {
   distributeTimeSlots,
   divideHourlyCapacityBySlotInverval,
 } from './dateUtils';
+import { uniqueId } from 'lodash-es';
 
 export const FIRST_AVAILABLE_SLOT_OFFSET_IN_MINUTES = 14;
 
@@ -115,6 +118,27 @@ export interface ScheduleDTO {
 }
 
 export type SlotCapacityMap = { [slot: string]: number };
+
+export interface SlotOwner {
+  resourceType: string;
+  id: string;
+  name: string;
+}
+
+export interface SlotListItem {
+  slot: Slot;
+  owner: SlotOwner;
+}
+
+export const mapSlotListItemToStartTimesArray = (items: SlotListItem[]): string[] => {
+  return items.map((item) => {
+    if (!item.slot.start) {
+      console.error('Slot does not have start time', item);
+      throw new Error('All slots must have a start time');
+    }
+    return item.slot.start;
+  });
+};
 
 export async function getWaitingMinutesAtSchedule(
   oystehr: Oystehr,
@@ -699,14 +723,17 @@ interface GetSlotsInput {
 export const getAvailableSlotsForSchedules = async (
   input: GetSlotsInput
 ): Promise<{
-  availableSlots: string[];
-  telemedAvailable: string[];
+  availableSlots: SlotListItem[];
+  telemedAvailable: SlotListItem[];
 }> => {
   const { now, scheduleList } = input;
-  const telemedAvailable: string[] = [];
-  const availableSlots: string[] = [];
+  const telemedAvailable: SlotListItem[] = [];
+  const availableSlots: SlotListItem[] = [];
 
-  const schedules: Schedule[] = scheduleList.map((scheduleTemp) => scheduleTemp.schedule);
+  const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
+    schedule: scheduleTemp.schedule,
+    owner: scheduleTemp.owner,
+  }));
   /*
   const [appointments, busySlots] = await Promise.all([
     getAppointments(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
@@ -758,31 +785,38 @@ export const getAvailableSlotsForSchedules = async (
       console.log('getting post telemed slots');
       // telemedAvailable.push(...getPostTelemedSlots(now, scheduleTemp, postTelemedAppointments));
       console.log('getting available slots to display');
+      const slotStartsForSchedule = getAvailableSlots({
+        now,
+        numDays: SCHEDULE_NUM_DAYS,
+        schedule: scheduleTemp.schedule,
+        busySlots,
+      });
       availableSlots.push(
-        ...getAvailableSlots({
-          now,
-          numDays: SCHEDULE_NUM_DAYS,
-          schedule: scheduleTemp,
-          busySlots,
+        ...makeSlotListItems({
+          startTimes: slotStartsForSchedule,
+          scheduleId: scheduleTemp.schedule.id!,
+          owner: scheduleTemp.owner,
         })
       );
+      console.log('available slots for schedule:', slotStartsForSchedule);
     } catch (err) {
-      console.error(`Error trying to get slots for schedule item: ${scheduleTemp.resourceType}/${scheduleTemp.id}`);
+      console.error(`Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`);
     }
   });
 
-  const usedSlots = new Set<string>();
+  // this logic removes duplicate slots even across schedules,
+  const usedSlots: { [time: string]: SlotListItem } = {};
   const dedupedSlots = availableSlots
     .sort((a, b) => {
-      const time1 = DateTime.fromISO(a);
-      const time2 = DateTime.fromISO(b);
+      const time1 = DateTime.fromISO(a.slot.start);
+      const time2 = DateTime.fromISO(b.slot.start);
       return time1.diff(time2).toMillis();
     })
     .filter((slot) => {
-      if (usedSlots.has(slot)) {
+      if (usedSlots[slot.slot.start]) {
         return false;
       }
-      usedSlots.add(slot);
+      usedSlots[slot.slot.start] = slot;
       return true;
     });
 
@@ -813,4 +847,71 @@ export const getSchedulesForGroup = (
     schedules.push(...groupItems);
   }
   return schedules;
+};
+
+interface MakeSlotListItemsInput {
+  startTimes: string[];
+  scheduleId: string;
+  owner: Practitioner | Location | HealthcareService;
+  appointmentLengthInMinutes?: number;
+}
+
+export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
+  const { startTimes, owner: ownerResource, scheduleId, appointmentLengthInMinutes = 15 } = input;
+  return startTimes.map((startTime) => {
+    const end = DateTime.fromISO(startTimes[0]).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
+    const slot: Slot = {
+      resourceType: 'Slot',
+      id: uniqueId(),
+      start: startTime,
+      end,
+      schedule: { reference: `Schedule/${scheduleId}` },
+      status: 'free',
+    };
+    const owner = makeSlotOwnerFromResource(ownerResource);
+    return {
+      slot,
+      owner,
+    };
+  });
+};
+
+const makeSlotOwnerFromResource = (owner: Practitioner | Location | HealthcareService): SlotOwner => {
+  let name = '';
+  if (owner.resourceType === 'Location') {
+    name = (owner as Location).name || '';
+  }
+  if (owner.resourceType === 'Practitioner') {
+    name = getFullName(owner as Practitioner) ?? '';
+  }
+  if (owner.resourceType === 'HealthcareService') {
+    name = (owner as HealthcareService).name || '';
+  }
+  return {
+    resourceType: owner.resourceType,
+    id: owner.id!,
+    name,
+  };
+};
+
+export const nextAvailableFrom = (
+  firstDate: DateTime | undefined,
+  slotDataFHIR: Slot[],
+  timezone: string
+): DateTime | undefined => {
+  if (firstDate == undefined) {
+    return undefined;
+  }
+  const nextDaySlot = slotDataFHIR.find((slot) => {
+    const dt = DateTime.fromISO(slot.start, { zone: timezone });
+    if (dt.ordinal === firstDate.ordinal) {
+      return false;
+    }
+    return dt > firstDate;
+  });
+
+  if (nextDaySlot) {
+    return DateTime.fromISO(nextDaySlot.start, { zone: timezone });
+  }
+  return undefined;
 };

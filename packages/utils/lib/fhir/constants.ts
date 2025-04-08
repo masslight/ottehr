@@ -247,7 +247,7 @@ export enum ScheduleStrategy {
   poolsAll = 'pools-all',
 }
 
-interface ScheduleAndOwner {
+export interface ScheduleAndOwner {
   schedule: Schedule;
   owner: Location | Practitioner | HealthcareService;
 }

@@ -18,7 +18,7 @@ import {
   useTheme,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { Location, Patient, Person, RelatedPerson } from 'fhir/r4b';
+import { Location, Patient, Person, RelatedPerson, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
@@ -86,7 +86,7 @@ export default function AddPatient(): JSX.Element {
   const [reasonForVisit, setReasonForVisit] = useState<string>('');
   const [reasonForVisitAdditional, setReasonForVisitAdditional] = useState<string>('');
   const [visitType, setVisitType] = useState<VisitType>();
-  const [slot, setSlot] = useState<string | undefined>();
+  const [slot, setSlot] = useState<Slot | undefined>();
   const [loading, setLoading] = useState<boolean>(false);
   const [searching, setSearching] = useState<boolean>(false);
   const [errors, setErrors] = useState<{ submit?: boolean; phone?: boolean; search?: boolean }>({
@@ -212,7 +212,7 @@ export default function AddPatient(): JSX.Element {
           reasonForVisit: reasonForVisit,
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
-        slot: slot,
+        slot: slot?.start,
         visitType: getFhirAppointmentTypeForVisitType(visitType),
         locationID: selectedLocation?.id,
         scheduleType: ScheduleType.location,
@@ -635,11 +635,11 @@ export default function AddPatient(): JSX.Element {
                       <SlotPicker
                         slotData={
                           visitType === VisitType.PostTelemed
-                            ? locationWithSlotData?.telemedAvailable
-                            : locationWithSlotData?.available
+                            ? locationWithSlotData?.telemedAvailable?.map((si) => si.slot)
+                            : locationWithSlotData?.available?.map((si) => si.slot)
                         }
                         slotsLoading={loadingSlotState.status === 'loading'}
-                        timezone={locationWithSlotData?.location.timezone || 'Undefined'}
+                        timezone={locationWithSlotData?.location?.timezone || 'Undefined'}
                         selectedSlot={slot}
                         setSelectedSlot={setSlot}
                       />

@@ -32,6 +32,7 @@ import { PatientInfoInProgress } from '../features/patients/types';
 import { NO_LOCATION_ERROR } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
+import { SlotListItem } from 'utils/lib/utils';
 
 type BookingState = {
   visitType: VisitType | undefined;
@@ -42,6 +43,7 @@ type BookingState = {
   patients: PatientInfo[];
   patientInfo: PatientInfoInProgress | undefined;
   unconfirmedDateOfBirth: string | undefined;
+  slotData: SlotListItem[];
 };
 
 interface BookingStoreActions {
@@ -49,8 +51,8 @@ interface BookingStoreActions {
   setPatients: (patients: PatientInfo[]) => void;
   setUnconfirmedDateOfBirth: (dob: string | undefined) => void;
   setSelectedLocationResponse: (location: GetScheduleResponse | undefined) => void;
-  setSelectedSlot: (slot: string | undefined) => void;
-  setSlotData: (slotData: string[]) => void;
+  setSelectedSlot: (slotId: string | undefined) => void;
+  setSlotData: (slotData: SlotListItem[]) => void;
   setScheduleType: (scheduleType: ScheduleType | undefined) => void;
   completeBooking: () => void;
   handleLogout: () => void;
@@ -65,6 +67,7 @@ const BOOKING_INITIAL: BookingState = {
   visitType: undefined,
   serviceType: undefined,
   scheduleType: undefined,
+  slotData: [],
 };
 
 const useBookingStore = create<BookingState & BookingStoreActions>()(
@@ -117,20 +120,14 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
         set((state) => ({
           ...state,
           selectedLocationResponse,
+          slotData: selectedLocationResponse?.available ?? [],
         }));
       },
-      setSlotData: (slotData: string[]) => {
+      setSlotData: (slotData: SlotListItem[]) => {
         set((state) => {
-          const selectedLocationResponse = state.selectedLocationResponse;
-          if (!selectedLocationResponse) {
-            return { ...state };
-          }
           return {
             ...state,
-            selectedLocationResponse: {
-              ...selectedLocationResponse,
-              available: slotData,
-            },
+            slotData,
           };
         });
       },
@@ -172,10 +169,11 @@ interface BookAppointmentContext
     > {
   visitType: VisitType | undefined;
   selectedLocation: AvailableLocationInformation | undefined;
-  slotData: string[];
+  slotData: SlotListItem[];
   waitingMinutes: number | undefined;
   locationLoading: boolean;
   patientsLoading: boolean;
+  getSlotListItemWithId: (slotId: string) => SlotListItem | undefined;
 }
 
 export const useBookingContext = (): BookAppointmentContext => {
@@ -265,7 +263,7 @@ const BookingHome: FC = () => {
     return navState?.scheduleType ?? scheduleType;
   }, [navState?.scheduleType, scheduleType]);
   const outletContext: BookAppointmentContext = useMemo(() => {
-    let slotDataTemp: string[] = [];
+    let slotDataTemp: SlotListItem[] = [];
     let selectedLocationTemp: AvailableLocationInformation | undefined = undefined;
     let waitingMinutesTemp: number | undefined = undefined;
     if (selectedLocationResponse) {
@@ -281,6 +279,9 @@ const BookingHome: FC = () => {
     if (serviceTypeParam === ServiceMode.virtual) {
       serviceType = ServiceMode.virtual;
     }
+    const getSlotListItemWithId = (slotId: string): SlotListItem | undefined => {
+      return slotDataTemp.find((si) => si.slot.id === slotId);
+    };
     return {
       patients,
       patientInfo,
@@ -299,6 +300,7 @@ const BookingHome: FC = () => {
       setSelectedSlot,
       completeBooking,
       setSlotData,
+      getSlotListItemWithId,
     };
   }, [
     selectedLocationResponse,
@@ -594,11 +596,17 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
     if (!selectedSlot) {
       return slotData;
     } else {
+      const selected = slotData?.find((si) => si.slot.id === selectedSlot);
       const allButSelected =
-        slotData?.filter((slot) => {
-          return slot !== selectedSlot;
+        slotData?.filter((si) => {
+          return si.slot.id !== selectedSlot;
         }) ?? [];
-      return [...allButSelected, selectedSlot].sort((a: string, b: string) => a.localeCompare(b));
+      // todo: this shouldn't be necessary...
+      const toSort = [...allButSelected];
+      if (selected) {
+        toSort.push(selected);
+      }
+      return [...toSort].sort((a: SlotListItem, b: SlotListItem) => a.slot.start.localeCompare(b.slot.start));
     }
   }, [slotData, selectedSlot]);
 
@@ -635,13 +643,13 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
         <>
           <Schedule
             slotsLoading={locationLoading}
-            slotData={allAvailableSlots}
+            slotData={allAvailableSlots.map((si) => si.slot)}
             setSlotData={setSlotData}
             scheduleType={scheduleType}
             timezone={selectedLocation?.timezone || 'America/New_York'}
-            existingSelectedSlot={selectedSlot}
+            existingSelectedSlot={slotData?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
             handleSlotSelected={(slot) => {
-              setSelectedSlot(slot);
+              setSelectedSlot(slot.id);
               navigate(
                 preserveQueryParams(`/${scheduleType}/${slugParam}/${visitTypeParam}/${serviceTypeParam}/get-ready`),
                 {

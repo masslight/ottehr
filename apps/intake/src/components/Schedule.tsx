@@ -3,7 +3,15 @@ import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ControlButtons, ErrorDialog, ErrorDialogConfig, breakpoints, useUCZambdaClient } from 'ui-components';
-import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, ScheduleType, createLocalDateTime } from 'utils';
+import {
+  DATETIME_FULL_NO_YEAR,
+  DATE_FULL_NO_YEAR,
+  ScheduleType,
+  SlotListItem,
+  createLocalDateTime,
+  mapSlotListItemToStartTimesArray,
+  nextAvailableFrom,
+} from 'utils';
 import { SelectSlot } from '.';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
@@ -12,6 +20,7 @@ import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { LocalizationProvider, StaticDatePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { Slot } from 'fhir/r4b';
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -36,28 +45,6 @@ const TabPanel = (props: TabPanelProps): JSX.Element => {
   );
 };
 
-const nextAvailableFrom = (
-  firstDate: DateTime | undefined,
-  slotDataFHIR: string[],
-  timezone: string
-): DateTime | undefined => {
-  if (firstDate == undefined) {
-    return undefined;
-  }
-  const nextDaySlot = slotDataFHIR.find((slot) => {
-    const dt = DateTime.fromISO(slot, { zone: timezone });
-    if (dt.ordinal === firstDate.ordinal) {
-      return false;
-    }
-    return dt > firstDate;
-  });
-
-  if (nextDaySlot) {
-    return DateTime.fromISO(nextDaySlot, { zone: timezone });
-  }
-  return undefined;
-};
-
 const tabProps = (
   index: number
 ): {
@@ -71,21 +58,21 @@ const tabProps = (
 };
 
 interface ScheduleProps {
-  slotData: string[] | undefined;
-  setSlotData: (slotData: string[]) => void;
+  slotData: Slot[] | undefined;
+  setSlotData: (data: SlotListItem[]) => void;
   slotsLoading: boolean;
   submitPending?: boolean;
   backButton?: boolean;
   submitLabelAdjective?: string;
-  existingSelectedSlot: string | undefined;
-  handleSlotSelected: (slot: string) => void;
+  existingSelectedSlot: Slot | undefined;
+  handleSlotSelected: (slot: Slot) => void;
   timezone: string;
   locationSlug: string | undefined;
   forceClosedToday: boolean;
   scheduleType?: ScheduleType;
   forceClosedTomorrow: boolean;
   markSlotBusy: boolean; // rescheduled appointments will always fail if they mark the very slot they're rescheduling to as tentatitvely busy
-  customOnSubmit?: (slot?: string) => void;
+  customOnSubmit?: (slot?: Slot) => void;
 }
 
 const Schedule = ({
@@ -108,7 +95,7 @@ const Schedule = ({
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const [currentTab, setCurrentTab] = useState(0);
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
-  const [locallySelectedSlot, setLocallySelectedSlot] = useState<string | undefined>(existingSelectedSlot);
+  const [locallySelectedSlot, setLocallySelectedSlot] = useState<Slot | undefined>(existingSelectedSlot);
   const [slotAvailableCheckPending, setSlotAvailableCheckPending] = useState(false);
   const { t } = useTranslation();
 
@@ -126,11 +113,12 @@ const Schedule = ({
   const onSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     if (customOnSubmit) {
-      customOnSubmit(locallySelectedSlot);
+      customOnSubmit(slotsList.find((slot) => slot.id === locallySelectedSlot));
       return;
     }
 
     try {
+      const slot = slotsList.find((slot) => slot.id === locallySelectedSlot);
       if (!hasChosenSlot) {
         setErrorDialog({
           title: t('schedule.errors.selection.title'),
@@ -150,21 +138,23 @@ const Schedule = ({
           const res = await zapehrApi.getSchedule(tokenlessZambdaClient, {
             slug: locationSlug,
             scheduleType: scheduleType || ScheduleType.location,
-            specificSlot: markSlotBusy ? locallySelectedSlot : undefined,
+            specificSlot: markSlotBusy ? locallySelectedSlot.start : undefined,
           });
           console.log('res', res);
-          if (res.available.includes(locallySelectedSlot)) {
-            handleSlotSelected(locallySelectedSlot);
+          const availableSlots = mapSlotListItemToStartTimesArray(res.available);
+          if (availableSlots.includes(locallySelectedSlot.start) && slot) {
+            handleSlotSelected(slot);
           } else {
             // todo: this error dialog probably shouldn't live in this component; it's doing too much
             setErrorDialog({
               title: t('schedule.noLongerAvail.title'),
               description: t('schedule.noLongerAvail.description'),
             });
+
             setSlotData(res.available);
           }
-        } else {
-          handleSlotSelected(locallySelectedSlot);
+        } else if (slot) {
+          handleSlotSelected(slot);
         }
         setSlotAvailableCheckPending(false);
       }
@@ -179,9 +169,9 @@ const Schedule = ({
       const slots = [...slotData];
 
       // This maps days to an array of slots
-      const map: { [ord: number]: string[] } = slots.reduce(
+      const map: { [ord: number]: Slot[] } = slots.reduce(
         (accumulator, current) => {
-          const dateOfCurrent = DateTime.fromISO(current, { zone: timezone });
+          const dateOfCurrent = DateTime.fromISO(current.start, { zone: timezone });
           const existing = accumulator[dateOfCurrent.ordinal];
           if (existing) {
             existing.push(current);
@@ -190,7 +180,7 @@ const Schedule = ({
           }
           return accumulator;
         },
-        {} as { [ord: number]: string[] }
+        {} as { [ord: number]: Slot[] }
       );
 
       return [slots, map];
@@ -199,14 +189,14 @@ const Schedule = ({
   }, [timezone, slotData]);
 
   const [firstAvailableDay, secondAvailableDay] = useMemo(() => {
-    const firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotsList[0]), timezone);
+    const firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotsList[0]?.start), timezone);
     const secondAvailableDay = nextAvailableFrom(firstAvailableDay, slotsList, timezone);
     console.log(5, firstAvailableDay?.toISO());
     return [firstAvailableDay, secondAvailableDay];
   }, [slotsList, timezone]);
 
   const isFirstAppointment = useMemo(() => {
-    return slotsList && slotsList[0] ? locallySelectedSlot === slotsList[0] : false;
+    return slotsList && slotsList[0] ? locallySelectedSlot === slotsList[0].id : false;
   }, [slotsList, locallySelectedSlot]);
 
   const handleChange = (_: SyntheticEvent, newCurrentTab: number): void => {
@@ -237,14 +227,14 @@ const Schedule = ({
   const selectedSlotTimezoneAdjusted = useMemo(() => {
     const selectedAppointmentStart = locallySelectedSlot;
     if (selectedAppointmentStart) {
-      return createLocalDateTime(DateTime.fromISO(selectedAppointmentStart), timezone);
+      return createLocalDateTime(DateTime.fromISO(selectedAppointmentStart.start), timezone);
     }
 
     return undefined;
   }, [locallySelectedSlot, timezone]);
 
   const getSlotsForDate = useCallback(
-    (date: DateTime | undefined): string[] => {
+    (date: DateTime | undefined): Slot[] => {
       if (date === undefined) {
         return [];
       }
@@ -446,7 +436,7 @@ const Schedule = ({
                     // Minus one day for timezone shenanigans
                     minDate={firstAvailableDay?.minus({ days: 1 })}
                     // Plus one month for month picker dropdown
-                    maxDate={DateTime.fromISO(slotsList[slotsList.length - 1])?.plus({ months: 1 })}
+                    maxDate={DateTime.fromISO(slotsList[slotsList.length - 1].start)?.plus({ months: 1 })}
                   />
                 </LocalizationProvider>
                 <Typography variant="h3" color="#000000" sx={{ textAlign: 'center' }}>

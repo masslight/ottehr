@@ -8,6 +8,7 @@ import {
   SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
   SecretsKeys,
+  SlotListItem,
   getAvailableSlotsForSchedules,
   getSecret,
 } from 'utils';
@@ -41,7 +42,7 @@ interface GetAppointmentDetailsResponse {
     visitType: string;
     status?: string;
   };
-  availableSlots: string[];
+  availableSlots: SlotListItem[];
   displayTomorrowSlotsAtHour: number;
 }
 

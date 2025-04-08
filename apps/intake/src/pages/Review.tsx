@@ -48,6 +48,7 @@ const Review = (): JSX.Element => {
     scheduleType,
     setPatientInfo,
     completeBooking,
+    getSlotListItemWithId,
   } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const patientFullName = useGetFullName(patientInfo);
@@ -59,15 +60,20 @@ const Review = (): JSX.Element => {
 
   const zambdaClient = useUCZambdaClient({ tokenless: false });
   const selectedSlotTimezoneAdjusted = useMemo(() => {
-    const selectedAppointmentStart = appointmentSlot;
-    if (selectedAppointmentStart && selectedLocation?.timezone) {
-      return DateTime.fromISO(selectedAppointmentStart)
-        .setZone(selectedLocation?.timezone)
-        .setLocale('en-us');
+    const selectedAppointmentId = appointmentSlot;
+    if (selectedAppointmentId && selectedLocation?.timezone) {
+      const selectedAppointmentStart = getSlotListItemWithId(selectedAppointmentId)?.slot.start;
+      if (selectedAppointmentStart) {
+        return DateTime.fromISO(selectedAppointmentStart)
+          .setZone(selectedLocation?.timezone)
+          .setLocale('en-us');
+      }
     }
 
     return undefined;
-  }, [appointmentSlot, selectedLocation?.timezone]);
+  }, [appointmentSlot, getSlotListItemWithId, selectedLocation?.timezone]);
+
+  console.log('selected slot id', appointmentSlot);
 
   const onSubmit = async (): Promise<void> => {
     try {
