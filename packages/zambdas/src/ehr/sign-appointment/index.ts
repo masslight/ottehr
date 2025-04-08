@@ -104,7 +104,9 @@ export const performEffect = async (
   const { response: additionalChartData } = additionalChartDataPromiseResponse;
 
   try {
-    await oystehr.fhir.batch<FhirResource>({ requests: publishExcuseNotesOps });
+    if (publishExcuseNotesOps) {
+      await oystehr.fhir.batch<FhirResource>({ requests: publishExcuseNotesOps });
+    }
   } catch (error) {
     console.log('Error publishing excuse notes...', error, JSON.stringify(error));
     throw new Error('Unable to publish excuse notes');

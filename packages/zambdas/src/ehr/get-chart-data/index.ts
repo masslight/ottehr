@@ -46,7 +46,7 @@ export async function getChartData(
 ): Promise<{
   response: GetChartDataResponse;
   chartResources: Resource[];
-  publishExcuseNotesOps: BatchInputRequest<DocumentReference>[];
+  publishExcuseNotesOps?: BatchInputRequest<DocumentReference>[];
 }> {
   console.time('check');
 
