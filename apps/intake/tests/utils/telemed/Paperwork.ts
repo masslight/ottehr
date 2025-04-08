@@ -460,4 +460,35 @@ export class PaperworkTelemed {
     const email = choice === 'email' ? (await this.fillInviteParticipantEmail()).email : null;
     return { inviteeName, phone, email };
   }
+  async fillPaperworkOnlyRequiredFieldsTelemed(): Promise<void> {
+    await this.paperwork.fillContactInformationRequiredFields();
+    await this.locators.clickContinueButton();
+    await this.paperwork.fillPatientDetailsTelemedAllFields();
+    await this.locators.clickContinueButton();
+    await this.paperwork.skipPrimaryCarePhysician();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptyCurrentMedications();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptyCurrentAllergies();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptyMedicalHistory();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptySurgicalHistory();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckAdditionalQuestions();
+    await this.locators.clickContinueButton();
+    await this.paperwork.selectSelfPayPayment();
+    await this.locators.clickContinueButton();
+    await this.paperwork.fillResponsiblePartyDataSelf();
+    await this.locators.clickContinueButton();
+    await this.paperwork.skipPhotoID();
+    await this.locators.clickContinueButton();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckSchoolWorkNoteAsNone();
+    await this.locators.clickContinueButton();
+    await this.paperwork.fillConsentForms();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckNoInviteParticipant();
+    await this.locators.clickContinueButton();
+  }
 }

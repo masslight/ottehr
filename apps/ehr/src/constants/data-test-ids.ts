@@ -1,6 +1,7 @@
 import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
 
 export const dataTestIds = {
+  muiCloseIcon: 'CloseIcon',
   loadingSpinner: 'loading-spinner',
   muiDeleteOutlinedIcon: 'DeleteOutlinedIcon',
   header: {
@@ -179,9 +180,12 @@ export const dataTestIds = {
     trackingBoardAssignButton: 'telemed-tracking-board-assign-appointment-button',
     trackingBoardViewButton: (appointmentId?: string) =>
       `telemed-tracking-board-view-appointment-button-${appointmentId}`,
+    trackingBoardChatButton: (appointmentId?: string) =>
+      `telemed-tracking-board-chat-appointment-button-${appointmentId}`,
     appointmentStatusChip: 'telemed-appointment-status-chip',
     footerButtonConnectToPatient: 'telemed-appointment-footer-button-connect-to-patient',
     footerButtonAssignMe: 'telemed-appointment-footer-button-assign-me',
+    footerButtonUnassign: 'telemed-appointment-footer-button-unassign',
     appointmentChartFooter: 'telemed-chart-appointment-footer',
     hpiFieldListLoadingSkeleton: 'telemed-hpi-field-list-loading-skeleton',
     hpiMedicalConditionColumn: 'telemed-hpi-medical-condition-column',
@@ -227,6 +231,10 @@ export const dataTestIds = {
     reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
+    cancelThisVisitButton: 'telemed-cancel-this-visit-button',
+    inviteParticipant: 'telemed-invite-participant-button',
+    editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
+    chatModalDescription: 'telemed-chat-modal-description',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',

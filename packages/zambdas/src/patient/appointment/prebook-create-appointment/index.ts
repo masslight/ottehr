@@ -2,6 +2,7 @@ import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest, User } f
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  Account,
   Appointment,
   AppointmentParticipant,
   Bundle,
@@ -39,6 +40,7 @@ import {
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   OTTEHR_MODULE,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
   REASON_MAXIMUM_CHAR_LIMIT,
   ScheduleType,
@@ -68,6 +70,7 @@ import {
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { CreateAppointmentValidatedInput, validateCreateAppointmentParams } from './validateRequestParameters';
+import _ from 'lodash';
 
 interface CreateAppointmentInput extends Omit<CreateAppointmentValidatedInput, 'currentCanonicalQuestionnaireUrl'> {
   user: User;
@@ -314,6 +317,7 @@ interface TransactionOutput {
   patient: Patient;
   questionnaire: QuestionnaireResponse;
   questionnaireResponseId: string;
+  account?: Account;
 }
 
 export const performTransactionalFhirRequests = async (input: TransactionInput): Promise<TransactionOutput> => {
@@ -473,9 +477,14 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     extension: [...(isVirtual ? telemedEncExtensions : [])],
   };
 
-  const { documents, insuranceInfo } = await getRelatedResources(oystehr, patient?.id);
+  const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
 
   const patientToUse = patient ?? (createPatientRequest?.resource as Patient);
+
+  let currentPatientAccount: Account | undefined;
+  if (patient !== undefined) {
+    currentPatientAccount = accountInfo?.account;
+  }
 
   const item: QuestionnaireResponseItem[] = makePrepopulatedItemsForPatient({
     patient: patientToUse,
@@ -487,7 +496,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     appointmentStartTime: startTime,
     questionnaire,
     documents,
-    insuranceInfo,
+    accountInfo,
   });
 
   console.log(
@@ -544,10 +553,40 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     resource: confirmationTextTask,
   };
 
-  const transactionInput: BatchInput<Appointment | Encounter | Patient | List | QuestionnaireResponse | Task> = {
+  const postAccountRequests: BatchInputPostRequest<Account>[] = [];
+  if (createPatientRequest?.fullUrl) {
+    const accountResource: Account = {
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: createPatientRequest.fullUrl }],
+    };
+    postAccountRequests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: accountResource,
+    });
+  } else if (patient && currentPatientAccount === undefined) {
+    const accountResource: Account = {
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: `Patient/${patient.id}` }],
+    };
+    postAccountRequests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: accountResource,
+    });
+  }
+
+  const transactionInput: BatchInput<
+    Appointment | Encounter | Patient | List | QuestionnaireResponse | Account | Task
+  > = {
     requests: [
       ...patientRequests,
       ...listRequests,
+      ...postAccountRequests,
       postApptReq,
       postEncRequest,
       postQuestionnaireResponseRequest,

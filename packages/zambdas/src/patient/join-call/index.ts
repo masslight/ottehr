@@ -128,8 +128,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     let userProfile: string;
     let relatedPersonRef: string | undefined;
     if (isInvitedParticipant) {
-      const emailAddress = claims.sub || '';
-      if (!(await isParticipantInvited(emailAddress, videoEncounter.id, oystehr))) {
+      const subject = claims.sub || '';
+      if (!(await isParticipantInvited(subject, videoEncounter.id, oystehr))) {
         return lambdaResponse(401, { message: 'Unauthorized' });
       }
       userProfile = await getM2MUserProfile(zapehrToken, projectApiURL, telemedClientId);
@@ -252,11 +252,18 @@ async function addUserToVideoEncounterIfNeeded(
   }
 }
 
-async function isParticipantInvited(emailAddress: string, encounterId: string, oystehr: Oystehr): Promise<boolean> {
+async function isParticipantInvited(subject: string, encounterId: string, oystehr: Oystehr): Promise<boolean> {
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isEmail = emailPattern.test(subject);
+
   const relatedPersons = await searchInvitedParticipantResourcesByEncounterId(encounterId, oystehr);
-  const emailAddresses: string[] = JSONPath({ path: '$..telecom[?(@.system == "email")].value', json: relatedPersons });
-  console.log('Email addresses that were invited:', emailAddresses);
-  return emailAddresses.includes(emailAddress);
+  const telecom: string[] = JSONPath({
+    path: `$..telecom[?(@.system == "${isEmail ? 'email' : 'phone'}")].value`,
+    json: relatedPersons,
+  });
+  console.log(`${isEmail ? 'Email addresses' : 'Phone numbers'} that were invited:`, telecom);
+
+  return telecom.includes(subject);
 }
 
 async function joinTelemedMeeting(
