@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  Account,
   Appointment,
   Bundle,
   Encounter,
@@ -25,6 +26,7 @@ import {
   getSecret,
   makePrepopulatedItemsForPatient,
   PROJECT_MODULE,
+  PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
   RequiredAllProps,
@@ -51,6 +53,7 @@ import {
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { validateCreateAppointmentParams } from './validateRequestParameters';
+import _ from 'lodash';
 
 let zapehrToken: string;
 
@@ -244,6 +247,7 @@ interface TransactionOutput {
   encounter: Encounter;
   patient: Patient;
   questionnaire: QuestionnaireResponse;
+  account?: Account;
 }
 
 export const performTransactionalFhirRequests = async (input: TransactionInput): Promise<TransactionOutput> => {
@@ -362,6 +366,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
 
+  let currentPatientAccount: Account | undefined;
+  if (patient !== undefined) {
+    currentPatientAccount = accountInfo?.account;
+  }
+
   const canonUrl = `${questionnaire.url}|${questionnaire.version}`;
   const patientToUse = createPatientRequest?.resource ?? patient ?? { resourceType: 'Patient' };
 
@@ -417,15 +426,42 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     patientRequests.push(createPatientRequest);
   }
 
+  const postAccountRequests: BatchInputPostRequest<Account>[] = [];
+  if (createPatientRequest?.fullUrl) {
+    const accountResource: Account = {
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: createPatientRequest.fullUrl }],
+    };
+    postAccountRequests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: accountResource,
+    });
+  } else if (patient && currentPatientAccount === undefined) {
+    const accountResource: Account = {
+      resourceType: 'Account',
+      status: 'active',
+      type: { ...PATIENT_BILLING_ACCOUNT_TYPE },
+      subject: [{ reference: `Patient/${patient.id}` }],
+    };
+    postAccountRequests.push({
+      method: 'POST',
+      url: '/Account',
+      resource: accountResource,
+    });
+  }
+
   const transactionInput = {
-    requests: [...patientRequests, ...listRequests, postApptReq, postEncRequest, postQRRequest],
+    requests: [...patientRequests, ...postAccountRequests, ...listRequests, postApptReq, postEncRequest, postQRRequest],
   };
 
   console.log('making transaction request');
 
-  const bundle = await oystehr.fhir.transaction<Appointment | Encounter | Patient | List | QuestionnaireResponse>(
-    transactionInput
-  );
+  const bundle = await oystehr.fhir.transaction<
+    Appointment | Encounter | Patient | Account | List | QuestionnaireResponse
+  >(transactionInput);
   const resources = extractResourcesFromBundle(bundle, patient);
 
   await oystehr.fhir.patch({

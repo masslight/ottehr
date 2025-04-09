@@ -54,6 +54,9 @@ const inputTypeForDisplayItem = (item: IntakeQuestionnaireItem): FormItemType =>
   if (descriptionIds.includes(item.linkId) || item.preferredElement === 'p') {
     return 'Description';
   }
+  if (item.dataType === 'Call Out') {
+    return 'Call Out';
+  }
   return 'Header 3';
 };
 
