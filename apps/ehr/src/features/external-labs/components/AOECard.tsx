@@ -6,10 +6,11 @@ import { QuestionnaireItem } from 'fhir/r4b';
 
 interface AOEProps {
   questions: QuestionnaireItem[];
+  labQuestionnaireResponses: any[] | undefined;
   isCollapsed?: boolean;
 }
 
-export const AOECard: React.FC<AOEProps> = ({ questions, isCollapsed = false }) => {
+export const AOECard: React.FC<AOEProps> = ({ questions, labQuestionnaireResponses, isCollapsed = false }) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
   const [isLoading, _setLoading] = useState(false);
 
@@ -30,7 +31,15 @@ export const AOECard: React.FC<AOEProps> = ({ questions, isCollapsed = false }) 
             <Grid container sx={{ width: '100%' }} spacing={1}>
               {questions?.length ? (
                 questions.map((question, index) => {
-                  return <AOEQuestion key={index} question={question} />;
+                  return (
+                    <AOEQuestion
+                      key={index}
+                      question={question}
+                      answer={
+                        labQuestionnaireResponses?.find((response) => response.linkId === question.linkId).response
+                      }
+                    />
+                  );
                 })
               ) : (
                 <Typography>No questions</Typography>

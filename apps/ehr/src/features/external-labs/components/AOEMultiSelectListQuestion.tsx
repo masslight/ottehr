@@ -5,6 +5,7 @@ import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-f
 interface MultiListQuestionProps {
   questionText: string;
   linkId: string;
+  answer?: string[];
   answerOption: QuestionnaireItemAnswerOption[];
   required: boolean;
   field: ControllerRenderProps<FieldValues, string>;
@@ -16,7 +17,7 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
     formState: { errors },
   } = useFormContext();
 
-  const { questionText, linkId, answerOption, field } = props;
+  const { questionText, linkId, answer, answerOption, field } = props;
 
   const labelId = `multi-select-${linkId}-label`;
 
@@ -29,7 +30,6 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
         id={`multi-select-${linkId}`}
         label={questionText}
         multiple
-        defaultValue={[]}
         error={!!errors[linkId]}
         input={<OutlinedInput id="select-multiple-chip" label={questionText} />} // the label here has to match the label on the input and select otherwise the label won't size properly
         renderValue={(selected: any[]) => (
@@ -37,6 +37,8 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
             {selected?.map((value: string, idx: number) => <Chip key={idx} label={value} />)}
           </Box>
         )}
+        value={answer}
+        readOnly={answer !== undefined}
       >
         {answerOption.map((option, idx) => (
           <MenuItem key={idx} value={option.valueString}>

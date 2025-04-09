@@ -23,6 +23,7 @@ interface CollectionInstructions {
 
 interface SampleCollectionProps {
   aoe: QuestionnaireItem[];
+  labQuestionnaireResponses?: any[];
   collectionInstructions: CollectionInstructions;
   specimen: any;
   serviceRequestID: string;
@@ -42,6 +43,7 @@ interface DynamicAOEInput {
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
   aoe,
   // collectionInstructions,
+  labQuestionnaireResponses,
   specimen: _2,
   serviceRequestID,
   accountNumber,
@@ -128,7 +130,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
-        <AOECard questions={aoe} isCollapsed={isAOECollapsed} />
+        <AOECard questions={aoe} labQuestionnaireResponses={labQuestionnaireResponses} isCollapsed={isAOECollapsed} />
         {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
         {/* {showOrderInfo && (
           <SampleInformationCard

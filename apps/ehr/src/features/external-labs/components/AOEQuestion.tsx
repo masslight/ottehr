@@ -11,6 +11,7 @@ import { QuestionnaireItem } from 'fhir/r4b';
 
 interface AOEQuestionProps {
   question: QuestionnaireItem;
+  answer?: string[];
 }
 
 export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
@@ -19,7 +20,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
     formState: { errors },
   } = useFormContext();
 
-  const { question } = questionProps;
+  const { question, answer } = questionProps;
   const { linkId, text, type, required, extension, answerOption } = question;
 
   const defaultValue =
@@ -47,6 +48,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 <AOEListQuestion
                   questionText={text}
                   linkId={linkId}
+                  answer={answer?.join(',')}
                   answerOption={answerOption}
                   required={required || false}
                   field={field}
@@ -58,18 +60,25 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   <AOEMultiSelectListQuestion
                     questionText={text}
                     linkId={linkId}
+                    answer={answer}
                     answerOption={answerOption}
                     required={required || false}
                     field={field}
                   />
                 )}
               {type === 'text' && (
-                <AOEFreeTextQuestion questionText={text} linkId={linkId} required={required || false} />
+                <AOEFreeTextQuestion
+                  questionText={text}
+                  linkId={linkId}
+                  answer={answer?.join(',')}
+                  required={required || false}
+                />
               )}
               {type === 'date' && extension && (
                 <AOEDateQuestion
                   questionText={text}
                   linkId={linkId}
+                  answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
                   field={field}
@@ -79,6 +88,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 <AOENumberQuestion
                   questionText={text}
                   linkId={linkId}
+                  answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
                   idString={`integer-${linkId}`}
@@ -89,6 +99,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 <AOENumberQuestion
                   questionText={text}
                   linkId={linkId}
+                  answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
                   idString={`decimal-${linkId}`}
@@ -96,7 +107,13 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 />
               )}
               {type === 'boolean' && (
-                <AOEYesNoQuestion questionText={text} linkId={linkId} required={required || false} field={field} />
+                <AOEYesNoQuestion
+                  questionText={text}
+                  linkId={linkId}
+                  answer={answer?.join(',')}
+                  required={required || false}
+                  field={field}
+                />
               )}
               {/* {!!errors[questionText] && <FormHelperText>{errors[questionText]}</FormHelperText>} */}
             </FormControl>

@@ -31,9 +31,12 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
   const [serviceRequest, setServiceRequest] = useState<OrderDetails | undefined>(undefined);
 
   // Note: specimens are no longer MVP, and also we'll be getting specimens from Create Order
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [specimen, setSpecimen] = useState({});
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [collectionInstructions, setCollectionInstructions] = useState({} as CollectionInstructions);
   const initialAoe: QuestionnaireItem[] = [];
+  const [labQuestionnaireResponses, setLabQuestionnaireResponses] = useState<any[] | undefined>(undefined);
   const [aoe, setAoe] = useState(initialAoe);
   const [isLoading, setIsLoading] = useState(true);
   const [taskStatus, setTaskStatus] = useState('pending' as StatusString);
@@ -42,7 +45,7 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
 
   useEffect(() => {
     console.log(10);
-    async function getServiceRequestTemp(): Promise<void> {
+    async function getLabOrderDetailsTemp(): Promise<void> {
       if (!serviceRequestID) {
         throw new Error('serviceRequestID is undefined');
       }
@@ -55,21 +58,11 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
       if (orderDetails.labQuestions.item) {
         setAoe(orderDetails.labQuestions.item);
       }
+      if (orderDetails.labQuestionnaireResponses) {
+        setLabQuestionnaireResponses(orderDetails.labQuestionnaireResponses);
+      }
     }
-    getServiceRequestTemp().catch((error) => console.log(error));
-
-    setSpecimen({});
-    // will probably be querying oystehr to get information about the OI (Assuming the link to the OI is a code on the SR)
-    // specifically will need the AOE, collection instructions from the orderable item
-    setCollectionInstructions({
-      container:
-        'Red-top tube, gel-barrier tube, OR green-top (lithium heparin) tube. Do NOT use oxalate, EDTA, or citrate plasma.',
-      volume: '1 mL',
-      minimumVolume: '0.7 mL (NOT: This volume does NOT allow for repeat testing.)',
-      storageRequirements: 'Room temperature',
-      collectionInstructions:
-        'If a red-top tube or plasma tube is used, transfer separated serum or plasma to a plastic transport tube.',
-    });
+    getLabOrderDetailsTemp().catch((error) => console.log(error));
 
     setIsLoading(false);
     // setTaskStatus('collected');
@@ -116,6 +109,7 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
           taskStatus === 'pending' && (
             <OrderCollection
               aoe={aoe}
+              labQuestionnaireResponses={labQuestionnaireResponses}
               collectionInstructions={collectionInstructions}
               specimen={specimen}
               serviceRequestID={serviceRequestID}

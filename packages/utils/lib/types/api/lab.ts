@@ -21,4 +21,5 @@ export interface OrderDetails {
   accountNumber: string;
   sampleCollectionDateTime: string;
   labQuestions: Questionnaire;
+  labQuestionnaireResponses: any[] | undefined;
 }
