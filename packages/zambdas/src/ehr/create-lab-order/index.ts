@@ -6,7 +6,7 @@ import {
   LAB_ORDER_TASK,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
-  flattenSearchBundleResources,
+  flattenBundleResources,
   Secrets,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -329,7 +329,7 @@ const getAdditionalResources = async (
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenSearchBundleResources(searchResults);
+  const resources = flattenBundleResources(searchResults);
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
     if (resource.resourceType === 'ActivityDefinition')
