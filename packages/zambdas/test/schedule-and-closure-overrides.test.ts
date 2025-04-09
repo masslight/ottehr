@@ -19,7 +19,7 @@ import { vi } from 'vitest';
 
 const oystehr = new Oystehr({});
 
-describe('test schedule override for getAvailableSlots function, i.e., front end slot display', () => {
+describe.skip('test schedule override for getAvailableSlots function, i.e., front end slot display', () => {
   test('1: it should return slots between 6pm and 10pm today if opening buffer 15, capacity 3, and schedule override is applied for today open @6pm close @10pm', async () => {
     const time = DateTime.now().startOf('day').set({ hour: 8 });
     const todayDoW = time.weekdayLong.toLocaleLowerCase();

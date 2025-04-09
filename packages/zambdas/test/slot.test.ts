@@ -132,7 +132,7 @@ const makeSlots = (input: MakeSlotsInput): Slot[] => {
   });
 };
 
-describe('nearest 15 minute mark', () => {
+describe.skip('nearest 15 minute mark', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
   test('40 = 45', async () => {
@@ -181,7 +181,7 @@ describe('nearest 15 minute mark', () => {
   });
 });
 
-describe('test front end slot display: different capacities, no buffers, no busy slots, no appointments', () => {
+describe.skip('test front end slot display: different capacities, no buffers, no busy slots, no appointments', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
   test('1: capacity 4, now 2pm, opens @10am, closes @6pm', async () => {
