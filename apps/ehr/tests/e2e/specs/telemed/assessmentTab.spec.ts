@@ -1,4 +1,4 @@
-import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
@@ -85,8 +85,8 @@ test('Search and select diagnoses', async () => {
     );
   });
 
-  let primaryDiagnosisValue;
-  let primaryDiagnosis;
+  let primaryDiagnosisValue: string | null = null;
+  let primaryDiagnosis: Locator | null = null;
   await test.step('Verify primary diagnosis is visible', async () => {
     primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
     await expect(primaryDiagnosis).toBeVisible();
@@ -107,8 +107,8 @@ test('Search and select diagnoses', async () => {
     );
   });
 
-  let secondaryDiagnosis;
-  let secondaryDiagnosisValue;
+  let secondaryDiagnosis: Locator | null = null;
+  let secondaryDiagnosisValue: string | null = null;
   await test.step('Verify secondary diagnosis is visible', async () => {
     secondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
     await expect(secondaryDiagnosis).toBeVisible();

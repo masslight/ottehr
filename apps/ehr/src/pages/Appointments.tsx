@@ -13,17 +13,17 @@ import { InPersonAppointmentInformation } from 'utils';
 import { otherColors } from '../CustomThemeProvider';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
+import CreateDemoVisits from '../components/CreateDemoVisits';
 import DateSearch from '../components/DateSearch';
 import GroupSelect from '../components/GroupSelect';
 import LocationSelect from '../components/LocationSelect';
 import ProvidersSelect from '../components/ProvidersSelect';
-import { adjustTopForBannerHeight } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { adjustTopForBannerHeight } from '../helpers/misc.helper';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { VisitType, VisitTypeToLabel } from '../types/types';
-import CreateDemoVisits from '../components/CreateDemoVisits';
 import { useDebounce } from '../telemed/hooks';
+import { VisitType, VisitTypeToLabel } from '../types/types';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
