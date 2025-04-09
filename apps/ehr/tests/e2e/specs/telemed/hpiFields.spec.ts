@@ -171,6 +171,7 @@ test.describe('Medical conditions', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible();
 
       await expect(page.getByText(new RegExp(conditionName, 'i'))).not.toBeVisible();
     });
@@ -278,16 +279,16 @@ test.describe('Current medications', () => {
   test('Should test required fields validation works', async () => {
     const medicationInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput);
     await expect(medicationInput.locator('label')).toHaveClass(/Mui-required/);
-    await expect(medicationInput.locator('input')).toHaveAttribute('required');
+    await expect(medicationInput.locator('input[required]:invalid')).toBeVisible();
     const doseInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput);
     await expect(doseInput.locator('label')).toHaveClass(/Mui-required/);
-    await expect(doseInput.locator('input')).toHaveAttribute('required');
+    await expect(doseInput.locator('input[required]:invalid')).toBeVisible();
     const dateInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput);
     await expect(dateInput.locator('label')).toHaveClass(/Mui-required/);
-    await expect(dateInput.locator('input')).toHaveAttribute('required');
+    await expect(dateInput.locator('input[required]:invalid')).toBeVisible();
     const timeInput = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput);
     await expect(timeInput.locator('label')).toHaveClass(/Mui-required/);
-    await expect(timeInput.locator('input')).toHaveAttribute('required');
+    await expect(timeInput.locator('input[required]:invalid')).toBeVisible();
     await page
       .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput)
       .locator('input')
@@ -409,6 +410,7 @@ test.describe('Known allergies', () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible();
 
       await expect(page.getByText(new RegExp(knownAllergyName, 'i'))).not.toBeVisible();
     });
