@@ -142,7 +142,7 @@ const PrebookVisit: FC = () => {
   const { bookingOn, scheduleType, selectedSlot, slugToFetch } = useBookingParams(selectedLocation);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [specificScheduleId] = bookingOn?.split('Schedule/') ?? [];
+  // const [specificScheduleId] = bookingOn?.split('Schedule/') ?? [];
 
   const {
     bookableItems,
