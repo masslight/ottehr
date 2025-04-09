@@ -16,6 +16,7 @@ export interface EditEmployeeInformationProps {
   existingUser: User;
   isActive: boolean | undefined;
   licenses: PractitionerLicense[];
+  getUserAndUpdatePage: () => Promise<void>;
 }
 
 export interface EmployeeForm {
