@@ -168,6 +168,7 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
+    trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,

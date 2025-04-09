@@ -69,7 +69,7 @@ export interface AppointmentInformation extends AppointmentMessaging {
   reasonForVisit?: string;
   comment?: string;
   appointmentStatus: FhirAppointmentStatus;
-  location: AppointmentLocation;
+  locationVirtual: AppointmentLocation;
   paperwork?: QuestionnaireResponse;
   encounter: Encounter;
   status: CallStatuses;
