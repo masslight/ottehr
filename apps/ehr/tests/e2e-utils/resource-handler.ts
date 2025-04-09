@@ -16,6 +16,7 @@ import {
   RelationshipOption,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
+import { fetchWithOystAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -24,7 +25,6 @@ import {
   TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
-import { fetchWithOystAuth } from './helpers/tests-utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -118,6 +118,10 @@ export class ResourceHandler {
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
+
+  public get apiClient(): Oystehr {
+    return this.#apiClient;
+  }
 
   constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.#flow = flow;
