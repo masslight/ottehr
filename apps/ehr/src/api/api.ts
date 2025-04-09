@@ -3,6 +3,8 @@ import { Address, ContactPoint, LocationHoursOfOperation } from 'fhir/r4b';
 import {
   chooseJson,
   ConversationMessage,
+  CreateUserOutput,
+  CreateUserParams,
   GetEmployeesResponse,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -34,6 +36,7 @@ const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_APPOINTMENTS_ZAM
 const CREATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID;
 const INVITE_PARTICIPANT_ZAMBDA_ID = import.meta.env.VITE_APP_INVITE_PARTICIPANT_ZAMBDA_ID;
+const CREATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_USER_ZAMBDA_ID;
 const UPDATE_USER_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_USER_ZAMBDA_ID;
 const ASSIGN_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_APP_ASSIGN_PRACTITIONER_ZAMBDA_ID;
 const UNASSIGN_PRACTITIONER_ZAMBDA_ID = import.meta.env.VITE_APP_UNASSIGN_PRACTITIONER_ZAMBDA_ID;
@@ -162,6 +165,22 @@ export const inviteParticipant = async (
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error, 'Error occurred trying to invite participant');
+    throw new Error(JSON.stringify(error));
+  }
+};
+
+export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams): Promise<CreateUserOutput> => {
+  try {
+    if (CREATE_USER_ZAMBDA_ID == null) {
+      throw new Error('create user environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: CREATE_USER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
     throw new Error(JSON.stringify(error));
   }
 };
