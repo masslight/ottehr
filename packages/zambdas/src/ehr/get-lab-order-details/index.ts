@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { OrderDetails } from 'utils';
+import { LAB_ACCOUNT_NUMBER_SYSTEM, OrderDetails } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -22,10 +22,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const { serviceRequest, practitioner, questionnaireResponse, task } = await getLabOrderResources(
-      oystehr,
-      serviceRequestID
-    );
+    const {
+      serviceRequest,
+      practitioner,
+      questionnaireResponse,
+      task,
+      organization: org,
+    } = await getLabOrderResources(oystehr, serviceRequestID);
 
     if (!task.authoredOn) {
       throw new Error('task.authoredOn is undefined');
@@ -43,6 +46,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
     const questionnaire: Questionnaire = await questionnaireRequest.json();
 
+    const accountNumber = org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)?.value;
+
+    if (!accountNumber) {
+      throw new Error('accountNumber not found on ServiceRequest.performer Organization resource');
+    }
+
     const orderDetails: OrderDetails = {
       diagnosis: serviceRequest?.reasonCode?.map((reasonCode) => reasonCode.text).join('; ') || 'Missing diagnosis',
       patientName: 'Patient Name',
@@ -53,6 +62,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         : 'Missing Provider name',
       orderDateTime: task.authoredOn,
       labName: (serviceRequest?.contained?.[0] as ActivityDefinition).publisher || 'Missing Publisher name',
+      accountNumber: accountNumber,
       sampleCollectionDateTime: DateTime.now().toString(),
       labQuestions: questionnaire,
     };
