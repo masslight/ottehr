@@ -22,6 +22,7 @@ import {
   getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
+  getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
@@ -249,6 +250,7 @@ const processPrebookPaperwork = async (
             getAdditionalQuestionsAnswers(),
             getPaymentOptionSelfPayAnswers(),
             getResponsiblePartyStepAnswers({}),
+            getPrimaryCarePhysicianStepAnswers({}),
             getSchoolWorkNoteStepAnswers(),
             getConsentStepAnswers({}),
             getInviteParticipantStepAnswers(),
@@ -265,6 +267,7 @@ const processPrebookPaperwork = async (
             getPatientDetailsStepAnswers({}),
             getPaymentOptionSelfPayAnswers(),
             getResponsiblePartyStepAnswers({}),
+            getPrimaryCarePhysicianStepAnswers({}),
             getConsentStepAnswers({}),
           ];
 

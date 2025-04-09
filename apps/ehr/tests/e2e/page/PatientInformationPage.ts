@@ -21,6 +21,11 @@ export enum Field {
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTHDATE,
   DEMO_VISIT_RESPONSIBLE_PHONE,
+  DEMO_VISIT_PROVIDER_FIRST_NAME,
+  DEMO_VISIT_PROVIDER_LAST_NAME,
+  DEMO_VISIT_PRACTICE_NAME,
+  DEMO_VISIT_PHYSICIAN_ADDRESS,
+  DEMO_VISIT_PHYSICIAN_MOBILE,
 }
 
 const FIELD_TO_TEST_ID = new Map<Field, string>()
@@ -40,7 +45,12 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME, dataTestIds.responsiblePartyInformationContainer.firstName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput);
+  .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput)
+  .set(Field.DEMO_VISIT_PROVIDER_FIRST_NAME, dataTestIds.primaryCarePhysicianContainer.firstName)
+  .set(Field.DEMO_VISIT_PROVIDER_LAST_NAME, dataTestIds.primaryCarePhysicianContainer.lastName)
+  .set(Field.DEMO_VISIT_PRACTICE_NAME, dataTestIds.primaryCarePhysicianContainer.practiceName)
+  .set(Field.DEMO_VISIT_PHYSICIAN_ADDRESS, dataTestIds.primaryCarePhysicianContainer.address)
+  .set(Field.DEMO_VISIT_PHYSICIAN_MOBILE, dataTestIds.primaryCarePhysicianContainer.mobile);
 
 export class PatientInformationPage {
   #page: Page;
@@ -65,6 +75,7 @@ export class PatientInformationPage {
       this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input')
     ).toHaveValue(patientLastName);
   }
+
   async clearPatientLastName(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientInformationContainer.patientLastName).locator('input').clear();
   }
@@ -463,6 +474,148 @@ export class PatientInformationPage {
 
   async verifyUpdatedSuccessfullyMessageShown(): Promise<void> {
     await expect(this.#page.getByText('Patient information updated successfully')).toBeVisible();
+  }
+
+  async setCheckboxOff(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox)
+      .locator('input')
+      .setChecked(false);
+  }
+
+  async verifyCheckboxOff(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox).locator('input')
+    ).toBeChecked({
+      checked: false,
+    });
+  }
+
+  async setCheckboxOn(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox)
+      .locator('input')
+      .setChecked(true);
+  }
+
+  async verifyCheckboxOn(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.pcpCheckbox).locator('input')
+    ).toBeChecked({
+      checked: true,
+    });
+  }
+  async enterFirstNameFromPcp(firstName: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').fill(firstName);
+  }
+
+  async verifyFirstNameFromPcp(firstName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input')
+    ).toHaveValue(firstName);
+  }
+
+  async verifyFirstNameFromPcpIsVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').isVisible();
+  }
+
+  async verifyFirstNameFromPcpIsNotVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').isHidden();
+  }
+
+  async clearFirstNameFromPcp(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.firstName).locator('input').clear();
+  }
+
+  async enterLastNameFromPcp(lastName: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').fill(lastName);
+  }
+
+  async verifyLastNameFromPcp(lastName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input')
+    ).toHaveValue(lastName);
+  }
+
+  async verifyLastNameFromPcpIsVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').isVisible();
+  }
+
+  async verifyLastNameFromPcpIsNotVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').isHidden();
+  }
+
+  async clearLastNameFromPcp(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.lastName).locator('input').clear();
+  }
+
+  async enterPracticeNameFromPcp(practiceName: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName)
+      .locator('input')
+      .fill(practiceName);
+  }
+
+  async verifyPracticeNameFromPcp(practiceName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input')
+    ).toHaveValue(practiceName);
+  }
+
+  async verifyPracticeNameFromPcpIsVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input').isVisible();
+  }
+
+  async verifyPracticeNameFromPcpIsNotVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input').isHidden();
+  }
+
+  async clearPracticeNameFromPcp(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.practiceName).locator('input').clear();
+  }
+
+  async enterAddressFromPcp(address: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').fill(address);
+  }
+
+  async verifyAddressFromPcp(address: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input')
+    ).toHaveValue(address);
+  }
+
+  async verifyAddressFromPcpIsVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').isVisible();
+  }
+
+  async verifyAddressFromPcpIsNotVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').isHidden();
+  }
+
+  async clearAddressFromPcp(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.address).locator('input').clear();
+  }
+
+  async enterMobileFromPcp(mobile: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').fill(mobile);
+  }
+
+  async verifyMobileFromPcp(mobile: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input')).toHaveValue(
+      mobile
+    );
+  }
+
+  async verifyMobileFromPcpIsVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').isVisible();
+  }
+
+  async verifyMobileFromPcpIsNotVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').isHidden();
+  }
+
+  async clearMobileFromPcp(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').clear();
   }
 }
 

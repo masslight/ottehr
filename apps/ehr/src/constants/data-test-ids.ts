@@ -89,6 +89,15 @@ export const dataTestIds = {
     patientsEthnicity: 'patients-ethnicity',
     patientsRace: 'patients-race',
   },
+  primaryCarePhysicianContainer: {
+    pcpCheckbox: 'pcp-checkbox',
+    firstName: 'first-name',
+    lastName: 'last-name',
+    practiceName: 'practice-name',
+    address: 'address',
+    mobile: 'mobile',
+  },
+
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
     relationshipDropdown: 'relationship-dropdown',
