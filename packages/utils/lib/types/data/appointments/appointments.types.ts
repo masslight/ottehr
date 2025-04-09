@@ -91,7 +91,7 @@ export interface AppointmentParticipants {
 }
 
 export interface InPersonAppointmentInformation
-  extends Omit<AppointmentInformation, 'paperwork' | 'location' | 'statusHistory'> {
+  extends Omit<AppointmentInformation, 'paperwork' | 'locationVirtual' | 'location' | 'statusHistory'> {
   encounterId: string;
   start: string;
   unconfirmedDOB: string;
