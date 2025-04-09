@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { Outlet } from 'react-router-dom';
+import { useResetAppointmentStore } from '../../../telemed';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { CommonLayoutBreadcrumbs } from '../components/breadcrumbs/CommonLayoutBreadcrumbs';
 import { Header } from '../components/Header';
@@ -31,6 +32,9 @@ const contentWrapperStyle: React.CSSProperties = {
 export const CSSLayout: React.FC = () => {
   const { encounter, chartData } = useAppointmentStore();
   const isInitialLoad = useRef(true);
+
+  useResetAppointmentStore();
+
   useChartData({
     encounterId: encounter.id!,
     onSuccess: (data) => {
@@ -41,6 +45,7 @@ export const CSSLayout: React.FC = () => {
       console.error(error);
     },
     enabled: isInitialLoad.current,
+    shouldUpdateExams: true,
   });
 
   return (

@@ -520,6 +520,17 @@ export class Paperwork {
     await expect(this.locator.photoIdChipStatus).toHaveAttribute('data-testid', 'completed');
     await expect(this.locator.consentFormsChipStatus).toHaveAttribute('data-testid', 'completed');
   }
+  async checkAllChipsAreCompletedTelemed(): Promise<void> {
+    await this.checkAllChipsAreCompletedInPerson();
+    await expect(this.locator.currentMedicationsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.currentAllergiesChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.medicalHistoryChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.surgicalHistoryChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.additionalQuestionsChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.patientConditionChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.schoolWorkNotesChipStatus).toHaveAttribute('data-testid', 'completed');
+    await expect(this.locator.inviteParticipantChipStatus).toHaveAttribute('data-testid', 'completed');
+  }
   async validateAllOptions(locator: any, optionsList: string[], type: string): Promise<void> {
     await locator.click();
     const options = await this.page.locator('[role="option"]').allInnerTexts();

@@ -1,3 +1,4 @@
+import { Stripe } from 'stripe';
 interface PaymentMethodPatientParameters {
   beneficiaryPatientId: string;
 }
@@ -11,22 +12,14 @@ export type PaymentMethodSetDefaultParameters = PaymentMethodPatientParameters &
 export type PaymentMethodListParameters = PaymentMethodPatientParameters;
 export type PaymentMethodDeleteParameters = PaymentMethodPatientParameters & PaymentMethodParameters;
 
-/*
- * Example Credit Card Info Object
- *      {
-            "id": "pm_1P43vpEDUw09rSJN9kLlHVR0",
-            "brand": "amex",
-            "expMonth": 11,
-            "expYear": 2033,
-            "lastFour": "0005"
-            "default": true,
-        },  
- */
 export interface CreditCardInfo {
-  id: string;
-  brand: string;
-  expMonth: number;
-  expYear: number;
-  lastFour: string;
-  default: boolean;
+  id: Stripe.PaymentMethod['id'];
+  brand: Stripe.Card['brand'];
+  expMonth: Stripe.Card['exp_month'];
+  expYear: Stripe.Card['exp_year'];
+  lastFour: Stripe.Card['last4'];
+  default?: boolean;
+}
+export interface ListPaymentMethodsZambdaOutput {
+  cards: CreditCardInfo[];
 }

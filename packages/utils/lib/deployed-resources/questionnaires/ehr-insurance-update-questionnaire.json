@@ -388,7 +388,13 @@
             "type": "choice",
             "answerOption": [
               {
-                "valueString": "TODO"
+                "valueString": "Male gender identity"
+              },
+              {
+                "valueString": "Female gender identity"
+              },
+              {
+                "valueString": "Non-binary gender identity"
               }
             ]
           },
@@ -450,6 +456,12 @@
           {
             "linkId": "mobile-opt-in",
             "text": "Send marketing messages",
+            "type": "boolean",
+            "required": false
+          },
+          {
+            "linkId": "common-well-consent",
+            "text": "CommonWell consent",
             "type": "boolean",
             "required": false
           }

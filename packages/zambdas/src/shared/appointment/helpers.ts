@@ -377,6 +377,7 @@ export function creatingPatientCreateRequest(
       {
         given: patient.middleName ? [patient.firstName, patient.middleName] : [patient.firstName],
         family: patient.lastName,
+        use: 'official',
       },
     ],
     birthDate: removeTimeFromDate(patient.dateOfBirth ?? ''),
