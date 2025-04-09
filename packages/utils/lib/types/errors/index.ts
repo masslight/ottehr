@@ -26,6 +26,9 @@ export enum APIErrorCode {
   INVALID_RESOURCE_ID = 4202,
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
+  STRIPE_CUSTOMER_ID_NOT_FOUND = 4302,
+  STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
+  MISSING_PATIENT_COVERAGE_INFO = 4304,
 }
 
 export interface APIError {
@@ -203,4 +206,19 @@ export const ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = (resourceType: string): API
     code: APIErrorCode.ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
     message: `No code to map the ${resourceType} resource type to a QuestionnaireItemAnswerOption; extend the code in the get-answer-options zambda`,
   };
+};
+
+export const STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR: APIError = {
+  code: APIErrorCode.STRIPE_CUSTOMER_ID_NOT_FOUND,
+  message: 'No identifier for a Stripe customer was found on the billing Account resource associated with the patient',
+};
+
+export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
+  code: APIErrorCode.STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED,
+  message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
+};
+
+export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
+  code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
+  message: 'No coverage information found for this patient',
 };
