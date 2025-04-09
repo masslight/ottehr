@@ -46,8 +46,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
     const questionnaire: Questionnaire = await questionnaireRequest.json();
 
-    const accountNumber = org.identifier?.filter((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)?.[0]
-      .value;
+    const accountNumber = org.identifier?.find((identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM)?.value;
 
     if (!accountNumber) {
       throw new Error('accountNumber not found on ServiceRequest.performer Organization resource');
