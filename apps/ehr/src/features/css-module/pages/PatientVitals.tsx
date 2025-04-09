@@ -1,8 +1,9 @@
-import { Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from '../components/vitals/blood-pressure/VitalsBloodPressureCard';
@@ -34,7 +35,8 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <>
+    <Stack spacing={1}>
+      <PageTitle label="Vitals" />
       <VitalsTemperaturesCard />
       <VitalsHeartbeatCard />
       <VitalsRespirationRateCard />
@@ -44,6 +46,6 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
       <VitalsHeightCard />
       <VitalsVisionCard />
       <VitalsNotesCard />
-    </>
+    </Stack>
   );
 };

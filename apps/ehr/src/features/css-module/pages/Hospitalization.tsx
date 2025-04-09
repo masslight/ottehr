@@ -32,7 +32,7 @@ export const Hospitalization: React.FC<HospitalizationProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
       <PageTitle dataTestId={dataTestIds.hospitalizationPage.hospitalizationTitle} label="Hospitalization" />
       <InfoAlert text="Ask: Has the patient had any prior overnight hospital stays or hospital admissions?" />
       <MedicalHistoryDoubleCard

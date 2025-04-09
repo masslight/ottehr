@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
-import { Box } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 import { InPersonExamCardsNames, IN_PERSON_EXAM_CARDS } from 'utils';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   CollapsibleExamCardContainer,
   ExamCommentField,
@@ -23,22 +24,25 @@ export const Examination: FC = () => {
       {isReadOnly ? (
         <ExamReadOnly />
       ) : (
-        IN_PERSON_EXAM_CARDS.map((card) => (
-          <CollapsibleExamCardContainer
-            key={card}
-            label={String(card).charAt(0).toUpperCase() + String(card).slice(1)}
-            cardName={card}
-            rightComponent={
-              <ExamCommentField<InPersonExamCardsNames> name={`${card}-comment` as InPersonExamCardsNames} />
-            }
-            grid={[
-              {
-                Normal: <ExamFieldsFactory card={card} group="normal" />,
-                Abnormal: <ExamFieldsFactory card={card} group="abnormal" />,
-              },
-            ]}
-          />
-        ))
+        <Stack spacing={1}>
+          <PageTitle label="Examination" />
+          {IN_PERSON_EXAM_CARDS.map((card) => (
+            <CollapsibleExamCardContainer
+              key={card}
+              label={String(card).charAt(0).toUpperCase() + String(card).slice(1)}
+              cardName={card}
+              rightComponent={
+                <ExamCommentField<InPersonExamCardsNames> name={`${card}-comment` as InPersonExamCardsNames} />
+              }
+              grid={[
+                {
+                  Normal: <ExamFieldsFactory card={card} group="normal" />,
+                  Abnormal: <ExamFieldsFactory card={card} group="abnormal" />,
+                },
+              ]}
+            />
+          ))}
+        </Stack>
       )}
     </Box>
   );

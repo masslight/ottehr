@@ -1,8 +1,9 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   KnownAllergiesPatientColumn,
   KnownAllergiesProviderColumn,
@@ -31,14 +32,17 @@ export const Allergies: React.FC<AllergiesProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
-      <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
-      <MedicalHistoryDoubleCard
-        patientSide={<KnownAllergiesPatientColumn noItemsMessage="No allergies" />}
-        patientSideLabel="Patient provided"
-        providerSide={<KnownAllergiesProviderColumn />}
-        providerSideLabel="Clinical support input"
-      />
-    </Box>
+    <Stack spacing={1}>
+      <PageTitle label="Allergies" />
+      <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
+        <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
+        <MedicalHistoryDoubleCard
+          patientSide={<KnownAllergiesPatientColumn noItemsMessage="No allergies" />}
+          patientSideLabel="Patient provided"
+          providerSide={<KnownAllergiesProviderColumn />}
+          providerSideLabel="Clinical support input"
+        />
+      </Box>
+    </Stack>
   );
 };

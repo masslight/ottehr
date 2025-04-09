@@ -33,7 +33,7 @@ export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
       <PageTitle label="Surgical History" />
       <InfoAlert text="Ask: Has the patient ever had surgery? If yes, what was the surgery?" />
       <MedicalHistoryDoubleCard

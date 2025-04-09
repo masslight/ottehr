@@ -1,8 +1,9 @@
-import { Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { ADDITIONAL_QUESTIONS_META_SYSTEM } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import AskThePatient from '../components/screening/AskThePatient';
 import { ASQ } from '../components/screening/ASQ';
@@ -36,11 +37,12 @@ export const Screening: React.FC<ScreeningProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <>
+    <Stack spacing={1}>
+      <PageTitle label="Screening" />
       <Questions />
       <AskThePatient />
       <ASQ />
       <ScreeningNotes />
-    </>
+    </Stack>
   );
 };

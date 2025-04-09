@@ -1,8 +1,9 @@
-import { Box, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   CurrentMedicationsPatientColumn,
   CurrentMedicationsProviderColumn,
@@ -32,7 +33,8 @@ export const Medications: React.FC<MedicationsProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <>
+    <Stack spacing={1}>
+      <PageTitle label="Medications" />
       <Box display={'flex'} flexDirection={'column'} gap={2} mt={2}>
         <AskMedicationsAlert />
         <MedicalHistoryDoubleCard
@@ -42,6 +44,6 @@ export const Medications: React.FC<MedicationsProps> = () => {
 
         <MedicationHistoryList />
       </Box>
-    </>
+    </Stack>
   );
 };

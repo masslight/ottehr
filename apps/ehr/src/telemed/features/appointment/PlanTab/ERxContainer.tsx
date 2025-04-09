@@ -13,18 +13,19 @@ import {
   Typography,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { RoundedButton } from '../../../../components/RoundedButton';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
-import { useGetAppointmentAccessibility } from '../../../hooks';
-import { ERX } from '../ERX';
-import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { Practitioner } from 'fhir/r4b';
-import { formatDateToMDYWithTime } from 'utils';
-import { getAppointmentStatusChip } from '../../../utils';
-import { useApiClients } from '../../../../hooks/useAppClients';
 import { enqueueSnackbar } from 'notistack';
+import { formatDateToMDYWithTime } from 'utils';
+import { RoundedButton } from '../../../../components/RoundedButton';
+import { useChartData } from '../../../../features/css-module/hooks/useChartData';
+import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { CSSPageTitle } from '../../../components/PageTitle';
+import { useGetAppointmentAccessibility } from '../../../hooks';
+import { useAppointmentStore } from '../../../state';
+import { getAppointmentStatusChip } from '../../../utils';
+import { ERX } from '../ERX';
 
 const getPractitionerName = (practitioner?: Practitioner): string | undefined => {
   if (!practitioner) {
@@ -209,9 +210,7 @@ export const ERxContainer: FC = () => {
       <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" gap={1} alignItems="center">
-            <Typography variant="h6" color="primary.dark">
-              eRX
-            </Typography>
+            <CSSPageTitle>eRX</CSSPageTitle>
             {(isLoading || isFetching || cancellationLoading.length > 0) && <CircularProgress size={16} />}
           </Stack>
           <Tooltip
