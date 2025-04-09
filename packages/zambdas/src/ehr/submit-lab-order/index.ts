@@ -26,7 +26,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
-    const { serviceRequestID, data, secrets } = validateRequestParameters(input);
+    const { serviceRequestID, accountNumber, data, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
@@ -79,13 +79,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       )?.unbundle();
 
       const coveragesRequestsTemp: Coverage[] | undefined = insuranceRequestTemp?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Coverage'
+        (resourceTemp): resourceTemp is Coverage => resourceTemp.resourceType === 'Coverage'
       );
       const organizationsRequestsTemp: Organization[] | undefined = insuranceRequestTemp?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Organization'
+        (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
       );
       const patientsRequestsTemp: Patient[] | undefined = insuranceRequestTemp?.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Patient'
+        (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
       );
       if (coveragesRequestsTemp?.length !== 1) {
         throw new Error('coverage is not found');
@@ -281,7 +281,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
       body: JSON.stringify({
         serviceRequest: `ServiceRequest/${serviceRequest.id}`,
-        accountNumber: 'teset',
+        accountNumber: accountNumber,
       }),
     });
     if (!submitLabRequest.ok) {

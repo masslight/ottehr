@@ -30,7 +30,7 @@ export const Questionarie: React.FC<{
   const initialAoe: QuestionnaireItem[] = [];
   const [aoe, setAoe] = useState(initialAoe);
   const [isLoading, setIsLoading] = useState(true);
-  const [taskStatus, setTaskStatus] = useState('pending' as StatusString);
+  const [_taskStatus, setTaskStatus] = useState('pending' as StatusString);
 
   const handleSampleCollectionTaskChange = useCallback(() => setTaskStatus('collected'), [setTaskStatus]);
 
@@ -83,6 +83,7 @@ export const Questionarie: React.FC<{
       specimen={specimen}
       serviceRequestID={serviceRequestID}
       serviceRequest={serviceRequest}
+      accountNumber={serviceRequest.accountNumber}
       _onCollectionSubmit={handleSampleCollectionTaskChange}
       oystehr={oystehrZambda}
       showActionButtons={showActionButtons}

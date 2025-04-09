@@ -27,6 +27,7 @@ interface SampleCollectionProps {
   specimen: any;
   serviceRequestID: string;
   serviceRequest: OrderDetails;
+  accountNumber: string;
   _onCollectionSubmit: () => void;
   oystehr: Oystehr | undefined;
   showActionButtons?: boolean;
@@ -43,6 +44,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // collectionInstructions,
   specimen: _2,
   serviceRequestID,
+  accountNumber,
   // serviceRequest,
   _onCollectionSubmit,
   oystehr,
@@ -97,6 +99,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       try {
         const request: any = await submitLabOrder(oystehr, {
           serviceRequestID: serviceRequestID,
+          accountNumber: accountNumber,
           data: data,
         });
         const token = await getAccessTokenSilently();
