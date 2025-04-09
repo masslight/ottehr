@@ -317,7 +317,6 @@ test.describe('Tests interacting with appointment state', () => {
       const zoomedImage = page.locator("div[role='dialog'] img[alt='Patient condition photo #1']");
       await expect(zoomedImage).toBeVisible();
     });
-    fail();
   });
 
   test('Should test appointment hpi fields', async () => {
