@@ -1,3 +1,4 @@
+import { SearchParam } from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
@@ -12,25 +13,25 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
-import { SearchParam } from '@oystehr/sdk';
 import { useMutation, useQuery } from 'react-query';
 import {
   getFirstName,
   getLastName,
-  OTTEHR_MODULE,
   getVisitStatusHistory,
   getVisitTotalTime,
+  INSURANCE_PLAN_PAYER_META_TAG_CODE,
+  OTTEHR_MODULE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
 } from 'utils';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
-import { getVisitTypeLabelForAppointment } from '../types/types';
-import { useApiClients } from './useAppClients';
-import { enqueueSnackbar } from 'notistack';
 import { OystehrTelemedAPIClient } from '../telemed/data';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
+import { getVisitTypeLabelForAppointment } from '../types/types';
+import { useApiClients } from './useAppClients';
 
 const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
 
@@ -349,7 +350,7 @@ export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) =>
           params: [
             {
               name: '_tag',
-              value: 'insurance-payer-plan',
+              value: INSURANCE_PLAN_PAYER_META_TAG_CODE,
             },
             {
               name: 'status',
