@@ -41,9 +41,9 @@ import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { ottehrLightBlue } from '@theme/icons';
 import { dataTestIds } from '../helpers/data-test-ids';
-import { ottehrAiLogo } from '../assets';
 import { LoadingButton } from '@mui/lab';
 import api from '../api/zapehrApi';
+import { ottehrAiLogo } from '@theme/index';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,
