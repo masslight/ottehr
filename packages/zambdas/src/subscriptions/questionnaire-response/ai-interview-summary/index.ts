@@ -41,8 +41,8 @@ interface Input {
 }
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('sub-generate-diagnostic-report', input.secrets);
-  console.log('Generate AI diagnostic report invoked');
+  configSentry('sub-ai-interview-summary', input.secrets);
+  console.log('AI interview summary invoked');
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const { questionnaireResponse, secrets } = validateInput(input);
