@@ -25,22 +25,28 @@ import {
   Coverage,
   Encounter,
   Extension,
-  FhirResource,
   Identifier,
   Location,
   Organization,
   Patient,
   Practitioner,
   Procedure,
-  Reference,
   RelatedPerson,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_IDENTIFIER_NPI, getOptionalSecret, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  FHIR_IDENTIFIER_NPI,
+  getOptionalSecret,
+  getSecret,
+  MISSING_PATIENT_COVERAGE_INFO_ERROR,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
 import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
+import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';
@@ -108,8 +114,10 @@ const SERVICE_FACILITY_LOCATION: Location = {
   ],
 };
 
+type CandidVisitResources = Omit<VideoResourcesAppointmentPackage, 'account' | 'insurancePlan' | 'coverage'>;
+
 export async function createCandidEncounter(
-  visitResources: VideoResourcesAppointmentPackage,
+  visitResources: CandidVisitResources,
   secrets: Secrets | null,
   oystehr: Oystehr
 ): Promise<string | undefined> {
@@ -146,12 +154,23 @@ function createCandidApiClient(secrets: Secrets | null): CandidApiClient {
 }
 
 const createCandidCreateEncounterInput = async (
-  visitResources: VideoResourcesAppointmentPackage,
+  visitResources: CandidVisitResources,
   oystehr: Oystehr
 ): Promise<CreateEncounterInput> => {
-  const { encounter } = visitResources;
+  const { encounter, patient } = visitResources;
   const encounterId = encounter.id;
-  const coverage = visitResources.coverage;
+  if (!patient?.id) {
+    throw new Error(`Patient id is not defined for encounter ${encounterId}`);
+  }
+  const { coverages, insuranceOrgs } = await getAccountAndCoverageResourcesForPatient(patient.id, oystehr);
+  const coverage = coverages.primary;
+  const coverageSubscriber = coverages.primarySubscriber;
+  const coveragePayor = insuranceOrgs.find(
+    (insuranceOrg) => `Organization/${insuranceOrg.id}` === coverage?.payor[0]?.reference
+  );
+  if (coverage && (!coverageSubscriber || !coveragePayor)) {
+    throw MISSING_PATIENT_COVERAGE_INFO_ERROR;
+  }
   return {
     encounter: encounter,
     patient: assertDefined(visitResources.patient, `Patient on encounter ${encounterId}`),
@@ -196,9 +215,9 @@ const createCandidCreateEncounterInput = async (
       ),
     insuranceResources: coverage
       ? {
-          coverage: coverage,
-          subsriber: await resourceByReference(coverage.subscriber, 'Coverage.subscriber', oystehr),
-          payor: await resourceByReference(coverage.payor[0], 'Coverage.payor[0]', oystehr),
+          coverage,
+          subsriber: coverageSubscriber!,
+          payor: coveragePayor!,
         }
       : undefined,
   };
@@ -450,19 +469,6 @@ async function fetchBillingProviderData(
     zipPlusFourCode: billingProvierAddress.zipPlusFourCode,
   };
 }
-
-async function resourceByReference<T extends FhirResource>(
-  reference: Reference | undefined,
-  referencePath: string,
-  oystehr: Oystehr
-): Promise<T> {
-  const [resourceType, id] = assertDefined(reference?.reference, referencePath + '.reference').split('/');
-  return oystehr.fhir.get<T>({
-    resourceType,
-    id,
-  });
-}
-
 /*
   Modify this function in order to add custom logic of selecting a billing provider for "self pay" appointments.
 */
