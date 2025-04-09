@@ -85,7 +85,6 @@ const Schedule = ({
     return slotAvailableCheckPending || submitPending;
   }, [slotAvailableCheckPending, submitPending]);
 
-  // console.log('locallySelectedSlot', locallySelectedSlot);
   useEffect(() => {
     setLocallySelectedSlot(existingSelectedSlot);
   }, [existingSelectedSlot]);

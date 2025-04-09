@@ -59,7 +59,7 @@ const Review = (): JSX.Element => {
   const { t } = useTranslation();
 
   const zambdaClient = useUCZambdaClient({ tokenless: false });
-  const { selectedSlotTimezoneAdjusted, selectedAppointmentStart } = useMemo(() => {
+  const { selectedSlotTimezoneAdjusted, selectedSlot } = useMemo(() => {
     const selectedAppointmentId = appointmentSlot;
     if (selectedAppointmentId && selectedLocation?.timezone) {
       const slotItem = getSlotListItemWithId(selectedAppointmentId);
@@ -69,7 +69,7 @@ const Review = (): JSX.Element => {
           selectedSlotTimezoneAdjusted: DateTime.fromISO(selectedAppointmentStart)
             .setZone(selectedLocation?.timezone)
             .setLocale('en-us'),
-          selectedAppointmentStart,
+          selectedSlot: slotItem,
         };
       }
     }
@@ -107,7 +107,7 @@ const Review = (): JSX.Element => {
       // Create the appointment
       const res = await zapehrApi.createAppointment(zambdaClient, {
         // slot: visitType === VisitType.WalkIn ? undefined : appointmentSlot,
-        slot: selectedAppointmentStart ?? '', // todo: handle walk-in
+        slot: selectedSlot?.slot, // todo: handle walk-in
         patient: patientInfo,
         locationID: selectedLocation?.id || '',
         providerID: selectedLocation?.id || '',

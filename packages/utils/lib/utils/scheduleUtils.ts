@@ -797,7 +797,7 @@ export const getAvailableSlotsForSchedules = async (
           owner: scheduleTemp.owner,
         })
       );
-      console.log('available slots for schedule:', slotStartsForSchedule);
+      // console.log('available slots for schedule:', slotStartsForSchedule);
     } catch (err) {
       console.error(`Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`);
     }
@@ -913,4 +913,15 @@ export const nextAvailableFrom = (
     return DateTime.fromISO(nextDaySlot.start, { zone: timezone });
   }
   return undefined;
+};
+
+export const normalizeSlotToUTC = (slotOriginal: Slot): Slot => {
+  const slot = {
+    ...slotOriginal,
+  };
+  const startTime = DateTime.fromISO(slot.start).setZone('UTC').toISO() || '';
+  slot.start = startTime;
+  const endTime = DateTime.fromISO(slot.end).setZone('UTC')?.toISO() ?? slot.end;
+  slot.end = endTime;
+  return slot;
 };

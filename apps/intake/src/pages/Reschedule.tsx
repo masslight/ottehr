@@ -27,7 +27,7 @@ const Reschedule = (): JSX.Element => {
   const { id: appointmentIDParam } = useParams();
   const [loading, setLoading] = useState<boolean>(true);
   const [slotData, setSlotData] = useState<SlotListItem[] | undefined>(undefined);
-  const [selectedSlot, setSelectedSlot] = useState<string | undefined>(undefined);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | undefined>(undefined);
   const [appointment, setAppointment] = useState<AppointmentBasicInfo | undefined>();
   const [pageNotFound, setPageNotFound] = useState(false);
   const { isLoading } = useAuth0();
@@ -68,20 +68,17 @@ const Reschedule = (): JSX.Element => {
           throw new Error('appointment details response missing location');
         }
         setAppointment(appointment);
-        const formattedStart =
-          DateTime.fromISO(appointment.start)
-            .setZone(location?.timezone)
-            .setLocale(i18n.language)
-            .toISO() || '';
-        setSelectedSlot(formattedStart);
+        console.log('appointment slot', appointment.slot);
+        setSelectedSlot(appointment.slot);
         const available = response.availableSlots;
-        const sortedDatesArray = available.sort((a: string, b: string) => a.localeCompare(b));
+        console.log('first available', available[0].slot);
         // todo: get this data another way
-        setSlotData([]);
-        setLoading(false);
+        setSlotData(available);
       } catch (e) {
         setPageNotFound(true);
         console.error('Error validating location: ', e);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -90,20 +87,25 @@ const Reschedule = (): JSX.Element => {
     }
   }, [appointmentIDParam, tokenlessZambdaClient]);
 
+  // todo: this can be simplified greatly by handling on the backend
   const allAvailableSlots = useMemo(() => {
-    /*const currentSlotTime = DateTime.fromISO(selectedSlot ?? '');
+    const slots = (slotData ?? []).map((si) => si.slot);
     const currentDateTime = DateTime.now().setZone(location?.timezone);
-    const hasNotPassed = currentSlotTime > currentDateTime;
     if (slotData && selectedSlot) {
-      const availableSlots =
-        hasNotPassed && !slotData.includes(selectedSlot ?? '')
-          ? [...(slotData as string[]), selectedSlot ?? '']
-          : slotData;
-      return availableSlots?.sort((a: string, b: string) => a.localeCompare(b));
+      const currentSlotTime = DateTime.fromISO(selectedSlot.start)
+        .setZone(location?.timezone)
+        .setLocale(i18n.language);
+      const currentSlotTimePasssed = currentSlotTime > currentDateTime;
+      if (currentSlotTimePasssed) {
+        return slots;
+      }
+      const alreadyIncluded = slots.some((s) => s.start === selectedSlot.start);
+      if (alreadyIncluded) {
+        return slots;
+      }
+      return [...slots, selectedSlot]?.sort((a: Slot, b: Slot) => a.start.localeCompare(b.start));
     }
-    return slotData;*/
-    return [];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return slotData?.map((si) => si.slot);
   }, [selectedSlot, location?.timezone, slotData]);
 
   const { officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow } = useCheckOfficeOpen(location);
@@ -124,7 +126,7 @@ const Reschedule = (): JSX.Element => {
       try {
         const res = await zapehrApi.updateAppointment(tokenlessZambdaClient, {
           appointmentID: appointmentIDParam,
-          slot: slot.start,
+          slot: slot,
           language: 'en', // replace with i18n.language to enable
         });
         if (res.appointmentID) {
@@ -200,7 +202,7 @@ const Reschedule = (): JSX.Element => {
           backButton={true}
           submitLabelAdjective={i18n.t('appointments.modifyTo')}
           timezone={location?.timezone || 'America/New_York'}
-          existingSelectedSlot={undefined}
+          existingSelectedSlot={selectedSlot}
           handleSlotSelected={async (slot) => {
             void rescheduleAppointment(slot);
             // todo: there should be a separate get-ready page for a reschedule, or else some way to distinguish

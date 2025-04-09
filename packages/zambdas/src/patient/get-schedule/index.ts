@@ -99,24 +99,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, owner);
     console.timeEnd('get_waiting_minutes');
     console.time('synchronous_data_processing');
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { telemedAvailable, availableSlots } = await getAvailableSlotsForSchedules({
       now: DateTime.now(),
       scheduleList,
     });
     console.timeEnd('synchronous_data_processing');
-
-    /*if (specificSlot) {
-      if (availableSlots.includes(specificSlot)) {
-        console.log('making the selected slot unavailable');
-        console.time('mark_slot_busy');
-        const specificSlotResource = await makeSlotTentativelyBusy(specificSlot, owner, oystehr);
-        console.timeEnd('mark_slot_busy');
-        console.log('tentatively busy slot: ', specificSlotResource?.id);
-      } else {
-        console.log('selected slot is not available');
-      }
-    }*/
 
     const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
     const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, owner);
@@ -124,7 +111,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const response: GetScheduleResponse = {
       message: 'Successfully retrieved all available slot times',
       available: availableSlots,
-      telemedAvailable: [],
+      telemedAvailable,
       location: locationInformationWithClosures,
       displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
       waitingMinutes,

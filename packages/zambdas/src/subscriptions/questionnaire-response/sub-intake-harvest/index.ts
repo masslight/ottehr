@@ -17,7 +17,7 @@ import {
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   checkBundleOutcomeOk,
-  flattenBundleResources,
+  flattenSearchBundleResources,
   flattenIntakeQuestionnaireItems,
   getActiveAccountGuarantorReference,
   getRelatedPersonForPatient,
@@ -166,7 +166,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
   if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
     try {
-      const bundleResources = flattenBundleResources(accountBundle);
+      const bundleResources = flattenSearchBundleResources(accountBundle);
       const accountResource = bundleResources.find((res) => res.resourceType === 'Account') as Account;
       if (accountResource) {
         const guarantorReference = getActiveAccountGuarantorReference(accountResource);

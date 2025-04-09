@@ -1,4 +1,4 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -8,17 +8,22 @@ import {
   Patient,
   Practitioner,
   PractitionerRole,
+  Reference,
   RelatedPerson,
   Schedule,
+  Slot,
 } from 'fhir/r4b';
 import {
   BookableScheduleData,
+  isValidUUID,
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
+  unbundleBatchPostOutput,
 } from 'utils';
+import { uuid } from 'short-uuid';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
   const response: Patient = await oystehr.fhir.get({
@@ -224,12 +229,50 @@ export async function updateAppointmentTime(
   appointment: Appointment,
   startTime: string,
   endTime: string,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  slot?: Slot
 ): Promise<Appointment> {
   try {
-    const json: Appointment = await oystehr.fhir.patch({
-      resourceType: 'Appointment',
-      id: appointment.id ?? '',
+    const currentSlotRef = appointment?.slot?.[0]?.reference;
+    let newSlotReference: Reference | undefined;
+    const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
+    if (slot && `Slot/${slot.id}` !== currentSlotRef) {
+      // we need to update the Appointment with the passed in Slot
+      if (isValidUUID(slot?.id ?? '') && slot?.meta !== undefined) {
+        // assume slot already persisted
+        newSlotReference = {
+          reference: `Slot/${slot.id}`,
+        };
+      } else if (slot) {
+        postSlotRequests.push({
+          method: 'POST',
+          url: '/Slot',
+          resource: {
+            ...slot,
+            resourceType: 'Slot',
+            id: undefined,
+            status: 'busy',
+          },
+          fullUrl: `urn:uuid:${uuid()}`,
+        });
+        newSlotReference = {
+          reference: postSlotRequests[0].fullUrl,
+        };
+      }
+    }
+
+    const slotRefOps: Operation[] = [];
+    if (newSlotReference) {
+      slotRefOps.push({
+        op: appointment.slot === undefined ? 'add' : 'replace',
+        path: '/slot',
+        value: [newSlotReference],
+      });
+    }
+
+    const patchRequest: BatchInputPatchRequest<Appointment> = {
+      method: 'PATCH',
+      url: `Appointment/${appointment.id}`,
       operations: [
         {
           op: 'replace',
@@ -241,9 +284,18 @@ export async function updateAppointmentTime(
           path: '/end',
           value: endTime,
         },
+        ...slotRefOps,
       ],
+    };
+    const json = await oystehr.fhir.transaction<Appointment | Slot>({
+      requests: [...postSlotRequests, patchRequest],
     });
-    return json;
+    const flattened = unbundleBatchPostOutput<Appointment | Slot>(json);
+    const apt = flattened.find((res): res is Appointment => res.resourceType === 'Appointment');
+    if (!apt) {
+      throw new Error('Appointment not returned in bundle');
+    }
+    return apt;
   } catch (error: unknown) {
     throw new Error(`Failed to update Appointment: ${JSON.stringify(error)}`);
   }

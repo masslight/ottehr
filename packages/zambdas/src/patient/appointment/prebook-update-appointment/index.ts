@@ -20,6 +20,8 @@ import {
   getRelatedPersonForPatient,
   getSMSNumberForIndividual,
   isPostTelemedAppointment,
+  UpdateAppointmentParameters,
+  normalizeSlotToUTC,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -37,10 +39,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 import { getSlugForBookableResource } from '../../bookable/helpers';
 
-export interface UpdateAppointmentInput {
-  appointmentID: string;
-  slot: string;
-  language: string;
+export interface UpdateAppointmentInput extends UpdateAppointmentParameters {
   secrets: Secrets | null;
 }
 
@@ -53,7 +52,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.group('validateRequestParameters');
     // Step 1: Validate input
     const validatedParameters = validateRequestParameters(input);
-    const { appointmentID, language, slot, secrets } = validatedParameters;
+    const { appointmentID, language, slot: inputSlot, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -66,15 +65,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const oystehr = createOystehrClient(zapehrToken, secrets);
 
-    let startTime = slot;
+    const slot = normalizeSlotToUTC(inputSlot);
+
+    const startTime = slot.start;
+    const endTime = slot.end;
     if (!checkValidBookingTime(startTime)) {
       throw APPOINTMENT_CANT_BE_IN_PAST_ERROR;
     }
-
-    startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
-    const originalDate = DateTime.fromISO(startTime).setZone('UTC');
-    const endTime = originalDate.plus({ minutes: 15 }).toISO();
-
     console.log('getting appointment and related schedule resource');
 
     const allResources = (
@@ -107,6 +104,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     if (isPostTelemedAppointment(fhirAppointment)) {
       throw POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR;
     }
+
+    const originalDate = DateTime.fromISO(fhirAppointment?.start ?? '').setZone('UTC');
 
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
     if (fhirAppointment.status === 'arrived') {
@@ -154,9 +153,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw new Error('slug is missing');
     }
 
-    // note: what should be happening here instead is that a Slot resource will be passed in with info about the schedule
-    // the rescheduled appointment will be against, rather than trying to infer it from time and original appointment
-    // this is an important change to make before merging
     const scheduleData: BookableScheduleData = {
       scheduleList: [
         {
@@ -176,9 +172,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       busySlots: [], // todo: add busy slots or refactor - see previous todo, these can be queried form the passed in slot
     });
 
-    if (availableSlots.map((si) => si.slot.start).includes(slot)) {
+    // todo: another place to refactor with a slot comparator utility func
+    if (availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {
       console.log('slot is available');
     } else {
+      console.log('slot start', slot.start, availableSlots[0].slot.start);
       console.log('slot is unavailable', slot);
       const response = {
         message: 'Slot unavailable',
@@ -195,8 +193,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const updatedAppointment: Appointment = await updateAppointmentTime(
       fhirAppointment,
       startTime,
-      endTime ?? '',
-      oystehr
+      endTime,
+      oystehr,
+      slot
     );
     console.log('getting patient');
     const fhirPatient: Patient = await oystehr.fhir.get({

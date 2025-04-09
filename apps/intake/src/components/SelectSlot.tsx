@@ -38,7 +38,9 @@ export function SelectSlot({
       {slots.map((slot, idx) => {
         const startDate = DateTime.fromISO(slot.start);
         const startDateTimezoneAdjusted = startDate.setZone(timezone);
-        const isSelected = currentSelectedSlot?.id === slot.id;
+        // todo: extract this into a function that can be customized. the 1-slot-per-time rule
+        // might not hold for every use case
+        const isSelected = currentSelectedSlot?.start === slot.start;
         return (
           <Grid key={idx} item>
             <AppointmentSlotButton

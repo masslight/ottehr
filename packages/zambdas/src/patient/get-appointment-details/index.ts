@@ -5,10 +5,10 @@ import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
+  GetAppointmentDetailsResponse,
   SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
   SecretsKeys,
-  SlotListItem,
   getAvailableSlotsForSchedules,
   getSecret,
 } from 'utils';
@@ -26,24 +26,6 @@ import { validateRequestParameters } from './validateRequestParameters';
 export interface GetAppointmentDetailInput {
   appointmentID: string;
   secrets: Secrets | null;
-}
-
-interface Appointment {
-  start: string;
-  location: AvailableLocationInformation;
-  visitType: string;
-  status?: string;
-}
-
-interface GetAppointmentDetailsResponse {
-  appointment: {
-    start: string;
-    location: AvailableLocationInformation;
-    visitType: string;
-    status?: string;
-  };
-  availableSlots: SlotListItem[];
-  displayTomorrowSlotsAtHour: number;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -92,6 +74,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             name: '_include:iterate',
             value: 'Slot:schedule',
           },
+          {
+            name: '_revinclude:iterate',
+            value: 'Schedule:actor:Location',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Schedule:actor:Practitioner',
+          },
         ],
       })
     ).unbundle();
@@ -101,7 +91,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
     const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
     // todo: use the slot to get the schedule owner and get rid of all this other stuff
-    const fhirSlot = allResources.find((resource) => resource.resourceType === 'Slot') as Slot;
+    let fhirSlot = allResources.find((resource) => resource.resourceType === 'Slot') as Slot;
     const fhirSchedule = allResources.find((resource) => resource.resourceType === 'Schedule') as Schedule;
 
     let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
@@ -121,14 +111,38 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       console.log('scheduleResource is missing');
       throw SCHEDULE_NOT_FOUND_ERROR;
     }
+    if (!fhirSchedule) {
+      console.log('scheduleResource is missing', fhirAppointment.participant);
+      throw SCHEDULE_NOT_FOUND_ERROR;
+    }
+
+    // once we're using a slot on the appointment in all cases we can get rid of this
+    if (!fhirSlot) {
+      let slotEnd: string = fhirAppointment.end ?? '';
+      if (!slotEnd) {
+        const appointmentDateTime = DateTime.fromISO(fhirAppointment?.start ?? '');
+        slotEnd = appointmentDateTime.plus({ minutes: 15 }).toISO() ?? '';
+      }
+      fhirSlot = {
+        resourceType: 'Slot',
+        id: `${fhirSchedule.id}-${fhirAppointment.start}`,
+        status: 'busy',
+        start: fhirAppointment.start!,
+        end: slotEnd,
+        schedule: {
+          reference: `Schedule/${fhirSchedule.id}`,
+        },
+      };
+    }
 
     const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleOwner);
 
-    const appointment: Appointment = {
+    const appointment: GetAppointmentDetailsResponse['appointment'] = {
       start: fhirAppointment.start || 'Unknown',
       location: locationInformation,
       status: fhirAppointment?.status,
       visitType: fhirAppointment.appointmentType?.text || 'Unknown',
+      slot: fhirSlot,
     };
 
     console.log('current appointment slot: ', fhirSlot);
