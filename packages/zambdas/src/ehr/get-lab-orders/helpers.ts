@@ -18,6 +18,7 @@ import {
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
   LabOrderHistoryRow,
+  LabOrderResultDetails,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
 } from 'utils';
@@ -36,7 +37,7 @@ export const mapResourcesToLabOrderDTOs = (
 ): LabOrderDTO[] => {
   return serviceRequests.map((serviceRequest) => {
     const {
-      orderId,
+      orderId: serviceRequestId,
       accessionNumbers,
       orderAddedDate,
       lastResultReceivedDate,
@@ -52,10 +53,11 @@ export const mapResourcesToLabOrderDTOs = (
       appointmentId,
       history,
       orderStatus,
+      resultsDetails, // todo: naming
     } = parseOrderDetails({ tasks, serviceRequest, results, appointments, encounters, practitioners });
 
     return {
-      orderId,
+      serviceRequestId,
       appointmentId,
       providerName, // ordered by
       diagnoses,
@@ -71,6 +73,7 @@ export const mapResourcesToLabOrderDTOs = (
       lastResultReceivedDate,
       accessionNumbers,
       history,
+      resultsDetails,
     };
   });
 };
@@ -741,6 +744,7 @@ export const parseOrderDetails = ({
   performedBy: string;
   appointmentId: string;
   history: LabOrderHistoryRow[];
+  resultsDetails: LabOrderResultDetails[];
 } => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
@@ -839,6 +843,8 @@ export const parseOrderDetails = ({
     return history;
   })();
 
+  const resultsDetails = parseLResultsDetails(serviceRequest, results, tasks);
+
   return {
     orderId,
     accessionNumbers,
@@ -856,7 +862,85 @@ export const parseOrderDetails = ({
     performedBy,
     appointmentId,
     history,
+    resultsDetails,
   };
+};
+
+/**
+ * Parses and returns the results details sorted by received date.
+ * The business logic depends on parseResults and parseTasks to filter the results and tasks.
+ */
+export const parseLResultsDetails = (
+  serviceRequest: ServiceRequest,
+  results: DiagnosticReport[],
+  tasks: Task[]
+): LabOrderResultDetails[] => {
+  if (!serviceRequest.id) {
+    return [];
+  }
+
+  const { orderedFinalResults, reflexFinalResults, orderedPrelimResults, reflexPrelimResults } = parseResults(
+    serviceRequest,
+    results
+  );
+
+  const { orderedFinalTasks, reflexFinalTasks, orderedPrelimTasks, reflexPrelimTasks } = parseTasks({
+    tasks,
+    serviceRequest,
+    results: results,
+  });
+
+  const resultsDetails: LabOrderResultDetails[] = [];
+
+  [
+    { results: orderedFinalResults, tasks: orderedFinalTasks, type: 'Ordered test' as const },
+    { results: reflexFinalResults, tasks: reflexFinalTasks, type: 'Reflex test' as const },
+    { results: orderedPrelimResults, tasks: orderedPrelimTasks, type: 'Ordered test' as const },
+    { results: reflexPrelimResults, tasks: reflexPrelimTasks, type: 'Reflex test' as const },
+  ].forEach(({ results, tasks, type }) => {
+    results.forEach((report) => {
+      const details = parseResultDetails(report, tasks, serviceRequest);
+      if (details) resultsDetails.push({ ...details, testType: type });
+    });
+  });
+
+  return resultsDetails.sort((a, b) => compareDates(a.receivedDate, b.receivedDate));
+};
+
+export const parseResultDetails = (
+  result: DiagnosticReport,
+  tasks: Task[],
+  serviceRequest: ServiceRequest
+): Omit<LabOrderResultDetails, 'testType'> | null => {
+  const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
+
+  if (!task?.id || !result?.id || !serviceRequest.id) {
+    return null;
+  }
+
+  const PSTTask = parseTaskPST(tasks, serviceRequest.id);
+
+  const details = {
+    testName: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
+    labStatus:
+      // todo: move status checkers to helper
+      result.status === 'final' && task.status === 'ready'
+        ? ExternalLabsStatus.received
+        : result.status === 'final' && task.status === 'completed'
+        ? ExternalLabsStatus.reviewed
+        : result.status === 'preliminary'
+        ? ExternalLabsStatus.prelim
+        : serviceRequest.status === 'draft' && PSTTask?.status === 'ready'
+        ? ExternalLabsStatus.pending
+        : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
+        ? ExternalLabsStatus.sent
+        : ExternalLabsStatus.unparsed,
+    diagnosticReportId: result.id,
+    taskId: task.id,
+    receivedDate: task.authoredOn || '',
+  };
+
+  return details;
 };
 
 /**

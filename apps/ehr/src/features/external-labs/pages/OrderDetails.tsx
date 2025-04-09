@@ -4,17 +4,18 @@ import { useParams } from 'react-router-dom';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
+import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 
 export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
 
-  const { labOrders, loading } = usePatientLabOrders({
+  const { labOrders, loading, updateTask } = usePatientLabOrders({
     serviceRequestId,
   });
 
   // todo: validate response on the get-lab-orders zambda and use labOrder[0]
-  const labOrder = labOrders.find((order) => order.orderId === serviceRequestId);
+  const labOrder = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
 
   const status = labOrder?.orderStatus;
 
@@ -23,8 +24,16 @@ export const OrderDetailsPage: React.FC = () => {
   }
 
   if (status === 'pending' || status === 'sent') {
-    return <DetailsWithoutResults />;
+    return (
+      <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
+        <DetailsWithoutResults labOrder={labOrder} />
+      </WithLabBreadcrumbs>
+    );
   }
 
-  return <DetailsWithResults labOrder={labOrder} />;
+  return (
+    <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
+      <DetailsWithResults labOrder={labOrder} updateTask={updateTask} />
+    </WithLabBreadcrumbs>
+  );
 };

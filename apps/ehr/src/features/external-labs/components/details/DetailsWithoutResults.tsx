@@ -7,7 +7,7 @@ import { StatusString } from '../StatusChip';
 import { useParams } from 'react-router-dom';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { OrderDetails } from 'utils';
+import { LabOrderDTO, OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
 import { LabOrderLoading } from '../labs-orders/LabOrderLoading';
@@ -20,7 +20,7 @@ interface CollectionInstructions {
   collectionInstructions: string;
 }
 
-export const DetailsWithoutResults: React.FC = () => {
+export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ labOrder }) => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
 
@@ -127,7 +127,7 @@ export const DetailsWithoutResults: React.FC = () => {
           )
         )}
 
-        {taskStatus !== 'pending' && <OrderHistoryCard />}
+        {taskStatus !== 'pending' && <OrderHistoryCard orderHistory={labOrder?.history} />}
       </Stack>
     </>
   );

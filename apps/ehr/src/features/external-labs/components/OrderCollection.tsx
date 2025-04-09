@@ -3,7 +3,6 @@ import { LoadingButton } from '@mui/lab';
 import { Button, Stack, Typography } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
-import { SampleInformationCard } from './SampleInformationCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import Oystehr from '@oystehr/sdk';
 import { OrderDetails } from 'utils';
@@ -31,6 +30,9 @@ interface SampleCollectionProps {
   accountNumber: string;
   _onCollectionSubmit: () => void;
   oystehr: Oystehr | undefined;
+  showActionButtons?: boolean;
+  showOrderInfo?: boolean;
+  isAOECollapsed?: boolean;
 }
 
 interface DynamicAOEInput {
@@ -42,10 +44,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // collectionInstructions,
   specimen: _2,
   serviceRequestID,
-  serviceRequest,
   accountNumber,
+  // serviceRequest,
   _onCollectionSubmit,
   oystehr,
+  showActionButtons = true,
+  // showOrderInfo = true,
+  isAOECollapsed = false,
 }) => {
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
@@ -123,41 +128,45 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
-        <AOECard questions={aoe} />
+        <AOECard questions={aoe} isCollapsed={isAOECollapsed} />
         {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
-        <SampleInformationCard
-          orderAddedDateTime={serviceRequest.orderDateTime}
-          orderingPhysician={serviceRequest.orderingPhysician || ''}
-          individualCollectingSample={'The best nurse'}
-          collectionDateTime={serviceRequest.sampleCollectionDateTime}
-          // showInPatientPortal={showInPatientPortal}
-          showInPatientPortal={true}
-        />
+        {/* {showOrderInfo && (
+          <SampleInformationCard
+            orderAddedDateTime={serviceRequest.orderDateTime}
+            orderingPhysician={serviceRequest.orderingPhysician || ''}
+            individualCollectingSample={'The best nurse'}
+            collectionDateTime={serviceRequest.sampleCollectionDateTime}
+            // showInPatientPortal={showInPatientPortal}
+            showInPatientPortal={true}
+          />
+        )} */}
         {/* <OrderHistoryCard /> */}
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
-            <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
-              Back
-            </Button>
-          </Link>
-          <Stack>
-            {error && (
-              <Typography variant="body1" color="error">
-                Error submitting lab order
-              </Typography>
-            )}
-            <LoadingButton
-              loading={submitLoading}
-              variant="contained"
-              sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-              // onClick={methods.handleSubmit(sampleCollectionSubmit)}
-              type="submit"
-            >
-              Order
-            </LoadingButton>
-            {/* <FormHelperText error>Please address errors</FormHelperText> */}
+        {showActionButtons && (
+          <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
+              <Button variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
+                Back
+              </Button>
+            </Link>
+            <Stack>
+              {error && (
+                <Typography variant="body1" color="error">
+                  Error submitting lab order
+                </Typography>
+              )}
+              <LoadingButton
+                loading={submitLoading}
+                variant="contained"
+                sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                // onClick={methods.handleSubmit(sampleCollectionSubmit)}
+                type="submit"
+              >
+                Order
+              </LoadingButton>
+              {/* <FormHelperText error>Please address errors</FormHelperText> */}
+            </Stack>
           </Stack>
-        </Stack>
+        )}
       </form>
     </FormProvider>
   );

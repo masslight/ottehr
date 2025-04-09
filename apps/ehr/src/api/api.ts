@@ -59,6 +59,7 @@ const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAM
 const GET_CREATE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CREATE_LAB_ORDER_RESOURCES;
 const GET_LAB_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID;
 const DELETE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_DELETE_LAB_ORDER_ZAMBDA_ID;
+const UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -549,6 +550,30 @@ export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrde
     }
     const response = await oystehr.zambda.execute({
       id: DELETE_LAB_ORDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export type UpdateLabOrderResourcesParameters = {
+  taskId: string;
+  event: 'reviewed';
+};
+
+export const updateLabOrderResources = async (
+  oystehr: Oystehr,
+  parameters: UpdateLabOrderResourcesParameters
+): Promise<any> => {
+  try {
+    if (UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID == null) {
+      throw new Error('update lab order resources environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

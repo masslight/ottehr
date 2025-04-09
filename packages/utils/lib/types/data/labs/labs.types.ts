@@ -61,8 +61,17 @@ export type LabOrderHistoryRow = {
   date: string;
 };
 
+export type LabOrderResultDetails = {
+  testName: string;
+  testType: 'Ordered test' | 'Reflex test';
+  labStatus: ExternalLabsStatus;
+  diagnosticReportId: string;
+  taskId: string;
+  receivedDate: string;
+};
+
 export interface LabOrderDTO {
-  orderId: string; // ServiceRequest.id
+  serviceRequestId: string; // ServiceRequest.id
   typeLab: string; // ServiceRequest.contained[0](ActivityDefinition).title
   locationLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
@@ -78,6 +87,7 @@ export interface LabOrderDTO {
   performedBy: string; // order performed (SR.orderDetail code.display)
   accessionNumbers: string[]; // DiagnosticReport.identifier
   history: LabOrderHistoryRow[];
+  resultsDetails: LabOrderResultDetails[];
 }
 
 export interface Pagination {
@@ -144,4 +154,11 @@ export interface GetCreateLabOrderResources {
 export interface LabOrderResourcesRes {
   coverageName: string;
   labs: OrderableItemSearchResult[];
+}
+
+export const VALID_LAB_ORDER_UPDATE_EVENTS = ['reviewed'] as const;
+
+export interface UpdateLabOrderResourceParams {
+  taskId: string;
+  event: (typeof VALID_LAB_ORDER_UPDATE_EVENTS)[number];
 }
