@@ -6,12 +6,11 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
     throw new Error('No request body provided');
   }
 
-  const { dx, encounter, practitionerId, orderableItem, psc } = JSON.parse(input.body);
+  const { dx, encounter, orderableItem, psc } = JSON.parse(input.body);
 
   const missingResources = [];
   if (!dx) missingResources.push('dx');
   if (!encounter) missingResources.push('encounter');
-  if (!practitionerId) missingResources.push('practitionerId');
   if (!orderableItem) missingResources.push('orderableItem');
   if (missingResources.length) {
     throw new Error(`missing required resource(s): ${missingResources.join(',')}`);
@@ -20,7 +19,6 @@ export function validateRequestParameters(input: ZambdaInput): CreateLabOrderPar
   return {
     dx,
     encounter,
-    practitionerId,
     orderableItem,
     psc,
     secrets: input.secrets,

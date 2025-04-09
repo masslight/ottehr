@@ -143,7 +143,6 @@ export type GetLabOrdersParameters =
 export interface CreateLabOrderParameters {
   dx: DiagnosisDTO[];
   encounter: Encounter;
-  practitionerId: string;
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
 }
