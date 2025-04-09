@@ -13,8 +13,10 @@ import {
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
   GetPaperworkAnswers,
+  RelationshipOption,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
+import { fetchWithOystAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -23,7 +25,6 @@ import {
   TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
-import { fetchWithOystAuth } from './helpers/tests-utils';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -62,6 +63,34 @@ export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
 
+export const PATIENT_INSURANCE_MEMBER_ID = '123123';
+export const PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'John';
+export const PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Doe';
+export const PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'Michael';
+export const PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH = '1990-01-01';
+export const PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX = 'Male';
+export const PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT = false;
+export const PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS = '123 Main St';
+export const PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE = 'Apt 1';
+export const PATIENT_INSURANCE_POLICY_HOLDER_CITY = 'San Sebastian';
+export const PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'CA';
+export const PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '92000';
+export const PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
+
+export const PATIENT_INSURANCE_MEMBER_ID_2 = '234234';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Jane';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Doe';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME = 'Michael';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH = '1991-01-01';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX = 'Female';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT = false;
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS = '123 Main St';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE = 'Apt 1';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_CITY = 'New York';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_STATE = 'NY';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP = '06001';
+export const PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
+
 export type CreateTestAppointmentInput = {
   firstName?: string;
   lastName?: string;
@@ -79,30 +108,34 @@ export type CreateTestAppointmentInput = {
 };
 
 export class ResourceHandler {
-  apiClient!: Oystehr;
-  private authToken!: string;
-  private resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
-  private zambdaId: string;
-  private flow: 'telemed' | 'in-person';
-  private initPromise: Promise<void>;
-  private paperworkAnswers?: GetPaperworkAnswers;
+  #apiClient!: Oystehr;
+  #authToken!: string;
+  #resources!: CreateAppointmentResponse['resources'] & { relatedPerson: { id: string; resourceType: string } };
+  #createAppointmentZambdaId: string;
+  #flow: 'telemed' | 'in-person';
+  #initPromise: Promise<void>;
+  #paperworkAnswers?: GetPaperworkAnswers;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
 
-  constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
-    this.flow = flow;
-    this.paperworkAnswers = paperworkAnswers;
+  public get apiClient(): Oystehr {
+    return this.#apiClient;
+  }
 
-    this.initPromise = this.initApi();
+  constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
+    this.#flow = flow;
+    this.#paperworkAnswers = paperworkAnswers;
+
+    this.#initPromise = this.initApi();
 
     if (flow === 'in-person') {
-      this.zambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
+      this.#createAppointmentZambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
       return;
     }
 
     if (flow === 'telemed') {
-      this.zambdaId = process.env.CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID!;
+      this.#createAppointmentZambdaId = process.env.CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID!;
       return;
     }
 
@@ -110,12 +143,12 @@ export class ResourceHandler {
   }
 
   private async initApi(): Promise<void> {
-    if (this.apiClient && this.authToken) {
+    if (this.#apiClient && this.#authToken) {
       return;
     }
-    this.authToken = await getAuth0Token();
-    this.apiClient = new Oystehr({
-      accessToken: this.authToken,
+    this.#authToken = await getAuth0Token();
+    this.#apiClient = new Oystehr({
+      accessToken: this.#authToken,
       fhirApiUrl: process.env.FHIR_API,
       projectApiUrl: process.env.AUTH0_AUDIENCE,
     });
@@ -124,7 +157,7 @@ export class ResourceHandler {
   private async createAppointment(
     inputParams?: CreateTestAppointmentInput
   ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
-    await this.initPromise;
+    await this.#initPromise;
 
     try {
       const address: Address = {
@@ -164,30 +197,30 @@ export class ResourceHandler {
 
       // Create appointment and related resources using zambda
       const appointmentData =
-        this.flow === 'in-person'
+        this.#flow === 'in-person'
           ? await createSamplePrebookAppointments({
-              oystehr: this.apiClient,
+              oystehr: this.#apiClient,
               authToken: getAccessToken(),
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.zambdaId,
+              createAppointmentZambdaId: this.#createAppointmentZambdaId,
               zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
+              paperworkAnswers: this.#paperworkAnswers,
             })
           : await createSampleTelemedAppointments({
-              oystehr: this.apiClient,
+              oystehr: this.#apiClient,
               authToken: getAccessToken(),
               phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.zambdaId,
+              createAppointmentZambdaId: this.#createAppointmentZambdaId,
               islocal: process.env.APP_IS_LOCAL === 'true',
               zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
               locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
               demoData: patientData,
               projectId: process.env.PROJECT_ID!,
-              paperworkAnswers: this.paperworkAnswers,
+              paperworkAnswers: this.#paperworkAnswers,
             });
-
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
@@ -212,7 +245,7 @@ export class ResourceHandler {
   public async setResources(params?: CreateTestAppointmentInput): Promise<void> {
     const response = await this.createAppointment(params);
 
-    this.resources = {
+    this.#resources = {
       ...response.resources,
       // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
       relatedPerson: {
@@ -225,17 +258,17 @@ export class ResourceHandler {
   public async cleanupResources(): Promise<void> {
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
-    if (this.resources.appointment) {
+    if (this.#resources.appointment) {
       const inHouseMedicationsResources = await getInHouseMedicationsResources(
-        this.apiClient,
+        this.#apiClient,
         'encounter',
-        this.resources.appointment.id!
+        this.#resources.appointment.id!
       );
 
       await Promise.allSettled([
         ...inHouseMedicationsResources.map((resource) => {
           if (resource.id && resource.resourceType) {
-            return this.apiClient.fhir
+            return this.#apiClient.fhir
               .delete({ id: resource.id, resourceType: resource.resourceType })
               .then(() => {
                 console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
@@ -248,7 +281,7 @@ export class ResourceHandler {
             return Promise.resolve();
           }
         }),
-        this.cleanAppointment(this.resources.appointment.id!),
+        this.cleanAppointment(this.#resources.appointment.id!),
       ]);
     }
   }
@@ -259,7 +292,7 @@ export class ResourceHandler {
 
       for (let i = 0; i < 10; i++) {
         const appointment = (
-          await this.apiClient.fhir.search({
+          await this.#apiClient.fhir.search({
             resourceType: 'Appointment',
             params: [
               {
@@ -270,7 +303,9 @@ export class ResourceHandler {
           })
         ).unbundle()[0] as Appointment;
 
-        if (appointment.meta?.tag?.find((tag) => tag.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code)) {
+        const tags = appointment.meta?.tag || [];
+        const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
+        if (isProcessed) {
           return;
         }
 
@@ -286,10 +321,10 @@ export class ResourceHandler {
 
   async setEmployees(): Promise<void> {
     try {
-      await this.initPromise;
+      await this.#initPromise;
       const [employee1, employee2] = await Promise.all([
-        inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.apiClient, this.authToken),
-        inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.apiClient, this.authToken),
+        inviteTestEmployeeUser(TEST_EMPLOYEE_1, this.#apiClient, this.#authToken),
+        inviteTestEmployeeUser(TEST_EMPLOYEE_2, this.#apiClient, this.#authToken),
       ]);
 
       this.testEmployee1 = employee1!;
@@ -303,8 +338,8 @@ export class ResourceHandler {
     try {
       if (process.env.AUTH0_CLIENT_TESTS && process.env.AUTH0_SECRET_TESTS) {
         await Promise.all([
-          removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.apiClient, this.authToken),
-          removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.apiClient, this.authToken),
+          removeUser(this.testEmployee1.id, this.testEmployee1.profile.id!, this.#apiClient, this.#authToken),
+          removeUser(this.testEmployee2.id, this.testEmployee2.profile.id!, this.#apiClient, this.#authToken),
         ]);
       } else throw new Error('No "AUTH0_CLIENT_TESTS" or "AUTH0_SECRET_TESTS" secret provided');
     } catch (e) {
@@ -329,7 +364,7 @@ export class ResourceHandler {
   }
 
   private findResourceByType<T>(resourceType: string): T {
-    const resourse = Object.values(this.resources).find((resource) => resource.resourceType === resourceType) as T;
+    const resourse = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
 
     if (!resourse) {
       throw new Error(`Resource ${resourceType} not found in the resources`);
@@ -340,7 +375,7 @@ export class ResourceHandler {
 
   async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
     const appointments = (
-      await this.apiClient.fhir.search({
+      await this.#apiClient.fhir.search({
         resourceType: 'Appointment',
         params: [
           {
@@ -360,7 +395,7 @@ export class ResourceHandler {
   }
 
   async patientIdByAppointmentId(appointmentId: string): Promise<string> {
-    const appointment = await this.apiClient.fhir.get<Appointment>({
+    const appointment = await this.#apiClient.fhir.get<Appointment>({
       resourceType: 'Appointment',
       id: appointmentId,
     });
@@ -379,7 +414,7 @@ export class ResourceHandler {
     email: string;
     practitioner: Practitioner;
   }> {
-    await this.initPromise;
+    await this.#initPromise;
     const users = await fetchWithOystAuth<
       {
         id: string;
@@ -387,11 +422,11 @@ export class ResourceHandler {
         email: string;
         profile: string;
       }[]
-    >('GET', 'https://project-api.zapehr.com/v1/user', this.authToken);
+    >('GET', 'https://project-api.zapehr.com/v1/user', this.#authToken);
 
     const user = users?.find((user) => user.email === process.env.TEXT_USERNAME);
     if (!user) throw new Error('Failed to find authorized user');
-    const practitioner = (await this.apiClient.fhir.get({
+    const practitioner = (await this.#apiClient.fhir.get({
       resourceType: 'Practitioner',
       id: user.profile.replace('Practitioner/', ''),
     })) as Practitioner;

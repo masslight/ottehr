@@ -1,15 +1,20 @@
 import { TabList } from '@mui/lab';
-import { AppBar, Container, Tab, Toolbar, useTheme, useMediaQuery } from '@mui/material';
+import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { PROJECT_NAME, RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
-import { UserMenu } from './UserMenu';
 import MobileMenu from './MobileMenu';
-import { adjustTopForBannerHeight } from '../../constants';
 import { otherColors } from '@theme/colors';
 import { logo } from '@theme/icons';
+import { UserMenu } from './UserMenu';
+import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
+
+const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
+if (ORGANIZATION_NAME_SHORT == null) {
+  throw new Error('Could not load env variable');
+}
 
 export type NavbarItems = {
   [key in AppTab]?: { urls: string[] };
