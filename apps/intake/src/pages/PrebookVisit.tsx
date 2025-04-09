@@ -161,6 +161,7 @@ const PrebookVisit: FC = () => {
   };
 
   const handleSlotSelection = (slot?: Slot): void => {
+    console.log('slot selection', slot);
     if (slot && slugToFetch) {
       navigate(`/book/${slugToFetch}/${VisitType.PreBook}/${serviceMode}/patients`, {
         state: { slot, scheduleType },
@@ -233,15 +234,11 @@ const PrebookVisit: FC = () => {
             <Schedule
               customOnSubmit={handleSlotSelection}
               slotData={(slotData?.available ?? []).map((sli) => sli.slot)}
-              scheduleType={scheduleType ?? ScheduleType.location}
               slotsLoading={false}
               existingSelectedSlot={slotData?.available?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
               timezone={selectedLocation?.timezone ?? 'America/New_York'}
-              locationSlug={slugToFetch}
               forceClosedToday={false}
               forceClosedTomorrow={false}
-              markSlotBusy={false}
-              setSlotData={noop} // this does nothing due to the custom on submit
               handleSlotSelected={noop}
             />
           ))}

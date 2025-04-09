@@ -32,7 +32,6 @@ import {
   distributeTimeSlots,
   divideHourlyCapacityBySlotInverval,
 } from './dateUtils';
-import { uniqueId } from 'lodash-es';
 
 export const FIRST_AVAILABLE_SLOT_OFFSET_IN_MINUTES = 14;
 
@@ -862,7 +861,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     const end = DateTime.fromISO(startTimes[0]).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
     const slot: Slot = {
       resourceType: 'Slot',
-      id: uniqueId(),
+      id: `${scheduleId}-${startTime}`,
       start: startTime,
       end,
       schedule: { reference: `Schedule/${scheduleId}` },

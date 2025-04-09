@@ -2,19 +2,10 @@ import { Alert, Box, Button, Tab, Tabs, Typography, useMediaQuery, useTheme } fr
 import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ControlButtons, ErrorDialog, ErrorDialogConfig, breakpoints, useUCZambdaClient } from 'ui-components';
-import {
-  DATETIME_FULL_NO_YEAR,
-  DATE_FULL_NO_YEAR,
-  ScheduleType,
-  SlotListItem,
-  createLocalDateTime,
-  mapSlotListItemToStartTimesArray,
-  nextAvailableFrom,
-} from 'utils';
+import { ControlButtons, ErrorDialog, ErrorDialogConfig, breakpoints } from 'ui-components';
+import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, createLocalDateTime, nextAvailableFrom } from 'utils';
 import { SelectSlot } from '.';
 import { otherColors } from '../IntakeThemeProvider';
-import zapehrApi from '../api/zapehrApi';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
@@ -59,7 +50,6 @@ const tabProps = (
 
 interface ScheduleProps {
   slotData: Slot[] | undefined;
-  setSlotData: (data: SlotListItem[]) => void;
   slotsLoading: boolean;
   submitPending?: boolean;
   backButton?: boolean;
@@ -67,32 +57,24 @@ interface ScheduleProps {
   existingSelectedSlot: Slot | undefined;
   handleSlotSelected: (slot: Slot) => void;
   timezone: string;
-  locationSlug: string | undefined;
   forceClosedToday: boolean;
-  scheduleType?: ScheduleType;
   forceClosedTomorrow: boolean;
-  markSlotBusy: boolean; // rescheduled appointments will always fail if they mark the very slot they're rescheduling to as tentatitvely busy
   customOnSubmit?: (slot?: Slot) => void;
 }
 
 const Schedule = ({
   slotData,
-  setSlotData,
   backButton = false,
   slotsLoading,
   existingSelectedSlot,
   handleSlotSelected,
   submitLabelAdjective = i18n.t('schedule.submitLabel'),
   timezone,
-  locationSlug,
   forceClosedToday,
   submitPending,
-  markSlotBusy,
-  scheduleType,
   customOnSubmit,
 }: ScheduleProps): JSX.Element => {
   const theme = useTheme();
-  const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const [currentTab, setCurrentTab] = useState(0);
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
   const [locallySelectedSlot, setLocallySelectedSlot] = useState<Slot | undefined>(existingSelectedSlot);
@@ -113,50 +95,18 @@ const Schedule = ({
   const onSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     if (customOnSubmit) {
-      customOnSubmit(slotsList.find((slot) => slot.id === locallySelectedSlot));
+      customOnSubmit(locallySelectedSlot);
       return;
     }
 
     try {
-      const slot = slotsList.find((slot) => slot.id === locallySelectedSlot);
       if (!hasChosenSlot) {
         setErrorDialog({
           title: t('schedule.errors.selection.title'),
           description: t('schedule.errors.selection.description'),
         });
       } else {
-        setSlotAvailableCheckPending(true);
-        // if the existing selected slot differs from the locally selected slot
-        // or if there is no existing selected slot
-        if (locallySelectedSlot !== existingSelectedSlot) {
-          // check if slot is available
-          if (!tokenlessZambdaClient || !locationSlug) {
-            return;
-          }
-          // todo: this check should live in the components that use this component
-          // and be part of the slot selection handler passed in
-          const res = await zapehrApi.getSchedule(tokenlessZambdaClient, {
-            slug: locationSlug,
-            scheduleType: scheduleType || ScheduleType.location,
-            specificSlot: markSlotBusy ? locallySelectedSlot.start : undefined,
-          });
-          console.log('res', res);
-          const availableSlots = mapSlotListItemToStartTimesArray(res.available);
-          if (availableSlots.includes(locallySelectedSlot.start) && slot) {
-            handleSlotSelected(slot);
-          } else {
-            // todo: this error dialog probably shouldn't live in this component; it's doing too much
-            setErrorDialog({
-              title: t('schedule.noLongerAvail.title'),
-              description: t('schedule.noLongerAvail.description'),
-            });
-
-            setSlotData(res.available);
-          }
-        } else if (slot) {
-          handleSlotSelected(slot);
-        }
-        setSlotAvailableCheckPending(false);
+        handleSlotSelected(locallySelectedSlot);
       }
     } catch (error) {
       console.log(error);

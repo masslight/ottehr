@@ -33,6 +33,7 @@ import { NO_LOCATION_ERROR } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { SlotListItem } from 'utils/lib/utils';
+import { Slot } from 'fhir/r4b';
 
 type BookingState = {
   visitType: VisitType | undefined;
@@ -204,6 +205,7 @@ const BookingHome: FC = () => {
     selectedSlot,
     unconfirmedDateOfBirth,
     scheduleType,
+    slotData,
     setSelectedLocationResponse,
     setPatientInfo,
     setPatients,
@@ -230,6 +232,7 @@ const BookingHome: FC = () => {
     'handleLogout',
     'scheduleType',
     'setScheduleType',
+    'slotData',
   ]);
   const {
     [BOOKING_SLUG_PARAMS]: slugParam,
@@ -249,10 +252,10 @@ const BookingHome: FC = () => {
   const { t } = useTranslation();
 
   useEffect(() => {
-    const slot = navState?.slot;
+    const slot = navState?.slot as Slot | undefined;
     const scheduleType = navState?.scheduleType;
-    if (slot) {
-      setSelectedSlot(slot);
+    if (slot?.id) {
+      setSelectedSlot(slot?.id);
     }
     if (scheduleType && scheduleType in ScheduleType) {
       setScheduleType(scheduleType as ScheduleType);
@@ -263,12 +266,10 @@ const BookingHome: FC = () => {
     return navState?.scheduleType ?? scheduleType;
   }, [navState?.scheduleType, scheduleType]);
   const outletContext: BookAppointmentContext = useMemo(() => {
-    let slotDataTemp: SlotListItem[] = [];
     let selectedLocationTemp: AvailableLocationInformation | undefined = undefined;
     let waitingMinutesTemp: number | undefined = undefined;
     if (selectedLocationResponse) {
       selectedLocationTemp = selectedLocationResponse.location;
-      slotDataTemp = selectedLocationResponse.available;
       waitingMinutesTemp = selectedLocationResponse.waitingMinutes;
     }
     let visitType = VisitType.PreBook;
@@ -280,12 +281,12 @@ const BookingHome: FC = () => {
       serviceType = ServiceMode.virtual;
     }
     const getSlotListItemWithId = (slotId: string): SlotListItem | undefined => {
-      return slotDataTemp.find((si) => si.slot.id === slotId);
+      return slotData.find((si) => `${si.slot.id}` === `${slotId}`);
     };
     return {
       patients,
       patientInfo,
-      slotData: slotDataTemp,
+      slotData,
       selectedLocation: selectedLocationTemp,
       waitingMinutes: waitingMinutesTemp,
       visitType,
@@ -318,6 +319,7 @@ const BookingHome: FC = () => {
     setSelectedSlot,
     completeBooking,
     setSlotData,
+    slotData,
   ]);
   const { walkinOpen } = useCheckOfficeOpen(outletContext.selectedLocation);
 
@@ -576,16 +578,8 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
 
   console.log('isAuthenticated in welcome page', isAuthenticated);
 
-  const {
-    selectedLocation,
-    selectedSlot,
-    waitingMinutes,
-    slotData,
-    locationLoading,
-    scheduleType,
-    setSelectedSlot,
-    setSlotData,
-  } = context;
+  const { selectedLocation, selectedSlot, waitingMinutes, slotData, locationLoading, scheduleType, setSelectedSlot } =
+    context;
 
   // console.log('selectedLocation, locationLoading', selectedLocation, locationLoading, context);
 
@@ -644,8 +638,6 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
           <Schedule
             slotsLoading={locationLoading}
             slotData={allAvailableSlots.map((si) => si.slot)}
-            setSlotData={setSlotData}
-            scheduleType={scheduleType}
             timezone={selectedLocation?.timezone || 'America/New_York'}
             existingSelectedSlot={slotData?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
             handleSlotSelected={(slot) => {
@@ -657,10 +649,8 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
                 }
               );
             }}
-            locationSlug={slugParam}
             forceClosedToday={officeHasClosureOverrideToday}
             forceClosedTomorrow={officeHasClosureOverrideTomorrow}
-            markSlotBusy={true}
           />
           <Divider sx={{ marginTop: 3, marginBottom: 3 }} />
           <Typography variant="h4" color={theme.palette.primary.main}>

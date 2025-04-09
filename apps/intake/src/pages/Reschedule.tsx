@@ -196,7 +196,6 @@ const Reschedule = (): JSX.Element => {
       <>
         <Schedule
           slotData={allAvailableSlots}
-          setSlotData={setSlotData}
           slotsLoading={loading}
           backButton={true}
           submitLabelAdjective={i18n.t('appointments.modifyTo')}
@@ -210,12 +209,9 @@ const Reschedule = (): JSX.Element => {
             // this was invoked
             // navigate(`/book/${location?.address?.state}/${location?.slug}/${visitTypeParam}/get-ready`);
           }}
-          scheduleType={location?.scheduleType}
-          locationSlug={location?.slug}
           forceClosedToday={officeHasClosureOverrideToday}
           forceClosedTomorrow={officeHasClosureOverrideTomorrow}
           submitPending={submitPending}
-          markSlotBusy={false}
         />
       </>
       <ErrorDialog
