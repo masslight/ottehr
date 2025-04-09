@@ -1,51 +1,65 @@
-import { Typography, Grid } from '@mui/material';
 import { Stack } from '@mui/system';
 import React from 'react';
-import { LabOrderDTO } from 'utils';
+import { LabOrderDTO, UpdateLabOrderResourceParams } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { OrderHistoryCard } from '../OrderHistoryCard';
 import { Questionarie } from './Questionarie';
-import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
+import { ResultItem } from './ResultItem';
+import { Button, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
-export const DetailsWithResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ labOrder }) => {
+export const DetailsWithResults: React.FC<{
+  labOrder?: LabOrderDTO;
+  updateTask: (params: UpdateLabOrderResourceParams) => Promise<void>;
+}> = ({ labOrder, updateTask }) => {
+  const navigate = useNavigate();
+
+  const handleBack = (): void => {
+    navigate(-1);
+  };
+
   if (!labOrder) {
     return null;
   }
 
   return (
-    <>
+    <div style={{ maxWidth: '714px', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
         <CSSPageTitle>{labOrder.typeLab}</CSSPageTitle>
 
-        <Stack
-          direction="row"
-          spacing={2}
-          sx={{
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <Typography variant="body1" sx={{ width: '100%' }}>
-            {labOrder.diagnoses.map((dx) => {
-              const diagnosis = `${dx.code} ${dx.display}`;
-              return <div key={diagnosis}>{diagnosis}</div>;
-            })}
-          </Typography>
+        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+          {labOrder.diagnoses.map((dx) => {
+            const diagnosis = `${dx.code} - ${dx.display}`;
+            return <div key={diagnosis}>{diagnosis}</div>;
+          })}
+        </Typography>
 
-          <Grid container justifyContent="end" spacing={2} alignItems="center">
-            <Grid item>
-              <LabTableStatusChip status={labOrder.orderStatus} />
-            </Grid>
-            <Grid item>
-              <Typography variant="body1" sx={{ textTransform: 'uppercase', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                {labOrder.performedBy}
-              </Typography>
-            </Grid>
-          </Grid>
-        </Stack>
-        <Questionarie />
-        <OrderHistoryCard />
+        {labOrder.resultsDetails.map((result) => (
+          <ResultItem
+            onMarkAsReviewed={() => updateTask({ taskId: result.taskId, event: 'reviewed' })}
+            resultDetails={result}
+            labOrder={labOrder}
+          />
+        ))}
+
+        <Questionarie showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} />
+        <OrderHistoryCard orderHistory={labOrder.history} />
+
+        <Button
+          variant="outlined"
+          color="primary"
+          sx={{
+            borderRadius: 28,
+            padding: '8px 22px',
+            alignSelf: 'flex-start',
+            marginTop: 2,
+            textTransform: 'none',
+          }}
+          onClick={handleBack}
+        >
+          Back
+        </Button>
       </Stack>
-    </>
+    </div>
   );
 };

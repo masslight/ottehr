@@ -48,7 +48,7 @@ export const useDeleteLabOrderDialog = ({
   }, []);
 
   const confirmDeleteOrder = useCallback(async (): Promise<void> => {
-    if (!currentOrderToDelete || !currentOrderToDelete.orderId) {
+    if (!currentOrderToDelete || !currentOrderToDelete.serviceRequestId) {
       setDeleteError('No lab order selected for deletion');
       return;
     }
@@ -63,7 +63,7 @@ export const useDeleteLabOrderDialog = ({
 
     try {
       const success = await deleteOrder({
-        orderId: currentOrderToDelete.orderId,
+        orderId: currentOrderToDelete.serviceRequestId,
         encounterId: effectiveEncounterId,
       });
 

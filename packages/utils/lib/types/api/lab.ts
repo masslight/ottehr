@@ -6,6 +6,7 @@ export interface GetLabOrderDetailsInput {
 
 export interface SubmitLabOrderInput {
   serviceRequestID: string;
+  accountNumber: string;
   data: any;
 }
 
@@ -17,6 +18,7 @@ export interface OrderDetails {
   orderingPhysician: string;
   orderDateTime: string;
   labName: string;
+  accountNumber: string;
   sampleCollectionDateTime: string;
   labQuestions: Questionnaire;
 }

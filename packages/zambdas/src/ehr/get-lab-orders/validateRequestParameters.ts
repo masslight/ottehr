@@ -31,6 +31,7 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
   }
 
   return {
+    serviceRequestId,
     encounterId,
     patientId,
     orderableItemCode,

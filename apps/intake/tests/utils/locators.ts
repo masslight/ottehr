@@ -169,6 +169,43 @@ export class Locators {
   relayServiceNo: Locator;
   relayServiceYes: Locator;
   deleteButton: Locator;
+  photoPatientCondition: Locator;
+  neitherNotes: Locator;
+  schoolOnlyNotes: Locator;
+  workOnlyNotes: Locator;
+  schoolAndWorkNotes: Locator;
+  templatesBlock: Locator;
+  uploadSchoolTemplate: Locator;
+  uploadWorkTemplate: Locator;
+  schoolTemplateLabel: Locator;
+  workTemplateLabel: Locator;
+  removeFile: Locator;
+  schoolNoteFile: Locator;
+  workNoteFile: Locator;
+  inviteParticipantYes: Locator;
+  inviteeFirstName: Locator;
+  inviteeLastName: Locator;
+  inviteeEmail: Locator;
+  inviteePhone: Locator;
+  inviteeContactEmail: Locator;
+  inviteeContactPhone: Locator;
+  emailErrorText: Locator;
+  currentMedicationsChipStatus: Locator;
+  currentAllergiesChipStatus: Locator;
+  medicalHistoryChipStatus: Locator;
+  surgicalHistoryChipStatus: Locator;
+  additionalQuestionsChipStatus: Locator;
+  patientConditionChipStatus: Locator;
+  schoolWorkNotesChipStatus: Locator;
+  inviteParticipantChipStatus: Locator;
+  currentMedicationsEditButton: Locator;
+  currentAllergiesEditButton: Locator;
+  medicalHistoryEditButton: Locator;
+  surgicalHistoryEditButton: Locator;
+  additionalQuestionsEditButton: Locator;
+  patientConditionEditButton: Locator;
+  schoolWorkNotesEditButton: Locator;
+  inviteParticipantEditButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -194,6 +231,7 @@ export class Locators {
     this.bookAgainButton = page.getByRole('button', { name: 'Book again' });
     this.homeScreenHeading = page.getByRole('heading', { name: 'Welcome to Ottehr' });
     this.numberErrorText = page.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
+    this.emailErrorText = page.getByText('Email is not valid');
     this.zipErrorText = page.getByText('ZIP Code must be 5 numbers');
     this.dateOlder18YearsError = page.getByText('Must be 18 years or older');
     this.dateFutureError = page.getByText('Date may not be in the future');
@@ -321,10 +359,11 @@ export class Locators {
     this.pcpNumber = page.locator('[id="pcp-number"]');
     this.pcpNumberErrorText = page.locator('[id="pcp-number-helper-text"]');
 
-    // Photo ID locators
+    // Photo ID & Patient condition locators
     this.clearImage = page.getByRole('button', { name: 'Clear' });
     this.photoIdFrontImage = page.locator('#photo-id-front-description');
     this.photoIdBackImage = page.locator('#photo-id-back-description');
+    this.photoPatientCondition = page.locator('#patient-photos-description');
 
     // Paperwork errors locators
     this.paperworkSelectOptionFieldErrorMessage = page.getByText(
@@ -354,6 +393,30 @@ export class Locators {
       page.locator(`div[aria-labelledby='tested-positive-covid-label'] input[value='${flag}']`);
     this.travelUSA = (flag) => page.locator(`div[aria-labelledby='travel-usa-label'] input[value='${flag}']`);
 
+    // School/work notes
+    this.neitherNotes = page.getByText('Neither', { exact: true });
+    this.schoolOnlyNotes = page.getByText('School only', { exact: true });
+    this.workOnlyNotes = page.getByText('Work only', { exact: true });
+    this.schoolAndWorkNotes = page.getByText('Both school and work notes', { exact: true });
+    this.templatesBlock = page.locator('#group-wrapper-default');
+    this.uploadSchoolTemplate = page.locator("[id='school-work-note-template-upload-group.item.0']");
+    this.uploadWorkTemplate = page.locator("[id='school-work-note-template-upload-group.item.1']");
+    this.schoolTemplateLabel = page.locator('#school-work-note-template-school-label');
+    this.workTemplateLabel = page.locator('#school-work-note-template-work-label');
+    this.removeFile = page.getByTestId('DeleteForeverIcon');
+    this.schoolNoteFile = page.getByText('school-work-note-template-school.pdf');
+    this.workNoteFile = page.getByText('school-work-note-template-work.pdf');
+
+    // Paperwork - Invite participant
+    this.inviteParticipantYes = page.getByText('Yes, I will add invite details below');
+    this.inviteeFirstName = page.locator("[id='invite-first']");
+    this.inviteeLastName = page.locator("[id='invite-last']");
+    this.inviteeFirstName = page.locator("[id='invite-first']");
+    this.inviteeEmail = page.locator("[id='invite-email']");
+    this.inviteePhone = page.locator("[id='invite-phone']");
+    this.inviteeContactEmail = page.locator(`input[value='Email']`);
+    this.inviteeContactPhone = page.locator(`input[value='Phone']`);
+
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });
     this.patientNamePaperworkReviewScreen = page.getByTestId(dataTestIds.patientNamePaperworkReviewScreen);
@@ -373,6 +436,24 @@ export class Locators {
     this.responsiblePartyChipStatus = page.locator('[data-testid="responsible-party-page-status"] div');
     this.photoIdChipStatus = page.locator('[data-testid="photo-id-page-status"] div');
     this.consentFormsChipStatus = page.locator('[data-testid="consent-forms-page-status"] div');
+
+    // Paperwork Telemed - Review and Submit locators
+    this.currentMedicationsEditButton = page.getByTestId('current-medications-page-edit');
+    this.currentAllergiesEditButton = page.getByTestId('allergies-page-edit');
+    this.medicalHistoryEditButton = page.getByTestId('medical-history-page-edit');
+    this.surgicalHistoryEditButton = page.getByTestId('surgical-history-page-edit');
+    this.additionalQuestionsEditButton = page.getByTestId('additional-page-edit');
+    this.patientConditionEditButton = page.getByTestId('patient-condition-page-edit');
+    this.schoolWorkNotesEditButton = page.getByTestId('school-work-note-page-edit');
+    this.inviteParticipantEditButton = page.getByTestId('invite-participant-page-edit');
+    this.currentMedicationsChipStatus = page.locator('[data-testid="current-medications-page-status"] div');
+    this.currentAllergiesChipStatus = page.locator('[data-testid="allergies-page-status"] div');
+    this.medicalHistoryChipStatus = page.locator('[data-testid="medical-history-page-status"] div');
+    this.surgicalHistoryChipStatus = page.locator('[data-testid="surgical-history-page-status"] div');
+    this.additionalQuestionsChipStatus = page.locator('[data-testid="additional-page-status"] div');
+    this.patientConditionChipStatus = page.locator('[data-testid="patient-condition-page-status"] div');
+    this.schoolWorkNotesChipStatus = page.locator('[data-testid="school-work-note-page-status"] div');
+    this.inviteParticipantChipStatus = page.locator('[data-testid="invite-participant-page-status"] div');
   }
 
   private getInputByValue(value: string): Locator {

@@ -1,6 +1,6 @@
 import { Person } from 'fhir/r4b';
-import { getPatchBinary, performEffectWithEnvFile } from 'utils';
-import { createOystehrClientFromConfig } from './helpers';
+import { getPatchBinary } from 'utils';
+import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
 const cleanUserData = async (config: any): Promise<void> => {
   if (process.argv[2] === 'production') {

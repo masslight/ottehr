@@ -1,5 +1,6 @@
-import { BrowserContext, Page, expect, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
@@ -19,7 +20,7 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = await response.json();
+      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
       if (appointment && !appointmentIds.includes(appointment)) {
         appointmentIds.push(appointment);
       }
@@ -63,20 +64,25 @@ test.describe('Prebook In person visit - Paperwork submission flow with only req
     await paperwork.selectSelfPayPayment();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
+    await expect(locator.flowHeading).toHaveText('Credit card details');
+  });
+  test('PRF-4 Skip Card selection and proceed to responsible party page', async () => {
+    await commonLocatorsHelper.clickContinue();
+    await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Responsible party information');
   });
-  test('PRF-4 Fill responsible party details', async () => {
+  test('PRF-5 Fill responsible party details', async () => {
     await paperwork.fillResponsiblePartyDataSelf();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Photo ID');
   });
-  test('PRF-5 Skip photo ID and complete consent forms', async () => {
+  test('PRF-6 Skip photo ID and complete consent forms', async () => {
     await paperwork.skipPhotoID();
     await paperwork.fillConsentForms();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Review and submit');
   });
-  test('PRF-6 Submit paperwork', async () => {
+  test('PRF-7 Submit paperwork', async () => {
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toBeVisible();
     await expect(locator.flowHeading).toHaveText('Thank you for choosing Ottehr!');

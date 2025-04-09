@@ -27,7 +27,7 @@ export const ResponsibleInformationContainer: FC = () => {
     if (selfSelected) {
       for (let i = 0; i < localData.length; i++) {
         if (patientData[i] && localData[i] !== patientData[i]) {
-          // setValue(LocalDependentFields[i], patientData[i]);
+          setValue(LocalDependentFields[i], patientData[i]);
         }
       }
     }
@@ -35,10 +35,13 @@ export const ResponsibleInformationContainer: FC = () => {
 
   return (
     <Section title="Responsible party information" dataTestId={dataTestIds.responsiblePartyInformationContainer.id}>
-      <Row label={FormFields.relationship.label} required>
+      <Row
+        label={FormFields.relationship.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
+        required
+      >
         <FormSelect
           name={FormFields.relationship.key}
-          data-testid={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
           control={control}
           options={RELATIONSHIP_OPTIONS}
           rules={{
@@ -74,12 +77,16 @@ export const ResponsibleInformationContainer: FC = () => {
           required={true}
           defaultValue={''}
           disabled={selfSelected}
+          dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
         />
       </Row>
-      <Row label={FormFields.birthSex.label} required>
+      <Row
+        label={FormFields.birthSex.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
+        required
+      >
         <FormSelect
           name={FormFields.birthSex.key}
-          data-testid={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
           control={control}
           options={SEX_OPTIONS}
           rules={{

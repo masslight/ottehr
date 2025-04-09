@@ -17,7 +17,11 @@ interface CollectionInstructions {
 }
 
 // todo fix typo in name
-export const Questionarie: React.FC = () => {
+export const Questionarie: React.FC<{
+  showActionButtons?: boolean;
+  showOrderInfo?: boolean;
+  isAOECollapsed?: boolean;
+}> = ({ showActionButtons = true, showOrderInfo = true, isAOECollapsed = false }) => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
   const [serviceRequest, setServiceRequest] = useState<OrderDetails | undefined>(undefined);
@@ -26,7 +30,7 @@ export const Questionarie: React.FC = () => {
   const initialAoe: QuestionnaireItem[] = [];
   const [aoe, setAoe] = useState(initialAoe);
   const [isLoading, setIsLoading] = useState(true);
-  const [taskStatus, setTaskStatus] = useState('pending' as StatusString);
+  const [_taskStatus, setTaskStatus] = useState('pending' as StatusString);
 
   const handleSampleCollectionTaskChange = useCallback(() => setTaskStatus('collected'), [setTaskStatus]);
 
@@ -79,8 +83,12 @@ export const Questionarie: React.FC = () => {
       specimen={specimen}
       serviceRequestID={serviceRequestID}
       serviceRequest={serviceRequest}
+      accountNumber={serviceRequest.accountNumber}
       _onCollectionSubmit={handleSampleCollectionTaskChange}
       oystehr={oystehrZambda}
+      showActionButtons={showActionButtons}
+      showOrderInfo={showOrderInfo}
+      isAOECollapsed={isAOECollapsed}
     />
   );
 };

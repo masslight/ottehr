@@ -34,6 +34,7 @@ import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { enqueueSnackbar } from 'notistack';
+import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 
 enum LoadingState {
   initial,
@@ -202,187 +203,189 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   }
 
   return (
-    <Stack spacing={2} sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-          Order Lab
-        </Typography>
-      </Box>
+    <WithLabBreadcrumbs sectionName="Order Lab">
+      <Stack spacing={2} sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+            Order Lab
+          </Typography>
+        </Box>
 
-      {loadingState !== LoadingState.loaded ? (
-        <LabOrderLoading />
-      ) : (
-        <form onSubmit={handleSubmit}>
-          <Paper sx={{ p: 3 }}>
-            <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                  Dx
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="select-dx-label" shrink>
+        {loadingState !== LoadingState.loaded ? (
+          <LabOrderLoading />
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <Paper sx={{ p: 3 }}>
+              <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
                     Dx
-                  </InputLabel>
-                  <Select
-                    notched
-                    fullWidth
-                    id="select-dx"
-                    label="Dx"
-                    onChange={(e) => {
-                      const selectedDxCode = e.target.value;
-                      const selectedDx = diagnosis?.find((tempDx) => tempDx.code === selectedDxCode);
-                      if (selectedDx) {
-                        const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
-                        if (!alreadySelected) {
-                          setOrderDx([...orderDx, selectedDx]);
-                        } else {
-                          enqueueSnackbar('This Dx is already added to the order', {
-                            variant: 'error',
-                          });
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel id="select-dx-label" shrink>
+                      Dx
+                    </InputLabel>
+                    <Select
+                      notched
+                      fullWidth
+                      id="select-dx"
+                      label="Dx"
+                      onChange={(e) => {
+                        const selectedDxCode = e.target.value;
+                        const selectedDx = diagnosis?.find((tempDx) => tempDx.code === selectedDxCode);
+                        if (selectedDx) {
+                          const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                          if (!alreadySelected) {
+                            setOrderDx([...orderDx, selectedDx]);
+                          } else {
+                            enqueueSnackbar('This Dx is already added to the order', {
+                              variant: 'error',
+                            });
+                          }
                         }
+                      }}
+                      displayEmpty
+                      value=""
+                      sx={{
+                        '& .MuiInputLabel-root': {
+                          top: -8,
+                        },
+                      }}
+                      size="small"
+                    >
+                      <MenuItem value="" disabled>
+                        <Typography sx={{ color: '#9E9E9E' }}>Add a Dx to Order</Typography>
+                      </MenuItem>
+                      {diagnosis?.map((d) => (
+                        <MenuItem id={d.resourceId} key={d.resourceId} value={d.code}>
+                          {d.code} {d.display}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12}>
+                  <Autocomplete
+                    blurOnSelect
+                    id="select-additional-dx"
+                    size="small"
+                    fullWidth
+                    noOptionsText={
+                      debouncedSearchTerm && icdSearchOptions.length === 0
+                        ? 'Nothing found for this search criteria'
+                        : 'Start typing to load results'
+                    }
+                    value={null}
+                    isOptionEqualToValue={(option, value) => value.code === option.code}
+                    onChange={(event: any, selectedDx: any) => {
+                      const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                      if (!alreadySelected) {
+                        setOrderDx([...orderDx, selectedDx]);
+                      } else {
+                        enqueueSnackbar('This Dx is already added to the order', {
+                          variant: 'error',
+                        });
                       }
                     }}
-                    displayEmpty
-                    value=""
-                    sx={{
-                      '& .MuiInputLabel-root': {
-                        top: -8,
-                      },
-                    }}
-                    size="small"
-                  >
-                    <MenuItem value="" disabled>
-                      <Typography sx={{ color: '#9E9E9E' }}>Add a Dx to Order</Typography>
-                    </MenuItem>
-                    {diagnosis?.map((d) => (
-                      <MenuItem id={d.resourceId} key={d.resourceId} value={d.code}>
-                        {d.code} {d.display}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <Autocomplete
-                  blurOnSelect
-                  id="select-additional-dx"
-                  size="small"
-                  fullWidth
-                  noOptionsText={
-                    debouncedSearchTerm && icdSearchOptions.length === 0
-                      ? 'Nothing found for this search criteria'
-                      : 'Start typing to load results'
-                  }
-                  value={null}
-                  isOptionEqualToValue={(option, value) => value.code === option.code}
-                  onChange={(event: any, selectedDx: any) => {
-                    const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
-                    if (!alreadySelected) {
-                      setOrderDx([...orderDx, selectedDx]);
-                    } else {
-                      enqueueSnackbar('This Dx is already added to the order', {
-                        variant: 'error',
-                      });
+                    loading={isSearching}
+                    options={icdSearchOptions}
+                    getOptionLabel={(option) =>
+                      typeof option === 'string' ? option : `${option.code} ${option.display}`
                     }
-                  }}
-                  loading={isSearching}
-                  options={icdSearchOptions}
-                  getOptionLabel={(option) =>
-                    typeof option === 'string' ? option : `${option.code} ${option.display}`
-                  }
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                      label="Additional Dx"
-                      placeholder="Search for Dx if not on list above"
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  )}
-                />
-              </Grid>
-              {orderDx.length > 0 && (
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    <ActionsList
-                      data={orderDx}
-                      getKey={(value, index) => value.resourceId || index}
-                      renderItem={(value) => (
-                        <Typography>
-                          {value.display} {value.code}
-                        </Typography>
-                      )}
-                      renderActions={(value) => (
-                        <DeleteIconButton
-                          onClick={() => setOrderDx(() => orderDx.filter((dxVal) => dxVal.code !== value.code))}
-                        />
-                      )}
-                    />
-                  </Box>
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                        label="Additional Dx"
+                        placeholder="Search for Dx if not on list above"
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    )}
+                  />
                 </Grid>
-              )}
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                  Patient insurance
-                </Typography>
-                <Typography variant="body2" sx={{ paddingTop: '8px' }}>
-                  {coverageName}
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                  Lab
-                </Typography>
-                <LabsAutocomplete
-                  selectedLab={selectedLab}
-                  setSelectedLab={setSelectedLab}
-                  labs={labs}
-                ></LabsAutocomplete>
-              </Grid>
-              <Grid item xs={12}>
-                {/* disabling this field as we are only allowing psc orders for mvp */}
-                <FormControlLabel
-                  sx={{ fontSize: '14px' }}
-                  control={<Switch checked={psc} onChange={() => setPsc(!psc)} disabled />}
-                  label={<Typography variant="body2">PSC</Typography>}
-                />
-              </Grid>
-              <Grid item xs={6}>
-                <Button
-                  variant="outlined"
-                  sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                  onClick={() => {
-                    navigate(`/in-person/${appointment?.id}/external-lab-orders`);
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Grid>
-              <Grid item xs={6} display="flex" justifyContent="flex-end">
-                <LoadingButton
-                  loading={submitting}
-                  type="submit"
-                  variant="contained"
-                  sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                >
-                  Order
-                </LoadingButton>
-              </Grid>
-              {error &&
-                error.length > 0 &&
-                error.map((msg, idx) => (
-                  <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                    <Typography sx={{ color: theme.palette.error.main }}>
-                      {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                    </Typography>
+                {orderDx.length > 0 && (
+                  <Grid item xs={12}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <ActionsList
+                        data={orderDx}
+                        getKey={(value, index) => value.resourceId || index}
+                        renderItem={(value) => (
+                          <Typography>
+                            {value.display} {value.code}
+                          </Typography>
+                        )}
+                        renderActions={(value) => (
+                          <DeleteIconButton
+                            onClick={() => setOrderDx(() => orderDx.filter((dxVal) => dxVal.code !== value.code))}
+                          />
+                        )}
+                      />
+                    </Box>
                   </Grid>
-                ))}
-            </Grid>
-          </Paper>
-        </form>
-      )}
-    </Stack>
+                )}
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+                    Patient insurance
+                  </Typography>
+                  <Typography variant="body2" sx={{ paddingTop: '8px' }}>
+                    {coverageName}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+                    Lab
+                  </Typography>
+                  <LabsAutocomplete
+                    selectedLab={selectedLab}
+                    setSelectedLab={setSelectedLab}
+                    labs={labs}
+                  ></LabsAutocomplete>
+                </Grid>
+                <Grid item xs={12}>
+                  {/* disabling this field as we are only allowing psc orders for mvp */}
+                  <FormControlLabel
+                    sx={{ fontSize: '14px' }}
+                    control={<Switch checked={psc} onChange={() => setPsc(!psc)} disabled />}
+                    label={<Typography variant="body2">PSC</Typography>}
+                  />
+                </Grid>
+                <Grid item xs={6}>
+                  <Button
+                    variant="outlined"
+                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                    onClick={() => {
+                      navigate(`/in-person/${appointment?.id}/external-lab-orders`);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </Grid>
+                <Grid item xs={6} display="flex" justifyContent="flex-end">
+                  <LoadingButton
+                    loading={submitting}
+                    type="submit"
+                    variant="contained"
+                    sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    Order
+                  </LoadingButton>
+                </Grid>
+                {error &&
+                  error.length > 0 &&
+                  error.map((msg, idx) => (
+                    <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                      <Typography sx={{ color: theme.palette.error.main }}>
+                        {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                      </Typography>
+                    </Grid>
+                  ))}
+              </Grid>
+            </Paper>
+          </form>
+        )}
+      </Stack>
+    </WithLabBreadcrumbs>
   );
 };
