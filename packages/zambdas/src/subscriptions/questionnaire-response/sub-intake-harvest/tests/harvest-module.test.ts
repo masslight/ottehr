@@ -135,6 +135,7 @@ describe('Harvest Module', () => {
   it('should extract primary policy holder information from answers', () => {
     const expectedPrimaryPolicyHolder = {
       firstName: 'Barnabas',
+      middleName: 'Thaddeus',
       lastName: 'Picklesworth',
       dob: '1982-02-23',
       birthSex: 'Male',
@@ -156,6 +157,7 @@ describe('Harvest Module', () => {
   it('should extract secondary policy holder information from answers', () => {
     const expectedSecondaryPolicyHolder = {
       firstName: 'Jennifer',
+      middleName: 'Celeste',
       lastName: 'Picklesworth',
       dob: '1983-02-23',
       birthSex: 'Female',
@@ -475,7 +477,7 @@ describe('Harvest Module', () => {
       id: uuidv4(),
       name: [
         {
-          given: ['Barnabas'],
+          given: ['Barnabas', 'Thaddeus'],
           family: 'Picklesworth',
         },
       ],
@@ -559,7 +561,7 @@ describe('Harvest Module', () => {
       id: uuidv4(),
       name: [
         {
-          given: ['Jennifer'],
+          given: ['Jennifer', 'Celeste'],
           family: 'Picklesworth',
         },
       ],
@@ -2881,6 +2883,11 @@ const questionnaireResponse1: QuestionnaireResponse = {
         },
         {
           linkId: 'policy-holder-middle-name',
+          answer: [
+            {
+              valueString: 'Thaddeus',
+            },
+          ],
         },
         {
           linkId: 'policy-holder-last-name',
@@ -3033,6 +3040,11 @@ const questionnaireResponse1: QuestionnaireResponse = {
             },
             {
               linkId: 'policy-holder-middle-name-2',
+              answer: [
+                {
+                  valueString: 'Celeste',
+                },
+              ],
             },
             {
               linkId: 'policy-holder-last-name-2',
