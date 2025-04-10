@@ -10,7 +10,7 @@ import {
 } from 'utils';
 import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
 import Oystehr from '@oystehr/sdk';
-import { invokeChatbot } from '../common';
+import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';
 
