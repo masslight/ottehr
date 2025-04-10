@@ -108,7 +108,7 @@ export async function getSchedules(
   if (scheduleOwner?.resourceType === 'HealthcareService') {
     hsSchedulingStrategy = scheduleStrategyForHealthcareService(scheduleOwner as HealthcareService);
   }
-  if (hsSchedulingStrategy === undefined) {
+  if (hsSchedulingStrategy === undefined && scheduleOwner?.resourceType === 'HealthcareService') {
     throw MISCONFIGURED_SCHEDULING_GROUP(
       `HealthcareService/${scheduleOwner?.id} needs to be (configured with a scheduling strategy)[todo: link to docs] in order to be used as a schedule provider.`
     );
@@ -134,6 +134,22 @@ export async function getSchedules(
       `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite (schedule extension json)[todo: link to docs].`
     );
   }
+
+  const practitioners: Practitioner[] = [];
+  const schedules: Schedule[] = [];
+  const locations: Location[] = [];
+
+  scheduleResources.forEach((res) => {
+    if (res.resourceType === 'Practitioner') {
+      practitioners.push(res);
+    }
+    if (res.resourceType === 'Schedule') {
+      schedules.push(res);
+    }
+    if (res.resourceType === 'Location') {
+      locations.push(res);
+    }
+  });
 
   const scheduleList: BookableScheduleData['scheduleList'] = [];
   if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsProviders) {
@@ -195,6 +211,13 @@ export async function getSchedules(
         }
       }
     });
+  }
+
+  if (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns) {
+    const matchingSchedules = schedules.filter((res) => {
+      return res.actor?.[0]?.reference === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
+    });
+    scheduleList.push(...matchingSchedules.map((sched) => ({ schedule: sched, owner: scheduleOwner })));
   }
 
   return {
