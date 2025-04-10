@@ -785,6 +785,18 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
+    },
+    "AI-INTERVIEW-SUMMARY": {
+      "name": "AI-INTERVIEW-SUMMARY",
+      "type": "subscription",
+      "runtime": "nodejs20.x",
+      "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
+      "zip": ".dist/zips/ai-interview-summary.zip",
+      "subscription": {
+        "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
+        "reason": "Generate summary of chat with AI",
+        "event": "create"
+      }
     }
   },
   "fhirResources": {
