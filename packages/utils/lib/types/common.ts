@@ -468,7 +468,6 @@ export enum FhirAppointmentType {
   walkin = 'walkin',
   posttelemed = 'posttelemed',
   prebook = 'prebook',
-  virtual = 'virtual',
 }
 
 // internal communication coding

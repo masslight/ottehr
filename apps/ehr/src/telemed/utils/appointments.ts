@@ -281,6 +281,7 @@ export type GetAppointmentsRequestParams = Pick<
   | 'patientFilter'
   | 'statusesFilter'
   | 'locationsIdsFilter'
+  | 'visitTypesFilter'
 >;
 
 export const APPT_STATUS_MAP: {

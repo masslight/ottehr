@@ -1,5 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Appointment, Location, Schedule, Slot, Encounter, Practitioner, HealthcareService, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, HealthcareService, Location, Practitioner, Resource, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Closure,
@@ -7,11 +7,11 @@ import {
   getDateTimeFromDateAndTime,
   getPatchOperationForNewMetaTag,
   OVERRIDE_DATE_FORMAT,
-  VisitType,
-  scheduleStrategyForHealthcareService,
-  ScheduleStrategy,
-  SCHEDULE_NUM_DAYS,
   SCHEDULE_EXTENSION_URL,
+  SCHEDULE_NUM_DAYS,
+  ScheduleStrategy,
+  scheduleStrategyForHealthcareService,
+  VisitType,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -170,7 +170,9 @@ export function getScheduleDetails(
   return { schedule, scheduleOverrides, closures };
 }
 
-export function getTimezone(schedule: Location | Practitioner | HealthcareService): string {
+export function getTimezone(
+  schedule: Pick<Location | HealthcareService | Practitioner, 'extension' | 'resourceType' | 'id'>
+): string {
   const timezone = schedule.extension?.find(
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;

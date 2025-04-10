@@ -13,6 +13,7 @@ import { useTrackingBoardStore } from '../../state';
 import { UnsignedFor } from '../../utils';
 import { LocationsSelect } from './LocationSelect';
 import { StateSelect } from './StateSelect';
+import { VisitTypeSelect } from './VisitTypeSelect';
 
 const selectOptions = [
   {
@@ -98,7 +99,6 @@ export const TrackingBoardFilters: FC<{ tab: ApptTelemedTab }> = (props) => {
     setGroups(value);
     useTrackingBoardStore.setState({ groups: value });
   };
-  const useDate = tab === ApptTelemedTab.complete;
   const useUnsigned = tab === ApptTelemedTab['not-signed'];
   const useFirst = tab === ApptTelemedTab.ready;
 
@@ -125,18 +125,19 @@ export const TrackingBoardFilters: FC<{ tab: ApptTelemedTab }> = (props) => {
             handleSubmit={handleGroupChange}
           ></GroupSelect>
         </Grid>
-        {useDate && (
-          <Grid item xs={6}>
-            <DateSearch
-              label="Date"
-              date={date}
-              setDate={(date) => useTrackingBoardStore.setState({ date })}
-              updateURL={false}
-              storeDateInLocalStorage={false}
-              defaultValue={DateTime.now()}
-            />
-          </Grid>
-        )}
+        <Grid item xs={6}>
+          <DateSearch
+            label="Date"
+            date={date}
+            setDate={(date) => useTrackingBoardStore.setState({ date })}
+            updateURL={false}
+            storeDateInLocalStorage={false}
+            defaultValue={DateTime.now()}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <VisitTypeSelect />
+        </Grid>
         {useUnsigned && (
           <Grid item xs={6}>
             <FormControl fullWidth>

@@ -1,15 +1,16 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner, Encounter } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Practitioner } from 'fhir/r4b';
 import {
-  PatientFollowupDetails,
-  FhirAppointmentType,
-  PractitionerLicense,
-  VisitStatusWithoutUnknown,
   DiagnosisDTO,
+  FhirAppointmentType,
   OrderableItemSearchResult,
   OTTEHR_MODULE,
+  PatientFollowupDetails,
+  PractitionerLicense,
+  ScheduleType,
+  ServiceMode,
+  VisitStatusWithoutUnknown,
 } from 'utils';
-import { ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: string;
@@ -109,7 +110,6 @@ export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = 
   prebook: 'Pre-booked',
   walkin: 'Walk-in',
   posttelemed: 'Post Telemed',
-  virtual: 'Telemed',
 };
 
 // this might be a bit redundant given the AppointmentType type. is "booked" still used somewhere?
@@ -150,14 +150,13 @@ export const getVisitTypeLabelForAppointment = (appointment: Appointment): strin
   const isFhirAppointmentMetaTagTelemed = appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
 
   if (fhirAppointmentType === FhirAppointmentType.walkin) {
-    return 'Walk-in In Person Visit';
+    if (isFhirAppointmentMetaTagTelemed) return 'Pre-booked Telemed';
+    return 'Telemed';
   } else if (fhirAppointmentType === FhirAppointmentType.posttelemed) {
     return 'Post Telemed Lab Only';
   } else if (fhirAppointmentType === FhirAppointmentType.prebook) {
     if (isFhirAppointmentMetaTagTelemed) return 'Pre-booked Telemed';
     return 'Pre-booked In Person Visit';
-  } else if (fhirAppointmentType === FhirAppointmentType.virtual) {
-    return 'Telemed';
   }
   return '-';
 };

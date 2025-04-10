@@ -2,8 +2,8 @@ import { Encounter, QuestionnaireResponse, Resource } from 'fhir/r4b';
 import { TelemedCallStatuses } from 'utils';
 import { removePrefix, telemedStatusToEncounter } from '../../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
-import { LocationIdToAbbreviationMap } from './types';
 import { telemedStatusToAppointment } from './helpers';
+import { LocationIdToAbbreviationMap } from './types';
 
 export const mapTelemedStatusToEncounterAndAppointment = (
   telemedStatuses: TelemedCallStatuses[]
@@ -68,8 +68,8 @@ export const mapStatesToLocationIds = (
 ): string[] => {
   const resultIds: string[] = [];
   statesAbbreviations.forEach((abbreviation) => {
-    const locationId = virtualLocationsMap[abbreviation];
-    if (locationId) resultIds.push(locationId);
+    const location = virtualLocationsMap[abbreviation];
+    if (location) resultIds.push(location.id!);
   });
   return resultIds;
 };
