@@ -3,6 +3,7 @@ import Oystehr from '@oystehr/sdk';
 import { Location } from 'fhir/r4b';
 import { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { isLocationVirtual } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { sortLocationsByLabel } from '../../../helpers';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
@@ -85,6 +86,7 @@ export function LocationsSelect(): ReactElement {
 
   return (
     <Autocomplete
+      data-testid={dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect}
       value={currentDropdownValues}
       onChange={handleLocationsChange}
       getOptionLabel={(state) => state.label || 'Unknown'}

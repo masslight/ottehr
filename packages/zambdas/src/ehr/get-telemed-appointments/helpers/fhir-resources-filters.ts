@@ -6,7 +6,7 @@ import { getLocationIdFromAppointment } from './helpers';
 import { mapQuestionnaireToEncountersIds, mapTelemedEncountersToAppointmentsIdsMap } from './mappers';
 import { AppointmentPackage, LocationIdToAbbreviationMap } from './types';
 
-export const filterLocationForAppointment = (
+export const findVirtualLocationForAppointment = (
   appointment: Appointment,
   virtualLocationsMap: LocationIdToAbbreviationMap
 ): AppointmentLocation | undefined => {
@@ -77,13 +77,13 @@ export const filterAppointmentsFromResources = (
       const paperwork = encounterQuestionnaireMap[encounter.id!];
 
       if (telemedStatus && statusesFilter.includes(telemedStatus)) {
-        const location = filterLocationForAppointment(appointment, virtualLocationsMap);
+        const locationVirtual = findVirtualLocationForAppointment(appointment, virtualLocationsMap);
         const practitioner = filterPractitionerForEncounter(allResources, encounter);
 
         resultAppointments.push({
           appointment,
           paperwork,
-          location,
+          locationVirtual,
           encounter,
           telemedStatus,
           practitioner,

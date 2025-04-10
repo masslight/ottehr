@@ -118,6 +118,16 @@ export class ResourceHandler {
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
 
+  public static async getOystehr(): Promise<Oystehr> {
+    const authToken = await getAuth0Token();
+    const oystehr = new Oystehr({
+      accessToken: authToken,
+      fhirApiUrl: process.env.FHIR_API,
+      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
+    });
+    return oystehr;
+  }
+
   constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.#flow = flow;
     this.#paperworkAnswers = paperworkAnswers;
