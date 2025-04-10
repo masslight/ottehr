@@ -7,7 +7,7 @@ import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import AiSuggestion from '../../../../../components/AiSuggestion';
-import { HISTORY_OBTAINED_FROM_FIELD, HistorySourceKeys, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, HISTORY_OBTAINED_FROM_FIELD, HistorySourceKeys, ObservationTextFieldDTO } from 'utils';
 
 export const ChiefComplaintPatientColumn: FC = () => {
   const theme = useTheme();
@@ -52,7 +52,7 @@ export const ChiefComplaintPatientColumn: FC = () => {
   }, [getAccessTokenSilently, patientPhotoUrls]);
 
   const aiHistoryOfPresentIllness = chartData?.observations?.find(
-    (observation) => observation.field === 'historyOfPresentIllness'
+    (observation) => observation.field === AiObservationField.HistoryOfPresentIllness
   ) as ObservationTextFieldDTO;
 
   return (

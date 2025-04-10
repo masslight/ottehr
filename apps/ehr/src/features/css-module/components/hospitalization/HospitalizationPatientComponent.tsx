@@ -4,7 +4,7 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
 import { PatientSideListSkeleton } from '../../../../telemed/features/appointment';
 import { useAppointment } from '../../hooks/useAppointment';
-import { ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../../components/AiSuggestion';
 
 export const HospitalizationPatientComponent: FC = () => {
@@ -16,7 +16,7 @@ export const HospitalizationPatientComponent: FC = () => {
   const hospitalizations = questionnaire.hospitalizations;
 
   const aiHospitalization = chartData?.observations?.find(
-    (observation) => observation.field === 'todo'
+    (observation) => observation.field === AiObservationField.HospitalizationsHistory
   ) as ObservationTextFieldDTO;
 
   return (

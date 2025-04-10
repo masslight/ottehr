@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
@@ -24,7 +24,7 @@ export const KnownAllergiesPatientColumn: FC<{ noItemsMessage?: string }> = ({ n
   );
 
   const aiAllergies = chartData?.observations?.find(
-    (observation) => observation.field === 'allergies'
+    (observation) => observation.field === AiObservationField.Allergies
   ) as ObservationTextFieldDTO;
 
   return (

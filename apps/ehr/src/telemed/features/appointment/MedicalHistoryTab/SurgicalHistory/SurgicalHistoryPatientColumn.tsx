@@ -1,6 +1,6 @@
 import React, { FC } from 'react';
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
+import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
@@ -19,7 +19,7 @@ export const SurgicalHistoryPatientColumn: FC = () => {
     ?.valueArray;
 
   const aiPastSurgicalHistory = chartData?.observations?.find(
-    (observation) => observation.field === 'pastSurgicalHistory'
+    (observation) => observation.field === AiObservationField.PastSurgicalHistory
   ) as ObservationTextFieldDTO;
 
   return (
