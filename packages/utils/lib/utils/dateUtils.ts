@@ -4,9 +4,9 @@ import { formatDate } from 'utils';
 import { Capacity, FIRST_AVAILABLE_SLOT_OFFSET_IN_MINUTES, SlotCapacityMap } from './scheduleUtils';
 
 export function createMinimumAndMaximumTime(date: DateTime, numDays: number): { minimum: string; maximum: string } {
-  const startTime = formatDate(date.startOf('day'));
+  const startTime = formatDate(date.startOf('day').toISO() as string);
   const finishTime = date.plus({ days: numDays });
-  const maximum = formatDate(finishTime.endOf('day'));
+  const maximum = formatDate(finishTime.endOf('day').toISO() as string);
   return { minimum: startTime, maximum: maximum };
 }
 

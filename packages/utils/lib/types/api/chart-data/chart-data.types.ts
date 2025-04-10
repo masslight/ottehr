@@ -320,6 +320,7 @@ export interface DiagnosisDTO extends SaveableDTO {
   code: string;
   display: string;
   isPrimary: boolean;
+  addedViaLabOrder?: boolean;
 }
 
 export interface BirthHistoryDTO extends SaveableDTO {

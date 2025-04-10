@@ -1,13 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  DiagnosisDTO,
   OrderableItemSearchResult,
   PSC_HOLD_CONFIG,
   LAB_ORDER_TASK,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
-  Secrets,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -22,23 +20,16 @@ import {
   Coverage,
   ActivityDefinition,
   Patient,
+  Account,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import Oystehr from '@oystehr/sdk';
 import { createOystehrClient } from '../../shared/helpers';
 import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared/types';
-
-export interface SubmitLabOrder {
-  dx: DiagnosisDTO[];
-  encounter: Encounter;
-  practitionerId: string;
-  orderableItem: OrderableItemSearchResult;
-  pscHold: boolean;
-  secrets: Secrets | null;
-}
+import { getPrimaryInsurance } from '../shared/labs';
+import { getMyPractitionerId } from '../../shared';
 
 let m2mtoken: string;
 
@@ -46,13 +37,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { dx, encounter, practitionerId, orderableItem, pscHold, secrets } = validatedParameters;
+    const { dx, encounter, orderableItem, psc, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
+    const userToken = input.headers.Authorization.replace('Bearer ', '');
+    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
+    let practitionerId: string | undefined;
+    try {
+      practitionerId = await getMyPractitionerId(oystehrCurrentUser);
+    } catch (e) {
+      throw new Error('User creating this lab order must have a Practitioner resource linked');
+    }
+
+    console.log('encounter id', encounter.id);
     const { labOrganization, coverage, location, patientId, existingActivityDefinition } = await getAdditionalResources(
       orderableItem,
       encounter,
@@ -67,7 +68,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const requests: BatchInputRequest<FhirResource>[] = [];
 
-    const serviceRequestCode = fromateSrCode(orderableItem);
+    const serviceRequestCode = formatSrCode(orderableItem);
     const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
       return {
         coding: [
@@ -87,11 +88,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       subject: {
         reference: `Patient/${patientId}`,
       },
-      insurance: [
-        {
-          reference: `Coverage/${coverage.id}`,
-        },
-      ],
       encounter: {
         reference: `Encounter/${encounter.id}`,
       },
@@ -103,13 +99,26 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `Organization/${labOrganization.id}`,
         },
       ],
+      locationReference: [
+        {
+          type: 'Location',
+          reference: `Location/${location.id}`,
+        },
+      ],
       priority: 'routine',
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,
       instantiatesCanonical: [`#${activityDefinitionId}`],
       contained: [activityDefinitionToContain],
     };
-    if (pscHold) {
+    if (coverage) {
+      serviceRequestConfig.insurance = [
+        {
+          reference: `Coverage/${coverage.id}`,
+        },
+      ];
+    }
+    if (psc) {
       serviceRequestConfig.orderDetail = [
         {
           coding: [
@@ -221,7 +230,7 @@ const formatAoeQR = (
   };
 };
 
-const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
+const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest['code'] => {
   const coding: Coding[] = [
     {
       system: OYSTEHR_LAB_OI_CODE_SYSTEM,
@@ -229,6 +238,12 @@ const fromateSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest
       display: orderableItem.item.itemName,
     },
   ];
+  if (orderableItem.item.itemLoinc) {
+    coding.push({
+      system: 'http://loinc.org',
+      code: orderableItem.item.itemLoinc,
+    });
+  }
   return {
     coding,
     text: orderableItem.item.itemName,
@@ -299,7 +314,7 @@ const getAdditionalResources = async (
   oystehr: Oystehr
 ): Promise<{
   labOrganization: Organization;
-  coverage: Coverage;
+  coverage?: Coverage;
   location: Location;
   patientId: string;
   existingActivityDefinition: ActivityDefinition | undefined;
@@ -313,9 +328,9 @@ const getAdditionalResources = async (
     method: 'GET',
     url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
   };
-  const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage> = {
+  const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage | Account> = {
     method: 'GET',
-    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient`,
+    url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient`,
   };
 
   console.log('searching for lab org, activity definition, and encounter resources');
@@ -326,26 +341,36 @@ const getAdditionalResources = async (
   const labOrganizationSearchResults: Organization[] = [];
   const activityDefinitionSearchResults: ActivityDefinition[] = [];
   const coverageSearchResults: Coverage[] = [];
+  const accountSearchResults: Account[] = [];
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenBundleResources(searchResults);
+  const resources = flattenBundleResources<Organization | ActivityDefinition | Coverage | Patient | Location | Account>(
+    searchResults
+  );
+
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
     if (resource.resourceType === 'ActivityDefinition')
       activityDefinitionSearchResults.push(resource as ActivityDefinition);
-    if (resource.resourceType === 'Coverage') coverageSearchResults.push(resource as Coverage);
+    if (resource.resourceType === 'Coverage' && resource.status === 'active')
+      coverageSearchResults.push(resource as Coverage);
     if (resource.resourceType === 'Patient') patientId = resource.id;
     if (resource.resourceType === 'Location') location = resource as Location;
+    if (resource.resourceType === 'Account' && resource.status === 'active')
+      accountSearchResults.push(resource as Account);
   });
 
+  if (accountSearchResults.length !== 1)
+    throw new Error('patient must have one account account record to represent a guarantor to order labs');
+
+  const patientAccount = accountSearchResults[0];
+  const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverageSearchResults);
+
   const missingRequiredResourcse: string[] = [];
-  const coverage = coverageSearchResults?.[0]; // todo how to confirm primary?
-  if (!coverage) missingRequiredResourcse.push('coverage');
   if (!patientId) missingRequiredResourcse.push('patient');
   if (!location) missingRequiredResourcse.push('location');
-  if (!coverage) missingRequiredResourcse.push('coverage');
-  if (!coverage || !patientId || !location || !coverage) {
+  if (!patientId || !location) {
     throw new Error(
       `The following resources could not be found for this encounter: ${missingRequiredResourcse.join(', ')}`
     );
@@ -359,7 +384,7 @@ const getAdditionalResources = async (
 
   return {
     labOrganization,
-    coverage,
+    coverage: patientPrimaryInsurance,
     location,
     patientId,
     existingActivityDefinition: activityDefinitionSearchResults?.[0],

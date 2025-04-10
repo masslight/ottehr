@@ -166,8 +166,8 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
   if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
     try {
-      const bundleResources = flattenBundleResources(accountBundle);
-      const accountResource = bundleResources.find((res) => res.resourceType === 'Account') as Account;
+      const bundleResources = flattenBundleResources<FhirResource>(accountBundle);
+      const accountResource = bundleResources.find((res): res is Account => res.resourceType === 'Account');
       if (accountResource) {
         const guarantorReference = getActiveAccountGuarantorReference(accountResource);
         if (guarantorReference) {
