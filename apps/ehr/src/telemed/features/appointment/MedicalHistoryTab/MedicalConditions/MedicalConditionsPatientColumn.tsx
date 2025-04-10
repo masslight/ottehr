@@ -1,20 +1,26 @@
 import React, { FC } from 'react';
 import { Box, Divider, Typography, useTheme } from '@mui/material';
-import { getQuestionnaireResponseByLinkId } from 'utils';
+import { getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import AiSuggestion from '../../../../../components/AiSuggestion';
 
 export const MedicalConditionsPatientColumn: FC = () => {
   const theme = useTheme();
 
-  const { questionnaireResponse, isAppointmentLoading } = getSelectors(useAppointmentStore, [
+  const { questionnaireResponse, isAppointmentLoading, chartData } = getSelectors(useAppointmentStore, [
     'questionnaireResponse',
     'isAppointmentLoading',
+    'chartData',
   ]);
   const medicalConditions = getQuestionnaireResponseByLinkId('medical-history', questionnaireResponse)?.answer?.[0]
     ?.valueArray;
+
+  const aiPastMedicalHistory = chartData?.observations?.find(
+    (observation) => observation.field === 'pastMedicalHistory'
+  ) as ObservationTextFieldDTO;
 
   return (
     <Box
@@ -37,6 +43,12 @@ export const MedicalConditionsPatientColumn: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>Patient has no medical conditions</Typography>
       )}
+      {aiPastMedicalHistory ? (
+        <>
+          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
+          <AiSuggestion title={'Past Medical History (PMH)'} content={aiPastMedicalHistory.value} />
+        </>
+      ) : undefined}
     </Box>
   );
 };

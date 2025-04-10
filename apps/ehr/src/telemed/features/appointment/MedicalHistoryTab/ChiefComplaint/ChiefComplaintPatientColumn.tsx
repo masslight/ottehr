@@ -6,13 +6,16 @@ import { getPresignedFileUrl } from '../../../../../helpers/files.helper';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import AiSuggestion from '../../../../../components/AiSuggestion';
+import { HISTORY_OBTAINED_FROM_FIELD, HistorySourceKeys, ObservationTextFieldDTO } from 'utils';
 
 export const ChiefComplaintPatientColumn: FC = () => {
   const theme = useTheme();
-  const { isAppointmentLoading, patientPhotoUrls, appointment } = getSelectors(useAppointmentStore, [
+  const { isAppointmentLoading, patientPhotoUrls, appointment, chartData } = getSelectors(useAppointmentStore, [
     'isAppointmentLoading',
     'patientPhotoUrls',
     'appointment',
+    'chartData',
   ]);
 
   const [signedPhotoUrls, setSignedPhotoUrls] = useState<string[]>([]);
@@ -47,6 +50,10 @@ export const ChiefComplaintPatientColumn: FC = () => {
       void getPresignedPhotoUrls();
     }
   }, [getAccessTokenSilently, patientPhotoUrls]);
+
+  const aiHistoryOfPresentIllness = chartData?.observations?.find(
+    (observation) => observation.field === 'historyOfPresentIllness'
+  ) as ObservationTextFieldDTO;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -112,6 +119,12 @@ export const ChiefComplaintPatientColumn: FC = () => {
           )}
         </Box>
       )}
+      {aiHistoryOfPresentIllness ? (
+        <>
+          <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />
+          <AiSuggestion title={'History of Present Illness (HPI)'} content={aiHistoryOfPresentIllness.value} />
+        </>
+      ) : undefined}
     </Box>
   );
 };
