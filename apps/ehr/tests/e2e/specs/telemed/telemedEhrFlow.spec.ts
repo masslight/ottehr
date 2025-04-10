@@ -1,7 +1,6 @@
+import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { fillWaitAndSelectDropdown, getPatientConditionPhotosStepAnswers } from 'test-utils';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   allLicensesForPractitioner,
@@ -23,8 +22,9 @@ import {
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
-import { fillWaitAndSelectDropdown, getPatientConditionPhotosStepAnswers } from 'test-utils';
-import Oystehr from '@oystehr/sdk';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 async function getTestUserQualificationStates(resourceHandler: ResourceHandler): Promise<string[]> {
   const testsUser = await resourceHandler.getTestsUserAndPractitioner();
@@ -40,9 +40,9 @@ async function getTestStateThatNotQualificationsStatesList(
   qualificationStates: string[]
 ): Promise<string> {
   const activeStates = (await getTelemedLocations(apiClient))
-    .filter((location) => location.available)
+    ?.filter((location) => location.available)
     .map((location) => location.state);
-  const activeStateNotInList = activeStates.find((state) => !qualificationStates.includes(state));
+  const activeStateNotInList = activeStates?.find((state) => !qualificationStates.includes(state));
   if (!activeStateNotInList)
     throw new Error(
       `Can't find active test state that not in list of test user qualifications states: ${JSON.stringify(
@@ -109,11 +109,11 @@ test.describe('Tests checking data without mutating state', () => {
     await awaitAppointmentsTableToBeVisible(page);
 
     const appointmentId = myPatientsTabAppointmentResources.appointment.id;
-    const appointmentRow = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointmentId));
+    const appointmentRow = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointmentId!));
 
     const locationGroup = await appointmentRow.getAttribute('data-location-group');
 
-    expect(locationGroup.toLowerCase()).toEqual(testsUserQualificationState.toLowerCase());
+    expect(locationGroup?.toLowerCase()).toEqual(testsUserQualificationState.toLowerCase());
   });
 
   test('All appointments in my-patients section has appropriate assign buttons', async ({ page }) => {
@@ -214,7 +214,7 @@ test.describe('Tests interacting with appointment state', () => {
     await telemedDialogConfirm(page);
     await awaitAppointmentsTableToBeVisible(page);
     await expect(
-      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id))
+      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
     ).toBeVisible();
   });
 
@@ -334,7 +334,7 @@ test.describe('Tests interacting with appointment state', () => {
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+          .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible();
     });
@@ -384,7 +384,7 @@ test.describe('Tests interacting with appointment state', () => {
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+          .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible();
     });

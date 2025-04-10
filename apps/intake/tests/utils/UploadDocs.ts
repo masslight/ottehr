@@ -1,8 +1,8 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { expect, Locator, Page } from '@playwright/test';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
+export type UploadedFile = { uploadedFile: Locator; link: string | null };
 export class UploadDocs {
   page: Page;
 
@@ -45,7 +45,7 @@ export class UploadDocs {
     return uploadedPhoto;
   }
 
-  async uploadFile(locator: Locator, file: Locator): Promise<{ uploadedFile: Locator; link: string | null }> {
+  async uploadFile(locator: Locator, file: Locator): Promise<UploadedFile> {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = dirname(__filename);
 

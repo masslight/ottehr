@@ -49,6 +49,7 @@ const QuestionnaireDataTypes = [
   'Image',
   'PDF',
   'Payment Validation',
+  'Call Out',
 ] as const;
 export type QuestionnaireDataType = (typeof QuestionnaireDataTypes)[number];
 export const validateQuestionnaireDataType = (str: any): QuestionnaireDataType | undefined => {

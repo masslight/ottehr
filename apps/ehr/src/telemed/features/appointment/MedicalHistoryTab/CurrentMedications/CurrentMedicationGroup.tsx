@@ -5,17 +5,20 @@ import { DATE_FORMAT } from '../../../../../helpers/formatDateTime';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { MedHistorySubsectionTypography } from '../../../../components/MedHistorySubsectionTypography';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const CurrentMedicationGroup = ({
   label,
   medications,
   isLoading,
   onRemove,
+  dataTestId,
 }: {
   label: string;
   medications: MedicationDTO[];
   isLoading: boolean;
   onRemove: (resourceId: string) => void;
+  dataTestId: string;
 }): JSX.Element => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   return (
@@ -25,11 +28,13 @@ export const CurrentMedicationGroup = ({
         flexDirection: 'column',
         gap: 0.5,
       }}
+      data-testid={dataTestId}
     >
       <MedHistorySubsectionTypography sx={{ pb: 0.5 }}>{label}</MedHistorySubsectionTypography>
       <ActionsList
         data={medications}
         getKey={(value) => value.resourceId!}
+        itemDataTestId={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsListItem(dataTestId)}
         renderItem={(value) => <CurrentMedicationItem value={value} />}
         renderActions={
           isReadOnly
