@@ -363,7 +363,7 @@ const generateRandomPatientInfo = async (
       params: [
         { name: '_count', value: '1000' },
         { name: 'address-state:missing', value: 'false' },
-        { name: '_revinclude', value: 'Schedule:Actor:Location' },
+        { name: '_revinclude', value: 'Schedule:actor:Location' },
       ],
     })
   ).unbundle();
