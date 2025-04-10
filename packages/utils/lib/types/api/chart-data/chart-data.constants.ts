@@ -170,10 +170,11 @@ export enum VitalsOxygenSatObservationMethod {
 }
 
 export type AI_OBSERVATION_FIELD =
-  | 'historyOfPresentIllness'
-  | 'pastMedicalHistory'
-  | 'pastSurgicalHistory'
-  | 'medicationsHistory'
-  | 'allergies'
-  | 'socialHistory'
-  | 'familyHistory';
+  | 'aiHistoryOfPresentIllness'
+  | 'aiPastMedicalHistory'
+  | 'aiPastSurgicalHistory'
+  | 'aiMedicationsHistory'
+  | 'aiAllergies'
+  | 'aiSocialHistory'
+  | 'aiFamilyHistory'
+  | 'aiHospitalizationHistory';

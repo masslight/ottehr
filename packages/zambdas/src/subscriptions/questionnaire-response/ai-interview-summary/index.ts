@@ -18,7 +18,7 @@ export const INTERVIEW_COMPLETED = 'Interview completed.';
 
 const PROMPT = `I'll give you a transcript of a chat between a healthcare provider and a patient. 
 Please generate history of present illness, past medical history, past surgical history, medications history, 
-allergies, social history, family history and potential diagnoses with ICD-10 codes for the patient. 
+allergies, social history, family history, hospitalization history and potential diagnoses with ICD-10 codes for the patient. 
 Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
 Use a single string property in JSON for each section except potential diagnoses. 
 The transcript: `;
@@ -31,6 +31,7 @@ const AI_RESPONSE_KEYS = [
   'allergies',
   'socialHistory',
   'familyHistory',
+  'hospitalizationHistory',
 ];
 
 let oystehrToken: string;
