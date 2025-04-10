@@ -1247,7 +1247,12 @@
                   ]
                 },
                 {
-                  "linkId": "policy-holder-middle-name-2"
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
                 },
                 {
                   "linkId": "policy-holder-last-name-2",
@@ -2803,7 +2808,12 @@
                   ]
                 },
                 {
-                  "linkId": "policy-holder-middle-name-2"
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
                 },
                 {
                   "linkId": "policy-holder-last-name-2",
@@ -3413,7 +3423,12 @@
                   ]
                 },
                 {
-                  "linkId": "policy-holder-middle-name-2"
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
                 },
                 {
                   "linkId": "policy-holder-last-name-2",
@@ -4032,7 +4047,12 @@
                   ]
                 },
                 {
-                  "linkId": "policy-holder-middle-name-2"
+                  "linkId": "policy-holder-middle-name-2",
+                  "answer": [
+                    {
+                      "valueString": "Thaddeus"
+                    }
+                  ]
                 },
                 {
                   "linkId": "policy-holder-last-name-2",
@@ -5669,7 +5689,12 @@
                 ]
               },
               {
-                "linkId": "policy-holder-middle-name-2"
+                "linkId": "policy-holder-middle-name-2",
+                "answer": [
+                  {
+                    "valueString": "Thaddeus"
+                  }
+                ]
               },
               {
                 "linkId": "policy-holder-last-name-2",
