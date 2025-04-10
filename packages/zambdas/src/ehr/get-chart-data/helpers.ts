@@ -1,5 +1,5 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
-import { Bundle, DocumentReference, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
+import { Bundle, Encounter, FhirResource, Patient, Resource } from 'fhir/r4b';
 import {
   addSearchParams,
   ChartDataFields,
@@ -9,7 +9,6 @@ import {
   SearchParams,
 } from 'utils';
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
-import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 
 type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 
@@ -200,10 +199,6 @@ export function convertSearchResultsToResponse(
   };
 
   const resources = parseBundleResources(bundle);
-  const documentResources = resources.filter(
-    (resource) => resource.resourceType === 'DocumentReference'
-  ) as DocumentReference[];
-  const publishExcuseNotesOps = createPublishExcuseNotesOps(documentResources);
 
   const chartDataResources: Resource[] = [];
   resources.forEach((resource) => {
@@ -223,6 +218,5 @@ export function convertSearchResultsToResponse(
   return {
     chartData: { ...getChartDataResponse },
     chartResources: chartDataResources,
-    publishExcuseNotesOps,
   };
 }

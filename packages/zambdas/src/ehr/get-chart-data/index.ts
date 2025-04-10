@@ -1,6 +1,6 @@
-import Oystehr, { BatchInputGetRequest, BatchInputRequest, Bundle } from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DocumentReference, FhirResource, Resource } from 'fhir/r4b';
+import { FhirResource, Resource } from 'fhir/r4b';
 import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { checkOrCreateM2MClientToken, getPatientEncounter, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -46,7 +46,6 @@ export async function getChartData(
 ): Promise<{
   response: GetChartDataResponse;
   chartResources: Resource[];
-  publishExcuseNotesOps?: BatchInputRequest<DocumentReference>[];
 }> {
   console.time('check');
 
@@ -190,6 +189,5 @@ export async function getChartData(
   return {
     response: chartDataResult.chartData,
     chartResources: chartDataResult.chartResources,
-    publishExcuseNotesOps: chartDataResult.publishExcuseNotesOps,
   };
 }

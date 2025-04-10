@@ -1,4 +1,4 @@
-import { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import {
   addOrReplaceOperation,
@@ -11,8 +11,8 @@ import { PdfDocumentReferencePublishedStatuses } from './pdf/pdf-utils';
 
 export function createPublishExcuseNotesOps(
   documentReferences: DocumentReference[]
-): BatchInputRequest<DocumentReference>[] {
-  const resultBatchRequests: BatchInputRequest<DocumentReference>[] = [];
+): BatchInputPatchRequest<DocumentReference>[] {
+  const resultBatchRequests: BatchInputPatchRequest<DocumentReference>[] = [];
   let workNoteDR: DocumentReference | undefined;
   let schoolNoteDR: DocumentReference | undefined;
   documentReferences.forEach((item) => {
@@ -31,7 +31,7 @@ export function createPublishExcuseNotesOps(
   return resultBatchRequests;
 }
 
-function pdfPublishedPatchOperation(documentReference: DocumentReference): BatchInputRequest<DocumentReference> {
+function pdfPublishedPatchOperation(documentReference: DocumentReference): BatchInputPatchRequest<DocumentReference> {
   return getPatchBinary({
     resourceType: 'DocumentReference',
     resourceId: documentReference.id!,

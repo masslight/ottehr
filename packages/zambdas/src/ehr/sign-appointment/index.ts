@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { FhirResource } from 'fhir/r4b';
+import { DocumentReference } from 'fhir/r4b';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -19,14 +19,15 @@ import {
 
 import { validateRequestParameters } from './validateRequestParameters';
 import { getChartData } from '../get-chart-data';
-import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
-import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
-import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
-import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
+import { isDocumentPublished } from '../../shared/pdf/pdf-utils';
+import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
+import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
+import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
+import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
+import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -96,21 +97,9 @@ export const performEffect = async (
     isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
 
-  const [chartDataPromiseResponse, additionalChartDataPromiseResponse] = await Promise.all([
-    chartDataPromise,
-    additionalChartDataPromise,
-  ]);
-  const { response: chartData, publishExcuseNotesOps } = chartDataPromiseResponse;
-  const { response: additionalChartData } = additionalChartDataPromiseResponse;
-
-  try {
-    if (publishExcuseNotesOps) {
-      await oystehr.fhir.batch<FhirResource>({ requests: publishExcuseNotesOps });
-    }
-  } catch (error) {
-    console.log('Error publishing excuse notes...', error, JSON.stringify(error));
-    throw new Error('Unable to publish excuse notes');
-  }
+  const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
+    (promise) => promise.response
+  );
 
   console.log('Chart data received');
   const pdfInfo = await composeAndCreateVisitNotePdf(
@@ -187,6 +176,14 @@ const changeStatus = async (
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 
+  const docsToUpdate: DocumentReference[] = [];
+  resourcesToUpdate?.documentReferences?.forEach((docRef) => {
+    if (!isDocumentPublished(docRef)) {
+      docsToUpdate.push(docRef);
+    }
+  });
+  const documentPatch = createPublishExcuseNotesOps(docsToUpdate);
+
   const appointmentPatch = getPatchBinary({
     resourceType: 'Appointment',
     resourceId: resourcesToUpdate.appointment.id,
@@ -199,6 +196,6 @@ const changeStatus = async (
   });
 
   await oystehr.fhir.transaction({
-    requests: [appointmentPatch, encounterPatch],
+    requests: [appointmentPatch, encounterPatch, ...documentPatch],
   });
 };
