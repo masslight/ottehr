@@ -31,6 +31,7 @@ export enum APIErrorCode {
   STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
   MISCONFIGURED_SCHEDULING_GROUP = 4304,
   MISSING_SCHEDULE_EXTENSION = 4305,
+  MISSING_PATIENT_COVERAGE_INFO = 4306,
   INVALID_INPUT = 4340,
 }
 
@@ -248,4 +249,8 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
     code: APIErrorCode.INVALID_INPUT,
     message,
   };
+};
+export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
+  code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
+  message: 'No coverage information found for this patient',
 };

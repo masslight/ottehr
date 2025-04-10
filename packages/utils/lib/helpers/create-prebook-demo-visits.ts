@@ -21,6 +21,7 @@ import {
   SubmitPaperworkParameters,
   VisitType,
 } from '../types';
+import { GetPaperworkAnswers } from './create-telemed-demo-visits';
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
@@ -117,6 +118,7 @@ export const createSamplePrebookAppointments = async ({
   selectedLocationId,
   demoData,
   projectId,
+  paperworkAnswers,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -126,14 +128,15 @@ export const createSamplePrebookAppointments = async ({
   selectedLocationId?: string;
   demoData?: DemoAppointmentData;
   projectId: string;
-}): Promise<CreateAppointmentResponse | { error: string }> => {
+  paperworkAnswers?: GetPaperworkAnswers;
+}): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
 
   if (!oystehr) {
     console.log('oystehr client is not defined');
-    return { error: 'no oystehr client' };
+    throw new Error('oystehr client is not defined');
   }
 
   try {
@@ -180,10 +183,18 @@ export const createSamplePrebookAppointments = async ({
 
         if (!appointmentData) {
           console.error('Error: appointment data is null');
-          return { error: 'appointment data is null' };
+          throw new Error('Error: appointment data is null');
         }
 
-        await processPrebookPaperwork(appointmentData, randomPatientInfo, zambdaUrl, authToken, projectId, serviceMode);
+        await processPrebookPaperwork(
+          appointmentData,
+          randomPatientInfo,
+          zambdaUrl,
+          authToken,
+          projectId,
+          serviceMode,
+          paperworkAnswers
+        );
 
         // If it's a virtual appointment, mark it as 'arrived'
         if (serviceMode === ServiceMode.virtual) {
@@ -197,7 +208,7 @@ export const createSamplePrebookAppointments = async ({
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
-        return { error: (error as any).message || JSON.stringify(error) };
+        throw error;
       }
     });
 
@@ -226,10 +237,11 @@ export const createSamplePrebookAppointments = async ({
 const processPrebookPaperwork = async (
   appointmentData: CreateAppointmentResponse,
   patientInfo: any,
-  intakeZambdaUrl: string,
+  zambdaUrl: string,
   authToken: string,
   projectId: string,
-  serviceMode: ServiceMode
+  serviceMode: ServiceMode,
+  paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
     const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
@@ -239,55 +251,50 @@ const processPrebookPaperwork = async (
     const birthDate = isoToDateObject(patientInfo?.patient?.dateOfBirth || '');
 
     // Determine the paperwork patches based on service mode
-    const paperworkPatches =
-      serviceMode === ServiceMode.virtual
-        ? [
-            getContactInformationAnswers({
-              firstName: patientInfo.patient.firstName,
-              lastName: patientInfo.patient.lastName,
-              ...(birthDate ? { birthDate } : {}),
-              email: patientInfo.patient.email,
-              phoneNumber: patientInfo.patient.phoneNumber,
-              birthSex: patientInfo.patient.sex,
-            }),
-            getPatientDetailsStepAnswers({}),
-            getMedicationsStepAnswers(),
-            getAllergiesStepAnswers(),
-            getMedicalConditionsStepAnswers(),
-            getSurgicalHistoryStepAnswers(),
-            getAdditionalQuestionsAnswers(),
-            getPaymentOptionSelfPayAnswers(),
-            getResponsiblePartyStepAnswers({}),
-            getSchoolWorkNoteStepAnswers(),
-            getConsentStepAnswers({}),
-            getInviteParticipantStepAnswers(),
-          ]
-        : [
-            getContactInformationAnswers({
-              firstName: patientInfo.patient.firstName,
-              lastName: patientInfo.patient.lastName,
-              ...(birthDate ? { birthDate } : {}),
-              email: patientInfo.patient.email,
-              phoneNumber: patientInfo.patient.phoneNumber,
-              birthSex: patientInfo.patient.sex,
-            }),
-            getPatientDetailsStepAnswers({}),
-            getPaymentOptionSelfPayAnswers(),
-            getResponsiblePartyStepAnswers({}),
-            getConsentStepAnswers({}),
-          ];
+    const paperworkPatches = paperworkAnswers
+      ? await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })
+      : serviceMode === ServiceMode.virtual
+      ? [
+          getContactInformationAnswers({
+            firstName: patientInfo.patient.firstName,
+            lastName: patientInfo.patient.lastName,
+            ...(birthDate ? { birthDate } : {}),
+            email: patientInfo.patient.email,
+            phoneNumber: patientInfo.patient.phoneNumber,
+            birthSex: patientInfo.patient.sex,
+          }),
+          getPatientDetailsStepAnswers({}),
+          getMedicationsStepAnswers(),
+          getAllergiesStepAnswers(),
+          getMedicalConditionsStepAnswers(),
+          getSurgicalHistoryStepAnswers(),
+          getAdditionalQuestionsAnswers(),
+          getPaymentOptionSelfPayAnswers(),
+          getResponsiblePartyStepAnswers({}),
+          getSchoolWorkNoteStepAnswers(),
+          getConsentStepAnswers({}),
+          getInviteParticipantStepAnswers(),
+        ]
+      : [
+          getContactInformationAnswers({
+            firstName: patientInfo.patient.firstName,
+            lastName: patientInfo.patient.lastName,
+            ...(birthDate ? { birthDate } : {}),
+            email: patientInfo.patient.email,
+            phoneNumber: patientInfo.patient.phoneNumber,
+            birthSex: patientInfo.patient.sex,
+          }),
+          getPatientDetailsStepAnswers({}),
+          getPaymentOptionSelfPayAnswers(),
+          getResponsiblePartyStepAnswers({}),
+          getConsentStepAnswers({}),
+        ];
 
     // Execute the paperwork patches
-    await makeSequentialPaperworkPatches(
-      questionnaireResponseId,
-      paperworkPatches,
-      intakeZambdaUrl,
-      authToken,
-      projectId
-    );
+    await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
 
     // Submit the paperwork
-    const response = await fetch(`${intakeZambdaUrl}/zambda/submit-paperwork/execute-public`, {
+    const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
