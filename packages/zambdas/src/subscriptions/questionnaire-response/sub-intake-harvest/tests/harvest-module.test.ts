@@ -2011,7 +2011,7 @@ describe('Harvest Module', () => {
         id: uuidv4(),
         name: [
           {
-            given: ['Barnabas'],
+            given: ['Barnabas', 'Thaddeus'],
             family: 'Picklesworth',
           },
         ],
@@ -2139,7 +2139,7 @@ describe('Harvest Module', () => {
         id: uuidv4(),
         name: [
           {
-            given: ['Barnabas'],
+            given: ['Barnabas', 'Thaddeus'],
             family: 'Picklesworth',
           },
         ],
@@ -2252,7 +2252,7 @@ describe('Harvest Module', () => {
         id: uuidv4(),
         name: [
           {
-            given: ['Barnabas'],
+            given: ['Barnabas', 'Thaddeus'],
             family: 'Picklesworth',
           },
         ],
