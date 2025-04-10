@@ -222,9 +222,8 @@ const writeAdvaPacsTransaction = async (
     const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
     const ourPatient = await getOurSubject(ourServiceRequest.subject?.reference || '', oystehr);
-    const ourPatientDecimalId = uuidToDecimal(ourPatient.id);
+    const ourPatientDecimalId = ourPatient.id;
     const ourRequestingPractitionerId = ourServiceRequest.requester?.reference?.split('/')[1];
-    const ourRequestingProviderDecimalId = uuidToDecimal(ourRequestingPractitionerId);
 
     const patientToCreate: BatchInputPutRequest<Patient> = {
       method: 'PUT',
@@ -245,13 +244,13 @@ const writeAdvaPacsTransaction = async (
 
     const requestingPractitionerToCreate: BatchInputPutRequest<Practitioner> = {
       method: 'PUT',
-      url: `Practitioner?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourRequestingProviderDecimalId}`,
+      url: `Practitioner?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourRequestingPractitionerId}`,
       resource: {
         resourceType: 'Practitioner',
         identifier: [
           {
             system: PERSON_IDENTIFIER_CODE_SYSTEM,
-            value: ourRequestingProviderDecimalId,
+            value: ourRequestingPractitionerId,
           },
         ],
         name: ourPatient.name,
@@ -277,7 +276,7 @@ const writeAdvaPacsTransaction = async (
         requester: {
           identifier: {
             system: PERSON_IDENTIFIER_CODE_SYSTEM,
-            value: ourRequestingProviderDecimalId,
+            value: ourRequestingPractitionerId,
           },
         },
         code: {
@@ -374,14 +373,4 @@ const rollbackOurServiceRequest = async (ourServiceRequest: ServiceRequest, oyst
     resourceType: 'ServiceRequest',
     id: ourServiceRequest.id,
   });
-};
-
-const uuidToDecimal = (uuid: string | undefined): string => {
-  if (uuid == null) {
-    throw new Error('UUID is required');
-  }
-
-  const hexString = uuid.replace(/-/g, '');
-  const decimalValue = BigInt(`0x${hexString}`);
-  return decimalValue.toString(10);
 };
