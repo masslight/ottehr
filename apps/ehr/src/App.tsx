@@ -38,6 +38,7 @@ import AddPatientFollowup from './components/patient/AddPatientFollowup';
 import SchedulePage from './pages/Schedule';
 import SchedulesPage from './pages/Schedules';
 import AddSchedulePage from './pages/AddSchedulePage';
+import AddEmployeePage from './pages/AddEmployeePage';
 import('@photonhealth/elements').catch(console.log);
 
 const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
@@ -203,6 +204,7 @@ function App(): ReactElement {
                   <Route path="/schedule/:schedule-type/add" element={<AddSchedulePage />} />
                   <Route path="/schedule/:schedule-type/:id" element={<SchedulePage />} />
                   <Route path="/employees" element={<EmployeesPage />} />
+                  <Route path="/employees/add" element={<AddEmployeePage />} />
                   <Route path="/employee/:id" element={<EditEmployeePage />} />
                   <Route path="/patients" element={<PatientsPage />} />
                   <Route path="/patient/:id" element={<PatientPage />} />
