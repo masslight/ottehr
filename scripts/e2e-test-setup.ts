@@ -1,8 +1,8 @@
-import fs from 'fs';
 import { input, password } from '@inquirer/prompts';
-import dotenv from 'dotenv';
 import Oystehr from '@oystehr/sdk';
+import dotenv from 'dotenv';
 import { Location } from 'fhir/r4b';
+import fs from 'fs';
 import { DEFAULT_TESTING_SLUG } from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
@@ -224,6 +224,7 @@ export async function createTestEnvFiles(): Promise<void> {
       PROJECT_API_ZAMBDA_URL: ehrUiEnv.VITE_APP_PROJECT_API_ZAMBDA_URL,
       CREATE_APPOINTMENT_ZAMBDA_ID: ehrUiEnv.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
       CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID: intakeUiEnv.VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
+      GET_ANSWER_OPTIONS_ZAMBDA_ID: intakeUiEnv.VITE_APP_GET_ANSWER_OPTIONS_ZAMBDA_ID,
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
       SLUG_ONE: locationSlug,
       STATE_ONE: locationState,

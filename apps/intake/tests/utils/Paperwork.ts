@@ -94,6 +94,8 @@ export class Paperwork {
     await this.locator.clickContinueButton();
     await this.selectSelfPayPayment();
     await this.locator.clickContinueButton();
+    await this.fillAndAddCreditCard();
+    await this.locator.clickContinueButton();
     await this.fillResponsiblePartyDataSelf();
     await this.locator.clickContinueButton();
     await this.skipPhotoID();
@@ -280,6 +282,12 @@ export class Paperwork {
   }
   async selectSelfPayPayment(): Promise<void> {
     await this.locator.selfPayOption.check();
+  }
+  async fillAndAddCreditCard(): Promise<void> {
+    await this.locator.creditCardNumber.fill('4242424242424242');
+    await this.locator.creditCardCVC.fill('123');
+    await this.locator.creditCardExpiry.fill('12/30');
+    await this.locator.addCardButton.click();
   }
   async selectInsurancePayment(): Promise<void> {
     await this.locator.insuranceOption.check();
