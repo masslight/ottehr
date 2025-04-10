@@ -18,7 +18,6 @@ export class PatientsPage extends PageWithTablePagination {
   async searchByDateOfBirth(dateOfBirth: string): Promise<void> {
     const locator = this.#page.getByTestId(dataTestIds.patients.searchByDateOfBirthField).locator('input');
     await locator.click();
-    await this.#page.waitForTimeout(2000);
     await locator.fill(dateOfBirth);
   }
 

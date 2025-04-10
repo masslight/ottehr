@@ -15,14 +15,11 @@ const awaitCSSHeaderInit = async (page: Page): Promise<void> => {
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
+  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 });
 
 test.afterAll(async () => {
   await resourceHandler.cleanupResources();
-});
-
-test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000); // ensure resources are ready
 });
 
 test('Happy path: set up filters and navigate to visit page', async ({ page }) => {

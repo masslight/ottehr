@@ -37,7 +37,7 @@ export class UploadDocs {
 
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
     await fileChooser.setFiles(filePath);
-    await this.page.waitForTimeout(5000);
+    await expect(this.page.getByText('Uploading...')).toBeVisible({ visible: false });
 
     expect(requestUrl).toBeDefined();
     const uploadedPhoto = this.page.locator(`img[src*="${requestUrl}"]`);
@@ -53,7 +53,8 @@ export class UploadDocs {
 
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/template.pdf`);
     await fileChooser.setFiles(filePath);
-    await this.page.waitForTimeout(5000);
+    await expect(this.page.getByTestId('loading-button')).toBeEnabled();
+
     const uploadedFile = file;
     const link = await file.getAttribute('href');
     await expect(uploadedFile).toBeVisible();
