@@ -800,12 +800,19 @@
       "src": "src/ehr/schedules/update-schedule/index",
       "zip": ".dist/zips/update-schedule.zip"
     },
-    "LIST_SCHEDULE_OWNERS": {
+    "LIST-SCHEDULE-OWNERS": {
       "name": "LIST-SCHEDULE-OWNERS",
       "type": "http_auth",
       "runtime": "nodejs20.x",
       "src": "src/ehr/schedules/list-schedule-owners/index",
       "zip": ".dist/zips/list-schedule-owners.zip"
+    },
+    "CREATE-SCHEDULE": {
+      "name": "CREATE-SCHEDULE",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/schedules/create-schedule/index",
+      "zip": ".dist/zips/create-schedule.zip"
     }
   },
   "fhirResources": {

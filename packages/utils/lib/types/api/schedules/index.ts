@@ -7,7 +7,14 @@ export interface UpdateScheduleParams {
   timezone?: string;
   schedule?: DailySchedule;
   scheduleOverrides?: ScheduleOverrides;
+  active?: Schedule['active'];
   closures?: Closure[];
+}
+
+export interface CreateScheduleParams extends Omit<UpdateScheduleParams, 'schedule'> {
+  ownerId: string;
+  ownerType: ScheduleOwnerFhirResource['resourceType'];
+  schedule: DailySchedule;
 }
 
 export type ScheduleOwnerFhirResource = Location | Practitioner | HealthcareService;
@@ -41,3 +48,13 @@ export interface SchedulesAndOwnerListItem {
 export interface ListScheduleOwnersResponse {
   list: SchedulesAndOwnerListItem[];
 }
+
+export interface GetScheduleByIdParams {
+  scheduleId: string;
+}
+export interface GetScheduleByOwnerParams {
+  ownerId: string;
+  ownerType: ScheduleOwnerFhirResource['resourceType'];
+}
+
+export type GetScheduleParams = GetScheduleByIdParams | GetScheduleByOwnerParams;

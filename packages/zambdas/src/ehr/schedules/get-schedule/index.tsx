@@ -1,8 +1,10 @@
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  BLANK_SCHEDULE_JSON_TEMPLATE,
   getScheduleDetails,
   getTimezone,
+  INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
@@ -13,7 +15,9 @@ import {
   ScheduleDTO,
   ScheduleDTOOwner,
   ScheduleExtension,
+  ScheduleOwnerFhirResource,
   Secrets,
+  TIMEZONES,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
@@ -41,7 +45,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('get-patient-account', error, input.secrets);
+    return topLevelCatch('ehr-get-schedule', error, input.secrets);
   }
 };
 
@@ -86,7 +90,11 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
 };
 
 interface BasicInput {
-  scheduleId: string;
+  scheduleId?: string;
+  owner?: {
+    ownerType: ScheduleOwnerFhirResource['resourceType'];
+    ownerId: string;
+  };
   secrets: Secrets | null;
 }
 
@@ -97,20 +105,53 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
   console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
-  const { scheduleId } = JSON.parse(input.body);
+  const { scheduleId, ownerId, ownerType } = JSON.parse(input.body);
 
-  if (!scheduleId) {
+  const createMode = Boolean(ownerId) && Boolean(ownerType);
+
+  if (scheduleId && (ownerId || ownerType)) {
+    INVALID_INPUT_ERROR('If scheduleId is provided, ownerId and ownerType must not be provided');
+  }
+
+  if (!scheduleId && !ownerId && !ownerType) {
     throw MISSING_REQUIRED_PARAMETERS(['scheduleId']);
   }
 
-  if (isValidUUID(scheduleId) === false) {
+  if (ownerId && !ownerType) {
+    throw MISSING_REQUIRED_PARAMETERS(['ownerType']);
+  }
+
+  if (ownerType && !ownerId) {
+    throw MISSING_REQUIRED_PARAMETERS(['ownerId']);
+  }
+
+  if (scheduleId && isValidUUID(scheduleId) === false && !createMode) {
     throw INVALID_RESOURCE_ID_ERROR('scheduleId');
   }
 
-  return {
+  if (ownerId && isValidUUID(ownerId) === false && createMode) {
+    console.log('ownerId', ownerId);
+    throw INVALID_RESOURCE_ID_ERROR('ownerId');
+  }
+  if (createMode && !['Location', 'Practitioner', 'HealthcareService'].includes(ownerType)) {
+    throw INVALID_INPUT_ERROR(
+      '"ownerType" must be a string and one of: "Location", "Practitioner", "HealthcareService"'
+    );
+  }
+
+  const bi: BasicInput = {
     secrets,
-    scheduleId,
   };
+  if (scheduleId) {
+    bi.scheduleId = scheduleId;
+  } else if (ownerId && ownerType) {
+    bi.owner = {
+      ownerId,
+      ownerType,
+    };
+  }
+  console.log('bi', JSON.stringify(bi, null, 2));
+  return bi;
 };
 
 interface EffectInput {
@@ -123,7 +164,17 @@ interface EffectInput {
 type QueryType = Schedule | Location | Practitioner | HealthcareService | PractitionerRole;
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId } = input;
+  const { scheduleId, owner } = input;
+  if (scheduleId) {
+    return getEffectInputFromSchedule(scheduleId, oystehr);
+  }
+  if (owner) {
+    return getEffectInputFromOwner(owner, oystehr);
+  }
+  throw new Error('Input validation produced unexpected undefined values');
+};
+
+const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr): Promise<EffectInput> => {
   const scheduleAndOwner = (
     await oystehr.fhir.search<QueryType>({
       resourceType: 'Schedule',
@@ -144,10 +195,6 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
           name: '_include',
           value: 'Schedule:actor:HealthcareService',
         },
-        {
-          name: '_include',
-          value: 'Schedule:actor:PractitionerRole',
-        },
       ],
     })
   ).unbundle();
@@ -165,8 +212,8 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   const scheduleOwnerRef = schedule.actor?.[0]?.reference ?? '';
   const [schedulOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
-  const permttedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService', 'PractitionerRole'];
-  if (scheduleOwnerId !== undefined && permttedScheduleOwerTypes.includes(schedulOwnerType)) {
+  const permittedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  if (scheduleOwnerId !== undefined && permittedScheduleOwerTypes.includes(schedulOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
     }) as Location | Practitioner | HealthcareService | PractitionerRole;
@@ -180,6 +227,63 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     scheduleId: schedule.id,
     scheduleExtension,
     timezone: getTimezone(schedule),
+    owner,
+  };
+};
+
+const getEffectInputFromOwner = async (
+  ownerDef: { ownerId: string; ownerType: ScheduleOwnerFhirResource['resourceType'] },
+  oystehr: Oystehr
+): Promise<EffectInput> => {
+  const { ownerId, ownerType } = ownerDef;
+  const scheduleAndOwner = (
+    await oystehr.fhir.search<QueryType>({
+      resourceType: ownerType,
+      params: [
+        {
+          name: '_id',
+          value: ownerId,
+        },
+        {
+          name: '_revinclude',
+          value: `Schedule:actor:${ownerType}`,
+        },
+      ],
+    })
+  ).unbundle();
+
+  let scheduleId = 'new-schedule';
+  let scheduleExtension: ScheduleExtension = BLANK_SCHEDULE_JSON_TEMPLATE;
+  const schedule = scheduleAndOwner.find((sched) => sched.resourceType === 'Schedule') as Schedule;
+  if (schedule && schedule.id) {
+    scheduleId = schedule.id;
+    scheduleExtension = getScheduleDetails(schedule) ?? BLANK_SCHEDULE_JSON_TEMPLATE;
+  }
+
+  console.log('scheduleExtension', JSON.stringify(scheduleExtension, null, 2));
+
+  const scheduleOwnerRef = schedule?.actor?.[0]?.reference ?? '';
+  const [schedulOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
+  let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
+  const permttedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService'];
+  if (scheduleOwnerId !== undefined && permttedScheduleOwerTypes.includes(schedulOwnerType)) {
+    owner = scheduleAndOwner.find((res) => {
+      return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
+    }) as Location | Practitioner | HealthcareService | PractitionerRole;
+  } else {
+    owner = scheduleAndOwner.find((res) => {
+      return `${res.resourceType}/${res.id}` === `${ownerType}/${ownerId}`;
+    }) as Location | Practitioner | HealthcareService;
+  }
+
+  if (!owner) {
+    throw SCHEDULE_OWNER_NOT_FOUND_ERROR;
+  }
+
+  return {
+    scheduleId,
+    scheduleExtension,
+    timezone: schedule ? getTimezone(schedule) : TIMEZONES[0],
     owner,
   };
 };

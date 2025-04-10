@@ -3,7 +3,9 @@ import { Address, ContactPoint, LocationHoursOfOperation, Schedule } from 'fhir/
 import {
   chooseJson,
   ConversationMessage,
+  CreateScheduleParams,
   GetEmployeesResponse,
+  GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetUserParams,
@@ -54,6 +56,7 @@ const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAM
 const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAMBDA_ID;
 const UPDATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_SCHEDULE_ZAMBDA_ID;
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = import.meta.env.VITE_APP_LIST_SCHEDULE_OWNERS_ZAMBDA_ID;
+const CREATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_SCHEDULE_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -383,7 +386,7 @@ export const listScheduleOwners = async (
   }
 };
 
-export const getSchedule = async (scheduleId: string, oystehr: Oystehr): Promise<ScheduleDTO> => {
+export const getSchedule = async (params: GetScheduleParams, oystehr: Oystehr): Promise<ScheduleDTO> => {
   try {
     if (EHR_GET_SCHEDULE_ZAMBDA_ID == null) {
       throw new Error('ehr-get-schedule zambda environment variable could not be loaded');
@@ -391,7 +394,7 @@ export const getSchedule = async (scheduleId: string, oystehr: Oystehr): Promise
 
     const response = await oystehr.zambda.execute({
       id: EHR_GET_SCHEDULE_ZAMBDA_ID,
-      scheduleId,
+      ...params,
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -408,6 +411,23 @@ export const updateSchedule = async (params: UpdateScheduleParams, oystehr: Oyst
 
     const response = await oystehr.zambda.execute({
       id: UPDATE_SCHEDULE_ZAMBDA_ID,
+      ...params,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createSchedule = async (params: CreateScheduleParams, oystehr: Oystehr): Promise<Schedule> => {
+  try {
+    if (CREATE_SCHEDULE_ZAMBDA_ID == null) {
+      throw new Error('create-schedule zambda environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: CREATE_SCHEDULE_ZAMBDA_ID,
       ...params,
     });
     return chooseJson(response);

@@ -1,5 +1,17 @@
 import { Address, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
-import { getFullName } from 'utils';
+import {
+  ClosureType,
+  getFullName,
+  INVALID_INPUT_ERROR,
+  INVALID_RESOURCE_ID_ERROR,
+  isValidUUID,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  Secrets,
+  TIMEZONES,
+  UpdateScheduleParams,
+} from 'utils';
+import { ZambdaInput } from '../../../shared';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';
@@ -36,4 +48,76 @@ export const getNameForOwner = (owner: FhirResource): string => {
     return name;
   }
   return `${owner.resourceType}/${owner.id}`;
+};
+
+export interface UpdateScheduleBasicInput extends UpdateScheduleParams {
+  secrets: Secrets | null;
+}
+
+// this lives here because the create schedule zambda uses an input type that extends UpdateScheduleParams,
+// so this can be shared accross the update and create zambdas
+export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateScheduleBasicInput => {
+  if (!input.body) {
+    throw MISSING_REQUEST_BODY;
+  }
+
+  console.log('input', JSON.stringify(input, null, 2));
+  const { secrets } = input;
+  const { scheduleId, timezone, schedule, scheduleOverrides, closures, ownerId, ownerType } = JSON.parse(input.body);
+  const createMode = Boolean(ownerId) && Boolean(ownerType);
+
+  if (!scheduleId) {
+    throw MISSING_REQUIRED_PARAMETERS(['scheduleId']);
+  }
+
+  if (isValidUUID(scheduleId) === false && createMode === false) {
+    throw INVALID_RESOURCE_ID_ERROR('scheduleId');
+  }
+
+  if (timezone) {
+    if (typeof timezone !== 'string') {
+      throw INVALID_INPUT_ERROR('"timezone" must be a string');
+    }
+    if (TIMEZONES.includes(timezone) === false) {
+      throw INVALID_INPUT_ERROR(`"timezone" must be one of ${TIMEZONES.join(', ')}`);
+    }
+  }
+  // todo: better schema application for these complex structures
+  if (schedule) {
+    if (typeof schedule !== 'object') {
+      throw INVALID_INPUT_ERROR('"schedule" must be an object');
+    }
+  }
+  if (scheduleOverrides) {
+    if (typeof scheduleOverrides !== 'object') {
+      throw INVALID_INPUT_ERROR('"scheduleOverrides" must be an object');
+    }
+  }
+  if (closures) {
+    if (!Array.isArray(closures)) {
+      throw INVALID_INPUT_ERROR('"closures" must be an array');
+    }
+    closures.forEach((closure) => {
+      if (typeof closure !== 'object') {
+        throw INVALID_INPUT_ERROR('"closures" must be an array of objects');
+      }
+      if (!closure.start || !closure.end) {
+        throw INVALID_INPUT_ERROR('"closures" must be an array of objects with start and end');
+      }
+      if (Object.values(ClosureType).includes(closure.type) === false) {
+        throw INVALID_INPUT_ERROR(
+          `"closures" must be an array of objects with a type of ${Object.values(ClosureType).join(', ')}`
+        );
+      }
+    });
+  }
+
+  return {
+    secrets,
+    scheduleId,
+    timezone,
+    schedule,
+    scheduleOverrides,
+    closures,
+  };
 };

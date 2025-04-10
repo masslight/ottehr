@@ -265,10 +265,6 @@ function InfoForDay({ day, setDay, updateItem, loading }: InfoForDayProps): Reac
               Save Changes
             </LoadingButton>
           </Box>
-          <Typography sx={{ marginTop: 1 }}>
-            Please note if you save changes to Working Hours, edits to Schedule Overrides and Closed Dates will be saved
-            too.
-          </Typography>
         </form>
       </>
     </Box>
@@ -280,9 +276,15 @@ interface ScheduleProps {
   id: string;
   loading: boolean;
   update: (scheduleData: UpdateScheduleParams) => Promise<void>;
+  hideOverrides?: boolean;
 }
 
-export default function ScheduleComponent({ item, update, loading }: ScheduleProps): ReactElement {
+export default function ScheduleComponent({
+  item,
+  update,
+  loading,
+  hideOverrides = false,
+}: ScheduleProps): ReactElement {
   const today = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
   const [dayOfWeek, setDayOfWeek] = React.useState(today);
   const [days, setDays] = React.useState<DailySchedule | undefined>(item.schema.schedule);
@@ -498,15 +500,17 @@ export default function ScheduleComponent({ item, update, loading }: SchedulePro
           </Alert>
         </Snackbar>
       </TabContext>
-      <ScheduleOverridesComponent
-        loading={savingOverrides}
-        model={item.schema}
-        dayOfWeek={dayOfWeek}
-        update={saveOverrides}
-        setToastMessage={setToastMessage}
-        setToastType={setToastType}
-        setSnackbarOpen={setSnackbarOpen}
-      />
+      {!hideOverrides && (
+        <ScheduleOverridesComponent
+          loading={savingOverrides}
+          model={item.schema}
+          dayOfWeek={dayOfWeek}
+          update={saveOverrides}
+          setToastMessage={setToastMessage}
+          setToastType={setToastType}
+          setSnackbarOpen={setSnackbarOpen}
+        />
+      )}
     </>
   );
 }

@@ -13,7 +13,7 @@ import {
   Typography,
 } from '@mui/material';
 import { ReactElement, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
@@ -22,10 +22,19 @@ import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import Loading from '../components/Loading';
 import GroupSchedule from '../components/schedule/GroupSchedule';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import { APIError, isApiError, isValidUUID, ScheduleDTO, TIMEZONES, UpdateScheduleParams } from 'utils';
+import {
+  APIError,
+  CreateScheduleParams,
+  isApiError,
+  isValidUUID,
+  ScheduleDTO,
+  TIMEZONES,
+  UpdateScheduleParams,
+} from 'utils';
 import { useMutation, useQuery } from 'react-query';
-import { getSchedule, updateSchedule } from '../api/api';
+import { createSchedule, getSchedule, updateSchedule } from '../api/api';
 import { enqueueSnackbar } from 'notistack';
+import { Schedule } from 'fhir/r4b';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
@@ -52,16 +61,16 @@ export function getResource(
 export default function SchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
   const { oystehr } = useApiClients();
-  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group';
-  const scheduleId = useParams().id as string;
+  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group' | undefined;
+  const ownerId = useParams()['owner-id'] as string | undefined;
+  const scheduleId = useParams()['schedule-id'] as string;
+  const createMode = scheduleType !== undefined && ownerId !== undefined;
+  const navigate = useNavigate();
 
-  if (!scheduleType) {
-    throw new Error('scheduleType is not defined');
-  }
+  console.log('scheduleType, ownerId', scheduleType, ownerId);
 
   // state variables
   const [tabName, setTabName] = useState('schedule');
-  // const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
   const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [isCopied, setIsCopied] = useState<boolean>(false);
@@ -69,16 +78,34 @@ export default function SchedulePage(): ReactElement {
   const defaultIntakeUrl = `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${scheduleType}`;
 
   const { oystehrZambda } = useApiClients();
+  const queryEnabled = (() => {
+    if (!oystehrZambda) {
+      return false;
+    }
+    if (createMode) {
+      return true;
+    }
+    if (!createMode && isValidUUID(scheduleId)) {
+      return true;
+    }
+    return false;
+  })();
   const { isLoading, isFetching, isRefetching, isError, isSuccess, refetch } = useQuery(
-    ['ehr-get-schedule', { zambdaClient: oystehrZambda }],
-    () => (oystehrZambda ? getSchedule(scheduleId, oystehrZambda) : null),
+    ['ehr-get-schedule', { zambdaClient: oystehrZambda, scheduleId, ownerId, scheduleType }],
+    () =>
+      oystehrZambda
+        ? getSchedule(
+            { scheduleId, ownerId, ownerType: scheduleType ? getResource(scheduleType) : undefined },
+            oystehrZambda
+          )
+        : null,
     {
       onSuccess: (response) => {
         if (response !== null) {
           setItem(response);
         }
       },
-      enabled: !!oystehrZambda && isValidUUID(scheduleId ?? ''),
+      enabled: queryEnabled,
     }
   );
 
@@ -104,6 +131,28 @@ export default function SchedulePage(): ReactElement {
         setItem(newItem);
       }
       enqueueSnackbar('Schedule changes saved successfully!', { variant: 'success' });
+    },
+  });
+
+  const createNewSchedule = useMutation({
+    mutationFn: async (params: CreateScheduleParams) => {
+      if (oystehrZambda) {
+        const response = await createSchedule(params, oystehrZambda);
+        return response;
+      }
+      throw new Error('fhir client not defined or patient id not provided');
+    },
+    onError: (error: any) => {
+      if (isApiError(error)) {
+        const message = (error as APIError).message;
+        enqueueSnackbar(message, { variant: 'error' });
+      } else {
+        enqueueSnackbar('Something went wrong! Schedule could not be created.', { variant: 'error' });
+      }
+    },
+    onSuccess: async (newSchedule: Schedule) => {
+      navigate(`/schedule/id/${newSchedule.id}`);
+      enqueueSnackbar('Schedule added successfully!', { variant: 'success' });
     },
   });
 
@@ -191,7 +240,22 @@ export default function SchedulePage(): ReactElement {
       console.log('oystehr client is not defined');
       return;
     }
-    saveScheduleChanges.mutate({ ...params });
+    if (createMode && scheduleType) {
+      const ownerResourceType = getResource(scheduleType);
+      if (!ownerId || !ownerResourceType || !params.schedule) {
+        enqueueSnackbar('Schedule could not be created. Please reload the page and try again.', { variant: 'error' });
+        return;
+      }
+      console.log('ownerId', ownerId, ownerResourceType);
+      const createParams: CreateScheduleParams = {
+        ...params,
+        ownerId: ownerId,
+        ownerType: ownerResourceType,
+      } as CreateScheduleParams;
+      createNewSchedule.mutate({ ...createParams });
+    } else {
+      saveScheduleChanges.mutate({ ...params });
+    }
   }
 
   const setActiveStatus = async (isActive: boolean): Promise<void> => {
@@ -233,7 +297,7 @@ export default function SchedulePage(): ReactElement {
             )}
             {/* Tabs */}
             <TabContext value={tabName}>
-              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Box sx={{ borderBottom: 1, borderColor: 'divider', display: createMode ? 'none' : 'block' }}>
                 <TabList onChange={handleTabChange} aria-label="Tabs">
                   <Tab label="Schedule" value="schedule" sx={{ textTransform: 'none', fontWeight: 700 }} />
                   <Tab label="General" value="general" sx={{ textTransform: 'none', fontWeight: 700 }} />
@@ -257,6 +321,7 @@ export default function SchedulePage(): ReactElement {
                       item={item}
                       loading={false}
                       update={onSaveSchedule}
+                      hideOverrides={createMode}
                     ></ScheduleComponent>
                   )}
                 </TabPanel>

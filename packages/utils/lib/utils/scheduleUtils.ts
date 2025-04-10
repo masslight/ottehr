@@ -25,6 +25,7 @@ import {
   BookableScheduleData,
   ScheduleAndOwner,
   getFullName,
+  TIMEZONES,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -210,7 +211,7 @@ export function getScheduleDetails(
   scheduleResource: Location | Practitioner | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
   console.log(
-    `extracting schedule and possible overrides from extention on ${scheduleResource.resourceType}`,
+    `extracting schedule and possible overrides from extension on ${scheduleResource.resourceType}`,
     scheduleResource.id
   );
   const scheduleExtension = scheduleResource?.extension?.find(function (extensionTemp) {
@@ -228,8 +229,8 @@ export function getTimezone(schedule: Location | Practitioner | HealthcareServic
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;
   if (!timezone) {
-    console.error('Schedule does not have timezone', schedule.resourceType, schedule.id);
-    throw new Error('schedule does not have timezone');
+    console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
+    return TIMEZONES[0];
   }
   return timezone;
 }
@@ -927,3 +928,437 @@ export const normalizeSlotToUTC = (slotOriginal: Slot): Slot => {
 };
 
 export const SCHEDULE_CHANGES_DATE_FORMAT = 'MMM d';
+
+export const BLANK_SCHEDULE_JSON_TEMPLATE: ScheduleExtension = {
+  schedule: {
+    monday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    tuesday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    wednesday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    thursday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    friday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    saturday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    sunday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+  },
+  scheduleOverrides: {},
+  closures: [],
+};

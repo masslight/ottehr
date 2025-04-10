@@ -123,32 +123,6 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     setSearchText(event.target.value);
   };
 
-  const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
-    if (!item.schedules.length) {
-      if (item.owner.name.includes('Sarah')) {
-        console.log('zacag exit 1');
-      }
-      return 'No scheduled hours';
-    }
-    const hoursOfOperation = item.schedules[0].todayHoursISO;
-    if (!hoursOfOperation) {
-      if (item.owner.name.includes('Sarah')) {
-        console.log('zacag exit 2');
-      }
-      return 'No scheduled hours';
-    }
-    const { open, close } = hoursOfOperation;
-    const openTime = DateTime.fromISO(open);
-    const closeTime = DateTime.fromISO(close);
-    if (openTime.isValid && closeTime.isValid) {
-      return openTime.toFormat('h:mm a') + ' - ' + closeTime.toFormat('h:mm a');
-    }
-    if (item.owner.name.includes('Sarah')) {
-      console.log('zacag open close', openTime.isValid, closeTime.isValid);
-    }
-    return 'No scheduled hours';
-  };
-
   return (
     <Paper sx={{ padding: 2 }}>
       <TableContainer>
@@ -189,10 +163,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
             {pageItems.map((item) => (
               <TableRow key={item.owner.id}>
                 <TableCell>
-                  <Link
-                    to={`/schedule/${scheduleType}/${item.schedules[0]?.id ?? 'new-schedule'}`}
-                    style={{ textDecoration: 'none' }}
-                  >
+                  <Link to={getLinkForItem(item)} style={{ textDecoration: 'none' }}>
                     <Typography color="primary">{item.owner.name}</Typography>
                   </Link>
                 </TableCell>
@@ -230,4 +201,49 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
       </TableContainer>
     </Paper>
   );
+};
+
+const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
+  if (!item.schedules.length) {
+    if (item.owner.name.includes('Sarah')) {
+      console.log('zacag exit 1');
+    }
+    return 'No scheduled hours';
+  }
+  const hoursOfOperation = item.schedules[0].todayHoursISO;
+  if (!hoursOfOperation) {
+    if (item.owner.name.includes('Sarah')) {
+      console.log('zacag exit 2');
+    }
+    return 'No scheduled hours';
+  }
+  const { open, close } = hoursOfOperation;
+  const openTime = DateTime.fromISO(open);
+  const closeTime = DateTime.fromISO(close);
+  if (openTime.isValid && closeTime.isValid) {
+    return openTime.toFormat('h:mm a') + ' - ' + closeTime.toFormat('h:mm a');
+  }
+  if (item.owner.name.includes('Sarah')) {
+    console.log('zacag open close', openTime.isValid, closeTime.isValid);
+  }
+  return 'No scheduled hours';
+};
+
+const getLinkForItem = (item: SchedulesAndOwnerListItem): string => {
+  let itemPathSegment = '';
+  if (item.owner.resourceType === 'Practitioner') {
+    itemPathSegment = 'provider';
+  } else if (item.owner.resourceType === 'Location') {
+    itemPathSegment = 'location';
+  } else {
+    itemPathSegment = 'group';
+  }
+
+  if (item.owner.resourceType === 'HealthcareService') {
+    return `/group/${item.owner.id}`;
+  }
+  if (item.schedules.length) {
+    return `/schedule/id/${item.schedules[0].id}`;
+  }
+  return `/schedule/new/${itemPathSegment}/${item.owner.id}`;
 };

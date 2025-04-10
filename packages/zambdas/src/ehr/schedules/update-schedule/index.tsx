@@ -2,33 +2,25 @@ import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, Zambda
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Closure,
-  ClosureType,
   DailySchedule,
   getScheduleDetails,
-  INVALID_INPUT_ERROR,
-  INVALID_RESOURCE_ID_ERROR,
-  isValidUUID,
-  MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleExtension,
   ScheduleOverrides,
-  Secrets,
   TIMEZONE_EXTENSION_URL,
-  TIMEZONES,
-  UpdateScheduleParams,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Extension, Schedule } from 'fhir/r4b';
+import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
 
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
-    const validatedParameters = validateRequestParameters(input);
+    const validatedParameters = validateUpdateScheduleParameters(input);
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
@@ -95,75 +87,6 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
   });
 };
 
-interface BasicInput extends UpdateScheduleParams {
-  secrets: Secrets | null;
-}
-
-const validateRequestParameters = (input: ZambdaInput): BasicInput => {
-  if (!input.body) {
-    throw MISSING_REQUEST_BODY;
-  }
-
-  console.log('input', JSON.stringify(input, null, 2));
-  const { secrets } = input;
-  const { scheduleId, timezone, schedule, scheduleOverrides, closures } = JSON.parse(input.body);
-
-  if (!scheduleId) {
-    throw MISSING_REQUIRED_PARAMETERS(['scheduleId']);
-  }
-
-  if (isValidUUID(scheduleId) === false) {
-    throw INVALID_RESOURCE_ID_ERROR('scheduleId');
-  }
-
-  if (timezone) {
-    if (typeof timezone !== 'string') {
-      throw INVALID_INPUT_ERROR('"timezone" must be a string');
-    }
-    if (TIMEZONES.includes(timezone) === false) {
-      throw INVALID_INPUT_ERROR(`"timezone" must be one of ${TIMEZONES.join(', ')}`);
-    }
-  }
-  // todo: better schema application for these complex structures
-  if (schedule) {
-    if (typeof schedule !== 'object') {
-      throw INVALID_INPUT_ERROR('"schedule" must be an object');
-    }
-  }
-  if (scheduleOverrides) {
-    if (typeof scheduleOverrides !== 'object') {
-      throw INVALID_INPUT_ERROR('"scheduleOverrides" must be an object');
-    }
-  }
-  if (closures) {
-    if (!Array.isArray(closures)) {
-      throw INVALID_INPUT_ERROR('"closures" must be an array');
-    }
-    closures.forEach((closure) => {
-      if (typeof closure !== 'object') {
-        throw INVALID_INPUT_ERROR('"closures" must be an array of objects');
-      }
-      if (!closure.start || !closure.end) {
-        throw INVALID_INPUT_ERROR('"closures" must be an array of objects with start and end');
-      }
-      if (Object.values(ClosureType).includes(closure.type) === false) {
-        throw INVALID_INPUT_ERROR(
-          `"closures" must be an array of objects with a type of ${Object.values(ClosureType).join(', ')}`
-        );
-      }
-    });
-  }
-
-  return {
-    secrets,
-    scheduleId,
-    timezone,
-    schedule,
-    scheduleOverrides,
-    closures,
-  };
-};
-
 interface EffectInput {
   updateDetails: {
     timezone?: string;
@@ -175,7 +98,7 @@ interface EffectInput {
   currentSchedule: Schedule;
 }
 
-const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
+const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { scheduleId, timezone, schedule: scheduleInput, scheduleOverrides, closures } = input;
   let definiteDailySchedule: DailySchedule;
   const schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
