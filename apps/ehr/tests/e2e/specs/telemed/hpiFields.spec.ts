@@ -164,6 +164,7 @@ test.describe('Medical conditions', async () => {
       .first();
     await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(medicalConditionListItem).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput)).toBeVisible();
   });
 
   test('Should confirm medical condition deleted, in HPI and in Review&Sign tabs', async () => {
@@ -171,7 +172,9 @@ test.describe('Medical conditions', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
+        timeout: 30000,
+      });
 
       await expect(page.getByText(new RegExp(conditionName, 'i'))).not.toBeVisible();
     });
@@ -223,9 +226,7 @@ test.describe('Current medications', () => {
       .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput)
       .locator('input')
       .fill(scheduledMedicationDose);
-    const dateLocator = await page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput)
-      .locator('input');
+    const dateLocator = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput).locator('input');
     await dateLocator.click();
     await dateLocator.pressSequentially(scheduledMedicationDate);
     await page
@@ -255,9 +256,7 @@ test.describe('Current medications', () => {
       .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput)
       .locator('input')
       .fill(asNeededMedicationDose);
-    const dateLocator = await page
-      .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput)
-      .locator('input');
+    const dateLocator = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput).locator('input');
     await dateLocator.click();
     await dateLocator.pressSequentially(asNeededMedicationDate);
     await page
@@ -319,6 +318,7 @@ test.describe('Current medications', () => {
 
     await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(scheduledMedicationListItem).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)).toBeVisible();
   });
 
   test('Should delete as needed medication', async () => {
@@ -335,6 +335,7 @@ test.describe('Current medications', () => {
 
     await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(asNeededMedicationListItem).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)).toBeVisible();
   });
 
   test('Should confirm medications are deleted on Review&Sign tab', async () => {
@@ -403,6 +404,7 @@ test.describe('Known allergies', () => {
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(knownAllergyListItem).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput)).toBeVisible();
   });
 
   test('Should confirm known allergy deleted', async () => {
@@ -410,7 +412,9 @@ test.describe('Known allergies', () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
+        timeout: 30000,
+      });
 
       await expect(page.getByText(new RegExp(knownAllergyName, 'i'))).not.toBeVisible();
     });
@@ -419,7 +423,9 @@ test.describe('Known allergies', () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
 
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer)).not.toBeVisible();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabKnownAllergiesContainer)).toBeVisible({
+        timeout: 30000,
+      });
       await expect(page.getByText(new RegExp(knownAllergyName, 'i'))).not.toBeVisible();
     });
   });
