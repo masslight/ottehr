@@ -1,7 +1,6 @@
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  getFullName,
   getScheduleDetails,
   getTimezone,
   INVALID_RESOURCE_ID_ERROR,
@@ -17,8 +16,9 @@ import {
   Secrets,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
-import { Address, FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import { getSlugForBookableResource } from '../../../patient/bookable/helpers';
+import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mtoken: string;
 
@@ -182,43 +182,4 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     timezone: getTimezone(schedule),
     owner,
   };
-};
-
-const addressStringFromAddress = (address: Address): string => {
-  let addressString = '';
-  if (address.line) {
-    addressString += `, ${address.line}`;
-  }
-  if (address.city) {
-    addressString += `, ${address.city}`;
-  }
-  if (address.state) {
-    addressString += `, ${address.state}`;
-  }
-  if (address.postalCode) {
-    addressString += `, ${address.postalCode}`;
-  }
-  // return without trailing comma
-
-  if (addressString !== '') {
-    addressString = addressString.substring(2);
-  }
-  return addressString;
-};
-
-const getNameForOwner = (owner: FhirResource): string => {
-  let name: string | undefined = '';
-  if (owner.resourceType === 'Location') {
-    name = (owner as Location).name;
-  } else if (owner.resourceType === 'Practitioner') {
-    name = getFullName(owner as Practitioner);
-  } else if (owner.resourceType === 'HealthcareService') {
-    name = (owner as HealthcareService).name;
-  } else if (owner.resourceType === 'PractitionerRole') {
-    // todo if we come to add schedules to PRs: get name from practitioner
-  }
-  if (name) {
-    return name;
-  }
-  return `${owner.resourceType}/${owner.id}`;
 };

@@ -14,7 +14,7 @@ import {
   Typography,
   capitalize,
 } from '@mui/material';
-import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { ReactElement, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
 
@@ -23,11 +23,12 @@ import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from '../constants/data-test-ids';
-import { OVERRIDE_DATE_FORMAT } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
-import { Closure, ClosureType, ScheduleExtension } from '../types/types';
 import Loading from './Loading';
-import { SCHEDULE_EXTENSION_URL } from 'utils';
+import { APIError, isApiError, SchedulesAndOwnerListItem } from 'utils';
+import { useQuery } from 'react-query';
+import { listScheduleOwners } from '../api/api';
+import { enqueueSnackbar } from 'notistack';
 
 export type ScheduleType = 'location' | 'provider' | 'group';
 
@@ -35,8 +36,6 @@ interface ScheduleInformationProps {
   scheduleType: ScheduleType;
 }
 const oystehr = new Oystehr({});
-const SCHEDULE_CHANGES_FORMAT = 'MMM d';
-
 export function getName(item: Resource): string {
   let name = undefined;
   if (item.resourceType === 'Location') {
@@ -60,52 +59,46 @@ export function getName(item: Resource): string {
 }
 
 export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps): ReactElement => {
-  const { oystehr } = useApiClients();
+  const { oystehrZambda } = useApiClients();
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [pageNumber, setPageNumber] = useState(0);
   const [searchText, setSearchText] = useState('');
-  const [items, setItems] = useState<(Location | Practitioner)[] | undefined>(undefined);
-  const [loading, setLoading] = useState<boolean>(false);
 
-  useEffect(() => {
-    async function getItems(schedule: 'Location' | 'Practitioner' | 'HealthcareService'): Promise<void> {
-      if (!oystehr) {
-        return;
-      }
-      setLoading(true);
-      const itemsTemp = (
-        await oystehr.fhir.search({
-          resourceType: schedule,
-          params: [{ name: '_count', value: '1000' }],
-        })
-      ).entry?.map((resourceTemp) => resourceTemp.resource) as any;
-      setItems(itemsTemp);
-      setLoading(false);
-    }
+  const ownerType = (() => {
     if (scheduleType === 'location') {
-      void getItems('Location');
-    } else if (scheduleType === 'provider') {
-      void getItems('Practitioner');
-    } else if (scheduleType === 'group') {
-      void getItems('HealthcareService');
+      return 'Location';
     }
-  }, [oystehr, scheduleType]);
+    if (scheduleType === 'provider') {
+      return 'Practitioner';
+    }
+    return 'HealthcareService';
+  })();
+
+  const { isLoading, isFetching, isRefetching, data } = useQuery(
+    [`list-scehdule-owners + ${scheduleType}`, { zambdaClient: oystehrZambda }],
+    () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
+    {
+      onError: (e) => {
+        let errorMessage = 'Error fetching schedule owners';
+        if (isApiError(e)) {
+          errorMessage = (e as APIError).message;
+        }
+        enqueueSnackbar({
+          message: errorMessage,
+          variant: 'error',
+        });
+      },
+      enabled: !!oystehrZambda,
+      staleTime: 1800000, // half hour
+    }
+  );
+
+  const loading = isLoading || isFetching || isRefetching;
 
   const filteredItems = useMemo(() => {
-    if (!items) {
-      return [];
-    }
-    const filtered = items.filter((item) => getName(item).toLowerCase().includes(searchText.toLowerCase()));
-
-    const combinedItems = filtered.map((item) => ({
-      ...item,
-      combined: getName(item),
-    }));
-
-    combinedItems.sort((a, b) => a.combined.localeCompare(b.combined));
-
-    return combinedItems;
-  }, [items, searchText]);
+    const unfiltered = data?.list ?? [];
+    return unfiltered.filter((item) => item.owner.name.toLowerCase().includes(searchText.toLowerCase()));
+  }, [data, searchText]);
 
   // For pagination, only include the rows that are on the current page
   const pageItems = useMemo(
@@ -130,98 +123,31 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
     setSearchText(event.target.value);
   };
 
-  const getHoursOfOperationForToday = (item: Location | Practitioner, time: 'open' | 'close'): any => {
-    const dayOfWeek = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
-    const extensionSchedule = item.extension?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
-      ?.valueString;
-
-    if (!extensionSchedule) {
-      return undefined;
-    }
-
-    const scheduleTemp = JSON.parse(extensionSchedule);
-    const scheduleDays = scheduleTemp.schedule;
-    const scheduleDay = scheduleDays[dayOfWeek];
-    let open: number = scheduleDay.open;
-    let close: number = scheduleDay.close;
-    const scheduleOverrides = scheduleTemp.scheduleOverrides;
-    if (scheduleTemp.scheduleOverrides) {
-      for (const dateKey in scheduleOverrides) {
-        if (Object.hasOwnProperty.call(scheduleOverrides, dateKey)) {
-          const date = DateTime.fromFormat(dateKey, OVERRIDE_DATE_FORMAT).toISODate();
-          const todayDate = DateTime.local().toISODate();
-          if (date === todayDate) {
-            open = scheduleOverrides[dateKey].open;
-            close = scheduleOverrides[dateKey].close;
-          }
-        }
+  const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
+    if (!item.schedules.length) {
+      if (item.owner.name.includes('Sarah')) {
+        console.log('zacag exit 1');
       }
+      return 'No scheduled hours';
     }
-    if (time === 'open') {
-      return `${(open % 12 === 0 ? 12 : open % 12).toString().padStart(2, '0')}:00 ${
-        open < 12 || open === 24 ? 'AM' : 'PM'
-      }`;
-    } else {
-      return `${(close % 12 === 0 ? 12 : close % 12).toString().padStart(2, '0')}:00 ${
-        close < 12 || close == 24 ? 'AM' : 'PM'
-      }`;
-    }
-  };
-
-  const validateClosureDates = (closureDates: string[], closure: Closure): string[] => {
-    const today = DateTime.now().startOf('day');
-    const startDate = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT);
-    if (!startDate.isValid) {
-      return closureDates;
-    }
-
-    if (closure.type === ClosureType.OneDay) {
-      if (startDate >= today) {
-        closureDates.push(startDate.toFormat(SCHEDULE_CHANGES_FORMAT));
+    const hoursOfOperation = item.schedules[0].todayHoursISO;
+    if (!hoursOfOperation) {
+      if (item.owner.name.includes('Sarah')) {
+        console.log('zacag exit 2');
       }
-    } else if (closure.type === ClosureType.Period) {
-      const endDate = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT);
-      if (startDate >= today || endDate >= today) {
-        closureDates.push(
-          `${startDate.toFormat(SCHEDULE_CHANGES_FORMAT)} - ${endDate.toFormat(SCHEDULE_CHANGES_FORMAT)}`
-        );
-      }
+      return 'No scheduled hours';
     }
-    return closureDates;
+    const { open, close } = hoursOfOperation;
+    const openTime = DateTime.fromISO(open);
+    const closeTime = DateTime.fromISO(close);
+    if (openTime.isValid && closeTime.isValid) {
+      return openTime.toFormat('h:mm a') + ' - ' + closeTime.toFormat('h:mm a');
+    }
+    if (item.owner.name.includes('Sarah')) {
+      console.log('zacag open close', openTime.isValid, closeTime.isValid);
+    }
+    return 'No scheduled hours';
   };
-
-  const validateOverrideDates = (overrideDates: string[], date: string): string[] => {
-    const luxonDate = DateTime.fromFormat(date, OVERRIDE_DATE_FORMAT);
-    if (luxonDate.isValid && luxonDate >= DateTime.now().startOf('day')) {
-      overrideDates.push(luxonDate.toFormat(SCHEDULE_CHANGES_FORMAT));
-    }
-    return overrideDates;
-  };
-
-  function getItemOverrideInformation(item: Location | Practitioner): string | undefined {
-    const extensionTemp = item.extension;
-    const extensionSchedule = extensionTemp?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL)
-      ?.valueString;
-
-    if (extensionSchedule) {
-      const { scheduleOverrides, closures } = JSON.parse(extensionSchedule) as ScheduleExtension;
-      const overrideDates = scheduleOverrides ? Object.keys(scheduleOverrides).reduce(validateOverrideDates, []) : [];
-      const closureDates = closures ? closures.reduce(validateClosureDates, []) : [];
-      const allDates = [...overrideDates, ...closureDates].sort((d1: string, d2: string): number => {
-        // compare the single day or the first day in the period
-        const startDateOne = d1.split('-')[0];
-        const startDateTwo = d2.split('-')[0];
-        return (
-          DateTime.fromFormat(startDateOne, SCHEDULE_CHANGES_FORMAT).toSeconds() -
-          DateTime.fromFormat(startDateTwo, SCHEDULE_CHANGES_FORMAT).toSeconds()
-        );
-      });
-      const scheduleChangesSet = new Set(allDates);
-      const scheduleChanges = Array.from(scheduleChangesSet);
-      return scheduleChanges.length ? scheduleChanges.join(', ') : undefined;
-    }
-    return undefined;
-  }
 
   return (
     <Paper sx={{ padding: 2 }}>
@@ -261,30 +187,28 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
           </TableHead>
           <TableBody>
             {pageItems.map((item) => (
-              <TableRow key={item.id}>
+              <TableRow key={item.owner.id}>
                 <TableCell>
-                  <Link to={`/schedule/${scheduleType}/${item.id}`} style={{ textDecoration: 'none' }}>
-                    <Typography color="primary">{getName(item)}</Typography>
+                  <Link
+                    to={`/schedule/${scheduleType}/${item.schedules[0]?.id ?? 'new-schedule'}`}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Typography color="primary">{item.owner.name}</Typography>
                   </Link>
                 </TableCell>
                 <TableCell align="left">
-                  <Typography>
-                    {item.resourceType === 'Location'
-                      ? item.address && oystehr?.fhir.formatAddress(item.address)
-                      : item.address && oystehr?.fhir.formatAddress(item.address[0])}
-                  </Typography>
+                  <Typography>{item.owner.address ?? ''}</Typography>
                 </TableCell>
                 <TableCell align="left">
-                  <Typography>
-                    {getHoursOfOperationForToday(item, 'open') && getHoursOfOperationForToday(item, 'close')
-                      ? `${getHoursOfOperationForToday(item, 'open')} -
-                                ${getHoursOfOperationForToday(item, 'close')}`
-                      : 'No scheduled hours'}
-                  </Typography>
+                  <Typography>{getHoursOfOperationText(item)}</Typography>
                 </TableCell>
                 <TableCell align="left">
-                  <Typography style={{ color: getItemOverrideInformation(item) ? 'inherit' : otherColors.none }}>
-                    {getItemOverrideInformation(item) ? getItemOverrideInformation(item) : 'None Scheduled'}
+                  <Typography
+                    style={{
+                      color: item.schedules[0]?.upcomingScheduleChanges ? 'inherit' : otherColors.none,
+                    }}
+                  >
+                    {item.schedules[0]?.upcomingScheduleChanges ?? 'No upcoming schedule changes'}
                   </Typography>
                 </TableCell>
               </TableRow>

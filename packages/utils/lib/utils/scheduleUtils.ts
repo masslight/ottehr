@@ -925,3 +925,5 @@ export const normalizeSlotToUTC = (slotOriginal: Slot): Slot => {
   slot.end = endTime;
   return slot;
 };
+
+export const SCHEDULE_CHANGES_DATE_FORMAT = 'MMM d';

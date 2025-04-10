@@ -8,6 +8,8 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
+  ListScheduleOwnersParams,
+  ListScheduleOwnersResponse,
   ScheduleDTO,
   UpdateScheduleParams,
 } from 'utils';
@@ -51,6 +53,7 @@ const SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID = import.meta.env.VITE_APP_SAVE_PATIENT_FO
 const CREATE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID;
 const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAMBDA_ID;
 const UPDATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_SCHEDULE_ZAMBDA_ID;
+const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = import.meta.env.VITE_APP_LIST_SCHEDULE_OWNERS_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -352,6 +355,26 @@ export const getEmployees = async (oystehr: Oystehr): Promise<GetEmployeesRespon
 
     const response = await oystehr.zambda.execute({
       id: GET_EMPLOYEES_ZAMBDA_ID,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const listScheduleOwners = async (
+  params: ListScheduleOwnersParams,
+  oystehr: Oystehr
+): Promise<ListScheduleOwnersResponse> => {
+  try {
+    if (LIST_SCHEDULE_OWNERS_ZAMBDA_ID == null) {
+      throw new Error('ehr-get-schedule zambda environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: LIST_SCHEDULE_OWNERS_ZAMBDA_ID,
+      ...params,
     });
     return chooseJson(response);
   } catch (error: unknown) {
