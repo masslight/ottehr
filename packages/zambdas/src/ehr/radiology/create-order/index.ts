@@ -1,6 +1,8 @@
-import Oystehr, { User } from '@oystehr/sdk';
+import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Patient, ServiceRequest } from 'fhir/r4b';
+import { Encounter, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
+import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
+
 import { DateTime } from 'luxon';
 import {
   CreateRadiologyZambdaOrderInput,
@@ -39,7 +41,19 @@ export interface EnhancedBody
 }
 
 // Constants
-const DATE_FORMAT = 'YYYYMMDDHHMMSSMS';
+const DATE_FORMAT = 'yyyyMMddhhmmssuu';
+const PERSON_IDENTIFIER_CODE_SYSTEM = 'https://terminology.fhir.ottehr.com/CodeSystem/person-uuid';
+const ACCESSION_NUMBER_CODE_SYSTEM = 'https://terminology.fhir.ottehr.com/CodeSystem/accession-number';
+const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
+  'https://extensions.fhir.ottehr.com/service-request-order-detail-pre-release';
+const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL =
+  'https://extensions.fhir.ottehr.com/service-request-order-detail-parameter-pre-release';
+const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL =
+  'https://extensions.fhir.ottehr.com/service-request-order-detail-parameter-pre-release-code';
+const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
+  'https://extensions.fhir.ottehr.com/service-request-order-detail-parameter-pre-release-value-string';
+const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
+  'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -102,7 +116,7 @@ const performEffect = async (
   // Send the order to AdvaPACS
   let advaPacsServiceRequest: ServiceRequest | null = null;
   try {
-    advaPacsServiceRequest = await syncToAdvaPACS(ourServiceRequest, secrets, oystehr);
+    advaPacsServiceRequest = await writeAdvaPacsTransaction(ourServiceRequest, secrets, oystehr);
   } catch (error) {
     console.error('Error sending order to AdvaPACS: ', error);
     // Roll back creation of our service request
@@ -123,6 +137,7 @@ const writeOurServiceRequest = (
   oystehr: Oystehr
 ): Promise<ServiceRequest> => {
   const { encounter, diagnosis, cpt, stat } = validatedBody;
+  const now = DateTime.now();
   const serviceRequest: ServiceRequest = {
     resourceType: 'ServiceRequest',
     status: 'active',
@@ -137,7 +152,8 @@ const writeOurServiceRequest = (
             },
           ],
         },
-        value: DateTime.now().toFormat(DATE_FORMAT),
+        system: ACCESSION_NUMBER_CODE_SYSTEM,
+        value: now.toFormat(DATE_FORMAT),
       },
     ],
     subject: {
@@ -168,12 +184,39 @@ const writeOurServiceRequest = (
         coding: [diagnosis],
       },
     ],
-    occurrenceDateTime: new Date().toISOString(),
+    occurrenceDateTime: now.toISO(),
+    extension: [
+      {
+        url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
+        extension: [
+          {
+            url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL,
+            extension: [
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_CODE_URL,
+                valueCodeableConcept: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'modality',
+                    },
+                  ],
+                },
+              },
+              {
+                url: SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL,
+                valueString: 'DX',
+              },
+            ],
+          },
+        ],
+      },
+    ],
   };
   return oystehr.fhir.create<ServiceRequest>(serviceRequest);
 };
 
-const syncToAdvaPACS = async (
+const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
   secrets: Secrets,
   oystehr: Oystehr
@@ -183,11 +226,132 @@ const syncToAdvaPACS = async (
     const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
     const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
-    const advaPacsPatient = await writeOrGetAdvaPacsPatient(ourServiceRequest, advapacsAuthString, oystehr);
+    const ourPatient = await getOurSubject(ourServiceRequest.subject?.reference || '', oystehr);
+    const ourPatientDecimalId = uuidToDecimal(ourPatient.id);
+    const ourRequestingPractitionerId = ourServiceRequest.requester?.reference?.split('/')[1];
+    const ourRequestingProviderDecimalId = uuidToDecimal(ourRequestingPractitionerId);
 
-    return await writeAdvaPacsServiceRequest(ourServiceRequest, advaPacsPatient, advapacsAuthString);
+    const patientToCreate: BatchInputPutRequest<Patient> = {
+      method: 'PUT',
+      url: `Patient?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourPatientDecimalId}`,
+      resource: {
+        resourceType: 'Patient',
+        identifier: [
+          {
+            system: PERSON_IDENTIFIER_CODE_SYSTEM,
+            value: ourPatientDecimalId,
+          },
+        ],
+        name: ourPatient.name,
+        birthDate: ourPatient.birthDate,
+        gender: ourPatient.gender,
+      },
+    };
+
+    const requestingPractitionerToCreate: BatchInputPutRequest<Practitioner> = {
+      method: 'PUT',
+      url: `Practitioner?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourRequestingProviderDecimalId}`,
+      resource: {
+        resourceType: 'Practitioner',
+        identifier: [
+          {
+            system: PERSON_IDENTIFIER_CODE_SYSTEM,
+            value: ourRequestingProviderDecimalId,
+          },
+        ],
+        name: ourPatient.name,
+        birthDate: ourPatient.birthDate,
+        gender: ourPatient.gender,
+      },
+    };
+
+    const serviceReqeuestToCreate: BatchInputPutRequest<ServiceRequestR5> = {
+      method: 'PUT',
+      url: `ServiceRequest?identifier=${ACCESSION_NUMBER_CODE_SYSTEM}|${ourServiceRequest.identifier?.[0].value}`,
+      resource: {
+        resourceType: 'ServiceRequest',
+        status: ourServiceRequest.status,
+        identifier: ourServiceRequest.identifier as any, // Identifier is the same in R4B and R5 so this is safe
+        intent: ourServiceRequest.intent,
+        subject: {
+          identifier: {
+            system: PERSON_IDENTIFIER_CODE_SYSTEM,
+            value: ourPatientDecimalId,
+          },
+        },
+        requester: {
+          identifier: {
+            system: PERSON_IDENTIFIER_CODE_SYSTEM,
+            value: ourRequestingProviderDecimalId,
+          },
+        },
+        code: {
+          concept: ourServiceRequest.code as any, // CodeableConcept is the same in R4B and R5 so this is safe
+        },
+        orderDetail: [
+          // we build R5 orderDetail from extensions we store in our R4B SR.orderDetail
+          {
+            parameter: [
+              {
+                code: {
+                  coding: [
+                    {
+                      system: ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL,
+                      code: 'modality',
+                    },
+                  ],
+                },
+                valueString: ourServiceRequest.extension
+                  ?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL)
+                  ?.extension?.find((ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL)
+                  ?.extension?.find(
+                    (ext) => ext.url === SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL
+                  )?.valueString,
+              },
+            ],
+          },
+        ],
+        occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
+      },
+    };
+
+    const advaPacsTransactionRequest = {
+      resourceType: 'Bundle',
+      type: 'transaction',
+      entry: [patientToCreate, requestingPractitionerToCreate, serviceReqeuestToCreate].map((request) => {
+        return {
+          resource: {
+            ...request.resource,
+          },
+          request: {
+            method: request.method,
+            url: request.url,
+          },
+        };
+      }),
+    };
+
+    console.log(JSON.stringify(advaPacsTransactionRequest));
+
+    const advapacsResponse = await fetch(`https://usa1.api.integration.advapacs.com/fhir/R5`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/fhir+json',
+        Authorization: advapacsAuthString,
+      },
+      body: JSON.stringify(advaPacsTransactionRequest),
+    });
+    if (!advapacsResponse.ok) {
+      throw new Error(
+        `advapacs transaction errored out with statusCode ${advapacsResponse.status}, status text ${
+          advapacsResponse.statusText
+        }, and body ${JSON.stringify(await advapacsResponse.json(), null, 2)}`
+      );
+    }
+
+    return await advapacsResponse.json();
   } catch (error) {
-    console.log('sync to AdvaPACS error: ', error);
+    console.log('write transaction to advapacs error: ', error);
     throw error;
   }
 };
@@ -203,107 +367,6 @@ const getOurSubject = async (patientRelativeReference: string, oystehr: Oystehr)
   }
 };
 
-const writeOrGetAdvaPacsPatient = async (
-  ourServiceRequest: ServiceRequest,
-  advapacsAuthString: string,
-  oystehr: Oystehr
-): Promise<Patient> => {
-  const ourPatient = await getOurSubject(ourServiceRequest.subject?.reference || '', oystehr);
-
-  // find patient in advapacs
-  const advapacsPatientResponse = await fetch(
-    `https://usa1.api.integration.advapacs.com/fhir/Patient?identifier=${ourPatient.id}`,
-    {
-      method: 'GET',
-      headers: {
-        Authorization: advapacsAuthString,
-        'Content-Type': 'application/json',
-      },
-    }
-  );
-  if (!advapacsPatientResponse.ok) {
-    throw new Error(advapacsPatientResponse.statusText);
-  }
-  const advaPacsPatientSearchResponse = await advapacsPatientResponse.json();
-  let advaPacsPatient: Patient | undefined;
-
-  if (advaPacsPatientSearchResponse.total === 1) {
-    console.log('Found patient in AdvaPACS');
-    // found exactly one, happy path!
-    advaPacsPatient = advaPacsPatientSearchResponse.entry?.[0];
-  } else if (advaPacsPatientSearchResponse.total === 0) {
-    console.log('No patient found in AdvaPACS, creating it');
-    // could not find the patient, create it
-    const patientToCreate: Patient = {
-      resourceType: 'Patient',
-      identifier: [
-        {
-          // advapacs FHIR does not allow us to specify a code system, but it does accept a bare value.
-          // the assumption here is that there will only be one Identifier on these Patient resources in advapacs.
-          value: ourPatient.id,
-        },
-      ],
-      name: ourPatient.name,
-      birthDate: ourPatient.birthDate,
-      gender: ourPatient.gender,
-    };
-    console.log('alex patient, ', patientToCreate);
-    const advapacsResponse = await fetch(`https://usa1.api.integration.advapacs.com/fhir/Patient`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: advapacsAuthString,
-      },
-      body: JSON.stringify(patientToCreate),
-    });
-    if (!advapacsResponse.ok) {
-      throw new Error(advapacsResponse.statusText);
-    }
-
-    advaPacsPatient = await advapacsResponse.json();
-  } else {
-    console.log('Multiple patients found in AdvaPACS, could not sync');
-    throw new Error('Multiple patients found in AdvaPACS, could not sync');
-  }
-
-  if (advaPacsPatient == null) {
-    throw new Error('writeOrGetAdvaPacsPatient - AdvaPACS patient is null after search / create flow');
-  }
-
-  console.log('AdvaPACS patient: ', JSON.stringify(advaPacsPatient));
-
-  return advaPacsPatient;
-};
-
-const writeAdvaPacsServiceRequest = async (
-  ourServiceRequest: ServiceRequest,
-  advaPacsPatient: Patient,
-  advapacsAuthString: string
-): Promise<ServiceRequest> => {
-  const advaPacsServiceRequest: ServiceRequest = {
-    resourceType: 'ServiceRequest',
-    status: ourServiceRequest.status,
-    identifier: ourServiceRequest.identifier,
-    intent: ourServiceRequest.intent,
-    subject: {
-      reference: `Patient/${advaPacsPatient.id}`,
-    },
-  };
-  const advapacsResponse = await fetch(`https://usa1.api.integration.advapacs.com/fhir/ServiceRequest`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: advapacsAuthString,
-    },
-    body: JSON.stringify(advaPacsServiceRequest),
-  });
-  if (!advapacsResponse.ok) {
-    throw new Error(advapacsResponse.statusText);
-  }
-
-  return await advapacsResponse.json();
-};
-
 const rollbackOurServiceRequest = async (ourServiceRequest: ServiceRequest, oystehr: Oystehr): Promise<void> => {
   if (!ourServiceRequest.id) {
     throw new Error('rollbackOurServiceRequest: ServiceRequest id is missing');
@@ -313,4 +376,14 @@ const rollbackOurServiceRequest = async (ourServiceRequest: ServiceRequest, oyst
     resourceType: 'ServiceRequest',
     id: ourServiceRequest.id,
   });
+};
+
+const uuidToDecimal = (uuid: string | undefined): string => {
+  if (uuid == null) {
+    throw new Error('UUID is required');
+  }
+
+  const hexString = uuid.replace(/-/g, '');
+  const decimalValue = BigInt(`0x${hexString}`);
+  return decimalValue.toString(10);
 };
