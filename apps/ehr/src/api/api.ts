@@ -527,6 +527,14 @@ export const getLabOrders = async (
     if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get lab orders environment variable could not be loaded');
     }
+    const searchBy = parameters.serviceRequestId || parameters.encounterId || parameters.patientId;
+    if (!searchBy) {
+      throw new Error(
+        `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
+          parameters
+        )}`
+      );
+    }
     const response = await oystehr.zambda.execute({
       id: GET_LAB_ORDERS_ZAMBDA_ID,
       ...parameters,
