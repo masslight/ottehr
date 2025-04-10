@@ -120,6 +120,7 @@ const handleReviewedEvent = async (
                   reference: `Practitioner/${practitionerIdFromCurrentUser}`,
                 },
               },
+              // todo: add provenance, and update UI history view
             ])
           ).toString('base64'),
         },

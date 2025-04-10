@@ -256,7 +256,8 @@ export const extractLabResources = (
       if (withActivityDefinition) {
         serviceRequests.push(serviceRequest);
       }
-    } else if (resource.resourceType === 'Task') {
+    } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
+      // todo: filtering out cancelled tasks looks valid, but better to confirm this
       tasks.push(resource as Task);
     } else if (resource.resourceType === 'DiagnosticReport') {
       results.push(resource as DiagnosticReport);
@@ -393,7 +394,8 @@ export const parseLabOrderStatus = (
   }
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
-  const isSentStatus = hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0;
+  const isSentStatus =
+    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length && prelimResults.length === 0;
 
   if (isSentStatus) {
     return ExternalLabsStatus.sent;
@@ -921,6 +923,7 @@ export const parseResultDetails = (
   const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
 
   if (!task?.id || !result?.id || !serviceRequest.id) {
+    console.log(`Task not found for result: ${result.id}, if Task exists check if it has valid status and code.`);
     return null;
   }
 
