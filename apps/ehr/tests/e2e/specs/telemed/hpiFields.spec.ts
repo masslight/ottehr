@@ -171,8 +171,9 @@ test.describe('Medical conditions', async () => {
     await test.step('Confirm deletion in hpi tab', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
+      const column = page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn);
+      await expect(column).toBeVisible();
+      await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
         timeout: 30000,
       });
 
@@ -411,8 +412,9 @@ test.describe('Known allergies', () => {
     await test.step('Confirm deletion in hpi tab', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
+      const column = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn);
+      await expect(column).toBeVisible();
+      await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
         timeout: 30000,
       });
 
