@@ -53,7 +53,7 @@ export const mapResourcesToLabOrderDTOs = (
       appointmentId,
       history,
       orderStatus,
-      resultsDetails, // todo: naming
+      resultsDetails,
     } = parseOrderDetails({ tasks, serviceRequest, results, appointments, encounters, practitioners });
 
     return {
@@ -823,13 +823,19 @@ export const parseOrderDetails = ({
       });
     }
 
-    const finalTasks = [...reflexFinalTasks, ...reflexPrelimTasks].sort((a, b) =>
+    const taggedReflexTasks = reflexFinalTasks.map((task) => ({ ...task, taskType: 'reflex' }) as const);
+    const taggedOrderedTasks = orderedFinalTasks.map((task) => ({ ...task, taskType: 'ordered' }) as const);
+
+    const finalTasks = [...taggedReflexTasks, ...taggedOrderedTasks].sort((a, b) =>
       compareDates(a.authoredOn, b.authoredOn)
     );
 
     finalTasks.forEach((task) => {
-      const action = task.status === 'completed' ? 'reviewed' : 'received';
+      const action = `${task.status === 'completed' ? 'reviewed' : 'received'} (${task.taskType})` as const;
+
+      // todo: should be used Provenance resource to track the history
       const date = task.authoredOn || '';
+
       const performerId = task.owner?.reference?.split('/').pop() || '';
       const performer = parsePractitionerName(performerId, practitioners);
 

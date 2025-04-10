@@ -56,7 +56,13 @@ export enum ExternalLabsStatus {
 }
 
 export type LabOrderHistoryRow = {
-  action: 'ordered' | 'performed' | 'received' | 'reviewed' | 'received reflex' | 'reviewed reflex';
+  action:
+    | 'ordered'
+    | 'performed'
+    | 'received (reflex)'
+    | 'reviewed (reflex)'
+    | 'received (ordered)'
+    | 'reviewed (ordered)';
   performer: string;
   date: string;
 };
