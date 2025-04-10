@@ -12,8 +12,7 @@ import {
   getSecret,
   isApiError,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
-import { getAuth0Token } from '../../shared';
+import { ZambdaInput, getAuth0Token } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -44,7 +43,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('createOystehrClient success');
 
-    const answerOptions = await performEffect(getOptionsInput, oystehr);
+    const answerOptions: QuestionnaireItemAnswerOption[] = await performEffect(getOptionsInput, oystehr);
 
     return {
       statusCode: 200,
