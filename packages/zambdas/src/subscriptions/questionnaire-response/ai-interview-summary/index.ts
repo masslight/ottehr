@@ -2,6 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Condition, Encounter, Observation, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { AI_OBSERVATION_META_SYSTEM, createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
 import {
+  assertDefined,
   configSentry,
   getAuth0Token,
   makeDiagnosisConditionResource,
@@ -58,10 +59,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       resourceType: 'Encounter',
       id: questionnaireResponse.encounter?.reference?.split('/')[1] ?? '',
     });
+    const encounterId = assertDefined(encounter.id, 'encounter.id');
+    const patientId = assertDefined(encounter.subject?.reference?.split('/')[1], 'patientId');
     const requests: BatchInputPostRequest<Observation | Condition>[] = [];
-    const patientId = encounter.subject?.reference?.split('/')[1];
-    requests.push(...createObservations(aiResponse, encounter.id!, patientId!));
-    requests.push(...createDiagnosis(aiResponse, encounter.id!, patientId!));
+    requests.push(...createObservations(aiResponse, encounterId, patientId));
+    requests.push(...createDiagnosis(aiResponse, encounterId, patientId));
     console.log('Transaction requests: ' + JSON.stringify(requests, null, 2));
     const transactionBundle = await oystehr.fhir.transaction({
       requests: requests,
