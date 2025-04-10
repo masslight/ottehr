@@ -61,4 +61,8 @@ export class CommonLocatorsHelper {
     const date = DateTime.fromFormat(`${monthStr} ${dayStr} 2000`, 'MMM d yyyy', { locale: 'en' });
     return date.isValid ? { monthNumber: date.toFormat('MM'), dayNumber: date.toFormat('dd') } : null;
   }
+  async clearField(locator: Locator): Promise<void> {
+    await locator.click({ clickCount: 3 });
+    await locator.press('Backspace');
+  }
 }

@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.5.22",
+  "version": "1.6.1",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -42,6 +42,7 @@
     "luxon": "^3.4.3",
     "query-string": "^8.1.0",
     "short-uuid": "^4.2.2",
+    "stripe": "^17.7.0",
     "utils": "*"
   },
   "devDependencies": {

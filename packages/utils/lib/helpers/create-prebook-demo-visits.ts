@@ -120,14 +120,14 @@ export const createSamplePrebookAppointments = async ({
   demoData?: DemoAppointmentData;
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
-}): Promise<CreateAppointmentResponse | { error: string }> => {
+}): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
 
   if (!oystehr) {
     console.log('oystehr client is not defined');
-    return { error: 'no oystehr client' };
+    throw new Error('oystehr client is not defined');
   }
 
   try {
@@ -174,7 +174,7 @@ export const createSamplePrebookAppointments = async ({
 
         if (!appointmentData) {
           console.error('Error: appointment data is null');
-          return { error: 'appointment data is null' };
+          throw new Error('Error: appointment data is null');
         }
 
         await processPrebookPaperwork(
@@ -199,7 +199,7 @@ export const createSamplePrebookAppointments = async ({
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
-        return { error: (error as any).message || JSON.stringify(error) };
+        throw error;
       }
     });
 

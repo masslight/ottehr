@@ -62,10 +62,9 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           <Typography color="text.secondary">No previous names</Typography>
         )}
       </Row>
-      <Row label="Patient's ethnicity" required>
+      <Row label="Patient's ethnicity" dataTestId={dataTestIds.patientDetailsContainer.patientsEthnicity} required>
         <FormSelect
           name={FormFields.ethinicity.key}
-          data-testid={dataTestIds.patientDetailsContainer.patientsEthnicity}
           control={control}
           options={ETHNICITY_OPTIONS}
           rules={{
@@ -73,10 +72,9 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           }}
         />
       </Row>
-      <Row label="Patient's race" required>
+      <Row label="Patient's race" dataTestId={dataTestIds.patientDetailsContainer.patientsRace} required>
         <FormSelect
           name={FormFields.race.key}
-          data-testid={dataTestIds.patientDetailsContainer.patientsRace}
           control={control}
           options={RACE_OPTIONS}
           rules={{

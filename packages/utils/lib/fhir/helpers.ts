@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
+  Account,
   Appointment,
   Bundle,
   CodeableConcept,
@@ -50,6 +51,7 @@ import {
   VisitType,
 } from '../types';
 import {
+  ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -1265,4 +1267,15 @@ export const getVersionedReferencesFromBundleResources = (bundle: Bundle): Refer
 export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   const outcomeEntry = bundle.entry?.[0]?.response?.outcome?.id === 'ok';
   return outcomeEntry;
+};
+
+export const getStripeCustomerIdFromAccount = (account: Account): string | undefined => {
+  return account.identifier?.find((ident) => {
+    return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
+  })?.value;
+};
+
+export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
+  const guarantor = account?.guarantor?.find((g) => g.period?.end === undefined)?.party;
+  return guarantor?.reference;
 };

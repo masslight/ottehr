@@ -1,7 +1,7 @@
-import { ReactElement } from 'react';
-import { Box, Typography } from '@mui/material';
 import { InfoOutlined, WarningAmberOutlined } from '@mui/icons-material';
-import { BANNER_HEIGHT } from '../constants';
+import { Box, Typography } from '@mui/material';
+import { ReactElement } from 'react';
+import { BANNER_HEIGHT } from '../helpers/misc.helper';
 
 interface Props {
   text: string;
