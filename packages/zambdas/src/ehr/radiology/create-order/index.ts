@@ -114,16 +114,11 @@ const performEffect = async (
   }
 
   // Send the order to AdvaPACS
-  let advaPacsServiceRequest: ServiceRequest | null = null;
   try {
-    advaPacsServiceRequest = await writeAdvaPacsTransaction(ourServiceRequest, secrets, oystehr);
+    await writeAdvaPacsTransaction(ourServiceRequest, secrets, oystehr);
   } catch (error) {
     console.error('Error sending order to AdvaPACS: ', error);
-    // Roll back creation of our service request
     await rollbackOurServiceRequest(ourServiceRequest, oystehr);
-  }
-  if (!advaPacsServiceRequest) {
-    throw new Error('Error creating AdvaPACS service request');
   }
 
   return {
@@ -220,7 +215,7 @@ const writeAdvaPacsTransaction = async (
   ourServiceRequest: ServiceRequest,
   secrets: Secrets,
   oystehr: Oystehr
-): Promise<ServiceRequest> => {
+): Promise<void> => {
   try {
     const advapacsClientId = getSecret(SecretsKeys.ADVAPACS_CLIENT_ID, secrets);
     const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
@@ -349,7 +344,8 @@ const writeAdvaPacsTransaction = async (
       );
     }
 
-    return await advapacsResponse.json();
+    // TODO need to check out the response bundle for any reason?
+    // await advapacsResponse.json();
   } catch (error) {
     console.log('write transaction to advapacs error: ', error);
     throw error;
@@ -368,6 +364,8 @@ const getOurSubject = async (patientRelativeReference: string, oystehr: Oystehr)
 };
 
 const rollbackOurServiceRequest = async (ourServiceRequest: ServiceRequest, oystehr: Oystehr): Promise<void> => {
+  console.log('rolling back our service request');
+
   if (!ourServiceRequest.id) {
     throw new Error('rollbackOurServiceRequest: ServiceRequest id is missing');
   }
