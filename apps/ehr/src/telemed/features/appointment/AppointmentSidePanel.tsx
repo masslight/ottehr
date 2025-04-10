@@ -42,6 +42,7 @@ import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../..
 import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
 import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
+import { CompleteConfiguration } from '../../../components/CompleteConfiguration';
 
 enum Gender {
   'male' = 'Male',
@@ -66,10 +67,13 @@ export const AppointmentSidePanel: FC = () => {
 
   const user = useEvolveUser();
 
+  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
+
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isERXOpen, setIsERXOpen] = useState(false);
   const [isERXLoading, setIsERXLoading] = useState(false);
+  const [isErxSetup, setIsErxSetup] = useState(true);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
@@ -127,6 +131,10 @@ export const AppointmentSidePanel: FC = () => {
   const delimeterString = preferredLanguage && isSpanish(preferredLanguage) ? `\u00A0|\u00A0` : '';
   const interpreterString =
     preferredLanguage && isSpanish(preferredLanguage) ? `Interpreter: ${INTERPRETER_PHONE_NUMBER}` : '';
+
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  };
 
   return (
     <Drawer
@@ -221,7 +229,7 @@ export const AppointmentSidePanel: FC = () => {
           <Typography variant="body2">{formattedReasonForVisit}</Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, position: 'relative' }}>
           <LoadingButton
             size="small"
             variant="outlined"
@@ -273,23 +281,48 @@ export const AppointmentSidePanel: FC = () => {
             Book visit
           </Button>
 
-          {user?.isPractitionerEnrolledInPhoton && (
-            <LoadingButton
-              size="small"
-              variant="outlined"
+          {!isErxSetup && (
+            <Box
               sx={{
-                textTransform: 'none',
-                fontSize: '14px',
-                fontWeight: 700,
-                borderRadius: 10,
+                position: 'absolute',
+                zIndex: 3000,
+                top: '100%',
+                left: -5,
+                width: '350px', // Adjust width as needed
               }}
-              startIcon={<MedicationOutlinedIcon />}
-              onClick={() => setIsERXOpen(true)}
-              loading={isERXLoading}
-              disabled={appointmentAccessibility.isAppointmentReadOnly}
             >
-              RX
-            </LoadingButton>
+              <CompleteConfiguration handleSetup={handleSetup} />
+            </Box>
+          )}
+
+          {user?.isPractitionerEnrolledInPhoton && (
+            <Box sx={{ position: 'relative' }}>
+              <Box
+                onMouseEnter={() => {
+                  if (appointmentAccessibility.isAppointmentReadOnly) {
+                    setIsErxSetup(false);
+                  }
+                }}
+                onMouseLeave={() => setIsErxSetup(true)}
+              >
+                <LoadingButton
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    borderRadius: 10,
+                  }}
+                  startIcon={<MedicationOutlinedIcon />}
+                  onClick={() => setIsERXOpen(true)}
+                  loading={isERXLoading}
+                  disabled={appointmentAccessibility.isAppointmentReadOnly}
+                >
+                  RX
+                </LoadingButton>
+              </Box>
+            </Box>
           )}
         </Box>
 
