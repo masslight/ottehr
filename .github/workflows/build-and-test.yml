@@ -16,16 +16,6 @@ on:
       - 'package.json'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - 'apps/ehr/**'
-      - 'apps/intake/**'
-      - 'packages/zambdas/**'
-      - 'packages/utils/**'
-      - 'packages/ui-components/**'
-      - 'scripts/**'
-      - '.github/**'
-      - '.prettierignore'
-      - 'package.json'
 
 jobs:
   build-and-test:
