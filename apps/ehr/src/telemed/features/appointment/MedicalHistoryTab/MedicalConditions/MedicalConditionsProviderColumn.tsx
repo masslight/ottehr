@@ -183,7 +183,10 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionListItem}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
@@ -246,7 +249,6 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-  const featureFlags = useFeatureFlags();
   const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
@@ -273,7 +275,7 @@ const AddMedicalConditionField: FC = () => {
       const newValue = {
         code: data.code,
         display: data.display,
-        current: featureFlags.css || undefined,
+        current: true,
       };
       useAppointmentStore.setState((prevState) => ({
         chartData: {

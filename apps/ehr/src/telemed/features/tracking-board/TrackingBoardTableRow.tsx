@@ -105,6 +105,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   return (
     <TableRow
       data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointment.id)}
+      data-location-group={appointment.location.state}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
         '&:hover': {
@@ -233,6 +234,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
               setChatModalOpen(true);
             }}
             aria-label={hasUnread ? 'unread messages chat icon' : 'chat icon, no unread messages'}
+            data-testid={dataTestIds.telemedEhrFlow.trackingBoardChatButton(appointment.id)}
           >
             {/* todo reduce code duplication */}
             {hasUnread ? (

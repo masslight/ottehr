@@ -1,9 +1,9 @@
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 import { expect, Locator, Page } from '@playwright/test';
+import path, { dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-export class UploadImage {
+export type UploadedFile = { uploadedFile: Locator; link: string | null };
+export class UploadDocs {
   page: Page;
 
   constructor(page: Page) {
@@ -43,6 +43,21 @@ export class UploadImage {
     const uploadedPhoto = this.page.locator(`img[src*="${requestUrl}"]`);
     await expect(uploadedPhoto).toBeVisible();
     return uploadedPhoto;
+  }
+
+  async uploadFile(locator: Locator, file: Locator): Promise<UploadedFile> {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+
+    const [fileChooser] = await Promise.all([this.page.waitForEvent('filechooser'), locator.click()]);
+
+    const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/template.pdf`);
+    await fileChooser.setFiles(filePath);
+    await this.page.waitForTimeout(5000);
+    const uploadedFile = file;
+    const link = await file.getAttribute('href');
+    await expect(uploadedFile).toBeVisible();
+    return { uploadedFile, link };
   }
 
   async fillPhotoFrontID(): Promise<Locator> {

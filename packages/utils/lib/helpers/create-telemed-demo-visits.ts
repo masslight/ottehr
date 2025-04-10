@@ -204,14 +204,14 @@ export const createSampleTelemedAppointments = async ({
   demoData?: DemoAppointmentData;
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
-}): Promise<CreateAppointmentUCTelemedResponse | null> => {
+}): Promise<CreateAppointmentUCTelemedResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
 
   if (!oystehr) {
     console.log('oystehr client is not defined');
-    return null;
+    throw new Error('oystehr client is not defined');
   }
 
   try {

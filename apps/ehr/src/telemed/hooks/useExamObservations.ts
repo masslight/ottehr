@@ -1,4 +1,5 @@
 import { enqueueSnackbar } from 'notistack';
+import { useCallback } from 'react';
 import {
   ExamCardsNames,
   ExamFieldsNames,
@@ -6,18 +7,20 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from 'utils';
+import { useFeatureFlags } from '../../features/css-module/context/featureFlags';
 import {
-  useExamObservationsStore as useTelemedExamObservationsStore,
+  useDeleteChartData,
   useInPersonExamObservationsStore,
   useSaveChartData,
+  useExamObservationsStore as useTelemedExamObservationsStore,
 } from '../state';
-import { useFeatureFlags } from '../../features/css-module/context/featureFlags';
 
 type ExamNames = ExamCardsNames | ExamFieldsNames;
 type InPersonExamNames = InPersonExamCardsNames | InPersonExamFieldsNames;
 type AllExamNames = ExamNames | InPersonExamNames;
 type ExamRecord = { [field in AllExamNames]?: ExamObservationDTO };
 type Update = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
+type Delete = (param?: ExamObservationDTO | ExamObservationDTO[] | ExamRecord, noFetch?: boolean) => void;
 
 const arrayToObject: (array: ExamObservationDTO[]) => ExamRecord = (array) =>
   array.reduce((prev, curr) => {
@@ -45,6 +48,7 @@ const objectToArray: (object: ExamRecord) => ExamObservationDTO[] = (object) => 
 export function useExamObservations(): {
   value: ExamObservationDTO[];
   update: Update;
+  delete: Delete;
   isLoading: boolean;
 };
 
@@ -59,6 +63,7 @@ export function useExamObservations(): {
 export function useExamObservations(param: AllExamNames): {
   value: ExamObservationDTO;
   update: Update;
+  delete: Delete;
   isLoading: boolean;
 };
 
@@ -73,42 +78,65 @@ export function useExamObservations(param: AllExamNames): {
 export function useExamObservations(param: AllExamNames[]): {
   value: ExamObservationDTO[];
   update: Update;
+  delete: Delete;
   isLoading: boolean;
 };
 
 export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
   value: ExamObservationDTO | ExamObservationDTO[];
   update: Update;
+  delete: Delete;
   isLoading: boolean;
 } {
   const { css } = useFeatureFlags();
   const useExamObservationsStore = css ? useInPersonExamObservationsStore : useTelemedExamObservationsStore;
 
   const state = useExamObservationsStore() as ReturnType<(typeof useTelemedExamObservationsStore)['getState']>;
-  const { mutate, isLoading } = useSaveChartData();
+  const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
+  const { mutate: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+
+  const getPrevStateAndValues = useCallback(
+    (
+      param: ExamObservationDTO | ExamObservationDTO[] | ExamRecord
+    ): {
+      prevState: ReturnType<(typeof useTelemedExamObservationsStore)['getState']> &
+        ReturnType<(typeof useInPersonExamObservationsStore)['getState']>;
+      prevValues: ExamRecord;
+    } => {
+      // TODO: fix types
+
+      const prevState = useExamObservationsStore.getState() as ReturnType<
+        (typeof useTelemedExamObservationsStore)['getState']
+      > &
+        ReturnType<(typeof useInPersonExamObservationsStore)['getState']>;
+
+      const prevValues = Array.isArray(param)
+        ? param.reduce((prev, curr) => {
+            prev[curr.field] = prevState[curr.field as ExamNames & InPersonExamNames];
+            // prev[curr.field] = prevState[curr.field];
+            return prev;
+          }, {} as ExamRecord)
+        : Object.prototype.hasOwnProperty.call(param, 'field')
+        ? {
+            [(param as ExamObservationDTO).field]:
+              prevState[(param as ExamObservationDTO).field as ExamNames & InPersonExamNames],
+          }
+        : (Object.keys(param as ExamRecord) as AllExamNames[]).reduce((prev, curr) => {
+            prev[curr] = prevState[curr as ExamNames & InPersonExamNames];
+            return prev;
+          }, {} as ExamRecord);
+
+      return { prevState, prevValues };
+    },
+    [useExamObservationsStore]
+  );
 
   const update: Update = (param, noFetch) => {
     if (!param) {
       return;
     }
 
-    // TODO: fix types
-    const prevState = useExamObservationsStore.getState() as ReturnType<
-      (typeof useTelemedExamObservationsStore)['getState']
-    >;
-
-    const prevValues = Array.isArray(param)
-      ? param.reduce((prev, curr) => {
-          prev[curr.field] = prevState[curr.field as ExamNames];
-          // prev[curr.field] = prevState[curr.field];
-          return prev;
-        }, {} as ExamRecord)
-      : Object.prototype.hasOwnProperty.call(param, 'field')
-      ? { [(param as ExamObservationDTO).field]: prevState[(param as ExamObservationDTO).field as ExamNames] }
-      : (Object.keys(param as ExamRecord) as AllExamNames[]).reduce((prev, curr) => {
-          prev[curr] = prevState[curr as ExamNames];
-          return prev;
-        }, {} as ExamRecord);
+    const { prevValues } = getPrevStateAndValues(param);
 
     useExamObservationsStore.setState(
       Array.isArray(param)
@@ -122,7 +150,7 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
       return;
     }
 
-    mutate(
+    saveChartData(
       {
         examObservations: Array.isArray(param)
           ? param
@@ -143,6 +171,63 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
     );
   };
 
+  const deleteExamObservations: Delete = (param, noFetch) => {
+    if (!param) {
+      return;
+    }
+
+    const { prevState, prevValues } = getPrevStateAndValues(param);
+
+    useExamObservationsStore.setState(() => {
+      // If param is an array, convert to object
+      if (Array.isArray(param)) {
+        const newObject = arrayToObject(param);
+        // Remove fields from prevState that are in newObject
+        const filteredState = { ...prevState };
+        Object.keys(newObject).forEach((key) => {
+          delete filteredState[key as ExamNames & InPersonExamNames];
+        });
+        return { ...filteredState, ...newObject };
+      }
+
+      // If param is a single observation
+      if (Object.prototype.hasOwnProperty.call(param, 'field')) {
+        const field = (param as ExamObservationDTO).field;
+        // Create a new state without the field
+        const { [field]: _removed, ...rest } = prevState;
+        return rest;
+      }
+
+      // If param is an ExamRecord
+      const examRecord = param as ExamRecord;
+      // Remove all fields from prevState that are in examRecord
+      const filteredState = { ...prevState };
+      Object.keys(examRecord).forEach((key) => {
+        delete filteredState[key as ExamNames & InPersonExamNames];
+      });
+      return { ...filteredState, ...examRecord };
+    });
+
+    if (noFetch) {
+      return;
+    }
+
+    deleteChartData(
+      {
+        examObservations: Array.isArray(param)
+          ? param
+          : Object.prototype.hasOwnProperty.call(param, 'field')
+          ? [param as ExamObservationDTO]
+          : objectToArray(param as ExamRecord),
+      },
+      {
+        onError: () => {
+          useExamObservationsStore.setState(prevValues);
+        },
+      }
+    );
+  };
+
   return {
     value: param
       ? typeof param === 'string'
@@ -150,6 +235,7 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
         : param.map((option) => state[option as ExamNames])
       : objectToArray(state),
     update,
-    isLoading,
+    delete: deleteExamObservations,
+    isLoading: isDeleteLoading || isSaveLoading,
   };
 }

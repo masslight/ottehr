@@ -1,3 +1,4 @@
+import { Operation } from 'fast-json-patch';
 import { Patient } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
 import {
@@ -7,9 +8,8 @@ import {
   SignAppointmentInput,
 } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { PromiseReturnType, OystehrTelemedAPIClient } from '../../data';
+import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
 import { GetAppointmentsRequestParams } from '../../utils';
-import { Operation } from 'fast-json-patch';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetTelemedAppointments = (
@@ -21,6 +21,7 @@ export const useGetTelemedAppointments = (
     groupsFilter,
     patientFilter,
     statusesFilter,
+    locationsIdsFilter,
   }: {
     apiClient: OystehrTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
@@ -29,7 +30,16 @@ export const useGetTelemedAppointments = (
   return useQuery(
     [
       'telemed-appointments',
-      { apiClient, usStatesFilter, providersFilter, groupsFilter, dateFilter, patientFilter, statusesFilter },
+      {
+        apiClient,
+        usStatesFilter,
+        providersFilter,
+        groupsFilter,
+        dateFilter,
+        patientFilter,
+        statusesFilter,
+        locationsIdsFilter,
+      },
     ],
     () => {
       if (apiClient) {
@@ -40,6 +50,7 @@ export const useGetTelemedAppointments = (
           dateFilter,
           patientFilter,
           statusesFilter,
+          locationsIdsFilter,
         });
       }
       throw new Error('api client not defined');

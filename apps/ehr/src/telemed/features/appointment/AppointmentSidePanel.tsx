@@ -29,9 +29,10 @@ import {
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { EditPatientDialog } from '../../../components/dialogs';
-import { adjustTopForBannerHeight } from '../../../constants';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import ChatModal from '../../../features/chat/ChatModal';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
+import { adjustTopForBannerHeight } from '../../../helpers/misc.helper';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import CancelVisitDialog from '../../components/CancelVisitDialog';
@@ -164,7 +165,10 @@ export const AppointmentSidePanel: FC = () => {
             </Typography>
 
             {!isReadOnly && (
-              <IconButton onClick={() => setIsEditDialogOpen(true)}>
+              <IconButton
+                onClick={() => setIsEditDialogOpen(true)}
+                data-testid={dataTestIds.telemedEhrFlow.editPatientButtonSideBar}
+              >
                 <EditOutlinedIcon sx={{ color: theme.palette.primary.main }} />
               </IconButton>
             )}
@@ -201,7 +205,10 @@ export const AppointmentSidePanel: FC = () => {
             {isChartDataLoading
               ? 'Loading...'
               : allergies && allergies.length > 0
-              ? allergies.map((allergy) => allergy.name).join(', ')
+              ? allergies
+                  .filter((allergy) => allergy.current === true)
+                  .map((allergy) => allergy.name)
+                  .join(', ')
               : 'No known allergies'}
           </Typography>
 
@@ -331,6 +338,7 @@ export const AppointmentSidePanel: FC = () => {
                 }}
                 startIcon={<PersonAddAltOutlinedIcon />}
                 onClick={() => setIsInviteParticipantOpen(true)}
+                data-testid={dataTestIds.telemedEhrFlow.inviteParticipant}
               >
                 Invite participant
               </Button>
@@ -347,6 +355,7 @@ export const AppointmentSidePanel: FC = () => {
               }}
               startIcon={<CancelOutlinedIcon />}
               onClick={() => setIsCancelDialogOpen(true)}
+              data-testid={dataTestIds.telemedEhrFlow.cancelThisVisitButton}
             >
               Cancel this visit
             </Button>

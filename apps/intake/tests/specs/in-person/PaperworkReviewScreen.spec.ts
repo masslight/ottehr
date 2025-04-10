@@ -1,10 +1,11 @@
-import { BrowserContext, Page, expect, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
+import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { UploadImage } from '../../utils/UploadImage';
-import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
+import { UploadDocs } from '../../utils/UploadDocs';
 
 let page: Page;
 let context: BrowserContext;
@@ -12,7 +13,7 @@ let flowClass: PrebookInPersonFlow;
 let bookingData: Awaited<ReturnType<PrebookInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let locator: Locators;
-let uploadPhoto: UploadImage;
+let uploadPhoto: UploadDocs;
 let commonLocators: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
@@ -21,7 +22,7 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = await response.json();
+      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
       if (appointment && !appointmentIds.includes(appointment)) {
         appointmentIds.push(appointment);
       }
@@ -30,7 +31,7 @@ test.beforeAll(async ({ browser }) => {
   flowClass = new PrebookInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
-  uploadPhoto = new UploadImage(page);
+  uploadPhoto = new UploadDocs(page);
   commonLocators = new CommonLocatorsHelper(page);
   bookingData = await flowClass.startVisit();
 });
@@ -80,6 +81,7 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await paperwork.selectInsurancePayment();
     await expect(locator.insuranceHeading).toBeVisible();
     await paperwork.fillInsuranceRequiredFields(false);
+    await locator.clickContinueButton();
     await locator.clickContinueButton();
     await locator.clickContinueButton();
     await locator.clickContinueButton();

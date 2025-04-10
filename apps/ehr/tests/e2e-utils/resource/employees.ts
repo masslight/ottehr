@@ -6,12 +6,12 @@ import {
   getFirstName,
   getLastName,
   getMiddleName,
-  getPractitionerNPI,
+  getPractitionerNPIIdentitifier,
   getSuffix,
   makeQualificationForPractitioner,
   PractitionerLicense,
   RoleType,
-} from '../temp-imports-from-utils';
+} from 'utils';
 import { fetchWithOystAuth } from '../helpers/tests-utils';
 
 export interface TestEmployeeInviteParams {
@@ -203,7 +203,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
   const lastName = getLastName(practitioner);
   if (!firstName || !middleName || !lastName) throw new Error(`Error parsing user full name: ${user.id}`);
   const phone = practitioner.telecom?.find((telecom) => telecom.system === 'sms')?.value;
-  const npi = getPractitionerNPI(practitioner);
+  const npi = getPractitionerNPIIdentitifier(practitioner)?.value;
   const qualification = allLicensesForPractitioner(practitioner);
   const credentials = getSuffix(practitioner);
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);

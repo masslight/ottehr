@@ -1,10 +1,10 @@
-import { Box, IconButton, useTheme } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { Box, IconButton, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { showEnvironmentBanner } from '../../App';
-import { BANNER_HEIGHT } from '../../constants';
-import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from './info';
+import { BANNER_HEIGHT } from '../../helpers/misc.helper';
 import { useGetPatient } from '../../hooks/useGetPatient';
+import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from './info';
 
 type HeaderProps = {
   handleDiscard: () => void;

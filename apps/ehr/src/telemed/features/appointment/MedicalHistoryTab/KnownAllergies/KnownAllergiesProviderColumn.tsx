@@ -160,7 +160,10 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesListItem}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
@@ -223,7 +226,6 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 
 const AddAllergyField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
-  const featureFlags = useFeatureFlags();
   const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
 
   const methods = useForm<{ value: AllergiesSearchResponse['allergens'][number] | null }>({
@@ -250,7 +252,7 @@ const AddAllergyField: FC = () => {
       const newValue = {
         name: data.name,
         id: data.id,
-        current: featureFlags.css || undefined,
+        current: true,
       };
       useAppointmentStore.setState((prevState) => ({
         chartData: {
