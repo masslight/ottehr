@@ -18,7 +18,7 @@ const resourceHandler = new ResourceHandler();
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id);
+  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 });
 
 test.afterAll(async () => {
