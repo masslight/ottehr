@@ -68,9 +68,6 @@ export const FHIR_EXTENSION = {
     weightLastUpdated: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/weight-last-updated`,
     },
-    chosenName: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/chosen-name`,
-    },
   },
   Paperwork: {
     formListValues: {
