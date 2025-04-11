@@ -207,6 +207,7 @@ export const dataTestIds = {
     hpiCurrentMedicationsList: (listType: 'scheduled' | 'as-needed') =>
       `telemed-hpi-current-medications-list-${listType}`,
     hpiCurrentMedicationsListItem: (listDataTestId: string) => `${listDataTestId}-item`,
+    hpiCurrentMedicationsColumn: 'telemed-hpi-current-medications-column',
     hpiKnownAllergiesColumn: 'telemed-hpi-known-allergies-column',
     hpiKnownAllergiesList: 'telemed-hpi-known-allergies-list',
     hpiKnownAllergiesPatientProvidedList: 'telemed-hpi-known-allergies-patient-provided-list',
