@@ -63,7 +63,9 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
 
   console.log('input', JSON.stringify(input, null, 2));
   const { secrets } = input;
-  const { scheduleId, timezone, schedule, scheduleOverrides, closures, ownerId, ownerType } = JSON.parse(input.body);
+  const { scheduleId, timezone, slug, schedule, scheduleOverrides, closures, ownerId, ownerType } = JSON.parse(
+    input.body
+  );
   const createMode = Boolean(ownerId) && Boolean(ownerType);
 
   if (!scheduleId) {
@@ -112,6 +114,10 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     });
   }
 
+  if (slug && typeof slug !== 'string') {
+    throw INVALID_INPUT_ERROR('"slug" must be a string');
+  }
+
   return {
     secrets,
     scheduleId,
@@ -119,5 +125,6 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
     schedule,
     scheduleOverrides,
     closures,
+    slug,
   };
 };

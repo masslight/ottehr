@@ -3,6 +3,7 @@ import {
   Autocomplete,
   Box,
   Button,
+  CircularProgress,
   Grid,
   Paper,
   Skeleton,
@@ -12,7 +13,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { otherColors } from '../CustomThemeProvider';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -20,7 +21,6 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import ScheduleComponent from '../components/schedule/ScheduleComponent';
 import Loading from '../components/Loading';
-import GroupSchedule from '../components/schedule/GroupSchedule';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import {
   APIError,
@@ -34,14 +34,9 @@ import {
 import { useMutation, useQuery } from 'react-query';
 import { createSchedule, getSchedule, updateSchedule } from '../api/api';
 import { enqueueSnackbar } from 'notistack';
-import { Schedule } from 'fhir/r4b';
+import { Location, Practitioner, Schedule } from 'fhir/r4b';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
-
-/*const START_SCHEDULE =
-  '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}';
-const IDENTIFIER_SLUG = 'https://fhir.ottehr.com/r4/slug';
-export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';*/
 
 export function getResource(
   scheduleType: 'location' | 'provider' | 'group'
@@ -61,21 +56,32 @@ export function getResource(
 export default function SchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
   const { oystehr } = useApiClients();
-  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | 'group' | undefined;
+  const scheduleType = useParams()['schedule-type'] as 'location' | 'provider' | undefined;
   const ownerId = useParams()['owner-id'] as string | undefined;
   const scheduleId = useParams()['schedule-id'] as string;
   const createMode = scheduleType !== undefined && ownerId !== undefined;
   const navigate = useNavigate();
 
-  console.log('scheduleType, ownerId', scheduleType, ownerId);
-
   // state variables
   const [tabName, setTabName] = useState('schedule');
   const [item, setItem] = useState<ScheduleDTO | undefined>(undefined);
-  const [slug, setSlug] = useState<string | undefined>(undefined);
+
+  const [statusPatchLoading, setStatusPatchLoading] = useState(false);
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
-  const defaultIntakeUrl = `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${scheduleType}`;
+  // todo: currently these things are props of the schedule owner and get rendered as the content of the "general" tab
+  // would like to refactor that tab to be its own Page responsible for displaying the configuration of
+  // the underlying fhir resource representing the schedule owner
+  const [slug, setSlug] = useState<string | undefined>(undefined);
+  const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
+  const defaultIntakeUrl = `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${item?.owner.type}`;
+
+  useEffect(() => {
+    if (item) {
+      setTimezone(item?.owner.timezone ?? TIMEZONES[0]);
+      setSlug(item?.owner.slug);
+    }
+  }, [item]);
 
   const { oystehrZambda } = useApiClients();
   const queryEnabled = (() => {
@@ -90,6 +96,7 @@ export default function SchedulePage(): ReactElement {
     }
     return false;
   })();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { isLoading, isFetching, isRefetching, isError, isSuccess, refetch } = useQuery(
     ['ehr-get-schedule', { zambdaClient: oystehrZambda, scheduleId, ownerId, scheduleType }],
     () =>
@@ -127,6 +134,7 @@ export default function SchedulePage(): ReactElement {
     },
     onSuccess: async () => {
       const newItem = (await refetch()).data;
+      console.log('setting new item', newItem);
       if (newItem) {
         setItem(newItem);
       }
@@ -156,84 +164,12 @@ export default function SchedulePage(): ReactElement {
     },
   });
 
-  console.log('scheduleFetchState (loading/fetching/error/success): ', isLoading, isFetching, isError, isSuccess);
+  // console.log('scheduleFetchState (loading/fetching/error/success): ', isLoading, isFetching, isError, isSuccess);
 
   // handle functions
   const handleTabChange = (event: React.SyntheticEvent, newTabName: string): void => {
     setTabName(newTabName);
   };
-
-  /*
-  const getStatusOperationJSON = (
-    resourceType: 'Location' | 'Practitioner' | 'HealthcareService',
-    active: boolean
-  ): Operation => {
-    // get the status operation json, account for cases where it exists already or does not
-    let operation: Operation;
-    if (resourceType === 'Location') {
-      operation = {
-        op: 'add',
-        path: '/status',
-        value: active ? 'active' : 'inactive',
-      };
-    } else if (resourceType === 'Practitioner' || resourceType === 'HealthcareService') {
-      operation = {
-        op: 'add',
-        path: '/active',
-        value: active,
-      };
-    } else {
-      throw new Error('resourceType is not defined');
-    }
-    return operation;
-  };
-
-  async function createSchedule(): Promise<void> {
-    let resourceType;
-    if (!oystehr) {
-      return;
-    }
-    if (scheduleType === 'location') {
-      resourceType = 'Location';
-    } else if (scheduleType === 'provider') {
-      resourceType = 'Practitioner';
-    }
-    if (!resourceType) {
-      console.log('resourceType is not defined');
-      throw new Error('resourceType is not defined');
-    }
-    let scheduleExtension = item?.extension;
-    if (!scheduleExtension) {
-      scheduleExtension = [];
-    }
-    scheduleExtension?.push({
-      url: SCHEDULE_EXTENSION_URL,
-      valueString: START_SCHEDULE,
-    });
-
-    // if there is no timezone extension, add it. The default timezone is America/New_York
-    if (!item?.extension?.some((ext) => ext.url === TIMEZONE_EXTENSION_URL)) {
-      scheduleExtension.push({
-        url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
-      });
-    }
-
-    const patchedResource = (await oystehr.fhir.patch({
-      resourceType,
-      id: id,
-      operations: [
-        {
-          op: 'add',
-          path: '/extension',
-          value: scheduleExtension,
-        },
-        getStatusOperationJSON(resourceType as 'Location' | 'Practitioner', true),
-      ],
-    })) as Location;
-    setItem(patchedResource);
-  }
-    */
 
   async function onSaveSchedule(params: UpdateScheduleParams): Promise<void> {
     if (!oystehrZambda) {
@@ -259,17 +195,57 @@ export default function SchedulePage(): ReactElement {
   }
 
   const setActiveStatus = async (isActive: boolean): Promise<void> => {
-    if (!oystehr) {
-      throw new Error('oystehr client is not defined');
+    if (!oystehr || !item?.id) {
+      enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
+      return;
     }
-    console.log('setting active status to', isActive);
+    try {
+      setStatusPatchLoading(true);
+      const value: string | boolean = item.owner.type === 'Location' ? (isActive ? 'active' : 'inactive') : isActive;
+      const patched = await oystehr.fhir.patch<Location | Practitioner>({
+        resourceType: item.owner.type,
+        id: item.owner.id,
+        operations: [
+          {
+            path: item.owner.type === 'Location' ? '/status' : '/active',
+            op: 'replace',
+            value,
+          },
+        ],
+      });
+      let newActiveStatus = isActive;
+      if (patched.resourceType === 'Location') {
+        newActiveStatus = patched.status === 'active';
+      } else {
+        newActiveStatus = patched.active === true;
+      }
+      setItem({
+        ...item,
+        owner: {
+          ...item.owner,
+          active: newActiveStatus,
+        },
+      });
+    } catch (e) {
+      enqueueSnackbar('Oops. Something went wrong. Status update was not saved.', { variant: 'error' });
+    } finally {
+      setStatusPatchLoading(false);
+    }
   };
 
-  const updateTimezone = async (tz: string | null): Promise<void> => {
-    if (!oystehr) {
-      throw new Error('oystehr client is not defined');
+  const saveGeneralFields = async (event: any): Promise<void> => {
+    if (!oystehr || !item?.id) {
+      enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
+      return;
     }
-    console.log('updating timezone to: ', tz);
+    console.log('event', event);
+    const params: UpdateScheduleParams = {
+      scheduleId: item.id,
+      timezone,
+      slug,
+    };
+    console.log('params', params);
+    saveScheduleChanges.mutate({ ...params });
   };
 
   return (
@@ -314,30 +290,38 @@ export default function SchedulePage(): ReactElement {
                 }}
               >
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
-                  {scheduleType === 'group' && <GroupSchedule groupID={item.id || ''} />}
-                  {scheduleType !== 'group' && (
+                  {scheduleId && (
                     <ScheduleComponent
                       id={scheduleId}
                       item={item}
                       loading={false}
                       update={onSaveSchedule}
                       hideOverrides={createMode}
-                    ></ScheduleComponent>
+                    />
                   )}
                 </TabPanel>
                 {/* General tab */}
                 <TabPanel value="general">
                   <Paper sx={{ marginBottom: 2, padding: 3 }}>
                     <Box display={'flex'} alignItems={'center'}>
-                      <Switch checked={item.owner.active} onClick={() => setActiveStatus(!item.owner.active)} />
-                      <Typography>{item.owner.active ? 'Active' : 'Inactive'}</Typography>
+                      <Switch
+                        checked={item.owner.active}
+                        onClick={() => setActiveStatus(!item.owner.active)}
+                        disabled={statusPatchLoading}
+                      />
+                      {statusPatchLoading ? (
+                        <CircularProgress size={24} color="inherit" />
+                      ) : (
+                        <Typography>{item.owner.active ? 'Active' : 'Inactive'}</Typography>
+                      )}
                     </Box>
                     <hr />
                     <br />
 
                     <form
-                      onSubmit={(event) => {
-                        console.log('submit slug called', event);
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void saveGeneralFields(e);
                       }}
                     >
                       <TextField
@@ -383,7 +367,7 @@ export default function SchedulePage(): ReactElement {
                         value={item.timezone}
                         onChange={(_event, newValue) => {
                           if (newValue) {
-                            void updateTimezone(newValue);
+                            setTimezone(newValue);
                           }
                         }}
                       />

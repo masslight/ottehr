@@ -5,6 +5,7 @@ import { DailySchedule, ScheduleOverrides } from '../../../utils';
 export interface UpdateScheduleParams {
   scheduleId: string;
   timezone?: string;
+  slug?: string;
   schedule?: DailySchedule;
   scheduleOverrides?: ScheduleOverrides;
   active?: Schedule['active'];

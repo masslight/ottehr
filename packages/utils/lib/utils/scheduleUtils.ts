@@ -28,6 +28,7 @@ import {
   TIMEZONES,
   ScheduleType,
   ScheduleOwnerFhirResource,
+  Timezone,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -110,13 +111,15 @@ export interface ScheduleDTOOwner {
   detailText?: string; // to take place of Location.address.line[0]
   infoMessage?: string;
   hoursOfOperation?: Location['hoursOfOperation'];
+  timezone: Timezone;
 }
 export interface ScheduleDTO {
   id: string;
   owner: ScheduleDTOOwner;
-  timezone: string;
+  timezone: Timezone;
   schema: ScheduleExtension;
   bookingLink?: string;
+  active: boolean;
 }
 
 export type SlotCapacityMap = { [slot: string]: number };

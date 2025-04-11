@@ -5,15 +5,18 @@ import {
   DailySchedule,
   getScheduleDetails,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  OTTEHR_SLUG_ID_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleExtension,
   ScheduleOverrides,
+  ScheduleOwnerFhirResource,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Extension, Schedule } from 'fhir/r4b';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
+import { getSlugForBookableResource } from '../../../patient/bookable/helpers';
 
 let m2mtoken: string;
 
@@ -41,8 +44,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Schedule> => {
-  const { updateDetails, currentSchedule, definiteDailySchedule } = input;
-  const { schedule: newSchedule, scheduleOverrides, closures, timezone } = updateDetails;
+  const { updateDetails, currentSchedule, definiteDailySchedule, owner } = input;
+  const { schedule: newSchedule, scheduleOverrides, closures, timezone, ownerSlug } = updateDetails;
   const scheduleExtension: ScheduleExtension = getScheduleDetails(currentSchedule) ?? {
     schedule: definiteDailySchedule,
     closures,
@@ -80,7 +83,37 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       valueString: timezone,
     });
   }
-  console.log('newExtension', JSON.stringify(newExtension, null, 2));
+  // todo: this isn't very "RESTful" but works for now while further decoupling the schedule from the owner is on the docket
+  // for next dev cycle. note timezone is duplicaton on both schedule and owner for now.
+  console.log('owner slug', ownerSlug);
+  if (owner && (timezone || ownerSlug)) {
+    const ownerExtension = (owner.extension ?? []).filter((ext: Extension) => {
+      if (ext.url === TIMEZONE_EXTENSION_URL) {
+        return false;
+      }
+      return true;
+    });
+    const ownerIdentifier = (owner.identifier ?? []).filter((id) => id.system !== OTTEHR_SLUG_ID_SYSTEM);
+    if (timezone) {
+      ownerExtension.push({
+        url: TIMEZONE_EXTENSION_URL,
+        valueString: timezone,
+      });
+    }
+    if (ownerSlug) {
+      ownerIdentifier.push({
+        system: OTTEHR_SLUG_ID_SYSTEM,
+        value: ownerSlug,
+      });
+    }
+    await oystehr.fhir.update({
+      ...owner,
+      extension: ownerExtension,
+      identifier: ownerIdentifier,
+    });
+  }
+
+  // console.log('newExtension', JSON.stringify(newExtension, null, 2));
   return await oystehr.fhir.update<Schedule>({
     ...currentSchedule,
     extension: newExtension,
@@ -93,9 +126,11 @@ interface EffectInput {
     schedule?: DailySchedule;
     scheduleOverrides?: ScheduleOverrides;
     closures?: Closure[];
+    ownerSlug: string | undefined;
   };
   definiteDailySchedule: DailySchedule;
   currentSchedule: Schedule;
+  owner: ScheduleOwnerFhirResource | undefined;
 }
 
 const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oystehr): Promise<EffectInput> => {
@@ -116,6 +151,13 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
     definiteDailySchedule = scheduleInput;
   }
 
+  const [actorType, actorId] = (schedule.actor ?? [])[0]?.reference?.split('/') ?? [];
+  console.log('actorType, actorId', actorType, actorId);
+  let owner: ScheduleOwnerFhirResource | undefined;
+  if (actorType === 'Location' || actorType === 'HealthcareService' || actorType === 'Practitioner') {
+    owner = await oystehr.fhir.get<ScheduleOwnerFhirResource>({ resourceType: actorType, id: actorId });
+  }
+
   return {
     currentSchedule: schedule,
     updateDetails: {
@@ -123,7 +165,9 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
       schedule: scheduleInput,
       scheduleOverrides,
       closures,
+      ownerSlug: input.slug,
     },
     definiteDailySchedule,
+    owner,
   };
 };

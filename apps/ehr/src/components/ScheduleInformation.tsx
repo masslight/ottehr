@@ -240,7 +240,7 @@ const getLinkForItem = (item: SchedulesAndOwnerListItem): string => {
   }
 
   if (item.owner.resourceType === 'HealthcareService') {
-    return `/group/${item.owner.id}`;
+    return `/group/id/${item.owner.id}`;
   }
   if (item.schedules.length) {
     return `/schedule/id/${item.schedules[0].id}`;

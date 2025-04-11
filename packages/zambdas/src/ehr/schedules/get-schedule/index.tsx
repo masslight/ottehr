@@ -50,13 +50,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const performEffect = (input: EffectInput): ScheduleDTO => {
-  const { scheduleExtension, scheduleId, timezone, owner: ownerResource } = input;
+  const { scheduleExtension, scheduleId, timezone, owner: ownerResource, scheduleActive } = input;
 
   let active = false;
   if (ownerResource.resourceType === 'Location') {
     active = (ownerResource as Location).status === 'active';
   } else {
-    active = (ownerResource as Practitioner | HealthcareService | PractitionerRole).active ?? false;
+    active = (ownerResource as Practitioner | HealthcareService).active ?? false;
   }
 
   let detailText: string | undefined = undefined;
@@ -74,6 +74,7 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     id: ownerResource.id!,
     name: getNameForOwner(ownerResource),
     slug: getSlugForBookableResource(ownerResource) ?? '',
+    timezone: getTimezone(ownerResource),
     active,
     detailText,
     infoMessage: '',
@@ -86,6 +87,7 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     timezone: timezone,
     schema: scheduleExtension,
     bookingLink: '',
+    active: scheduleActive,
   };
 };
 
@@ -158,10 +160,11 @@ interface EffectInput {
   scheduleId: string;
   scheduleExtension: ScheduleExtension;
   timezone: string;
-  owner: Location | Practitioner | HealthcareService | PractitionerRole;
+  scheduleActive: boolean;
+  owner: ScheduleOwnerFhirResource;
 }
 
-type QueryType = Schedule | Location | Practitioner | HealthcareService | PractitionerRole;
+type QueryType = Schedule | ScheduleOwnerFhirResource;
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
   const { scheduleId, owner } = input;
@@ -216,7 +219,7 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
   if (scheduleOwnerId !== undefined && permittedScheduleOwerTypes.includes(schedulOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
-    }) as Location | Practitioner | HealthcareService | PractitionerRole;
+    }) as ScheduleOwnerFhirResource;
   }
 
   if (!owner) {
@@ -228,6 +231,7 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
     scheduleExtension,
     timezone: getTimezone(schedule),
     owner,
+    scheduleActive: schedule.active ?? true,
   };
 };
 
@@ -264,16 +268,16 @@ const getEffectInputFromOwner = async (
 
   const scheduleOwnerRef = schedule?.actor?.[0]?.reference ?? '';
   const [schedulOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
-  let owner: Location | Practitioner | HealthcareService | PractitionerRole | undefined = undefined;
+  let owner: ScheduleOwnerFhirResource | undefined = undefined;
   const permttedScheduleOwerTypes = ['Location', 'Practitioner', 'HealthcareService'];
   if (scheduleOwnerId !== undefined && permttedScheduleOwerTypes.includes(schedulOwnerType)) {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === scheduleOwnerRef;
-    }) as Location | Practitioner | HealthcareService | PractitionerRole;
+    }) as ScheduleOwnerFhirResource;
   } else {
     owner = scheduleAndOwner.find((res) => {
       return `${res.resourceType}/${res.id}` === `${ownerType}/${ownerId}`;
-    }) as Location | Practitioner | HealthcareService;
+    }) as ScheduleOwnerFhirResource;
   }
 
   if (!owner) {
@@ -285,5 +289,6 @@ const getEffectInputFromOwner = async (
     scheduleExtension,
     timezone: schedule ? getTimezone(schedule) : TIMEZONES[0],
     owner,
+    scheduleActive: schedule ? schedule.active ?? true : true,
   };
 };
