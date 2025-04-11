@@ -33,7 +33,7 @@ export interface LabQuestionnaireResponse {
   response: LabQuestionnaireResponseItem;
 }
 
-type LabQuestionnaireResponseItem = (string | number | boolean | undefined)[] | undefined;
+export type LabQuestionnaireResponseItem = (string | number | boolean | undefined)[] | undefined;
 
 export interface OrderDetails {
   diagnosis: string;
