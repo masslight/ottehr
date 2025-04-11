@@ -3,20 +3,7 @@ import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { Account, Appointment, ChargeItem, DocumentReference, Encounter, EncounterStatusHistory, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  addOrReplaceOperation,
-  createFilesDocumentReferences,
-  getPatchBinary,
-  OTTEHR_MODULE,
-  RECEIPT_CODE,
-  SCHOOL_NOTE_CODE,
-  SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
-  TelemedCallStatuses,
-  WORK_NOTE_CODE,
-} from 'utils';
-import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
-import { sendSmsForPatient } from '../../../shared/communication';
-import { PdfDocumentReferencePublishedStatuses, PdfInfo } from '../../../shared/pdf/pdf-utils';
+import { createFilesDocumentReferences, getPatchBinary, OTTEHR_MODULE, RECEIPT_CODE, TelemedCallStatuses } from 'utils';
 import {
   addPeriodEndOp,
   addStatusHistoryRecordOp,
@@ -25,6 +12,10 @@ import {
   deleteStatusHistoryRecordOp,
   handleEmptyEncounterStatusHistoryOp,
 } from './fhir-res-patch-operations';
+import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
+import { sendSmsForPatient } from '../../../shared/communication';
+import { createPublishExcuseNotesOps } from '../../../shared/createPublishExcuseNotesOps';
+import { PdfInfo } from '../../../shared/pdf/pdf-utils';
 import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
 
 export const changeStatusIfPossible = async (
@@ -82,7 +73,7 @@ export const changeStatusIfPossible = async (
     );
     appointmentPatchOp.push({ path: '/end', value: now(), op: 'add' });
 
-    const updateNotesOps = makeWorkSchoolNotePublished(resourcesToUpdate.documentReferences ?? []);
+    const updateNotesOps = createPublishExcuseNotesOps(resourcesToUpdate.documentReferences ?? []);
     if (updateNotesOps.length > 0) {
       patchOperationsBinaries.push(...updateNotesOps);
     }
@@ -330,34 +321,4 @@ export async function makeReceiptPdfDocumentReference(
     listResources,
   });
   return docRefs[0];
-}
-
-function makeWorkSchoolNotePublished(documentReferences: DocumentReference[]): BatchInputRequest<DocumentReference>[] {
-  const resultBatchRequests: BatchInputRequest<DocumentReference>[] = [];
-  let workNoteDR: DocumentReference | undefined;
-  let schoolNoteDR: DocumentReference | undefined;
-  documentReferences.forEach((item) => {
-    const workSchoolNoteTag = item.meta?.tag?.find((tag) => tag.system === SCHOOL_WORK_NOTE_TYPE_META_SYSTEM);
-    if (workSchoolNoteTag) {
-      if (workSchoolNoteTag.code === SCHOOL_NOTE_CODE) schoolNoteDR = item;
-      if (workSchoolNoteTag.code === WORK_NOTE_CODE) workNoteDR = item;
-    }
-  });
-  if (workNoteDR && workNoteDR.docStatus !== PdfDocumentReferencePublishedStatuses.published) {
-    resultBatchRequests.push(pdfPublishedPatchOperation(workNoteDR));
-  }
-  if (schoolNoteDR && schoolNoteDR.docStatus !== PdfDocumentReferencePublishedStatuses.published) {
-    resultBatchRequests.push(pdfPublishedPatchOperation(schoolNoteDR));
-  }
-  return resultBatchRequests;
-}
-
-function pdfPublishedPatchOperation(documentReference: DocumentReference): BatchInputRequest<DocumentReference> {
-  return getPatchBinary({
-    resourceType: 'DocumentReference',
-    resourceId: documentReference.id!,
-    patchOperations: [
-      addOrReplaceOperation(documentReference.docStatus, '/docStatus', PdfDocumentReferencePublishedStatuses.published),
-    ],
-  });
 }

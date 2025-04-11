@@ -135,8 +135,16 @@ export async function getPresignedURLs(oystehr: Oystehr, zapehrToken: string, en
     documentReferenceResources.map(async (resource) => {
       const type = getDocumentType(resource);
       if (!type) return null;
-      if (type === 'school-work-note' && !isDocumentPublished(resource)) return undefined;
-      presignedUrlObj[type] = { presignedUrl: await makePresignedURLFromDocumentReference(resource, zapehrToken) };
+      if (type !== 'school-work-note') {
+        presignedUrlObj[type] = { presignedUrl: await makePresignedURLFromDocumentReference(resource, zapehrToken) };
+        return null;
+      }
+      if (!isDocumentPublished(resource)) return undefined;
+      const noteType = resource.meta?.tag?.find((tag) => tag.system === 'school-work-note/type')?.code;
+      if (!noteType) return undefined;
+      presignedUrlObj[noteType] = {
+        presignedUrl: await makePresignedURLFromDocumentReference(resource, zapehrToken),
+      };
       return null;
     })
   );
