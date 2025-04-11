@@ -9,6 +9,7 @@ import AskThePatient from '../components/screening/AskThePatient';
 import { ASQ } from '../components/screening/ASQ';
 import { Questions } from '../components/screening/PaperworkAndConfirmedQuestions';
 import { ScreeningNotes } from '../components/screening/ScreeningNotes';
+import { useNavigationContext } from '../context/NavigationContext';
 import { useChartData } from '../hooks/useChartData';
 
 interface ScreeningProps {
@@ -33,12 +34,14 @@ export const Screening: React.FC<ScreeningProps> = () => {
     },
   });
 
+  const { interactionMode } = useNavigationContext();
+
   if (isChartDataLoading || isAppointmentLoading) return <CSSLoader />;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Screening" />
+      <PageTitle label="Screening" noIntakeNotesButton={interactionMode !== 'intake'} />
       <Questions />
       <AskThePatient />
       <ASQ />

@@ -16,7 +16,7 @@ import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDet
 import { VisitDetailsContainer } from '../components/progress-note/VisitDetailsContainer';
 import { useAppointment } from '../hooks/useAppointment';
 import { IntakeNotes } from '../hooks/useIntakeNotes';
-import { CSSPageTitle } from '../../../telemed/components/PageTitle';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 
 interface PatientInfoProps {
   appointmentID?: string;
@@ -39,7 +39,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <CSSPageTitle>Progress Note</CSSPageTitle>
+      <PageTitle label="Progress Note" noIntakeNotesButton />
       <MissingCard />
 
       <AccordionCard>

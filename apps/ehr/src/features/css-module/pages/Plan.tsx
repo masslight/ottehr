@@ -32,7 +32,7 @@ export const Plan: FC<PlanProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Plan" />
+      <PageTitle label="Plan" noIntakeNotesButton />
       <PatientInstructionsCard />
       <DispositionCard />
       <SchoolWorkExcuseCard />

@@ -12,6 +12,7 @@ import {
 import { CSSLoader } from '../components/CSSLoader';
 import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
 import { AskMedicationsAlert } from '../components/medications/AskMedicationsAlert';
+import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
 interface MedicationsProps {
@@ -28,13 +29,15 @@ export const Medications: React.FC<MedicationsProps> = () => {
 
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
 
+  const { interactionMode } = useNavigationContext();
+
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Medications" />
+      <PageTitle label="Medications" noIntakeNotesButton={interactionMode !== 'intake'} />
       <Box display={'flex'} flexDirection={'column'} gap={2} mt={2}>
         <AskMedicationsAlert />
         <MedicalHistoryDoubleCard

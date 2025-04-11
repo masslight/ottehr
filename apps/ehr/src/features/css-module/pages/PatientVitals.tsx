@@ -14,6 +14,7 @@ import VitalsRespirationRateCard from '../components/vitals/respiration-rate/Vit
 import VitalsTemperaturesCard from '../components/vitals/temperature/VitalsTemperaturesCard';
 import VitalsVisionCard from '../components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
+import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
 interface PatientVitalsProps {
@@ -30,13 +31,15 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
 
+  const { interactionMode } = useNavigationContext();
+
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Vitals" />
+      <PageTitle label="Vitals" noIntakeNotesButton={interactionMode !== 'intake'} />
       <VitalsTemperaturesCard />
       <VitalsHeartbeatCard />
       <VitalsRespirationRateCard />

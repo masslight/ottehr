@@ -21,7 +21,7 @@ import { useChartData } from '../../../../features/css-module/hooks/useChartData
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../../shared/store/getSelectors';
-import { CSSPageTitle } from '../../../components/PageTitle';
+import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useAppointmentStore } from '../../../state';
 import { getAppointmentStatusChip } from '../../../utils';
@@ -210,7 +210,7 @@ export const ERxContainer: FC = () => {
       <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" gap={1} alignItems="center">
-            <CSSPageTitle>eRX</CSSPageTitle>
+            <PageTitle label="eRX" noIntakeNotesButton />
             {(isLoading || isFetching || cancellationLoading.length > 0) && <CircularProgress size={16} />}
           </Stack>
           <Tooltip

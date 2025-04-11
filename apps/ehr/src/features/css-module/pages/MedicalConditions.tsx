@@ -11,6 +11,7 @@ import {
 } from '../../../telemed/features/appointment';
 import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
+import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
 interface MedicalConditionsProps {
@@ -27,13 +28,15 @@ export const MedicalConditions: FC<MedicalConditionsProps> = () => {
 
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
 
+  const { interactionMode } = useNavigationContext();
+
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Medical Conditions" />
+      <PageTitle label="Medical Conditions" noIntakeNotesButton={interactionMode !== 'intake'} />
       <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
         <InfoAlert text="Ask: Does the patient have any significant past or ongoing medical issues?" />
         <MedicalHistoryDoubleCard

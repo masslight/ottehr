@@ -10,7 +10,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getInHouseMedicationMARUrl, getInHouseMedicationDetailsUrl } from '../routing/helpers';
 import { CSSLoader } from '../components/CSSLoader';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { CSSPageTitle } from '../../../telemed/components/PageTitle';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 
 interface TabContentProps {
   isActive: boolean;
@@ -103,7 +103,7 @@ export const InHouseMedication: React.FC = () => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <CSSPageTitle data-testid={dataTestIds.inHouseMedicationsPage.title}>Medications</CSSPageTitle>
+        <PageTitle data-testid={dataTestIds.inHouseMedicationsPage.title} label="Medications" noIntakeNotesButton />
         <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />
       </Box>
       <MedicationHistoryList />
