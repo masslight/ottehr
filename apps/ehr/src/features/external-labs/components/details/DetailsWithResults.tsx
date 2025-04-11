@@ -36,7 +36,14 @@ export const DetailsWithResults: React.FC<{
 
         {labOrder.resultsDetails.map((result) => (
           <ResultItem
-            onMarkAsReviewed={() => updateTask({ taskId: result.taskId, event: 'reviewed' })}
+            onMarkAsReviewed={() =>
+              updateTask({
+                taskId: result.taskId,
+                serviceRequestId: labOrder.serviceRequestId,
+                diagnosticReportId: result.diagnosticReportId,
+                event: 'reviewed',
+              })
+            }
             resultDetails={result}
             labOrder={labOrder}
           />

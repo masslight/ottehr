@@ -37,7 +37,7 @@ export const mapResourcesToLabOrderDTOs = (
 ): LabOrderDTO[] => {
   return serviceRequests.map((serviceRequest) => {
     const {
-      orderId: serviceRequestId,
+      serviceRequestId,
       accessionNumbers,
       orderAddedDate,
       lastResultReceivedDate,
@@ -53,7 +53,7 @@ export const mapResourcesToLabOrderDTOs = (
       appointmentId,
       history,
       orderStatus,
-      resultsDetails, // todo: naming
+      resultsDetails,
     } = parseOrderDetails({ tasks, serviceRequest, results, appointments, encounters, practitioners });
 
     return {
@@ -256,7 +256,8 @@ export const extractLabResources = (
       if (withActivityDefinition) {
         serviceRequests.push(serviceRequest);
       }
-    } else if (resource.resourceType === 'Task') {
+    } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
+      // todo: filtering out cancelled tasks looks valid, but better to confirm this
       tasks.push(resource as Task);
     } else if (resource.resourceType === 'DiagnosticReport') {
       results.push(resource as DiagnosticReport);
@@ -393,7 +394,8 @@ export const parseLabOrderStatus = (
   }
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
-  const isSentStatus = hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0;
+  const isSentStatus =
+    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length && prelimResults.length === 0;
 
   if (isSentStatus) {
     return ExternalLabsStatus.sent;
@@ -728,7 +730,7 @@ export const parseOrderDetails = ({
   encounters: Encounter[];
   practitioners: Practitioner[];
 }): {
-  orderId: string;
+  serviceRequestId: string;
   orderStatus: ExternalLabsStatus;
   accessionNumbers: string[];
   orderAddedDate: string;
@@ -804,12 +806,13 @@ export const parseOrderDetails = ({
 
   const performedBy = parsePerformed(serviceRequest); // only PSC Hold currently
 
-  const orderId = serviceRequest.id;
+  const serviceRequestId = serviceRequest.id;
 
   const history: LabOrderHistoryRow[] = (() => {
     const history: LabOrderHistoryRow[] = [
       {
         action: 'ordered',
+        resultType: 'ordered',
         performer: providerName,
         date: orderAddedDate,
       },
@@ -818,23 +821,31 @@ export const parseOrderDetails = ({
     if (performedBy) {
       history.push({
         action: 'performed',
+        resultType: 'reflex',
         performer: providerName,
         date: '-',
       });
     }
 
-    const finalTasks = [...reflexFinalTasks, ...reflexPrelimTasks].sort((a, b) =>
+    const taggedReflexTasks = reflexFinalTasks.map((task) => ({ ...task, taskType: 'reflex' }) as const);
+    const taggedOrderedTasks = orderedFinalTasks.map((task) => ({ ...task, taskType: 'ordered' }) as const);
+
+    const finalTasks = [...taggedReflexTasks, ...taggedOrderedTasks].sort((a, b) =>
       compareDates(a.authoredOn, b.authoredOn)
     );
 
     finalTasks.forEach((task) => {
-      const action = task.status === 'completed' ? 'reviewed' : 'received';
+      const action = `${task.status === 'completed' ? 'reviewed' : 'received'}` as const;
+
+      // todo: should be used Provenance resource to track the history
       const date = task.authoredOn || '';
+
       const performerId = task.owner?.reference?.split('/').pop() || '';
       const performer = parsePractitionerName(performerId, practitioners);
 
       history.push({
         action,
+        resultType: task.taskType,
         performer,
         date,
       });
@@ -846,7 +857,7 @@ export const parseOrderDetails = ({
   const resultsDetails = parseLResultsDetails(serviceRequest, results, tasks);
 
   return {
-    orderId,
+    serviceRequestId,
     accessionNumbers,
     lastResultReceivedDate,
     orderAddedDate,
@@ -915,6 +926,7 @@ export const parseResultDetails = (
   const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
 
   if (!task?.id || !result?.id || !serviceRequest.id) {
+    console.log(`Task not found for result: ${result.id}, if Task exists check if it has valid status and code.`);
     return null;
   }
 

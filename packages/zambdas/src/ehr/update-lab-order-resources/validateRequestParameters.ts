@@ -16,10 +16,18 @@ export function validateRequestParameters(
     throw new Error('Invalid JSON in request body');
   }
 
-  const { taskId, event } = params;
+  const { taskId, serviceRequestId, diagnosticReportId, event } = params;
 
   if (typeof taskId !== 'string') {
     throw new Error('Invalid parameter type: taskId must be a string');
+  }
+
+  if (typeof serviceRequestId !== 'string') {
+    throw new Error('Invalid parameter type: serviceRequestId must be a string');
+  }
+
+  if (typeof diagnosticReportId !== 'string') {
+    throw new Error('Invalid parameter type: diagnosticReportId must be a string');
   }
 
   if (!event || !VALID_LAB_ORDER_UPDATE_EVENTS.includes(event)) {
@@ -31,6 +39,8 @@ export function validateRequestParameters(
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
   return {
+    serviceRequestId,
+    diagnosticReportId,
     taskId,
     event,
     secrets: input.secrets,

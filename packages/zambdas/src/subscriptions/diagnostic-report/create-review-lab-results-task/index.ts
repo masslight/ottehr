@@ -7,6 +7,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 import { LAB_ORDER_TASK } from 'utils';
 import { createOystehrClient } from '../../../shared/helpers';
 import { getAuth0Token, topLevelCatch } from '../../../shared';
+import { DateTime } from 'luxon';
 
 export interface ReviewLabResultSubscriptionInput {
   diagnosticReport: DiagnosticReport;
@@ -21,16 +22,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
   try {
     const { diagnosticReport, secrets } = validateRequestParameters(input);
-
-    if (!diagnosticReport.id)
-      throw new Error(`Triggering DiagnosticReport did not have an id. ${JSON.stringify(diagnosticReport)}`);
-
-    // TODO: in the future, this should probably also include 'corrected'. Corrected results only come in for final results,
-    // so it can still make a RFRT or we can another task type for corrected results
-    if (!['preliminary', 'final'].includes(diagnosticReport.status))
-      throw new Error(
-        `Triggering DiagnosticReport.status was not preliminary or final. ${JSON.stringify(diagnosticReport)}`
-      );
 
     if (!zapehrToken) {
       console.log('getting token');
@@ -73,6 +64,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // make the new task
     const newTask: Task = {
       resourceType: 'Task',
+      authoredOn: DateTime.now().toISO(),
       intent: 'order',
       basedOn: [
         {
