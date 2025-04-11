@@ -8,3 +8,7 @@ export interface CreateRadiologyZambdaOrderInput {
 export interface CreateRadiologyZambdaOrderOutput {
   serviceRequestId: string;
 }
+
+export interface CancelRadiologyOrderZambdaInput {
+  serviceRequestId: string;
+}

@@ -13,6 +13,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
+import { ADVAPACS_FHIR_BASE_URL } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -74,7 +75,7 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ body: output }),
+      body: JSON.stringify({ output }),
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
@@ -327,7 +328,7 @@ const writeAdvaPacsTransaction = async (
 
     console.log(JSON.stringify(advaPacsTransactionRequest));
 
-    const advapacsResponse = await fetch(`https://usa1.api.integration.advapacs.com/fhir/R5`, {
+    const advapacsResponse = await fetch(ADVAPACS_FHIR_BASE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/fhir+json',
