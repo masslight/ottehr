@@ -1,7 +1,8 @@
-import { Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed';
 import { CSSLoader } from '../components/CSSLoader';
 import GeneralInfoCard from '../components/patient-info/GeneralInfoCard';
@@ -28,10 +29,11 @@ export const PatientInfo: React.FC<PatientInfoProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <>
+    <Stack spacing={1}>
+      <PageTitle label="General Info" />
       <GeneralInfoCard />
       <VitalsWeightsCard />
       <VitalsNotesCard />
-    </>
+    </Stack>
   );
 };

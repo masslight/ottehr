@@ -27,7 +27,7 @@ export const ERX: React.FC<ERXProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
       <ERxContainer />
       <div id="photon-prescribe-workflow-dialog" />
     </Stack>

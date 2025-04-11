@@ -23,7 +23,6 @@ export const IntakeNote = ({ open, sx = {} }: { open: boolean; sx?: CSSPropertie
           startIcon={icon}
           onClick={openModal}
           sx={{
-            margin: 2,
             ...sx,
           }}
         >

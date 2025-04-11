@@ -8,6 +8,7 @@ import { TypographyOptions } from '@mui/material/styles/createTypography';
 interface PageTitleProps {
   label: string;
   dataTestId?: string;
+  noIntakeNotesButton?: boolean;
 }
 
 export const CSSPageTitle = styled(Typography)(({ theme }) => ({
@@ -17,7 +18,7 @@ export const CSSPageTitle = styled(Typography)(({ theme }) => ({
   color: theme.palette.primary.dark,
 }));
 
-export const PageTitle = ({ label, dataTestId }: PageTitleProps): ReactElement => {
+export const PageTitle = ({ label, dataTestId, noIntakeNotesButton = false }: PageTitleProps): ReactElement => {
   const [open] = useState(true);
 
   return (
@@ -25,9 +26,11 @@ export const PageTitle = ({ label, dataTestId }: PageTitleProps): ReactElement =
       <Grid item xs>
         <CSSPageTitle data-testid={dataTestId}>{label}</CSSPageTitle>
       </Grid>
-      <Grid item>
-        <IntakeNote open={open} />
-      </Grid>
+      {!noIntakeNotesButton && (
+        <Grid item>
+          <IntakeNote open={open} />
+        </Grid>
+      )}
     </Grid>
   );
 };
