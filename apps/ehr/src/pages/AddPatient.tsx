@@ -200,9 +200,6 @@ export default function AddPatient(): JSX.Element {
         emailUser = 'Parent/Guardian';
       }
       if (!oystehrZambda) throw new Error('Zambda client not found');
-      if (!slot || !slot.start) {
-        throw new Error('Slot is required');
-      }
       const zambdaParams: CreateAppointmentParameters = {
         patient: {
           id: selectedPatient?.id,
