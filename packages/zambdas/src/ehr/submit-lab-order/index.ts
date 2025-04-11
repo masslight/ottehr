@@ -320,7 +320,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
       {
-        serviceRequestID: serviceRequestID,
         locationName: location.name || ORDER_ITEM_UNKNOWN,
         locationStreetAddress: location.address?.line?.join(',') || ORDER_ITEM_UNKNOWN,
         locationCity: location.address?.city || ORDER_ITEM_UNKNOWN,
