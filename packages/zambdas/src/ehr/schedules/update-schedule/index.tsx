@@ -16,7 +16,6 @@ import {
 import Oystehr from '@oystehr/sdk';
 import { Extension, Schedule } from 'fhir/r4b';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
-import { getSlugForBookableResource } from '../../../patient/bookable/helpers';
 
 let m2mtoken: string;
 

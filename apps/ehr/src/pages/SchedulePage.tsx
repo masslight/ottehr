@@ -31,7 +31,7 @@ import {
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { createSchedule, getSchedule, updateSchedule } from '../api/api';
 import { enqueueSnackbar } from 'notistack';
 import { Location, Practitioner, Schedule } from 'fhir/r4b';
@@ -61,6 +61,7 @@ export default function SchedulePage(): ReactElement {
   const scheduleId = useParams()['schedule-id'] as string;
   const createMode = scheduleType !== undefined && ownerId !== undefined;
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // state variables
   const [tabName, setTabName] = useState('schedule');
@@ -97,7 +98,7 @@ export default function SchedulePage(): ReactElement {
     return false;
   })();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { isLoading, isFetching, isRefetching, isError, isSuccess, refetch } = useQuery(
+  const { isLoading, isFetching, isRefetching } = useQuery(
     ['ehr-get-schedule', { zambdaClient: oystehrZambda, scheduleId, ownerId, scheduleType }],
     () =>
       oystehrZambda
@@ -133,11 +134,7 @@ export default function SchedulePage(): ReactElement {
       }
     },
     onSuccess: async () => {
-      const newItem = (await refetch()).data;
-      console.log('setting new item', newItem);
-      if (newItem) {
-        setItem(newItem);
-      }
+      await queryClient.invalidateQueries(['ehr-get-schedule']);
       enqueueSnackbar('Schedule changes saved successfully!', { variant: 'success' });
     },
   });
@@ -163,6 +160,8 @@ export default function SchedulePage(): ReactElement {
       enqueueSnackbar('Schedule added successfully!', { variant: 'success' });
     },
   });
+
+  const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching || saveScheduleChanges.isLoading;
 
   // console.log('scheduleFetchState (loading/fetching/error/success): ', isLoading, isFetching, isError, isSuccess);
 
@@ -233,18 +232,16 @@ export default function SchedulePage(): ReactElement {
     }
   };
 
-  const saveGeneralFields = async (event: any): Promise<void> => {
+  const saveGeneralFields = async (_event: any): Promise<void> => {
     if (!oystehr || !item?.id) {
       enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
       return;
     }
-    console.log('event', event);
     const params: UpdateScheduleParams = {
       scheduleId: item.id,
       timezone,
       slug,
     };
-    console.log('params', params);
     saveScheduleChanges.mutate({ ...params });
   };
 
@@ -294,7 +291,7 @@ export default function SchedulePage(): ReactElement {
                     <ScheduleComponent
                       id={scheduleId}
                       item={item}
-                      loading={false}
+                      loading={somethingIsLoadingInSomeWay}
                       update={onSaveSchedule}
                       hideOverrides={createMode}
                     />
@@ -364,7 +361,7 @@ export default function SchedulePage(): ReactElement {
                         options={TIMEZONES}
                         renderInput={(params) => <TextField {...params} label="Timezone" />}
                         sx={{ marginTop: 2, width: '250px' }}
-                        value={item.timezone}
+                        value={timezone}
                         onChange={(_event, newValue) => {
                           if (newValue) {
                             setTimezone(newValue);
@@ -372,7 +369,12 @@ export default function SchedulePage(): ReactElement {
                         }}
                       />
                       <br />
-                      <LoadingButton type="submit" loading={isRefetching} variant="contained" sx={{ marginTop: 2 }}>
+                      <LoadingButton
+                        type="submit"
+                        loading={somethingIsLoadingInSomeWay}
+                        variant="contained"
+                        sx={{ marginTop: 2 }}
+                      >
                         Save
                       </LoadingButton>
                     </form>
