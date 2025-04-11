@@ -86,7 +86,10 @@ jobs:
 
       - name: Increase version if input dictates.
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
-        run: cd ${{ github.workspace }} && npm version ${{ github.event.inputs.versionType }} --allow-same-version --no-git-tag-version
+        run: >
+          git config --local user.email "tech-support@ottehr.com";
+          git config --local user.name "GitHub Action Bump Version";
+          cd ${{ github.workspace }} && npm version ${{ github.event.inputs.versionType }}
 
       - name: Commit files with new version
         if: ${{ github.event.inputs.incrementVersion == 'true' }}
