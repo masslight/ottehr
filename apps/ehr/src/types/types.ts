@@ -251,8 +251,8 @@ export enum DocumentType {
   PhotoIdFront = 'photo-id-front',
   PhotoIdBack = 'photo-id-back',
   FullPhotoId = 'fullPhotoIDCard',
-  HipaaConsent = 'HIPAA forms',
-  CttConsent = 'Consent forms',
+  HipaaConsent = 'HIPAA Acknowledgement',
+  CttConsent = 'Consent to Treat and Guarantee of Payment',
 }
 export interface DocumentInfo {
   type: DocumentType;

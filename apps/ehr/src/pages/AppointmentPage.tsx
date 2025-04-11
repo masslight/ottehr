@@ -44,6 +44,7 @@ import {
   FhirAppointmentType,
   INSURANCE_CARD_CODE,
   PHOTO_ID_CARD_CODE,
+  PRIVACY_POLICY_CODE,
   VisitStatusLabel,
   flattenItems,
   formatPhoneNumber,
@@ -687,7 +688,7 @@ export default function AppointmentPage(): ReactElement {
 
           if (
             docRefCode &&
-            ([PHOTO_ID_CARD_CODE, CONSENT_CODE].includes(docRefCode) ||
+            ([PHOTO_ID_CARD_CODE, CONSENT_CODE, PRIVACY_POLICY_CODE].includes(docRefCode) ||
               (docRefCode === INSURANCE_CARD_CODE && !selfPay))
           ) {
             for (const content of docRef.content) {
