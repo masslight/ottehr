@@ -73,7 +73,7 @@ export const AppointmentSidePanel: FC = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isERXOpen, setIsERXOpen] = useState(false);
   const [isERXLoading, setIsERXLoading] = useState(false);
-  const [isErxSetup, setIsErxSetup] = useState(true);
+  const [isErxPopupOpen, setIsErxPopupOpen] = useState(true);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
@@ -142,11 +142,16 @@ export const AppointmentSidePanel: FC = () => {
       sx={{
         width: '350px',
         flexShrink: 0,
-        [`& .MuiDrawer-paper`]: { width: '350px', boxSizing: 'border-box', top: adjustTopForBannerHeight(-7) },
+        [`& .MuiDrawer-paper`]: {
+          width: '350px',
+          boxSizing: 'border-box',
+          top: adjustTopForBannerHeight(-7),
+          overflow: 'visible ',
+        },
       }}
     >
       <Toolbar />
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'visible' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             {getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
@@ -281,30 +286,30 @@ export const AppointmentSidePanel: FC = () => {
             Book visit
           </Button>
 
-          {!isErxSetup && (
-            <Box
-              sx={{
-                position: 'absolute',
-                zIndex: 3000,
-                top: '100%',
-                left: -5,
-                width: '350px', // Adjust width as needed
-              }}
-            >
-              <CompleteConfiguration handleSetup={handleSetup} />
-            </Box>
-          )}
-
           {user?.isPractitionerEnrolledInPhoton && (
-            <Box sx={{ position: 'relative' }}>
+            <Box sx={{ position: 'relative', zIndex: 10000 }}>
               <Box
                 onMouseEnter={() => {
                   if (appointmentAccessibility.isAppointmentReadOnly) {
-                    setIsErxSetup(false);
+                    setIsErxPopupOpen(false);
                   }
                 }}
-                onMouseLeave={() => setIsErxSetup(true)}
+                onMouseLeave={() => setIsErxPopupOpen(true)}
               >
+                {!isErxPopupOpen && !erxEnvVariable && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      zIndex: 10000,
+                      bottom: '100%',
+                      left: -5,
+                      width: '350px',
+                      pb: 1,
+                    }}
+                  >
+                    <CompleteConfiguration handleSetup={handleSetup} />
+                  </Box>
+                )}
                 <LoadingButton
                   size="small"
                   variant="outlined"
