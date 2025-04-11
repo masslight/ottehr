@@ -958,7 +958,7 @@ test.describe('Invite participant', () => {
     await paperwork.checkEmailValidations(locator.inviteeEmail);
   });
   test('PIP-10 Invite participant by phone', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('phone');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('phone', 'paperwork');
   });
   test('PIP-11 Invite participant by phone - data is saved after reload', async () => {
     await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
@@ -977,7 +977,7 @@ test.describe('Invite participant', () => {
     await expect(locator.inviteeContactPhone).toBeChecked();
   });
   test('PIP-13 Invite participant by email', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('email');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('email', 'paperwork');
   });
   test('PIP-14 Invite participant by email - data is saved after reload', async () => {
     await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);

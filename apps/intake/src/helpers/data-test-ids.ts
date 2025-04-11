@@ -24,4 +24,6 @@ export const dataTestIds = {
   locationNamePaperworkReviewScreen: 'location-name',
   checkInTimePaperworkReviewScreen: 'check-in-time',
   deletedButton: 'delete-button',
+  wrInviteeName: 'wr-invitee-name',
+  wrInviteeContact: 'wr-invitee-contact',
 };
