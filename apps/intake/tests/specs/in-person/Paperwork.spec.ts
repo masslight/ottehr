@@ -482,7 +482,7 @@ test.describe('Consent forms - Check and fill all fields', () => {
     );
   });
   test('PCF-4 Consent Forms - Check links are correct', async () => {
-    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hippa_notice_template.pdf');
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
     expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
       '/consent_to_treat_template.pdf'
     );
