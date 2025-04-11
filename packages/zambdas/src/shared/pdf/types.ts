@@ -104,7 +104,6 @@ export interface ExaminationBlockData {
 }
 
 export interface ExternalLabsData {
-  serviceRequestID: string;
   locationName: string;
   locationStreetAddress: string;
   locationCity: string;
