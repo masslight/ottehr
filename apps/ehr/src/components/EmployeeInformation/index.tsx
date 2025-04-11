@@ -27,6 +27,7 @@ export default function EmployeeInformationForm({
   existingUser,
   isActive,
   licenses,
+  getUserAndUpdatePage,
 }: EditEmployeeInformationProps): JSX.Element {
   const { oystehrZambda } = useApiClients();
   const [loading, setLoading] = useState<boolean>(false);
@@ -67,6 +68,8 @@ export default function EmployeeInformationForm({
   const { control, handleSubmit, setValue, getValues } = useForm<EmployeeForm>();
 
   useWatch({ control, name: 'roles' });
+
+  console.log(5, user);
 
   useEffect(() => {
     if (existingUser) {
@@ -126,7 +129,7 @@ export default function EmployeeInformationForm({
       setErrors((prev) => ({ ...prev, ...{ roles: false } }));
     }
 
-    if (!isPhoneNumberValid(data.phoneNumber)) {
+    if (data.phoneNumber && !isPhoneNumberValid(data.phoneNumber)) {
       setErrors((prev) => ({ ...prev, phoneNumber: true }));
       return;
     } else {
@@ -154,6 +157,7 @@ export default function EmployeeInformationForm({
         phoneNumber: data.phoneNumber,
         npi: data.npi,
       });
+      await getUserAndUpdatePage();
       enqueueSnackbar(`User ${data.firstName} ${data.lastName} was updated successfully`, {
         variant: 'success',
       });
