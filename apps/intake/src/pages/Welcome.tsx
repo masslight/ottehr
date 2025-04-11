@@ -332,16 +332,25 @@ const BookingHome: FC = () => {
   // console.log('outlet context in root', outletContext);
 
   useEffect(() => {
-    const fetchLocation = async (locationSlug: string, scheduleType: ScheduleType): Promise<any> => {
+    const fetchLocation = async (locationSlug: string, scheduleType: ScheduleType, isWalkin: boolean): Promise<any> => {
       try {
         if (!tokenlessZambdaClient) {
           return;
         }
         setLocationLoading(LoadingState.loading);
         console.log('schedule type sluggo: ', scheduleType, locationSlug);
+        // temporarily hardcoding the params for the walkin case here due to a bug with the dynamic values
+        // and plans to overhaul this page in the near future
+        let scheduleTypeForFetch = scheduleType ?? ScheduleType.location;
+        let locationSlugForFetch = locationSlug;
+        if (isWalkin) {
+          scheduleTypeForFetch = ScheduleType.location;
+          locationSlugForFetch = 'testing';
+        }
         const res = await zapehrApi.getSchedule(tokenlessZambdaClient, {
-          scheduleType: scheduleType ?? ScheduleType.location,
-          slug: locationSlug,
+          scheduleType: scheduleTypeForFetch,
+          slug: locationSlugForFetch,
+          isWalkin,
         });
         setSelectedLocationResponse(res);
       } catch (error) {
@@ -354,10 +363,17 @@ const BookingHome: FC = () => {
 
     // So long as / is a valid path or auth0 redirects to /, this must be here. Otherwise the
     // function is called with no slug parameter and overwrites the contents of local storage.
-    if (slugParam && locationLoading === LoadingState.initial && scheduleTypeForFetch) {
-      void fetchLocation(slugParam, scheduleTypeForFetch);
+    if (slugParam && locationLoading === LoadingState.initial && scheduleTypeForFetch && visitTypeParam !== undefined) {
+      void fetchLocation(slugParam, scheduleTypeForFetch, visitTypeParam === VisitType.WalkIn);
     }
-  }, [locationLoading, scheduleTypeForFetch, setSelectedLocationResponse, slugParam, tokenlessZambdaClient]);
+  }, [
+    locationLoading,
+    scheduleTypeForFetch,
+    setSelectedLocationResponse,
+    slugParam,
+    tokenlessZambdaClient,
+    visitTypeParam,
+  ]);
 
   useEffect(() => {
     async function getPatients(): Promise<void> {

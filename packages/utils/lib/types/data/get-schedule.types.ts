@@ -16,4 +16,5 @@ export interface GetScheduleRequestParams {
   scheduleType: ScheduleType;
   slug: string;
   specificSlot?: string;
+  isWalkin?: boolean; // todo: remove when walkin flow dependency on get-schedule is removed
 }

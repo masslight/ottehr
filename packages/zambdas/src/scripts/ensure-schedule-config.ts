@@ -1,5 +1,5 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL,
@@ -23,8 +23,8 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     const telemedLocationAndSchedules = (await oystehrClient.fhir.search<Location|Schedule>({
       resourceType: 'Location',
       params: [{
-        name: 'name',
-        value: 'Telemed',
+        name: 'status',
+        value: 'active',
       },
       {
         name: '_revinclude',
@@ -86,17 +86,17 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     });
 
     // dry run for now
-    console.log('schedulePostRequests', schedulePostRequests.length);
-    console.log('locationUpdateRequests', locationUpdateRequests.length);
+    //console.log('schedulePostRequests', schedulePostRequests.length);
+   // console.log('locationUpdateRequests', locationUpdateRequests.length);
 
-    /*
+    
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [
         ...schedulePostRequests,
-        ...locationUpdateRequests,
+        //...locationUpdateRequests,
       ],
     });
-    */
+  
     
   } catch (error) {
     console.error('Error setting up telemed locations:', error);

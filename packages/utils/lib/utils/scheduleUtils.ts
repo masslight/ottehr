@@ -26,6 +26,8 @@ import {
   ScheduleAndOwner,
   getFullName,
   TIMEZONES,
+  ScheduleType,
+  ScheduleOwnerFhirResource,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -1361,4 +1363,14 @@ export const BLANK_SCHEDULE_JSON_TEMPLATE: ScheduleExtension = {
   },
   scheduleOverrides: {},
   closures: [],
+};
+
+export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwnerFhirResource['resourceType'] => {
+  if (scheduleType === 'location') {
+    return 'Location';
+  }
+  if (scheduleType === 'provider') {
+    return 'Practitioner';
+  }
+  return 'HealthcareService';
 };
