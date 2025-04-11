@@ -1,4 +1,3 @@
-import Oystehr from '@oystehr/sdk';
 import { Page, test } from '@playwright/test';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
@@ -11,7 +10,6 @@ import {
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
   isoToDateObject,
 } from 'utils';
-import { getAuth0Token } from '../../../e2e-utils/auth/getAuth0Token';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
@@ -91,12 +89,7 @@ test.describe('Book appointment filling insurances information on payment option
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined;
 
   test.beforeAll(async () => {
-    const authToken = await getAuth0Token();
-    const oystehr = new Oystehr({
-      accessToken: authToken,
-      fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
-    });
+    const oystehr = await ResourceHandler.getOystehr();
     const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
       id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
       answerSource: {

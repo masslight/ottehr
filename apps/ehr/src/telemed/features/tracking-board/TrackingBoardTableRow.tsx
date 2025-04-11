@@ -105,7 +105,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   return (
     <TableRow
       data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointment.id)}
-      data-location-group={appointment.location.state}
+      data-location-group={appointment.locationVirtual.state}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
         '&:hover': {
@@ -191,7 +191,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
         {patientInfo}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
-        <Typography sx={{ fontSize: '16px' }}>{appointment.location.state}</Typography>
+        <Typography sx={{ fontSize: '16px' }}>{appointment.locationVirtual.state}</Typography>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
         <Tooltip title={reasonForVisit}>

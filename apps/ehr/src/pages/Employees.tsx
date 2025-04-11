@@ -3,6 +3,7 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
   Box,
+  Button,
   Checkbox,
   Chip,
   FormControlLabel,
@@ -17,13 +18,14 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Tooltip,
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { default as React, ReactElement, useCallback, useMemo, useState } from 'react';
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
-import { AllStates, EmployeeDetails, State } from 'utils';
+import { AllStates, EmployeeDetails, RoleType, State } from 'utils';
 import { otherColors } from '@theme/colors';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
@@ -32,6 +34,8 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { formatDateUsingSlashes } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import useEvolveUser, { EvolveUser } from '../hooks/useEvolveUser';
+import { Add } from '@mui/icons-material';
 
 enum PageTab {
   employees = 'employees',
@@ -40,6 +44,7 @@ enum PageTab {
 
 export default function EmployeesPage(): ReactElement {
   const { oystehrZambda } = useApiClients();
+  const currentUser = useEvolveUser();
   const [pageTab, setPageTab] = useState<PageTab>(PageTab.employees);
   const [employees, setEmployees] = useState<EmployeeDetails[]>([]);
 
@@ -115,6 +120,7 @@ export default function EmployeesPage(): ReactElement {
             <TabPanel value={pageTab} sx={{ padding: 0 }}>
               <EmployeesTable
                 employees={employees}
+                currentUser={currentUser}
                 currentTab={pageTab}
                 pageNumber={pageStates[pageTab].pageNumber}
                 rowsPerPage={pageStates[pageTab].rowsPerPage}
@@ -133,6 +139,7 @@ export default function EmployeesPage(): ReactElement {
 
 interface EmployeesTableProps {
   employees: EmployeeDetails[];
+  currentUser: EvolveUser | undefined;
   currentTab: PageTab;
   pageNumber: number;
   rowsPerPage: number;
@@ -150,6 +157,7 @@ interface EmployeesTableProps {
 
 function EmployeesTable({
   employees,
+  currentUser,
   currentTab,
   pageNumber,
   rowsPerPage,
@@ -268,6 +276,23 @@ function EmployeesTable({
                 sx={{ '.MuiFormControlLabel-asterisk': { display: 'none' } }}
               />
             </Box>
+            {/* todo reduce code duplicate */}
+            {currentUser?.hasRole([RoleType.Administrator]) ? (
+              <Link to={`/employees/add`}>
+                <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />}>
+                  Add user
+                </Button>
+              </Link>
+            ) : (
+              <Tooltip title="You must be an administrator to add new users" placement="top">
+                <span>
+                  {/* https://mui.com/material-ui/react-tooltip/#disabled-elements */}
+                  <Button variant="contained" sx={{ marginLeft: 1 }} startIcon={<Add />} disabled>
+                    Add user
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
           </Grid>
 
           {/* Employees Table */}

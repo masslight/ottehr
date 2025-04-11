@@ -4,7 +4,7 @@ import { AppointmentLocation, TelemedCallStatuses, TelemedStatusHistoryElement }
 export interface AppointmentPackage {
   appointment: Appointment;
   encounter: Encounter;
-  location?: AppointmentLocation;
+  locationVirtual?: AppointmentLocation;
   telemedStatus: TelemedCallStatuses;
   telemedStatusHistory: TelemedStatusHistoryElement[];
   paperwork?: QuestionnaireResponse;

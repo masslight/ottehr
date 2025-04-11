@@ -70,7 +70,7 @@ export const filterAppointments = (
   if (tab === ApptTelemedTab.ready) {
     if (showOnlyNext) {
       const oldest = appointments
-        .filter((appointment) => availableStates.includes(appointment.location.state!))
+        .filter((appointment) => availableStates.includes(appointment.locationVirtual.state!))
         .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))?.[0];
 
       return oldest ? [oldest] : [];
