@@ -26,7 +26,7 @@ import { default as React, ReactElement, useCallback, useMemo, useState } from '
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
 import { AllStates, EmployeeDetails, RoleType, State } from 'utils';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';
@@ -106,11 +106,11 @@ export default function EmployeesPage(): ReactElement {
         <TabContext value={pageTab}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <TabList onChange={handleTabChange} aria-label="employees tabs">
-              <Tab label="Employees" value={PageTab.employees} sx={{ textTransform: 'none', fontWeight: 700 }} />
+              <Tab label="Employees" value={PageTab.employees} sx={{ textTransform: 'none', fontWeight: 500 }} />
               <Tab
                 label="Providers"
                 value={PageTab.providers}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
                 data-testid={dataTestIds.employeesPage.providersTabButton}
               />
               {isFetching && <Loading />}

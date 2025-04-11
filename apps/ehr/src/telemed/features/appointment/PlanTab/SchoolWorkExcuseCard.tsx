@@ -114,7 +114,7 @@ export const SchoolWorkExcuseCard: FC = () => {
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <Box>
             <Typography display="inline">Patient requested excuse from:</Typography>&nbsp;
-            <Typography display="inline" fontWeight={700}>
+            <Typography display="inline" fontWeight={500}>
               {title}
             </Typography>
           </Box>

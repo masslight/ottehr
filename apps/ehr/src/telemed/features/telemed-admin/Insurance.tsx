@@ -29,7 +29,7 @@ import { BooleanStateChip } from '../..';
 import { INSURANCES_URL } from '../../../App';
 import { INSURANCE_ROWS_PER_PAGE } from '../../../constants';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { useInsurancesQuery } from './telemed-admin.queries';
 
 enum IsActiveStatus {

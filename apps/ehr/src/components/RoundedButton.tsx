@@ -13,7 +13,7 @@ export const RoundedButton = styled(
       <Typography
         sx={{
           textTransform: 'none',
-          fontWeight: 700,
+          fontWeight: 500,
           fontSize: 14,
         }}
       >

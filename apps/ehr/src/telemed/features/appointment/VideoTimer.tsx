@@ -56,7 +56,7 @@ export const VideoTimer: FC = () => {
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <Typography fontWeight={700} sx={{ width: '45px' }}>
+      <Typography fontWeight={500} sx={{ width: '45px' }}>
         {formatVideoTimerTime(difference)}
       </Typography>
 

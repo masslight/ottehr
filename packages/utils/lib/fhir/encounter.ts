@@ -9,7 +9,7 @@ import {
   ProviderDetails,
 } from '../types';
 import { Operation } from 'fast-json-patch';
-import { OTTEHR_BASE_URL } from './constants';
+import { FHIR_BASE_URL } from './constants';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
@@ -35,11 +35,11 @@ type NonbillableReasons = (typeof NONBILLABLE_REASONS)[number];
 export type FollowupReason = TelephoneReasons | NonbillableReasons;
 
 export const FOLLOWUP_SYSTEMS = {
-  callerUrl: `${OTTEHR_BASE_URL}/followup-caller`,
-  answeredUrl: `${OTTEHR_BASE_URL}/followup-answered`,
-  providerUrl: `${OTTEHR_BASE_URL}/followup-provider`,
-  messageUrl: `${OTTEHR_BASE_URL}/followup-message`,
-  reasonUrl: `${OTTEHR_BASE_URL}/followup-reason`,
+  callerUrl: `${FHIR_BASE_URL}/followup-caller`,
+  answeredUrl: `${FHIR_BASE_URL}/followup-answered`,
+  providerUrl: `${FHIR_BASE_URL}/followup-provider`,
+  messageUrl: `${FHIR_BASE_URL}/followup-message`,
+  reasonUrl: `${FHIR_BASE_URL}/followup-reason`,
   type: {
     url: 'http://snomed.info/sct',
     code: '390906007', // Follow-up encounter (procedure)

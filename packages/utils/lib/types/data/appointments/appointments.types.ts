@@ -9,7 +9,6 @@ import {
   RelatedPerson,
 } from 'fhir/r4b';
 
-import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import {
   AppointmentMessaging,
   AppointmentType,
@@ -17,7 +16,8 @@ import {
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
-import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../telemed';
+import { PROJECT_MODULE } from '../../../fhir/moduleIdentification';
+import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
@@ -124,8 +124,8 @@ export interface GetAppointmentsRequest {
 }
 
 export const appointmentTypeMap: Record<string, string> = {
-  [OTTEHR_MODULE.IP]: 'In-Person',
-  [OTTEHR_MODULE.TM]: 'Telemedicine',
+  [PROJECT_MODULE.IP]: 'In-Person',
+  [PROJECT_MODULE.TM]: 'Telemedicine',
 };
 
 export type PatientFilterType = 'my-patients' | 'all-patients';

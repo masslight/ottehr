@@ -5,9 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../App';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
-import { ottehrLightBlue } from '../assets';
+import { ottehrLightBlue } from '@theme/icons';
 import { dataTestIds } from '../../helpers/data-test-ids';
-
+import { PROJECT_NAME } from 'utils';
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
 
@@ -17,7 +17,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
 
   return (
     <CustomContainer
-      title="Welcome to Ottehr"
+      title={`Welcome to ${PROJECT_NAME}`}
       img={ottehrLightBlue}
       imgAlt="Ottehr icon"
       imgWidth={150}

@@ -34,7 +34,7 @@ export const StatusChip: React.FC<{ status: StatusString }> = ({ status }) => {
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: '12px',
         textTransform: 'uppercase',
         background: colors?.light,

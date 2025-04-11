@@ -1,6 +1,7 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { Location, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { FHIR_BASE_URL } from 'utils';
 import fs from 'fs';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
@@ -119,11 +120,11 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
         params: [
           {
             name: 'identifier',
-            value: 'https://fhir.ottehr.com/r4/practitioner-role|ip-medical-director',
+            value: `${FHIR_BASE_URL}/r4/practitioner-role|ip-medical-director`,
           },
           {
             name: 'location.identifier',
-            value: `https://fhir.ottehr.com/r4/facility-name|`,
+            value: `${FHIR_BASE_URL}/r4/facility-name|`,
           },
           {
             name: '_include',
@@ -138,11 +139,11 @@ const copyLocations = async (fromConfig: any, toConfig: any, isDryRun = true): P
         params: [
           {
             name: 'identifier',
-            value: 'https://fhir.ottehr.com/r4/practitioner-role|ip-medical-director',
+            value: `${FHIR_BASE_URL}/r4/practitioner-role|ip-medical-director`,
           },
           {
             name: 'location.identifier',
-            value: `https://fhir.ottehr.com/r4/facility-name|`,
+            value: `${FHIR_BASE_URL}/r4/facility-name|`,
           },
           {
             name: '_include',

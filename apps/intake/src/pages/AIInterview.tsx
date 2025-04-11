@@ -1,13 +1,13 @@
-import { useUCZambdaClient } from 'ui-components';
-import { PageContainer } from '../components';
+import { Send } from '@mui/icons-material';
+import { Avatar, Button, TextField, Typography } from '@mui/material';
+import { Box } from '@mui/system';
+import { ottehrDarkBlue } from '@theme/icons';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
-import api from '../api/zapehrApi';
-import { Box } from '@mui/system';
-import { Avatar, Button, TextField, Typography } from '@mui/material';
-import { ottehrDarkBlue } from '../assets/icons';
-import { Send } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
+import { useUCZambdaClient } from 'ui-components';
+import api from '../api/zapehrApi';
+import { PageContainer } from '../components';
 
 const MESSAGES_CONTAINER_ID = 'messages-container';
 

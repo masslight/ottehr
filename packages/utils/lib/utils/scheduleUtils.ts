@@ -11,6 +11,7 @@ import {
   scheduleStrategyForHealthcareService,
   ScheduleStrategy,
   SCHEDULE_NUM_DAYS,
+  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
 } from 'utils';
 import {
@@ -670,9 +671,7 @@ export const getAvailableSlotsForSchedule = async (
   const availableSlots: string[] = [];
   const schedules: (Location | Practitioner | HealthcareService)[] = [];
 
-  const slug = scheduleResource?.identifier?.find(
-    (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug'
-  )?.value;
+  const slug = scheduleResource?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
 
   if (!slug) {
     console.log(`no slug on schedule resource, ${scheduleResource.id}`);

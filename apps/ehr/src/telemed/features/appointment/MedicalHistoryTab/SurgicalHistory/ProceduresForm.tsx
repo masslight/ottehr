@@ -2,7 +2,7 @@ import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { CPTCodeDTO } from 'utils';
-import { otherColors } from '../../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useChartDataArrayValue } from '../../../../hooks';

@@ -1,7 +1,14 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Group, Location, Practitioner } from 'fhir/r4b';
-import { COMMUNICATION_ISSUE_REPORT_CODE, getFullestAvailableName, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  COMMUNICATION_ISSUE_REPORT_CODE,
+  getFullestAvailableName,
+  getSecret,
+  Secrets,
+  SecretsKeys,
+  SUPPORT_EMAIL,
+} from 'utils';
 import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
@@ -156,7 +163,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         const pracitionersEmails = await getEmailsFromGroup(fhirGroup, oystehr);
         console.log('pracitionersEmails', pracitionersEmails);
 
-        const fromEmail = 'support@ottehr.com';
+        const fromEmail = SUPPORT_EMAIL;
         const toEmail = pracitionersEmails || [fromEmail];
         const errorMessage = `Details: ${communication.payload?.[0].contentString} <br> Submitted By: ${submitterDetails} <br> Location: ${fhirLocation?.name} - ${fhirLocation?.address?.city}, ${fhirLocation?.address?.state} <br> Appointment Id: ${appointmentID} <br> Communication Fhir Resource: ${communication.id}`;
 

@@ -12,11 +12,11 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { otherColors } from '@theme/colors';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { BirthHistoryDTO } from 'utils';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   AccordionCard,
@@ -342,7 +342,7 @@ const CheckboxWithNotesField: FC<CheckboxWithNotesFieldProps> = (props) => {
       >
         <FormLabel
           sx={{
-            fontWeight: 700,
+            fontWeight: 500,
             color: 'primary.dark',
             whiteSpace: 'nowrap',
           }}

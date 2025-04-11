@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  PROJECT_NAME,
   chunkThings,
   getFirstName,
   getFullestAvailableName,
@@ -272,7 +273,7 @@ const getSenderNameFromComm = (communication: Communication, map: Record<string,
       }
     }
   }
-  return 'Ottehr Team';
+  return `${PROJECT_NAME} Team`;
 };
 
 const getReceivedMessages = async (
