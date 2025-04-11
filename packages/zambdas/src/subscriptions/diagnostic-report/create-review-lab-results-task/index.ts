@@ -64,7 +64,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // make the new task
     const newTask: Task = {
       resourceType: 'Task',
-      authoredOn: DateTime.now().toISO(),
+      authoredOn: DateTime.now().toUTC().toISO(),
       intent: 'order',
       basedOn: [
         {
