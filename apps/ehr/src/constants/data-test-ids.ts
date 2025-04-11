@@ -89,6 +89,12 @@ export const dataTestIds = {
   patientDetailsContainer: {
     patientsEthnicity: 'patients-ethnicity',
     patientsRace: 'patients-race',
+    sexualOrientation: 'sexual-orientation',
+    genderIdentity: 'gender-identity',
+    howDidYouHearAboutUs: 'how-did-you-hear-about-us',
+    sendMarketingMessages: 'send-marketing-messages',
+    preferredLanguage: 'preffered-language',
+    commonWellConsent: 'commonwell-consent',
   },
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
