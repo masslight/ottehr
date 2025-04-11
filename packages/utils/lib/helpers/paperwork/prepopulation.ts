@@ -129,10 +129,8 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
 
   const patientFirstName = getFirstName(patient) ?? '';
   const patientLastName = getLastName(patient) ?? '';
-  console.log('wuuuut', questionnaire.id);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
-      // console.log('blaaaahhhhhhh', item.item);
       const itemItems = item.item ?? [].filter((i: QuestionnaireItem) => i.type !== 'display');
       if (item.linkId === 'contact-information-page') {
         // todo: consolidate this with mapPatientItemsToQuestionnaireResponseItems

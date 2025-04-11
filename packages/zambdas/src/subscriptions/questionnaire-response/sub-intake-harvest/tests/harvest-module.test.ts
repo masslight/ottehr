@@ -75,6 +75,14 @@ describe('Harvest Module', () => {
         birthDate: '1983-02-23',
         gender: 'female',
         patient: { reference: `Patient/${newPatient1.id}` },
+        address: [
+          {
+            city: 'fakeplace',
+            line: ['123 test lane'],
+            postalCode: '11111',
+            state: 'NY',
+          },
+        ],
         relationship: [
           {
             coding: [
@@ -178,6 +186,12 @@ describe('Harvest Module', () => {
       firstName: 'Jane',
       lastName: 'Doe',
       dob: '1983-02-23',
+      address: {
+        city: 'fakeplace',
+        line: ['123 test lane'],
+        postalCode: '11111',
+        state: 'NY',
+      },
       relationship: 'Parent',
       birthSex: 'Female',
       number: '(555) 987-6543',
@@ -3165,6 +3179,41 @@ const questionnaireResponse1: QuestionnaireResponse = {
           answer: [
             {
               valueString: 'Parent',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-address',
+          answer: [
+            {
+              valueString: '123 test lane',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-address-2',
+        },
+        {
+          linkId: 'responsible-party-city',
+          answer: [
+            {
+              valueString: 'fakeplace',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-state',
+          answer: [
+            {
+              valueString: 'NY',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-zip',
+          answer: [
+            {
+              valueString: '11111',
             },
           ],
         },

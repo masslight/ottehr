@@ -75,7 +75,6 @@ const PatientInformationPage: FC = () => {
   // data queries
   const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({ apiClient, patientId: id ?? null });
   const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
-  console.log('questionnaire', questionnaire);
 
   // data mutations
   const queryClient = useQueryClient();
