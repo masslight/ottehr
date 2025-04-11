@@ -3,6 +3,7 @@ import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { PaperworkTelemed } from './Paperwork';
+import { Paperwork } from '../Paperwork';
 
 export interface SlotAndLocation {
   selectedSlot: { time: string; fullSlot: string };
@@ -34,6 +35,7 @@ export abstract class BaseTelemedFlow {
   protected context: BrowserContext;
   protected commonLocatorsHelper: CommonLocatorsHelper;
   protected paperwork: PaperworkTelemed;
+  protected paperworkGeneral: Paperwork;
 
   constructor(page: Page) {
     this.page = page;
@@ -42,6 +44,7 @@ export abstract class BaseTelemedFlow {
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
     this.paperwork = new PaperworkTelemed(page);
+    this.paperworkGeneral = new Paperwork(page);
   }
   abstract selectTimeLocationAndContinue(): Promise<Partial<SlotAndLocation>>;
   abstract clickVisitButton(): Promise<void>;

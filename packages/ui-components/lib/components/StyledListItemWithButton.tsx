@@ -22,6 +22,7 @@ type StyledListItemWithButtonProps = PropsWithChildren<{
 export const StyledListItemWithButton: FC<StyledListItemWithButtonProps> = (props) => {
   const { children: img, primaryText, secondaryText, onClick, noDivider, hideText } = props;
   const theme = useTheme();
+  const dataId = primaryText.toLowerCase().replace(/\s+/g, '-');
 
   return (
     <>
@@ -42,7 +43,7 @@ export const StyledListItemWithButton: FC<StyledListItemWithButtonProps> = (prop
               </Typography>
             }
             secondary={
-              <Typography fontSize="14px" color={theme.palette.text.secondary}>
+              <Typography fontSize="14px" color={theme.palette.text.secondary} data-testid={dataId}>
                 {secondaryText}
               </Typography>
             }
