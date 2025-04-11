@@ -8,10 +8,11 @@ import { AOEYesNoQuestion } from './AOEYesNoQuestion';
 import { FormControl } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 import { QuestionnaireItem } from 'fhir/r4b';
+import { LabQuestionnaireResponseItem } from 'utils';
 
 interface AOEQuestionProps {
   question: QuestionnaireItem;
-  answer?: string[];
+  answer?: LabQuestionnaireResponseItem[];
 }
 
 export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {

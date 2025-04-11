@@ -20,7 +20,7 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
   const { questionText, linkId, answer, answerOption, field } = props;
 
   const labelId = `multi-select-${linkId}-label`;
-
+  console.log(5, answer);
   return (
     <>
       <InputLabel id={labelId}>{questionText}</InputLabel>
@@ -37,7 +37,7 @@ export const AOEMultiSelectListQuestion: React.FC<MultiListQuestionProps> = (pro
             {selected?.map((value: string, idx: number) => <Chip key={idx} label={value} />)}
           </Box>
         )}
-        value={answer}
+        {...(answer ? { value: answer } : {})}
         readOnly={answer !== undefined}
       >
         {answerOption.map((option, idx) => (

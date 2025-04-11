@@ -3,10 +3,11 @@ import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { AOEQuestion } from './AOEQuestion';
 import { QuestionnaireItem } from 'fhir/r4b';
+import { LabQuestionnaireResponse } from 'utils';
 
 interface AOEProps {
   questions: QuestionnaireItem[];
-  labQuestionnaireResponses: any[] | undefined;
+  labQuestionnaireResponses: LabQuestionnaireResponse[] | undefined;
   isCollapsed?: boolean;
 }
 
@@ -17,7 +18,7 @@ export const AOECard: React.FC<AOEProps> = ({ questions, labQuestionnaireRespons
   return (
     <>
       <AccordionCard
-        label={'AOE Questions'}
+        label={!labQuestionnaireResponses ? 'AOE Questions' : 'AOE Answers'}
         collapsed={collapsed}
         withBorder={false}
         onSwitch={() => {
@@ -36,7 +37,7 @@ export const AOECard: React.FC<AOEProps> = ({ questions, labQuestionnaireRespons
                       key={index}
                       question={question}
                       answer={
-                        labQuestionnaireResponses?.find((response) => response.linkId === question.linkId).response
+                        labQuestionnaireResponses?.find((response) => response.linkId === question.linkId)?.response
                       }
                     />
                   );
