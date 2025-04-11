@@ -23,7 +23,7 @@ import {
   TelemedCallStatusesArr,
   getVisitStatus,
   formatMinutes,
-  OTTEHR_MODULE,
+  PROJECT_MODULE,
 } from 'utils';
 import { getAppointmentStatusChip as getTelemedAppointmentStatusChip } from '../telemed/utils';
 import { create } from 'zustand';
@@ -138,7 +138,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     width: 120,
     renderCell: ({ row: { id, appointment } }) => {
       // if it's a pre-booked telemed visit the text is just 'prebook' so use the TM tag instead to support both
-      const isTelemed = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
+      const isTelemed = !!appointment.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.TM);
 
       return (
         !isTelemed && (
