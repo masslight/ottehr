@@ -18,6 +18,7 @@ export const OrderDetailsPage: React.FC = () => {
   const labOrder = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
 
   const status = labOrder?.orderStatus;
+  // const status = 'sent';
 
   if (loading) {
     return <LabOrderLoading />;
