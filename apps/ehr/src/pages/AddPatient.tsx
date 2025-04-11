@@ -107,6 +107,8 @@ export default function AddPatient(): JSX.Element {
     forcePatientSearch: true,
   });
 
+  console.log('slot', slot);
+
   // general variables
   const theme = useTheme();
   const navigate = useNavigate();
@@ -198,6 +200,9 @@ export default function AddPatient(): JSX.Element {
         emailUser = 'Parent/Guardian';
       }
       if (!oystehrZambda) throw new Error('Zambda client not found');
+      if (!slot || !slot.start) {
+        throw new Error('Slot is required');
+      }
       const zambdaParams: CreateAppointmentParameters = {
         patient: {
           id: selectedPatient?.id,
@@ -212,7 +217,7 @@ export default function AddPatient(): JSX.Element {
           reasonForVisit: reasonForVisit,
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
-        slot: slot?.start,
+        slot,
         visitType: getFhirAppointmentTypeForVisitType(visitType),
         locationID: selectedLocation?.id,
         scheduleType: ScheduleType.location,
