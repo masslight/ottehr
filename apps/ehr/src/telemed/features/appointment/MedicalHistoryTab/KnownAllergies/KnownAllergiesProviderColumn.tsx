@@ -161,7 +161,10 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesListItem}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{

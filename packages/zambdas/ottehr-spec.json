@@ -182,6 +182,13 @@
       "src": "src/patient/version/index",
       "zip": ".dist/zips/version.zip"
     },
+    "CREATE-USER": {
+      "name": "CREATE-USER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/create-user/index",
+      "zip": ".dist/zips/create-user.zip"
+    },
     "DEACTIVATE-USER": {
       "name": "DEACTIVATE-USER",
       "type": "http_auth",
@@ -785,6 +792,18 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
+    },
+    "AI-INTERVIEW-SUMMARY": {
+      "name": "AI-INTERVIEW-SUMMARY",
+      "type": "subscription",
+      "runtime": "nodejs20.x",
+      "src": "src/subscriptions/questionnaire-response/ai-interview-summary/index",
+      "zip": ".dist/zips/ai-interview-summary.zip",
+      "subscription": {
+        "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
+        "reason": "Generate summary of chat with AI",
+        "event": "create"
+      }
     }
   },
   "fhirResources": {

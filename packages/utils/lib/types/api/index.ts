@@ -3,6 +3,7 @@ export * from './assign-practitioner';
 export * from './change-in-person-visit-status';
 export * from './change-telemed-appointment-status';
 export * from './chart-data';
+export * from './create-user.types';
 export * from './encounter.types';
 export * from './get-employees';
 export * from './get-presigned-file-url';

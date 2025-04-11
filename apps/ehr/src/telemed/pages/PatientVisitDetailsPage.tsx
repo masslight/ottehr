@@ -1,9 +1,11 @@
-import { Appointment, FhirResource, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { Box, Grid } from '@mui/material';
+import { Appointment, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { FC } from 'react';
 import { useLocation } from 'react-router-dom';
-import { getInsurancePlanById } from 'utils';
+import { getInsurancePlanById, isLocationVirtual } from 'utils';
 import { LoadingScreen } from '../../components/LoadingScreen';
+import { useApiClients } from '../../hooks/useAppClients';
+import PageContainer from '../../layout/PageContainer';
 import {
   AboutPatientContainer,
   BreadCrumbs,
@@ -17,9 +19,7 @@ import {
   TitleRow,
 } from '../features/patient-visit-details/components';
 import { useResetAppointmentStore } from '../hooks';
-import { useApiClients } from '../../hooks/useAppClients';
-import PageContainer from '../../layout/PageContainer';
-import { useAppointmentStore, useGetAppointment } from '../state';
+import { useAppointmentStore, useGetAppointment, VisitResources } from '../state';
 
 export const PatientVisitDetails: FC = () => {
   const location = useLocation();
@@ -35,15 +35,18 @@ export const PatientVisitDetails: FC = () => {
     },
     async (data) => {
       const appointment = data?.find(
-        (resource: FhirResource) => resource.resourceType === 'Appointment'
-      ) as unknown as Appointment;
-      const patient = data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as unknown as Patient;
-      const location = data?.find(
-        (resource: FhirResource) => resource.resourceType === 'Location'
-      ) as unknown as Location;
+        (resource: VisitResources) => resource.resourceType === 'Appointment'
+      ) as Appointment;
+      const patient = data?.find((resource: VisitResources) => resource.resourceType === 'Patient') as Patient;
+      const location = (
+        data?.filter((resource: VisitResources) => resource.resourceType === 'Location') as Location[]
+      ).find((location) => !isLocationVirtual(location));
+      const locationVirtual = (
+        data?.filter((resource: VisitResources) => resource.resourceType === 'Location') as Location[]
+      ).find((location) => isLocationVirtual(location));
       const questionnaireResponse = data?.find(
-        (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
-      ) as unknown as QuestionnaireResponse;
+        (resource: VisitResources) => resource.resourceType === 'QuestionnaireResponse'
+      ) as QuestionnaireResponse;
 
       // Update insurance in questionnaireResponse accordingly insurance plan id stored in questionnaireResponse
       if (questionnaireResponse?.item) {
@@ -69,6 +72,7 @@ export const PatientVisitDetails: FC = () => {
         appointment,
         patient,
         location,
+        locationVirtual,
         questionnaireResponse,
       });
     }

@@ -1,9 +1,9 @@
-import React, { FC } from 'react';
-import { Typography, Stack } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
+import { FC } from 'react';
 import { getProviderNameWithProfession, getQuestionnaireResponseByLinkId, getSelectors } from 'utils';
-import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
-import { ActionsList, useAppointmentStore } from '../../../../telemed';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
+import { ActionsList, useAppointmentStore } from '../../../../telemed';
+import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
 
 export const VisitDetailsContainer: FC = () => {
   const { appointment, practitioner, location, questionnaireResponse } = getSelectors(useAppointmentStore, [

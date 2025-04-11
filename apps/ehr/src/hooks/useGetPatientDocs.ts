@@ -364,8 +364,15 @@ const extractDocumentAttachments = (docRef: DocumentReference): PatientDocumentA
   return docRef.content
     ?.map((docRefContent) => docRefContent?.attachment)
     ?.map((docRefAttachment) => {
+      let title = docRefAttachment.title || '';
+      if (docRefAttachment.contentType) {
+        const extension = docRefAttachment.contentType.split('/').pop();
+        if (extension) {
+          title = `${title}.${extension}`;
+        }
+      }
       return {
-        title: docRefAttachment.title,
+        title,
         fileNameFromUrl: getFileNameFromUrl(docRefAttachment.url),
         z3Url: docRefAttachment.url,
       } as PatientDocumentAttachment;

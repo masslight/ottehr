@@ -25,6 +25,7 @@ import { MedicationSearchResponse, useAppointmentStore, useGetMedicationsSearch 
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
 import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: MedicationSearchResponse['medications'][number] | null;
@@ -105,6 +106,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   return (
     <Box>
       <Box
+        data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn}
         sx={{
           display: 'flex',
           flexDirection: 'column',
@@ -117,20 +119,26 @@ export const CurrentMedicationsProviderColumn: FC = () => {
         ) : (
           <>
             {medicationsMap.scheduled.length > 0 ? (
-              <CurrentMedicationGroup
-                label="Scheduled medications"
-                medications={medicationsMap.scheduled}
-                onRemove={onRemove}
-                isLoading={isLoading}
-              ></CurrentMedicationGroup>
+              <Box data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledList}>
+                <CurrentMedicationGroup
+                  label="Scheduled medications"
+                  medications={medicationsMap.scheduled}
+                  onRemove={onRemove}
+                  isLoading={isLoading}
+                  dataTestId={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsList('scheduled')}
+                ></CurrentMedicationGroup>
+              </Box>
             ) : null}
             {medicationsMap.asNeeded.length > 0 ? (
-              <CurrentMedicationGroup
-                label="As needed medications"
-                medications={medicationsMap.asNeeded}
-                onRemove={onRemove}
-                isLoading={isLoading}
-              ></CurrentMedicationGroup>
+              <Box data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededList}>
+                <CurrentMedicationGroup
+                  label="As needed medications"
+                  medications={medicationsMap.asNeeded}
+                  onRemove={onRemove}
+                  isLoading={isLoading}
+                  dataTestId={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsList('as-needed')}
+                ></CurrentMedicationGroup>
+              </Box>
             ) : null}
           </>
         )}
@@ -161,11 +169,13 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 <RadioGroup row value={value} onChange={onChange}>
                   <FormControlLabel
                     value="scheduled"
+                    data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsScheduledRadioButton}
                     control={<Radio size="small" disabled={isLoading} />}
                     label={'Scheduled medication'}
                   />
                   <FormControlLabel
                     value="as-needed"
+                    data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAsNeededRadioButton}
                     control={<Radio size="small" disabled={isLoading} />}
                     label={'As needed medication'}
                   />
@@ -202,6 +212,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                       <TextField
                         {...params}
                         onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                        data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput}
                         label="Medication"
                         placeholder="Search"
                         required={true}
@@ -225,6 +236,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                   <TextField
                     value={value || ''}
                     onChange={onChange}
+                    data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDoseInput}
                     required={true}
                     size="small"
                     InputLabelProps={{ shrink: true }}
@@ -244,21 +256,23 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                   },
                 }}
                 render={({ field: { onChange, value }, fieldState: { error } }) => (
-                  <LocalizationProvider dateAdapter={AdapterLuxon}>
-                    <DatePicker
-                      onChange={onChange}
-                      label="Last date medication was taken"
-                      value={value || null}
-                      slotProps={{
-                        textField: {
-                          InputLabelProps: { shrink: true },
-                          InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                          error: !!error,
-                          required: true,
-                        },
-                      }}
-                    />
-                  </LocalizationProvider>
+                  <Box data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsDateInput}>
+                    <LocalizationProvider dateAdapter={AdapterLuxon}>
+                      <DatePicker
+                        onChange={onChange}
+                        label="Last date medication was taken"
+                        value={value || null}
+                        slotProps={{
+                          textField: {
+                            InputLabelProps: { shrink: true },
+                            InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
+                            error: !!error,
+                            required: true,
+                          },
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </Box>
                 )}
               />
               <Controller
@@ -271,20 +285,22 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                   },
                 }}
                 render={({ field: { value, onChange }, fieldState: { error } }) => (
-                  <LocalizationProvider dateAdapter={AdapterLuxon}>
-                    <TimePicker
-                      onChange={onChange}
-                      value={value || null}
-                      label="Last time medication was taken"
-                      slotProps={{
-                        textField: {
-                          InputLabelProps: { shrink: true },
-                          InputProps: { size: 'small', error: !!error },
-                          required: true,
-                        },
-                      }}
-                    ></TimePicker>
-                  </LocalizationProvider>
+                  <Box data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsTimeInput}>
+                    <LocalizationProvider dateAdapter={AdapterLuxon}>
+                      <TimePicker
+                        onChange={onChange}
+                        value={value || null}
+                        label="Last time medication was taken"
+                        slotProps={{
+                          textField: {
+                            InputLabelProps: { shrink: true },
+                            InputProps: { size: 'small', error: !!error },
+                            required: true,
+                          },
+                        }}
+                      ></TimePicker>
+                    </LocalizationProvider>
+                  </Box>
                 )}
               ></Controller>
             </Box>
@@ -293,6 +309,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
               variant="outlined"
               type="submit"
               disabled={isLoading}
+              data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton}
               sx={{
                 borderColor: otherColors.consentBorder,
                 borderRadius: 100,
