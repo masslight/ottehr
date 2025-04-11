@@ -18,7 +18,7 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
     formState: { errors },
   } = useFormContext();
 
-  // Note: the extension will tell you the necessary number validation. See DORN docs for full explanation
+  // Note: the extension will tell you the necessary number validation. See Oystehr docs for full explanation
   const { questionText, linkId, extension, required, idString, field } = props;
 
   // splitting out the RHF passed ref here so it gets passed correctly to the styled component
