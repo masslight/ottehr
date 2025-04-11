@@ -105,7 +105,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   return (
     <TableRow
       data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointment.id)}
-      data-location-group={appointment.location.state}
+      data-location-group={appointment.locationVirtual.state}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
         '&:hover': {

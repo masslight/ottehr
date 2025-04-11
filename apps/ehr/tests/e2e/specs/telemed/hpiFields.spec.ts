@@ -319,7 +319,11 @@ test.describe('Current medications', () => {
 
     await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(scheduledMedicationListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)).toBeVisible();
+    await expect(
+      page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
+    ).not.toBeVisible();
   });
 
   test('Should delete as needed medication', async () => {
@@ -336,7 +340,11 @@ test.describe('Current medications', () => {
 
     await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(asNeededMedicationListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)).toBeVisible();
+    await expect(
+      page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
+    ).not.toBeVisible();
   });
 
   test('Should confirm medications are deleted on Review&Sign tab', async () => {
