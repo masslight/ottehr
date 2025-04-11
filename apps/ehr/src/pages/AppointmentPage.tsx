@@ -72,6 +72,7 @@ import {
 } from '../components/dialogs';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { ChangeStatusDropdown } from '../features/css-module/components/ChangeStatusDropdown';
 import { formatLastModifiedTag } from '../helpers';
 import {
   ActivityLogData,
@@ -93,7 +94,6 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 import { PencilIconButton } from '../telemed';
 import { DocumentInfo, DocumentType, appointmentTypeLabels } from '../types/types';
-import { ChangeStatusDropdown } from '../features/css-module/components/ChangeStatusDropdown';
 
 interface Documents {
   photoIdCards: DocumentInfo[];
