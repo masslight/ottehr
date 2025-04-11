@@ -17,6 +17,7 @@ import { otherColors } from '../IntakeThemeProvider';
 import { useGetBookableItems, useGetSchedule } from '../telemed/features/appointments/appointment.queries';
 import { useZapEHRAPIClient } from '../telemed/utils';
 import { dataTestIds } from '../helpers/data-test-ids';
+import { Slot } from 'fhir/r4b';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
@@ -119,7 +120,7 @@ const getLocationTitleText = ({
   }
 
   const locationName = slotData?.location?.name || selectedLocation?.label || bookingOn;
-  const isProviderSchedule = slotData?.location.scheduleType === ScheduleType.provider;
+  const isProviderSchedule = slotData?.location?.scheduleType === ScheduleType.provider;
   const preposition = isProviderSchedule ? 'with' : 'at';
   return `Book a visit ${preposition} ${locationName}`;
 };
@@ -140,6 +141,9 @@ const PrebookVisit: FC = () => {
 
   const { bookingOn, scheduleType, selectedSlot, slugToFetch } = useBookingParams(selectedLocation);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  // const [specificScheduleId] = bookingOn?.split('Schedule/') ?? [];
+
   const {
     bookableItems,
     isCategorized,
@@ -148,13 +152,16 @@ const PrebookVisit: FC = () => {
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType);
 
+  console.log('slotData', slotData);
+
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;
     const setLocation = serviceType === 'in-person' ? setSelectedInPersonLocation : setSelectedVirtualLocation;
     setLocation(newValue);
   };
 
-  const handleSlotSelection = (slot?: string): void => {
+  const handleSlotSelection = (slot?: Slot): void => {
+    console.log('slot selection', slot);
     if (slot && slugToFetch) {
       navigate(`/book/${slugToFetch}/${VisitType.PreBook}/${serviceMode}/patients`, {
         state: { slot, scheduleType },
@@ -175,18 +182,11 @@ const PrebookVisit: FC = () => {
         once. Next time you return, it will all be here for you!
       </Typography>
 
-      {!serviceModeFromParam && (
-        <Box sx={{ border: '0px' }}>
-          <Tabs
-            value={serviceModeIndex}
-            onChange={(_e, val) => setServiceModeIndex(val as 0 | 1)}
-            aria-label="service mode tabs"
-          >
-            <Tab label="In Person" />
-            <Tab label="Virtual" />
-          </Tabs>
-        </Box>
-      )}
+      <ServiceModeSelector
+        serviceModeIndex={serviceModeIndex}
+        setServiceModeIndex={setServiceModeIndex}
+        hidden={Boolean(serviceModeFromParam) || Boolean(bookingOn)}
+      />
 
       <SelectionContainer>
         {!bookingOn &&
@@ -233,16 +233,12 @@ const PrebookVisit: FC = () => {
           ) : (
             <Schedule
               customOnSubmit={handleSlotSelection}
-              slotData={slotData?.available ?? []}
-              scheduleType={scheduleType ?? ScheduleType.location}
+              slotData={(slotData?.available ?? []).map((sli) => sli.slot)}
               slotsLoading={false}
-              existingSelectedSlot={selectedSlot}
+              existingSelectedSlot={slotData?.available?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
               timezone={selectedLocation?.timezone ?? 'America/New_York'}
-              locationSlug={slugToFetch}
               forceClosedToday={false}
               forceClosedTomorrow={false}
-              markSlotBusy={false}
-              setSlotData={noop} // this does nothing due to the custom on submit
               handleSlotSelected={noop}
             />
           ))}
@@ -282,5 +278,26 @@ const StyledTextField = styled(TextField)(({ theme }) => ({
     },
   },
 }));
+
+interface ServiceModeSelectorProps {
+  serviceModeIndex: number;
+  setServiceModeIndex: (idx: 0 | 1) => void;
+  hidden?: boolean;
+}
+
+const ServiceModeSelector: FC<ServiceModeSelectorProps> = ({ setServiceModeIndex, serviceModeIndex, hidden }) => {
+  return (
+    <Box sx={{ border: '0px', display: hidden ? 'none' : 'block' }}>
+      <Tabs
+        value={serviceModeIndex}
+        onChange={(_e, val) => setServiceModeIndex(val as 0 | 1)}
+        aria-label="service mode tabs"
+      >
+        <Tab label="In Person" />
+        <Tab label="Virtual" />
+      </Tabs>
+    </Box>
+  );
+};
 
 export default PrebookVisit;

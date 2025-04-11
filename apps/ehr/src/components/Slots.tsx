@@ -1,12 +1,13 @@
 import { Button, Grid, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { dataTestIds } from '../constants/data-test-ids';
+import { Slot } from 'fhir/r4b';
 
 interface SlotsProps {
-  slots: string[];
+  slots: Slot[];
   timezone: string;
-  selectedSlot: string | undefined;
-  setSelectedSlot: (slot: string | undefined) => void;
+  selectedSlot: Slot | undefined;
+  setSelectedSlot: (slot: Slot | undefined) => void;
 }
 
 export function Slots({ slots, timezone, selectedSlot, setSelectedSlot }: SlotsProps): JSX.Element {
@@ -23,7 +24,7 @@ export function Slots({ slots, timezone, selectedSlot, setSelectedSlot }: SlotsP
   return (
     <Grid container spacing={1} justifyContent={'center'} mt={1}>
       {slots.map((slot, idx) => {
-        const startDate = DateTime.fromISO(slot);
+        const startDate = DateTime.fromISO(slot.start);
         const startDateTimezoneAdjusted = startDate.setZone(timezone);
         const isSelected = selectedSlot === slot;
         return (

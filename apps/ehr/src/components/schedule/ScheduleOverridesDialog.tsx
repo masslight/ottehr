@@ -11,24 +11,21 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
-import React, { Dispatch, MouseEventHandler, ReactElement, SetStateAction, useState } from 'react';
+import { MouseEventHandler, ReactElement } from 'react';
 import { otherColors } from '../../CustomThemeProvider';
 
 interface ScheduleOverridesDialogProps {
-  item: Location | Practitioner | HealthcareService;
-  setItem: React.Dispatch<React.SetStateAction<Location | Practitioner | HealthcareService | undefined>>;
+  loading: boolean;
   handleClose: MouseEventHandler<HTMLButtonElement>;
   open: boolean;
-  setIsScheduleOverridesDialogOpen: Dispatch<SetStateAction<boolean>>;
-  updateItem: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  handleConfirm: () => void;
 }
 
 export default function ScheduleOverridesDialog({
   handleClose,
   open,
-  updateItem,
-  setIsScheduleOverridesDialogOpen,
+  loading,
+  handleConfirm,
 }: ScheduleOverridesDialogProps): ReactElement {
   const buttonSx = {
     fontWeight: '700',
@@ -37,7 +34,6 @@ export default function ScheduleOverridesDialog({
   };
 
   const theme = useTheme();
-  const [loading, setLoading] = useState<boolean>(false);
 
   return (
     <Dialog
@@ -79,28 +75,23 @@ export default function ScheduleOverridesDialog({
         </Box>
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'flex-start' }}>
-        <form
-          onSubmit={async (event) => {
-            setLoading(true);
-            await updateItem(event);
-            setIsScheduleOverridesDialogOpen(false);
-            setLoading(false);
+        <LoadingButton
+          loading={loading}
+          variant="contained"
+          color="primary"
+          size="medium"
+          sx={buttonSx}
+          type="submit"
+          onClick={(e) => {
+            e.preventDefault();
+            handleConfirm();
           }}
         >
-          <LoadingButton
-            loading={loading}
-            variant="contained"
-            color="primary"
-            size="medium"
-            sx={buttonSx}
-            type="submit"
-          >
-            Confirm schedule change
-          </LoadingButton>
-          <Button variant="text" onClick={handleClose} size="medium" sx={buttonSx}>
-            Cancel
-          </Button>
-        </form>
+          Confirm schedule change
+        </LoadingButton>
+        <Button variant="text" onClick={handleClose} size="medium" sx={buttonSx}>
+          Cancel
+        </Button>
       </DialogActions>
     </Dialog>
   );

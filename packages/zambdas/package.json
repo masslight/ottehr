@@ -18,6 +18,7 @@
     "setup-default-locations": "tsx src/scripts/setup-default-locations.ts",
     "setup-secrets": "tsx src/scripts/configure-secrets.ts",
     "deploy-zambdas": "ENV=$ENV npm run bundle && tsx src/scripts/deploy-zambdas.ts",
+    "config-schedules": "tsx src/scripts/ensure-schedule-config.ts local",
     "update-user-roles": "tsx src/scripts/update-user-roles.ts",
     "build": "tsc",
     "bundle": "tsx bundle.ts",
