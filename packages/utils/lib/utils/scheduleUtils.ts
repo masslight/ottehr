@@ -353,11 +353,7 @@ export const removeBusySlots = (input: RemoveBusySlotsInput): string[] => {
   return distributeTimeSlots(timeSlots, [], busySlots);
 };
 
-export function getPostTelemedSlots(
-  now: DateTime,
-  scheduleResource: Location | Practitioner | HealthcareService,
-  appointments: Appointment[]
-): string[] {
+export function getPostTelemedSlots(now: DateTime, scheduleResource: Schedule, appointments: Appointment[]): string[] {
   const { schedule } = getScheduleDetails(scheduleResource) || { schedule: undefined };
   const timezone = getTimezone(scheduleResource);
   const nowForTimezone = now.setZone(timezone);
@@ -785,7 +781,7 @@ export const getAvailableSlotsForSchedules = async (
       const busySlots: Slot[] = []; // checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleTemp);
       // const postTelemedAppointments = filterAppointmentsByType(appointments, [VisitType.PostTelemed]);
       console.log('getting post telemed slots');
-      // telemedAvailable.push(...getPostTelemedSlots(now, scheduleTemp, postTelemedAppointments));
+      const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
       console.log('getting available slots to display');
       const slotStartsForSchedule = getAvailableSlots({
         now,
@@ -796,6 +792,13 @@ export const getAvailableSlotsForSchedules = async (
       availableSlots.push(
         ...makeSlotListItems({
           startTimes: slotStartsForSchedule,
+          scheduleId: scheduleTemp.schedule.id!,
+          owner: scheduleTemp.owner,
+        })
+      );
+      telemedAvailable.push(
+        ...makeSlotListItems({
+          startTimes: telemedTimes,
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
         })
