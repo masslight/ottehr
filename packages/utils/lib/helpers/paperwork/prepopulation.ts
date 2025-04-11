@@ -837,8 +837,6 @@ interface MapGuantorItemsInput {
 
 const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, items } = input;
-  // console.log('well well well', guarantorResource);
-  // console.log('what have we here', items);
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
   );
