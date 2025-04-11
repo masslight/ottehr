@@ -43,7 +43,7 @@ export const CancelExternalLabDialog = ({
     >
       <form onSubmit={(e) => onConfirm(e)}>
         <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
-          Delete Send Out Labs Order
+          Delete External Labs Order
         </DialogTitle>
         <DialogContent>
           Are you sure you want to delete this order{' '}

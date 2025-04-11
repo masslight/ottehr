@@ -12,6 +12,7 @@ import PageContainer from '../layout/PageContainer';
 import { PatientFollowupEncountersGrid } from '../components/patient/PatientFollowupEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
 import { dataTestIds } from '../constants/data-test-ids';
+import { FEATURE_FLAGS } from '../constants/feature-flags';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -119,12 +120,14 @@ export default function PatientPage(): JSX.Element {
                     </Typography>
                   }
                 />
-                <Tab
-                  value="labs"
-                  label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Labs</Typography>
-                  }
-                />
+                {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
+                  <Tab
+                    value="labs"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Labs</Typography>
+                    }
+                  />
+                )}
               </TabList>
             </Box>
 
@@ -134,9 +137,11 @@ export default function PatientPage(): JSX.Element {
             <TabPanel value="followups" sx={{ p: 0 }}>
               <PatientFollowupEncountersGrid patient={patient} loading={loading}></PatientFollowupEncountersGrid>
             </TabPanel>
-            <TabPanel value="labs" sx={{ p: 0 }}>
-              <PatientLabsTab patientId={id || ''} />
-            </TabPanel>
+            {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
+              <TabPanel value="labs" sx={{ p: 0 }}>
+                <PatientLabsTab patientId={id || ''} />
+              </TabPanel>
+            )}
           </TabContext>
         </Stack>
       </PageContainer>

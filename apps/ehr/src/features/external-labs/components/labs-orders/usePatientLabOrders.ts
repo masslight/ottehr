@@ -230,13 +230,13 @@ export const usePatientLabOrders = (options: {
   });
 
   const updateTask = useCallback(
-    async ({ taskId, event }: UpdateLabOrderResourceParams): Promise<void> => {
+    async ({ taskId, serviceRequestId, diagnosticReportId, event }: UpdateLabOrderResourceParams): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
       }
 
-      await updateLabOrderResources(oystehrZambda, { taskId, event });
+      await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event });
       await fetchLabOrders(getCurrentSearchParamsForPage(1));
     },
     [oystehrZambda, fetchLabOrders, getCurrentSearchParamsForPage]
