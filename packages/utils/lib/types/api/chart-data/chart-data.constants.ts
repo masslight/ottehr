@@ -169,12 +169,13 @@ export enum VitalsOxygenSatObservationMethod {
   OnSupplementalO2 = 'On supplemental O2',
 }
 
-export type AI_OBSERVATION_FIELD =
-  | 'ai-history-of-present-illness'
-  | 'ai-past-medical-history'
-  | 'ai-past-surgical-history'
-  | 'ai-medications-history'
-  | 'ai-social-history'
-  | 'ai-family-history'
-  | 'ai-hospitalizations-history'
-  | 'ai-allergies';
+export enum AiObservationField {
+  HistoryOfPresentIllness = 'ai-history-of-present-illness',
+  PastMedicalHistory = 'ai-past-medical-history',
+  PastSurgicalHistory = 'ai-past-surgical-history',
+  MedicationsHistory = 'ai-medications-history',
+  SocialHistory = 'ai-social-history',
+  FamilyHistory = 'ai-family-history',
+  HospitalizationsHistory = 'ai-hospitalizations-history',
+  Allergies = 'ai-allergies',
+}

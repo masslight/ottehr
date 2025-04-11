@@ -1,6 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Condition, Encounter, Observation, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { AI_OBSERVATION_META_SYSTEM, createOystehrClient, getSecret, Secrets, SecretsKeys } from 'utils';
+import {
+  AI_OBSERVATION_META_SYSTEM,
+  AiObservationField,
+  createOystehrClient,
+  getSecret,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import {
   assertDefined,
   configSentry,
@@ -19,21 +26,21 @@ export const INTERVIEW_COMPLETED = 'Interview completed.';
 
 const PROMPT = `I'll give you a transcript of a chat between a healthcare provider and a patient. 
 Please generate history of present illness, past medical history, past surgical history, medications history, 
-allergies, social history, family history, hospitalization history and potential diagnoses with ICD-10 codes for the patient. 
+allergies, social history, family history, hospitalizations history and potential diagnoses with ICD-10 codes for the patient. 
 Please present a response in JSON format. Don't add markdown. Use property names in camel case. For ICD-10 codes use "icd10" property.  
 Use a single string property in JSON for each section except potential diagnoses. 
 The transcript: `;
 
-const AI_RESPONSE_KEYS = [
-  'historyOfPresentIllness',
-  'pastMedicalHistory',
-  'pastSurgicalHistory',
-  'medicationsHistory',
-  'allergies',
-  'socialHistory',
-  'familyHistory',
-  'hospitalizationHistory',
-];
+const AI_RESPONSE_KEY_TO_FIELD = {
+  historyOfPresentIllness: AiObservationField.HistoryOfPresentIllness,
+  pastMedicalHistory: AiObservationField.PastMedicalHistory,
+  pastSurgicalHistory: AiObservationField.PastSurgicalHistory,
+  medicationsHistory: AiObservationField.MedicationsHistory,
+  allergies: AiObservationField.Allergies,
+  socialHistory: AiObservationField.SocialHistory,
+  familyHistory: AiObservationField.FamilyHistory,
+  hospitalizationsHistory: AiObservationField.HospitalizationsHistory,
+};
 
 let oystehrToken: string;
 
@@ -109,7 +116,7 @@ function createObservations(
   encounterId: string,
   patientId: string
 ): BatchInputPostRequest<Observation>[] {
-  return AI_RESPONSE_KEYS.flatMap((key) => {
+  return Object.entries(AI_RESPONSE_KEY_TO_FIELD).flatMap(([key, field]) => {
     if (aiResponse[key] != null) {
       return [
         saveResourceRequest(
@@ -118,7 +125,7 @@ function createObservations(
             patientId,
             '',
             {
-              field: key,
+              field: field,
               value: aiResponse[key],
             },
             AI_OBSERVATION_META_SYSTEM
