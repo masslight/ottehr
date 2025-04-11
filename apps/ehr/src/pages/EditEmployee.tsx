@@ -63,17 +63,30 @@ export default function EditEmployeePage(): JSX.Element {
     };
   }, [oystehr, id, oystehrZambda]);
 
+  async function getUserAndUpdatePage(): Promise<void> {
+    if (!oystehrZambda) {
+      throw new Error('oystehrZambda is not defined');
+    }
+    const userDetailsTemp = await getUserDetails(oystehrZambda, {
+      userId: id,
+    });
+    const userTemp = userDetailsTemp.user;
+    setUser(userTemp);
+    setIsActive(checkUserIsActive(userTemp));
+  }
+
   const handleUserActivation = async (mode: 'activate' | 'deactivate'): Promise<void> => {
     setLoading(true);
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
     }
     setErrors({ submit: '' });
-    let apiErr = false;
+
     try {
       mode === 'deactivate'
         ? await deactivateUser(oystehrZambda, { user: user })
-        : await updateUser(oystehrZambda, { userId: user?.id, selectedRoles: user?.roles?.map((role) => role.name) });
+        : await updateUser(oystehrZambda, { userId: user?.id, selectedRoles: ['Staff'] });
+      await getUserAndUpdatePage();
       enqueueSnackbar(`User was ${mode}d successfully`, {
         variant: 'success',
       });
@@ -83,14 +96,8 @@ export default function EditEmployeePage(): JSX.Element {
       enqueueSnackbar(`${errorString}`, {
         variant: 'error',
       });
-      apiErr = true;
     } finally {
       setLoading(false);
-      if (mode === 'deactivate') {
-        !apiErr && setIsActive(false);
-      } else {
-        !apiErr && setIsActive(true);
-      }
     }
   };
 
@@ -131,6 +138,7 @@ export default function EditEmployeePage(): JSX.Element {
                   existingUser={user}
                   isActive={isActive}
                   licenses={userLicenses}
+                  getUserAndUpdatePage={getUserAndUpdatePage}
                 />
               )}
 
@@ -158,7 +166,7 @@ export default function EditEmployeePage(): JSX.Element {
                   <Typography variant="body1" marginTop={1}>
                     {isActive
                       ? 'When you deactivate this account, this employee will not have access to the system anymore.'
-                      : 'Activate this user account.'}
+                      : 'Activate this user account. This will immediately give the user the Staff role.'}
                   </Typography>
 
                   {/* Error on submit if request fails */}
