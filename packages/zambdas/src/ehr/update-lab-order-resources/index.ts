@@ -1,5 +1,19 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Bundle, DiagnosticReport, Task } from 'fhir/r4b';
+import {
+  Bundle,
+  DiagnosticReport,
+  Task,
+  Provenance,
+  ServiceRequest,
+  Reference,
+  Encounter,
+  Observation,
+  FhirResource,
+} from 'fhir/r4b';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
+import { getPatchBinary, PROVENANCE_ACTIVITY_CODING_ENTITY, Secrets, UpdateLabOrderResourceParams } from 'utils';
+import { Operation } from 'fast-json-patch';
+import { BatchInputPostRequest } from '@oystehr/sdk';
 import {
   ZambdaInput,
   topLevelCatch,
@@ -8,8 +22,7 @@ import {
   getMyPractitionerId,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { Secrets, UpdateLabOrderResourceParams } from 'utils';
+import { DateTime } from 'luxon';
 
 let m2mtoken: string;
 
@@ -31,10 +44,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
 
-    const { taskId, event } = validatedParameters;
+    const { taskId, serviceRequestId, diagnosticReportId, event } = validatedParameters;
 
     if (event === 'reviewed') {
-      const updateTransactionRequest = await handleReviewedEvent(oystehr, practitionerIdFromCurrentUser, taskId);
+      const updateTransactionRequest = await handleReviewedEvent({
+        oystehr,
+        practitionerIdFromCurrentUser,
+        taskId,
+        serviceRequestId,
+        diagnosticReportId,
+      });
 
       return {
         statusCode: 200,
@@ -68,64 +87,126 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const handleReviewedEvent = async (
-  oystehr: Oystehr,
-  practitionerIdFromCurrentUser: string,
-  taskId: string
-): Promise<
-  Bundle<{
-    resourceType: 'Binary';
-    contentType: string;
-    data: string;
-  }>
-> => {
+const handleReviewedEvent = async ({
+  oystehr,
+  practitionerIdFromCurrentUser,
+  taskId,
+  serviceRequestId,
+  diagnosticReportId,
+}: {
+  oystehr: Oystehr;
+  practitionerIdFromCurrentUser: string;
+  taskId: string;
+  serviceRequestId: string;
+  diagnosticReportId: string;
+}): Promise<Bundle<FhirResource>> => {
   const resources = (
-    await oystehr.fhir.search<Task | DiagnosticReport>({
+    await oystehr.fhir.search<Task | Encounter | DiagnosticReport | Observation | Provenance | ServiceRequest>({
       resourceType: 'Task',
-      params: [{ name: '_id', value: taskId }],
+      // todo: optimize query sonce some ids are already known
+      params: [
+        { name: '_id', value: taskId }, // task
+        { name: '_include', value: 'Task:encounter' }, // encounter
+        { name: '_include', value: 'Task:based-on' }, // diagnostic report
+        { name: '_include:iterate', value: 'DiagnosticReport:result' }, // observation
+        { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' }, // service request
+        { name: '_revinclude', value: 'Provenance:target' }, // provenance
+      ],
     })
   ).unbundle();
 
-  const tasks = resources.filter((resource) => resource.resourceType === 'Task');
-  if (tasks.length !== 1) {
-    throw new Error(`Invalid number of tasks found: tasks: ${tasks?.length}`);
+  const serviceRequest = resources.find(
+    (r) => r.resourceType === 'ServiceRequest' && r.id === serviceRequestId
+  ) as ServiceRequest;
+
+  const diagnosticReport = resources.find(
+    (r) => r.resourceType === 'DiagnosticReport' && r.id === diagnosticReportId
+  ) as DiagnosticReport;
+
+  const task = resources.find((r) => r.resourceType === 'Task' && r.id === taskId) as Task;
+
+  if (!serviceRequest) {
+    throw new Error(`ServiceRequest/${serviceRequestId} not found`);
   }
 
-  const task = tasks[0];
-
-  if (task.status !== 'ready') {
-    throw new Error(`Task/${taskId} status is '${task.status}', not 'ready'.`);
+  if (!diagnosticReport) {
+    throw new Error(`DiagnosticReport/${diagnosticReportId} not found`);
   }
 
-  // Set task status to completed and set owner to current practitioner
-  const updateTransactionRequest = await oystehr.fhir.transaction({
-    requests: [
-      {
-        method: 'PATCH',
-        url: `/Task/${taskId}`,
-        resource: {
-          resourceType: 'Binary',
-          contentType: 'application/json-patch+json',
-          data: Buffer.from(
-            JSON.stringify([
-              {
-                op: 'replace',
-                path: '/status',
-                value: 'completed',
-              },
-              {
-                op: 'add',
-                path: '/owner',
-                value: {
-                  reference: `Practitioner/${practitionerIdFromCurrentUser}`,
-                },
-              },
-              // todo: add provenance, and update UI history view
-            ])
-          ).toString('base64'),
+  if (!task) {
+    throw new Error(`Task/${taskId} not found`);
+  }
+
+  const observationId = diagnosticReport.result?.[0]?.reference?.split('/').pop();
+
+  if (!observationId) {
+    throw new Error(`Observation Id not found in DiagnosticReport/${diagnosticReportId}`);
+  }
+
+  const locationReference = serviceRequest.locationReference?.[0];
+
+  const targetReferences = [
+    { reference: `ServiceRequest/${serviceRequest.id}` },
+    { reference: `DiagnosticReport/${diagnosticReport.id}` },
+    { reference: `Observation/${observationId}` },
+  ];
+
+  const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
+
+  const provenanceRequest: BatchInputPostRequest<Provenance> = {
+    method: 'POST',
+    url: '/Provenance',
+    resource: {
+      resourceType: 'Provenance',
+      target: targetReferences,
+      recorded: DateTime.now().toUTC().toISO(),
+      location: locationReference as Reference, // TODO: should we throw error if locationReference is not present?
+      agent: [
+        {
+          who: {
+            reference: `Practitioner/${practitionerIdFromCurrentUser}`,
+          },
         },
+      ],
+      activity: {
+        coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.review],
       },
-    ],
+    },
+    fullUrl: tempProvenanceUuid,
+  };
+
+  const taskPatchOperations: Operation[] = [
+    {
+      op: 'replace',
+      path: '/status',
+      value: 'completed',
+    },
+    {
+      op: 'add',
+      path: '/owner',
+      value: {
+        reference: `Practitioner/${practitionerIdFromCurrentUser}`,
+      },
+    },
+    {
+      op: 'add',
+      path: '/relevantHistory',
+      value: [
+        {
+          reference: tempProvenanceUuid,
+        },
+      ],
+    },
+  ];
+
+  const taskPatchRequest = getPatchBinary({
+    resourceType: 'Task',
+    resourceId: taskId,
+    patchOperations: taskPatchOperations,
+  });
+
+  const updateTransactionRequest = await oystehr.fhir.transaction({
+    requests: [provenanceRequest, taskPatchRequest],
   });
 
   return updateTransactionRequest;

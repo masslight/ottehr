@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getPatchBinary, isValidUUID } from 'utils';
+import { getPatchBinary, isValidUUID, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -213,6 +213,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           who: task.owner ? task.owner : { reference: currentUser?.profile },
         },
       ],
+      activity: {
+        coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.submit],
+      },
     };
     const request = await oystehr?.fhir.transaction({
       requests: [

@@ -37,7 +37,7 @@ export const mapResourcesToLabOrderDTOs = (
 ): LabOrderDTO[] => {
   return serviceRequests.map((serviceRequest) => {
     const {
-      orderId: serviceRequestId,
+      serviceRequestId,
       accessionNumbers,
       orderAddedDate,
       lastResultReceivedDate,
@@ -730,7 +730,7 @@ export const parseOrderDetails = ({
   encounters: Encounter[];
   practitioners: Practitioner[];
 }): {
-  orderId: string;
+  serviceRequestId: string;
   orderStatus: ExternalLabsStatus;
   accessionNumbers: string[];
   orderAddedDate: string;
@@ -806,12 +806,13 @@ export const parseOrderDetails = ({
 
   const performedBy = parsePerformed(serviceRequest); // only PSC Hold currently
 
-  const orderId = serviceRequest.id;
+  const serviceRequestId = serviceRequest.id;
 
   const history: LabOrderHistoryRow[] = (() => {
     const history: LabOrderHistoryRow[] = [
       {
         action: 'ordered',
+        resultType: 'ordered',
         performer: providerName,
         date: orderAddedDate,
       },
@@ -820,6 +821,7 @@ export const parseOrderDetails = ({
     if (performedBy) {
       history.push({
         action: 'performed',
+        resultType: 'reflex',
         performer: providerName,
         date: '-',
       });
@@ -833,7 +835,7 @@ export const parseOrderDetails = ({
     );
 
     finalTasks.forEach((task) => {
-      const action = `${task.status === 'completed' ? 'reviewed' : 'received'} (${task.taskType})` as const;
+      const action = `${task.status === 'completed' ? 'reviewed' : 'received'}` as const;
 
       // todo: should be used Provenance resource to track the history
       const date = task.authoredOn || '';
@@ -843,6 +845,7 @@ export const parseOrderDetails = ({
 
       history.push({
         action,
+        resultType: task.taskType,
         performer,
         date,
       });
@@ -854,7 +857,7 @@ export const parseOrderDetails = ({
   const resultsDetails = parseLResultsDetails(serviceRequest, results, tasks);
 
   return {
-    orderId,
+    serviceRequestId,
     accessionNumbers,
     lastResultReceivedDate,
     orderAddedDate,

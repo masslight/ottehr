@@ -56,13 +56,8 @@ export enum ExternalLabsStatus {
 }
 
 export type LabOrderHistoryRow = {
-  action:
-    | 'ordered'
-    | 'performed'
-    | 'received (reflex)'
-    | 'reviewed (reflex)'
-    | 'received (ordered)'
-    | 'reviewed (ordered)';
+  action: 'ordered' | 'performed' | 'received' | 'reviewed';
+  resultType: 'reflex' | 'ordered';
   performer: string;
   date: string;
 };
@@ -165,5 +160,7 @@ export const VALID_LAB_ORDER_UPDATE_EVENTS = ['reviewed'] as const;
 
 export interface UpdateLabOrderResourceParams {
   taskId: string;
+  serviceRequestId: string;
+  diagnosticReportId: string;
   event: (typeof VALID_LAB_ORDER_UPDATE_EVENTS)[number];
 }

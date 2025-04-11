@@ -569,6 +569,8 @@ export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrde
 
 export type UpdateLabOrderResourcesParameters = {
   taskId: string;
+  serviceRequestId: string;
+  diagnosticReportId: string;
   event: 'reviewed';
 };
 
