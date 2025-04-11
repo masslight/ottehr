@@ -37,6 +37,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
 
   test.beforeAll(async () => {
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   });
 
   test.afterAll(async () => {
