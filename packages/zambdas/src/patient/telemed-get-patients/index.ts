@@ -63,8 +63,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       const weightLastUpdated = patientTemp.extension?.find(
         (ext) => ext.url === FHIR_EXTENSION.Patient.weightLastUpdated.url
       )?.valueString;
-      const chosenName = patientTemp.extension?.find((ext) => ext.url === FHIR_EXTENSION.Patient.chosenName.url)
-        ?.valueString;
+      const chosenName = patientTemp.name?.find((name) => name.use === 'nickname')?.given?.[0];
 
       const patient: PatientInfo = {
         id: patientTemp.id,

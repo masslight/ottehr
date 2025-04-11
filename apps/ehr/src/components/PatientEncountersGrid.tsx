@@ -23,6 +23,7 @@ import {
   TelemedCallStatusesArr,
   getVisitStatus,
   formatMinutes,
+  OTTEHR_MODULE,
 } from 'utils';
 import { getAppointmentStatusChip as getTelemedAppointmentStatusChip } from '../telemed/utils';
 import { create } from 'zustand';
@@ -69,7 +70,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     headerName: 'Status',
     width: 140,
     renderCell: ({ row: { appointment, type, encounter } }) => {
-      if (type === 'Telemed') {
+      if (type === 'Telemed' || type === 'Pre-booked Telemed') {
         if (!encounter) {
           return;
         }
@@ -135,12 +136,18 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     headerName: 'Visit Info',
     headerAlign: 'center',
     width: 120,
-    renderCell: ({ row: { id, appointment } }) =>
-      appointment?.appointmentType?.text !== 'virtual' && (
-        <RoundedButton target="_blank" to={`/visit/${id}`}>
-          Visit Info
-        </RoundedButton>
-      ),
+    renderCell: ({ row: { id, appointment } }) => {
+      // if it's a pre-booked telemed visit the text is just 'prebook' so use the TM tag instead to support both
+      const isTelemed = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
+
+      return (
+        !isTelemed && (
+          <RoundedButton target="_blank" to={`/visit/${id}`}>
+            Visit Info
+          </RoundedButton>
+        )
+      );
+    },
   },
   {
     sortable: false,
@@ -150,7 +157,11 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     renderCell: ({ row: { id, type } }) => (
       <RoundedButton
         target="_blank"
-        to={type === 'Telemed' ? `/telemed/appointments/${id}?tab=sign` : `/in-person/${id}/progress-note`}
+        to={
+          type === 'Telemed' || type === 'Pre-booked Telemed'
+            ? `/telemed/appointments/${id}?tab=sign`
+            : `/in-person/${id}/progress-note`
+        }
       >
         Progress Note
       </RoundedButton>
@@ -238,6 +249,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
           <MenuItem value="Walk-in In-Person Visit">Walk-in In-Person Visit</MenuItem>
           <MenuItem value="Post Telemed Lab Only">Post Telemed Lab Only</MenuItem>
           <MenuItem value="Pre-booked In-Person Visit">Pre-booked In-Person Visit</MenuItem>
+          <MenuItem value="Pre-booked Telemed">Pre-booked Telemed</MenuItem>
           <MenuItem value="Telemed">Telemed</MenuItem>
         </TextField>
 

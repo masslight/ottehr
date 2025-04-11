@@ -16,7 +16,7 @@ on:
         default: 'local'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main, develop, 'release/*']
+    branches: [main, develop, 'release/**']
     paths:
       - 'apps/ehr/**'
       - 'apps/intake/**'

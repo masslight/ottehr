@@ -4,8 +4,8 @@ import { createOystehrClient, getSecret, HandleAnswerInput, Secrets, SecretsKeys
 import { assertDefined, getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
 import Oystehr from '@oystehr/sdk';
 import { BaseMessageLike } from '@langchain/core/messages';
-import { invokeChatbot } from '../common';
 import { INTERVIEW_COMPLETED } from '../start';
+import { invokeChatbot } from '../../../shared/ai';
 
 let oystehrToken: string;
 
