@@ -97,6 +97,11 @@ export const dataTestIds = {
     dateOfBirthDropdown: 'date-of-birth-dropdown',
     birthSexDropdown: 'birth-sex-dropdown',
     phoneInput: 'phone-input',
+    addressLine1: 'responsible-party-address',
+    addressLine2: 'responsible-party-address-2',
+    city: 'responsible-party-city',
+    state: 'responsible-party-state',
+    zip: 'responsible-party-zip',
   },
 
   userSettingsContainer: {

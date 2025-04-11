@@ -129,9 +129,10 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
 
   const patientFirstName = getFirstName(patient) ?? '';
   const patientLastName = getLastName(patient) ?? '';
-
+  console.log('wuuuut', questionnaire.id);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
+      // console.log('blaaaahhhhhhh', item.item);
       const itemItems = item.item ?? [].filter((i: QuestionnaireItem) => i.type !== 'display');
       if (item.linkId === 'contact-information-page') {
         // todo: consolidate this with mapPatientItemsToQuestionnaireResponseItems
@@ -838,7 +839,8 @@ interface MapGuantorItemsInput {
 
 const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, items } = input;
-
+  // console.log('well well well', guarantorResource);
+  // console.log('what have we here', items);
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
   );
@@ -869,6 +871,14 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
       }
     }
   }
+
+  const guarantorAddress = guarantorResource?.address?.[0];
+  const line = guarantorAddress?.line?.[0];
+  const line2 = guarantorAddress?.line?.[1];
+  const city = guarantorAddress?.city;
+  const state = guarantorAddress?.state;
+  const zip = guarantorAddress?.postalCode;
+
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
     const { linkId } = item;
@@ -890,6 +900,21 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
     }
     if (linkId === 'responsible-party-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'responsible-party-address' && line) {
+      answer = makeAnswer(line);
+    }
+    if (linkId === 'responsible-party-address-2' && line2) {
+      answer = makeAnswer(line2);
+    }
+    if (linkId === 'responsible-party-city' && city) {
+      answer = makeAnswer(city);
+    }
+    if (linkId === 'responsible-party-state' && state) {
+      answer = makeAnswer(state);
+    }
+    if (linkId === 'responsible-party-zip' && zip) {
+      answer = makeAnswer(zip);
     }
     return {
       linkId,
