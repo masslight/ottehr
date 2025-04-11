@@ -7,7 +7,7 @@ import {
   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
   WORK_NOTE_CODE,
 } from 'utils';
-import { PdfDocumentReferencePublishedStatuses } from './pdf/pdf-utils';
+import { isDocumentPublished, PdfDocumentReferencePublishedStatuses } from './pdf/pdf-utils';
 
 export function createPublishExcuseNotesOps(
   documentReferences: DocumentReference[]
@@ -22,10 +22,10 @@ export function createPublishExcuseNotesOps(
       if (workSchoolNoteTag.code === WORK_NOTE_CODE) workNoteDR = item;
     }
   });
-  if (workNoteDR && workNoteDR.docStatus !== PdfDocumentReferencePublishedStatuses.published) {
+  if (workNoteDR && !isDocumentPublished(workNoteDR)) {
     resultBatchRequests.push(pdfPublishedPatchOperation(workNoteDR));
   }
-  if (schoolNoteDR && schoolNoteDR.docStatus !== PdfDocumentReferencePublishedStatuses.published) {
+  if (schoolNoteDR && !isDocumentPublished(schoolNoteDR)) {
     resultBatchRequests.push(pdfPublishedPatchOperation(schoolNoteDR));
   }
   return resultBatchRequests;

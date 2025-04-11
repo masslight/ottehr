@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { DocumentReference } from 'fhir/r4b';
 import {
   SignAppointmentInput,
   SignAppointmentResponse,
@@ -22,7 +21,6 @@ import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
-import { isDocumentPublished } from '../../shared/pdf/pdf-utils';
 import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
@@ -176,13 +174,7 @@ const changeStatus = async (
   );
   encounterPatchOps.push(encounterStatusHistoryUpdate);
 
-  const docsToUpdate: DocumentReference[] = [];
-  resourcesToUpdate?.documentReferences?.forEach((docRef) => {
-    if (!isDocumentPublished(docRef)) {
-      docsToUpdate.push(docRef);
-    }
-  });
-  const documentPatch = createPublishExcuseNotesOps(docsToUpdate);
+  const documentPatch = createPublishExcuseNotesOps(resourcesToUpdate?.documentReferences ?? []);
 
   const appointmentPatch = getPatchBinary({
     resourceType: 'Appointment',
