@@ -49,6 +49,7 @@ const addStyleInfo = (item: IntakeQuestionnaireItem): StyledQuestionnaireItem =>
     'policy-holder-address-as-patient',
     'policy-holder-address-as-patient-2',
     'display-secondary-insurance',
+    'responsible-party-address-as-patient',
   ].includes(item.linkId);
   const minRows = item.minRows;
 

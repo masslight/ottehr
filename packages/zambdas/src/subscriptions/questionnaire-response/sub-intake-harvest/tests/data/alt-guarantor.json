@@ -42,6 +42,41 @@
       ]
     },
     {
+      "linkId": "responsible-party-address",
+      "answer": [
+        {
+          "valueString": "222 fake lane"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-address-2"
+    },
+    {
+      "linkId": "responsible-party-city",
+      "answer": [
+        {
+          "valueString": "testcity"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-state",
+      "answer": [
+        {
+          "valueString": "NJ"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-zip",
+      "answer": [
+        {
+          "valueString": "77777"
+        }
+      ]
+    },
+    {
       "linkId": "responsible-party-number",
       "answer": [
         {
