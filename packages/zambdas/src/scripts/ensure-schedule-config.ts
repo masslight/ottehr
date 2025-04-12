@@ -84,16 +84,11 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
         });
       }
     });
-
-    // dry run for now
-    //console.log('schedulePostRequests', schedulePostRequests.length);
-   // console.log('locationUpdateRequests', locationUpdateRequests.length);
-
     
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [
         ...schedulePostRequests,
-        //...locationUpdateRequests,
+        //...locationUpdateRequests, // uncomment to remove schedule json from locations
       ],
     });
   
@@ -187,19 +182,16 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
       }
     });
 
-     // dry run for now
-     console.log('schedulePostRequests', schedulePostRequests.length);
-     console.log('practitionerUpdateRequests', practitionerUpdateRequests.length);
-     console.log('pracititioners', JSON.stringify(practitioners, null, 2));
+     //console.log('schedulePostRequests', schedulePostRequests.length);
+     //console.log('practitionerUpdateRequests', practitionerUpdateRequests.length);
+     //console.log('pracititioners', JSON.stringify(practitioners, null, 2));
 
-     /*
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [
         ...schedulePostRequests,
-        ...practitionerUpdateRequests,
+        //...practitionerUpdateRequests, // uncomment to remove schedule json from practitioners
       ],
     });
-    */
 
   } catch (error) {
     console.error('Error setting up in person healthcare service practitioner schedules:', error);
