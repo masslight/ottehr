@@ -57,7 +57,7 @@ const generateDeleteAndUpdateRequests = (allResources: FhirResource[]): [BatchIn
               encounterTemp.id && deleteRequests.push({ method: 'DELETE', url: `/Encounter/${encounterTemp.id}` })
           );
 
-        (allResources.filter((resourceTemp) => resourceTemp.resourceType === 'RelatedPerson') as RelatedPerson[])
+        /*(allResources.filter((resourceTemp) => resourceTemp.resourceType === 'RelatedPerson') as RelatedPerson[])
           .filter((relatedPersonTemp) => relatedPersonTemp.patient.reference === `Patient/${patient.id}`)
           .forEach(
             (relatedPersonTemp) => {
@@ -75,7 +75,7 @@ const generateDeleteAndUpdateRequests = (allResources: FhirResource[]): [BatchIn
                 }
               }
             }
-          );
+          );*/
 
         (
           allResources.filter(
