@@ -15,6 +15,11 @@ import {
   chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
+  DEMO_VISIT_PHYSICIAN_ADDRESS,
+  DEMO_VISIT_PHYSICIAN_MOBILE,
+  DEMO_VISIT_PRACTICE_NAME,
+  DEMO_VISIT_PROVIDER_FIRST_NAME,
+  DEMO_VISIT_PROVIDER_LAST_NAME,
   DEMO_VISIT_MARKETING_MESSAGING,
   DEMO_VISIT_PATIENT_ETHNICITY,
   DEMO_VISIT_PATIENT_RACE,
@@ -68,6 +73,12 @@ const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
 const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
+const NEW_PROVIDER_FIRST_NAME = 'John';
+const NEW_PROVIDER_LAST_NAME = 'Doe';
+const NEW_PRACTICE_NAME = 'Dental';
+const NEW_PHYSICIAN_ADDRESS = '5th avenue';
+const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
+
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
@@ -435,5 +446,69 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
     await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
     await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
+  });
+
+  test('Verify data from Primary Care Physician block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+  });
+
+  /* test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyCheckboxOff();
+    await patientInformationPage.verifyFirstNameFromPcpIsVisible();
+    await patientInformationPage.verifyLastNameFromPcpIsVisible();
+    await patientInformationPage.verifyPracticeNameFromPcpIsVisible();
+    await patientInformationPage.verifyAddressFromPcpIsVisible();
+    await patientInformationPage.verifyMobileFromPcpIsVisible();
+
+    await patientInformationPage.clearFirstNameFromPcp();
+    await patientInformationPage.clearLastNameFromPcp();
+    await patientInformationPage.clearPracticeNameFromPcp();
+    await patientInformationPage.clearAddressFromPcp();
+    await patientInformationPage.clearMobileFromPcp();
+    await patientInformationPage.clickSaveChangesButton();
+
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_MOBILE);
+  });*/
+  // todo: uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
+
+  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.setCheckboxOn();
+    await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyAddressFromPcpIsNotVisible();
+    await patientInformationPage.verifyMobileFromPcpIsNotVisible();
+  });
+
+  test('Updated values from Primary Care Physician block are saved and displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.enterFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
+    await patientInformationPage.enterLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
+    await patientInformationPage.enterPracticeNameFromPcp(NEW_PRACTICE_NAME);
+    await patientInformationPage.enterAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
+    await patientInformationPage.enterMobileFromPcp(NEW_PHYSICIAN_MOBILE);
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+
+    await patientInformationPage.verifyFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(NEW_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(NEW_PHYSICIAN_MOBILE);
   });
 });

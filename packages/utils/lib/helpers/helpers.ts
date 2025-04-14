@@ -230,6 +230,11 @@ export const DEMO_VISIT_PATIENT_RACE = 'Native Hawaiian or Other Pacific Islande
 export const DEMO_VISIT_POINT_OF_DISCOVERY = 'Friend/Family';
 export const DEMO_VISIT_MARKETING_MESSAGING = true;
 export const DEMO_VISIT_PREFERRED_LANGUAGE = 'English';
+export const DEMO_VISIT_PROVIDER_FIRST_NAME = 'Provider first name';
+export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
+export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
+export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
+export const DEMO_VISIT_PHYSICIAN_MOBILE = '(123) 456-7890';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -963,6 +968,66 @@ export function getInviteParticipantStepAnswers(): PatchPaperworkParameters['ans
     linkId: 'invite-participant-page',
     item: [
       { linkId: 'invite-from-another-device', answer: [{ valueString: 'No, only one device will be connected' }] },
+    ],
+  };
+}
+
+export function getPrimaryCarePhysicianStepAnswers({
+  providerFirstName = DEMO_VISIT_PROVIDER_FIRST_NAME,
+  providerLastName = DEMO_VISIT_PROVIDER_LAST_NAME,
+  practiceName = DEMO_VISIT_PRACTICE_NAME,
+  address = DEMO_VISIT_PHYSICIAN_ADDRESS,
+  mobile = DEMO_VISIT_PHYSICIAN_MOBILE,
+}: {
+  providerFirstName?: string;
+  providerLastName?: string;
+  practiceName?: string;
+  address?: string;
+  mobile?: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'primary-care-physician-page',
+    item: [
+      {
+        linkId: 'pcp-first',
+        answer: [
+          {
+            valueString: providerFirstName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-last',
+        answer: [
+          {
+            valueString: providerLastName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-practice',
+        answer: [
+          {
+            valueString: practiceName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-address',
+        answer: [
+          {
+            valueString: address,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-number',
+        answer: [
+          {
+            valueString: mobile,
+          },
+        ],
+      },
     ],
   };
 }
