@@ -967,15 +967,14 @@ export const parseLabOrdersHistory = (
       results,
     });
 
-  const providerName = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
+  const orderedBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
   const orderAddedDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
   const performedBy = parsePerformed(serviceRequest);
 
   const history: LabOrderHistoryRow[] = [
     {
       action: 'ordered',
-      resultType: 'ordered',
-      performer: providerName,
+      performer: orderedBy,
       date: orderAddedDate,
     },
   ];
@@ -983,8 +982,7 @@ export const parseLabOrdersHistory = (
   if (performedBy) {
     history.push({
       action: 'performed',
-      resultType: 'reflex',
-      performer: providerName,
+      performer: performedBy,
       date: '-',
     });
   }

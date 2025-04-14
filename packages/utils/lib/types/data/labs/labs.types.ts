@@ -55,12 +55,20 @@ export enum ExternalLabsStatus {
   unparsed = 'unparsed', // for debugging purposes
 }
 
-export type LabOrderHistoryRow = {
-  action: 'ordered' | 'performed' | 'received' | 'reviewed';
+export type LabOrderUnreceivedHistoryRow = {
+  action: 'ordered' | 'performed';
+  performer: string;
+  date: string;
+};
+
+export type LabOrderReceivedHistoryRow = {
+  action: 'received' | 'reviewed';
   resultType: 'reflex' | 'ordered';
   performer: string;
   date: string;
 };
+
+export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceivedHistoryRow;
 
 export type LabOrderResultDetails = {
   testName: string;
