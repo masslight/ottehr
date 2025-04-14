@@ -126,13 +126,23 @@ export class FillingInfo {
     await randomMonthLocator.click();
     await expect(randomMonthLocator).toBeVisible({ visible: false });
 
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
+    const dayFieldLocator = this.page.getByRole('combobox').nth(1);
+    await dayFieldLocator.hover();
+    const cursorDayStyle = await dayFieldLocator.evaluate((el) => window.getComputedStyle(el).cursor);
+    expect(cursorDayStyle).toBe('pointer');
+
+    await dayFieldLocator.click({ force: true });
     await expect(this.page.getByRole('option', { name: randomDay, exact: true })).toBeVisible();
     const randomDayLocator = this.page.getByRole('option', { name: randomDay });
     await randomDayLocator.click();
     await expect(randomDayLocator).toBeVisible({ visible: false });
 
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
+    const yearFieldLocator = this.page.getByRole('combobox').nth(2);
+    await yearFieldLocator.hover();
+    const cursorYearStyle = await yearFieldLocator.evaluate((el) => window.getComputedStyle(el).cursor);
+    expect(cursorYearStyle).toBe('pointer');
+
+    await yearFieldLocator.click({ force: true });
     await expect(this.page.getByRole('option', { name: randomYear })).toBeVisible();
     await this.page.getByRole('option', { name: randomYear }).click();
 
