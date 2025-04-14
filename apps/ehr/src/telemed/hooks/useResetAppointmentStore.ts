@@ -21,6 +21,7 @@ export const useResetAppointmentStore = (): void => {
       appointment: undefined,
       patient: undefined,
       location: undefined,
+      locationVirtual: undefined,
       encounter: {} as Encounter,
       questionnaireResponse: undefined,
       patientPhotoUrls: [],

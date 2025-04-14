@@ -226,7 +226,12 @@
           ]
         },
         {
-          "linkId": "policy-holder-middle-name"
+          "linkId": "policy-holder-middle-name",
+          "answer": [
+            {
+              "valueString": "Thaddeus"
+            }
+          ]
         },
         {
           "linkId": "policy-holder-last-name",
@@ -378,7 +383,12 @@
               ]
             },
             {
-              "linkId": "policy-holder-middle-name-2"
+              "linkId": "policy-holder-middle-name-2",
+              "answer": [
+                {
+                  "valueString": "Celeste"
+                }
+              ]
             },
             {
               "linkId": "policy-holder-last-name-2",

@@ -11,13 +11,18 @@ import { getAuth0Token } from '../shared';
 
 const BATCH_SIZE = 25;
 
-const checkAndUpdateListResources = async (config: any): Promise<void> => {
+const initializeOystehr = async (config: any): Promise<Oystehr> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
-  const oystehr = new Oystehr({
+
+  return new Oystehr({
     fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
     accessToken: token,
   });
+};
+
+const checkAndUpdateListResources = async (config: any, oystehr?: Oystehr): Promise<void> => {
+  const client = oystehr || await initializeOystehr(config);
 
   console.log('Fetching Patients with Lists and DocumentReferences in batches.');
 
@@ -31,7 +36,7 @@ const checkAndUpdateListResources = async (config: any): Promise<void> => {
     console.log(`Processing batch starting at offset: ${offset}`);
 
     const { patients, lists, documentReferences } = await getDocumentExplorerResourcesBatch(
-      oystehr,
+      client,
       offset,
       BATCH_SIZE
     );
@@ -54,7 +59,7 @@ const checkAndUpdateListResources = async (config: any): Promise<void> => {
       if (createListsRequests.length > 0 || patchListsRequests.length > 0) {
         console.time(`Batch FHIR operations (offset: ${offset})`);
         try {
-          await oystehr.fhir.batch({
+          await client.fhir.batch({
             requests: [
               ...createListsRequests,
               ...patchListsRequests,
@@ -145,7 +150,15 @@ const process = async (
     const patientDocumentReferences = documentReferences.filter((docRef) => docRef.subject?.reference === patientReference);
 
     for (const folder of FOLDERS_CONFIG) {
-      let list = patientLists.find(l => l.code?.coding?.some(c => c.code === folder.documentTypeCode));
+      let list = patientLists.find(l => {
+        const udiIdentifier = l.identifier?.find(identifier => 
+          identifier.type?.coding?.[0]?.system === 'http://terminology.hl7.org/CodeSystem/v2-0203' &&
+          identifier.type?.coding?.[0]?.code === 'UDI'
+        );
+        
+        return udiIdentifier?.value === folder.title;
+      });
+
       const relevantDocs = patientDocumentReferences.filter((doc) =>
         Array.isArray(folder.documentTypeCode)
           ? folder.documentTypeCode.includes(doc.type?.coding?.[0]?.code!)
@@ -206,9 +219,116 @@ const process = async (
   return { createListsRequests, patchListsRequests };
 };
 
+const cleanupDuplicateLists = async (config: any, oystehr?: Oystehr): Promise<void> => {
+  const client = oystehr || await initializeOystehr(config);
+
+  console.log('Starting duplicate List cleanup process...');
+  let offset = 0;
+  let batchLength = -1;
+  let totalPatients = 0;
+  let totalDuplicatesRemoved = 0;
+
+  while (batchLength !== 0) {
+    console.log(`Fetching patient batch starting at offset: ${offset}`);
+
+    const { patients, lists } = await getDocumentExplorerResourcesBatch(
+      client,
+      offset,
+      BATCH_SIZE
+    );
+
+    batchLength = patients.length;
+    totalPatients += batchLength;
+
+    if (batchLength > 0) {
+      console.log(`Processing ${patients.length} patients and ${lists.length} lists`);
+      const deleteRequests = await findAndMarkDuplicatesForDeletion(patients, lists);
+
+      totalDuplicatesRemoved += deleteRequests.length;
+
+      if (deleteRequests.length > 0) {
+        console.log(`Deleting ${deleteRequests.length} duplicate lists...`);
+        try {
+          await client.fhir.batch({
+            requests: deleteRequests,
+          });
+        } catch (error) {
+          console.error(`Error during batch delete operations at offset ${offset}:`, JSON.stringify(error));
+        }
+      }
+    }
+
+    offset += BATCH_SIZE;
+  }
+
+  console.log(`[COMPLETE] Duplicate List cleanup summary:
+    - Total patients processed: ${totalPatients}
+    - Total duplicate lists removed: ${totalDuplicatesRemoved}`);
+};
+
+const findAndMarkDuplicatesForDeletion = async (
+  patients: Patient[],
+  lists: List[]
+): Promise<BatchInputRequest<List>[]> => {
+  const deleteRequests: BatchInputRequest<List>[] = [];
+
+  for (const patient of patients) {
+    const patientReference = `Patient/${patient.id}`;
+    const patientLists = lists.filter((list) => list.subject?.reference === patientReference);
+
+    const listsByFolder: Record<string, List[]> = {};
+
+    for (const list of patientLists) {
+      const udiIdentifier = list.identifier?.find(identifier => 
+        identifier.type?.coding?.[0]?.system === 'http://terminology.hl7.org/CodeSystem/v2-0203' &&
+        identifier.type?.coding?.[0]?.code === 'UDI'
+      );
+
+      if (udiIdentifier?.value) {
+        const folderTitle = udiIdentifier.value;
+        if (!listsByFolder[folderTitle]) {
+          listsByFolder[folderTitle] = [];
+        }
+        listsByFolder[folderTitle].push(list);
+      }
+    }
+
+    for (const [folderTitle, folderLists] of Object.entries(listsByFolder)) {
+      if (folderLists.length > 1) {
+        console.log(`Found ${folderLists.length} duplicate lists for folder "${folderTitle}" in patient ${patient.id}`);
+
+        folderLists.sort((a, b) => {
+          const dateA = a.meta?.lastUpdated ? new Date(a.meta.lastUpdated).getTime() : 0;
+          const dateB = b.meta?.lastUpdated ? new Date(b.meta.lastUpdated).getTime() : 0;
+          return dateB - dateA;
+        });
+
+        const listsToDelete = folderLists.slice(1);
+
+        for (const listToDelete of listsToDelete) {
+          console.log(`Marking duplicate list ${listToDelete.id} for deletion (keeping ${folderLists[0].id})`);
+          deleteRequests.push({
+            method: 'DELETE',
+            url: `/List/${listToDelete.id}`,
+          });
+        }
+      }
+    }
+  }
+
+  return deleteRequests;
+};
+
+const setupDocumentExplorer = async (config: any): Promise<void> => {
+  const oystehr = await initializeOystehr(config);
+
+  await cleanupDuplicateLists(config, oystehr);
+  await checkAndUpdateListResources(config, oystehr);
+};
+
 const main = async (): Promise<void> => {
   try {
-    await performEffectWithEnvFile(checkAndUpdateListResources);
+    await performEffectWithEnvFile(setupDocumentExplorer);
   } catch (e) {
     console.log('Catch some error while running all effects: ', e);
     console.log('Stringifies: ', JSON.stringify(e));

@@ -1,5 +1,5 @@
 import { FhirResource } from 'fhir/r4b';
-import { getQuestionnaireResponseByLinkId, PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE, formatDOB } from 'utils';
+import { formatDOB, getQuestionnaireResponseByLinkId, PATIENT_PHOTO_CODE, SCHOOL_WORK_NOTE_TEMPLATE_CODE } from 'utils';
 import { getPatientName } from '../../../telemed/utils';
 import { getPatientInfoWithFallback, getPronouns, getWeight } from './business-logic';
 import { Gender } from './constants';
@@ -41,6 +41,7 @@ export const parseBundle = (resourceBundle: FhirResource[]): VisitDataAndMappedD
     appointment: appointmentResource,
     patient: patientResource,
     location: locationResource,
+    locationVirtual: locationVirtualResource,
     encounter: encounterResource,
     questionnaireResponse: questionnaireResponseResource,
   } = getResources(resourceBundle);
@@ -48,6 +49,7 @@ export const parseBundle = (resourceBundle: FhirResource[]): VisitDataAndMappedD
   const appointment = getAppointmentValues(appointmentResource);
   const patient = getPatientValues(patientResource);
   const location = getLocationValues(locationResource);
+  const locationVirtual = getLocationValues(locationVirtualResource);
   const encounter = getEncounterValues(encounterResource);
   const questionnaire = getQuestionnaireResponseValues(questionnaireResponseResource);
   const patientInfoWithFallback = getPatientInfoWithFallback(patient, questionnaire);
@@ -57,6 +59,7 @@ export const parseBundle = (resourceBundle: FhirResource[]): VisitDataAndMappedD
     resources: {
       appointment,
       location,
+      locationVirtual,
       encounter,
       questionnaire,
       patient,

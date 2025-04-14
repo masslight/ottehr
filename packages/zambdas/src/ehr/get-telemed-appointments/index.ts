@@ -85,7 +85,7 @@ export const performEffect = async (
 
     for (let i = 0; i < allPackages.length; i++) {
       const appointmentPackage = allPackages[i];
-      const { appointment, telemedStatus, telemedStatusHistory, location, practitioner, encounter } =
+      const { appointment, telemedStatus, telemedStatusHistory, locationVirtual, practitioner, encounter } =
         appointmentPackage;
       const patient = filterPatientForAppointment(appointment, allResources);
 
@@ -118,9 +118,9 @@ export const performEffect = async (
         reasonForVisit: appointment.description,
         comment: appointment.comment,
         appointmentStatus: appointment.status,
-        location: {
-          locationID: location?.locationID ? `Location/${location.locationID}` : undefined,
-          state: location?.state,
+        locationVirtual: {
+          locationID: locationVirtual?.locationID ? `Location/${locationVirtual.locationID}` : undefined,
+          state: locationVirtual?.state,
         },
         encounter,
         paperwork: appointmentPackage.paperwork,

@@ -1,15 +1,15 @@
 import { TabList } from '@mui/lab';
-import { AppBar, Container, Tab, Toolbar, useTheme, useMediaQuery } from '@mui/material';
+import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { RoleType } from 'utils';
 import logo from '../../assets/logo-4x.png';
 import { otherColors } from '../../CustomThemeProvider';
+import { adjustTopForBannerHeight } from '../../helpers/misc.helper';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
-import { UserMenu } from './UserMenu';
 import MobileMenu from './MobileMenu';
-import { adjustTopForBannerHeight } from '../../constants';
+import { UserMenu } from './UserMenu';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 if (ORGANIZATION_NAME_SHORT == null) {

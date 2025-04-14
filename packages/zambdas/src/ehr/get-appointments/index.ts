@@ -34,21 +34,21 @@ import {
   getVisitStatusHistory,
   isTruthy,
 } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
+import { ZambdaInput, checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
 import { sortAppointments } from '../../shared/queueingUtils';
 import {
+  encounterIdMap,
+  getTimezoneResourceIdFromAppointment,
+  makeAppointmentSearchRequest,
+  makeEncounterSearchParams,
+  makeResourceCacheKey,
   mergeResources,
   parseEncounterParticipants,
-  makeResourceCacheKey,
-  makeEncounterSearchParams,
-  makeAppointmentSearchRequest,
-  getTimezoneResourceIdFromAppointment,
-  encounterIdMap,
   timezoneMap,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface GetAppointmentsInput {
   searchDate: string;

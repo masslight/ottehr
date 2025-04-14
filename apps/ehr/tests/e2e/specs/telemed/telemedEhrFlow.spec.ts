@@ -1,7 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { AppointmentParticipant, Location } from 'fhir/r4b';
+import { fillWaitAndSelectDropdown, getPatientConditionPhotosStepAnswers } from 'test-utils';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   allLicensesForPractitioner,
@@ -19,12 +19,17 @@ import {
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
   getTelemedLocations,
+  isLocationVirtual,
   isoToDateObject,
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
-import { fillWaitAndSelectDropdown, getPatientConditionPhotosStepAnswers } from 'test-utils';
-import Oystehr from '@oystehr/sdk';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
+import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+
+const DEFAULT_TIMEOUT = { timeout: 15000 };
 
 async function getTestUserQualificationStates(resourceHandler: ResourceHandler): Promise<string[]> {
   const testsUser = await resourceHandler.getTestsUserAndPractitioner();
@@ -40,9 +45,9 @@ async function getTestStateThatNotQualificationsStatesList(
   qualificationStates: string[]
 ): Promise<string> {
   const activeStates = (await getTelemedLocations(apiClient))
-    .filter((location) => location.available)
+    ?.filter((location) => location.available)
     .map((location) => location.state);
-  const activeStateNotInList = activeStates.find((state) => !qualificationStates.includes(state));
+  const activeStateNotInList = activeStates?.find((state) => !qualificationStates.includes(state));
   if (!activeStateNotInList)
     throw new Error(
       `Can't find active test state that not in list of test user qualifications states: ${JSON.stringify(
@@ -109,11 +114,11 @@ test.describe('Tests checking data without mutating state', () => {
     await awaitAppointmentsTableToBeVisible(page);
 
     const appointmentId = myPatientsTabAppointmentResources.appointment.id;
-    const appointmentRow = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointmentId));
+    const appointmentRow = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointmentId!));
 
     const locationGroup = await appointmentRow.getAttribute('data-location-group');
 
-    expect(locationGroup.toLowerCase()).toEqual(testsUserQualificationState.toLowerCase());
+    expect(locationGroup?.toLowerCase()).toEqual(testsUserQualificationState.toLowerCase());
   });
 
   test('All appointments in my-patients section has appropriate assign buttons', async ({ page }) => {
@@ -175,27 +180,35 @@ test.describe('Tests interacting with appointment state', () => {
 
   test.afterAll(async () => {
     await resourceHandler.cleanupResources();
+    await context.close();
+    await page.close();
   });
 
-  test('Assign appointment, and open it', async () => {
+  test('Appointment is present in tracking board, can be assigned and connection to patient is happening', async () => {
     await page.goto(`telemed/appointments`);
     await awaitAppointmentsTableToBeVisible(page);
 
     await test.step('Find and assign my appointment', async () => {
-      const myAppointmentAssignButton = page
-        .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-        .getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton);
+      const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
 
-      expect(myAppointmentAssignButton).toBeDefined();
-      await myAppointmentAssignButton?.click();
+      const appointmentRow = table.locator('tbody tr').filter({ hasText: resourceHandler.appointment?.id });
+
+      await expect(
+        appointmentRow.filter({ has: page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton) })
+      ).toBeVisible(DEFAULT_TIMEOUT);
+
+      await appointmentRow.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton).click(DEFAULT_TIMEOUT);
     });
 
     await telemedDialogConfirm(page);
 
-    await test.step('Confirm ppointment assigned', async () => {
+    await test.step('Appointment has connect-to-patient button', async () => {
       const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
-      await expect(statusChip).toBeVisible();
+      await expect(statusChip).toBeVisible(DEFAULT_TIMEOUT);
       await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).toBeVisible(
+        DEFAULT_TIMEOUT
+      );
     });
   });
 
@@ -207,6 +220,17 @@ test.describe('Tests interacting with appointment state', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.editPatientButtonSideBar)).toBeVisible();
   });
 
+  test('Assigned appointment should be in "provider" tab', async () => {
+    await page.goto(`telemed/appointments`);
+    await awaitAppointmentsTableToBeVisible(page);
+
+    await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.provider)).click();
+    await awaitAppointmentsTableToBeVisible(page);
+    await expect(
+      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
+    ).toBeVisible();
+  });
+
   test('Unassign appointment, and check in "Ready for provider"', async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
 
@@ -214,7 +238,7 @@ test.describe('Tests interacting with appointment state', () => {
     await telemedDialogConfirm(page);
     await awaitAppointmentsTableToBeVisible(page);
     await expect(
-      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id))
+      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
     ).toBeVisible();
   });
 
@@ -238,11 +262,7 @@ test.describe('Tests interacting with appointment state', () => {
   });
 
   test('Assign my appointment back', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonAssignMe).click();
-    await telemedDialogConfirm(page);
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip)).toHaveText(
-      TelemedAppointmentStatusEnum['pre-video']
-    );
+    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
   });
 
   test('Patient provided hpi data', async () => {
@@ -334,7 +354,7 @@ test.describe('Tests interacting with appointment state', () => {
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+          .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible();
     });
@@ -384,7 +404,7 @@ test.describe('Tests interacting with appointment state', () => {
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-          .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsLoadingSkeleton)
+          .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
           .first()
       ).not.toBeVisible();
     });
@@ -404,9 +424,6 @@ test.describe('Tests interacting with appointment state', () => {
     });
 
     await test.step('check surgical history list and note', async () => {
-      // await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible();
-      // await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toHaveText(surgicalHistoryPattern);
-
       await expect(
         page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first()
       ).toHaveText(surgicalNote);
@@ -432,14 +449,140 @@ test.describe('Tests interacting with appointment state', () => {
     });
   });
 
-  test('Assigned appointment should be in "provider" tab', async () => {
-    await page.goto(`telemed/appointments`);
-    await awaitAppointmentsTableToBeVisible(page);
+  test('Should test connect to patient is working', async () => {
+    const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
+    await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);
+    await connectButton.click(DEFAULT_TIMEOUT);
 
-    await page.getByTestId(dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.provider)).click();
-    await awaitAppointmentsTableToBeVisible(page);
-    await expect(
-      page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
-    ).toBeVisible();
+    await telemedDialogConfirm(page);
+
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible(DEFAULT_TIMEOUT);
   });
 });
+
+test.describe('Telemed appointment with two locations (physical and virtual)', () => {
+  test.describe('Tests not interacting with appointment state', () => {
+    const resourceHandler = new ResourceHandler('telemed');
+    let location: Location;
+    test.beforeAll(async () => {
+      location = await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
+    });
+    test.afterAll(async () => {
+      await resourceHandler.cleanupResources();
+    });
+    test('Appointment is present in tracking board and searchable by location filter', async ({ page }) => {
+      await page.goto(`telemed/appointments`);
+      await awaitAppointmentsTableToBeVisible(page);
+      await fillWaitAndSelectDropdown(
+        page,
+        dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect,
+        location.name || ''
+      );
+      await expect(
+        page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
+      ).toBeVisible(DEFAULT_TIMEOUT);
+    });
+  });
+
+  test.describe('Tests interacting with appointment state', () => {
+    const resourceHandler = new ResourceHandler('telemed');
+    test.beforeEach(async () => {
+      await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
+    });
+
+    test.afterEach(async () => {
+      await resourceHandler.cleanupResources();
+    });
+
+    test('Appointment is present in tracking board, can be assigned and connection to patient is happening', async ({
+      page,
+    }) => {
+      await page.goto(`telemed/appointments`);
+      await awaitAppointmentsTableToBeVisible(page);
+
+      await test.step('Find and assign my appointment', async () => {
+        const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
+
+        const appointmentRow = table.locator('tbody tr').filter({ hasText: resourceHandler.appointment?.id ?? '' });
+
+        await expect(
+          appointmentRow.filter({ has: page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton) })
+        ).toBeVisible(DEFAULT_TIMEOUT);
+
+        await appointmentRow.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton).click(DEFAULT_TIMEOUT);
+      });
+
+      await telemedDialogConfirm(page);
+
+      await test.step('Appointment has connect-to-patient button', async () => {
+        const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
+        await expect(statusChip).toBeVisible(DEFAULT_TIMEOUT);
+        // todo: is it ok to have check like this that rely on status text??
+        await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
+        await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).toBeVisible(
+          DEFAULT_TIMEOUT
+        );
+      });
+
+      await test.step('Connect to patient', async () => {
+        const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
+        await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);
+        await connectButton.click(DEFAULT_TIMEOUT);
+
+        await telemedDialogConfirm(page);
+
+        await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible(DEFAULT_TIMEOUT);
+      });
+    });
+  });
+});
+
+async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler: ResourceHandler): Promise<Location> {
+  const oystehr = await ResourceHandler.getOystehr();
+  const [physicalLocation] = await Promise.all([
+    new Promise<Location>((resolve, reject) => {
+      oystehr.fhir
+        .search({
+          resourceType: 'Location',
+          params: [
+            {
+              name: '_count',
+              value: '1000',
+            },
+          ],
+        })
+        .then((locations) => {
+          const nonVirtualLocation = locations
+            .unbundle()
+            .filter((location) => location.resourceType === 'Location')
+            .find((location) => !isLocationVirtual(location as Location));
+          if (!nonVirtualLocation) {
+            throw new Error('No non-virtual location found');
+          }
+          resolve(nonVirtualLocation as Location);
+        })
+        .catch((error) => {
+          reject(error);
+        });
+    }),
+    resourceHandler.setResources(),
+  ]);
+
+  await oystehr.fhir.patch({
+    resourceType: 'Appointment',
+    id: resourceHandler.appointment.id!,
+    operations: [
+      {
+        op: 'add',
+        path: '/participant/-',
+        value: <AppointmentParticipant>{
+          actor: {
+            reference: `Location/${physicalLocation.id}`,
+          },
+          status: 'accepted',
+        },
+      },
+    ],
+  });
+  return physicalLocation;
+}

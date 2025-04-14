@@ -44,6 +44,7 @@ import {
   FhirAppointmentType,
   INSURANCE_CARD_CODE,
   PHOTO_ID_CARD_CODE,
+  PRIVACY_POLICY_CODE,
   VisitStatusLabel,
   flattenItems,
   formatPhoneNumber,
@@ -72,6 +73,7 @@ import {
 } from '../components/dialogs';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { ChangeStatusDropdown } from '../features/css-module/components/ChangeStatusDropdown';
 import { formatLastModifiedTag } from '../helpers';
 import {
   ActivityLogData,
@@ -93,7 +95,6 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 import { PencilIconButton } from '../telemed';
 import { DocumentInfo, DocumentType, appointmentTypeLabels } from '../types/types';
-import { ChangeStatusDropdown } from '../features/css-module/components/ChangeStatusDropdown';
 
 interface Documents {
   photoIdCards: DocumentInfo[];
@@ -101,7 +102,7 @@ interface Documents {
   insuranceCardsSecondary: DocumentInfo[];
   fullCardPdfs: DocumentInfo[];
   consentPdfUrl: string | undefined;
-  hippaPdfUrl: string | undefined;
+  hipaaPdfUrl: string | undefined;
 }
 
 function getMinutesSinceLastActive(lastActive: string): number {
@@ -152,7 +153,7 @@ const getAnswerBooleanFor = (
 const LAST_ACTIVE_THRESHOLD = 2; // minutes
 
 const patientPronounsNotListedValues = ['My pronounces are not listed', 'My pronouns are not listed'];
-const hippaPatientDetailsKey = 'I have reviewed and accept HIPAA Acknowledgement';
+const hipaaPatientDetailsKey = 'I have reviewed and accept HIPAA Acknowledgement';
 const consentToTreatPatientDetailsKey = 'I have reviewed and accept Consent to Treat and Guarantee of Payment';
 
 export default function AppointmentPage(): ReactElement {
@@ -687,7 +688,7 @@ export default function AppointmentPage(): ReactElement {
 
           if (
             docRefCode &&
-            ([PHOTO_ID_CARD_CODE, CONSENT_CODE].includes(docRefCode) ||
+            ([PHOTO_ID_CARD_CODE, CONSENT_CODE, PRIVACY_POLICY_CODE].includes(docRefCode) ||
               (docRefCode === INSURANCE_CARD_CODE && !selfPay))
           ) {
             for (const content of docRef.content) {
@@ -722,7 +723,7 @@ export default function AppointmentPage(): ReactElement {
     }
   }, [appointmentID, oystehr, getAccessTokenSilently, patient?.id, selfPay]);
 
-  const { photoIdCards, insuranceCards, insuranceCardsSecondary, fullCardPdfs, consentPdfUrl, hippaPdfUrl } =
+  const { photoIdCards, insuranceCards, insuranceCardsSecondary, fullCardPdfs, consentPdfUrl, hipaaPdfUrl } =
     useMemo((): Documents => {
       const documents: Documents = {
         photoIdCards: [],
@@ -730,7 +731,7 @@ export default function AppointmentPage(): ReactElement {
         insuranceCardsSecondary: [],
         fullCardPdfs: [],
         consentPdfUrl: undefined,
-        hippaPdfUrl: undefined,
+        hipaaPdfUrl: undefined,
       };
 
       if (!z3Documents) {
@@ -753,7 +754,7 @@ export default function AppointmentPage(): ReactElement {
           [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
         );
         documents.consentPdfUrl = z3Documents.find((doc) => doc.type === DocumentType.CttConsent)?.presignedUrl;
-        documents.hippaPdfUrl = z3Documents.find((doc) => doc.type === DocumentType.HippaConsent)?.presignedUrl;
+        documents.hipaaPdfUrl = z3Documents.find((doc) => doc.type === DocumentType.HipaaConsent)?.presignedUrl;
       }
 
       return documents;
@@ -928,8 +929,8 @@ export default function AppointmentPage(): ReactElement {
   const consentEditProp = (): IconProps => {
     const ret: IconProps = {};
 
-    if (getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems) && hippaPdfUrl) {
-      ret[hippaPatientDetailsKey] = pdfButton(hippaPdfUrl);
+    if (getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems) && hipaaPdfUrl) {
+      ret[hipaaPatientDetailsKey] = pdfButton(hipaaPdfUrl);
     }
 
     if (getAnswerBooleanFor('consent-to-treat', flattenedItems) && consentPdfUrl) {
@@ -1404,7 +1405,7 @@ export default function AppointmentPage(): ReactElement {
                   loading={loading}
                   editValue={consentEditProp()}
                   patientDetails={{
-                    [hippaPatientDetailsKey]: getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems)
+                    [hipaaPatientDetailsKey]: getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems)
                       ? 'Signed'
                       : 'Not signed',
                     [consentToTreatPatientDetailsKey]: getAnswerBooleanFor('consent-to-treat', flattenedItems)

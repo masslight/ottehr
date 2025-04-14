@@ -42,6 +42,9 @@ export default function OfficeClosures({ closures, setClosures }: OfficeClosures
       <Typography variant="h4" color="primary.dark">
         Closed Dates
       </Typography>
+      <Typography variant="body1" color="black" marginTop={2}>
+        This override should be utilized when the facility is closed for the whole day and will not be opening at all.
+      </Typography>
       <Table sx={{ marginTop: 3, tableLayout: 'fixed' }}>
         <TableHead>
           <TableRow key="closures-table-headers" sx={{ height: '40px' }}>
@@ -165,10 +168,6 @@ export default function OfficeClosures({ closures, setClosures }: OfficeClosures
       >
         Add closed date
       </Button>
-
-      <Typography sx={{ marginTop: 1 }}>
-        This override should be utilized when the facility is closed for the whole day and will not be opening at all.
-      </Typography>
     </Box>
   );
 }
