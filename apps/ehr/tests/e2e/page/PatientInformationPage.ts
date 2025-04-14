@@ -21,6 +21,8 @@ export enum Field {
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTHDATE,
   DEMO_VISIT_RESPONSIBLE_PHONE,
+  DEMO_VISIT_POINT_OF_DISCOVERY,
+  DEMO_VISIT_PREFERRED_LANGUAGE,
 }
 
 const FIELD_TO_TEST_ID = new Map<Field, string>()
@@ -40,7 +42,9 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME, dataTestIds.responsiblePartyInformationContainer.firstName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
-  .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput);
+  .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput)
+  .set(Field.DEMO_VISIT_POINT_OF_DISCOVERY, dataTestIds.patientDetailsContainer.sendMarketingMessages)
+  .set(Field.DEMO_VISIT_PREFERRED_LANGUAGE, dataTestIds.patientDetailsContainer.preferredLanguage);
 
 export class PatientInformationPage {
   #page: Page;
@@ -307,6 +311,7 @@ export class PatientInformationPage {
       this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsEthnicity).locator('input')
     ).toHaveValue(patientEthnicity);
   }
+
   async selectPatientRace(patientEthnicity: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).click();
     await this.#page.getByText(patientEthnicity, { exact: true }).click();
@@ -315,6 +320,69 @@ export class PatientInformationPage {
   async verifyPatientRace(patientRace: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.patientsRace).locator('input')).toHaveValue(
       patientRace
+    );
+  }
+
+  async selectHowDidYouHear(howDidYouHear: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.howDidYouHearAboutUs).click();
+    await this.#page.getByText(howDidYouHear, { exact: true }).click();
+  }
+
+  async verifyHowDidYouHear(howDidYouHear: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientDetailsContainer.howDidYouHearAboutUs).locator('input')
+    ).toHaveValue(howDidYouHear);
+  }
+
+  async selectMarketingMessaging(marketingMessaging: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.sendMarketingMessages).click();
+    await this.#page.getByText(marketingMessaging, { exact: true }).click();
+  }
+
+  async verifyMarketingMessaging(marketingMessaging: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.sendMarketingMessages)).toHaveText(
+      marketingMessaging
+    );
+  }
+
+  async selectPreferredLanguage(preferredLanguage: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.preferredLanguage).click();
+    await this.#page.getByText(preferredLanguage, { exact: true }).click();
+  }
+
+  async verifyPreferredLanguage(preferredLanguage: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientDetailsContainer.preferredLanguage).locator('input')
+    ).toHaveValue(preferredLanguage);
+  }
+
+  async selectSexualOrientation(sexualOrientation: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.sexualOrientation).click();
+    await this.#page.getByText(sexualOrientation, { exact: true }).click();
+  }
+
+  async verifySexualOrientation(sexualOrientation: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientDetailsContainer.sexualOrientation).locator('input')
+    ).toHaveValue(sexualOrientation);
+  }
+
+  async selectGenderIdentity(genderIdentity: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity).click();
+    await this.#page.getByText(genderIdentity, { exact: true }).click();
+  }
+
+  async verifyGenderIdentity(genderIdentity: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity)).toHaveText(genderIdentity);
+  }
+  async selectCommonwellConsent(commonwellConsent: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent).click();
+    await this.#page.getByText(commonwellConsent, { exact: true }).click();
+  }
+
+  async verifyCommonwellConsent(commonwellConsent: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent)).toHaveText(
+      commonwellConsent
     );
   }
 

@@ -1,23 +1,28 @@
 import { Box, Typography } from '@mui/material';
-import React, { FC, useMemo } from 'react';
+import { FC, useMemo } from 'react';
 import {
   formatDateTimeToEDT,
   getProviderNameWithProfession,
   getQuestionnaireResponseByLinkId,
   mapEncounterStatusHistory,
 } from 'utils';
-import { PatientInfoConfirmedCheckbox } from './PatientInfoConfirmedCheckbox';
-import { VisitNoteItem } from './VisitNoteItem';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetInsurancePlan } from '../../../../state';
+import { PatientInfoConfirmedCheckbox } from './PatientInfoConfirmedCheckbox';
+import { VisitNoteItem } from './VisitNoteItem';
 
 export const VisitDetailsContainer: FC = () => {
-  const { appointment, practitioner, location, encounter, questionnaireResponse, reviewAndSignData } = getSelectors(
-    useAppointmentStore,
-    ['appointment', 'practitioner', 'location', 'encounter', 'questionnaireResponse', 'reviewAndSignData']
-  );
+  const { appointment, practitioner, locationVirtual, encounter, questionnaireResponse, reviewAndSignData } =
+    getSelectors(useAppointmentStore, [
+      'appointment',
+      'practitioner',
+      'locationVirtual',
+      'encounter',
+      'questionnaireResponse',
+      'reviewAndSignData',
+    ]);
 
-  const state = location?.address?.state;
+  const state = locationVirtual?.address?.state;
   const provider = practitioner ? getProviderNameWithProfession(practitioner) : '';
 
   const address = getQuestionnaireResponseByLinkId('patient-street-address', questionnaireResponse)?.answer?.[0]

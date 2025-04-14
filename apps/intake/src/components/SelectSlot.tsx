@@ -1,4 +1,5 @@
 import { Button, Grid, styled, Typography, useTheme } from '@mui/material';
+import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 
 const AppointmentSlotButton = styled(Button)({
@@ -6,12 +7,12 @@ const AppointmentSlotButton = styled(Button)({
 });
 
 interface SelectSlotProps {
-  slots: string[];
+  slots: Slot[];
   timezone: string;
   reschedule?: boolean;
   currentTab?: number;
-  currentSelectedSlot: string | undefined;
-  handleSlotSelected: (slot: string) => void;
+  currentSelectedSlot: Slot | undefined;
+  handleSlotSelected: (slot: Slot) => void;
   noSlotsMessage?: string;
 }
 
@@ -35,9 +36,11 @@ export function SelectSlot({
   return (
     <Grid container spacing={1} justifyContent={'center'} mt={1}>
       {slots.map((slot, idx) => {
-        const startDate = DateTime.fromISO(slot);
+        const startDate = DateTime.fromISO(slot.start);
         const startDateTimezoneAdjusted = startDate.setZone(timezone);
-        const isSelected = currentSelectedSlot === slot;
+        // todo: extract this into a function that can be customized. the 1-slot-per-time rule
+        // might not hold for every use case
+        const isSelected = currentSelectedSlot?.start === slot.start;
         return (
           <Grid key={idx} item>
             <AppointmentSlotButton

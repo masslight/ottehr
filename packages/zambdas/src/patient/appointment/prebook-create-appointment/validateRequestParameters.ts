@@ -131,10 +131,10 @@ export async function validateCreateAppointmentParams(
     if (slot === undefined) {
       throw new Error(`"slot" is required for appointment with visit type prebook`);
     }
-    if (!isISODateTime(slot)) {
-      throw new Error(`"slot" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS+zz:zz)`);
+    if (!isISODateTime(slot.start)) {
+      throw new Error(`"slot.start" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS+zz:zz)`);
     }
-    if (!checkValidBookingTime(slot)) {
+    if (!checkValidBookingTime(slot.start)) {
       throw APPOINTMENT_CANT_BE_IN_PAST_ERROR;
     }
   }

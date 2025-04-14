@@ -1,6 +1,6 @@
-import { BaseTelemedFlow, SlotAndLocation } from './BaseTelemedFlow';
-import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { expect } from '@playwright/test';
+import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
 
 export class TelemedVisitFlow extends BaseTelemedFlow {
   async clickVisitButton(): Promise<void> {
@@ -24,7 +24,7 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
 
     return { location: '' };
   }
-  async startVisitFullFlow() {
+  async startVisitFullFlow(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
     await this.selectDifferentFamilyMemberAndContinue();
     const slotAndLocation = await this.selectTimeLocationAndContinue();
@@ -68,6 +68,9 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     return {
       slotAndLocation,
       patientBasicInfo,
+      // todo: fix this, it was not added to the returned value in the previous version cause types were not right
+      bookingURL: '',
+      bookingUUID: null,
     };
   }
 }

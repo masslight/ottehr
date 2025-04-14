@@ -19,8 +19,8 @@ export const useTrackingBoardTableButtonType = ({
 
   useEffect(() => {
     if (
-      !appointment.location.state ||
-      !availableStates.includes(appointment.location.state) ||
+      !appointment.locationVirtual.state ||
+      !availableStates.includes(appointment.locationVirtual.state) ||
       [TelemedAppointmentStatusEnum.complete, TelemedAppointmentStatusEnum.unsigned].includes(
         appointment.telemedStatus as TelemedAppointmentStatusEnum
       ) ||
@@ -31,8 +31,8 @@ export const useTrackingBoardTableButtonType = ({
     ) {
       if (
         appointment.telemedStatus === TelemedAppointmentStatusEnum.unsigned &&
-        appointment.location.state &&
-        availableStates.includes(appointment.location.state) &&
+        appointment.locationVirtual.state &&
+        availableStates.includes(appointment.locationVirtual.state) &&
         isEncounterForPractitioner
       ) {
         setType('viewContained');
@@ -48,7 +48,7 @@ export const useTrackingBoardTableButtonType = ({
     } else {
       setType('');
     }
-  }, [appointment.location.state, availableStates, appointment.telemedStatus, isEncounterForPractitioner]);
+  }, [appointment.locationVirtual.state, availableStates, appointment.telemedStatus, isEncounterForPractitioner]);
 
   return { type };
 };
