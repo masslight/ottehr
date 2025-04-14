@@ -76,14 +76,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const { getAccessTokenSilently } = useAuth0();
   // const currentUser = useEvolveUser();
 
-  // NEW TODO: will probably end up getting rid of a lot of this state since it will be held in the form state
-  // need to iterate through the passed aoe and format it into state so we can collect the answer
   // TODO: might want to do this in a useMemo for perf
 
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<boolean>(false);
 
-  // TODO: need to add a submit handler that works the react-hook-form way
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
     setSubmitLoading(true);
 

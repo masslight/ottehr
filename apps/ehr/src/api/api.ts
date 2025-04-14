@@ -76,7 +76,7 @@ if (!VITE_APP_IS_LOCAL) {
 export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<OrderDetails> => {
   try {
     if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
-      throw new Error('submit lab order environment variable could not be loaded');
+      throw new Error('submit lab order zambda environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
@@ -96,7 +96,7 @@ export const getLabOrderDetails = async (
 ): Promise<OrderDetails> => {
   try {
     if (GET_LAB_ORDER_DETAILS_ZAMBDA_ID == null) {
-      throw new Error('get lab order details environment variable could not be loaded');
+      throw new Error('get lab order details zambda environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
@@ -506,7 +506,7 @@ export const getCreateLabOrderResources = async (
 ): Promise<LabOrderResourcesRes> => {
   try {
     if (GET_CREATE_LAB_ORDER_RESOURCES == null) {
-      throw new Error('get create lab resources order environment variable could not be loaded');
+      throw new Error('get create lab resources order zambda environment variable could not be loaded');
     }
     const response = await oystehr.zambda.execute({
       id: GET_CREATE_LAB_ORDER_RESOURCES,
@@ -525,7 +525,7 @@ export const getLabOrders = async (
 ): Promise<PaginatedLabOrderResponse> => {
   try {
     if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
-      throw new Error('get lab orders environment variable could not be loaded');
+      throw new Error('get lab orders zambda environment variable could not be loaded');
     }
     const searchBy = parameters.serviceRequestId || parameters.encounterId || parameters.patientId;
     if (!searchBy) {
@@ -554,7 +554,7 @@ export interface DeleteLabOrderParameters {
 export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrderParameters): Promise<any> => {
   try {
     if (DELETE_LAB_ORDER_ZAMBDA_ID == null) {
-      throw new Error('delete lab order environment variable could not be loaded');
+      throw new Error('delete lab order zambda environment variable could not be loaded');
     }
     const response = await oystehr.zambda.execute({
       id: DELETE_LAB_ORDER_ZAMBDA_ID,
@@ -580,7 +580,7 @@ export const updateLabOrderResources = async (
 ): Promise<any> => {
   try {
     if (UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID == null) {
-      throw new Error('update lab order resources environment variable could not be loaded');
+      throw new Error('update lab order resources zambda environment variable could not be loaded');
     }
     const response = await oystehr.zambda.execute({
       id: UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID,
