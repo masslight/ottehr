@@ -14,7 +14,6 @@ interface PageTitleProps {
 export const CSSPageTitle = styled(Typography)(({ theme }) => ({
   ...(theme?.typography as TypographyOptions).h4,
   textAlign: 'left',
-  fontWeight: 'bold',
   color: theme.palette.primary.dark,
 }));
 
