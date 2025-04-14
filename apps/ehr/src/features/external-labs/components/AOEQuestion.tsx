@@ -12,7 +12,7 @@ import { LabQuestionnaireResponseItem } from 'utils';
 
 interface AOEQuestionProps {
   question: QuestionnaireItem;
-  answer?: LabQuestionnaireResponseItem[];
+  answer?: LabQuestionnaireResponseItem;
 }
 
 export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {

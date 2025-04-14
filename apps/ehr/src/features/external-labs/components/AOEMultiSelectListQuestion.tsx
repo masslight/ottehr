@@ -1,11 +1,12 @@
 import { Select, MenuItem, InputLabel, OutlinedInput, Box, Chip } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import { LabQuestionnaireResponseItem } from 'utils';
 
 interface MultiListQuestionProps {
   questionText: string;
   linkId: string;
-  answer?: string[];
+  answer?: LabQuestionnaireResponseItem;
   answerOption: QuestionnaireItemAnswerOption[];
   required: boolean;
   field: ControllerRenderProps<FieldValues, string>;
