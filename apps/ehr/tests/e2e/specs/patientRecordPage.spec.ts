@@ -83,12 +83,12 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
     await page.waitForTimeout(2000);
     await page.goto('/patient/' + resourceHandler.patient.id);
   });
 
-  test('Click on "See all patient info button", Patient Info Page is opened', async () => {
+  test('Click on "See all patient info button", Patient Info Page is opened', async ({ page }) => {
     const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
     await patientRecordPage.clickSeeAllPatientInfoButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
