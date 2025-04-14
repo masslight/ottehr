@@ -34,9 +34,12 @@ export const useAppointment = (
     'appointment',
     'patient',
     'location',
+    'locationVirtual',
     'encounter',
     'questionnaireResponse',
-  ]) as VisitState;
+  ]);
+
+  const { location, locationVirtual, patient, encounter, questionnaireResponse, appointment } = visitData;
 
   const { isLoading, error, refetch } = useGetAppointment({ appointmentId }, (data) => {
     const bundleResources = getResources(data);
@@ -47,6 +50,7 @@ export const useAppointment = (
       appointment: bundleResources.appointment,
       patient: bundleResources.patient,
       location: bundleResources.location,
+      locationVirtual: bundleResources.locationVirtual,
       encounter: bundleResources.encounter,
       questionnaireResponse: bundleResources.questionnaireResponse,
 
@@ -61,21 +65,16 @@ export const useAppointment = (
   // update parsed appointment store on telemed data change
   useEffect(() => {
     const visitResources = Object.values([
-      visitData.appointment,
-      visitData.patient,
-      visitData.location,
-      visitData.encounter,
-      visitData.questionnaireResponse,
+      appointment,
+      patient,
+      location,
+      locationVirtual,
+      encounter,
+      questionnaireResponse,
     ] as FhirResource[]).filter(Boolean);
     const parsedResources = parseBundle(visitResources as Bundle[]);
     useMappedVisitDataStore.setState(parsedResources);
-  }, [
-    visitData.appointment,
-    visitData.patient,
-    visitData.location,
-    visitData.encounter,
-    visitData.questionnaireResponse,
-  ]);
+  }, [appointment, patient, location, locationVirtual, encounter, questionnaireResponse]);
 
   return { resources, mappedData, visitState: visitData, error, isLoading, refetch };
 };
