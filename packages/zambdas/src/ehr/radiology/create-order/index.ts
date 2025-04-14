@@ -13,7 +13,13 @@ import {
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
-import { ADVAPACS_FHIR_BASE_URL, ORDER_TYPE_CODE_SYSTEM } from '../shared';
+import {
+  ACCESSION_NUMBER_CODE_SYSTEM,
+  ADVAPACS_FHIR_BASE_URL,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+  HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
+  ORDER_TYPE_CODE_SYSTEM,
+} from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -44,7 +50,6 @@ export interface EnhancedBody
 // Constants
 const DATE_FORMAT = 'yyyyMMddhhmmssuu';
 const PERSON_IDENTIFIER_CODE_SYSTEM = 'https://terminology.fhir.ottehr.com/CodeSystem/person-uuid';
-const ACCESSION_NUMBER_CODE_SYSTEM = 'https://terminology.fhir.ottehr.com/CodeSystem/accession-number';
 const SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL =
   'https://extensions.fhir.ottehr.com/service-request-order-detail-pre-release';
 const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_URL =
@@ -151,8 +156,8 @@ const writeOurServiceRequest = (
         type: {
           coding: [
             {
-              system: 'http://terminology.hl7.org/CodeSystem/v2-0203',
-              code: 'ACSN',
+              system: HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
+              code: HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
             },
           ],
         },

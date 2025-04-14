@@ -180,6 +180,10 @@
     "ADVAPACS_CLIENT_SECRET": {
       "name": "ADVAPACS_CLIENT_SECRET",
       "value": "#var/ADVAPACS_CLIENT_SECRET"
+    },
+    "ADVAPACS_WEBHOOK_SECRET": {
+      "name": "ADVAPACS_WEBHOOK_SECRET",
+      "value": "#var/ADVAPACS_WEBHOOK_SECRET"
     }
   },
   "zambdas": {
@@ -807,6 +811,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/radiology/get-order-list/index",
       "zip": ".dist/zips/radiology-get-order-list.zip"
+    },
+    "RADIOLOGY-PACS-WEBHOOK": {
+      "name": "RADIOLOGY-PACS-WEBHOOK",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/pacs-webhook/index",
+      "zip": ".dist/zips/radiology-pacs-webhook.zip"
     }
   },
   "fhirResources": {
