@@ -36,7 +36,7 @@ export const Allergies: React.FC<AllergiesProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Allergies" noIntakeNotesButton={interactionMode !== 'intake'} />
+      <PageTitle label="Allergies" showIntakeNotesButton={interactionMode === 'intake'} />
       <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
         <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
         <MedicalHistoryDoubleCard

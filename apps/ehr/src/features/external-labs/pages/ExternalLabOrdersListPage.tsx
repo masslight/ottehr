@@ -12,7 +12,7 @@ export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps>
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle label="Labs" noIntakeNotesButton />
+        <PageTitle label="Labs" showIntakeNotesButton={false} />
         <OrderButton />
       </Box>
       <Paper>

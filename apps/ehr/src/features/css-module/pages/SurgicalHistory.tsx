@@ -37,7 +37,7 @@ export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Surgical History" noIntakeNotesButton={interactionMode !== 'intake'} />
+      <PageTitle label="Surgical History" showIntakeNotesButton={interactionMode === 'intake'} />
       <InfoAlert text="Ask: Has the patient ever had surgery? If yes, what was the surgery?" />
       <MedicalHistoryDoubleCard
         patientSide={<SurgicalHistoryPatientColumn />}

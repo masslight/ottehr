@@ -36,7 +36,7 @@ export const MedicalConditions: FC<MedicalConditionsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Medical Conditions" noIntakeNotesButton={interactionMode !== 'intake'} />
+      <PageTitle label="Medical Conditions" showIntakeNotesButton={interactionMode === 'intake'} />
       <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
         <InfoAlert text="Ask: Does the patient have any significant past or ongoing medical issues?" />
         <MedicalHistoryDoubleCard

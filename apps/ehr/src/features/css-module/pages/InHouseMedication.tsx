@@ -103,7 +103,11 @@ export const InHouseMedication: React.FC = () => {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle dataTestId={dataTestIds.inHouseMedicationsPage.title} label="Medications" noIntakeNotesButton />
+        <PageTitle
+          dataTestId={dataTestIds.inHouseMedicationsPage.title}
+          label="Medications"
+          showIntakeNotesButton={false}
+        />
         <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />
       </Box>
       <MedicationHistoryList />

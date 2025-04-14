@@ -210,7 +210,7 @@ export const ERxContainer: FC = () => {
       <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" gap={1} alignItems="center">
-            <PageTitle label="eRX" noIntakeNotesButton />
+            <PageTitle label="eRX" showIntakeNotesButton={false} />
             {(isLoading || isFetching || cancellationLoading.length > 0) && <CircularProgress size={16} />}
           </Stack>
           <Tooltip

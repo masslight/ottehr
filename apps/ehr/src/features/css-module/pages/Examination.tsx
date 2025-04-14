@@ -25,7 +25,7 @@ export const Examination: FC = () => {
         <ExamReadOnly />
       ) : (
         <Stack spacing={1}>
-          <PageTitle label="Examination" noIntakeNotesButton />
+          <PageTitle label="Examination" showIntakeNotesButton={false} />
           {IN_PERSON_EXAM_CARDS.map((card) => (
             <CollapsibleExamCardContainer
               key={card}

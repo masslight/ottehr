@@ -23,7 +23,7 @@ export const AssessmentCard: FC = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Assessment" noIntakeNotesButton />
+      <PageTitle label="Assessment" showIntakeNotesButton={false} />
       <AccordionCard label={css ? undefined : 'Assessment'}>
         <DoubleColumnContainer
           divider

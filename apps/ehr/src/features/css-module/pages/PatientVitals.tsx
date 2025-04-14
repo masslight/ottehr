@@ -39,7 +39,7 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   return (
     <Stack spacing={1}>
-      <PageTitle label="Vitals" noIntakeNotesButton={interactionMode !== 'intake'} />
+      <PageTitle label="Vitals" showIntakeNotesButton={interactionMode === 'intake'} />
       <VitalsTemperaturesCard />
       <VitalsHeartbeatCard />
       <VitalsRespirationRateCard />
