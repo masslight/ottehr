@@ -10,6 +10,7 @@ import {
   Organization,
   Appointment,
   Encounter,
+  DiagnosticReport,
 } from 'fhir/r4b';
 
 export type LabOrderResources = {
@@ -19,6 +20,7 @@ export type LabOrderResources = {
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
+  diagnosticReport?: DiagnosticReport;
   appointment: Appointment;
   encounter: Encounter;
 };
@@ -26,7 +28,15 @@ export type LabOrderResources = {
 export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
   const serviceRequestTemp = (
     await oystehr.fhir.search<
-      ServiceRequest | QuestionnaireResponse | Patient | Practitioner | Task | Organization | Appointment | Encounter
+      | ServiceRequest
+      | QuestionnaireResponse
+      | Patient
+      | Practitioner
+      | Task
+      | Organization
+      | DiagnosticReport
+      | Appointment
+      | Encounter
     >({
       resourceType: 'ServiceRequest',
       params: [
@@ -59,6 +69,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
           value: 'ServiceRequest:encounter',
         },
         {
+          name: '_revinclude',
+          value: 'DiagnosticReport:based-on',
+        },
+        {
           name: '_include:iterate',
           value: 'Encounter:appointment',
         },
@@ -82,6 +96,9 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   );
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
+  );
+  const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is DiagnosticReport => resourceTemp.resourceType === 'DiagnosticReport'
   );
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
@@ -128,6 +145,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
+  const diagnosticReport = diagnosticReportsTemp?.[0];
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
 
@@ -138,6 +156,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     questionnaireResponse: questionnaireResponse,
     task,
     organization,
+    diagnosticReport,
     appointment,
     encounter,
   };
