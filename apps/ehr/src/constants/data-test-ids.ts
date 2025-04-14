@@ -91,21 +91,21 @@ export const dataTestIds = {
   },
   primaryCarePhysicianContainer: {
     pcpCheckbox: 'pcp-checkbox',
-    firstName: 'first-name',
-    lastName: 'last-name',
-    practiceName: 'practice-name',
-    address: 'address',
-    mobile: 'mobile',
+    firstName: ' primaryCarePhysicianContainer-first-name',
+    lastName: ' primaryCarePhysicianContainer-last-name',
+    practiceName: ' primaryCarePhysicianContainer-practice-name',
+    address: ' primaryCarePhysicianContainer-address',
+    mobile: ' primaryCarePhysicianContainer-mobile',
   },
 
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
-    relationshipDropdown: 'relationship-dropdown',
-    firstName: 'first-name',
-    lastName: 'last-name',
-    dateOfBirthDropdown: 'date-of-birth-dropdown',
-    birthSexDropdown: 'birth-sex-dropdown',
-    phoneInput: 'phone-input',
+    relationshipDropdown: 'responsible-party-information-container-relationship-dropdown',
+    firstName: 'responsible-party-information-container-first-name',
+    lastName: 'responsible-party-information-container-last-name',
+    dateOfBirthDropdown: 'responsible-party-information-container-date-of-birth-dropdown',
+    birthSexDropdown: 'responsible-party-information-container-birth-sex-dropdown',
+    phoneInput: 'responsible-party-information-container-phone-input',
   },
 
   userSettingsContainer: {

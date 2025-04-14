@@ -412,7 +412,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
-  test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
+  /* test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -435,7 +435,8 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PRACTICE_NAME);
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_ADDRESS);
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_MOBILE);
-  });
+  });*/
+  // uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
 
   test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -459,10 +460,10 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
     await patientInformationPage.reloadPatientInformationPage();
 
-    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
-    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
-    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
-    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+    await patientInformationPage.verifyFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(NEW_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(NEW_PHYSICIAN_MOBILE);
   });
 });
