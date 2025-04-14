@@ -101,6 +101,7 @@ test.describe('Medical conditions', async () => {
     const context = await browser.newContext();
     page = await context.newPage();
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -174,7 +175,7 @@ test.describe('Medical conditions', async () => {
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       const column = page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn);
       await expect(column).toBeVisible();
-      await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
+      await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible({
         timeout: 30000,
       });
 
@@ -207,6 +208,7 @@ test.describe('Current medications', () => {
     const context = await browser.newContext();
     page = await context.newPage();
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -359,6 +361,7 @@ test.describe('Known allergies', () => {
     const context = await browser.newContext();
     page = await context.newPage();
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -415,7 +418,7 @@ test.describe('Known allergies', () => {
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
       const column = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn);
       await expect(column).toBeVisible();
-      await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)).not.toBeVisible({
+      await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible({
         timeout: 30000,
       });
 
