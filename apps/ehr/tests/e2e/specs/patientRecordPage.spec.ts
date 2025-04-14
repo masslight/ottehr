@@ -1,4 +1,4 @@
-import { BrowserContext, Page, test } from '@playwright/test';
+import { test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
@@ -71,9 +71,6 @@ const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
-let context: BrowserContext;
-let page: Page;
-
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
     await resourceHandler.setResources();
@@ -98,9 +95,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
 test.describe('Patient Record Page mutating tests', () => {
   let appointmentIds: string[] = [];
 
-  test.beforeAll(async ({ browser }) => {
-    context = await browser.newContext();
-    page = await context.newPage();
+  test.beforeAll(async ({ page }) => {
     page.on('response', async (response) => {
       if (response.url().includes('/create-appointment/')) {
         const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
