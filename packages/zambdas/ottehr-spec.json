@@ -832,6 +832,13 @@
       "src": "src/ehr/submit-lab-order/index",
       "zip": ".dist/zips/submit-lab-order.zip"
     },
+    "RESULTS-LAB-ORDER": {
+      "name": "RESULTS-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/results-lab-order/index",
+      "zip": ".dist/zips/results-lab-order.zip"
+    },
     "UPDATE-LAB-ORDER-RESOURCES": {
       "name": "UPDATE-LAB-ORDER-RESOURCES",
       "type": "http_auth",

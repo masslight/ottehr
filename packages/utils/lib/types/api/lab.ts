@@ -1,4 +1,4 @@
-import { Questionnaire } from 'fhir/r4b';
+import { Questionnaire, ServiceRequest } from 'fhir/r4b';
 
 export interface GetLabOrderDetailsInput {
   serviceRequestID: string;
@@ -8,6 +8,10 @@ export interface SubmitLabOrderInput {
   serviceRequestID: string;
   accountNumber: string;
   data: any;
+}
+
+export interface ResultsLabOrderInput {
+  serviceRequest: ServiceRequest;
 }
 
 export interface LabQuestionnaireResponse {

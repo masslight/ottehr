@@ -10,6 +10,8 @@ import {
   Organization,
   Appointment,
   Encounter,
+  DiagnosticReport,
+  Observation,
 } from 'fhir/r4b';
 
 export type LabOrderResources = {
@@ -19,14 +21,25 @@ export type LabOrderResources = {
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
+  diagnosticReport?: DiagnosticReport;
   appointment: Appointment;
   encounter: Encounter;
+  observations: Observation[];
 };
 
 export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
   const serviceRequestTemp = (
     await oystehr.fhir.search<
-      ServiceRequest | QuestionnaireResponse | Patient | Practitioner | Task | Organization | Appointment | Encounter
+      | ServiceRequest
+      | QuestionnaireResponse
+      | Patient
+      | Practitioner
+      | Task
+      | Organization
+      | DiagnosticReport
+      | Appointment
+      | Encounter
+      | Observation
     >({
       resourceType: 'ServiceRequest',
       params: [
@@ -59,8 +72,16 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
           value: 'ServiceRequest:encounter',
         },
         {
+          name: '_revinclude',
+          value: 'DiagnosticReport:based-on',
+        },
+        {
           name: '_include:iterate',
           value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'DiagnosticReport:result',
         },
       ],
     })
@@ -83,12 +104,19 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
   );
+  const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is DiagnosticReport => resourceTemp.resourceType === 'DiagnosticReport'
+  );
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
   );
   const encountersTemp: Encounter[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Encounter => resourceTemp.resourceType === 'Encounter'
   );
+  const observationsTemp: Observation[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Observation => resourceTemp.resourceType === 'Observation'
+  );
+  console.log(2, observationsTemp);
 
   if (serviceRequestsTemp?.length !== 1) {
     throw new Error('service request is not found');
@@ -114,6 +142,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     throw new Error('performing lab Org not found');
   }
 
+  if (diagnosticReportsTemp?.length !== 1) {
+    throw new Error('diagnosticreport not found');
+  }
+
   if (appointmentsTemp?.length !== 1) {
     throw new Error('appointment is not found');
   }
@@ -128,8 +160,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
+  const diagnosticReport = diagnosticReportsTemp?.[0];
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
+  const observations = observationsTemp;
 
   return {
     serviceRequest: serviceRequest,
@@ -138,8 +172,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     questionnaireResponse: questionnaireResponse,
     task,
     organization,
+    diagnosticReport,
     appointment,
     encounter,
+    observations,
   };
 }
 

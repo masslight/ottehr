@@ -1,12 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createFilesDocumentReferences, getPatchBinary, isValidUUID, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
+import { getPatchBinary, isValidUUID, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Coverage,
-  DocumentReference,
-  List,
   Location,
   Organization,
   Patient,
@@ -20,9 +18,7 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { getLabOrderResources } from '../shared/labs';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
-import Oystehr from '@oystehr/sdk';
-import { PdfInfo } from '../../shared/pdf/pdf-utils';
-import { randomUUID } from 'crypto';
+import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -373,7 +369,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       m2mtoken
     );
 
-    await makeLabOrderPdfDocumentReference(oystehr, pdfDetail, patient.id, appointment.id, encounter.id, undefined);
+    await makeLabPdfDocumentReference(oystehr, 'order', pdfDetail, patient.id, appointment.id, encounter.id, undefined);
 
     return {
       body: JSON.stringify({
@@ -392,50 +388,3 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   }
 };
-
-export async function makeLabOrderPdfDocumentReference(
-  oystehr: Oystehr,
-  pdfInfo: PdfInfo,
-  patientId: string,
-  appointmentId: string,
-  encounterId: string,
-  listResources: List[] | undefined
-): Promise<DocumentReference> {
-  const { docRefs } = await createFilesDocumentReferences({
-    files: [
-      {
-        url: pdfInfo.uploadURL,
-        title: pdfInfo.title,
-      },
-    ],
-    type: {
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '51991-8',
-          display: 'Referral lab test panel',
-        },
-      ],
-      text: 'Lab order document',
-    },
-    references: {
-      subject: {
-        reference: `Patient/${patientId}`,
-      },
-      context: {
-        related: [
-          {
-            reference: `Appointment/${appointmentId}`,
-          },
-        ],
-        encounter: [{ reference: `Encounter/${encounterId}` }],
-      },
-    },
-    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
-    oystehr,
-    generateUUID: randomUUID,
-    searchParams: [],
-    listResources,
-  });
-  return docRefs[0];
-}
