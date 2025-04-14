@@ -10,7 +10,6 @@ interface YesNoQuestionProps {
 }
 
 export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
-  // single select dropdown
   const {
     formState: { errors: _ },
   } = useFormContext();
