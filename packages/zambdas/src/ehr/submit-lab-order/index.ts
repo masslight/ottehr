@@ -194,23 +194,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         answer: answer,
       };
     });
-    // const intakeQuestionnaireItems: IntakeQuestionnaireItem[] = questionnaire.item?.map((item) => ({
-    //   //   linkId: item.linkId,
-    //   //   type: item.type,
-    //   alwaysFilter: false,
-    //   acceptsMultipleAnswers: false,
-    //   ...item,
-    // }));
-    // const validationSchema = makeValidationSchema(questionnaireItems);
-    // console.log(5, data);
-    // console.log(1, validationSchema);
-    // try {
-    //   await validationSchema.validate(data, { abortEarly: false });
-    //   console.log(test);
-    // } catch (error) {
-    //   console.log(error);
-    //   throw new Error('error when validating the labs');
-    // }
 
     const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
