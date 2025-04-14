@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { BrowserContext, Page, test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
@@ -71,6 +71,9 @@ const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
+let context: BrowserContext;
+let page: Page;
+
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
     await resourceHandler.setResources();
@@ -80,12 +83,12 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async () => {
     await page.waitForTimeout(2000);
     await page.goto('/patient/' + resourceHandler.patient.id);
   });
 
-  test('Click on "See all patient info button", Patient Info Page is opened', async ({ page }) => {
+  test('Click on "See all patient info button", Patient Info Page is opened', async () => {
     const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
     await patientRecordPage.clickSeeAllPatientInfoButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
@@ -95,7 +98,9 @@ test.describe('Patient Record Page non-mutating tests', () => {
 test.describe('Patient Record Page mutating tests', () => {
   let appointmentIds: string[] = [];
 
-  test.beforeAll(async ({ page }) => {
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
     page.on('response', async (response) => {
       if (response.url().includes('/create-appointment/')) {
         const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
@@ -107,7 +112,7 @@ test.describe('Patient Record Page mutating tests', () => {
     });
   });
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async () => {
     await resourceHandler.setResources();
     await page.waitForTimeout(2000);
     await page.goto('/patient/' + resourceHandler.patient.id);
@@ -179,7 +184,7 @@ test.describe('Patient Record Page mutating tests', () => {
     */
   });
 
-  test('Verify required data from Patient info block is displayed correctly', async ({ page }) => {
+  test('Verify required data from Patient info block is displayed correctly', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
@@ -199,7 +204,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_FIRST_NAME);
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
   });
-  test('Updated values from Patient info block are saved and displayed correctly', async ({ page }) => {
+  test('Updated values from Patient info block are saved and displayed correctly', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientLastName(NEW_PATIENT_LAST_NAME);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
@@ -224,7 +229,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
   });
 
-  test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
+  test('Verify required data from Contact info block is displayed correctly', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
     await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
@@ -252,7 +257,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_PHONE_NUMBER);
   });
 
-  test('Enter invalid email,zip and mobile on Contract info block, validation errors are shown', async ({ page }) => {
+  test('Enter invalid email,zip and mobile on Contract info block, validation errors are shown', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterZip('11');
     await patientInformationPage.clickSaveChangesButton();
@@ -275,7 +280,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorInvalidMobile();
   });
 
-  test('Updated values from Contact info block are saved and displayed correctly', async ({ page }) => {
+  test('Updated values from Contact info block are saved and displayed correctly', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterStreetAddress(NEW_STREET_ADDRESS);
     await patientInformationPage.enterAddressLineOptional(NEW_STREET_ADDRESS_OPTIONAL);
@@ -298,7 +303,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
   });
 
-  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
+  test('Verify data from Responsible party information block is displayed correctly', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
     await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
@@ -359,7 +364,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 
-  test('Check state, ethnicity, race, relationship to patient are required', async ({ page }) => {
+  test('Check state, ethnicity, race, relationship to patient are required', async () => {
     const addPatientPage = await openAddPatientPage(page);
     await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
     await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);
@@ -398,7 +403,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
   });
 
-  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
+  test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
     await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
@@ -407,7 +412,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
   });
 
-  test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {
+  test('Updated values from Patient details  block  are saved and displayed correctly', async () => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
     await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
