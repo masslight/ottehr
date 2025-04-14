@@ -481,7 +481,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_ADDRESS);
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_MOBILE);
   });*/
-  // uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
+  // todo: uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
 
   test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
