@@ -225,6 +225,11 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
 export const DEMO_VISIT_RESPONSIBLE_PHONE = '(233) 333-3333';
+export const DEMO_VISIT_PATIENT_ETHNICITY = 'Decline to Specify';
+export const DEMO_VISIT_PATIENT_RACE = 'Native Hawaiian or Other Pacific Islander';
+export const DEMO_VISIT_POINT_OF_DISCOVERY = 'Friend/Family';
+export const DEMO_VISIT_MARKETING_MESSAGING = true;
+export const DEMO_VISIT_PREFERRED_LANGUAGE = 'English';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -247,7 +252,7 @@ export function getContactInformationAnswers({
   email = 'test-email@test-domain-1237843298123.co',
   phoneNumber = '(202) 733-9622',
 
-  mobileOptIn = true,
+  mobileOptIn = DEMO_VISIT_MARKETING_MESSAGING,
 }: {
   willBe18?: boolean;
   isNewPatient?: boolean;
@@ -345,8 +350,10 @@ export function getContactInformationAnswers({
 }
 
 export function getPatientDetailsStepAnswers({
-  ethnicity = 'Decline to Specify',
-  race = 'Native Hawaiian or Other Pacific Islander',
+  ethnicity = DEMO_VISIT_PATIENT_ETHNICITY,
+  race = DEMO_VISIT_PATIENT_RACE,
+  pointOfDiscovery = DEMO_VISIT_POINT_OF_DISCOVERY,
+  preferredLanguage = DEMO_VISIT_PREFERRED_LANGUAGE,
   pronouns = 'She/her',
   ovrpInterest = 'Need more info',
 }: {
@@ -354,6 +361,8 @@ export function getPatientDetailsStepAnswers({
   race?: string;
   pronouns?: string;
   ovrpInterest?: string;
+  pointOfDiscovery?: string;
+  preferredLanguage?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'patient-details-page',
@@ -367,6 +376,10 @@ export function getPatientDetailsStepAnswers({
         answer: [{ valueString: race }],
       },
       {
+        linkId: 'patient-point-of-discovery',
+        answer: [{ valueString: pointOfDiscovery }],
+      },
+      {
         linkId: 'patient-pronouns',
         answer: [{ valueString: pronouns }],
       },
@@ -378,7 +391,7 @@ export function getPatientDetailsStepAnswers({
         linkId: 'preferred-language',
         answer: [
           {
-            valueString: 'English',
+            valueString: preferredLanguage,
           },
         ],
       },
