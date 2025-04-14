@@ -12,3 +12,38 @@ export interface CreateRadiologyZambdaOrderOutput {
 export interface CancelRadiologyOrderZambdaInput {
   serviceRequestId: string;
 }
+
+export interface GetRadiologyOrderListZambdaInput {
+  encounterId?: string;
+  patientId?: string;
+  pageIndex: number;
+  itemsPerPage: number;
+}
+
+export interface Pagination {
+  currentPageIndex: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+export enum RadiologyOrderStatus {
+  pending = 'pending',
+  performed = 'performed',
+  preliminary = 'preliminary',
+  final = 'final',
+  reviewed = 'reviewed',
+}
+
+export interface GetRadiologyOrderListZambdaOrder {
+  serviceRequestId: string;
+  studyType: string;
+  visitDateTime: string;
+  orderAddedDateTime: string;
+  providerName: string;
+  diagnosis: string;
+  status: RadiologyOrderStatus;
+}
+export interface GetRadiologyOrderListZambdaOutput {
+  orders: GetRadiologyOrderListZambdaOrder[];
+  pagination: Pagination;
+}

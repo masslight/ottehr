@@ -13,7 +13,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
-import { ADVAPACS_FHIR_BASE_URL } from '../shared';
+import { ADVAPACS_FHIR_BASE_URL, ORDER_TYPE_CODE_SYSTEM } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -136,6 +136,14 @@ const writeOurServiceRequest = (
   const now = DateTime.now();
   const serviceRequest: ServiceRequest = {
     resourceType: 'ServiceRequest',
+    meta: {
+      tag: [
+        {
+          system: ORDER_TYPE_CODE_SYSTEM,
+          code: 'radiology',
+        },
+      ],
+    },
     status: 'active',
     intent: 'order',
     identifier: [
@@ -180,7 +188,7 @@ const writeOurServiceRequest = (
         coding: [diagnosis],
       },
     ],
-    occurrenceDateTime: now.toISO(),
+    authoredOn: now.toISO(),
     extension: [
       {
         url: SERVICE_REQUEST_ORDER_DETAIL_PRE_RELEASE_URL,
@@ -306,7 +314,7 @@ const writeAdvaPacsTransaction = async (
             ],
           },
         ],
-        occurrenceDateTime: ourServiceRequest.occurrenceDateTime,
+        authoredOn: ourServiceRequest.authoredOn,
       },
     };
 

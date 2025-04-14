@@ -800,6 +800,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/radiology/create-order/index",
       "zip": ".dist/zips/radiology-create-order.zip"
+    },
+    "RADIOLOGY-ORDER-LIST": {
+      "name": "RADIOLOGY-ORDER-LIST",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/get-order-list/index",
+      "zip": ".dist/zips/radiology-get-order-list.zip"
     }
   },
   "fhirResources": {
