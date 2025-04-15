@@ -5,15 +5,16 @@ export const LabOrderLoading: React.FC = () => {
     <Box
       sx={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        width: '40px',
+        height: '40px',
+        top: 'calc(50% + 60px)',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+        zIndex: 10,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.7)',
-        zIndex: 10,
       }}
     >
       <CircularProgress sx={{ color: 'primary.main' }} size={40} thickness={4} />
