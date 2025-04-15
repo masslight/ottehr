@@ -1123,12 +1123,6 @@ const mapResourceToChartDataFields = (
     const resourse = makeObservationDTO(resource);
     if (resourse) data.observations?.push(resourse);
     resourceMapped = true;
-  } else if (
-    resource?.resourceType === 'Condition' &&
-    chartDataResourceHasMetaTagByCode(resource, 'ai-potential-diagnosis')
-  ) {
-    data.conditions?.push(makeConditionDTO(resource));
-    resourceMapped = true;
   }
   return {
     chartDataFields: data,
