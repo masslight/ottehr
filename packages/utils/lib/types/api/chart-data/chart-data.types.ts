@@ -54,6 +54,7 @@ export interface ChartDataFields {
   disposition?: DispositionDTO;
   episodeOfCare?: HospitalizationDTO[];
   diagnosis?: DiagnosisDTO[];
+  aiPotentialDiagnosis?: DiagnosisDTO[];
   patientInfoConfirmed?: BooleanValueDTO;
   addToVisitNote?: BooleanValueDTO;
   addendumNote?: FreeTextNoteDTO;

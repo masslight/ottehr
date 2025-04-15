@@ -1198,6 +1198,15 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
     data.addendumNote = { text: addendumNote.valueString };
   }
 
+  // 6. AI potential diagnoses
+  resources
+    .filter(
+      (resource) => resource.resourceType === 'Condition' && resource.meta?.tag?.[0].code === 'ai-potential-diagnosis'
+    )
+    .forEach((condition) => {
+      data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
+    });
+
   return data;
 }
 
