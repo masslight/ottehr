@@ -385,6 +385,24 @@
       "src": "src/ehr/create-lab-order/index",
       "zip": ".dist/zips/create-lab-order.zip"
     },
+    "GET-CREATE-LAB-ORDER-RESOURCES": {
+      "name": "GET-CREATE-LAB-ORDER-RESOURCES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-create-lab-order-resources/index",
+      "zip": ".dist/zips/get-create-lab-order-resources.zip"
+    },
+    "CREATE_REVIEW_LAB_RESULTS_TASK": {
+      "name": "CREATE_REVIEW_LAB_RESULTS_TASK",
+      "type": "subscription",
+      "runtime": "nodejs20.x",
+      "src": "src/subscriptions/diagnostic-report/create-review-lab-results-task/index",
+      "zip": ".dist/zips/create-review-lab-results-task.zip",
+      "subscription": {
+        "criteria": "DiagnosticReport?category=OSL",
+        "reason": "Received new preliminary or final lab result"
+      }
+    },
     "PAPERWORK-TO-PDF": {
       "name": "PAPERWORK-TO-PDF",
       "type": "http_auth",
@@ -792,6 +810,41 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
+    },
+    "GET-LAB-ORDERS": {
+      "name": "GET-LAB-ORDERS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-lab-orders/index",
+      "zip": ".dist/zips/get-lab-orders.zip"
+    },
+    "DELETE-LAB-ORDER": {
+      "name": "DELETE-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/delete-lab-order/index",
+      "zip": ".dist/zips/delete-lab-order.zip"
+    },
+    "GET-LAB-ORDER-DETAILS": {
+      "name": "GET-LAB-ORDER-DETAILS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-lab-order-details/index",
+      "zip": ".dist/zips/get-lab-order-details.zip"
+    },
+    "SUBMIT-LAB-ORDER": {
+      "name": "SUBMIT-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/submit-lab-order/index",
+      "zip": ".dist/zips/submit-lab-order.zip"
+    },
+    "UPDATE-LAB-ORDER-RESOURCES": {
+      "name": "UPDATE-LAB-ORDER-RESOURCES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-lab-order-resources/index",
+      "zip": ".dist/zips/update-lab-order-resources.zip"
     },
     "EHR-GET-SCHEDULE": {
       "name": "EHR-GET-SCHEDULE",

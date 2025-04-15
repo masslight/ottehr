@@ -1,5 +1,4 @@
 import fontkit from '@pdf-lib/fontkit';
-import { Patient } from 'fhir/r4';
 import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
@@ -133,7 +132,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
       page.drawText(line, {
         font,
         size,
-        x: currXPos + font.widthOfTextAtSize(fieldName, size) + regularTextWidth,
+        x: currXPos + styles.regularTextBold.font.widthOfTextAtSize(fieldName, styles.regularTextBold.fontSize) + 1,
         y: currYPos - index * regularLineHeight,
       });
     });
@@ -238,13 +237,13 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   addNewLine();
 
   // Location details
-  drawSubHeader(`Ottehr${data.locationName}`);
+  drawSubHeader(data.locationName);
   drawFieldLineRight('Req ID:', data.reqId);
   addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.locationStreetAddress.toUpperCase());
-  drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularText.font);
+  drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularTextBold.font);
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
   drawRegularTextLeft(
@@ -260,7 +259,6 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   await drawImage(faxIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.locationFax);
-  drawRegularTextRight(data.serviceName.toUpperCase());
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
@@ -281,7 +279,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   drawRegularTextLeft(`${data.patientDOB},`);
   currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientDOB, styles.regularText.fontSize) + regularTextWidth;
   drawFieldLineLeft('ID:', data.patientId);
-  drawFieldLineRight(`Today's Date:`, data.todayDate);
+  drawFieldLineRight(`Today's date:`, data.todayDate);
   addNewLine();
   currXPos = styles.margin.x;
   await drawImage(locationIcon);
@@ -292,7 +290,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   await drawImage(callIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientPhone);
-  drawFieldLineRight('Order Date:', data.orderDate);
+  drawFieldLineRight('Order date:', data.orderDate);
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
@@ -321,17 +319,15 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   }
 
   // AOE Answers section
-  if (data.aoeAnswers && Array.isArray(data.aoeAnswers)) {
-    drawSubHeader('AOE Answers');
-    addNewLine();
+  drawSubHeader('AOE Answers');
+  addNewLine();
 
-    data.aoeAnswers.forEach((answer, index) => {
-      drawFieldLineLeft(`Question ${index + 1}:`, answer);
-      addNewLine();
-    });
-
+  data.aoeAnswers.forEach((item) => {
+    drawFieldLineLeft(`${item.question}:`, item.answer.toString());
     addNewLine();
-  }
+  });
+
+  addNewLine();
 
   // Additional fields
   drawSeparatorLine(lightGreyOpacity);
@@ -348,7 +344,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   drawSeparatorLine(lightGreyOpacity);
   addNewLine();
   drawColumnText(
-    data.labType.toUpperCase(),
+    data.orderName.toUpperCase(),
     styles.subHeader.font,
     styles.subHeader.fontSize,
     `${data.assessmentCode} ${data.assessmentName}`,
@@ -376,14 +372,10 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsOrderFormPDF(
   input: ExternalLabsData,
-  patient: Patient,
+  patientID: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  if (!patient.id) {
-    throw new Error('No patient id found for external lab order');
-  }
-
   console.log('Creating labs order form pdf bytes');
   const pdfBytes = await createExternalLabsOrderFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
@@ -393,7 +385,7 @@ export async function createExternalLabsOrderFormPDF(
   const bucketName = 'visit-notes';
   const fileName = 'ExternalLabsOrderForm.pdf';
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
+  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
