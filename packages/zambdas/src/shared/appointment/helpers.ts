@@ -19,6 +19,7 @@ import {
   removeTimeFromDate,
 } from 'utils';
 import { AppointmentInsuranceRelatedResourcesExtension } from 'utils';
+import { assertDefined } from '../helpers';
 
 export function getPatientFromAppointment(appointment: Appointment): string | undefined {
   return appointment.participant
@@ -233,8 +234,14 @@ export function creatingPatientUpdateRequest(
     patientPatchOperations.push(...emailPatchOps);
   }
 
-  const fhirPatientOfficialName = maybeFhirPatient?.name?.find((name) => name.use === 'official');
-  const fhirPatientOfficialNameIndex = maybeFhirPatient.name?.findIndex((name) => name.use === 'official');
+  const fhirPatientName = assertDefined(maybeFhirPatient.name, 'patient.name');
+
+  let fhirPatientOfficialNameIndex = fhirPatientName.findIndex((name) => name.use === 'official');
+  if (fhirPatientOfficialNameIndex === -1) {
+    fhirPatientOfficialNameIndex = 0;
+  }
+
+  const fhirPatientOfficialName = maybeFhirPatient?.name?.[fhirPatientOfficialNameIndex];
   const fhirPatientMiddleName = fhirPatientOfficialName?.given?.[1];
 
   if (patient.middleName && !fhirPatientMiddleName) {
