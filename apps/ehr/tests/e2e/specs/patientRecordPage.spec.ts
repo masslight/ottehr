@@ -1,4 +1,4 @@
-import { BrowserContext, Page, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
@@ -510,5 +510,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPracticeNameFromPcp(NEW_PRACTICE_NAME);
     await patientInformationPage.verifyAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
     await patientInformationPage.verifyMobileFromPcp(NEW_PHYSICIAN_MOBILE);
+    expect(true).toBe(false);
   });
 });
