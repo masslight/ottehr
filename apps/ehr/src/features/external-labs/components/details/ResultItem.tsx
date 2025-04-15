@@ -34,7 +34,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
           }}
         >
           <span>{resultDetails.testType}:</span>
-          <span>{resultDetails.testName}</span>
+          <span>{resultDetails.testItem}</span>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
           <LabTableStatusChip status={resultDetails.labStatus} />

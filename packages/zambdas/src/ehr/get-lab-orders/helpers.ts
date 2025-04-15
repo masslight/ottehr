@@ -1151,7 +1151,7 @@ export const parseResultDetails = (
   const PSTTask = parseTaskPST(tasks, serviceRequest.id);
 
   const details = {
-    testName: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
+    testItem: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
     labStatus:
       // todo: move status checkers to helper
       result.status === 'final' && task.status === 'ready'

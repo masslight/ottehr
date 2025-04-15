@@ -71,7 +71,7 @@ export type LabOrderReceivedHistoryRow = {
 export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceivedHistoryRow;
 
 export type LabOrderResultDetails = {
-  testName: string;
+  testItem: string;
   testType: 'Ordered test' | 'Reflex test';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
