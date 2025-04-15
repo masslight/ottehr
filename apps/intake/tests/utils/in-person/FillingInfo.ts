@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page, expect, Locator } from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class FillingInfo {
@@ -112,6 +112,22 @@ export class FillingInfo {
     return { firstName, lastName, BirthSex, email, reason, enteredReason };
   }
 
+  private async pressComboBox(locator: Locator) {
+    await locator.hover();
+    const cursorStyle = await locator.evaluate((el) => window.getComputedStyle(el).cursor);
+    expect(cursorStyle).toBe('pointer');
+    await locator.click({ force: true });
+  }
+
+  private async pressDropdownOption(options: Parameters<typeof this.page.getByRole>['1'], awaitDropdownClose = true) {
+    await expect(this.page.getByRole('option', options)).toBeVisible();
+    const locator = this.page.getByRole('option', options);
+    await locator.click();
+    if (awaitDropdownClose) {
+      await expect(locator).toBeVisible({ visible: false });
+    }
+  }
+
   async fillDOBgreater18() {
     const today = new Date();
     const YearMax = today.getFullYear() - 19;
@@ -121,30 +137,15 @@ export class FillingInfo {
     const randomYear = this.getRandomInt(YearMin, YearMax).toString();
 
     await this.page.getByRole('combobox').nth(0).click();
-    await expect(this.page.getByRole('option', { name: randomMonth })).toBeVisible();
-    const randomMonthLocator = this.page.getByRole('option', { name: randomMonth });
-    await randomMonthLocator.click();
-    await expect(randomMonthLocator).toBeVisible({ visible: false });
+    await this.pressDropdownOption({ name: randomMonth });
 
     const dayFieldLocator = this.page.getByRole('combobox').nth(1);
-    await dayFieldLocator.hover();
-    const cursorDayStyle = await dayFieldLocator.evaluate((el) => window.getComputedStyle(el).cursor);
-    expect(cursorDayStyle).toBe('pointer');
-
-    await dayFieldLocator.click({ force: true });
-    await expect(this.page.getByRole('option', { name: randomDay, exact: true })).toBeVisible();
-    const randomDayLocator = this.page.getByRole('option', { name: randomDay, exact: true });
-    await randomDayLocator.click();
-    await expect(randomDayLocator).toBeVisible({ visible: false });
+    await this.pressComboBox(dayFieldLocator);
+    await this.pressDropdownOption({ name: randomDay, exact: true });
 
     const yearFieldLocator = this.page.getByRole('combobox').nth(2);
-    await yearFieldLocator.hover();
-    const cursorYearStyle = await yearFieldLocator.evaluate((el) => window.getComputedStyle(el).cursor);
-    expect(cursorYearStyle).toBe('pointer');
-
-    await yearFieldLocator.click({ force: true });
-    await expect(this.page.getByRole('option', { name: randomYear })).toBeVisible();
-    await this.page.getByRole('option', { name: randomYear }).click();
+    await this.pressComboBox(yearFieldLocator);
+    await this.pressDropdownOption({ name: randomYear }, false);
 
     return { randomMonth, randomDay, randomYear };
   }
