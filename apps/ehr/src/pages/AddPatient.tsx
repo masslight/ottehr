@@ -139,8 +139,6 @@ export default function AddPatient(): JSX.Element {
     if (!locationSlug) {
       console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
       return;
-    } else {
-      console.log('have loctation slug: ', locationSlug, selectedLocation);
     }
     if (
       !oystehrZambda ||
