@@ -16,6 +16,8 @@ import {
   CreateLabOrderParameters,
   GetCreateLabOrderResources,
   LabOrderResourcesRes,
+  GetLabOrderResultsParams,
+  GetLabOrderResultRes,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -60,6 +62,7 @@ const GET_CREATE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CREATE_LAB_O
 const GET_LAB_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID;
 const DELETE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_DELETE_LAB_ORDER_ZAMBDA_ID;
 const UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID;
+const GET_LAB_ORDER_RESULTS = import.meta.env.VITE_APP_GET_LAB_ORDER_RESULTS;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -510,6 +513,25 @@ export const getCreateLabOrderResources = async (
     }
     const response = await oystehr.zambda.execute({
       id: GET_CREATE_LAB_ORDER_RESOURCES,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getLabOrderResults = async (
+  oystehr: Oystehr,
+  parameters: GetLabOrderResultsParams
+): Promise<GetLabOrderResultRes> => {
+  try {
+    if (GET_LAB_ORDER_RESULTS == null) {
+      throw new Error('get lab order results order environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_LAB_ORDER_RESULTS,
       ...parameters,
     });
     return chooseJson(response);

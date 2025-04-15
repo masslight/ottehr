@@ -1,4 +1,4 @@
-import { Questionnaire } from 'fhir/r4b';
+import { Questionnaire, Encounter } from 'fhir/r4b';
 
 export interface GetLabOrderDetailsInput {
   serviceRequestID: string;
@@ -21,4 +21,18 @@ export interface OrderDetails {
   accountNumber: string;
   sampleCollectionDateTime: string;
   labQuestions: Questionnaire;
+}
+
+export interface GetLabOrderResultsParams {
+  encounter: Encounter;
+}
+
+export interface LabOrderResultPDFConfig {
+  name: string;
+  url: string;
+  orderNumber?: string;
+}
+export interface GetLabOrderResultRes {
+  resultsPending: boolean;
+  labOrderResults: (LabOrderResultPDFConfig & { reflexResults?: LabOrderResultPDFConfig[] })[];
 }

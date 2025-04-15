@@ -16,6 +16,7 @@ import {
   PrivacyPolicyAcknowledgement,
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
+  LabResultsReviewContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { getSelectors } from '../../../../shared/store/getSelectors';
@@ -90,6 +91,7 @@ export const ProgressNoteDetails: FC = () => {
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
+    <LabResultsReviewContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,
     <PrivacyPolicyAcknowledgement />,

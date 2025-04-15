@@ -15,6 +15,8 @@ export const LAB_ORDER_TASK = {
   },
 } as const;
 
+export const LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
+
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';

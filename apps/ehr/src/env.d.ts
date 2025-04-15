@@ -43,6 +43,7 @@ interface ImportMetaEnv {
   readonly VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID?: string;
   readonly VITE_APP_GET_CREATE_LAB_ORDER_RESOURCES?: string;
   readonly VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID?: string;
+  readonly VITE_APP_GET_LAB_ORDER_RESULTS?: string;
 }
 
 interface ImportMeta {
