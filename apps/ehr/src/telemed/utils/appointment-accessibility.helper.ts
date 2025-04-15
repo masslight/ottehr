@@ -1,8 +1,8 @@
 import { Appointment, Encounter, Location } from 'fhir/r4b';
 import {
   PractitionerLicense,
-  TelemedAppointmentStatusEnum,
   StateType,
+  TelemedAppointmentStatusEnum,
   allLicensesForPractitioner,
   checkEncounterHasPractitioner,
   mapStatusToTelemed,
@@ -11,7 +11,7 @@ import { FeatureFlags } from '../../features/css-module/context/featureFlags';
 import { EvolveUser } from '../../hooks/useEvolveUser';
 
 export type GetAppointmentAccessibilityDataProps = {
-  location?: Location;
+  locationVirtual?: Location;
   encounter: Encounter;
   appointment?: Appointment;
   user?: EvolveUser;
@@ -31,7 +31,7 @@ export type GetAppointmentAccessibilityDataResult = {
 };
 
 export const getAppointmentAccessibilityData = ({
-  location,
+  locationVirtual,
   encounter,
   appointment,
   user,
@@ -39,9 +39,10 @@ export const getAppointmentAccessibilityData = ({
 }: GetAppointmentAccessibilityDataProps): GetAppointmentAccessibilityDataResult => {
   const allLicenses = user?.profileResource && allLicensesForPractitioner(user.profileResource);
   const licensedPractitionerStates = allLicenses?.map((item) => item.state);
-  const state = location?.address?.state as StateType;
+  const state = locationVirtual?.address?.state as StateType;
   const isPractitionerLicensedInState =
     !!state && !!licensedPractitionerStates && licensedPractitionerStates.includes(state as StateType);
+
   const status = mapStatusToTelemed(encounter.status, appointment?.status);
   const isEncounterAssignedToCurrentPractitioner =
     !!user?.profileResource && checkEncounterHasPractitioner(encounter, user.profileResource);

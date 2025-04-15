@@ -53,16 +53,25 @@ enum Gender {
 export const AppointmentSidePanel: FC = () => {
   const theme = useTheme();
 
-  const { appointment, encounter, patient, location, questionnaireResponse, isChartDataLoading, chartData } =
-    getSelectors(useAppointmentStore, [
-      'isChartDataLoading',
-      'appointment',
-      'patient',
-      'encounter',
-      'location',
-      'questionnaireResponse',
-      'chartData',
-    ]);
+  const {
+    appointment,
+    encounter,
+    patient,
+    location,
+    locationVirtual,
+    questionnaireResponse,
+    isChartDataLoading,
+    chartData,
+  } = getSelectors(useAppointmentStore, [
+    'isChartDataLoading',
+    'appointment',
+    'patient',
+    'encounter',
+    'location',
+    'locationVirtual',
+    'questionnaireResponse',
+    'chartData',
+  ]);
 
   const user = useEvolveUser();
 
@@ -116,7 +125,7 @@ export const AppointmentSidePanel: FC = () => {
 
   const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
 
-  if (!patient || !location) {
+  if (!patient || !locationVirtual) {
     return null;
   }
 
@@ -212,7 +221,9 @@ export const AppointmentSidePanel: FC = () => {
               : 'No known allergies'}
           </Typography>
 
-          <Typography variant="body2">Location: {location.address?.state}</Typography>
+          {location?.name && <Typography variant="body2">Location: {location.name}</Typography>}
+
+          {locationVirtual && <Typography variant="body2">State: {locationVirtual?.address?.state}</Typography>}
 
           <Typography variant="body2">Address: {address}</Typography>
 

@@ -15,7 +15,7 @@ import {
   ServiceRequest,
 } from 'fhir/r4b';
 import {
-  AI_OBSERVATION_FIELD,
+  AiObservationField,
   ASQ_FIELD,
   ASQKeys,
   HISTORY_OBTAINED_FROM_FIELD,
@@ -261,7 +261,7 @@ export type ASQObservationDTO = {
 } & SaveableDTO;
 
 export type AiObservationDTO = {
-  field: AI_OBSERVATION_FIELD;
+  field: typeof AiObservationField;
   value: string;
 } & SaveableDTO;
 
@@ -327,6 +327,7 @@ export interface DiagnosisDTO extends SaveableDTO {
   code: string;
   display: string;
   isPrimary: boolean;
+  addedViaLabOrder?: boolean;
 }
 
 export interface BirthHistoryDTO extends SaveableDTO {
