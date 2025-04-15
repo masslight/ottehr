@@ -33,7 +33,7 @@ export const LabsTableRow = ({
       case 'testType':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.typeLab}</Box>
+            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.testItem}</Box>
             {(labOrderData.reflexResultsCount || 0) > 0 && (
               <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
                 + {labOrderData.reflexResultsCount} Reflex results

@@ -73,8 +73,8 @@ export const mapResourcesToLabOrderDTOs = (
       reflexResultsCount: details.reflexResultsCount,
       isPSC: details.isPSC,
       dx: details.dx,
-      typeLab: details.typeLab,
-      locationLab: details.locationLab,
+      testItem: details.testItem,
+      fillerLab: details.fillerLab,
       visitDate: details.visitDate,
       orderAddedDate: details.orderAddedDate, // order date
       performedBy: details.performedBy, // order performed
@@ -111,8 +111,8 @@ export const parseOrderDetails = ({
   orderAddedDate: string;
   lastResultReceivedDate: string;
   visitDate: string;
-  typeLab: string;
-  locationLab: string;
+  testItem: string;
+  fillerLab: string;
   isPSC: boolean;
   reflexResultsCount: number;
   diagnoses: DiagnosisDTO[];
@@ -129,12 +129,12 @@ export const parseOrderDetails = ({
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
-  const { type: typeLab, location: locationLab } = parseLabInfo(serviceRequest);
+  const { testItem, fillerLab } = parseLabInfo(serviceRequest);
 
   return {
     appointmentId,
-    typeLab,
-    locationLab,
+    testItem,
+    fillerLab,
     serviceRequestId: serviceRequest.id,
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
     lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, results, tasks, cache),
@@ -709,21 +709,21 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
   return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || NOT_FOUND;
 };
 
-export const parseLabInfo = (serviceRequest: ServiceRequest): { type: string; location: string } => {
+export const parseLabInfo = (serviceRequest: ServiceRequest): { testItem: string; fillerLab: string } => {
   const activityDefinition = serviceRequest.contained?.find(
     (resource) => resource.resourceType === 'ActivityDefinition'
   ) as ActivityDefinition | undefined;
 
   if (!activityDefinition) {
     return {
-      type: 'Unknown Test',
-      location: 'Unknown Lab',
+      testItem: 'Unknown Test',
+      fillerLab: 'Unknown Lab',
     };
   }
 
   return {
-    type: activityDefinition.title || 'Unknown Test',
-    location: activityDefinition.publisher || 'Unknown Lab',
+    testItem: activityDefinition.title || 'Unknown Test',
+    fillerLab: activityDefinition.publisher || 'Unknown Lab',
   };
 };
 

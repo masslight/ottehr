@@ -81,8 +81,8 @@ export type LabOrderResultDetails = {
 
 export interface LabOrderDTO {
   serviceRequestId: string; // ServiceRequest.id
-  typeLab: string; // ServiceRequest.contained[0](ActivityDefinition).title
-  locationLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
+  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
   providerName: string; // SR.requester name
   diagnoses: DiagnosisDTO[]; // SR.reasonCode
