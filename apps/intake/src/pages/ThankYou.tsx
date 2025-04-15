@@ -284,7 +284,7 @@ const ThankYou = (): JSX.Element => {
   };
 
   const aiChatBanner = (): ReactElement => {
-    const bannerEnabled = true; //import.meta.env.VITE_APP_AI_INTERVIEW_BANNER_ENABLED === 'true';
+    const bannerEnabled = import.meta.env.VITE_APP_AI_INTERVIEW_BANNER_ENABLED === 'true';
     return (
       <>
         {bannerEnabled && (
