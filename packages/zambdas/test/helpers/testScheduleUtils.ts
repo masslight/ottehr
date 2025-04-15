@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Location, LocationHoursOfOperation } from 'fhir/r4b';
+import { Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Capacity,
@@ -22,7 +22,7 @@ const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 type DayOfWeek = (typeof DAYS)[number];
 
 // todo: avoid name collision with fhir resource
-export interface Schedule {
+export interface ScheduleDTO {
   [day: DayLong]: {
     open: number;
     close: number;
@@ -46,7 +46,7 @@ export interface HoursOfOpConfig {
 interface CreateScheduleConfig {
   hoursInfo: HoursOfOpConfig;
   hourlyCapacity: number;
-  schedule: Schedule;
+  schedule: ScheduleDTO;
   openingBuffer: number;
   closingBuffer: number;
 }
@@ -97,8 +97,8 @@ export const editHoursOfOperationForDay = (
   return hours;
 };
 
-export const createGenericSchedule = (open: HourOfDay, close: HourOfDay | 24): Schedule => {
-  const schedule: Schedule = {};
+export const createGenericSchedule = (open: HourOfDay, close: HourOfDay | 24): ScheduleDTO => {
+  const schedule: ScheduleDTO = {};
   DAYS_LONG.forEach((day) => {
     schedule[day] = {
       open: open,
@@ -124,7 +124,7 @@ export const updateScheduleForDay = ({
   schedule,
   openingBuffer,
   closingBuffer,
-}: CreateScheduleConfig): Schedule => {
+}: CreateScheduleConfig): ScheduleDTO => {
   const { dayOfWeek, open, close, workingDay } = hoursInfo;
   const adjustedClose = close === 0 ? 24 : close;
   schedule[dayOfWeek].open = open;
@@ -143,7 +143,7 @@ export const updateScheduleForDay = ({
   return schedule;
 };
 
-export const makeLocation = (schedule: string, operationHours: LocationHoursOfOperation[]): Location => {
+export const makeLocation = (operationHours: LocationHoursOfOperation[]): Location => {
   return {
     resourceType: 'Location',
     id: randomUUID(),
@@ -162,6 +162,19 @@ export const makeLocation = (schedule: string, operationHours: LocationHoursOfOp
         value: 'TEST',
       },
     ],
+    hoursOfOperation: operationHours,
+  };
+};
+
+export const makeSchedule = (locationRef: string, json: string): Schedule => {
+  return {
+    resourceType: 'Schedule',
+    id: randomUUID(),
+    actor: [
+      {
+        reference: locationRef,
+      },
+    ],
     extension: [
       {
         url: 'http://hl7.org/fhir/StructureDefinition/timezone',
@@ -169,10 +182,9 @@ export const makeLocation = (schedule: string, operationHours: LocationHoursOfOp
       },
       {
         url: SCHEDULE_EXTENSION_URL,
-        valueString: schedule,
+        valueString: json,
       },
     ],
-    hoursOfOperation: operationHours,
   };
 };
 
@@ -194,17 +206,17 @@ export const setHourlyCapacity = (schedule: DailySchedule, day: DOW, hour: numbe
   };
 };
 
-export const replaceSchedule = (location: Location, schedule: ScheduleExtension): Location => {
-  const scheduleIdx = location.extension?.findIndex((ext) => ext.url === SCHEDULE_EXTENSION_URL);
-  const updatedLocation: Location = { ...location };
-  if (scheduleIdx !== undefined && scheduleIdx >= 0 && updatedLocation.extension) {
-    updatedLocation.extension[scheduleIdx] = {
-      ...updatedLocation.extension[scheduleIdx],
-      valueString: JSON.stringify(schedule),
+export const replaceSchedule = (currentSchedule: Schedule, newExtension: ScheduleExtension): Schedule => {
+  const scheduleIdx = currentSchedule.extension?.findIndex((ext) => ext.url === SCHEDULE_EXTENSION_URL);
+  const modifiedSchedule: Schedule = { ...currentSchedule };
+  if (scheduleIdx !== undefined && scheduleIdx >= 0 && modifiedSchedule.extension) {
+    modifiedSchedule.extension[scheduleIdx] = {
+      ...modifiedSchedule.extension[scheduleIdx],
+      valueString: JSON.stringify(newExtension),
     };
-    return updatedLocation;
+    return modifiedSchedule;
   } else {
-    return location;
+    return currentSchedule;
   }
 };
 
@@ -240,15 +252,15 @@ export const makeLocationWithSchedule = (
   closingBuffer: number,
   overrideInfo?: OverrideScheduleConfig[],
   closures: Closure[] = []
-): Location => {
+): { schedule: Schedule; location: Location } => {
   let operationHours: LocationHoursOfOperation[] = getGenericHoursOfOperation();
-  let schedule: Schedule | undefined;
+  let scheduleDTO: ScheduleDTO | undefined;
   hoursInfo.forEach((hoursInfoForDay) => {
     operationHours = editHoursOfOperationForDay(hoursInfoForDay, operationHours);
-    schedule = updateScheduleForDay({
+    scheduleDTO = updateScheduleForDay({
       hoursInfo: hoursInfoForDay,
       hourlyCapacity,
-      schedule: schedule ?? createGenericSchedule(hoursInfoForDay.open, hoursInfoForDay.close),
+      schedule: scheduleDTO ?? createGenericSchedule(hoursInfoForDay.open, hoursInfoForDay.close),
       openingBuffer,
       closingBuffer,
     });
@@ -261,12 +273,13 @@ export const makeLocationWithSchedule = (
     });
   }
 
-  if (!schedule) {
+  if (!scheduleDTO) {
     throw new Error('you messed up');
   }
 
-  const scheduleComplete = { schedule, scheduleOverrides, closures };
+  const scheduleComplete = { schedule: scheduleDTO, scheduleOverrides, closures };
   const scheduleString = JSON.stringify(scheduleComplete);
-  const location = makeLocation(scheduleString, operationHours);
-  return location;
+  const location = makeLocation(operationHours);
+  const schedule = makeSchedule(`Location/${location.id}`, scheduleString);
+  return { location, schedule };
 };

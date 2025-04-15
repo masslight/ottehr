@@ -154,7 +154,7 @@ export async function inviteUser(
   applicationId: string,
   includeDefaultSchedule?: boolean,
   slug?: string
-): Promise<{ invitationUrl: string | undefined; userId: string | undefined }> {
+): Promise<{ invitationUrl: string | undefined; userProfileId: string | undefined }> {
   const defaultRoles = await updateUserRoles(oystehr);
 
   const practitionerQualificationExtension: any = [];
@@ -216,7 +216,7 @@ export async function inviteUser(
 
   if (activeUsers.find((user: any) => user.email === email)) {
     console.log('User is already invited to project');
-    return { invitationUrl: undefined, userId: undefined };
+    return { invitationUrl: undefined, userProfileId: undefined };
   } else {
     console.log('Inviting user to project');
     try {
@@ -227,7 +227,7 @@ export async function inviteUser(
         roles: defaultRoles.map((role) => role.id),
       });
       console.log('User invited:', invitedUser);
-      return { invitationUrl: invitedUser.invitationUrl, userId: invitedUser.profile.split('/')[1] };
+      return { invitationUrl: invitedUser.invitationUrl, userProfileId: invitedUser.profile.split('/')[1] };
     } catch (err) {
       console.error(err);
       throw new Error('Failed to create user');

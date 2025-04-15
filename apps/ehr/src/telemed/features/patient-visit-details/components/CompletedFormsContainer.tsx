@@ -38,7 +38,7 @@ export const CompletedFormsContainer: FC = () => {
   ]);
 
   const [consentPdfUrl, setConsentPdfUrl] = useState<string | undefined>();
-  const [hippaPdfUrl, setHippaPdfUrl] = useState<string | undefined>();
+  const [hipaaPdfUrl, setHipaaPdfUrl] = useState<string | undefined>();
 
   useGetDocumentReferences({ appointmentId: appointment?.id, patientId: patient?.id }, async (data) => {
     const authToken = await getAccessTokenSilently();
@@ -65,8 +65,8 @@ export const CompletedFormsContainer: FC = () => {
 
           if (title === 'Consent forms') {
             setConsentPdfUrl(presignedUrl);
-          } else if (title === 'HIPPA forms') {
-            setHippaPdfUrl(presignedUrl);
+          } else if (title === 'HIPAA forms') {
+            setHipaaPdfUrl(presignedUrl);
           }
         }
       }
@@ -80,7 +80,7 @@ export const CompletedFormsContainer: FC = () => {
 
   const signature = getQuestionnaireResponseByLinkId('signature', questionnaireResponse)?.answer?.[0]?.valueString;
   const fullName = getQuestionnaireResponseByLinkId('full-name', questionnaireResponse)?.answer?.[0]?.valueString;
-  const relaytionship = getQuestionnaireResponseByLinkId('consent-form-signer-relationship', questionnaireResponse)
+  const relationship = getQuestionnaireResponseByLinkId('consent-form-signer-relationship', questionnaireResponse)
     ?.answer?.[0]?.valueString;
   const signDate = questionnaireResponse?.authored && mdyStringFromISOString(questionnaireResponse?.authored);
   const ipAddress = getIpAddress(questionnaireResponse);
@@ -92,7 +92,7 @@ export const CompletedFormsContainer: FC = () => {
         {
           label: 'I have reviewed and accept HIPAA Acknowledgement',
           value: hipaaAcknowledgement ? 'Signed' : 'Not signed',
-          button: <PdfButton pdfUrl={hippaPdfUrl} />,
+          button: <PdfButton pdfUrl={hipaaPdfUrl} />,
         },
         {
           label: 'I have reviewed and accept Consent to Treat and Guarantee of Payment',
@@ -109,7 +109,7 @@ export const CompletedFormsContainer: FC = () => {
         },
         {
           label: 'Relationship to the patient',
-          value: relaytionship,
+          value: relationship,
         },
         {
           label: 'Date',

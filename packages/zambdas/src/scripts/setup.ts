@@ -1,6 +1,6 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { exec } from 'child_process';
-import { FhirResource, Organization } from 'fhir/r4b';
+import { FhirResource, HealthcareService, Organization, PractitionerRole, Schedule } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
 import {PROJECT_NAME, PROJECT_NAME_LOWER, FHIR_BASE_URL, PROJECT_DOMAIN, ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL, SCHEDULE_EXTENSION_URL } from 'utils';
@@ -159,7 +159,7 @@ export async function setupEHR(
   console.log('Starting to create sample provider.');
   const firstName = undefined;
   const lastName = undefined;
-  const { invitationUrl: invitationUrl1, userId: userId1 } = await inviteUser(
+  const { invitationUrl: invitationUrl1, userProfileId: userId1 } = await inviteUser(
     oystehr,
     providerEmail,
     firstName,
@@ -170,7 +170,7 @@ export async function setupEHR(
   );
 
   const provider2Email = 'jane.smith@' + PROJECT_DOMAIN;
-  const { userId: userId2 } = await inviteUser(
+  const { userProfileId: userId2 } = await inviteUser(
     oystehr,
     provider2Email,
     'Jane',
@@ -181,7 +181,7 @@ export async function setupEHR(
   );
 
   const provider3Email = 'kevin.brown@' + PROJECT_DOMAIN;
-  const { userId: userId3 } = await inviteUser(
+  const { userProfileId: userId3 } = await inviteUser(
     oystehr,
     provider3Email,
     'Kevin',
@@ -192,21 +192,12 @@ export async function setupEHR(
   );
 
   // create a group for the providers using the HealthcareService fhir resource
-  const healthcareServiceResource: FhirResource = {
+  // hs post requests
+  const healthcareServicePostRequests: BatchInputPostRequest<FhirResource>[] = [];
+  const healthcareServiceResource: HealthcareService = {
     resourceType: 'HealthcareService',
     name: 'Visit Followup Group',
     active: true,
-    extension: [
-      {
-        url: TIMEZONE_EXTENSION_URL,
-        valueString: 'America/New_York',
-      },
-      {
-        url: SCHEDULE_EXTENSION_URL,
-        valueString:
-          '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}',
-      },
-    ],
     identifier: [
       {
         system: FHIR_BASE_URL + '/r4/slug',
@@ -234,28 +225,74 @@ export async function setupEHR(
       },
     ],
   };
-  const healthcareService = await oystehr.fhir.create(healthcareServiceResource);
+
+  const hsPostRequest: BatchInputPostRequest<HealthcareService> = {
+    method: 'POST',
+    url: '/HealthcareService',
+    resource: healthcareServiceResource,
+    fullUrl: 'urn:uuid:default-hs-post-request',
+  };
+  healthcareServicePostRequests.push(hsPostRequest);
+
 
   // create a PractitionerRole for each provider
-  const userIds = [userId1, userId2, userId3];
-  for (const userId of userIds) {
+  const userProfileIds = [userId1, userId2, userId3];
+  for (const userId of userProfileIds) {
     if (!userId) {
       continue;
     }
-    const practitionerRoleResource: FhirResource = {
+    const practitionerRoleResource: PractitionerRole = {
       resourceType: 'PractitionerRole',
       practitioner: {
         reference: `Practitioner/${userId}`,
       },
       healthcareService: [
         {
-          reference: `HealthcareService/${healthcareService.id}`,
+          reference: `urn:uuid:${hsPostRequest.fullUrl}`,
         },
       ],
     };
 
-    await oystehr.fhir.create(practitionerRoleResource);
+    const practitionerRolePostRequest: BatchInputPostRequest<FhirResource> = {
+      method: 'POST',
+      url: '/PractitionerRole',
+      resource: practitionerRoleResource,
+      fullUrl: `urn:uuid:${userId}-practitioner-role`,
+    };
+    healthcareServicePostRequests.push(practitionerRolePostRequest);
+    
+    /* 
+      for each practitioner in the group, create a schedule resource - 
+      the set of bookable slots at any given time for the healthcare service 
+      is determined by pooling these individual provider schedules
+    */
+    const providerSchedule: Schedule = {
+      resourceType: 'Schedule',
+      active: true,
+      extension: [
+        {
+          url: TIMEZONE_EXTENSION_URL,
+          valueString: 'America/New_York',
+        },
+        {
+          url: SCHEDULE_EXTENSION_URL,
+          valueString:
+            '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}',
+        },
+      ],
+      actor: [{
+        reference: practitionerRolePostRequest.fullUrl,
+      }],
+    };
+    healthcareServicePostRequests.push({
+      method: 'POST',
+      url: '/Schedule',
+      resource: providerSchedule
+    });
+
   }
+  await oystehr.fhir.transaction<FhirResource>({requests: healthcareServicePostRequests});
+  console.log('Created healthcare service and practitioner roles.');
 
   // create a FHIR Group resource, for issue report email recipients
   // to populate this group, go to the console and locate the Group with ID equal to the

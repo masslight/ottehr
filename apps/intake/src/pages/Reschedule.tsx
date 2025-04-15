@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useAuth0 } from '@auth0/auth0-react';
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
@@ -9,6 +10,7 @@ import {
   APIError,
   CANT_UPDATE_CANCELED_APT_ERROR,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+  SlotListItem,
   VisitType,
   PROJECT_NAME,
   PROJECT_WEBSITE,
@@ -20,13 +22,14 @@ import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
+import { Slot } from 'fhir/r4b';
 
 const Reschedule = (): JSX.Element => {
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const { id: appointmentIDParam } = useParams();
   const [loading, setLoading] = useState<boolean>(true);
-  const [slotData, setSlotData] = useState<string[] | undefined>(undefined);
-  const [selectedSlot, setSelectedSlot] = useState<string | undefined>(undefined);
+  const [slotData, setSlotData] = useState<SlotListItem[] | undefined>(undefined);
+  const [selectedSlot, setSelectedSlot] = useState<Slot | undefined>(undefined);
   const [appointment, setAppointment] = useState<AppointmentBasicInfo | undefined>();
   const [pageNotFound, setPageNotFound] = useState(false);
   const { isLoading } = useAuth0();
@@ -67,19 +70,17 @@ const Reschedule = (): JSX.Element => {
           throw new Error('appointment details response missing location');
         }
         setAppointment(appointment);
-        const formattedStart =
-          DateTime.fromISO(appointment.start)
-            .setZone(location?.timezone)
-            .setLocale(i18n.language)
-            .toISO() || '';
-        setSelectedSlot(formattedStart);
+        console.log('appointment slot', appointment.slot);
+        setSelectedSlot(appointment.slot);
         const available = response.availableSlots;
-        const sortedDatesArray = available.sort((a: string, b: string) => a.localeCompare(b));
-        setSlotData(sortedDatesArray);
-        setLoading(false);
+        console.log('first available', available[0].slot);
+        // todo: get this data another way
+        setSlotData(available);
       } catch (e) {
         setPageNotFound(true);
         console.error('Error validating location: ', e);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -88,25 +89,32 @@ const Reschedule = (): JSX.Element => {
     }
   }, [appointmentIDParam, tokenlessZambdaClient]);
 
+  // todo: this can be simplified greatly by handling on the backend
   const allAvailableSlots = useMemo(() => {
-    const currentSlotTime = DateTime.fromISO(selectedSlot ?? '');
+    const slots = (slotData ?? []).map((si) => si.slot);
     const currentDateTime = DateTime.now().setZone(location?.timezone);
-    const hasNotPassed = currentSlotTime > currentDateTime;
     if (slotData && selectedSlot) {
-      const availableSlots =
-        hasNotPassed && !slotData.includes(selectedSlot ?? '')
-          ? [...(slotData as string[]), selectedSlot ?? '']
-          : slotData;
-      return availableSlots?.sort((a: string, b: string) => a.localeCompare(b));
+      const currentSlotTime = DateTime.fromISO(selectedSlot.start)
+        .setZone(location?.timezone)
+        .setLocale(i18n.language);
+      const currentSlotTimePasssed = currentSlotTime > currentDateTime;
+      if (currentSlotTimePasssed) {
+        return slots;
+      }
+      const alreadyIncluded = slots.some((s) => s.start === selectedSlot.start);
+      if (alreadyIncluded) {
+        return slots;
+      }
+      return [...slots, selectedSlot]?.sort((a: Slot, b: Slot) => a.start.localeCompare(b.start));
     }
-    return slotData;
+    return slotData?.map((si) => si.slot);
   }, [selectedSlot, location?.timezone, slotData]);
 
   const { officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow } = useCheckOfficeOpen(location);
   const { t } = useTranslation();
 
   const rescheduleAppointment = useCallback(
-    async (slot: string) => {
+    async (slot: Slot) => {
       if (!tokenlessZambdaClient) {
         throw new Error('zambdaClient is not defined');
       }
@@ -120,11 +128,11 @@ const Reschedule = (): JSX.Element => {
       try {
         const res = await zapehrApi.updateAppointment(tokenlessZambdaClient, {
           appointmentID: appointmentIDParam,
-          slot,
+          slot: slot,
           language: 'en', // replace with i18n.language to enable
         });
         if (res.appointmentID) {
-          updateAppointmentStart(slot);
+          updateAppointmentStart(slot.start);
           navigate(`/visit/${res.appointmentID}`);
         } else if (res.availableSlots) {
           setErrorConfig({
@@ -192,7 +200,6 @@ const Reschedule = (): JSX.Element => {
       <>
         <Schedule
           slotData={allAvailableSlots}
-          setSlotData={setSlotData}
           slotsLoading={loading}
           backButton={true}
           submitLabelAdjective={i18n.t('appointments.modifyTo')}
@@ -206,12 +213,9 @@ const Reschedule = (): JSX.Element => {
             // this was invoked
             // navigate(`/book/${location?.address?.state}/${location?.slug}/${visitTypeParam}/get-ready`);
           }}
-          scheduleType={location?.scheduleType}
-          locationSlug={location?.slug}
           forceClosedToday={officeHasClosureOverrideToday}
           forceClosedTomorrow={officeHasClosureOverrideTomorrow}
           submitPending={submitPending}
-          markSlotBusy={false}
         />
       </>
       <ErrorDialog
