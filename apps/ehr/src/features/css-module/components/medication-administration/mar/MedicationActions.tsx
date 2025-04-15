@@ -18,7 +18,7 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
 
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -64,11 +64,11 @@ export const MedicationActions: React.FC<MedicationActionsProps> = ({ medication
   );
 
   const navigateToEditOrder = (): void => {
-    if (!encounterId) {
+    if (!appointmentId) {
       enqueueSnackbar('navigation error', { variant: 'error' });
       return;
     }
-    navigate(getEditOrderUrl(encounterId, medication.id));
+    navigate(getEditOrderUrl(appointmentId, medication.id));
   };
 
   return (

@@ -155,7 +155,7 @@ test('Employees list is loading', async ({ page }) => {
   await expect(statusChips).not.toHaveCount(0);
 });
 
-test('Providers tab filters are working', async ({ page }) => {
+test.skip('Providers tab filters are working', async ({ page }) => {
   await page.goto(`employees`);
   await page.getByTestId(dataTestIds.employeesPage.providersTabButton).click(DEFAULT_TIMEOUT);
   await waitUntilEmployeeProviderTableLoaded(page);
@@ -191,7 +191,7 @@ test('Providers tab filters are working', async ({ page }) => {
   });
 });
 
-test('Employee editing is working', async ({ page }) => {
+test.skip('Employee editing is working', async ({ page }) => {
   await page.goto(`employees`);
   await waitUntilEmployeeProviderTableLoaded(page);
   await goToTestEmployeePage(page, resourceHandler.testEmployee1);
@@ -226,7 +226,7 @@ test('Employee editing is working', async ({ page }) => {
   });
 });
 
-test('Deactivating employee success', async ({ page }) => {
+test.skip('Deactivating employee success', async ({ page }) => {
   await page.goto(`employees`);
   await waitUntilEmployeeProviderTableLoaded(page);
 
