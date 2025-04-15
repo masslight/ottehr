@@ -830,7 +830,7 @@
       "subscription": {
         "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
         "reason": "Generate summary of chat with AI",
-        "event": "create"
+        "event": "update"
       }
     }
   },
