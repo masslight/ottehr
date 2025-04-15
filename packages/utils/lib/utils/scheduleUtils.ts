@@ -29,6 +29,10 @@ import {
   ScheduleType,
   ScheduleOwnerFhirResource,
   Timezone,
+  SlotServiceCategory,
+  ServiceMode,
+  codingContainedInList,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -1379,4 +1383,134 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
     return 'Practitioner';
   }
   return 'HealthcareService';
+};
+
+interface GetSlotsInWindowInput {
+  scheduleId: string;
+  fromISO: string;
+  toISO: string;
+  status: Slot['status'][];
+}
+
+export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oystehr): Promise<Slot[]> => {
+  const { scheduleId, fromISO, toISO, status } = input;
+  const statusParams = status.map((statusTemp) => ({
+    name: 'status',
+    value: statusTemp,
+  }));
+  const slots = (
+    await oystehr.fhir.search<Slot>({
+      resourceType: 'Slot',
+      params: [
+        {
+          name: 'schedule',
+          value: `Schedule/${scheduleId}`,
+        },
+        {
+          name: 'start',
+          value: `ge${fromISO}`,
+        },
+        {
+          name: 'start',
+          value: `le${toISO}`,
+        },
+        {
+          name: 'appointment-type:not',
+          value: 'WALKIN',
+        },
+        ...statusParams,
+      ],
+    })
+  ).unbundle();
+  return slots;
+};
+
+interface CheckSlotAvailableInput {
+  slot: Slot;
+  schedule: Schedule;
+}
+export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
+  const getBusySlotsInput: GetSlotsInWindowInput = {
+    scheduleId: input.schedule.id!,
+    fromISO: input.slot.start,
+    toISO: input.slot.end,
+    status: ['busy', 'busy-tentative', 'busy-unavailable'],
+  };
+  const busySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
+  console.log('found this many busy slots: ', busySlots.length);
+
+  const startTime = DateTime.fromISO(input.slot.start);
+  const dayStart = startTime.startOf('day');
+
+  const getAvailableInput: GetAvailableSlotsInput = {
+    now: dayStart,
+    numDays: 1,
+    schedule: input.schedule,
+    busySlots,
+  };
+  const availableSlots = getAvailableSlots(getAvailableInput);
+  // note this is just checking for same start times, and assumes length of slot is same as available slots
+  // todo: improve the logic here
+  return availableSlots.some((slot) => {
+    const slotTime = DateTime.fromISO(slot);
+    if (slotTime !== null) {
+      return slotTime.equals(startTime);
+    }
+    return false;
+  });
+};
+
+export const getSlotServiceCategoryCodingFromScheduleOwner = (
+  owner: ScheduleOwnerFhirResource
+): Slot['serviceCategory'] | undefined => {
+  // customization point - override this to return a specific service category given a known schedule owner. if a category is returned here,
+  // the service modality may be inferred from the schedule owner. the service modality will then be used to specify the service mode for the appointment
+  // when the slot is submitted to the create-appointment endpoint. alternatively, the service modality can be written to the slot directly by passing a value for
+  // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
+
+  console.log('getting service category from schedule owner', owner);
+
+  // default to in-person service mode
+  return [SlotServiceCategory.inPersonServiceMode];
+};
+
+export const getServiceModeFromScheduleOwner = (owner: ScheduleOwnerFhirResource): ServiceMode | undefined => {
+  // customization point - override this to return a specific service category given a known schedule owner. if a category is returned here,
+  // the service modality may be inferred from the schedule owner. the service modality will then be used to specify the service mode for the appointment
+  // when the slot is submitted to the create-appointment endpoint. alternatively, the service modality can be written to the slot directly by passing a value for
+  // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
+
+  // default to in-person service mode
+  const [codeableConcept] = getSlotServiceCategoryCodingFromScheduleOwner(owner) || [];
+  if (codeableConcept) {
+    const coding = codeableConcept.coding?.[0] ?? {};
+    if (codingContainedInList(coding, [SlotServiceCategory.inPersonServiceMode])) {
+      return ServiceMode['in-person'];
+    }
+    if (codingContainedInList(coding, [SlotServiceCategory.virtualServiceMode])) {
+      return ServiceMode.virtual;
+    }
+  }
+  return undefined;
+};
+
+export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
+  let serviceMode: ServiceMode | undefined;
+  (slot.serviceCategory ?? []).forEach((category) => {
+    if (codingContainedInList(category, [SlotServiceCategory.inPersonServiceMode])) {
+      serviceMode = ServiceMode['in-person'];
+    }
+    if (codingContainedInList(category, [SlotServiceCategory.virtualServiceMode])) {
+      serviceMode = ServiceMode.virtual;
+    }
+  });
+  return serviceMode;
+};
+
+export const getSlotIsWalkin = (slot: Slot): boolean => {
+  const appointmentType = slot.appointmentType?.coding?.[0];
+  if (appointmentType) {
+    return codingContainedInList(appointmentType, SLOT_WALKIN_APPOINTMENT_TYPE_CODING.coding!);
+  }
+  return false;
 };

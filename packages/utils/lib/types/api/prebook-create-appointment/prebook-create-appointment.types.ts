@@ -1,6 +1,8 @@
-import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
-import { ScheduleType, ServiceMode } from '../../common';
+import { Appointment, CodeableConcept, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { ScheduleType, ServiceMode, Timezone } from '../../common';
 import { PatientInfo, VisitType } from '../../data';
+import { PUBLIC_EXTENSION_BASE_URL } from '../../../fhir';
+import { ScheduleOwnerFhirResource } from '../schedules';
 
 export interface CreateAppointmentInputParams {
   patient: PatientInfo;
@@ -30,3 +32,62 @@ export interface CreateAppointmentResponse {
     patient: Patient;
   };
 }
+
+export interface CreateSlotParams {
+  scheduleId: string;
+  startISO: string;
+  lengthInMinutes?: number;
+  lengthInHours?: number;
+  status?: Slot['status'];
+  walkin?: boolean;
+  serviceModality?: ServiceMode;
+}
+
+export interface GetSlotDetailsParams {
+  slotId: string;
+}
+
+export interface GetSlotDetailsResponse {
+  startISO: string;
+  endISO: string;
+  serviceMode: ServiceMode;
+  ownerType: ScheduleOwnerFhirResource['resourceType'];
+  ownerId: string;
+  isWalkin: boolean;
+  appointmentId?: string;
+  comment?: string;
+  timezoneForDisplay?: Timezone;
+}
+
+export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: 'WALKIN',
+    },
+  ],
+};
+
+export enum SlotServiceCategoryCode {
+  virtualServiceMode = 'virtualServiceMode',
+  inPersonServiceMode = 'inPersonServiceMode',
+}
+
+export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
+  virtualServiceMode: {
+    coding: [
+      {
+        system: PUBLIC_EXTENSION_BASE_URL,
+        code: SlotServiceCategoryCode.virtualServiceMode,
+      },
+    ],
+  },
+  inPersonServiceMode: {
+    coding: [
+      {
+        system: PUBLIC_EXTENSION_BASE_URL,
+        code: SlotServiceCategoryCode.inPersonServiceMode,
+      },
+    ],
+  },
+};
