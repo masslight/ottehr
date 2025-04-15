@@ -130,7 +130,7 @@ export interface ExternalLabsData {
   primaryInsuranceSubNum?: string;
   insuredName?: string;
   insuredAddress?: string;
-  aoeAnswers: { question: string; answer: any }[];
+  aoeAnswers?: { question: string; answer: any }[];
   orderName: string;
   assessmentCode: string;
   assessmentName: string;
@@ -139,7 +139,7 @@ export interface ExternalLabsData {
 
 export interface LabResultsData extends ExternalLabsData {
   accessionNumber: string;
-  requisitionNumber: string;
+  requisitionNumber?: string;
   orderReceived: string;
   specimenReceived: string;
   reportDate: string;

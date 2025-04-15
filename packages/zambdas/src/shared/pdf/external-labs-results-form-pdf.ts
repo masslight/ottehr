@@ -1,12 +1,15 @@
 import fontkit from '@pdf-lib/fontkit';
-import { Patient } from 'fhir/r4';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo, rgbNormalized } from './pdf-utils';
 import { LabResultsData } from './types';
-import { Secrets } from 'utils';
+import { createFilesDocumentReferences, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
+import { DateTime } from 'luxon';
+import { randomUUID } from 'crypto';
+import Oystehr from '@oystehr/sdk';
+import { DocumentReference, List } from 'fhir/r4b';
 
 async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -476,14 +479,10 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsResultsFormPDF(
   input: LabResultsData,
-  patient: Patient,
+  patientID: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  if (!patient.id) {
-    throw new Error('No patient id found for external lab order');
-  }
-
   console.log('Creating labs order form pdf bytes');
   const pdfBytes = await createExternalLabsResultsFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
@@ -493,7 +492,7 @@ export async function createExternalLabsResultsFormPDF(
   const bucketName = 'visit-notes';
   const fileName = 'ExternalLabsResultsForm.pdf';
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
+  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
@@ -503,4 +502,69 @@ export async function createExternalLabsResultsFormPDF(
   // savePdfLocally(pdfBytes);
 
   return { title: fileName, uploadURL: baseFileUrl };
+}
+
+export async function makeLabPdfDocumentReference(
+  oystehr: Oystehr,
+  type: string,
+  pdfInfo: PdfInfo,
+  patientId: string,
+  appointmentId: string,
+  encounterId: string,
+  listResources: List[] | undefined
+): Promise<DocumentReference> {
+  let docType;
+  if (type === 'results') {
+    docType = {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '51991-8',
+          display: 'Referral lab test panel',
+        },
+      ],
+      text: 'Lab order document',
+    };
+  } else if (type === 'order') {
+    docType = {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '51991-8',
+          display: 'Referral lab test panel',
+        },
+      ],
+      text: 'Lab order document',
+    };
+  } else {
+    throw new Error('Invalid type of lab document');
+  }
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+      },
+    ],
+    type: docType,
+    references: {
+      subject: {
+        reference: `Patient/${patientId}`,
+      },
+      context: {
+        related: [
+          {
+            reference: `Appointment/${appointmentId}`,
+          },
+        ],
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
+    },
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    searchParams: [],
+    listResources,
+  });
+  return docRefs[0];
 }
