@@ -51,7 +51,7 @@ type LabsTableProps = {
   allowDelete?: boolean;
   titleText?: string;
   redirectToOrderCreateIfOrdersEmpty?: boolean;
-  onCreateOrder?: () => void;
+  onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
 };
 
 export const LabsTable = ({
@@ -126,7 +126,7 @@ export const LabsTable = ({
   useEffect(() => {
     if (redirectToOrderCreateIfOrdersEmpty && !loading && labOrders.length === 0 && !error && onCreateOrder) {
       const timer = setTimeout(() => {
-        return onCreateOrder();
+        return onCreateOrder({ isAutoRedirected: true });
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -153,7 +153,7 @@ export const LabsTable = ({
           {error.message || 'Failed to fetch lab orders. Please try again later.'}
         </Typography>
         {onCreateOrder && (
-          <Button variant="contained" onClick={onCreateOrder} sx={{ mt: 2 }}>
+          <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
             Create New Lab Order
           </Button>
         )}
@@ -290,7 +290,7 @@ export const LabsTable = ({
               No lab orders to display
             </Typography>
             {onCreateOrder && (
-              <Button variant="contained" onClick={onCreateOrder} sx={{ mt: 2 }}>
+              <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
                 Create New Lab Order
               </Button>
             )}

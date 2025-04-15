@@ -1,15 +1,28 @@
 import { Box, Typography, Button, Paper } from '@mui/material';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import { DateTime } from 'luxon';
 import { FC } from 'react';
 
 interface PrelimCardViewProps {
-  date: string;
-  status: 'received' | 'reviewed';
-  onView: () => void;
+  receivedDate: string | null;
+  reviewedDate: string | null;
+  onPrelimView: () => void;
 }
 
-export const PrelimCardView: FC<PrelimCardViewProps> = ({ date, status, onView }) => {
+export const PrelimCardView: FC<PrelimCardViewProps> = ({ receivedDate, reviewedDate, onPrelimView }) => {
+  const formatDate = (date: string | null): string => {
+    if (!date) return '';
+    const dateTime = DateTime.fromJSDate(new Date(date));
+    return dateTime.toFormat("M/d/yyyy 'at' h:mm a");
+  };
+
+  const getDateEvent = (): { event: 'received' | 'reviewed'; date: string } => {
+    return receivedDate
+      ? { event: 'received', date: formatDate(receivedDate) }
+      : { event: 'reviewed', date: formatDate(reviewedDate) };
+  };
+
+  const { event, date } = getDateEvent();
+
   return (
     <Paper
       elevation={0}
@@ -24,19 +37,12 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({ date, status, onView }
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <InfoOutlinedIcon color="primary" fontSize="small" />
         <Typography variant="body1" color="text.primary">
-          Preliminary results ({status} {date})
+          Preliminary results ({event} {date})
         </Typography>
       </Box>
 
-      <Button
-        variant="text"
-        color="primary"
-        endIcon={<VisibilityOutlinedIcon />}
-        onClick={onView}
-        sx={{ fontWeight: 500 }}
-      >
+      <Button disabled variant="text" color="primary" onClick={onPrelimView} sx={{ fontWeight: 500 }}>
         View
       </Button>
     </Paper>
