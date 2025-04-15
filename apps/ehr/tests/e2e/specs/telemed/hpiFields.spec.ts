@@ -88,6 +88,15 @@ test.describe('Check all hpi fields common functionality, without changing data'
       noOptionsMessage
     );
   });
+
+  test('Surgical history. Should check not-in-list item search try', async ({ page }) => {
+    await checkDropdownNoOptions(
+      page,
+      dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput,
+      searchOptionThatNotInList,
+      noOptionsMessage
+    );
+  });
 });
 
 test.describe('Medical conditions', async () => {
@@ -123,7 +132,7 @@ test.describe('Medical conditions', async () => {
     );
   });
 
-  test('Reload and check medical conditions are saved', async () => {
+  test('Reload and check medical conditions are saved in HPI tab', async () => {
     await test.step('reload and wait until data is loaded', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
@@ -297,7 +306,7 @@ test.describe('Current medications', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsAddButton)).toBeEnabled();
   });
 
-  test('Should check medications are saved on Review&Sign tab', async () => {
+  test('Should check medications appear on Review&Sign tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabMedicationsContainer)).toBeVisible();
     await expect(page.getByText(RegExp(scheduledMedicationName, 'i'))).toBeVisible();
@@ -373,7 +382,7 @@ test.describe('Known allergies', () => {
     await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyName);
   });
 
-  test('Reload and check known allergies are saved', async () => {
+  test('Should check known allergies are saved in HPI tab', async () => {
     await test.step('reload and wait until data is loaded', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
@@ -430,5 +439,122 @@ test.describe('Known allergies', () => {
       });
       await expect(page.getByText(new RegExp(knownAllergyName, 'i'))).not.toBeVisible();
     });
+  });
+});
+
+test.describe('Surgical history', () => {
+  const resourceHandler = new ResourceHandler('telemed');
+  let page: Page;
+  const surgery = 'feeding';
+  const providerNote = 'lorem ipsum';
+
+  test.beforeAll(async ({ browser }) => {
+    const context = await browser.newContext();
+    page = await context.newPage();
+    await resourceHandler.setResources();
+
+    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
+  });
+
+  test.afterAll(async () => {
+    await resourceHandler.cleanupResources();
+  });
+
+  test.describe.configure({ mode: 'serial' });
+
+  test('Should add provider notes', async () => {
+    await page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote)
+      .locator('textarea')
+      .first()
+      .fill(providerNote);
+  });
+
+  test('Should check surgery list is filtered according to input', async () => {
+    await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgery);
+  });
+
+  test('Should check surgical history are saved in HPI tab', async () => {
+    await test.step('reload and wait until data is loaded', async () => {
+      await page.reload();
+      await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn)).toBeVisible();
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible();
+    });
+
+    await test.step('Should check surgical history saved', async () => {
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toHaveText(
+        RegExp(surgery, 'i')
+      );
+    });
+  });
+
+  test('Should check provider note saved in HPI tab', async () => {
+    await expect(
+      page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first()
+    ).toHaveText(providerNote);
+  });
+
+  test('Should check surgical history appear in Review&Sign tab', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toHaveText(
+      new RegExp(surgery, 'i')
+    );
+  });
+
+  test('Should check provider note saved in Review&Sign tab', async () => {
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toHaveText(
+      new RegExp(providerNote, 'i')
+    );
+  });
+
+  test('Should delete provider note', async () => {
+    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible();
+
+    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first().fill('');
+  });
+
+  test('Should delete surgery record', async () => {
+    const knownAllergyListItem = page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryListItem)
+      .filter({ hasText: new RegExp(surgery, 'i') })
+      .first();
+    await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await expect(knownAllergyListItem).not.toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
+  });
+
+  test('Should check surgical history record deleted from Review&Sign tab', async () => {
+    await test.step('Confirm deletion in hpi tab', async () => {
+      await page.reload();
+      await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+      const column = page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn);
+      await expect(column).toBeVisible();
+      await expect(column.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible({
+        timeout: 30000,
+      });
+
+      await expect(page.getByText(new RegExp(surgery, 'i'))).not.toBeVisible();
+    });
+
+    await test.step('Confirm deletion in Review&Sign tab', async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+      await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toBeVisible({
+        timeout: 30000,
+      });
+      await expect(page.getByText(new RegExp(surgery, 'i'))).not.toBeVisible();
+    });
+  });
+
+  test('Should check provider note deleted on Review&Sign tab', async () => {
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer)).toBeVisible({
+      timeout: 30000,
+    });
+    await expect(page.getByText(new RegExp(providerNote, 'i'))).not.toBeVisible();
   });
 });

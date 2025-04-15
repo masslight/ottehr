@@ -19,10 +19,7 @@ export const SurgicalHistoryProviderColumn: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   return (
-    <Box
-      sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-      data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn}
-    >
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {isReadOnly ? (
         <ActionsList
           data={procedures}
@@ -35,10 +32,10 @@ export const SurgicalHistoryProviderColumn: FC = () => {
           divider
         />
       ) : (
-        <>
+        <Box data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn}>
           <ProceduresForm />
           {isChartDataLoading ? <ProceduresNoteFieldSkeleton /> : !cssColumnFeatureFlag.css && <ProceduresNoteField />}
-        </>
+        </Box>
       )}
     </Box>
   );
