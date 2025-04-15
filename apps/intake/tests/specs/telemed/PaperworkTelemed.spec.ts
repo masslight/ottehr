@@ -6,7 +6,7 @@ import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
-import { UploadDocs } from '../../utils/UploadDocs';
+import { UploadDocs, UploadedFile } from '../../utils/UploadDocs';
 
 let page: Page;
 let context: BrowserContext;
@@ -734,8 +734,8 @@ test.describe('Patient condition', () => {
 });
 test.describe('School/work notes', () => {
   test.describe.configure({ mode: 'serial' });
-  let uploadedSchoolTemplate;
-  let uploadedWorkTemplate;
+  let uploadedSchoolTemplate: UploadedFile | null = null;
+  let uploadedWorkTemplate: UploadedFile | null = null;
   test('PSWN-1 Open School/work note', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/school-work-note`);
     await page.waitForLoadState('networkidle');
@@ -831,8 +831,8 @@ test.describe('School/work notes', () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
-    await expect(uploadedSchoolTemplate.uploadedFile).toBeVisible();
-    await expect(uploadedWorkTemplate.uploadedFile).toBeVisible();
+    await expect(uploadedSchoolTemplate!.uploadedFile).toBeVisible();
+    await expect(uploadedWorkTemplate!.uploadedFile).toBeVisible();
   });
   // Need to remove skip for PSWN-18,PSWN-19, PSWN-20, when https://github.com/masslight/ottehr/issues/1671 is fixed
   test.skip('PSWN-18 Open next page, click [Back] - check school/work link values are correct', async () => {
@@ -840,19 +840,19 @@ test.describe('School/work notes', () => {
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
     const currentSchoolLink = await locator.schoolNoteFile.getAttribute('href');
-    await expect(uploadedSchoolTemplate.link).toBe(currentSchoolLink);
+    await expect(uploadedSchoolTemplate!.link).toBe(currentSchoolLink);
     const currentWorkLink = await locator.workNoteFile.getAttribute('href');
-    await expect(uploadedWorkTemplate.link).toBe(currentWorkLink);
+    await expect(uploadedWorkTemplate!.link).toBe(currentWorkLink);
   });
   test.skip('PSWN-19 Check school note link value after reload', async () => {
     await page.reload();
     const currentLink = await locator.schoolNoteFile.getAttribute('href');
-    await expect(uploadedSchoolTemplate.link).toBe(currentLink);
+    await expect(uploadedSchoolTemplate!.link).toBe(currentLink);
   });
   test.skip('PSWN-20 Check work note link value after reload', async () => {
     await page.reload();
     const currentLink = await locator.workNoteFile.getAttribute('href');
-    await expect(uploadedWorkTemplate.link).toBe(currentLink);
+    await expect(uploadedWorkTemplate!.link).toBe(currentLink);
   });
 });
 test.describe('Consent forms - Check and fill all fields', () => {
@@ -876,7 +876,7 @@ test.describe('Consent forms - Check and fill all fields', () => {
     );
   });
   test('PCF-4 Consent Forms - Check links are correct', async () => {
-    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hippa_notice_template.pdf');
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
     expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
       '/consent_to_treat_template.pdf'
     );

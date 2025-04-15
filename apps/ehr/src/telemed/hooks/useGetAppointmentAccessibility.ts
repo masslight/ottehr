@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
-import { getAppointmentAccessibilityData, GetAppointmentAccessibilityDataResult } from '../utils';
+import { useFeatureFlags } from '../../features/css-module/context/featureFlags';
+import useEvolveUser from '../../hooks/useEvolveUser';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useAppointmentStore } from '../state';
-import useEvolveUser from '../../hooks/useEvolveUser';
-import { useFeatureFlags } from '../../features/css-module/context/featureFlags';
+import { getAppointmentAccessibilityData, GetAppointmentAccessibilityDataResult } from '../utils';
 
 export const useGetAppointmentAccessibility = (): GetAppointmentAccessibilityDataResult => {
-  const { location, encounter, appointment } = getSelectors(useAppointmentStore, [
-    'location',
+  const { locationVirtual, encounter, appointment } = getSelectors(useAppointmentStore, [
+    'locationVirtual',
     'encounter',
     'appointment',
   ]);
@@ -15,7 +15,7 @@ export const useGetAppointmentAccessibility = (): GetAppointmentAccessibilityDat
   const featureFlags = useFeatureFlags();
 
   return useMemo(
-    () => getAppointmentAccessibilityData({ location, encounter, appointment, user, featureFlags }),
-    [location, encounter, appointment, user, featureFlags]
+    () => getAppointmentAccessibilityData({ locationVirtual, encounter, appointment, user, featureFlags }),
+    [locationVirtual, encounter, appointment, user, featureFlags]
   );
 };

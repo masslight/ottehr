@@ -4,12 +4,12 @@ import { BreadcrumbsView } from './BreadcrumbsView';
 import { getInHouseMedicationMARUrl } from '../../routing/helpers';
 
 export const InHouseOrderEditBreadcrumbs: React.FC = () => {
-  const { id } = useParams();
+  const { id: appointmentId } = useParams();
 
   const breadcrumbItems = [
     {
       text: 'Medication',
-      link: getInHouseMedicationMARUrl(id!),
+      link: getInHouseMedicationMARUrl(appointmentId!),
     },
     {
       text: `Edit Order`,

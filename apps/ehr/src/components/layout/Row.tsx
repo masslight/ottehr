@@ -13,14 +13,16 @@ export const Row: FC<RowProps> = ({ label, children, inputId, required, dataTest
   const theme = useTheme();
 
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }} data-testid={dataTestId}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', flex: '0 1 30%' }}>
         <Typography component="label" htmlFor={inputId} sx={{ color: theme.palette.primary.dark }}>
           {label}
           {required && ' *'}
         </Typography>
       </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>{children}</Box>
+      <Box data-testid={dataTestId} sx={{ display: 'flex', alignItems: 'center', flex: '1 1 70%' }}>
+        {children}
+      </Box>
     </Box>
   );
 };

@@ -30,3 +30,5 @@ export const RELATED_PERSON_SAME_AS_PATIENT_ADDRESS_URL =
 export const OTTEHR_SLUG_ID_SYSTEM = 'https://fhir.ottehr.com/r4/slug';
 export const PRACTICE_NAME_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/practice-name';
 export const DATE_OF_BIRTH_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/birth-date';
+
+export const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];

@@ -1,15 +1,15 @@
-import { Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ScheduleType, ServiceMode } from '../../common';
 import { PatientInfo, VisitType } from '../../data';
 
 export interface CreateAppointmentInputParams {
-  slot: string;
   patient: PatientInfo;
   scheduleType: ScheduleType;
   serviceType: ServiceMode;
   locationID?: string;
   providerID?: string;
   groupID?: string;
+  slot?: Slot;
   visitType: VisitType;
   language: string;
   unconfirmedDateOfBirth?: string | undefined;

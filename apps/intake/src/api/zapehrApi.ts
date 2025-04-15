@@ -4,6 +4,7 @@ import {
   chooseJson,
   Closure,
   CreateAppointmentInputParams,
+  GetAppointmentDetailsResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
@@ -20,13 +21,13 @@ import {
   StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
+  UpdateAppointmentParameters,
   VisitType,
 } from 'utils';
 import {
   CancelAppointmentParameters,
   GetAppointmentParameters,
   GetPaperworkParameters,
-  UpdateAppointmentParameters,
   UpdatePaperworkParameters,
 } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
@@ -74,11 +75,6 @@ export interface AppointmentBasicInfo {
   location: AvailableLocationInformation;
   visitType: string;
   status?: string;
-}
-interface GetAppointmentDetailsResponse {
-  appointment: AppointmentBasicInfo;
-  availableSlots: string[];
-  displayTomorrowSlotsAtHour: number;
 }
 
 export interface CreateAppointmentResponse {

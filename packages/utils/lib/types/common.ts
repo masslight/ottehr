@@ -12,6 +12,7 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
+import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {
   firstName?: string;
@@ -97,6 +98,7 @@ export type FormItemType =
   | 'Form list'
   | 'Attachment'
   | 'Credit Card'
+  | 'Call Out'
   | undefined;
 
 export type PromiseReturnType<T> = T extends Promise<infer R> ? R : never;
@@ -876,3 +878,5 @@ export interface CanonicalUrl {
   url: string;
   version: string;
 }
+
+export type Timezone = (typeof TIMEZONES)[number];

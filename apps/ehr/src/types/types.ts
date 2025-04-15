@@ -1,12 +1,10 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner, Encounter } from 'fhir/r4b';
+import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
 import {
   PatientFollowupDetails,
   FhirAppointmentType,
   PractitionerLicense,
   VisitStatusWithoutUnknown,
-  DiagnosisDTO,
-  OrderableItemSearchResult,
   OTTEHR_MODULE,
 } from 'utils';
 import { ScheduleType, ServiceMode } from 'utils';
@@ -19,13 +17,15 @@ export interface GetAppointmentsParameters {
   groupIDs?: string[];
 }
 
+// this likely will be consolidated to utils package. doughty conflict resolver, take heed:
+// the important change to include here is that slot is of type "Slot" rather than string
 export interface CreateAppointmentParameters {
-  slot?: string | undefined;
   patient: PatientInfo | undefined;
-  locationID?: string | undefined;
   visitType: FhirAppointmentType | undefined;
   scheduleType: ScheduleType;
   serviceType: ServiceMode;
+  slot?: Slot | undefined;
+  locationID?: string | undefined;
 }
 
 export interface SaveFollowupParameter {
@@ -251,19 +251,11 @@ export enum DocumentType {
   PhotoIdFront = 'photo-id-front',
   PhotoIdBack = 'photo-id-back',
   FullPhotoId = 'fullPhotoIDCard',
-  HippaConsent = 'HIPPA forms',
-  CttConsent = 'Consent forms',
+  HipaaConsent = 'HIPAA Acknowledgement',
+  CttConsent = 'Consent to Treat and Guarantee of Payment',
 }
 export interface DocumentInfo {
   type: DocumentType;
   z3Url: string;
   presignedUrl: string | undefined;
-}
-
-export interface SubmitLabOrderParameters {
-  dx: DiagnosisDTO[];
-  encounter: Encounter;
-  practitionerId: string;
-  orderableItem: OrderableItemSearchResult;
-  pscHold: boolean;
 }
