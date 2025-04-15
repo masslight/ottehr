@@ -9,6 +9,8 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
+  ServiceMode,
+  SlotServiceCategory,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Schedule, Slot } from 'fhir/r4b';
@@ -64,14 +66,19 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     input.body
   );
 
+  // required param checks
   if (!scheduleId) {
     throw MISSING_REQUIRED_PARAMETERS(['scheduleId']);
   }
-  if (isValidUUID(scheduleId) === false) {
-    throw INVALID_INPUT_ERROR('"scheduleId" must be a valid UUID');
-  }
   if (!startISO) {
     throw MISSING_REQUIRED_PARAMETERS(['startISO']);
+  }
+  if (!serviceModality) {
+    throw MISSING_REQUIRED_PARAMETERS(['serviceModality']);
+  }
+
+  if (isValidUUID(scheduleId) === false) {
+    throw INVALID_INPUT_ERROR('"scheduleId" must be a valid UUID');
   }
   if (typeof scheduleId !== 'string') {
     throw INVALID_INPUT_ERROR('"scheduleId" must be a string');
@@ -113,10 +120,10 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (walkin !== undefined && typeof walkin !== 'boolean') {
     throw INVALID_INPUT_ERROR('"walkin" must be a boolean');
   }
-  if (serviceModality && typeof serviceModality !== 'string') {
+  if (typeof serviceModality !== 'string') {
     throw INVALID_INPUT_ERROR('"serviceModality" must be a string');
   }
-  if (serviceModality && !['in-person', 'virtual'].includes(serviceModality)) {
+  if (!['in-person', 'virtual'].includes(serviceModality)) {
     throw INVALID_INPUT_ERROR('"serviceModality" must be one of: "in-person", "virtual"');
   }
   const apptLength: ApptLengthDef = { length: 0, unit: 'minutes' };
@@ -134,7 +141,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     status,
     apptLength,
     walkin: walkin ?? false,
-    serviceModality,
+    serviceModality: serviceModality as ServiceMode,
   };
 };
 
@@ -143,7 +150,7 @@ interface EffectInput {
 }
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId, startISO, apptLength, status, walkin } = input;
+  const { scheduleId, startISO, apptLength, status, walkin, serviceModality } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
   if (!schedule) {
@@ -160,11 +167,16 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     throw INVALID_INPUT_ERROR('Unable to create start and end times');
   }
 
+  const serviceCategory =
+    serviceModality === ServiceMode['in-person']
+      ? [SlotServiceCategory.inPersonServiceMode]
+      : [SlotServiceCategory.virtualServiceMode];
   const slot: Slot = {
     resourceType: 'Slot',
     status: status ?? 'busy',
     start,
     end,
+    serviceCategory,
     schedule: {
       reference: `Schedule/${schedule.id}`,
     },
@@ -193,6 +205,8 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     // todo: better custom error here
     throw INVALID_INPUT_ERROR('Slot is not available');
   }
+  // optional: check if the schedule owner permits the provided service modality
+  // we do this instead at appointment creation time
 
   return { slot };
 };

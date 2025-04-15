@@ -32,7 +32,6 @@ import {
   getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
-  getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
@@ -288,7 +287,6 @@ const processPrebookPaperwork = async (
           getPatientDetailsStepAnswers({}),
           getPaymentOptionSelfPayAnswers(),
           getResponsiblePartyStepAnswers({}),
-          getPrimaryCarePhysicianStepAnswers({}),
           getConsentStepAnswers({}),
         ];
 

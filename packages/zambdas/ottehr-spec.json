@@ -832,6 +832,20 @@
         "reason": "Generate summary of chat with AI",
         "event": "update"
       }
+    },
+    "CREATE-SLOT": {
+      "name": "CREATE-SLOT",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/bookable/create-slot/index",
+      "zip": ".dist/zips/create-slot.zip"
+    },
+    "GET-SLOT-DETAILS": {
+      "name": "GET-SLOT-DETAILS",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/bookable/get-slot-details/index",
+      "zip": ".dist/zips/get-slot-details.zip"
     }
   },
   "fhirResources": {

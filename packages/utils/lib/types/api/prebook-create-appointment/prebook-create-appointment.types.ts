@@ -1,7 +1,6 @@
-import { Appointment, CodeableConcept, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ScheduleType, ServiceMode, Timezone } from '../../common';
 import { PatientInfo, VisitType } from '../../data';
-import { PUBLIC_EXTENSION_BASE_URL } from '../../../fhir';
 import { ScheduleOwnerFhirResource } from '../schedules';
 
 export interface CreateAppointmentInputParams {
@@ -36,11 +35,11 @@ export interface CreateAppointmentResponse {
 export interface CreateSlotParams {
   scheduleId: string;
   startISO: string;
+  serviceModality: ServiceMode;
   lengthInMinutes?: number;
   lengthInHours?: number;
   status?: Slot['status'];
   walkin?: boolean;
-  serviceModality?: ServiceMode;
 }
 
 export interface GetSlotDetailsParams {
