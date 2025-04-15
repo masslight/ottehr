@@ -443,15 +443,15 @@ export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
 };
 
 export enum SlotServiceCategoryCode {
-  virtualServiceMode = 'virtualServiceMode',
-  inPersonServiceMode = 'inPersonServiceMode',
+  virtualServiceMode = 'virtual-service-mode',
+  inPersonServiceMode = 'in-person-service-mode',
 }
 
 export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
   virtualServiceMode: {
     coding: [
       {
-        system: PUBLIC_EXTENSION_BASE_URL,
+        system: `${OTTEHR_BASE_URL}/slot-service-category`,
         code: SlotServiceCategoryCode.virtualServiceMode,
       },
     ],
@@ -459,7 +459,7 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
   inPersonServiceMode: {
     coding: [
       {
-        system: PUBLIC_EXTENSION_BASE_URL,
+        system: `${OTTEHR_BASE_URL}/slot-service-category`,
         code: SlotServiceCategoryCode.inPersonServiceMode,
       },
     ],
