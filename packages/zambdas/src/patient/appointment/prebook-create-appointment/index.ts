@@ -16,7 +16,9 @@ import {
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
+  Reference,
   Resource,
+  Slot,
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -27,7 +29,6 @@ import {
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
-  deleteSpecificBusySlot,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   FhirAppointmentStatus,
@@ -37,6 +38,7 @@ import {
   getCanonicalQuestionnaire,
   getPatchOperationForNewMetaTag,
   getTaskResource,
+  isValidUUID,
   makePrepopulatedItemsForPatient,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   OTTEHR_MODULE,
@@ -184,7 +186,7 @@ export async function createAppointment(
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
     await generatePatientRelatedRequests(user, patient, oystehr);
 
-  let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : slot;
+  let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : slot?.start ?? '';
   startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
   const originalDate = DateTime.fromISO(startTime).setZone('UTC');
   const endTime = originalDate.plus({ minutes: 15 }).toISO() || ''; // todo: should this be scraped from the Appointment?
@@ -239,6 +241,7 @@ export async function createAppointment(
     unconfirmedDateOfBirth,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,
+    slot,
   });
 
   let relatedPersonId = '';
@@ -310,6 +313,7 @@ interface TransactionInput {
   listRequests: BatchInputRequest<List>[];
   updatePatientRequest?: BatchInputRequest<Patient>;
   formUser?: string;
+  slot?: Slot;
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -341,6 +345,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     newPatientDob,
     createdBy,
     serviceType,
+    slot,
   } = input;
 
   if (!patient && !createPatientRequest?.fullUrl) {
@@ -415,6 +420,30 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
 
   const isVirtual = serviceType === ServiceMode['virtual'];
 
+  let slotReference: Reference | undefined;
+  const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
+  if (isValidUUID(slot?.id ?? '') && slot?.meta !== undefined) {
+    // assume slot already persisted
+    slotReference = {
+      reference: `Slot/${slot.id}`,
+    };
+  } else if (slot) {
+    postSlotRequests.push({
+      method: 'POST',
+      url: '/Slot',
+      resource: {
+        ...slot,
+        resourceType: 'Slot',
+        id: undefined,
+        status: 'busy',
+      },
+      fullUrl: `urn:uuid:${uuid()}`,
+    });
+    slotReference = {
+      reference: postSlotRequests[0].fullUrl,
+    };
+  }
+
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
@@ -429,6 +458,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     participant: participants,
     start: startTime,
     end: endTime,
+    slot: slotReference ? [slotReference] : undefined,
     appointmentType: {
       text: visitType,
     },
@@ -437,11 +467,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     created: now.toISO() ?? '',
     extension: [...extension, ...(isVirtual ? telemedApptExtensions : [])],
   };
-
-  // if prebook, link a busy slot
-  if (visitType === VisitType.PreBook) {
-    await deleteSpecificBusySlot(startTime, schedule.id ?? '', oystehr);
-  }
 
   const encUrl = `urn:uuid:${uuid()}`;
 
@@ -581,12 +606,13 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const transactionInput: BatchInput<
-    Appointment | Encounter | Patient | List | QuestionnaireResponse | Account | Task
+    Appointment | Encounter | Patient | List | QuestionnaireResponse | Account | Task | Slot
   > = {
     requests: [
       ...patientRequests,
       ...listRequests,
       ...postAccountRequests,
+      ...postSlotRequests,
       postApptReq,
       postEncRequest,
       postQuestionnaireResponseRequest,

@@ -55,20 +55,23 @@ export enum ExternalLabsStatus {
   unparsed = 'unparsed', // for debugging purposes
 }
 
-export type LabOrderHistoryRow = {
-  action:
-    | 'ordered'
-    | 'performed'
-    | 'received (reflex)'
-    | 'reviewed (reflex)'
-    | 'received (ordered)'
-    | 'reviewed (ordered)';
+export type LabOrderUnreceivedHistoryRow = {
+  action: 'ordered' | 'performed';
   performer: string;
   date: string;
 };
 
+export type LabOrderReceivedHistoryRow = {
+  action: 'received' | 'reviewed';
+  resultType: 'reflex' | 'ordered';
+  performer: string;
+  date: string;
+};
+
+export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceivedHistoryRow;
+
 export type LabOrderResultDetails = {
-  testName: string;
+  testItem: string;
   testType: 'Ordered test' | 'Reflex test';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
@@ -78,8 +81,8 @@ export type LabOrderResultDetails = {
 
 export interface LabOrderDTO {
   serviceRequestId: string; // ServiceRequest.id
-  typeLab: string; // ServiceRequest.contained[0](ActivityDefinition).title
-  locationLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
+  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
   providerName: string; // SR.requester name
   diagnoses: DiagnosisDTO[]; // SR.reasonCode
@@ -165,5 +168,7 @@ export const VALID_LAB_ORDER_UPDATE_EVENTS = ['reviewed'] as const;
 
 export interface UpdateLabOrderResourceParams {
   taskId: string;
+  serviceRequestId: string;
+  diagnosticReportId: string;
   event: (typeof VALID_LAB_ORDER_UPDATE_EVENTS)[number];
 }

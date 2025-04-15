@@ -2,6 +2,7 @@ import { FC } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const MedicalConditionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -10,7 +11,10 @@ export const MedicalConditionsContainer: FC = () => {
   const conditions = chartData?.conditions?.filter((condition) => condition.current === true);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+      data-testid={dataTestIds.telemedEhrFlow.reviewTabMedicalConditionsContainer}
+    >
       <Typography variant="h5" color="primary.dark">
         Medical conditions
       </Typography>

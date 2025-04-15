@@ -7,6 +7,7 @@ import { TextField } from '@mui/material';
 interface NumberQuestionProps {
   questionText: string;
   linkId: string;
+  answer?: string;
   extension: Extension[];
   required: boolean;
   idString: string;
@@ -18,8 +19,8 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
     formState: { errors },
   } = useFormContext();
 
-  // Note: the extension will tell you the necessary number validation. See DORN docs for full explanation
-  const { questionText, linkId, extension, required, idString, field } = props;
+  // Note: the extension will tell you the necessary number validation. See Oystehr docs for full explanation
+  const { questionText, linkId, answer, extension, required, idString, field } = props;
 
   // splitting out the RHF passed ref here so it gets passed correctly to the styled component
   const { ref: fieldRef, ...otherField } = field;
@@ -50,8 +51,10 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
         inputProps: {
           mask: numberType?.replaceAll('#', '0'),
           step: decimals ? `0.${'0'.padStart(decimals - 1, '0')}1` : null,
+          readOnly: answer !== undefined,
         },
       }}
+      defaultValue={answer}
     />
   );
 };

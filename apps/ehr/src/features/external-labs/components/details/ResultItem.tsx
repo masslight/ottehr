@@ -1,12 +1,13 @@
 import { ReactElement } from 'react';
-import { Box, Button, Switch, Typography, Divider, useTheme } from '@mui/material';
+import { Box, Button, Typography, Divider, useTheme } from '@mui/material';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
-import { ExternalLabsStatus, LabOrderDTO, LabOrderResultDetails } from 'utils';
+import { LabOrderDTO, LabOrderResultDetails } from 'utils';
 import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
+import { FinalCardView } from './FinalCardView';
 
 interface ResultItemProps {
   labOrder: LabOrderDTO;
-  onMarkAsReviewed?: () => void;
+  onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
 }
 
@@ -33,7 +34,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
           }}
         >
           <span>{resultDetails.testType}:</span>
-          <span>{resultDetails.testName}</span>
+          <span>{resultDetails.testItem}</span>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
           <LabTableStatusChip status={resultDetails.labStatus} />
@@ -60,32 +61,8 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
 
         <Divider />
 
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Switch
-              disabled={true} // todo: will be released in the future
-              checked={false} // todo: will be released in the future
-              onChange={() => null} // todo: will be released in the future
-              color="primary"
-              sx={{ mr: 1 }}
-            />
-            <Typography variant="body2">Show Results on the Patient Portal</Typography>
-          </Box>
-
-          {resultDetails.labStatus === ExternalLabsStatus.received ? (
-            <Button
-              variant="contained"
-              onClick={onMarkAsReviewed}
-              sx={{
-                borderRadius: '50px',
-                textTransform: 'none',
-              }}
-              color="primary"
-            >
-              Mark as Reviewed
-            </Button>
-          ) : null}
-        </Box>
+        <FinalCardView labStatus={resultDetails.labStatus} onMarkAsReviewed={onMarkAsReviewed} />
+        {/* todo: use PrelimCardView for prelim case (apps/ehr/src/features/external-labs/components/details/PrelimCardView.tsx)*/}
       </Box>
     </div>
   );

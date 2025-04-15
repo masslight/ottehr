@@ -25,7 +25,7 @@ export const DetailsWithResults: React.FC<{
   return (
     <div style={{ maxWidth: '714px', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
-        <CSSPageTitle>{labOrder.typeLab}</CSSPageTitle>
+        <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
           {labOrder.diagnoses.map((dx) => {
@@ -36,7 +36,14 @@ export const DetailsWithResults: React.FC<{
 
         {labOrder.resultsDetails.map((result) => (
           <ResultItem
-            onMarkAsReviewed={() => updateTask({ taskId: result.taskId, event: 'reviewed' })}
+            onMarkAsReviewed={() =>
+              updateTask({
+                taskId: result.taskId,
+                serviceRequestId: labOrder.serviceRequestId,
+                diagnosticReportId: result.diagnosticReportId,
+                event: 'reviewed',
+              })
+            }
             resultDetails={result}
             labOrder={labOrder}
           />

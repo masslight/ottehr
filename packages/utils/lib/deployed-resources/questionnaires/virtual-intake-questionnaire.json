@@ -4061,7 +4061,7 @@
         "item": [
           {
             "linkId": "hipaa-acknowledgement",
-            "text": "I have reviewed and accept [HIPAA Acknowledgement](/hippa_notice_template.pdf)",
+            "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
             "type": "boolean",
             "required": true
           },

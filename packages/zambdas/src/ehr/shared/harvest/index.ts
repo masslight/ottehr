@@ -133,6 +133,7 @@ interface PolicyHolder {
   birthSex: 'Male' | 'Female' | 'Intersex';
   dob: string;
   firstName: string;
+  middleName: string;
   lastName: string;
   memberId: string;
   relationship: 'Self' | 'Child' | 'Parent' | 'Spouse' | 'Common Law Spouse' | 'Injured Party' | 'Other';
@@ -689,10 +690,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     },
     {
-      uploadURL: `${baseUploadURL}-hippa-acknowledgement.pdf`,
+      uploadURL: `${baseUploadURL}-hipaa-acknowledgement.pdf`,
       copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
       formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPPA forms',
+      resourceTitle: 'HIPAA forms',
       type: {
         coding: [
           {
@@ -1924,6 +1925,7 @@ const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: str
     birthSex: findAnswer(`policy-holder-birth-sex${suffix}`) as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer(`policy-holder-date-of-birth${suffix}`) ?? '',
     firstName: findAnswer(`policy-holder-first-name${suffix}`) ?? '',
+    middleName: findAnswer(`policy-holder-middle-name${suffix}`) ?? '',
     lastName: findAnswer(`policy-holder-last-name${suffix}`) ?? '',
     number: findAnswer(`policy-holder-number${suffix}`),
     email: findAnswer(`policy-holder-email${suffix}`),
@@ -2044,7 +2046,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const memberId = policyHolder.memberId;
 
   const policyHolderId = 'coverageSubscriber';
-  const policyHolderName = createFhirHumanName(policyHolder.firstName, undefined, policyHolder.lastName);
+  const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
   const containedPolicyHolder: RelatedPerson = {
     resourceType: 'RelatedPerson',

@@ -79,6 +79,7 @@ export const Questionarie: React.FC<{
   return (
     <OrderCollection
       aoe={aoe}
+      status={_taskStatus}
       collectionInstructions={collectionInstructions}
       specimen={specimen}
       serviceRequestID={serviceRequestID}

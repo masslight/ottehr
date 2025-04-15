@@ -32,6 +32,8 @@ import { PatientInfoInProgress } from '../features/patients/types';
 import { NO_LOCATION_ERROR } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
+import { SlotListItem } from 'utils/lib/utils';
+import { Slot } from 'fhir/r4b';
 
 type BookingState = {
   visitType: VisitType | undefined;
@@ -42,6 +44,7 @@ type BookingState = {
   patients: PatientInfo[];
   patientInfo: PatientInfoInProgress | undefined;
   unconfirmedDateOfBirth: string | undefined;
+  slotData: SlotListItem[];
 };
 
 interface BookingStoreActions {
@@ -49,8 +52,8 @@ interface BookingStoreActions {
   setPatients: (patients: PatientInfo[]) => void;
   setUnconfirmedDateOfBirth: (dob: string | undefined) => void;
   setSelectedLocationResponse: (location: GetScheduleResponse | undefined) => void;
-  setSelectedSlot: (slot: string | undefined) => void;
-  setSlotData: (slotData: string[]) => void;
+  setSelectedSlot: (slotId: string | undefined) => void;
+  setSlotData: (slotData: SlotListItem[]) => void;
   setScheduleType: (scheduleType: ScheduleType | undefined) => void;
   completeBooking: () => void;
   handleLogout: () => void;
@@ -65,6 +68,7 @@ const BOOKING_INITIAL: BookingState = {
   visitType: undefined,
   serviceType: undefined,
   scheduleType: undefined,
+  slotData: [],
 };
 
 const useBookingStore = create<BookingState & BookingStoreActions>()(
@@ -117,20 +121,14 @@ const useBookingStore = create<BookingState & BookingStoreActions>()(
         set((state) => ({
           ...state,
           selectedLocationResponse,
+          slotData: selectedLocationResponse?.available ?? [],
         }));
       },
-      setSlotData: (slotData: string[]) => {
+      setSlotData: (slotData: SlotListItem[]) => {
         set((state) => {
-          const selectedLocationResponse = state.selectedLocationResponse;
-          if (!selectedLocationResponse) {
-            return { ...state };
-          }
           return {
             ...state,
-            selectedLocationResponse: {
-              ...selectedLocationResponse,
-              available: slotData,
-            },
+            slotData,
           };
         });
       },
@@ -172,10 +170,11 @@ interface BookAppointmentContext
     > {
   visitType: VisitType | undefined;
   selectedLocation: AvailableLocationInformation | undefined;
-  slotData: string[];
+  slotData: SlotListItem[];
   waitingMinutes: number | undefined;
   locationLoading: boolean;
   patientsLoading: boolean;
+  getSlotListItemWithId: (slotId: string) => SlotListItem | undefined;
 }
 
 export const useBookingContext = (): BookAppointmentContext => {
@@ -206,6 +205,7 @@ const BookingHome: FC = () => {
     selectedSlot,
     unconfirmedDateOfBirth,
     scheduleType,
+    slotData,
     setSelectedLocationResponse,
     setPatientInfo,
     setPatients,
@@ -232,6 +232,7 @@ const BookingHome: FC = () => {
     'handleLogout',
     'scheduleType',
     'setScheduleType',
+    'slotData',
   ]);
   const {
     [BOOKING_SLUG_PARAMS]: slugParam,
@@ -251,10 +252,10 @@ const BookingHome: FC = () => {
   const { t } = useTranslation();
 
   useEffect(() => {
-    const slot = navState?.slot;
+    const slot = navState?.slot as Slot | undefined;
     const scheduleType = navState?.scheduleType;
-    if (slot) {
-      setSelectedSlot(slot);
+    if (slot?.id) {
+      setSelectedSlot(slot?.id);
     }
     if (scheduleType && scheduleType in ScheduleType) {
       setScheduleType(scheduleType as ScheduleType);
@@ -265,12 +266,10 @@ const BookingHome: FC = () => {
     return navState?.scheduleType ?? scheduleType;
   }, [navState?.scheduleType, scheduleType]);
   const outletContext: BookAppointmentContext = useMemo(() => {
-    let slotDataTemp: string[] = [];
     let selectedLocationTemp: AvailableLocationInformation | undefined = undefined;
     let waitingMinutesTemp: number | undefined = undefined;
     if (selectedLocationResponse) {
       selectedLocationTemp = selectedLocationResponse.location;
-      slotDataTemp = selectedLocationResponse.available;
       waitingMinutesTemp = selectedLocationResponse.waitingMinutes;
     }
     let visitType = VisitType.PreBook;
@@ -281,10 +280,13 @@ const BookingHome: FC = () => {
     if (serviceTypeParam === ServiceMode.virtual) {
       serviceType = ServiceMode.virtual;
     }
+    const getSlotListItemWithId = (slotId: string): SlotListItem | undefined => {
+      return slotData.find((si) => `${si.slot.id}` === `${slotId}`);
+    };
     return {
       patients,
       patientInfo,
-      slotData: slotDataTemp,
+      slotData,
       selectedLocation: selectedLocationTemp,
       waitingMinutes: waitingMinutesTemp,
       visitType,
@@ -299,6 +301,7 @@ const BookingHome: FC = () => {
       setSelectedSlot,
       completeBooking,
       setSlotData,
+      getSlotListItemWithId,
     };
   }, [
     selectedLocationResponse,
@@ -316,6 +319,7 @@ const BookingHome: FC = () => {
     setSelectedSlot,
     completeBooking,
     setSlotData,
+    slotData,
   ]);
   const { walkinOpen } = useCheckOfficeOpen(outletContext.selectedLocation);
 
@@ -328,16 +332,25 @@ const BookingHome: FC = () => {
   // console.log('outlet context in root', outletContext);
 
   useEffect(() => {
-    const fetchLocation = async (locationSlug: string, scheduleType: ScheduleType): Promise<any> => {
+    const fetchLocation = async (locationSlug: string, scheduleType: ScheduleType, isWalkin: boolean): Promise<any> => {
       try {
         if (!tokenlessZambdaClient) {
           return;
         }
         setLocationLoading(LoadingState.loading);
         console.log('schedule type sluggo: ', scheduleType, locationSlug);
+        // temporarily hardcoding the params for the walkin case here due to a bug with the dynamic values
+        // and plans to overhaul this page in the near future
+        let scheduleTypeForFetch = scheduleType ?? ScheduleType.location;
+        let locationSlugForFetch = locationSlug;
+        if (isWalkin) {
+          scheduleTypeForFetch = ScheduleType.location;
+          locationSlugForFetch = 'testing';
+        }
         const res = await zapehrApi.getSchedule(tokenlessZambdaClient, {
-          scheduleType: scheduleType ?? ScheduleType.location,
-          slug: locationSlug,
+          scheduleType: scheduleTypeForFetch,
+          slug: locationSlugForFetch,
+          isWalkin,
         });
         setSelectedLocationResponse(res);
       } catch (error) {
@@ -350,10 +363,17 @@ const BookingHome: FC = () => {
 
     // So long as / is a valid path or auth0 redirects to /, this must be here. Otherwise the
     // function is called with no slug parameter and overwrites the contents of local storage.
-    if (slugParam && locationLoading === LoadingState.initial && scheduleTypeForFetch) {
-      void fetchLocation(slugParam, scheduleTypeForFetch);
+    if (slugParam && locationLoading === LoadingState.initial && scheduleTypeForFetch && visitTypeParam !== undefined) {
+      void fetchLocation(slugParam, scheduleTypeForFetch, visitTypeParam === VisitType.WalkIn);
     }
-  }, [locationLoading, scheduleTypeForFetch, setSelectedLocationResponse, slugParam, tokenlessZambdaClient]);
+  }, [
+    locationLoading,
+    scheduleTypeForFetch,
+    setSelectedLocationResponse,
+    slugParam,
+    tokenlessZambdaClient,
+    visitTypeParam,
+  ]);
 
   useEffect(() => {
     async function getPatients(): Promise<void> {
@@ -574,16 +594,8 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
 
   console.log('isAuthenticated in welcome page', isAuthenticated);
 
-  const {
-    selectedLocation,
-    selectedSlot,
-    waitingMinutes,
-    slotData,
-    locationLoading,
-    scheduleType,
-    setSelectedSlot,
-    setSlotData,
-  } = context;
+  const { selectedLocation, selectedSlot, waitingMinutes, slotData, locationLoading, scheduleType, setSelectedSlot } =
+    context;
 
   // console.log('selectedLocation, locationLoading', selectedLocation, locationLoading, context);
 
@@ -594,11 +606,17 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
     if (!selectedSlot) {
       return slotData;
     } else {
+      const selected = slotData?.find((si) => si.slot.id === selectedSlot);
       const allButSelected =
-        slotData?.filter((slot) => {
-          return slot !== selectedSlot;
+        slotData?.filter((si) => {
+          return si.slot.id !== selectedSlot;
         }) ?? [];
-      return [...allButSelected, selectedSlot].sort((a: string, b: string) => a.localeCompare(b));
+      // todo: this shouldn't be necessary...
+      const toSort = [...allButSelected];
+      if (selected) {
+        toSort.push(selected);
+      }
+      return [...toSort].sort((a: SlotListItem, b: SlotListItem) => a.slot.start.localeCompare(b.slot.start));
     }
   }, [slotData, selectedSlot]);
 
@@ -635,13 +653,11 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
         <>
           <Schedule
             slotsLoading={locationLoading}
-            slotData={allAvailableSlots}
-            setSlotData={setSlotData}
-            scheduleType={scheduleType}
+            slotData={allAvailableSlots.map((si) => si.slot)}
             timezone={selectedLocation?.timezone || 'America/New_York'}
-            existingSelectedSlot={selectedSlot}
+            existingSelectedSlot={slotData?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
             handleSlotSelected={(slot) => {
-              setSelectedSlot(slot);
+              setSelectedSlot(slot.id);
               navigate(
                 preserveQueryParams(`/${scheduleType}/${slugParam}/${visitTypeParam}/${serviceTypeParam}/get-ready`),
                 {
@@ -649,10 +665,8 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
                 }
               );
             }}
-            locationSlug={slugParam}
             forceClosedToday={officeHasClosureOverrideToday}
             forceClosedTomorrow={officeHasClosureOverrideTomorrow}
-            markSlotBusy={true}
           />
           <Divider sx={{ marginTop: 3, marginBottom: 3 }} />
           <Typography variant="h4" color={theme.palette.primary.main}>

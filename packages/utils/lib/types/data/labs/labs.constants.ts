@@ -41,3 +41,28 @@ export const EMPTY_PAGINATION: Pagination = {
   totalItems: 0,
   totalPages: 0,
 };
+
+export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'https://identifiers.fhir.oystehr.com/provenance-activity-type';
+
+export const PROVENANCE_ACTIVITY_CODES = {
+  review: 'REVIEW',
+  submit: 'SUBMIT',
+} as const;
+
+export const PROVENANCE_ACTIVITY_DISPLAY = {
+  review: 'review',
+  submit: 'submit',
+} as const;
+
+export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
+  submit: {
+    code: PROVENANCE_ACTIVITY_CODES.submit,
+    display: PROVENANCE_ACTIVITY_DISPLAY.submit,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  review: {
+    code: PROVENANCE_ACTIVITY_CODES.review,
+    display: PROVENANCE_ACTIVITY_DISPLAY.review,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+} as const;

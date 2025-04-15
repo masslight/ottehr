@@ -10,6 +10,31 @@ export interface SubmitLabOrderInput {
   data: any;
 }
 
+export interface LabQuestionnaireResponse {
+  linkId: string;
+  type:
+    | 'group'
+    | 'display'
+    | 'question'
+    | 'boolean'
+    | 'decimal'
+    | 'integer'
+    | 'date'
+    | 'dateTime'
+    | 'time'
+    | 'string'
+    | 'text'
+    | 'url'
+    | 'choice'
+    | 'open-choice'
+    | 'attachment'
+    | 'reference'
+    | 'quantity';
+  response: LabQuestionnaireResponseItem;
+}
+
+export type LabQuestionnaireResponseItem = (string | number | boolean | undefined)[] | undefined;
+
 export interface OrderDetails {
   diagnosis: string;
   patientName: string;
@@ -21,4 +46,5 @@ export interface OrderDetails {
   accountNumber: string;
   sampleCollectionDateTime: string;
   labQuestions: Questionnaire;
+  labQuestionnaireResponses: LabQuestionnaireResponse[] | undefined;
 }

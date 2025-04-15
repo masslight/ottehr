@@ -18,6 +18,7 @@ export const OrderDetailsPage: React.FC = () => {
   const labOrder = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
 
   const status = labOrder?.orderStatus;
+  // const status = 'sent';
 
   if (loading) {
     return <LabOrderLoading />;
@@ -25,14 +26,14 @@ export const OrderDetailsPage: React.FC = () => {
 
   if (status === 'pending' || status === 'sent') {
     return (
-      <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
+      <WithLabBreadcrumbs sectionName={labOrder?.testItem || 'order details'}>
         <DetailsWithoutResults labOrder={labOrder} />
       </WithLabBreadcrumbs>
     );
   }
 
   return (
-    <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
+    <WithLabBreadcrumbs sectionName={labOrder?.testItem || 'order details'}>
       <DetailsWithResults labOrder={labOrder} updateTask={updateTask} />
     </WithLabBreadcrumbs>
   );

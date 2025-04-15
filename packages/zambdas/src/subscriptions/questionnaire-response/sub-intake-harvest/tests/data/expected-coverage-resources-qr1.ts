@@ -6,7 +6,7 @@ export const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
   id: 'coverageSubscriber',
   name: [
     {
-      given: ['Barnabas'],
+      given: ['Barnabas', 'Thaddeus'],
       family: 'Picklesworth',
     },
   ],
@@ -39,7 +39,7 @@ export const expectedSecondaryPolicyHolderFromQR1: RelatedPerson = {
   id: 'coverageSubscriber',
   name: [
     {
-      given: ['Jennifer'],
+      given: ['Jennifer', 'Celeste'],
       family: 'Picklesworth',
     },
   ],

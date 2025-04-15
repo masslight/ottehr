@@ -76,12 +76,6 @@ export const MOBILE_MODAL_STYLE = {
   p: 4,
 };
 
-// This functionality is to ensure that sticky elements stick to the correct top when the banner is enabled
-export const BANNER_HEIGHT = 60;
-export const adjustTopForBannerHeight = (top: number): number => {
-  return import.meta.env.VITE_APP_ENV !== 'production' ? top + BANNER_HEIGHT : top;
-};
-
 export const NEXT_WIDTH = '1%';
 export const TYPE_WIDTH = '13%';
 export const TIME_WIDTH = '12%';

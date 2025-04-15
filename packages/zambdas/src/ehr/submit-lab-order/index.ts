@@ -1,10 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getPatchBinary, isValidUUID } from 'utils';
+import { createFilesDocumentReferences, getPatchBinary, isValidUUID, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Coverage,
+  DocumentReference,
+  List,
   Location,
   Organization,
   Patient,
@@ -18,6 +20,9 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { getLabOrderResources } from '../shared/labs';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
+import Oystehr from '@oystehr/sdk';
+import { PdfInfo } from '../../shared/pdf/pdf-utils';
+import { randomUUID } from 'crypto';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -43,8 +48,18 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       practitioner: provider,
       questionnaireResponse,
       task,
+      appointment,
+      encounter,
     } = await getLabOrderResources(oystehr, serviceRequestID);
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
+
+    if (!appointment.id) {
+      throw new Error('appointment id is undefined');
+    }
+
+    if (!encounter.id) {
+      throw new Error('encounter id is undefined');
+    }
 
     if (!locationID || !isValidUUID(locationID)) {
       throw new Error(`location id ${locationID} is not a uuid`);
@@ -179,23 +194,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         answer: answer,
       };
     });
-    // const intakeQuestionnaireItems: IntakeQuestionnaireItem[] = questionnaire.item?.map((item) => ({
-    //   //   linkId: item.linkId,
-    //   //   type: item.type,
-    //   alwaysFilter: false,
-    //   acceptsMultipleAnswers: false,
-    //   ...item,
-    // }));
-    // const validationSchema = makeValidationSchema(questionnaireItems);
-    // console.log(5, data);
-    // console.log(1, validationSchema);
-    // try {
-    //   await validationSchema.validate(data, { abortEarly: false });
-    //   console.log(test);
-    // } catch (error) {
-    //   console.log(error);
-    //   throw new Error('error when validating the labs');
-    // }
 
     const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
@@ -213,6 +211,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           who: task.owner ? task.owner : { reference: currentUser?.profile },
         },
       ],
+      activity: {
+        coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.submit],
+      },
     };
     const request = await oystehr?.fhir.transaction({
       requests: [
@@ -355,6 +356,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       m2mtoken
     );
 
+    await makeLabOrderPdfDocumentReference(oystehr, pdfDetail, patient.id, appointment.id, encounter.id, undefined);
+
     return {
       body: JSON.stringify({
         message: 'success',
@@ -364,6 +367,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
     };
   } catch (error) {
+    console.log(error);
     console.log('submit lab order error:', JSON.stringify(error));
     return {
       body: JSON.stringify({ message: 'Error submitting a lab order' }),
@@ -371,3 +375,50 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   }
 };
+
+export async function makeLabOrderPdfDocumentReference(
+  oystehr: Oystehr,
+  pdfInfo: PdfInfo,
+  patientId: string,
+  appointmentId: string,
+  encounterId: string,
+  listResources: List[] | undefined
+): Promise<DocumentReference> {
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+      },
+    ],
+    type: {
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '51991-8',
+          display: 'Referral lab test panel',
+        },
+      ],
+      text: 'Lab order document',
+    },
+    references: {
+      subject: {
+        reference: `Patient/${patientId}`,
+      },
+      context: {
+        related: [
+          {
+            reference: `Appointment/${appointmentId}`,
+          },
+        ],
+        encounter: [{ reference: `Encounter/${encounterId}` }],
+      },
+    },
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    searchParams: [],
+    listResources,
+  });
+  return docRefs[0];
+}
