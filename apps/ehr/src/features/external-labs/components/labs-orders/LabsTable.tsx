@@ -117,7 +117,7 @@ export const LabsTable = ({
       }
     }
 
-    if (encounter && oystehrZambda) {
+    if (encounter.id && oystehrZambda) {
       void getResources(oystehrZambda);
     }
   }, [encounter, oystehrZambda]);
