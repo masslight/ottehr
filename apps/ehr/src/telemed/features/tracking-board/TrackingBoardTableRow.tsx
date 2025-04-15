@@ -108,7 +108,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   if (appointment.start) {
     let timezone = 'America/New_York';
     try {
-      timezone = getTimezone(appointment.location);
+      timezone = getTimezone(appointment.locationVirtual);
     } catch (error) {
       console.error('Error getting timezone for appointment', appointment.id, error);
     }
@@ -119,7 +119,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
   return (
     <TableRow
       data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointment.id)}
-      data-location-group={appointment.location.state}
+      data-location-group={appointment.locationVirtual.state}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
         '&:hover': {
@@ -220,7 +220,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
         </Tooltip>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'middle', cursor: 'pointer' }} onClick={goToAppointment}>
-        <Typography sx={{ fontSize: '16px' }}>{appointment.location.state}</Typography>
+        <Typography sx={{ fontSize: '16px' }}>{appointment.locationVirtual.state}</Typography>
       </TableCell>
       {showProvider && (
         <TableCell sx={{ verticalAlign: 'middle' }}>

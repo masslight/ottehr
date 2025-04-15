@@ -182,6 +182,13 @@
       "src": "src/patient/version/index",
       "zip": ".dist/zips/version.zip"
     },
+    "CREATE-USER": {
+      "name": "CREATE-USER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/create-user/index",
+      "zip": ".dist/zips/create-user.zip"
+    },
     "DEACTIVATE-USER": {
       "name": "DEACTIVATE-USER",
       "type": "http_auth",
@@ -786,6 +793,34 @@
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
     },
+    "EHR-GET-SCHEDULE": {
+      "name": "EHR-GET-SCHEDULE",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/schedules/get-schedule/index",
+      "zip": ".dist/zips/ehr-get-schedule.zip"
+    },
+    "UPDATE-SCHEDULE": {
+      "name": "UPDATE-SCHEDULE",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/schedules/update-schedule/index",
+      "zip": ".dist/zips/update-schedule.zip"
+    },
+    "LIST-SCHEDULE-OWNERS": {
+      "name": "LIST-SCHEDULE-OWNERS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/schedules/list-schedule-owners/index",
+      "zip": ".dist/zips/list-schedule-owners.zip"
+    },
+    "CREATE-SCHEDULE": {
+      "name": "CREATE-SCHEDULE",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/schedules/create-schedule/index",
+      "zip": ".dist/zips/create-schedule.zip"
+    },
     "AI-INTERVIEW-SUMMARY": {
       "name": "AI-INTERVIEW-SUMMARY",
       "type": "subscription",
@@ -795,7 +830,7 @@
       "subscription": {
         "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
         "reason": "Generate summary of chat with AI",
-        "event": "create"
+        "event": "update"
       }
     }
   },

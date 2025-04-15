@@ -1,5 +1,6 @@
-import { Appointment, Encounter, Period } from 'fhir/r4b';
-import { TelemedAppointmentStatusEnum } from '../../types';
+import { Appointment, Encounter, Period, Slot } from 'fhir/r4b';
+import { AvailableLocationInformation, TelemedAppointmentStatusEnum } from '../../types';
+import { SlotListItem } from '../../utils';
 
 export type AppointmentType = 'walk-in' | 'pre-booked' | 'post-telemed';
 
@@ -81,4 +82,21 @@ export const visitStatusToFhirEncounterStatusMap: Record<VisitStatusWithoutUnkno
 export interface VisitStatusHistoryEntry {
   status: VisitStatusHistoryLabel;
   period: Period;
+}
+export interface GetAppointmentDetailsResponse {
+  appointment: {
+    start: string;
+    slot: Slot;
+    location: AvailableLocationInformation;
+    visitType: string;
+    status?: string;
+  };
+  availableSlots: SlotListItem[];
+  displayTomorrowSlotsAtHour: number;
+}
+
+export interface UpdateAppointmentParameters {
+  appointmentID: string;
+  language: string;
+  slot: Slot;
 }

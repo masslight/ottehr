@@ -87,7 +87,7 @@ export const performEffect = async (
 
     for (let i = 0; i < allPackages.length; i++) {
       const appointmentPackage = allPackages[i];
-      const { appointment, telemedStatus, telemedStatusHistory, location, practitioner, encounter } =
+      const { appointment, telemedStatus, telemedStatusHistory, locationVirtual, practitioner, encounter } =
         appointmentPackage;
       const patient = filterPatientForAppointment(appointment, allResources);
 
@@ -119,7 +119,7 @@ export const performEffect = async (
         reasonForVisit: appointment.description,
         comment: appointment.comment,
         appointmentStatus: appointment.status,
-        location,
+        locationVirtual,
         encounter,
         paperwork: appointmentPackage.paperwork,
         telemedStatus: telemedStatus,

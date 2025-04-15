@@ -7,7 +7,7 @@ import { ScheduleStrategyCoding } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { getResource } from './Schedule';
+import { getResource } from './SchedulePage';
 
 export default function AddSchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages

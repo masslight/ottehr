@@ -73,7 +73,7 @@ export interface AppointmentInformation extends AppointmentMessaging {
   reasonForVisit?: string;
   comment?: string;
   appointmentStatus: FhirAppointmentStatus;
-  location: AppointmentLocation;
+  locationVirtual: AppointmentLocation;
   paperwork?: QuestionnaireResponse;
   encounter: Encounter;
   status: CallStatuses;
@@ -96,7 +96,7 @@ export interface AppointmentParticipants {
 }
 
 export interface InPersonAppointmentInformation
-  extends Omit<AppointmentInformation, 'paperwork' | 'location' | 'statusHistory'> {
+  extends Omit<AppointmentInformation, 'paperwork' | 'locationVirtual' | 'location' | 'statusHistory'> {
   encounterId: string;
   start: string;
   unconfirmedDOB: string;

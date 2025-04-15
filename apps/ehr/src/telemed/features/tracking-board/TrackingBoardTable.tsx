@@ -96,11 +96,11 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
     const createGroups = (): Record<string, TelemedAppointmentInformation[]> => {
       return filteredAppointments.reduce<Record<string, TelemedAppointmentInformation[]>>(
         (accumulator, appointment) => {
-          if (appointment.location.state) {
-            if (!accumulator[appointment.location.state]) {
-              accumulator[appointment.location.state] = [];
+          if (appointment.locationVirtual.state) {
+            if (!accumulator[appointment.locationVirtual.state]) {
+              accumulator[appointment.locationVirtual.state] = [];
             }
-            accumulator[appointment.location.state].push(appointment);
+            accumulator[appointment.locationVirtual.state].push(appointment);
             return accumulator;
           } else if (appointment.provider) {
             if (!accumulator[appointment.provider.join(',')]) {
@@ -146,7 +146,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
   }, {});
 
   const oldestId = filteredAppointments
-    .filter((appointment) => availableStates.includes(appointment.location.state!))
+    .filter((appointment) => availableStates.includes(appointment.locationVirtual.state!))
     .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))?.[0]?.id;
   const showNext = tab === ApptTelemedTab.ready;
 

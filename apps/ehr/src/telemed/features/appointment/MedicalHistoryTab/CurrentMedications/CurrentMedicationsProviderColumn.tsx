@@ -99,6 +99,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   return (
     <Box>
       <Box
+        data-testid={dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn}
         sx={{
           display: 'flex',
           flexDirection: 'column',
