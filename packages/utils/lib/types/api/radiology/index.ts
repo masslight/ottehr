@@ -1,3 +1,5 @@
+import { Pagination } from '../../data/pagination.types';
+
 export interface CreateRadiologyZambdaOrderInput {
   encounterId: string;
   diagnosisCode: string;
@@ -18,12 +20,6 @@ export interface GetRadiologyOrderListZambdaInput {
   patientId?: string;
   pageIndex: number;
   itemsPerPage: number;
-}
-
-export interface Pagination {
-  currentPageIndex: number;
-  totalItems: number;
-  totalPages: number;
 }
 
 export enum RadiologyOrderStatus {
