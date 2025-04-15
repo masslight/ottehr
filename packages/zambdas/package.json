@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.6.2",
+  "version": "1.6.4",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -28,7 +28,7 @@
     "stub-zambdas:prod": "tsx src/scripts/create-zambda-stubs.ts production",
     "setup-questionnaires": "tsx src/scripts/setup-questionnaires.ts",
     "setup-billing-providers": "tsx src/scripts/setup-billing-providers.ts",
-    "setup-deployed-resources": "tsx src/scripts/setup-questionnaires.ts ${ENV} && tsx src/scripts/setup-billing-providers.ts ${ENV}",
+    "setup-deployed-resources": "tsx src/scripts/setup-questionnaires.ts ${ENV} && tsx src/scripts/setup-billing-providers.ts ${ENV} && tsx src/scripts/ensure-schedule-config.ts ${ENV}",
     "test": "vitest"
   },
   "engines": {
