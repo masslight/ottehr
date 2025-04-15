@@ -1,6 +1,6 @@
 import { Box, Typography } from '@mui/material';
+import { ottehrAiIcon } from '@theme/icons';
 import React from 'react';
-import ottehrAiIcon from '../assets/ottehr-ai-icon.svg';
 
 export interface AiSuggestionProps {
   title: string;
