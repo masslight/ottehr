@@ -11,7 +11,7 @@ interface OrderButtonProps {
   dataTestId?: string;
 }
 
-export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'large', sx, dataTestId }) => {
+export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'medium', sx, dataTestId }) => {
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -24,7 +24,18 @@ export const OrderButton: React.FC<OrderButtonProps> = ({ size = 'large', sx, da
   };
 
   return (
-    <ButtonRounded variant="contained" color="primary" size={size} onClick={onClick} sx={sx} data-testid={dataTestId}>
+    <ButtonRounded
+      variant="contained"
+      color="primary"
+      size={size}
+      onClick={onClick}
+      sx={{
+        py: 1,
+        px: 5,
+        ...sx,
+      }}
+      data-testid={dataTestId}
+    >
       Order
     </ButtonRounded>
   );

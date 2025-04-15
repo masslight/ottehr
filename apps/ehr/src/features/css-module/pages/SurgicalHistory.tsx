@@ -11,6 +11,7 @@ import {
 } from '../../../telemed/features/appointment';
 import { CSSLoader } from '../components/CSSLoader';
 import { InfoAlert } from '../components/InfoAlert';
+import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
 interface SurgicalHistoryProps {
@@ -28,13 +29,15 @@ export const SurgicalHistory: React.FC<SurgicalHistoryProps> = () => {
 
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
 
+  const { interactionMode } = useNavigationContext();
+
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Stack spacing={2}>
-      <PageTitle label="Surgical History" />
+    <Stack spacing={1}>
+      <PageTitle label="Surgical History" showIntakeNotesButton={interactionMode === 'intake'} />
       <InfoAlert text="Ask: Has the patient ever had surgery? If yes, what was the surgery?" />
       <MedicalHistoryDoubleCard
         patientSide={<SurgicalHistoryPatientColumn />}
