@@ -28,6 +28,7 @@ import {
   getFullName,
   GetScheduleRequestParams,
   GetScheduleResponse,
+  OTTEHR_SLUG_ID_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   ScheduleType,
   ServiceMode,
@@ -134,7 +135,7 @@ export default function AddPatient(): JSX.Element {
       }
     };
     const locationSlug = selectedLocation?.identifier?.find(
-      (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug'
+      (identifierTemp) => identifierTemp.system === OTTEHR_SLUG_ID_SYSTEM
     )?.value;
     if (!locationSlug) {
       console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
