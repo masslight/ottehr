@@ -63,7 +63,7 @@ const validateRequestParameters = (input: ZambdaInput): Input => {
   const userToken = input.headers.Authorization.replace('Bearer ', '');
 
   if (!userToken) {
-    throw new Error('usere token unexpectedly missing');
+    throw new Error('user token unexpectedly missing');
   }
 
   console.log('input', JSON.stringify(input, null, 2));

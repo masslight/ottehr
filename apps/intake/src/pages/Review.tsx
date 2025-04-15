@@ -48,6 +48,7 @@ const Review = (): JSX.Element => {
     scheduleType,
     setPatientInfo,
     completeBooking,
+    getSlotListItemWithId,
   } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const patientFullName = useGetFullName(patientInfo);
@@ -58,16 +59,23 @@ const Review = (): JSX.Element => {
   const { t } = useTranslation();
 
   const zambdaClient = useUCZambdaClient({ tokenless: false });
-  const selectedSlotTimezoneAdjusted = useMemo(() => {
-    const selectedAppointmentStart = appointmentSlot;
-    if (selectedAppointmentStart && selectedLocation?.timezone) {
-      return DateTime.fromISO(selectedAppointmentStart)
-        .setZone(selectedLocation?.timezone)
-        .setLocale('en-us');
+  const { selectedSlotTimezoneAdjusted, selectedSlot } = useMemo(() => {
+    const selectedAppointmentId = appointmentSlot;
+    if (selectedAppointmentId && selectedLocation?.timezone) {
+      const slotItem = getSlotListItemWithId(selectedAppointmentId);
+      const selectedAppointmentStart = slotItem?.slot.start;
+      if (selectedAppointmentStart) {
+        return {
+          selectedSlotTimezoneAdjusted: DateTime.fromISO(selectedAppointmentStart)
+            .setZone(selectedLocation?.timezone)
+            .setLocale('en-us'),
+          selectedSlot: slotItem,
+        };
+      }
     }
 
-    return undefined;
-  }, [appointmentSlot, selectedLocation?.timezone]);
+    return { selectedAppointmentStart: undefined, selectedSlotTimezoneAdjusted: undefined };
+  }, [appointmentSlot, getSlotListItemWithId, selectedLocation?.timezone]);
 
   const onSubmit = async (): Promise<void> => {
     try {
@@ -99,7 +107,7 @@ const Review = (): JSX.Element => {
       // Create the appointment
       const res = await zapehrApi.createAppointment(zambdaClient, {
         // slot: visitType === VisitType.WalkIn ? undefined : appointmentSlot,
-        slot: appointmentSlot || '', // todo: handle walk-in
+        slot: selectedSlot?.slot, // todo: handle walk-in
         patient: patientInfo,
         locationID: selectedLocation?.id || '',
         providerID: selectedLocation?.id || '',

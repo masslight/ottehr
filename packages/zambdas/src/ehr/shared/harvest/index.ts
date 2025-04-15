@@ -689,10 +689,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     },
     {
-      uploadURL: `${baseUploadURL}-hippa-acknowledgement.pdf`,
+      uploadURL: `${baseUploadURL}-hipaa-acknowledgement.pdf`,
       copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
       formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPPA forms',
+      resourceTitle: 'HIPAA forms',
       type: {
         coding: [
           {

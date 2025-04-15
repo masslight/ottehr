@@ -166,7 +166,12 @@ test.describe('Medical conditions', async () => {
       .first();
     await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(medicalConditionListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput)).toBeVisible();
+    await expect(
+      page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
+        .first()
+    ).not.toBeVisible();
   });
 
   test('Should confirm medical condition deleted, in HPI and in Review&Sign tabs', async () => {
@@ -322,7 +327,12 @@ test.describe('Current medications', () => {
 
     await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(scheduledMedicationListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)).toBeVisible();
+    await expect(
+      page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
+        .first()
+    ).not.toBeVisible();
   });
 
   test('Should delete as needed medication', async () => {
@@ -339,7 +349,12 @@ test.describe('Current medications', () => {
 
     await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(asNeededMedicationListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput)).toBeVisible();
+    await expect(
+      page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
+        .first()
+    ).not.toBeVisible();
   });
 
   test('Should confirm medications are deleted on Review&Sign tab', async () => {
@@ -409,7 +424,12 @@ test.describe('Known allergies', () => {
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
     await expect(knownAllergyListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput)).toBeVisible();
+    await expect(
+      page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
+        .first()
+    ).not.toBeVisible();
   });
 
   test('Should confirm known allergy deleted', async () => {

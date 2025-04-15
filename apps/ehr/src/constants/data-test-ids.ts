@@ -171,6 +171,7 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
+    trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
@@ -206,6 +207,7 @@ export const dataTestIds = {
     hpiCurrentMedicationsList: (listType: 'scheduled' | 'as-needed') =>
       `telemed-hpi-current-medications-list-${listType}`,
     hpiCurrentMedicationsListItem: (listDataTestId: string) => `${listDataTestId}-item`,
+    hpiCurrentMedicationsColumn: 'telemed-hpi-current-medications-column',
     hpiKnownAllergiesColumn: 'telemed-hpi-known-allergies-column',
     hpiKnownAllergiesList: 'telemed-hpi-known-allergies-list',
     hpiKnownAllergiesPatientProvidedList: 'telemed-hpi-known-allergies-patient-provided-list',

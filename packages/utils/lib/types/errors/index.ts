@@ -19,6 +19,7 @@ export enum APIErrorCode {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = 4015,
   BILLING_PROVIDER_NOT_FOUND = 4016,
   FHIR_RESOURCE_NOT_FOUND = 4017,
+  SCHEDULE_OWNER_NOT_FOUND = 4018,
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   MISSING_REQUEST_BODY = 4200,
@@ -28,7 +29,10 @@ export enum APIErrorCode {
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
   STRIPE_CUSTOMER_ID_NOT_FOUND = 4302,
   STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
-  MISSING_PATIENT_COVERAGE_INFO = 4304,
+  MISCONFIGURED_SCHEDULING_GROUP = 4304,
+  MISSING_SCHEDULE_EXTENSION = 4305,
+  MISSING_PATIENT_COVERAGE_INFO = 4306,
+  INVALID_INPUT = 4340,
 }
 
 export interface APIError {
@@ -164,6 +168,16 @@ export const SCHEDULE_NOT_FOUND_ERROR = {
   message: 'Schedule could not be found',
 };
 
+export const SCHEDULE_OWNER_NOT_FOUND_ERROR = {
+  code: APIErrorCode.SCHEDULE_NOT_FOUND,
+  message: 'Schedule.actor could not be found',
+};
+
+export const SCHEDULE_NOT_FOUND_CUSTOM_ERROR = (message: string): APIError => ({
+  code: APIErrorCode.SCHEDULE_NOT_FOUND,
+  message,
+});
+
 export const APPOINTMENT_CANT_BE_IN_PAST_ERROR = {
   code: APIErrorCode.APPOINTMENT_CANT_BE_IN_PAST,
   message: "An appointment can't be scheduled for a date in the past",
@@ -208,6 +222,18 @@ export const ANSWER_OPTION_FROM_RESOURCE_UNDEFINED = (resourceType: string): API
   };
 };
 
+export const MISCONFIGURED_SCHEDULING_GROUP = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MISCONFIGURED_SCHEDULING_GROUP,
+    message,
+  };
+};
+export const MISSING_SCHEDULE_EXTENSION_ERROR = {
+  code: APIErrorCode.MISSING_SCHEDULE_EXTENSION,
+  // todo: link to the documentation
+  message: 'The schedule extension is missing from the Schedule resource',
+};
+
 export const STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR: APIError = {
   code: APIErrorCode.STRIPE_CUSTOMER_ID_NOT_FOUND,
   message: 'No identifier for a Stripe customer was found on the billing Account resource associated with the patient',
@@ -218,6 +244,12 @@ export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
   message: 'Access to this Stripe resource is not authorized. Perhaps it is no longer attached to the customer',
 };
 
+export const INVALID_INPUT_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.INVALID_INPUT,
+    message,
+  };
+};
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',

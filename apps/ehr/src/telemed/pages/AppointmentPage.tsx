@@ -19,6 +19,7 @@ import {
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   TelemedAppointmentStatusEnum,
   getQuestionnaireResponseByLinkId,
+  isLocationVirtual,
   mapStatusToTelemed,
 } from 'utils';
 import { getSelectors } from '../../shared/store/getSelectors';
@@ -94,19 +95,20 @@ export const AppointmentPage: FC = () => {
     (data) => {
       const questionnaireResponse = data?.find(
         (resource: FhirResource) => resource.resourceType === 'QuestionnaireResponse'
-      ) as unknown as QuestionnaireResponse;
+      ) as QuestionnaireResponse;
       useAppointmentStore.setState({
-        appointment: data?.find(
-          (resource: FhirResource) => resource.resourceType === 'Appointment'
-        ) as unknown as Appointment,
-        patient: data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as unknown as Patient,
-        location: data?.find((resource: FhirResource) => resource.resourceType === 'Location') as unknown as Location,
+        appointment: data?.find((resource: FhirResource) => resource.resourceType === 'Appointment') as Appointment,
+        patient: data?.find((resource: FhirResource) => resource.resourceType === 'Patient') as Patient,
+        location: (data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]).find(
+          (location) => !isLocationVirtual(location)
+        ),
+        locationVirtual: (
+          data?.filter((resource: FhirResource) => resource.resourceType === 'Location') as Location[]
+        ).find(isLocationVirtual),
         practitioner: data?.find(
           (resource: FhirResource) => resource.resourceType === 'Practitioner'
         ) as unknown as Practitioner,
-        encounter: data?.find(
-          (resource: FhirResource) => resource.resourceType === 'Encounter'
-        ) as unknown as Encounter,
+        encounter: data?.find((resource: FhirResource) => resource.resourceType === 'Encounter') as Encounter,
         questionnaireResponse,
         patientPhotoUrls: extractPhotoUrlsFromAppointmentData(data),
         schoolWorkNoteUrls:

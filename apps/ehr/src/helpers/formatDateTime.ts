@@ -1,6 +1,6 @@
 import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { TIMEZONE_EXTENSION_URL } from '../pages/Schedule';
+import { TIMEZONE_EXTENSION_URL } from 'utils';
 
 export const OVERRIDE_DATE_FORMAT = 'M/d/yyyy';
 
