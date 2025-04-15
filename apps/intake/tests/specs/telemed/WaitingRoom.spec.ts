@@ -61,14 +61,14 @@ test.describe('Waiting room - Manage participants', () => {
     await locator.sendInvite.click();
     await paperwork.checkCorrectPageOpens('Waiting room');
     await expect(locator.inviteeList).toHaveText(
-      `${inviteeData.inviteeName.firstName} ${inviteeData.inviteeName.lastName}`
+      `${inviteeData.inviteeName.inviteeFirstName} ${inviteeData.inviteeName.inviteeLastName}`
     );
   });
   test('WRMP-5 Click on [Manage participant] when there is invitee, check invitee data is correct', async () => {
     await locator.manageParticipant.click();
     await expect(locator.modalManageParticipantsTitle).toBeVisible();
     await expect(locator.wrInviteeName).toHaveText(
-      `${inviteeData.inviteeName.firstName} ${inviteeData.inviteeName.lastName}`
+      `${inviteeData.inviteeName.inviteeFirstName} ${inviteeData.inviteeName.inviteeLastName}`
     );
     await expect(locator.wrInviteeContact).toHaveText(inviteeData.phone!);
   });
@@ -76,7 +76,7 @@ test.describe('Waiting room - Manage participants', () => {
     await locator.cancelInvite.click();
     await expect(
       page.getByText(
-        `Are you sure you want to cancel invite for ${inviteeData.inviteeName.firstName} ${inviteeData.inviteeName.lastName} for this visit?`
+        `Are you sure you want to cancel invite for ${inviteeData.inviteeName.inviteeFirstName} ${inviteeData.inviteeName.inviteeLastName} for this visit?`
       )
     ).toBeVisible();
   });
@@ -84,7 +84,7 @@ test.describe('Waiting room - Manage participants', () => {
     await locator.keepInvite.click();
     await expect(
       page.getByText(
-        `Are you sure you want to cancel invite for ${inviteeData.inviteeName.firstName} ${inviteeData.inviteeName.lastName} for this visit?`
+        `Are you sure you want to cancel invite for ${inviteeData.inviteeName.inviteeFirstName} ${inviteeData.inviteeName.inviteeLastName} for this visit?`
       )
     ).not.toBeVisible();
     await expect(locator.modalManageParticipantsTitle).toBeVisible();
@@ -93,7 +93,7 @@ test.describe('Waiting room - Manage participants', () => {
     await locator.cancelInvite.click();
     await expect(
       page.getByText(
-        `Are you sure you want to cancel invite for ${inviteeData.inviteeName.firstName} ${inviteeData.inviteeName.lastName} for this visit?`
+        `Are you sure you want to cancel invite for ${inviteeData.inviteeName.inviteeFirstName} ${inviteeData.inviteeName.inviteeLastName} for this visit?`
       )
     ).toBeVisible();
     await locator.cancelInvite.click();
@@ -106,7 +106,7 @@ test.describe('Waiting room - Manage participants', () => {
     await locator.sendInvite.click();
     await paperwork.checkCorrectPageOpens('Waiting room');
     await expect(locator.inviteeList).toHaveText(
-      `${inviteeData.inviteeName.firstName} ${inviteeData.inviteeName.lastName}`
+      `${inviteeData.inviteeName.inviteeFirstName} ${inviteeData.inviteeName.inviteeLastName}`
     );
   });
 });

@@ -17,6 +17,10 @@ import {
 } from '../locators';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
+const inviteeFirstName = 'Invitee First Name';
+const inviteeLastName = 'Invitee Last Name';
+const phone = '1234567890';
+const email = 'ykulik+invite@masslight.com';
 export class PaperworkTelemed {
   page: Page;
   fillingInfo: FillingInfo;
@@ -33,7 +37,6 @@ export class PaperworkTelemed {
     this.paperwork = new Paperwork(page);
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
   }
-
   private async clickContinueButton(awaitRedirect = true): Promise<void> {
     await this.locators.clickContinueButton(awaitRedirect);
   }
@@ -403,23 +406,20 @@ export class PaperworkTelemed {
     await this.page.locator(`input[value='${value}']`).click();
   }
   async fillInviteParticipantName(
-    inviteeFirstName: Locator,
-    inviteeLastName: Locator
+    inviteeFirstNameLocator: Locator,
+    inviteeLastNameLocator: Locator
   ): Promise<{
-    firstName: string;
-    lastName: string;
+    inviteeFirstName: string;
+    inviteeLastName: string;
   }> {
-    const firstName = 'Invitee First Name';
-    const lastName = 'Invitee Last Name';
-    await inviteeFirstName.fill(firstName);
-    await inviteeLastName.fill(lastName);
-    return { firstName, lastName };
+    await inviteeFirstNameLocator.fill(inviteeFirstName);
+    await inviteeLastNameLocator.fill(inviteeLastName);
+    return { inviteeFirstName, inviteeLastName };
   }
   async fillInviteParticipantPhone(place: string): Promise<{
     phone: string;
     formattedPhoneNumber: string;
   }> {
-    const phone = '1234567890';
     const formattedPhoneNumber = await this.paperwork.formatPhoneNumber(phone);
     await this.locators.inviteeContactPhone.check();
     const emailLocator = place === 'paperwork' ? this.locators.inviteeEmail : this.locators.wrInviteeEmail;
@@ -431,7 +431,6 @@ export class PaperworkTelemed {
   async fillInviteParticipantEmail(place: string): Promise<{
     email: string;
   }> {
-    const email = 'example@mail.com';
     await this.locators.inviteeContactEmail.check();
     const emailLocator = place === 'paperwork' ? this.locators.inviteeEmail : this.locators.wrInviteeEmail;
     const phoneLocator = place === 'paperwork' ? this.locators.inviteePhone : this.locators.wrInviteePhoneNumber;
@@ -443,7 +442,7 @@ export class PaperworkTelemed {
     choice: string,
     place: string
   ): Promise<{
-    inviteeName: { firstName: string; lastName: string };
+    inviteeName: { inviteeFirstName: string; inviteeLastName: string };
     phone: string | null;
     email: string | null;
   }> {
