@@ -1,4 +1,4 @@
-import { Account, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -432,3 +432,36 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 };
 
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
+
+export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: 'WALKIN',
+    },
+  ],
+};
+
+export enum SlotServiceCategoryCode {
+  virtualServiceMode = 'virtualServiceMode',
+  inPersonServiceMode = 'inPersonServiceMode',
+}
+
+export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
+  virtualServiceMode: {
+    coding: [
+      {
+        system: PUBLIC_EXTENSION_BASE_URL,
+        code: SlotServiceCategoryCode.virtualServiceMode,
+      },
+    ],
+  },
+  inPersonServiceMode: {
+    coding: [
+      {
+        system: PUBLIC_EXTENSION_BASE_URL,
+        code: SlotServiceCategoryCode.inPersonServiceMode,
+      },
+    ],
+  },
+};
