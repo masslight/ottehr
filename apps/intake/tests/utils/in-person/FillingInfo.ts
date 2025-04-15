@@ -133,7 +133,7 @@ export class FillingInfo {
 
     await dayFieldLocator.click({ force: true });
     await expect(this.page.getByRole('option', { name: randomDay, exact: true })).toBeVisible();
-    const randomDayLocator = this.page.getByRole('option', { name: randomDay });
+    const randomDayLocator = this.page.getByRole('option', { name: randomDay, exact: true });
     await randomDayLocator.click();
     await expect(randomDayLocator).toBeVisible({ visible: false });
 
