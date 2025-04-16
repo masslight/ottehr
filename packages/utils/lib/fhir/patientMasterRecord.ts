@@ -231,9 +231,9 @@ const SEXUAL_ORIENTATION_MAPPING = {
     display: 'Straight',
     system: 'http://snomed.info/sct',
   },
-  'Gay or Lesbian': {
+  'Lesbian or Gay': {
     code: '446161000124108',
-    display: 'Gay or Lesbian',
+    display: 'Lesbian or Gay',
     system: 'http://snomed.info/sct',
   },
   Bisexual: {
@@ -241,10 +241,15 @@ const SEXUAL_ORIENTATION_MAPPING = {
     display: 'Bisexual',
     system: 'http://snomed.info/sct',
   },
-  'Other sexual orientation': {
+  'Something else': {
     code: '446181000124104',
-    display: 'Other sexual orientation',
+    display: 'Something else',
     system: 'http://snomed.info/sct',
+  },
+  'Decline to Specify': {
+    code: 'ASKU',
+    display: 'Decline to Specify',
+    system: 'http://terminology.hl7.org/CodeSystem/v3-NullFlavor',
   },
 };
 
