@@ -18,6 +18,8 @@ import {
   LabOrderResultPDFConfig,
   LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   getPresignedURL,
 } from 'utils';
 
@@ -163,13 +165,25 @@ export const makeEncounterLabResult = async (
   const diagnosticReportMap: Record<string, DiagnosticReport> = {};
 
   resources.forEach((resource) => {
-    if (resource.resourceType === 'DocumentReference') documentReferences.push(resource as DocumentReference);
-    if (resource.resourceType === 'ServiceRequest') {
-      serviceRequestMap[`ServiceRequest/${resource.id}`] = resource as ServiceRequest;
-      if (resource.status === 'active') activeServiceRequests.push(resource);
+    if (resource.resourceType === 'DocumentReference') {
+      const isLabsDocRef = !!resource.type?.coding?.find((c) => c.code === LAB_RESULT_DOC_REF_CODING_CODE.code);
+      if (isLabsDocRef) documentReferences.push(resource as DocumentReference);
     }
-    if (resource.resourceType === 'DiagnosticReport')
-      diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;
+    if (resource.resourceType === 'ServiceRequest') {
+      const isLabServiceRequest = !!resource.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM);
+      if (isLabServiceRequest) {
+        serviceRequestMap[`ServiceRequest/${resource.id}`] = resource as ServiceRequest;
+        if (resource.status === 'active') activeServiceRequests.push(resource);
+      }
+    }
+    if (resource.resourceType === 'DiagnosticReport') {
+      const isLabsDR = !!resource.category?.find(
+        (category) => category?.coding?.find((c) => c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system)
+      );
+      if (isLabsDR) {
+        diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;
+      }
+    }
   });
 
   const labOrderResults: LabOrderResult[] = [];
@@ -263,12 +277,9 @@ const getLabOrderResultPDFConfig = async (
 };
 
 export const configGetChartDataLabRequests = (encounterId: string): BatchInputGetRequest[] => {
-  // todo get this from a const, waiting for pdf logic to merge
-  const LAB_RESULT_CODE = '51991-8';
-
   const docRefSearch: BatchInputGetRequest = {
     method: 'GET',
-    url: `/DocumentReference?type=${LAB_RESULT_CODE}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
+    url: `/DocumentReference?type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
   };
   const activeLabServiceRequestSearch: BatchInputGetRequest = {
     method: 'GET',

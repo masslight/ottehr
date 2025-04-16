@@ -57,6 +57,7 @@ export const ProgressNoteDetails: FC = () => {
   const prescriptions = chartData?.prescribedMedications;
   const observations = chartData?.observations;
   const vitalsObservations = chartData?.vitalsObservations;
+  const labResults = chartData?.labResults;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
@@ -66,6 +67,7 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
+  const showLabsResultsContainer = !!labResults;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
 
@@ -92,7 +94,7 @@ export const ProgressNoteDetails: FC = () => {
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
-    <LabResultsReviewContainer />,
+    showLabsResultsContainer && <LabResultsReviewContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,
     <PrivacyPolicyAcknowledgement />,
