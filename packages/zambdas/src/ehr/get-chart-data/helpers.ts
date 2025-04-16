@@ -199,9 +199,7 @@ export async function convertSearchResultsToResponse(
           practitioners: [],
         }),
   };
-  console.log('init getChartDataResponse check', getChartDataResponse);
   const resources = parseBundleResources(bundle);
-  console.log('check these too', JSON.stringify(resources));
 
   const chartDataResources: Resource[] = [];
   resources.forEach((resource) => {
