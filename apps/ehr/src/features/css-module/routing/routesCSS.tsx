@@ -15,9 +15,10 @@ import { AssessmentCard } from '../../../telemed/features/appointment/Assessment
 import { Plan } from '../pages/Plan';
 import { Examination } from '../pages/Examination';
 import { ERX } from '../pages/ERX';
+import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
-import { OrderDetails } from '../../external-labs/pages/OrderDetails';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
+import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -37,10 +38,9 @@ export enum ROUTER_PATH {
   PLAN = 'plan',
   ERX = 'erx',
 
-  // ERX = 'erx',
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
-  EXTERNAL_LAB_ORDER_CREATE = 'external-lab-orders/create',
-  EXTERNAL_LAB_ORDER_DETAILS = 'external-lab-orders/order-details',
+  EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
+  EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -136,10 +136,26 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
-    modes: ['provider', 'readonly'],
-    element: <ExternalLabOrdersListPage />,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <ExternalLabOrdersListPage /> : null,
     text: 'Labs',
-    iconKey: 'Send Out Labs',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <CreateExternalLabOrder /> : null,
+    text: 'Order Lab',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
+    text: 'Order Details',
+    iconKey: 'External Labs',
   },
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
@@ -168,22 +184,5 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: <Plan />,
     text: 'Plan',
     iconKey: 'Lab profile',
-  },
-
-  [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
-    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
-    modes: ['provider', 'readonly'],
-    isSkippedInNavigation: true,
-    element: <CreateExternalLabOrder />,
-    text: 'Order Lab',
-    iconKey: 'Send Out Labs',
-  },
-  [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
-    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
-    modes: ['provider', 'readonly'],
-    isSkippedInNavigation: true,
-    element: <OrderDetails />,
-    text: 'Order Details',
-    iconKey: 'Send Out Labs',
   },
 };

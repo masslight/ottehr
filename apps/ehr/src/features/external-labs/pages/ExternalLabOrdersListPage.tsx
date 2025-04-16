@@ -1,23 +1,49 @@
-import React from 'react';
-import { Box, Paper } from '@mui/material';
-import ExternalLabsTable from '../components/ExternalLabsTable';
-import { OrderButton } from '../../css-module/components/medication-administration/OrderButton';
+import { Box, Stack, useTheme } from '@mui/material';
+import React, { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PageTitle } from '../../../telemed/components/PageTitle';
+import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { ButtonRounded } from '../../css-module/components/RoundedButton';
+import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
 
-interface ExternalLabOrdersListPageProps {
-  appointmentID?: string;
-}
+const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
 
-export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps> = () => {
+export const ExternalLabOrdersListPage: React.FC = () => {
+  const theme = useTheme();
+  const navigate = useNavigate();
+  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+
+  const handleCreateOrder = useCallback((): void => {
+    navigate('create');
+  }, [navigate]);
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <PageTitle label="Labs" showIntakeNotesButton={false} />
-        <OrderButton />
+        <Stack direction="row" spacing={2} alignItems="center">
+          <ButtonRounded
+            variant="contained"
+            color="primary"
+            size={'medium'}
+            onClick={handleCreateOrder}
+            sx={{
+              py: 1,
+              px: 5,
+            }}
+          >
+            Order
+          </ButtonRounded>
+        </Stack>
       </Box>
-      <Paper>
-        <ExternalLabsTable></ExternalLabsTable>
-      </Paper>
+      <LabsTable
+        encounterId={encounterId}
+        columns={externalLabsColumns}
+        showFilters={false}
+        allowDelete={true}
+        redirectToOrderCreateIfOrdersEmpty={true}
+        onCreateOrder={handleCreateOrder}
+      />
     </Box>
   );
 };

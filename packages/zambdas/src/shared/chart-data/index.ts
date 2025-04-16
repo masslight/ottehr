@@ -74,6 +74,7 @@ import {
   isVitalObservation,
   makeVitalsObservationDTO,
   removeOperation,
+  ADDED_VIA_LAB_ORDER_SYSTEM,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
@@ -768,7 +769,7 @@ export function makeDiagnosisConditionResource(
   data: DiagnosisDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Condition {
-  return {
+  const conditionConfig: Condition = {
     id: data.resourceId,
     resourceType: 'Condition',
     subject: { reference: `Patient/${patientId}` },
@@ -784,14 +785,26 @@ export function makeDiagnosisConditionResource(
     },
     meta: getMetaWFieldName(fieldName),
   };
+  if (data.addedViaLabOrder) {
+    conditionConfig.extension = [
+      {
+        url: ADDED_VIA_LAB_ORDER_SYSTEM,
+        valueBoolean: true,
+      },
+    ];
+  }
+  return conditionConfig;
 }
 
 export function makeDiagnosisDTO(resource: Condition, isPrimary: boolean): DiagnosisDTO {
+  const addedViaLabOrder = !!resource.extension?.find((ext) => ext.url === ADDED_VIA_LAB_ORDER_SYSTEM)?.valueBoolean;
+
   return {
     resourceId: resource.id,
     code: resource.code?.coding?.[0].code || '',
     display: resource.code?.coding?.[0].display || '',
     isPrimary: isPrimary,
+    addedViaLabOrder,
   };
 }
 

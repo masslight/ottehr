@@ -42,3 +42,11 @@ export function isOlderThan18Years(dateString: string): boolean {
 export function isNullOrUndefined(value: any): boolean {
   return value === undefined || value === null;
 }
+
+export const isValidNumber = (value: number): boolean => {
+  return typeof value === 'number' && !isNaN(value);
+};
+
+export const isPositiveNumberOrZero = (value: number): boolean => {
+  return isValidNumber(value) && value >= 0;
+};
