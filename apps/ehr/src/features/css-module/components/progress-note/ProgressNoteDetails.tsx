@@ -40,6 +40,7 @@ export const ProgressNoteDetails: FC = () => {
         episodeOfCare: data?.episodeOfCare,
         vitalsObservations: data?.vitalsObservations,
         prescribedMedications: data?.prescribedMedications,
+        labResults: data?.labResults,
       });
     },
   });

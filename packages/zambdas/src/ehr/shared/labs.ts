@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import {
   ServiceRequest,
   QuestionnaireResponse,
@@ -8,7 +8,18 @@ import {
   Account,
   Coverage,
   Organization,
+  FhirResource,
+  DocumentReference,
+  DiagnosticReport,
 } from 'fhir/r4b';
+import {
+  EncounterLabResult,
+  LabOrderResult,
+  LabOrderResultPDFConfig,
+  LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  getPresignedURL,
+} from 'utils';
 
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
@@ -140,4 +151,128 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
     return coverages[0];
   }
   return;
+};
+
+export const makeEncounterLabResult = async (
+  resources: FhirResource[],
+  m2mtoken: string
+): Promise<EncounterLabResult> => {
+  const documentReferences: DocumentReference[] = [];
+  const activeServiceRequests: ServiceRequest[] = [];
+  const serviceRequestMap: Record<string, ServiceRequest> = {};
+  const diagnosticReportMap: Record<string, DiagnosticReport> = {};
+
+  resources.forEach((resource) => {
+    if (resource.resourceType === 'DocumentReference') documentReferences.push(resource as DocumentReference);
+    if (resource.resourceType === 'ServiceRequest') {
+      serviceRequestMap[`ServiceRequest/${resource.id}`] = resource as ServiceRequest;
+      if (resource.status === 'active') activeServiceRequests.push(resource);
+    }
+    if (resource.resourceType === 'DiagnosticReport')
+      diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;
+  });
+
+  const labOrderResults: LabOrderResult[] = [];
+  const reflexOrderResults: LabOrderResultPDFConfig[] = [];
+
+  for (const docRef of documentReferences) {
+    const diagnosticReportRef = docRef.context?.related?.find(
+      (related) => related.reference?.startsWith('DiagnosticReport')
+    )?.reference;
+    if (diagnosticReportRef) {
+      const relatedDR = diagnosticReportMap[diagnosticReportRef];
+      const isReflex = relatedDR.meta?.tag?.find((t) => t.system === 'result-type' && t.display === 'reflex');
+      const serviceRequestRef = relatedDR?.basedOn?.find((based) => based.reference?.startsWith('ServiceRequest'))
+        ?.reference;
+      if (serviceRequestRef) {
+        const relatedSR = serviceRequestMap[serviceRequestRef];
+        const orderNumber = relatedSR.identifier?.find((id) => id.system === LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+        const activityDef = relatedSR.contained?.find((resource) => resource.resourceType === 'ActivityDefinition');
+        const testName = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display;
+        const labName = activityDef?.publisher;
+        let formattedName = `${testName} / ${labName}`;
+        if (isReflex) {
+          const reflexTestName = relatedDR.code.coding?.[0].display;
+          formattedName = `${reflexTestName ? reflexTestName : 'Name missing'} (reflex)`;
+        }
+
+        const resultsConfigs = await getLabOrderResultPDFConfig(docRef, formattedName, m2mtoken, orderNumber);
+        if (isReflex) {
+          reflexOrderResults.push(...resultsConfigs);
+        } else {
+          labOrderResults.push(...resultsConfigs);
+        }
+      } else {
+        // todo what to do here for unsolicited results
+        // maybe we don't need to handle these for mvp
+        console.log('no serviceRequestRef for', docRef.id);
+      }
+    } else {
+      console.log('no diagnosticReportRef for', docRef.id);
+      // something has gone awry during the document reference creation if there is no diagnostic report linked
+      // so this shouldnt happen but if it does we will still surface the report
+      const formattedName = 'Lab order result pdf - missing details';
+      const resultsConfigs = await getLabOrderResultPDFConfig(docRef, formattedName, m2mtoken);
+      labOrderResults.push(...resultsConfigs);
+    }
+  }
+
+  // map reflex tests to their original ordered test
+  reflexOrderResults.forEach((reflexRes) => {
+    const ogOrderResIdx = labOrderResults.findIndex(
+      (res) => res?.orderNumber && res.orderNumber === reflexRes.orderNumber
+    );
+    if (!labOrderResults[ogOrderResIdx].reflexResults) {
+      labOrderResults[ogOrderResIdx].reflexResults = [reflexRes];
+    } else {
+      labOrderResults[ogOrderResIdx].reflexResults.push(reflexRes);
+    }
+  });
+
+  // todo confirm this logic is sound
+  const resultsPending = activeServiceRequests.length > 0;
+
+  const result: EncounterLabResult = {
+    resultsPending,
+    labOrderResults,
+  };
+  return result;
+};
+
+const getLabOrderResultPDFConfig = async (
+  docRef: DocumentReference,
+  formattedName: string,
+  m2mtoken: string,
+  orderNumber?: string
+): Promise<LabOrderResultPDFConfig[]> => {
+  const results: LabOrderResultPDFConfig[] = [];
+  for (const content of docRef.content) {
+    const z3Url = content.attachment.url;
+    if (z3Url) {
+      const url = await getPresignedURL(z3Url, m2mtoken);
+      const labResult: LabOrderResultPDFConfig = {
+        name: formattedName,
+        url,
+        orderNumber,
+      };
+      results.push(labResult);
+    }
+  }
+
+  return results;
+};
+
+export const configGetChartDataLabRequests = (encounterId: string): BatchInputGetRequest[] => {
+  // todo get this from a const, waiting for pdf logic to merge
+  const LAB_RESULT_CODE = '51991-8';
+
+  const docRefSearch: BatchInputGetRequest = {
+    method: 'GET',
+    url: `/DocumentReference?type=${LAB_RESULT_CODE}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
+  };
+  const activeLabServiceRequestSearch: BatchInputGetRequest = {
+    method: 'GET',
+    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=active`,
+  };
+  return [docRefSearch, activeLabServiceRequestSearch];
 };

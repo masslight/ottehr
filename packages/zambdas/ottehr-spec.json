@@ -385,13 +385,6 @@
       "src": "src/ehr/get-create-lab-order-resources/index",
       "zip": ".dist/zips/get-create-lab-order-resources.zip"
     },
-    "GET-LAB-ORDER-RESULTS": {
-      "name": "GET-LAB-ORDER-RESULTS",
-      "type": "http_auth",
-      "runtime": "nodejs20.x",
-      "src": "src/ehr/get-lab-order-results/index",
-      "zip": ".dist/zips/get-lab-order-results.zip"
-    },
     "CREATE_REVIEW_LAB_RESULTS_TASK": {
       "name": "CREATE_REVIEW_LAB_RESULTS_TASK",
       "type": "subscription",

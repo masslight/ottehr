@@ -32,7 +32,11 @@ export interface LabOrderResultPDFConfig {
   url: string;
   orderNumber?: string;
 }
-export interface GetLabOrderResultRes {
+
+export interface LabOrderResult extends LabOrderResultPDFConfig {
+  reflexResults?: LabOrderResultPDFConfig[];
+}
+export interface EncounterLabResult {
   resultsPending: boolean;
-  labOrderResults: (LabOrderResultPDFConfig & { reflexResults?: LabOrderResultPDFConfig[] })[];
+  labOrderResults: LabOrderResult[];
 }
