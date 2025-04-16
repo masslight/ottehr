@@ -242,7 +242,7 @@ test.describe('Tests interacting with appointment state', () => {
     ).toBeVisible();
   });
 
-  test.skip('Check message for patient', async () => {
+  test('Check message for patient', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardChatButton(resourceHandler.appointment.id!)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.chatModalDescription)).toBeVisible();
 
