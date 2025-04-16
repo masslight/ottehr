@@ -123,7 +123,7 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
 
   return {
     username: employee.userName ?? `${testEmployeeUsernamePattern}${uuid}`,
-    email: employee.email ?? `e2e-employee-${uuid}@gmail.com`,
+    email: employee.email ?? `e2e-tests+${uuid}@ottehr.com`,
     applicationId: process.env.EHR_APPLICATION_ID,
     roles,
     resource: {

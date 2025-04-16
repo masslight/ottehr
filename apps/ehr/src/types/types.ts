@@ -1,9 +1,7 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Encounter, Practitioner, Slot } from 'fhir/r4b';
+import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
 import {
-  DiagnosisDTO,
   FhirAppointmentType,
-  OrderableItemSearchResult,
   OTTEHR_MODULE,
   PatientFollowupDetails,
   PractitionerLicense,
@@ -259,12 +257,4 @@ export interface DocumentInfo {
   type: DocumentType;
   z3Url: string;
   presignedUrl: string | undefined;
-}
-
-export interface SubmitLabOrderParameters {
-  dx: DiagnosisDTO[];
-  encounter: Encounter;
-  practitionerId: string;
-  orderableItem: OrderableItemSearchResult;
-  pscHold: boolean;
 }

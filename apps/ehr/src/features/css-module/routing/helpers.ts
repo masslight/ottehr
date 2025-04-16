@@ -1,19 +1,23 @@
-export const getNewOrderUrl = (encounterId: string): string => {
-  return `/in-person/${encounterId}/in-house-medication/order/new`;
+export const getNewOrderUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/in-house-medication/order/new`;
 };
 
-export const getEditOrderUrl = (encounterId: string, orderId: string): string => {
-  return `/in-person/${encounterId}/in-house-medication/order/edit/${orderId}`;
+export const getEditOrderUrl = (appointmentId: string, orderId: string): string => {
+  return `/in-person/${appointmentId}/in-house-medication/order/edit/${orderId}`;
 };
 
-export const getInHouseMedicationMARUrl = (encounterId: string): string => {
-  return `/in-person/${encounterId}/in-house-medication/mar`;
+export const getInHouseMedicationMARUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/in-house-medication/mar`;
 };
 
-export const getInHouseMedicationDetailsUrl = (encounterId: string): string => {
-  return `/in-person/${encounterId}/in-house-medication/medication-details`;
+export const getInHouseMedicationDetailsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/in-house-medication/medication-details`;
 };
 
-export const getAssessmentUrl = (encounterId: string): string => {
-  return `/in-person/${encounterId}/assessment`;
+export const getAssessmentUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/assessment`;
+};
+
+export const getExternalLabOrderEditUrl = (appointmentId: string, orderId: string): string => {
+  return `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`;
 };

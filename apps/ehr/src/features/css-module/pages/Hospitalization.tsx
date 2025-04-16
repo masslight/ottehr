@@ -10,6 +10,7 @@ import { CSSLoader } from '../components/CSSLoader';
 import { HospitalizationForm } from '../components/hospitalization/HospitalizationForm';
 import { HospitalizationPatientComponent } from '../components/hospitalization/HospitalizationPatientComponent';
 import { InfoAlert } from '../components/InfoAlert';
+import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
 interface HospitalizationProps {
@@ -27,13 +28,19 @@ export const Hospitalization: React.FC<HospitalizationProps> = () => {
 
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
 
+  const { interactionMode } = useNavigationContext();
+
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Stack spacing={2}>
-      <PageTitle dataTestId={dataTestIds.hospitalizationPage.hospitalizationTitle} label="Hospitalization" />
+    <Stack spacing={1}>
+      <PageTitle
+        dataTestId={dataTestIds.hospitalizationPage.hospitalizationTitle}
+        label="Hospitalization"
+        showIntakeNotesButton={interactionMode === 'intake'}
+      />
       <InfoAlert text="Ask: Has the patient had any prior overnight hospital stays or hospital admissions?" />
       <MedicalHistoryDoubleCard
         patientSide={<HospitalizationPatientComponent />}
