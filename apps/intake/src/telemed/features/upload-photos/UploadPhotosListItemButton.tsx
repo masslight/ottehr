@@ -3,9 +3,9 @@ import { FC, useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { UCGetPaperworkResponse } from 'utils';
 import { StyledListItemWithButton } from 'ui-components';
-import { otherColors } from '../../utils';
 import { useGetPaperwork } from '../paperwork';
 import { Attachment } from 'fhir/r4b';
+import { otherColors } from '@theme/colors';
 
 type UploadPhotosListItemButtonProps = {
   onClick: () => void;

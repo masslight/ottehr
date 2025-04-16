@@ -2,7 +2,8 @@ import CardWithDescription from './CardWithDescription';
 import { Skeleton } from '@mui/material';
 import { otherColors } from '../IntakeThemeProvider';
 import { useTranslation } from 'react-i18next';
-import { ottehrLightBlue } from '../assets/icons';
+import { ottehrLightBlue } from '../themes/ottehr/icons';
+import { PROJECT_NAME_LOWER } from 'utils';
 
 interface WaitingEstimateCardProps {
   waitingMinutes: number | undefined;
@@ -18,7 +19,7 @@ export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps
   return (
     <CardWithDescription
       icon={ottehrLightBlue}
-      iconAlt="ottehr icon"
+      iconAlt={`${PROJECT_NAME_LOWER} icon`}
       iconHeight={70}
       mainText={t('waitingEstimate.title')}
       descText={
@@ -53,7 +54,7 @@ export const WaitingEstimateCard = ({ waitingMinutes }: WaitingEstimateCardProps
           </>
         )
       }
-      bgColor={otherColors.brightPurple}
+      bgColor={otherColors.purple}
       marginTop={0}
       marginBottom={2}
     />

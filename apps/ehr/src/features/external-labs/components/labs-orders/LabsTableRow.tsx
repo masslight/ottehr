@@ -3,8 +3,8 @@ import { TableCell, TableRow, Box, Button, Typography } from '@mui/material';
 import { formatDate, LabOrderDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { LabTableStatusChip } from './LabTableStatusChip';
+import { otherColors } from '@theme/colors';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];

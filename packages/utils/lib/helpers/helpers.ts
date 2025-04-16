@@ -1,7 +1,7 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { OTTEHR_MODULE } from '../fhir';
+import { OTTEHR_MODULE } from 'utils';
 import { PatchPaperworkParameters } from '../types';
 import { zipRegex } from '../validation';
 

@@ -12,7 +12,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { MouseEventHandler, ReactElement } from 'react';
-import { otherColors } from '../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 
 interface ScheduleOverridesDialogProps {
   loading: boolean;
@@ -28,7 +28,7 @@ export default function ScheduleOverridesDialog({
   handleConfirm,
 }: ScheduleOverridesDialogProps): ReactElement {
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

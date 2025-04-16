@@ -5,7 +5,7 @@ import {
   DailySchedule,
   getScheduleDetails,
   MISSING_SCHEDULE_EXTENSION_ERROR,
-  OTTEHR_SLUG_ID_SYSTEM,
+  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleExtension,
@@ -92,7 +92,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
       }
       return true;
     });
-    const ownerIdentifier = (owner.identifier ?? []).filter((id) => id.system !== OTTEHR_SLUG_ID_SYSTEM);
+    const ownerIdentifier = (owner.identifier ?? []).filter((id) => id.system !== SLUG_SYSTEM);
     if (timezone) {
       ownerExtension.push({
         url: TIMEZONE_EXTENSION_URL,
@@ -101,7 +101,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Sche
     }
     if (ownerSlug) {
       ownerIdentifier.push({
-        system: OTTEHR_SLUG_ID_SYSTEM,
+        system: SLUG_SYSTEM,
         value: ownerSlug,
       });
     }
