@@ -139,6 +139,8 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
               .filter((details) => details.card === 'nose' && ['normal', 'abnormal'].includes(details.group))
               .filter((details) => examObservations[details.field].value)}
           />
+
+          <ExamReviewComment item={examObservations['nose-comment']} />
         </Box>
 
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

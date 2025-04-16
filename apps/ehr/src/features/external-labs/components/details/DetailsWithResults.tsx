@@ -25,7 +25,7 @@ export const DetailsWithResults: React.FC<{
   return (
     <div style={{ maxWidth: '714px', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
-        <CSSPageTitle>{labOrder.typeLab}</CSSPageTitle>
+        <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
           {labOrder.diagnoses.map((dx) => {

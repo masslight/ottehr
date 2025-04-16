@@ -9,7 +9,7 @@ import {
   Patient,
   QuestionnaireResponse,
 } from 'fhir/r4b';
-import { getQuestionnaireResponseByLinkId } from 'utils';
+import { getQuestionnaireResponseByLinkId, isLocationVirtual } from 'utils';
 import { WEIGHT_EXTENSION_URL, WEIGHT_LAST_UPDATED_EXTENSION_URL } from './constants';
 import {
   AppointmentValues,
@@ -191,20 +191,26 @@ export const getResources = (
   appointment: Appointment;
   patient: Patient;
   location: Location;
+  locationVirtual: Location;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse;
 }> => {
   if (!resourceBundle) return {};
 
-  const findResource = <T extends FhirResource>(resourceType: string): T | undefined =>
-    resourceBundle.find((resource: FhirResource) => resource.resourceType === resourceType) as T | undefined;
+  const findResources = <T extends FhirResource>(resourceType: string): T[] | undefined =>
+    resourceBundle.filter((resource: FhirResource) => resource.resourceType === resourceType) as T[] | undefined;
+
+  const locations = findResources<Location>('Location');
+  const virtualLocation = locations?.find(isLocationVirtual);
+  const physicalLocation = locations?.find((location) => !isLocationVirtual(location));
 
   return {
-    appointment: findResource<Appointment>('Appointment'),
-    patient: findResource<Patient>('Patient'),
-    location: findResource<Location>('Location'),
-    encounter: findResource<Encounter>('Encounter'),
-    questionnaireResponse: findResource<QuestionnaireResponse>('QuestionnaireResponse'),
+    appointment: findResources<Appointment>('Appointment')?.[0],
+    patient: findResources<Patient>('Patient')?.[0],
+    location: physicalLocation,
+    locationVirtual: virtualLocation,
+    encounter: findResources<Encounter>('Encounter')?.[0],
+    questionnaireResponse: findResources<QuestionnaireResponse>('QuestionnaireResponse')?.[0],
   };
 };
 

@@ -80,3 +80,5 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
+
+export const AUTO_REDIRECTED_PARAM = 'auto-redirected';

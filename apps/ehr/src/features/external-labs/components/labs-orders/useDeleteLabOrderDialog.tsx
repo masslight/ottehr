@@ -92,7 +92,7 @@ export const useDeleteLabOrderDialog = ({
         <DialogTitle>Delete Lab Order</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the lab order for test <strong>{currentOrderToDelete?.typeLab}</strong>?
+            Are you sure you want to delete the lab order for test <strong>{currentOrderToDelete?.testItem}</strong>?
             <br />
             <br />
             This action cannot be undone.

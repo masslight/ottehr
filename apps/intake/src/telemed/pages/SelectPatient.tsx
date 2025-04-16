@@ -43,6 +43,8 @@ const SelectPatient = (): JSX.Element => {
     return patients ? [...patients].sort(sortFullNames) : [];
   }, [patientsStore]);
 
+  const hasNoPatients = flow === 'pastVisits' && sortedPatients.length === 0;
+
   useEffect(() => {
     if (apiClient) {
       void refetch();
@@ -123,25 +125,35 @@ const SelectPatient = (): JSX.Element => {
               type: 'Radio',
               ...FORM_PATIENT_ID_ELEMENT_BASE,
               defaultValue: currentPatientInfo.id || FORM_PATIENT_ID_ELEMENT_BASE.defaultValue || 'new-patient',
-              radioOptions: sortedPatients
-                .map((patient) => {
-                  if (!patient.id) {
-                    throw new Error('Patient id is not defined');
-                  }
-                  return {
-                    label: getPatientInfoFullNameUsingChosen(patient),
-                    description: `Birthday: ${DateTime.fromFormat(patient.dateOfBirth || '', 'yyyy-MM-dd').toFormat(
-                      'MMMM dd, yyyy'
-                    )}`,
-                    value: patient.id,
-                    color: otherColors.lightBlue,
-                  };
-                })
-                .concat(flow !== 'pastVisits' ? DIFFERENT_FAMILY_MEMBER_DATA : []),
+              radioOptions: hasNoPatients
+                ? []
+                : sortedPatients
+                    .map((patient) => {
+                      if (!patient.id) {
+                        throw new Error('Patient id is not defined');
+                      }
+                      return {
+                        label: getPatientInfoFullNameUsingChosen(patient),
+                        description: `Birthday: ${DateTime.fromFormat(patient.dateOfBirth || '', 'yyyy-MM-dd').toFormat(
+                          'MMMM dd, yyyy'
+                        )}`,
+                        value: patient.id,
+                        color: otherColors.lightBlue,
+                      };
+                    })
+                    .concat(flow !== 'pastVisits' ? DIFFERENT_FAMILY_MEMBER_DATA : []),
             },
           ]}
           onSubmit={onSubmit}
-          controlButtons={{ onBack }}
+          controlButtons={{
+            onBack,
+            submitDisabled: hasNoPatients,
+          }}
+          bottomComponent={
+            hasNoPatients ? (
+              <Box sx={{ pt: 2, color: 'text.primary' }}>No patients are found for this user.</Box>
+            ) : undefined
+          }
         />
       )}
     </CustomContainer>

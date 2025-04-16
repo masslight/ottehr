@@ -8,9 +8,9 @@ import {
   getMiddleName,
   getPractitionerNPIIdentitifier,
   getSuffix,
+  makeQualificationForPractitioner,
   PractitionerLicense,
   RoleType,
-  makeQualificationForPractitioner,
 } from 'utils';
 import { fetchWithOystAuth } from '../helpers/tests-utils';
 
@@ -123,7 +123,7 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
 
   return {
     username: employee.userName ?? `${testEmployeeUsernamePattern}${uuid}`,
-    email: employee.email ?? `e2e-employee-${uuid}@gmail.com`,
+    email: employee.email ?? `e2e-tests+${uuid}@ottehr.com`,
     applicationId: process.env.EHR_APPLICATION_ID,
     roles,
     resource: {
@@ -203,7 +203,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
   const lastName = getLastName(practitioner);
   if (!firstName || !middleName || !lastName) throw new Error(`Error parsing user full name: ${user.id}`);
   const phone = practitioner.telecom?.find((telecom) => telecom.system === 'sms')?.value;
-  const npi = getPractitionerNPIIdentitifier(practitioner).value;
+  const npi = getPractitionerNPIIdentitifier(practitioner)?.value;
   const qualification = allLicensesForPractitioner(practitioner);
   const credentials = getSuffix(practitioner);
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);

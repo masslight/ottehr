@@ -48,33 +48,43 @@ export interface OrderableItemLab {
 export enum ExternalLabsStatus {
   pending = 'pending',
   sent = 'sent',
-  prelim = 'prelim',
+  prelim = 'prelim', // todo: this is not a status, need to refactor
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
   unparsed = 'unparsed', // for debugging purposes
 }
 
-export type LabOrderHistoryRow = {
-  action: 'ordered' | 'performed' | 'received' | 'reviewed';
-  resultType: 'reflex' | 'ordered';
+export type LabOrderUnreceivedHistoryRow = {
+  action: 'ordered' | 'performed';
   performer: string;
   date: string;
 };
 
+export type LabOrderReceivedHistoryRow = {
+  action: 'received' | 'reviewed';
+  testType: 'reflex' | 'ordered';
+  performer: string;
+  date: string;
+};
+
+export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceivedHistoryRow;
+
 export type LabOrderResultDetails = {
-  testName: string;
-  testType: 'Ordered test' | 'Reflex test';
+  testItem: string;
+  testType: 'reflex' | 'ordered';
+  resultType: 'final' | 'preliminary';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;
   receivedDate: string;
+  reviewedDate: string | null;
 };
 
 export interface LabOrderDTO {
   serviceRequestId: string; // ServiceRequest.id
-  typeLab: string; // ServiceRequest.contained[0](ActivityDefinition).title
-  locationLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
+  testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
+  fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
   providerName: string; // SR.requester name
   diagnoses: DiagnosisDTO[]; // SR.reasonCode

@@ -197,6 +197,7 @@ export async function convertSearchResultsToResponse(
           schoolWorkNotes: [],
           observations: [],
           practitioners: [],
+          aiPotentialDiagnosis: [],
         }),
   };
   const resources = parseBundleResources(bundle);

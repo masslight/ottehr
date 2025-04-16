@@ -25,6 +25,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  AI_OBSERVATION_META_SYSTEM,
   AllergyDTO,
   BirthHistoryDTO,
   BooleanValueDTO,
@@ -1128,6 +1129,13 @@ const mapResourceToChartDataFields = (
     const hospitalizationDTO = makeHospitalizationDTO(resource);
     if (hospitalizationDTO) data.episodeOfCare?.push(hospitalizationDTO);
     resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Observation' &&
+    chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${AI_OBSERVATION_META_SYSTEM}`)
+  ) {
+    const resourse = makeObservationDTO(resource);
+    if (resourse) data.observations?.push(resourse);
+    resourceMapped = true;
   }
   return {
     chartDataFields: data,
@@ -1196,6 +1204,15 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
   if (addendumNote) {
     data.addendumNote = { text: addendumNote.valueString };
   }
+
+  // 6. AI potential diagnoses
+  resources
+    .filter(
+      (resource) => resource.resourceType === 'Condition' && resource.meta?.tag?.[0].code === 'ai-potential-diagnosis'
+    )
+    .forEach((condition) => {
+      data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
+    });
 
   return data;
 }

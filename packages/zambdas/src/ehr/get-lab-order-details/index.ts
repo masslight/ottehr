@@ -52,6 +52,34 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('accountNumber not found on ServiceRequest.performer Organization resource');
     }
 
+    const questionnaireResponseItems = questionnaireResponse.item?.map((item) => {
+      const question = questionnaire.item?.find((q) => q.linkId === item.linkId);
+      if (!question) {
+        throw new Error(`question ${item.linkId} is not found`);
+      }
+      return {
+        linkId: item.linkId,
+        type: question.type,
+        response: item.answer?.map((answer) => {
+          if (question.type === 'text') {
+            return answer.valueString;
+          } else if (question.type === 'boolean') {
+            return answer.valueBoolean;
+          } else if (question.type === 'date') {
+            return answer.valueDate;
+          } else if (question.type === 'decimal') {
+            return answer.valueDecimal;
+          } else if (question.type === 'integer') {
+            return answer.valueInteger;
+          } else if (question.type === 'choice') {
+            return answer.valueString;
+          } else {
+            throw new Error(`Unknown question type: ${question.type}`);
+          }
+        }),
+      };
+    });
+
     const orderDetails: OrderDetails = {
       diagnosis: serviceRequest?.reasonCode?.map((reasonCode) => reasonCode.text).join('; ') || 'Missing diagnosis',
       patientName: 'Patient Name',
@@ -65,6 +93,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       accountNumber: accountNumber,
       sampleCollectionDateTime: DateTime.now().toString(),
       labQuestions: questionnaire,
+      labQuestionnaireResponses: questionnaireResponseItems,
     };
 
     return {
