@@ -1,6 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 export type UploadedFile = { uploadedFile: Locator; link: string | null };
 export class UploadDocs {
@@ -37,7 +38,7 @@ export class UploadDocs {
 
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/${fileName}`);
     await fileChooser.setFiles(filePath);
-    await this.page.waitForTimeout(5000);
+    await expect(this.page.getByTestId(dataTestIds.fileCardUploadingButton)).toBeVisible({ visible: false });
 
     expect(requestUrl).toBeDefined();
     const uploadedPhoto = this.page.locator(`img[src*="${requestUrl}"]`);
@@ -53,7 +54,8 @@ export class UploadDocs {
 
     const filePath = path.join(this.getPathToProjectRoot(__dirname), `/images-for-tests/template.pdf`);
     await fileChooser.setFiles(filePath);
-    await this.page.waitForTimeout(5000);
+    await expect(this.page.getByTestId(dataTestIds.continueButton)).toBeEnabled();
+
     const uploadedFile = file;
     const link = await file.getAttribute('href');
     await expect(uploadedFile).toBeVisible();

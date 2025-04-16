@@ -132,8 +132,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
     console.timeEnd('get_waiting_minutes');
 
-    const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
-    const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, scheduleOwner);
+    // const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
+    // const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, scheduleOwner);
 
     const response: GetScheduleResponse = {
       message: 'Successfully retrieved all available slot times',
@@ -142,8 +142,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       location: locationInformationWithClosures,
       displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
       waitingMinutes,
-      walkinOpen,
-      openTime,
+      walkinOpen: true,
+      openTime: undefined,
     };
 
     console.log('response to return: ', response);
