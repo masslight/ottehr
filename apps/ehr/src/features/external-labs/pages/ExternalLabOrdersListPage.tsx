@@ -1,21 +1,25 @@
-import { Box, Stack, useTheme } from '@mui/material';
+import { Box, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
+import { AUTO_REDIRECTED_PARAM } from 'utils/lib/types/data/labs/labs.constants';
 
 const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
 
 export const ExternalLabOrdersListPage: React.FC = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const encounterId = useAppointmentStore((state) => state.encounter?.id);
 
-  const handleCreateOrder = useCallback((): void => {
-    navigate('create');
-  }, [navigate]);
+  const handleCreateOrder = useCallback(
+    ({ isAutoRedirected }: { isAutoRedirected?: boolean } = {}): void => {
+      const params = isAutoRedirected ? `?${AUTO_REDIRECTED_PARAM}` : '';
+      navigate(`create${params}`);
+    },
+    [navigate]
+  );
 
   return (
     <Box>
@@ -26,7 +30,7 @@ export const ExternalLabOrdersListPage: React.FC = () => {
             variant="contained"
             color="primary"
             size={'medium'}
-            onClick={handleCreateOrder}
+            onClick={() => handleCreateOrder()}
             sx={{
               py: 1,
               px: 5,
