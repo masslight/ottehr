@@ -156,7 +156,7 @@ const PatientDocumentsExplorerPage: FC = () => {
       const validFileNamePattern = /^[a-zA-Z0-9+!\-_'()\\.@$]+$/;
       if (!validFileNamePattern.test(fileName)) {
         enqueueSnackbar(
-          "Invalid file name. Only letters, numbers, and these characters are allowed: + ! - _ ' ( ) . @ $",
+          "Invalid file name. Spaces are not allowed. Only letters, numbers, and these characters are allowed: + ! - _ ' ( ) . @ $",
           {
             variant: 'error',
           }
