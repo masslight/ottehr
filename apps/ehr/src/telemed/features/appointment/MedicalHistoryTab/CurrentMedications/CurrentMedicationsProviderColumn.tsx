@@ -24,6 +24,7 @@ import { useChartDataArrayValue, useGetAppointmentAccessibility } from '../../..
 import { MedicationSearchResponse, useAppointmentStore, useGetMedicationsSearch } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
+import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 interface CurrentMedicationsProviderColumnForm {
@@ -42,6 +43,8 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { control, reset, handleSubmit } = methods;
+
+  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
 
   const {
     isLoading,
@@ -94,6 +97,10 @@ export const CurrentMedicationsProviderColumn: FC = () => {
         reset({ medication: null, date: null, time: null, dose: null, type: 'scheduled' });
       }
     }
+  };
+
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
   };
 
   return (
@@ -297,6 +304,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 )}
               ></Controller>
             </Box>
+            {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />}
             <Button
               variant="outlined"
               type="submit"

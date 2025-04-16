@@ -25,9 +25,10 @@ import { LANGUAGES } from '../../constants';
 import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
-import { useFetchChatMessagesQuery, useSendMessagesMutation } from './chat.queries';
+import { useFetchChatMessagesQuery, useSendMessagesMutation, useGetMessagingConfigQuery } from './chat.queries';
 import { getPatientName, removeHtmlTags } from '../../telemed/utils';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { CompleteConfiguration } from '../../components/CompleteConfiguration';
 
 function scrollToBottomOfChat(): void {
   // this helps with the scroll working,
@@ -88,6 +89,7 @@ const ChatModal = memo(
     const [messageText, setMessageText] = useState<string>('');
     const [quickTextsOpen, setQuickTextsOpen] = useState<boolean>(false);
     const [language, setLanguage] = useState<LANGUAGES>(LANGUAGES.english);
+    const [isMessagingSetup, setIsMessagingSetup] = useState<boolean>(true);
 
     const [pendingMessageSend, setPendingMessageSend] = useState<MessageModel | undefined>();
 
@@ -250,6 +252,16 @@ const ChatModal = memo(
       }
     }, [MessageBodies.length]);
 
+    const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery((data) => {
+      if (!data.conversationConfig) {
+        setIsMessagingSetup(false);
+      }
+    });
+
+    const handleSetup = (): void => {
+      window.open('https://docs.oystehr.com/ottehr/setup/messaging/', '_blank');
+    };
+
     return (
       <Dialog
         open={true}
@@ -309,9 +321,10 @@ const ChatModal = memo(
                 <CircularProgress />
               </Grid>
             ) : (
-              MessageBodies
+              <>{MessageBodies}</>
             )}
           </Grid>
+          {!isMessagingSetup && !isMessagingConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
           <Divider />
           <Grid container sx={{ margin: '16px 0 16px 24px' }}>
             <Grid item xs={8.35}>
