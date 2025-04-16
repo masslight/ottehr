@@ -237,12 +237,12 @@ export function creatingPatientUpdateRequest(
   const fhirPatientName = assertDefined(maybeFhirPatient.name, 'patient.name');
 
   let fhirPatientOfficialNameIndex = fhirPatientName.findIndex((name) => name.use === 'official');
+
   if (fhirPatientOfficialNameIndex === -1) {
     fhirPatientOfficialNameIndex = 0;
   }
 
-  const fhirPatientOfficialName = maybeFhirPatient?.name?.[fhirPatientOfficialNameIndex];
-  const fhirPatientMiddleName = fhirPatientOfficialName?.given?.[1];
+  const fhirPatientMiddleName = fhirPatientName[fhirPatientOfficialNameIndex].given?.[1];
 
   if (patient.middleName && !fhirPatientMiddleName) {
     console.log('adding patch op to add middle name', patient.middleName);
