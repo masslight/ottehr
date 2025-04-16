@@ -287,9 +287,9 @@ export default function SchedulePage(): ReactElement {
                 }}
               >
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
-                  {scheduleId && (
+                  {(scheduleId || createMode) && (
                     <ScheduleComponent
-                      id={scheduleId}
+                      id={scheduleId || 'new'}
                       item={item}
                       loading={somethingIsLoadingInSomeWay}
                       update={onSaveSchedule}
