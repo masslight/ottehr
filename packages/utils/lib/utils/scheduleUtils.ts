@@ -1380,3 +1380,13 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
   }
   return 'HealthcareService';
 };
+
+export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {
+  if (fhirType === 'Location') {
+    return ScheduleType.location;
+  }
+  if (fhirType === 'Practitioner') {
+    return ScheduleType.provider;
+  }
+  return ScheduleType.group;
+};
