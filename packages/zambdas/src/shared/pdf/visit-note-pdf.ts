@@ -44,11 +44,11 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   };
   const pdfClient = await createPdfClient(pdfClientStyles);
 
-  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./Rubik-Regular.ttf'));
-  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./Rubik-Bold.ttf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
-  const redDot = await pdfClient.embedImage(fs.readFileSync('./red-dot.png'));
-  const greenDot = await pdfClient.embedImage(fs.readFileSync('./green-dot.png'));
+  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
+  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
+  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
+  const redDot = await pdfClient.embedImage(fs.readFileSync('./assets/red-dot.png'));
+  const greenDot = await pdfClient.embedImage(fs.readFileSync('./assets/green-dot.png'));
 
   const textStyles: Record<string, TextStyle> = {
     header: {
