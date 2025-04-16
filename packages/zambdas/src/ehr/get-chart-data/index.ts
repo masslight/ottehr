@@ -12,7 +12,7 @@ import {
   SupportedResourceType,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { configGetChartDataLabRequests } from '../shared/labs';
+import { configLabRequestsForGetChartData } from '../shared/labs';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -165,7 +165,7 @@ export async function getChartData(
   }
 
   if (requestedFields?.labResults && encounter.id) {
-    const labRequests = configGetChartDataLabRequests(encounter.id);
+    const labRequests = configLabRequestsForGetChartData(encounter.id);
     chartDataRequests.push(...labRequests);
   }
 

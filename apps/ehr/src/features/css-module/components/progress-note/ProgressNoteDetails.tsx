@@ -67,7 +67,10 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
-  const showLabsResultsContainer = !!labResults;
+  const showLabsResultsContainer = !!(
+    labResults?.resultsPending ||
+    (labResults?.labOrderResults && labResults?.labOrderResults.length > 0)
+  );
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
 
