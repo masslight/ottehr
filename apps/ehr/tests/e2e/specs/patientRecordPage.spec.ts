@@ -1,4 +1,4 @@
-import { BrowserContext, Page, test } from '@playwright/test';
+import { test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
@@ -9,22 +9,20 @@ import {
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 
-import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
-import { expectPatientRecordPage } from '../page/PatientRecordPage';
+import { waitForResponseWithData } from 'test-utils';
 import {
-  chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
-  DEMO_VISIT_PHYSICIAN_ADDRESS,
-  DEMO_VISIT_PHYSICIAN_MOBILE,
-  DEMO_VISIT_PRACTICE_NAME,
-  DEMO_VISIT_PROVIDER_FIRST_NAME,
-  DEMO_VISIT_PROVIDER_LAST_NAME,
   DEMO_VISIT_MARKETING_MESSAGING,
   DEMO_VISIT_PATIENT_ETHNICITY,
   DEMO_VISIT_PATIENT_RACE,
+  DEMO_VISIT_PHYSICIAN_ADDRESS,
+  DEMO_VISIT_PHYSICIAN_MOBILE,
   DEMO_VISIT_POINT_OF_DISCOVERY,
+  DEMO_VISIT_PRACTICE_NAME,
   DEMO_VISIT_PREFERRED_LANGUAGE,
+  DEMO_VISIT_PROVIDER_FIRST_NAME,
+  DEMO_VISIT_PROVIDER_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
@@ -39,9 +37,10 @@ import {
   DEMO_VISIT_ZIP,
   unpackFhirResponse,
 } from 'utils';
-import { openAddPatientPage } from '../page/AddPatientPage';
-import { waitForResponseWithData } from 'test-utils';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { openAddPatientPage } from '../page/AddPatientPage';
+import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
+import { expectPatientRecordPage } from '../page/PatientRecordPage';
 
 const resourceHandler = new ResourceHandler();
 const NEW_PATIENT_LAST_NAME = 'Test_lastname';
@@ -82,9 +81,6 @@ const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
-let context: BrowserContext;
-let page: Page;
-
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
     await resourceHandler.setResources();
@@ -107,34 +103,12 @@ test.describe('Patient Record Page non-mutating tests', () => {
 });
 
 test.describe('Patient Record Page mutating tests', () => {
-  let appointmentIds: string[] = [];
-
-  test.beforeAll(async ({ browser }) => {
-    context = await browser.newContext();
-    page = await context.newPage();
-    page.on('response', async (response) => {
-      if (response.url().includes('/create-appointment/')) {
-        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-        if (appointment && !appointmentIds.includes(appointment)) {
-          console.log('Created appointment: ', appointment);
-          appointmentIds.push(appointment);
-        }
-      }
-    });
-  });
-
   test.beforeEach(async () => {
     await resourceHandler.setResources();
-    await page.waitForTimeout(2000);
-    await page.goto('/patient/' + resourceHandler.patient.id);
   });
 
   test.afterEach(async () => {
     await resourceHandler.cleanupResources();
-    for (const id of appointmentIds) {
-      await resourceHandler.cleanAppointment(id);
-    }
-    appointmentIds = [];
   });
 
   test('Fill and save required values on Patient Info Page, values are saved and updated successfully- Happy path', async ({
@@ -195,7 +169,7 @@ test.describe('Patient Record Page mutating tests', () => {
     */
   });
 
-  test('Verify required data from Patient info block is displayed correctly', async () => {
+  test('Verify required data from Patient info block is displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
@@ -215,7 +189,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_FIRST_NAME);
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
   });
-  test('Updated values from Patient info block are saved and displayed correctly', async () => {
+  test('Updated values from Patient info block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientLastName(NEW_PATIENT_LAST_NAME);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
@@ -240,7 +214,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
   });
 
-  test('Verify required data from Contact info block is displayed correctly', async () => {
+  test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
     await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
@@ -268,7 +242,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_PHONE_NUMBER);
   });
 
-  test('Enter invalid email,zip and mobile on Contract info block, validation errors are shown', async () => {
+  test('Enter invalid email,zip and mobile on Contract info block, validation errors are shown', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterZip('11');
     await patientInformationPage.clickSaveChangesButton();
@@ -291,7 +265,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorInvalidMobile();
   });
 
-  test('Updated values from Contact info block are saved and displayed correctly', async () => {
+  test('Updated values from Contact info block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterStreetAddress(NEW_STREET_ADDRESS);
     await patientInformationPage.enterAddressLineOptional(NEW_STREET_ADDRESS_OPTIONAL);
@@ -314,7 +288,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
   });
 
-  test('Verify data from Responsible party information block is displayed correctly', async () => {
+  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
     await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
@@ -375,7 +349,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 
-  test('Check state, ethnicity, race, relationship to patient are required', async () => {
+  test('Check state, ethnicity, race, relationship to patient are required', async ({ page }) => {
     const addPatientPage = await openAddPatientPage(page);
     await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
     await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);
@@ -414,7 +388,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
   });
 
-  test('Verify entered by patient data from Patient details block is displayed correctly', async () => {
+  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
     await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
@@ -423,7 +397,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
   });
 
-  test('Updated values from Patient details  block  are saved and displayed correctly', async () => {
+  test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
     await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
