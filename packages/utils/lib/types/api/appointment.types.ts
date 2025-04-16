@@ -100,3 +100,7 @@ export interface UpdateAppointmentParameters {
   language: string;
   slot: Slot;
 }
+
+export interface GetWalkinStartParams {
+  scheduleId: string;
+}
