@@ -1,6 +1,5 @@
 import React, { FC } from 'react';
-import { Box, Typography } from '@mui/material';
-import { AccordionCard, DoubleColumnContainer } from '../../../components';
+import { Box, Stack, Typography } from '@mui/material';
 import {
   AssessmentTitle,
   BillingCodesContainer,
@@ -8,11 +7,13 @@ import {
   DiagnosesContainer,
   MedicalDecisionContainer,
 } from './components';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../state';
+import { AccordionCard, DoubleColumnContainer } from '../../../components';
+import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
+import { useAppointmentStore } from '../../../state';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
 import { AiPotentialDiagnosesCard } from './AiPotentialDiagnosesCard';
+import { getSelectors } from '../../../../shared/store/getSelectors';
 
 export const AssessmentCard: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -22,7 +23,8 @@ export const AssessmentCard: FC = () => {
   const { css } = useFeatureFlags();
 
   return (
-    <>
+    <Stack spacing={1}>
+      <PageTitle label="Assessment" showIntakeNotesButton={false} />
       <AiPotentialDiagnosesCard />
       <AccordionCard label={css ? undefined : 'Assessment'}>
         <DoubleColumnContainer
@@ -56,6 +58,6 @@ export const AssessmentCard: FC = () => {
           }
         />
       </AccordionCard>
-    </>
+    </Stack>
   );
 };

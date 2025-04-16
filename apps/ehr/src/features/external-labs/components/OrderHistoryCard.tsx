@@ -25,7 +25,7 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = fa
         <Table>
           {orderHistory.map((row) => {
             const isReviewOrReceiveAction = row.action === 'reviewed' || row.action === 'received';
-            const actionDescription = isReviewOrReceiveAction ? `${row.action} (${row.resultType})` : row.action;
+            const actionDescription = isReviewOrReceiveAction ? `${row.action} (${row.testType})` : row.action;
             return (
               <TableRow key={`${row.action}-${row.performer}-${row.date}`}>
                 <TableCell>{actionDescription}</TableCell>

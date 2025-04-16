@@ -205,16 +205,10 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
 
 const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
   if (!item.schedules.length) {
-    if (item.owner.name.includes('Sarah')) {
-      console.log('zacag exit 1');
-    }
     return 'No scheduled hours';
   }
   const hoursOfOperation = item.schedules[0].todayHoursISO;
   if (!hoursOfOperation) {
-    if (item.owner.name.includes('Sarah')) {
-      console.log('zacag exit 2');
-    }
     return 'No scheduled hours';
   }
   const { open, close } = hoursOfOperation;
@@ -222,9 +216,6 @@ const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
   const closeTime = DateTime.fromISO(close);
   if (openTime.isValid && closeTime.isValid) {
     return openTime.toFormat('h:mm a') + ' - ' + closeTime.toFormat('h:mm a');
-  }
-  if (item.owner.name.includes('Sarah')) {
-    console.log('zacag open close', openTime.isValid, closeTime.isValid);
   }
   return 'No scheduled hours';
 };

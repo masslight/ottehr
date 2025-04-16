@@ -21,6 +21,7 @@ import {
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
+  SLUG_SYSTEM,
   unbundleBatchPostOutput,
 } from 'utils';
 import { uuid } from 'short-uuid';
@@ -50,7 +51,7 @@ export async function getSchedules(
   })();
   // get specific schedule resource with all the slots
   const searchParams: SearchParam[] = [
-    { name: 'identifier', value: slug },
+    { name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` },
     { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
   ];
 
