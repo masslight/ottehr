@@ -608,7 +608,7 @@ export const parseLabOrderStatus = (
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
   const isSentStatus =
-    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length && prelimResults.length === 0;
+    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0 && prelimResults.length === 0;
 
   if (isSentStatus) {
     return ExternalLabsStatus.sent;
