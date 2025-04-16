@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { BrowserContext, Page, test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
@@ -11,6 +11,7 @@ import {
 
 import { waitForResponseWithData } from 'test-utils';
 import {
+  chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -349,45 +350,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 
-  test('Check state, ethnicity, race, relationship to patient are required', async ({ page }) => {
-    const addPatientPage = await openAddPatientPage(page);
-    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-    await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);
-    await addPatientPage.clickSearchForPatientsButton();
-    await addPatientPage.clickPatientNotFoundButton();
-    await addPatientPage.enterFirstName(NEW_PATIENT_FIRST_NAME);
-    await addPatientPage.enterLastName(NEW_PATIENT_FIRST_NAME);
-    await addPatientPage.enterDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
-    await addPatientPage.selectSexAtBirth(NEW_PATIENT_BIRTH_SEX);
-    await addPatientPage.selectReasonForVisit('Injury to head');
-    await addPatientPage.selectVisitType('Walk-in In Person Visit');
-    const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
-    await addPatientPage.clickAddButton();
-
-    const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
-    const appointmentId = response.appointment;
-    if (!appointmentId) {
-      throw new Error('Appointment ID should be present in the response');
-    }
-
-    const patientId = await resourceHandler.patientIdByAppointmentId(appointmentId);
-    const patientInformationPage = await openPatientInformationPage(page, patientId);
-    await patientInformationPage.enterStreetAddress(NEW_STREET_ADDRESS);
-    await patientInformationPage.enterCity(NEW_CITY);
-    await patientInformationPage.enterPatientEmail(NEW_PATIENT_EMAIL);
-    await patientInformationPage.enterPatientMobile(NEW_PATIENT_MOBILE);
-    await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.clickSaveChangesButton();
-
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_STATE);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PATIENT_ETHNICITY);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PATIENT_RACE);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
-  });
-
   test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
@@ -484,5 +446,72 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPracticeNameFromPcp(NEW_PRACTICE_NAME);
     await patientInformationPage.verifyAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
     await patientInformationPage.verifyMobileFromPcp(NEW_PHYSICIAN_MOBILE);
+  });
+});
+
+test.describe('Patient Record Page tests with zero patient data filled in', () => {
+  let appointmentIds: string[] = [];
+  let context: BrowserContext;
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
+    page.on('response', async (response) => {
+      if (response.url().includes('/create-appointment/')) {
+        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
+        if (appointment && !appointmentIds.includes(appointment)) {
+          console.log('Created appointment: ', appointment);
+          appointmentIds.push(appointment);
+        }
+      }
+    });
+  });
+
+  test.afterEach(async () => {
+    for (const id of appointmentIds) {
+      await resourceHandler.cleanAppointment(id);
+    }
+    appointmentIds = [];
+  });
+
+  test('Check state, ethnicity, race, relationship to patient are required', async () => {
+    await page.goto('/patient/' + resourceHandler.patient.id);
+    const addPatientPage = await openAddPatientPage(page);
+    await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+    await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.clickPatientNotFoundButton();
+    await addPatientPage.enterFirstName(NEW_PATIENT_FIRST_NAME);
+    await addPatientPage.enterLastName(NEW_PATIENT_FIRST_NAME);
+    await addPatientPage.enterDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
+    await addPatientPage.selectSexAtBirth(NEW_PATIENT_BIRTH_SEX);
+    await addPatientPage.selectReasonForVisit('Injury to head');
+    await addPatientPage.selectVisitType('Walk-in In Person Visit');
+    const appointmentCreationResponse = waitForResponseWithData(page, /\/create-appointment\//);
+    await addPatientPage.clickAddButton();
+
+    const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
+    const appointmentId = response.appointment;
+    if (!appointmentId) {
+      throw new Error('Appointment ID should be present in the response');
+    }
+
+    const patientId = await resourceHandler.patientIdByAppointmentId(appointmentId);
+    const patientInformationPage = await openPatientInformationPage(page, patientId);
+    await patientInformationPage.enterStreetAddress(NEW_STREET_ADDRESS);
+    await patientInformationPage.enterCity(NEW_CITY);
+    await patientInformationPage.enterPatientEmail(NEW_PATIENT_EMAIL);
+    await patientInformationPage.enterPatientMobile(NEW_PATIENT_MOBILE);
+    await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.clickSaveChangesButton();
+
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_STATE);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PATIENT_RACE);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
   });
 });
