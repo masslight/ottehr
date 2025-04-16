@@ -650,7 +650,7 @@ export function getTaskResource(coding: TaskCoding, appointmentID: string): Task
     intent: 'plan',
     focus: {
       type: 'Appointment',
-      reference: `Appointment/${appointmentID}`,
+      reference: appointmentID.startsWith('urn:uuid:') ? appointmentID : `Appointment/${appointmentID}`,
     },
     code: {
       coding: [coding],
