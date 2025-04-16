@@ -61,7 +61,7 @@ import {
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
   FHIR_BASE_URL,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
   PatientEthnicity,
@@ -777,7 +777,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       searchParams: [],
       meta: {
         // for backward compatibility. TODO: remove this
-        tag: [{ code: PROJECT_MODULE.IP }, { code: PROJECT_MODULE.TM }],
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
       },
     });
 
@@ -994,7 +994,7 @@ export async function createDocumentResources(
       listResources: newListResources,
       meta: {
         // for backward compatibility. TODO: remove this
-        tag: [{ code: PROJECT_MODULE.IP }, { code: PROJECT_MODULE.TM }],
+        tag: [{ code: OTTEHR_MODULE.IP }, { code: OTTEHR_MODULE.TM }],
       },
     });
     newListResources = result.listResources ?? listResources;

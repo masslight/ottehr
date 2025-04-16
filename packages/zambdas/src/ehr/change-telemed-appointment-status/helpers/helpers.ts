@@ -7,7 +7,7 @@ import {
   addOrReplaceOperation,
   createFilesDocumentReferences,
   getPatchBinary,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   RECEIPT_CODE,
   SCHOOL_NOTE_CODE,
   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
@@ -324,7 +324,7 @@ export async function makeReceiptPdfDocumentReference(
     oystehr,
     generateUUID: randomUUID,
     meta: {
-      tag: [{ code: PROJECT_MODULE.TM }],
+      tag: [{ code: OTTEHR_MODULE.TM }],
     },
     searchParams: [],
     listResources,

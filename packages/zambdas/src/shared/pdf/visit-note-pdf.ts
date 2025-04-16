@@ -44,8 +44,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
   };
   const pdfClient = await createPdfClient(pdfClientStyles);
 
-  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./Rubik-Regular.otf'));
-  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./Rubik-Bold.otf'));
+  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./Rubik-Regular.ttf'));
+  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./Rubik-Bold.ttf'));
   const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
   const redDot = await pdfClient.embedImage(fs.readFileSync('./red-dot.png'));
   const greenDot = await pdfClient.embedImage(fs.readFileSync('./green-dot.png'));

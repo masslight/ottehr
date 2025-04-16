@@ -1,7 +1,7 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { PROJECT_MODULE } from 'utils';
+import { OTTEHR_MODULE } from 'utils';
 import { PatchPaperworkParameters } from '../types';
 import { zipRegex } from '../validation';
 
@@ -184,7 +184,7 @@ export function standardizePhoneNumber(phoneNumber: string | undefined): string 
   return formatPhoneNumber(phoneNumberDigits);
 }
 
-export function resourceHasMetaTag(resource: Resource, metaTag: PROJECT_MODULE): boolean {
+export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): boolean {
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 

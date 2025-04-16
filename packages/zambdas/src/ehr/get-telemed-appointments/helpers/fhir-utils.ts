@@ -3,7 +3,7 @@ import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   GetTelemedAppointmentsInput,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   PatientFilterType,
   allLicensesForPractitioner,
   isLocationVirtual,
@@ -26,7 +26,7 @@ export const getAllResourcesFromFhir = async (
     params: [
       {
         name: '_tag',
-        value: PROJECT_MODULE.TM,
+        value: OTTEHR_MODULE.TM,
       },
       {
         name: 'status',

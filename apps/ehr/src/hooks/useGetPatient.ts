@@ -19,7 +19,7 @@ import { useMutation, useQuery } from 'react-query';
 import {
   getFirstName,
   getLastName,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   getVisitStatusHistory,
   getVisitTotalTime,
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
@@ -112,7 +112,7 @@ export const useGetPatient = (
       const appointmentsTemp: Appointment[] = resourcesTemp.filter(
         (resource) =>
           resource.resourceType === 'Appointment' &&
-          resource.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.IP || tag.code === PROJECT_MODULE.TM) // this is unnecessary now; there are no BH patients to worry about
+          resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP || tag.code === OTTEHR_MODULE.TM) // this is unnecessary now; there are no BH patients to worry about
       ) as Appointment[];
       const locations: Location[] = resourcesTemp.filter(
         (resource) => resource.resourceType === 'Location'

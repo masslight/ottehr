@@ -37,7 +37,7 @@ import {
   ObservationBooleanFieldDTO,
   ObservationHistoryObtainedFromDTO,
   ObservationSeenInLastThreeYearsDTO,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   parseMusculoskeletalFieldToName,
   rashesOptions,
   recentVisitLabels,
@@ -58,7 +58,7 @@ export async function composeAndCreateVisitNotePdf(
   token: string
 ): Promise<PdfInfo> {
   const isInPersonAppointment = !!appointmentPackage.appointment.meta?.tag?.find(
-    (tag) => tag.code === PROJECT_MODULE.IP
+    (tag) => tag.code === OTTEHR_MODULE.IP
   );
 
   console.log('Start composing data for pdf');

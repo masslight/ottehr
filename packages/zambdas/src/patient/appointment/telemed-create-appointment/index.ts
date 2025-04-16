@@ -25,7 +25,7 @@ import {
   getPatchOperationForNewMetaTag,
   getSecret,
   makePrepopulatedItemsForPatient,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
   PRIVATE_EXTENSION_BASE_URL,
@@ -296,7 +296,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
-      tag: [{ code: PROJECT_MODULE.TM }],
+      tag: [{ code: OTTEHR_MODULE.TM }],
     },
     participant: [
       {

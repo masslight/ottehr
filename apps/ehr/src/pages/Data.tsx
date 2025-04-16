@@ -40,7 +40,7 @@ import { Bar, Line } from 'react-chartjs-2';
 import {
   VisitStatusLabel,
   FhirAppointmentType,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   VisitStatusHistoryLabel,
   getVisitStatus,
   getVisitStatusHistory,
@@ -160,7 +160,7 @@ export default function Data(): React.ReactElement {
           },
           {
             name: '_tag',
-            value: PROJECT_MODULE.IP,
+            value: OTTEHR_MODULE.IP,
           },
         ];
         if (visitType !== VisitTypeAll.All) searchParams.push({ name: 'appointment-type', value: visitType });

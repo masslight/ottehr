@@ -3,7 +3,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, PROJECT_MODULE } from 'utils';
+import { FHIR_EXTENSION, OTTEHR_MODULE } from 'utils';
 import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
@@ -98,7 +98,7 @@ const performEffect = async (input: SubmitPaperworkEffectInput, oystehr: Oystehr
             });
 
             const appointmentStatus = appointment.status;
-            const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === PROJECT_MODULE.TM);
+            const isOttehrTm = appointment?.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM);
 
             if (isOttehrTm && appointmentStatus === 'proposed') {
               return oystehr.fhir.patch<Appointment>({

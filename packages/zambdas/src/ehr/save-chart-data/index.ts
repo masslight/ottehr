@@ -16,7 +16,7 @@ import {
   InPersonExamCardsNames,
   inPersonExamFieldsMap,
   InPersonExamFieldsNames,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
   PATIENT_VITALS_META_SYSTEM,
   SCHOOL_WORK_NOTE,
   SNOMEDCodeConceptInterface,
@@ -222,7 +222,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
     });
 
-    const isInPersonAppointment = !!appointment?.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.IP);
+    const isInPersonAppointment = !!appointment?.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
     // convert ExamObservation[] to Observation(FHIR)[] and preserve FHIR resource IDs
     examObservations?.forEach((element) => {

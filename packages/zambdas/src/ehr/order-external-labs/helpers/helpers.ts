@@ -7,7 +7,7 @@
 //   addOrReplaceOperation,
 //   createDocumentReference,
 //   getPatchOperationForNewMetaTag,
-//   PROJECT_MODULE,
+//   OTTEHR_MODULE,
 //   SCHOOL_NOTE_CODE,
 //   SCHOOL_WORK_NOTE_TYPE_META_SYSTEM,
 //   //   TelemedCallStatuses,
@@ -278,7 +278,7 @@
 //         text: 'Telemed document',
 //       },
 //       meta: {
-//         tag: [{ code: PROJECT_MODULE.TM }],
+//         tag: [{ code: OTTEHR_MODULE.TM }],
 //       },
 //       references: {
 //         subject: {

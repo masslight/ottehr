@@ -5,7 +5,7 @@ import {
   FhirAppointmentType,
   PractitionerLicense,
   VisitStatusWithoutUnknown,
-  PROJECT_MODULE,
+  OTTEHR_MODULE,
 } from 'utils';
 import { ScheduleType, ServiceMode } from 'utils';
 
@@ -147,7 +147,7 @@ export const getFhirAppointmentTypeForVisitType = (
 
 export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
   const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
-  const isFhirAppointmentMetaTagTelemed = appointment.meta?.tag?.find((tag) => tag.code === PROJECT_MODULE.TM);
+  const isFhirAppointmentMetaTagTelemed = appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
 
   if (fhirAppointmentType === FhirAppointmentType.walkin) {
     return 'Walk-in In Person Visit';

@@ -1,5 +1,5 @@
 import { SearchParam } from '@oystehr/sdk';
-import { PROJECT_MODULE } from 'utils';
+import { OTTEHR_MODULE } from 'utils';
 
 export const MAX_RESULTS = 20;
 
@@ -18,7 +18,7 @@ export const getPatientNameSearchParams = (input: {
   const hasParams = narrowByRelatedPersonAndAppointment
     ? [
         { name: '_has:RelatedPerson:patient:relationship', value: 'user-relatedperson' }, // RelatedPerson referenced by the Person resource
-        { name: '_has:Appointment:patient:_tag', value: [PROJECT_MODULE.IP, PROJECT_MODULE.TM].join(',') }, // this is unnecessary now; there are no BH patients to worry about
+        { name: '_has:Appointment:patient:_tag', value: [OTTEHR_MODULE.IP, OTTEHR_MODULE.TM].join(',') }, // this is unnecessary now; there are no BH patients to worry about
       ]
     : [];
   const fhirSearchParams: SearchParam[] = [

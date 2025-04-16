@@ -16,7 +16,7 @@ import {
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
-import { PROJECT_MODULE } from '../../../fhir/moduleIdentification';
+import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
 
 export interface GetPastVisitsResponse {
@@ -124,8 +124,8 @@ export interface GetAppointmentsRequest {
 }
 
 export const appointmentTypeMap: Record<string, string> = {
-  [PROJECT_MODULE.IP]: 'In-Person',
-  [PROJECT_MODULE.TM]: 'Telemedicine',
+  [OTTEHR_MODULE.IP]: 'In-Person',
+  [OTTEHR_MODULE.TM]: 'Telemedicine',
 };
 
 export type PatientFilterType = 'my-patients' | 'all-patients';

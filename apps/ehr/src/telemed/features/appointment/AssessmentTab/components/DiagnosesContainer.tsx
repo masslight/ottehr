@@ -10,9 +10,9 @@ import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { DiagnosesField } from './DiagnosesField';
-import { otherColors } from '../../../../../CustomThemeProvider';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { GenericToolTip } from '../../../../../components/GenericToolTip';
+import { otherColors } from '@theme/colors';
 
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);

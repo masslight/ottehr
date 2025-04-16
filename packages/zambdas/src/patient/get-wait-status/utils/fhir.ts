@@ -1,13 +1,13 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Location } from 'fhir/r4b';
-import { isLocationVirtual, PROJECT_MODULE } from 'utils';
+import { isLocationVirtual, OTTEHR_MODULE } from 'utils';
 
 /**
  * Retrieves all appointments that:
  * - Are associated with location group.
  * - Have a status of 'arrived'.
  * - Have an associated Encounter with a status of 'planned'.
- * - Contain a specific tag (PROJECT_MODULE.TM).
+ * - Contain a specific tag (OTTEHR_MODULE.TM).
  * - Are sorted by date.
  */
 
@@ -33,7 +33,7 @@ export const getAllAppointmentsByLocations = async (
         },
         {
           name: '_tag',
-          value: PROJECT_MODULE.TM,
+          value: OTTEHR_MODULE.TM,
         },
         {
           name: '_sort',
