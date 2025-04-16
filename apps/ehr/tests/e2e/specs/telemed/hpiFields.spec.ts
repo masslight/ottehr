@@ -491,7 +491,7 @@ test.describe('Surgical history', () => {
       .fill(providerNote);
   });
 
-  test('Should check surgery list is filtered according to input', async () => {
+  test('Should search surgery and select it', async () => {
     await checkDropdownHasOptionAndSelectIt(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgery);
   });
 
@@ -547,7 +547,7 @@ test.describe('Surgical history', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
   });
 
-  test('Should check surgical history record deleted from Review&Sign tab', async () => {
+  test('Should check surgical history record deleted from HPI and Review&Sign tab', async () => {
     await test.step('Confirm deletion in hpi tab', async () => {
       await page.reload();
       await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
