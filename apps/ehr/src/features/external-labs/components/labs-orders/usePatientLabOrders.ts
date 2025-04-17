@@ -154,7 +154,9 @@ export const usePatientLabOrders = (options: {
   // initial fetch of lab orders, and when the search params change
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
-    void fetchLabOrders(searchParams);
+    if (searchParams.encounterId || searchParams.serviceRequestId || searchParams.patientId) {
+      void fetchLabOrders(searchParams);
+    }
   }, [fetchLabOrders, getCurrentSearchParamsForPage]);
 
   const didOrdersFetch = labOrders.length > 0;

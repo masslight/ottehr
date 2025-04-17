@@ -148,7 +148,7 @@ export const parseOrderDetails = ({
     dx: parseDx(serviceRequest),
     performedBy: parsePerformed(serviceRequest),
     history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
-    resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, cache),
+    resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, cache),
   };
 };
 
@@ -608,7 +608,7 @@ export const parseLabOrderStatus = (
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
   const isSentStatus =
-    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length && prelimResults.length === 0;
+    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0 && prelimResults.length === 0;
 
   if (isSentStatus) {
     return ExternalLabsStatus.sent;
@@ -987,8 +987,8 @@ export const parseLabOrdersHistory = (
     });
   }
 
-  const taggedReflexTasks = reflexFinalTasks.map((task) => ({ ...task, taskType: 'reflex' }) as const);
-  const taggedOrderedTasks = orderedFinalTasks.map((task) => ({ ...task, taskType: 'ordered' }) as const);
+  const taggedReflexTasks = reflexFinalTasks.map((task) => ({ ...task, testType: 'reflex' }) as const);
+  const taggedOrderedTasks = orderedFinalTasks.map((task) => ({ ...task, testType: 'ordered' }) as const);
 
   const finalTasks = [...taggedReflexTasks, ...taggedOrderedTasks].sort((a, b) =>
     compareDates(a.authoredOn, b.authoredOn)
@@ -1002,15 +1002,15 @@ export const parseLabOrdersHistory = (
 };
 
 export const parseTaskReceivedAndReviewedHistory = (
-  task: Task & { taskType: 'reflex' | 'ordered' },
+  task: Task & { testType: 'reflex' | 'ordered' },
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
   const result: LabOrderHistoryRow[] = [];
-  const receivedDate = parseTaskReceivedDate(task, practitioners);
+  const receivedDate = parseTaskReceivedInfo(task, practitioners);
 
   if (receivedDate) {
-    result.push(receivedDate);
+    result.push({ ...receivedDate, testType: task.testType });
   }
 
   const status = `${task.status === 'completed' ? 'reviewed' : 'received'}` as const;
@@ -1019,32 +1019,31 @@ export const parseTaskReceivedAndReviewedHistory = (
     return result;
   }
 
-  const reviewedDate = parseTaskReviewedDate(task, practitioners, provenances);
+  const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances);
 
   if (reviewedDate) {
-    result.push(reviewedDate);
+    result.push({ ...reviewedDate, testType: task.testType });
   }
 
   return result;
 };
 
-export const parseTaskReceivedDate = (
-  task: Task & { taskType: 'reflex' | 'ordered' },
+export const parseTaskReceivedInfo = (
+  task: Task,
   practitioners: Practitioner[]
-): LabOrderHistoryRow | null => {
+): Omit<LabOrderHistoryRow, 'resultType'> | null => {
   return {
     action: 'received',
-    resultType: task.taskType,
     performer: parsePractitionerNameFromTask(task, practitioners),
     date: task.authoredOn || '',
   };
 };
 
-export const parseTaskReviewedDate = (
-  task: Task & { taskType: 'reflex' | 'ordered' },
+export const parseTaskReviewedInfo = (
+  task: Task,
   practitioners: Practitioner[],
   provenances: Provenance[]
-): LabOrderHistoryRow | null => {
+): Omit<LabOrderHistoryRow, 'resultType'> | null => {
   const reviewProvenance = parseReviewProvenanceForTask(task, provenances);
 
   if (!reviewProvenance) {
@@ -1053,7 +1052,6 @@ export const parseTaskReviewedDate = (
 
   return {
     action: 'reviewed',
-    resultType: task.taskType,
     performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
     date: reviewProvenance.recorded || '',
   };
@@ -1061,7 +1059,7 @@ export const parseTaskReviewedDate = (
 
 export const parseReviewProvenanceForTask = (task: Task, provenances: Provenance[]): Provenance | undefined => {
   return provenances.find((provenance) => {
-    const isRelatedToTask = task.relevantHistory?.some((history) => {
+    const isRelatedToTask = task?.relevantHistory?.some((history) => {
       return history.reference?.includes(`Provenance/${provenance.id}`);
     });
 
@@ -1102,6 +1100,8 @@ export const parseLResultsDetails = (
   serviceRequest: ServiceRequest,
   results: DiagnosticReport[],
   tasks: Task[],
+  practitioners: Practitioner[],
+  provenances: Provenance[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
   if (!serviceRequest.id) {
@@ -1122,14 +1122,36 @@ export const parseLResultsDetails = (
   const resultsDetails: LabOrderResultDetails[] = [];
 
   [
-    { results: orderedFinalResults, tasks: orderedFinalTasks, type: 'Ordered test' as const },
-    { results: reflexFinalResults, tasks: reflexFinalTasks, type: 'Reflex test' as const },
-    { results: orderedPrelimResults, tasks: orderedPrelimTasks, type: 'Ordered test' as const },
-    { results: reflexPrelimResults, tasks: reflexPrelimTasks, type: 'Reflex test' as const },
-  ].forEach(({ results, tasks, type }) => {
-    results.forEach((report) => {
-      const details = parseResultDetails(report, tasks, serviceRequest);
-      if (details) resultsDetails.push({ ...details, testType: type });
+    {
+      results: orderedFinalResults,
+      tasks: orderedFinalTasks,
+      testType: 'ordered' as const,
+      resultType: 'final' as const,
+    },
+    {
+      results: reflexFinalResults,
+      tasks: reflexFinalTasks,
+      testType: 'reflex' as const,
+      resultType: 'final' as const,
+    },
+    {
+      results: orderedPrelimResults,
+      tasks: orderedPrelimTasks,
+      testType: 'ordered' as const,
+      resultType: 'preliminary' as const,
+    },
+    {
+      results: reflexPrelimResults,
+      tasks: reflexPrelimTasks,
+      testType: 'reflex' as const,
+      resultType: 'preliminary' as const,
+    },
+  ].forEach(({ results, tasks, testType, resultType }) => {
+    results.forEach((result) => {
+      const details = parseResultDetails(result, tasks, serviceRequest);
+      const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
+      const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
+      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate });
     });
   });
 
@@ -1140,7 +1162,7 @@ export const parseResultDetails = (
   result: DiagnosticReport,
   tasks: Task[],
   serviceRequest: ServiceRequest
-): Omit<LabOrderResultDetails, 'testType'> | null => {
+): Omit<LabOrderResultDetails, 'testType' | 'resultType' | 'reviewedDate'> | null => {
   const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
 
   if (!task?.id || !result?.id || !serviceRequest.id) {
