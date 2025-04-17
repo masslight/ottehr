@@ -47,6 +47,7 @@ export const useCheckOfficeOpen = (
       (todayClosingTime === undefined || todayClosingTime > timeNow) &&
       !officeHasClosureOverrideToday;
 
+    /*
     const walkinOpen = isWalkinOpen(selectedLocation, timeNow);
 
     console.log(
@@ -57,10 +58,11 @@ export const useCheckOfficeOpen = (
       officeHasClosureOverrideToday,
       officeHasClosureOverrideTomorrow
     );
+    */
 
     return {
       officeOpen,
-      walkinOpen,
+      walkinOpen: true, // hardcoding walking open for now. up for refactor in next cycle: https://github.com/masslight/ottehr/issues/1871
       officeHasClosureOverrideTomorrow,
       officeHasClosureOverrideToday,
       prebookStillOpenForToday,
