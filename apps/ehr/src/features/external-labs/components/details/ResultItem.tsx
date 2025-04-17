@@ -1,9 +1,9 @@
 import { ReactElement } from 'react';
-import { Box, Button, Typography, Divider, useTheme } from '@mui/material';
-import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
+import { Box, Typography, useTheme } from '@mui/material';
 import { LabOrderDTO, LabOrderResultDetails } from 'utils';
 import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
 import { FinalCardView } from './FinalCardView';
+import { PrelimCardView } from './PrelimCardView';
 
 interface ResultItemProps {
   labOrder: LabOrderDTO;
@@ -46,24 +46,17 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
         </Box>
       </Box>
 
-      <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>
-        <Box sx={{ padding: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<BiotechOutlinedIcon />}
-            onClick={() => null} // todo: will be released in the future
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-            disabled={true}
-          >
-            View Results
-          </Button>
-        </Box>
-
-        <Divider />
-
+      {resultDetails.resultType === 'final' && (
         <FinalCardView labStatus={resultDetails.labStatus} onMarkAsReviewed={onMarkAsReviewed} />
-        {/* todo: use PrelimCardView for prelim case (apps/ehr/src/features/external-labs/components/details/PrelimCardView.tsx)*/}
-      </Box>
+      )}
+
+      {resultDetails.resultType === 'preliminary' && (
+        <PrelimCardView
+          receivedDate={resultDetails.receivedDate}
+          reviewedDate={resultDetails.reviewedDate}
+          onPrelimView={() => null}
+        />
+      )}
     </div>
   );
 };

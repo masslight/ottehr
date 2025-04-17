@@ -9,7 +9,7 @@ export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrder
   const { encounter } = JSON.parse(input.body);
 
   const missingResources = [];
-  if (!encounter) missingResources.push('encounter');
+  if (!encounter.id) missingResources.push('encounter');
   if (missingResources.length) {
     throw new Error(`missing required resource(s): ${missingResources.join(',')}`);
   }

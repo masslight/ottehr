@@ -3,6 +3,7 @@ import { FC } from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   DispositionCard,
   PatientInstructionsCard,
@@ -30,7 +31,8 @@ export const Plan: FC<PlanProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Stack spacing={2}>
+    <Stack spacing={1}>
+      <PageTitle label="Plan" showIntakeNotesButton={false} />
       <PatientInstructionsCard />
       <DispositionCard />
       <SchoolWorkExcuseCard />

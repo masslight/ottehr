@@ -48,7 +48,7 @@ export interface OrderableItemLab {
 export enum ExternalLabsStatus {
   pending = 'pending',
   sent = 'sent',
-  prelim = 'prelim',
+  prelim = 'prelim', // todo: this is not a status, need to refactor
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
@@ -63,7 +63,7 @@ export type LabOrderUnreceivedHistoryRow = {
 
 export type LabOrderReceivedHistoryRow = {
   action: 'received' | 'reviewed';
-  resultType: 'reflex' | 'ordered';
+  testType: 'reflex' | 'ordered';
   performer: string;
   date: string;
 };
@@ -72,11 +72,13 @@ export type LabOrderHistoryRow = LabOrderUnreceivedHistoryRow | LabOrderReceived
 
 export type LabOrderResultDetails = {
   testItem: string;
-  testType: 'Ordered test' | 'Reflex test';
+  testType: 'reflex' | 'ordered';
+  resultType: 'final' | 'preliminary';
   labStatus: ExternalLabsStatus;
   diagnosticReportId: string;
   taskId: string;
   receivedDate: string;
+  reviewedDate: string | null;
 };
 
 export interface LabOrderDTO {

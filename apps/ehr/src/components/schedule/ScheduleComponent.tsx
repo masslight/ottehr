@@ -303,102 +303,6 @@ export default function ScheduleComponent({
     await update({ scheduleId: item.id, schedule: days });
   };
 
-  /*function getWorkingHoursOperation(): Operation | undefined {
-    if (!days) {
-      return;
-    }
-
-    const newHoursOfOperation: LocationHoursOfOperation[] = [];
-    Object.keys(days).forEach((day) => {
-      const dayInfo: Weekday = days[day];
-      if (!dayInfo.workingDay) {
-        return;
-      }
-
-      let dayHours: LocationHoursOfOperation;
-      if (dayInfo.close !== 24) {
-        dayHours = {
-          openingTime: `${dayInfo.open.toString().padStart(2, '0')}:00:00`,
-          closingTime: `${dayInfo.close.toString().padStart(2, '0')}:00:00`,
-          daysOfWeek: [dayToDayCode[capitalize(day)]],
-        };
-      } else {
-        dayHours = {
-          openingTime: `${dayInfo.open.toString().padStart(2, '0')}:00:00`,
-          daysOfWeek: [dayToDayCode[capitalize(day)]],
-        };
-      }
-
-      newHoursOfOperation.push(dayHours);
-    });
-
-    if (newHoursOfOperation.length === 0) {
-      return undefined;
-    }
-
-    if (item.owner.hoursOfOperation) {
-      return {
-        op: item.hoursOfOperation ? 'replace' : 'add',
-        path: '/hoursOfOperation',
-        value: newHoursOfOperation,
-      };
-    } else {
-      return undefined;
-    }
-  }*/
-
-  /*async function updateItem(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    const extensionTemp = item.extension;
-    const extensionSchedule = extensionTemp?.find((extensionTemp) => extensionTemp.url === SCHEDULE_EXTENSION_URL);
-
-    try {
-      if (!oystehr || !extensionSchedule) {
-        throw new Error('Failed to update item');
-      }
-
-      // Get patch operation for schedule extension that includes schedule/capacities, scheduleOverrides, and closures
-      setLoading(true);
-
-      extensionSchedule.valueString = JSON.stringify({
-        schedule: days ?? {},
-        scheduleOverrides: overrides ?? {},
-        closures: closures,
-      });
-      const operations: Operation[] = [
-        {
-          op: 'replace',
-          path: '/extension',
-          value: extensionTemp,
-        },
-      ];
-
-      // Get patch operation for item hoursOfOperation
-      const workingHoursOperation = getWorkingHoursOperation();
-      if (workingHoursOperation) {
-        operations.push(workingHoursOperation);
-      }
-
-      await oystehr.fhir.patch({
-        resourceType: item.resourceType,
-        id: item.id || '',
-        operations: operations,
-      });
-
-      setLoading(false);
-      setToastMessage('Schedule changes saved');
-      setToastType('success');
-      setSnackbarOpen(true);
-    } catch (error) {
-      console.error(error);
-      setToastMessage('Failed to save schedule changes');
-      setToastType('error');
-      setSnackbarOpen(true);
-    } finally {
-      setLoading(false);
-    }
-  }*/
-
   const saveOverrides = async (overrides: UpdateOverridesInput): Promise<void> => {
     setSavingOverrides(true);
     console.log('handling overrides', overrides);
@@ -412,7 +316,6 @@ export default function ScheduleComponent({
 
   React.useEffect(() => {
     setDays(item.schema.schedule);
-    // setOverrides(item.schema.scheduleOverrides);
   }, [item]);
 
   return (
