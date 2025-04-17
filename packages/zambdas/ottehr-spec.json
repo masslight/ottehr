@@ -846,6 +846,13 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/bookable/get-slot-details/index",
       "zip": ".dist/zips/get-slot-details.zip"
+    },
+    "WALKIN-CHECK-AVAILABILITY": {
+      "name": "WALKIN-CHECK-AVAILABILITY",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/walkin/check-availability/index",
+      "zip": ".dist/zips/walkin-check-availability.zip"
     }
   },
   "fhirResources": {

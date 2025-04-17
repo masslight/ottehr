@@ -2,9 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { LocationHoursOfOperation, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
+  applyOverridesToOperatingHours,
+  Closure,
   createOystehrClient,
   FHIR_RESOURCE_NOT_FOUND,
-  getCurrentHoursOfOperation,
+  getLocationHoursFromScheduleExtension,
   getScheduleDetails,
   getSecret,
   getServiceModeFromScheduleOwner,
@@ -16,12 +18,14 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
+  OVERRIDE_DATE_FORMAT,
   ScheduleExtension,
   ScheduleOwnerFhirResource,
   SecretsKeys,
   ServiceMode,
   Timezone,
   TIMEZONES,
+  WalkinAvailabilityCheckResult,
 } from 'utils';
 import { ZambdaInput, getAuth0Token, topLevelCatch } from '../../../shared';
 import { DateTime } from 'luxon';
@@ -56,14 +60,60 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const performEffect = (input: EffectInput): any => {
+const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
   const { scheduleExtension, serviceMode, timezone } = input;
   // grab everything that is needed to perform the walkin availability check
-  const today = DateTime.now().setZone(timezone);
-  const tomorrow = today.plus({ days: 1 });
+  const timeNow = DateTime.now().setZone(timezone);
+  const tomorrow = timeNow.plus({ days: 1 });
   //const tomorrowOpeningTime = getOpeningTime(scheduleExtension.schedule, timezone, tomorrow);
+  const rawHoursOfOperation = getLocationHoursFromScheduleExtension(scheduleExtension);
+  const hoursOfOperation = applyOverridesToOperatingHours({
+    hoursOfOperation: rawHoursOfOperation,
+    timezone,
+    from: timeNow,
+    scheduleOverrides: scheduleExtension.scheduleOverrides,
+  });
+  const todayOpeningTime = getOpeningTime(hoursOfOperation, timezone, timeNow);
+  const todayClosingTime = getClosingTime(hoursOfOperation, timezone, timeNow);
 
-  return {};
+  const prebookStillOpenForToday =
+    todayOpeningTime !== undefined && (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));
+
+  // todo: consider just sending the closures list and allow the client to check for closure overrides for whichever days
+  const officeHasClosureOverrideToday = isClosureOverride(scheduleExtension.closures ?? [], timezone, timeNow);
+  const officeHasClosureOverrideTomorrow = isClosureOverride(scheduleExtension.closures ?? [], timezone, tomorrow);
+
+  const officeOpen =
+    todayOpeningTime !== undefined &&
+    todayOpeningTime <= timeNow &&
+    (todayClosingTime === undefined || todayClosingTime > timeNow) &&
+    !officeHasClosureOverrideToday;
+
+  const walkinOpen = isWalkinOpen({
+    openingTime: todayOpeningTime,
+    closingTime: todayClosingTime,
+    closures: scheduleExtension.closures ?? [],
+    timezone,
+    timeNow,
+  });
+
+  console.log(
+    'officeOpen, walkinOpen, prebookStillOpenForToday, officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow',
+    officeOpen,
+    walkinOpen,
+    prebookStillOpenForToday,
+    officeHasClosureOverrideToday,
+    officeHasClosureOverrideTomorrow
+  );
+
+  return {
+    officeOpen,
+    walkinOpen,
+    officeHasClosureOverrideTomorrow,
+    officeHasClosureOverrideToday,
+    prebookStillOpenForToday,
+    serviceMode,
+  };
 };
 
 type BasicInput = GetWalkinStartParams;
@@ -144,77 +194,6 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   return { scheduleExtension, timezone, serviceMode };
 };
 
-/*
-
-interface CheckOfficeOpenOutput {
-  officeOpen: boolean;
-  walkinOpen: boolean;
-  prebookStillOpenForToday: boolean;
-  officeHasClosureOverrideToday: boolean;
-  officeHasClosureOverrideTomorrow: boolean;
-}
-
-export const useCheckOfficeOpen = (
-  selectedLocation: AvailableLocationInformation | undefined
-): CheckOfficeOpenOutput => {
-  return useMemo(() => {
-    if (!selectedLocation) {
-      // console.log('no selected location, office closed');
-      return {
-        officeOpen: false,
-        walkinOpen: false,
-        officeHasClosureOverrideToday: false,
-        officeHasClosureOverrideTomorrow: false,
-        prebookStillOpenForToday: false,
-      };
-    }
-
-    const timeNow = DateTime.now().setZone(selectedLocation.timezone);
-    const tomorrowDate = timeNow.plus({ days: 1 });
-    const tomorrowOpeningTime = getOpeningTime(selectedLocation, tomorrowDate);
-
-    const officeHasClosureOverrideToday = isClosureOverride(selectedLocation, timeNow);
-    const officeHasClosureOverrideTomorrow =
-      isClosureOverride(selectedLocation, tomorrowDate) && tomorrowOpeningTime !== undefined;
-
-    const todayOpeningTime = getOpeningTime(selectedLocation, timeNow);
-    const todayClosingTime = getClosingTime(selectedLocation, timeNow);
-
-    const prebookStillOpenForToday =
-      todayOpeningTime !== undefined &&
-      (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));
-
-    const officeOpen =
-      todayOpeningTime !== undefined &&
-      todayOpeningTime <= timeNow &&
-      (todayClosingTime === undefined || todayClosingTime > timeNow) &&
-      !officeHasClosureOverrideToday;
-
-    const walkinOpen = isWalkinOpen(selectedLocation, timeNow);
-
-    console.log(
-      'officeOpen, walkinOpen, prebookStillOpenForToday, officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow',
-      officeOpen,
-      walkinOpen,
-      prebookStillOpenForToday,
-      officeHasClosureOverrideToday,
-      officeHasClosureOverrideTomorrow
-    );
-
-    return {
-      officeOpen,
-      walkinOpen,
-      officeHasClosureOverrideTomorrow,
-      officeHasClosureOverrideToday,
-      prebookStillOpenForToday,
-    };
-  }, [selectedLocation]);
-};
-
-
-
-*/
-
 function getOpeningTime(
   hoursOfOperation: LocationHoursOfOperation[],
   timezone: Timezone,
@@ -232,6 +211,33 @@ function getOpeningTime(
     : undefined;
 }
 
+export function getClosingTime(
+  hoursOfOperation: LocationHoursOfOperation[],
+  timezone: Timezone,
+  currentDate: DateTime
+): DateTime | undefined {
+  const currentHoursOfOperation = getCurrentHoursOfOperation(hoursOfOperation, currentDate);
+  const formattedClosingTime = currentHoursOfOperation?.closingTime
+    ? DateTime.fromFormat(currentHoursOfOperation?.closingTime, HOURS_OF_OPERATION_FORMAT, {
+        zone: timezone,
+      }).set({
+        year: currentDate.year,
+        month: currentDate.month,
+        day: currentDate.day,
+      })
+    : undefined;
+  // if time is midnight, add 1 day to closing time
+  if (
+    formattedClosingTime !== undefined &&
+    formattedClosingTime.hour === 0 &&
+    formattedClosingTime.minute === 0 &&
+    formattedClosingTime.second === 0
+  ) {
+    return formattedClosingTime.plus({ day: 1 });
+  }
+  return formattedClosingTime;
+}
+
 export function getCurrentHoursOfOperation(
   hoursOfOperation: LocationHoursOfOperation[],
   currentDate: DateTime
@@ -240,4 +246,41 @@ export function getCurrentHoursOfOperation(
   return hoursOfOperation?.find((item) => {
     return item.daysOfWeek?.[0] === weekdayShort;
   });
+}
+
+interface CheckWalkinOpenInput {
+  openingTime: DateTime | undefined;
+  closingTime: DateTime | undefined;
+  closures: Closure[];
+  timezone: Timezone;
+  timeNow: DateTime;
+  // this optional prop can be used to allow checking in for a walkin/ad-hoc appointment prior to the opening time
+  minutesWalkinAvalilableBeforeOpening?: number;
+}
+
+function isWalkinOpen(input: CheckWalkinOpenInput): boolean {
+  const { openingTime, closingTime, closures, timezone, timeNow, minutesWalkinAvalilableBeforeOpening = 0 } = input;
+  const officeHasClosureOverrideToday = isClosureOverride(closures, timezone, timeNow);
+
+  return (
+    openingTime !== undefined &&
+    openingTime.minus({ minute: minutesWalkinAvalilableBeforeOpening }) <= timeNow &&
+    (closingTime === undefined || closingTime > timeNow) &&
+    !officeHasClosureOverrideToday
+  );
+}
+
+export function isClosureOverride(closures: Closure[], timezone: Timezone, currentDate: DateTime): boolean {
+  const result = closures.some((closure) => {
+    const { start, end } = closure;
+    const closureStart = DateTime.fromFormat(start, OVERRIDE_DATE_FORMAT, { zone: timezone });
+    if (closureStart.ordinal === currentDate.ordinal) {
+      return true;
+    } else if (end) {
+      const closureEnd = DateTime.fromFormat(end, OVERRIDE_DATE_FORMAT, { zone: timezone });
+      return currentDate.ordinal >= closureStart.ordinal && currentDate.ordinal <= closureEnd.ordinal;
+    }
+    return false;
+  });
+  return result;
 }

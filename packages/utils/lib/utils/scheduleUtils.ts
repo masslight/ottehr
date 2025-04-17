@@ -9,6 +9,7 @@ import {
   HealthcareService,
   Resource,
   FhirResource,
+  LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -33,6 +34,7 @@ import {
   ServiceMode,
   codingContainedInList,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  HOURS_OF_OPERATION_FORMAT,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -1513,4 +1515,65 @@ export const getSlotIsWalkin = (slot: Slot): boolean => {
     return codingContainedInList(appointmentType, SLOT_WALKIN_APPOINTMENT_TYPE_CODING.coding!);
   }
   return false;
+};
+
+export const getLocationHoursFromScheduleExtension = (extension: ScheduleExtension): LocationHoursOfOperation[] => {
+  const hourEntries: LocationHoursOfOperation[] = [];
+  const { schedule } = extension;
+
+  Object.entries(schedule).forEach((keyVal) => {
+    const [day, scheduleDay] = keyVal;
+    const dayAbbrev = day.slice(0, 3).toLowerCase() as 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+    console.log('day abbrev', dayAbbrev);
+    const { open, close, workingDay } = scheduleDay;
+    if (workingDay) {
+      hourEntries.push({
+        daysOfWeek: [dayAbbrev],
+        openingTime: `${open}`,
+        closingTime: `${close}`,
+      });
+    } else {
+      hourEntries.push({
+        daysOfWeek: [dayAbbrev],
+      });
+    }
+  });
+
+  return hourEntries;
+};
+
+interface OverrideOperatingHoursInput {
+  from: DateTime;
+  scheduleOverrides: ScheduleOverrides;
+  hoursOfOperation: LocationHoursOfOperation[];
+  timezone: Timezone;
+}
+export const applyOverridesToOperatingHours = (input: OverrideOperatingHoursInput): LocationHoursOfOperation[] => {
+  const { from, scheduleOverrides, hoursOfOperation, timezone } = input;
+  const currentDate = from.setZone(timezone);
+  const overrideDate = Object.keys(scheduleOverrides).find((date) => {
+    return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
+  });
+  if (overrideDate) {
+    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase();
+    const override = scheduleOverrides[overrideDate];
+    const dayIndex = hoursOfOperation?.findIndex((hour) => (hour.daysOfWeek as string[])?.includes(dayOfWeek));
+    if (hoursOfOperation && typeof dayIndex !== 'undefined' && dayIndex >= 0) {
+      hoursOfOperation[dayIndex].openingTime = DateTime.fromFormat(override.open.toString(), 'h')
+        .set({
+          year: currentDate.year,
+          month: currentDate.month,
+          day: currentDate.day,
+        })
+        .toFormat(HOURS_OF_OPERATION_FORMAT);
+      hoursOfOperation[dayIndex].closingTime = DateTime.fromFormat(override.close.toString(), 'h')
+        .set({
+          year: currentDate.year,
+          month: currentDate.month,
+          day: currentDate.day,
+        })
+        .toFormat(HOURS_OF_OPERATION_FORMAT);
+    }
+  }
+  return hoursOfOperation;
 };
