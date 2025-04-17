@@ -21,6 +21,7 @@ import {
 } from 'utils';
 import { EditEmployeeInformationProps, EmployeeForm } from './types';
 import { dataTestIds } from '../../constants/data-test-ids';
+import useEvolveUser from '../../hooks/useEvolveUser';
 
 export default function EmployeeInformationForm({
   submitLabel,
@@ -30,12 +31,15 @@ export default function EmployeeInformationForm({
   getUserAndUpdatePage,
 }: EditEmployeeInformationProps): JSX.Element {
   const { oystehrZambda } = useApiClients();
+  const evolveUser = useEvolveUser();
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState({
     submit: false,
     roles: false,
     qualification: false,
     state: false,
+    number: false,
+    date: false,
     duplicateLicense: false,
     npi: false,
     phoneNumber: false,
@@ -161,6 +165,9 @@ export default function EmployeeInformationForm({
       enqueueSnackbar(`User ${data.firstName} ${data.lastName} was updated successfully`, {
         variant: 'success',
       });
+      if (evolveUser?.id === user.id) {
+        window.location.reload();
+      }
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
       enqueueSnackbar('An error has occurred while updating user. Please try again.', {
@@ -173,7 +180,14 @@ export default function EmployeeInformationForm({
   };
 
   const handleAddLicense = async (): Promise<void> => {
-    setErrors((prev) => ({ ...prev, state: false, qualification: false, duplicateLicense: false }));
+    setErrors((prev) => ({
+      ...prev,
+      state: false,
+      qualification: false,
+      number: false,
+      date: false,
+      duplicateLicense: false,
+    }));
 
     const formValues = getValues();
 
@@ -185,23 +199,35 @@ export default function EmployeeInformationForm({
       setErrors((prev) => ({ ...prev, duplicateLicense: true }));
       return;
     }
-    if (!formValues.newLicenseCode || !formValues.newLicenseState) {
+    if (
+      !formValues.newLicenseCode ||
+      !formValues.newLicenseState ||
+      !formValues.newLicenseNumber ||
+      !formValues.newLicenseExpirationDate
+    ) {
       setErrors((prev) => ({
         ...prev,
         qualification: !formValues.newLicenseCode,
         state: !formValues.newLicenseState,
+        number: !formValues.newLicenseNumber,
+        date: !formValues.newLicenseExpirationDate,
       }));
       return;
     }
+
     const updatedLicenses = [...newLicenses];
     updatedLicenses.push({
       state: formValues.newLicenseState,
       code: formValues.newLicenseCode as PractitionerQualificationCode,
+      number: formValues.newLicenseNumber,
+      date: formValues.newLicenseExpirationDate.toISODate() || undefined,
       active: true,
     });
     setNewLicenses(updatedLicenses);
     setValue('newLicenseState', undefined);
     setValue('newLicenseCode', undefined);
+    setValue('newLicenseNumber', undefined);
+    setValue('newLicenseExpirationDate', undefined);
   };
 
   return isActive === undefined ? (
