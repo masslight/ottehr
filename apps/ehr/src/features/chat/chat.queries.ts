@@ -76,32 +76,19 @@ export const useSendMessagesMutation = (
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMessagingConfigQuery = (onSuccess?: (data: any) => void) => {
-  const { oystehrZambda } = useApiClients();
+  const { oystehr } = useApiClients();
   return useQuery(
     'messaging-config',
     async () => {
-      if (!oystehrZambda) {
+      if (!oystehr) {
         throw new Error('API client not available');
       }
 
-      const response = await fetch(`https://project-api.zapehr.com/v1/messaging/config`, {
-        method: 'GET',
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${oystehrZambda.config.accessToken}`,
-          'x-zapehr-project-id': oystehrZambda.config.projectId || '',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch messaging config: ${response.status} ${response.statusText}`);
-      }
-
-      return response.json();
+      return await oystehr.messaging.getMessagingConfig();
     },
     {
       onSuccess,
-      enabled: !!oystehrZambda,
+      enabled: !!oystehr,
     }
   );
 };
