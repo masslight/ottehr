@@ -17,14 +17,18 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
 };
 
 const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZambdaInput> => {
-  const { encounterId, patientId, itemsPerPage, pageIndex } = validateJsonBody(input);
+  const { encounterId, patientId, serviceRequestId, itemsPerPage, pageIndex } = validateJsonBody(input);
 
-  if (patientId && encounterId) {
-    throw new Error('Only one of patientId or encounterId may be sent at a time');
+  if (
+    (patientId && (encounterId || serviceRequestId)) ||
+    (encounterId && (patientId || serviceRequestId)) ||
+    (serviceRequestId && (patientId || encounterId))
+  ) {
+    throw new Error('Only one of patientId, encounterId, serviceRequestId may be sent at a time');
   }
 
-  if (!patientId && !encounterId) {
-    throw new Error('Either patientId or encounterId is required');
+  if (!patientId && !encounterId && !serviceRequestId) {
+    throw new Error('One of patientId, encounterId, serviceRequestId is required');
   }
 
   if (encounterId && !isValidUUID(encounterId)) {
@@ -33,6 +37,10 @@ const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZa
 
   if (patientId && !isValidUUID(patientId)) {
     throw new Error('patientId must be a uuid');
+  }
+
+  if (serviceRequestId && !isValidUUID(serviceRequestId)) {
+    throw new Error('serviceRequestId must be a uuid');
   }
 
   if (itemsPerPage && (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1)) {
@@ -46,6 +54,7 @@ const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZa
   return {
     encounterId,
     patientId,
+    serviceRequestId,
     itemsPerPage,
     pageIndex,
   };

@@ -18,6 +18,7 @@ export interface CancelRadiologyOrderZambdaInput {
 export interface GetRadiologyOrderListZambdaInput {
   encounterId?: string;
   patientId?: string;
+  serviceRequestId?: string;
   pageIndex?: number;
   itemsPerPage?: number;
 }

@@ -717,10 +717,12 @@ export const getRadiologyOrders = async (
   parameters: GetRadiologyOrderListZambdaInput
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
   try {
-    const searchBy = parameters.encounterId || parameters.patientId;
+    const searchBy = parameters.encounterId || parameters.patientId || parameters.serviceRequestId;
     if (!searchBy) {
       throw new Error(
-        `Missing one of the required parameters (encounterId | patientId): ${JSON.stringify(parameters)}`
+        `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
+          parameters
+        )}`
       );
     }
     const response = await oystehr.zambda.execute({

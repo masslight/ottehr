@@ -75,6 +75,7 @@ const performEffect = async (
   const {
     encounterId,
     patientId,
+    serviceRequestId,
     itemsPerPage = DEFAULT_RADIOLOGY_ITEMS_PER_PAGE,
     pageIndex = 0,
   } = validatedInput.body;
@@ -131,6 +132,11 @@ const performEffect = async (
     searchParams.push({
       name: 'subject',
       value: `Patient/${patientId}`,
+    });
+  } else if (serviceRequestId) {
+    searchParams.push({
+      name: '_id',
+      value: serviceRequestId,
     });
   } else {
     throw new Error('Either encounterId or patientId must be provided, should not happen if validation step worked');
