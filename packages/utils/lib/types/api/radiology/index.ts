@@ -40,7 +40,9 @@ export interface GetRadiologyOrderListZambdaOrder {
   providerName: string;
   diagnosis: string;
   status: RadiologyOrderStatus;
+  result?: string;
 }
+
 export interface GetRadiologyOrderListZambdaOutput {
   orders: GetRadiologyOrderListZambdaOrder[];
   pagination: Pagination;

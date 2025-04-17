@@ -233,6 +233,8 @@ const parseResultsToOrder = (
     report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
   });
 
+  const result = myDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/plain')?.data;
+
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;
   } else if (serviceRequest.status === 'completed' && !myDiagnosticReport) {
@@ -258,6 +260,7 @@ const parseResultsToOrder = (
     providerName: `${providerLastName}, ${providerFirstName}`,
     diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
+    result,
   };
 };
 
