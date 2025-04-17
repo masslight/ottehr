@@ -1,5 +1,8 @@
-import { ReactElement, useEffect, useState } from 'react';
 import {
+  Box,
+  Button,
+  Pagination,
+  Paper,
   Table,
   TableBody,
   TableCell,
@@ -7,41 +10,16 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Box,
-  Pagination,
-  Grid,
-  Paper,
-  Button,
-  IconButton,
 } from '@mui/material';
-import ClearIcon from '@mui/icons-material/Clear';
-import { DatePicker } from '@mui/x-date-pickers';
-import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { RadiologyTableRow } from './RadiologyTableRow';
-import { usePatientLabOrders } from './usePatientLabOrders';
+import { ReactElement, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderDTO, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
+import { GetRadiologyOrderListZambdaOrder } from 'utils';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
-import { LabsAutocomplete } from '../LabsAutocomplete';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { getCreateLabOrderResources } from '../../../../api/api';
-import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useApiClients } from '../../../../hooks/useAppClients';
 import { LabOrderLoading } from './LabOrderLoading';
+import { RadiologyTableRow } from './RadiologyTableRow';
+import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
 
-export type RadiologyTableColumn =
-  | 'testType'
-  | 'visit'
-  | 'orderAdded'
-  | 'provider'
-  | 'dx'
-  | 'resultsReceived'
-  | 'accessionNumber'
-  | 'status'
-  | 'psc'
-  | 'actions';
+export type RadiologyTableColumn = 'studyType' | 'dx' | 'ordered' | 'status' | 'actions';
 
 type RadiologyTableProps = {
   patientId?: string;
@@ -58,7 +36,6 @@ export const RadiologyTable = ({
   patientId,
   encounterId,
   columns,
-  showFilters = false,
   allowDelete = false,
   titleText,
   redirectToOrderCreateIfOrdersEmpty = false,
@@ -66,83 +43,32 @@ export const RadiologyTable = ({
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
 
-  const {
-    labOrders,
-    loading,
-    totalPages,
-    page,
-    setPage,
-    setOrderableItemCodeFilter,
-    visitDateFilter,
-    setVisitDateFilter,
-    showPagination,
-    error,
-    onDeleteOrder,
-    DeleteOrderDialog,
-  } = usePatientLabOrders({
-    patientId,
-    encounterId,
-  });
+  const { orders, loading, totalPages, page, setPage, showPagination, error, DeleteOrderDialog } =
+    usePatientRadiologyOrders({
+      patientId,
+      encounterId,
+    });
 
-  const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
-
-  const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
-
-  const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
-
-  const submitFilterByDate = (): void => {
-    setVisitDateFilter(tempDateFilter);
+  const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
+    navigateTo(getExternalLabOrderEditUrl(order.appointmentId, order.serviceRequestId));
   };
-
-  const handleClearDate = (): void => {
-    setTempDateFilter(null);
-    setVisitDateFilter(null);
-  };
-
-  const onRowClick = (labOrderData: LabOrderDTO): void => {
-    navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
-  };
-
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-
-  const { oystehrZambda } = useApiClients();
-
-  useEffect(() => {
-    async function getResources(oystehrZambda: Oystehr): Promise<void> {
-      try {
-        const { labs } = await getCreateLabOrderResources(oystehrZambda, { encounter });
-        setLabs(labs);
-      } catch (e) {
-        console.error('error loading resources', e);
-      }
-    }
-
-    if (encounter && oystehrZambda) {
-      void getResources(oystehrZambda);
-    }
-  }, [encounter, oystehrZambda]);
 
   // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
   useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && labOrders.length === 0 && !error && onCreateOrder) {
+    if (redirectToOrderCreateIfOrdersEmpty && !loading && orders.length === 0 && !error && onCreateOrder) {
       const timer = setTimeout(() => {
         return onCreateOrder();
       }, 100);
       return () => clearTimeout(timer);
     }
     return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
-
-  const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
-    setOrderableItemCodeFilter(value?.item.itemLoinc || '');
-    setSelectedOrderedItem(value || null);
-  };
+  }, [redirectToOrderCreateIfOrdersEmpty, loading, orders.length, error, onCreateOrder]);
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
     setPage(value);
   };
 
-  if (loading && labOrders.length === 0) {
+  if (loading && orders.length === 0) {
     return <LabOrderLoading />;
   }
 
@@ -163,26 +89,16 @@ export const RadiologyTable = ({
 
   const getColumnWidth = (column: RadiologyTableColumn): string => {
     switch (column) {
-      case 'testType':
-        return '15%';
-      case 'visit':
-        return '10%';
-      case 'orderAdded':
-        return '10%';
-      case 'provider':
-        return '15%';
+      case 'studyType':
+        return '25%';
       case 'dx':
-        return '20%';
-      case 'resultsReceived':
-        return '10%';
-      case 'accessionNumber':
-        return '10%';
+        return '25%';
+      case 'ordered':
+        return '25%';
       case 'status':
-        return '5%';
-      case 'psc':
-        return '5%';
+        return '15%';
       case 'actions':
-        return '5%';
+        return '10%';
       default:
         return '10%';
     }
@@ -190,24 +106,14 @@ export const RadiologyTable = ({
 
   const getColumnHeader = (column: RadiologyTableColumn): string => {
     switch (column) {
-      case 'testType':
-        return 'Test type';
-      case 'visit':
-        return 'Visit';
-      case 'orderAdded':
-        return 'Order added';
-      case 'provider':
-        return 'Provider';
+      case 'studyType':
+        return 'Study type';
       case 'dx':
         return 'Dx';
-      case 'resultsReceived':
-        return 'Results received';
-      case 'accessionNumber':
-        return 'Accession #';
+      case 'ordered':
+        return 'Ordered';
       case 'status':
         return 'Status';
-      case 'psc':
-        return 'PSC';
       case 'actions':
         return '';
       default:
@@ -240,51 +146,7 @@ export const RadiologyTable = ({
       )}
 
       <Box sx={{ width: '100%' }}>
-        {showFilters && (
-          <LocalizationProvider dateAdapter={AdapterLuxon}>
-            <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
-              <Grid item xs={4} sx={{ mt: -1 }}>
-                <LabsAutocomplete
-                  selectedLab={selectedOrderedItem}
-                  setSelectedLab={handleOrderableItemCodeChange}
-                  labs={labs}
-                ></LabsAutocomplete>
-              </Grid>
-              <Grid item xs={4}>
-                <DatePicker
-                  label="Visit date"
-                  value={tempDateFilter}
-                  onChange={setTempDateFilter}
-                  onAccept={setVisitDateFilter}
-                  format="dd.MM.yyyy"
-                  slotProps={{
-                    textField: (params) => ({
-                      ...params,
-                      onBlur: submitFilterByDate,
-                      fullWidth: true,
-                      size: 'small',
-                      InputProps: {
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {tempDateFilter && (
-                              <IconButton size="small" onClick={handleClearDate} edge="end">
-                                <ClearIcon fontSize="small" />
-                              </IconButton>
-                            )}
-                            {params.InputProps?.endAdornment}
-                          </>
-                        ),
-                      },
-                    }),
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </LocalizationProvider>
-        )}
-
-        {!Array.isArray(labOrders) || labOrders.length === 0 ? (
+        {!Array.isArray(orders) || orders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" gutterBottom>
               No lab orders to display
@@ -307,7 +169,7 @@ export const RadiologyTable = ({
                       sx={{
                         fontWeight: 'bold',
                         width: getColumnWidth(column),
-                        padding: column === 'testType' ? '16px 16px' : '8px 16px',
+                        padding: column === 'studyType' ? '16px 16px' : '8px 16px',
                       }}
                     >
                       {getColumnHeader(column)}
@@ -316,11 +178,12 @@ export const RadiologyTable = ({
                 </TableRow>
               </TableHead>
               <TableBody>
-                {labOrders.map((order) => (
+                {orders.map((order) => (
                   <RadiologyTableRow
                     key={order.serviceRequestId}
-                    labOrderData={order}
-                    onDeleteOrder={() => onDeleteOrder(order)}
+                    order={order}
+                    // TODO delete button
+                    // onDeleteOrder={() => onDeleteOrder(order)}
                     onRowClick={() => onRowClick(order)}
                     columns={columns}
                     allowDelete={allowDelete}

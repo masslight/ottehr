@@ -1,21 +1,21 @@
-import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Button, Typography } from '@mui/material';
-import { formatDate, LabOrderDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
-import { RadiologyTableColumn } from './RadiologyTable';
+import { Box, Button, TableCell, TableRow, Typography } from '@mui/material';
+import { ReactElement } from 'react';
+import { formatDate, GetRadiologyOrderListZambdaOrder } from 'utils';
 import { otherColors } from '../../../../CustomThemeProvider';
-import { LabTableStatusChip } from './LabTableStatusChip';
+import { RadiologyTableColumn } from './RadiologyTable';
+import { RadiologyTableStatusChip } from './RadiologyTableStatusChip';
 
 interface RadiologyTableRowProps {
   columns: RadiologyTableColumn[];
-  labOrderData: LabOrderDTO;
+  order: GetRadiologyOrderListZambdaOrder;
   onDeleteOrder?: () => void;
   allowDelete?: boolean;
   onRowClick?: () => void;
 }
 
 export const RadiologyTableRow = ({
-  labOrderData,
+  order,
   onDeleteOrder,
   columns,
   allowDelete = false,
@@ -30,39 +30,27 @@ export const RadiologyTableRow = ({
 
   const renderCellContent = (column: RadiologyTableColumn): React.ReactNode => {
     switch (column) {
-      case 'testType':
+      case 'studyType':
+        return <Typography variant="body2">{order.studyType}</Typography>;
+      case 'dx': {
+        return <Typography variant="body2">{order.diagnosis}</Typography>;
+      }
+      case 'ordered':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.testItem}</Box>
-            {(labOrderData.reflexResultsCount || 0) > 0 && (
-              <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                + {labOrderData.reflexResultsCount} Reflex results
-              </Box>
-            )}
+            <DateTimeDisplay dateTimeString={order.orderAddedDateTime} />
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'gray',
+              }}
+            >{`${order.providerName}`}</Typography>
           </Box>
         );
-      case 'visit':
-        return <DateTimeDisplay dateTimeString={labOrderData.visitDate} />;
-      case 'orderAdded':
-        return <DateTimeDisplay dateTimeString={labOrderData.orderAddedDate} />;
-      case 'provider':
-        return labOrderData.providerName || '';
-      case 'dx': {
-        // <Tooltip title={fullDxText} arrow placement="top">
-        //   <Typography variant="body2">{dx}</Typography>
-        // </Tooltip>
-        return <Typography variant="body2">{labOrderData.dx}</Typography>;
-      }
-      case 'resultsReceived':
-        return <DateTimeDisplay dateTimeString={labOrderData.lastResultReceivedDate} />;
-      case 'accessionNumber':
-        return labOrderData.accessionNumbers.join(', ');
       case 'status':
-        return <LabTableStatusChip status={labOrderData.orderStatus} />;
-      case 'psc':
-        return labOrderData.isPSC ? 'PSC' : '';
+        return <RadiologyTableStatusChip status={order.status} />;
       case 'actions':
-        if (allowDelete && labOrderData.orderStatus === 'pending') {
+        if (allowDelete && order.status === 'pending') {
           return (
             <Button
               onClick={handleDeleteClick}
@@ -110,8 +98,9 @@ const DateTimeDisplay = ({ dateTimeString }: { dateTimeString: string }): ReactE
 
   return (
     <Box>
-      <Typography variant="body2">{dateStr}</Typography>
-      <Typography variant="body2">{timeStr}</Typography>
+      <Typography variant="body2">
+        {dateStr}&nbsp;{timeStr}
+      </Typography>
     </Box>
   );
 };

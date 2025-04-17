@@ -18,8 +18,8 @@ export interface CancelRadiologyOrderZambdaInput {
 export interface GetRadiologyOrderListZambdaInput {
   encounterId?: string;
   patientId?: string;
-  pageIndex: number;
-  itemsPerPage: number;
+  pageIndex?: number;
+  itemsPerPage?: number;
 }
 
 export enum RadiologyOrderStatus {
@@ -32,6 +32,7 @@ export enum RadiologyOrderStatus {
 
 export interface GetRadiologyOrderListZambdaOrder {
   serviceRequestId: string;
+  appointmentId: string;
   studyType: string;
   visitDateTime: string;
   orderAddedDateTime: string;

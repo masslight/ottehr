@@ -2,7 +2,7 @@ import { ReactElement } from 'react';
 import { Box, Button, Typography, Divider, useTheme } from '@mui/material';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { LabOrderDTO, LabOrderResultDetails } from 'utils';
-import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
+import { RadiologyTableStatusChip } from '../labs-orders/RadiologyTableStatusChip';
 import { FinalCardView } from './FinalCardView';
 
 interface ResultItemProps {
@@ -37,7 +37,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
           <span>{resultDetails.testItem}</span>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
-          <LabTableStatusChip status={resultDetails.labStatus} />
+          <RadiologyTableStatusChip status={resultDetails.labStatus} />
           {labOrder.isPSC && (
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
               PSC

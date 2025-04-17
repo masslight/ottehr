@@ -4,7 +4,7 @@ import { Box, Button, Typography, useTheme, Stack } from '@mui/material';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { RadiologyTable, RadiologyTableColumn } from '../components/labs-orders/RadiologyTable';
 
-const radiologyColumns: RadiologyTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
+const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'status', 'actions'];
 
 export const RadiologyOrdersListPage: React.FC = () => {
   const theme = useTheme();

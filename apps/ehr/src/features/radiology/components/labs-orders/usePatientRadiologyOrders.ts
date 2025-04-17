@@ -1,14 +1,15 @@
-import { useCallback, useState, useEffect, ReactElement } from 'react';
+import { ReactElement, useCallback, useEffect, useState } from 'react';
 import {
-  EMPTY_PAGINATION,
-  LabOrderDTO,
   DEFAULT_LABS_ITEMS_PER_PAGE,
+  EMPTY_PAGINATION,
   GetLabOrdersParameters,
+  GetRadiologyOrderListZambdaInput,
+  GetRadiologyOrderListZambdaOrder,
+  LabOrderDTO,
   UpdateLabOrderResourceParams,
 } from 'utils';
+import { deleteLabOrder, getRadiologyOrders, updateLabOrderResources } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
-import { DateTime } from 'luxon';
 import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
 
 interface DeleteLabOrderParams {
@@ -22,18 +23,14 @@ interface DeleteOrderParams {
 }
 
 interface UsePatientLabOrdersResult {
-  labOrders: LabOrderDTO[];
+  orders: GetRadiologyOrderListZambdaOrder[];
   loading: boolean;
   error: Error | null;
   totalPages: number;
   page: number;
   setPage: (page: number) => void;
-  orderableItemCodeFilter: string;
-  setOrderableItemCodeFilter: (filter: string) => void;
-  visitDateFilter: DateTime | null;
-  setVisitDateFilter: (date: DateTime | null) => void;
-  fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
-  getCurrentSearchParams: () => GetLabOrdersParameters;
+  fetchOrders: (params: GetRadiologyOrderListZambdaInput) => Promise<void>;
+  getCurrentSearchParams: () => GetRadiologyOrderListZambdaInput;
   showPagination: boolean;
   deleteOrder: (params: DeleteOrderParams) => Promise<boolean>;
   onDeleteOrder: (order: LabOrderDTO, encounterIdOverride?: string) => void;
@@ -41,21 +38,19 @@ interface UsePatientLabOrdersResult {
   updateTask: ({ taskId, event }: UpdateLabOrderResourceParams) => Promise<void>;
 }
 
-export const usePatientLabOrders = (options: {
+export const usePatientRadiologyOrders = (options: {
   patientId?: string;
   encounterId?: string;
   serviceRequestId?: string;
 }): UsePatientLabOrdersResult => {
   const { oystehrZambda } = useApiClients();
   const { patientId, encounterId, serviceRequestId } = options;
-  const [labOrders, setLabOrders] = useState<LabOrderDTO[]>([]);
+  const [orders, setOrders] = useState<GetRadiologyOrderListZambdaOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
   const [page, setPage] = useState(1);
   const [showPagination, setShowPagination] = useState(false);
-  const [orderableItemCodeFilter, setOrderableItemCodeFilter] = useState('');
-  const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetLabOrdersParameters => {
     const params: GetLabOrdersParameters = {
@@ -75,20 +70,8 @@ export const usePatientLabOrders = (options: {
       params.serviceRequestId = serviceRequestId;
     }
 
-    if (orderableItemCodeFilter) {
-      params.orderableItemCode = orderableItemCodeFilter;
-    }
-
-    if (visitDateFilter && visitDateFilter.isValid) {
-      try {
-        params.visitDate = visitDateFilter.toISODate() || undefined;
-      } catch (dateError) {
-        console.error('Error formatting date:', dateError);
-      }
-    }
-
     return params;
-  }, [patientId, encounterId, serviceRequestId, orderableItemCodeFilter, visitDateFilter]);
+  }, [patientId, encounterId, serviceRequestId]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNubmer: number): GetLabOrdersParameters => {
@@ -100,8 +83,8 @@ export const usePatientLabOrders = (options: {
     [getCurrentSearchParamsWithoutPageIndex]
   );
 
-  const fetchLabOrders = useCallback(
-    async (searchParams: GetLabOrdersParameters): Promise<void> => {
+  const fetchOrders = useCallback(
+    async (searchParams: GetRadiologyOrderListZambdaInput): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
@@ -113,7 +96,7 @@ export const usePatientLabOrders = (options: {
       try {
         let response;
         try {
-          response = await getLabOrders(oystehrZambda, searchParams);
+          response = await getRadiologyOrders(oystehrZambda, searchParams);
         } catch (err) {
           response = {
             data: [],
@@ -123,8 +106,8 @@ export const usePatientLabOrders = (options: {
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
         }
 
-        if (response?.data) {
-          setLabOrders(response.data);
+        if (response?.orders) {
+          setOrders(response.orders);
 
           if (response.pagination) {
             setTotalPages(response.pagination.totalPages || 1);
@@ -134,14 +117,14 @@ export const usePatientLabOrders = (options: {
             setShowPagination(false);
           }
         } else {
-          setLabOrders([]);
+          setOrders([]);
           setTotalPages(1);
           setShowPagination(false);
         }
       } catch (error) {
         console.error('error with setting lab orders:', error);
         setError(error instanceof Error ? error : new Error('Unknown error occurred'));
-        setLabOrders([]);
+        setOrders([]);
         setTotalPages(1);
         setShowPagination(false);
       } finally {
@@ -151,22 +134,22 @@ export const usePatientLabOrders = (options: {
     [oystehrZambda]
   );
 
-  // initial fetch of lab orders, and when the search params change
+  // initial fetch of lab orders
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
-    void fetchLabOrders(searchParams);
-  }, [fetchLabOrders, getCurrentSearchParamsForPage]);
+    void fetchOrders(searchParams);
+  }, [fetchOrders, getCurrentSearchParamsForPage]);
 
-  const didOrdersFetch = labOrders.length > 0;
+  const didOrdersFetch = orders.length > 0;
 
-  // fetch lab orders when the page changes
+  // fetch orders when the page changes
   useEffect(() => {
     // skip if the orders haven't been fetched yet, to prevent fetching when the page is first loaded
     if (didOrdersFetch) {
       const searchParams = getCurrentSearchParamsForPage(page);
-      void fetchLabOrders(searchParams);
+      void fetchOrders(searchParams);
     }
-  }, [fetchLabOrders, getCurrentSearchParamsForPage, didOrdersFetch, page]);
+  }, [fetchOrders, getCurrentSearchParamsForPage, didOrdersFetch, page]);
 
   const deleteOrder = useCallback(
     async (params: DeleteOrderParams): Promise<boolean> => {
@@ -204,7 +187,7 @@ export const usePatientLabOrders = (options: {
 
         setPage(1);
         const searchParams = getCurrentSearchParamsForPage(1);
-        await fetchLabOrders(searchParams);
+        await fetchOrders(searchParams);
 
         return true;
       } catch (err) {
@@ -220,7 +203,7 @@ export const usePatientLabOrders = (options: {
         setLoading(false);
       }
     },
-    [encounterId, fetchLabOrders, getCurrentSearchParamsForPage, oystehrZambda]
+    [encounterId, fetchOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
   // handle delete dialog
@@ -237,23 +220,19 @@ export const usePatientLabOrders = (options: {
       }
 
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event });
-      await fetchLabOrders(getCurrentSearchParamsForPage(1));
+      await fetchOrders(getCurrentSearchParamsForPage(1));
     },
-    [oystehrZambda, fetchLabOrders, getCurrentSearchParamsForPage]
+    [oystehrZambda, fetchOrders, getCurrentSearchParamsForPage]
   );
 
   return {
-    labOrders,
+    orders,
     loading,
     error,
     totalPages,
     page,
     setPage,
-    orderableItemCodeFilter,
-    setOrderableItemCodeFilter,
-    visitDateFilter,
-    setVisitDateFilter,
-    fetchLabOrders,
+    fetchOrders,
     showPagination,
     deleteOrder,
     onDeleteOrder,

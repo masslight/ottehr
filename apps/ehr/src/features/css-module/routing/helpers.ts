@@ -21,3 +21,7 @@ export const getAssessmentUrl = (appointmentId: string): string => {
 export const getExternalLabOrderEditUrl = (appointmentId: string, orderId: string): string => {
   return `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`;
 };
+
+export const getRadiologyOrderEditUrl = (appointmentId: string, orderId: string): string => {
+  return `/in-person/${appointmentId}/radiology/${orderId}/order-details`;
+};

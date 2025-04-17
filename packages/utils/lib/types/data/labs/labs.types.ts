@@ -1,5 +1,5 @@
 import { Questionnaire, Encounter } from 'fhir/r4b';
-import { DiagnosisDTO } from '../..';
+import { DiagnosisDTO, Pagination } from '../..';
 
 export interface OrderableItemSearchResult {
   item: OrderableItem;
@@ -97,12 +97,6 @@ export interface LabOrderDTO {
   accessionNumbers: string[]; // DiagnosticReport.identifier
   history: LabOrderHistoryRow[];
   resultsDetails: LabOrderResultDetails[];
-}
-
-export interface Pagination {
-  currentPageIndex: number;
-  totalItems: number;
-  totalPages: number;
 }
 
 export interface PaginatedLabOrderResponse {

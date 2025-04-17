@@ -25,6 +25,8 @@ import {
   ScheduleDTO,
   UpdateScheduleParams,
   CreateRadiologyZambdaOrderInput,
+  GetRadiologyOrderListZambdaInput,
+  GetRadiologyOrderListZambdaOutput,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -701,6 +703,28 @@ export const createRadiologyOrder = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-create-order',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getRadiologyOrders = async (
+  oystehr: Oystehr,
+  parameters: GetRadiologyOrderListZambdaInput
+): Promise<GetRadiologyOrderListZambdaOutput> => {
+  try {
+    const searchBy = parameters.encounterId || parameters.patientId;
+    if (!searchBy) {
+      throw new Error(
+        `Missing one of the required parameters (encounterId | patientId): ${JSON.stringify(parameters)}`
+      );
+    }
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-order-list',
       ...parameters,
     });
     return chooseJson(response);
