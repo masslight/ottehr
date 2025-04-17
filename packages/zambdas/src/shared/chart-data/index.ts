@@ -1136,12 +1136,6 @@ const mapResourceToChartDataFields = (
     const resourse = makeObservationDTO(resource);
     if (resourse) data.observations?.push(resourse);
     resourceMapped = true;
-  } else if (
-    resource?.resourceType === 'Condition' &&
-    chartDataResourceHasMetaTagByCode(resource, 'ai-potential-diagnosis')
-  ) {
-    data.conditions?.push(makeConditionDTO(resource));
-    resourceMapped = true;
   }
   return {
     chartDataFields: data,
@@ -1210,6 +1204,15 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
   if (addendumNote) {
     data.addendumNote = { text: addendumNote.valueString };
   }
+
+  // 6. AI potential diagnoses
+  resources
+    .filter(
+      (resource) => resource.resourceType === 'Condition' && resource.meta?.tag?.[0].code === 'ai-potential-diagnosis'
+    )
+    .forEach((condition) => {
+      data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
+    });
 
   return data;
 }

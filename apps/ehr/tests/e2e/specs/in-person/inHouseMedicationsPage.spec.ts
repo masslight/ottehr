@@ -27,6 +27,7 @@ const STATUS = 'pending';
 
 test.beforeEach(async () => {
   await resourceHandler.setResources();
+  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 });
 
 test.afterEach(async () => {
@@ -175,7 +176,6 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
 
 async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedicationPage> {
   await page.goto(`in-person/${resourceHandler.appointment.id}`);
-  await page.waitForTimeout(10000);
   const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
   await patientInfoPage.cssHeader().clickSwitchStatusButton('provider');
   const progressNotePage = await expectInPersonProgressNotePage(page);

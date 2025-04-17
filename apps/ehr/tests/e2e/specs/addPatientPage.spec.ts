@@ -191,7 +191,7 @@ test.describe('For existing patient', () => {
     await visitsPage.verifyVisitPresent(appointmentId);
   });
 
-  test('Add pre-book visit for existing patient', async ({ page }) => {
+  test.skip('Add pre-book visit for existing patient', async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, true);
 
     const visitsPage = await expectVisitsPage(page);

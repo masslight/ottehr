@@ -4,12 +4,12 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
-import { Control, Controller } from 'react-hook-form';
-import { REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { Control, Controller, RegisterOptions } from 'react-hook-form';
 
 interface BasicDatePickerProps {
   name: string;
   control: Control<any>;
+  rules: RegisterOptions;
   required?: boolean;
   defaultValue?: string;
   onChange?: (date: string) => void;
@@ -24,7 +24,7 @@ interface BasicDatePickerProps {
 export function BasicDatePicker({
   name,
   control,
-  required,
+  rules,
   defaultValue,
   onChange,
   disabled,
@@ -34,8 +34,6 @@ export function BasicDatePicker({
   id,
   dataTestId,
 }: BasicDatePickerProps): JSX.Element {
-  const defaultErrorHelperText = required ? REQUIRED_FIELD_ERROR_MESSAGE : '';
-
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box sx={{ width: '100%' }} data-testid={dataTestId}>
@@ -43,7 +41,7 @@ export function BasicDatePicker({
           name={name}
           control={control}
           defaultValue={defaultValue || ''}
-          rules={{ required: required }}
+          rules={rules}
           render={({ field, fieldState: { error } }) => (
             <DatePicker
               value={field.value ? dayjs(field.value) : null}
@@ -65,11 +63,10 @@ export function BasicDatePicker({
                   id: id,
                   variant,
                   error: !!error,
-                  helperText: error?.message || (error && defaultErrorHelperText),
+                  helperText: error?.message,
                   onBlur: () => {
                     field.onBlur();
                   },
-                  required,
                   InputLabelProps,
                 },
                 openPickerButton: {

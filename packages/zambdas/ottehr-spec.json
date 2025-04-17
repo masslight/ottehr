@@ -412,7 +412,8 @@
       "zip": ".dist/zips/create-review-lab-results-task.zip",
       "subscription": {
         "criteria": "DiagnosticReport?category=OSL",
-        "reason": "Received new preliminary or final lab result"
+        "reason": "Received new preliminary or final lab result",
+        "event": "create"
       }
     },
     "PAPERWORK-TO-PDF": {
