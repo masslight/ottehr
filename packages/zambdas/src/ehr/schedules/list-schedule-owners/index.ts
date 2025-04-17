@@ -203,9 +203,11 @@ const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHou
     }
   }
   if (open !== undefined && close !== undefined) {
-    const openTime = DateTime.now().startOf('day').plus({ hours: open }).toISO();
-    const closeTime = DateTime.now().startOf('day').plus({ hours: close }).toISO();
-
+    const openTime = DateTime.now().setZone(tz).startOf('day').plus({ hours: open }).toISO();
+    const closeTime = DateTime.now().setZone(tz).startOf('day').plus({ hours: close }).toISO();
+    if (!openTime || !closeTime) {
+      return undefined;
+    }
     return {
       open: openTime,
       close: closeTime,
