@@ -1,6 +1,6 @@
 import { Stack } from '@mui/system';
 import React from 'react';
-import { LabOrderDTO, UpdateLabOrderResourceParams } from 'utils';
+import { LabOrderDetailedPageDTO, UpdateLabOrderResourceParams } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { OrderHistoryCard } from '../OrderHistoryCard';
 import { Questionarie } from './Questionarie';
@@ -9,7 +9,7 @@ import { Button, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
 export const DetailsWithResults: React.FC<{
-  labOrder?: LabOrderDTO;
+  labOrder: LabOrderDetailedPageDTO;
   updateTask: (params: UpdateLabOrderResourceParams) => Promise<void>;
 }> = ({ labOrder, updateTask }) => {
   const navigate = useNavigate();
@@ -18,17 +18,13 @@ export const DetailsWithResults: React.FC<{
     navigate(-1);
   };
 
-  if (!labOrder) {
-    return null;
-  }
-
   return (
     <div style={{ maxWidth: '714px', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
         <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-          {labOrder.diagnoses.map((dx) => {
+          {labOrder.diagnosesDTO.map((dx) => {
             const diagnosis = `${dx.code} - ${dx.display}`;
             return <div key={diagnosis}>{diagnosis}</div>;
           })}
@@ -49,7 +45,13 @@ export const DetailsWithResults: React.FC<{
           />
         ))}
 
-        <Questionarie showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} />
+        <Questionarie
+          showActionButtons={false}
+          showOrderInfo={false}
+          isAOECollapsed={true}
+          accountNumber={labOrder.accountNumber!}
+          labOrder={labOrder}
+        />
         <OrderHistoryCard orderHistory={labOrder.history} />
 
         <Button

@@ -76,6 +76,7 @@ export const ExternalLabsStatusPalette: {
   },
 };
 
+// todo: looks like ExternalLabsStatusChip is a duplicate of LabTableStatusChip and should be deleted
 export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChipProps): ReactElement {
   if (!status) {
     console.error('Status is undefined');

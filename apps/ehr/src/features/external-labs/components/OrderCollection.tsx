@@ -5,7 +5,7 @@ import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import Oystehr from '@oystehr/sdk';
-import { LabOrderDTO, LabQuestionnaireResponse, OrderDetails } from 'utils';
+import { LabOrderDetailedPageDTO, LabQuestionnaireResponse, OrderDetails } from 'utils';
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
@@ -34,7 +34,7 @@ interface SampleCollectionProps {
   serviceRequest: OrderDetails;
   accountNumber: string;
   _onCollectionSubmit: () => void;
-  labOrder?: LabOrderDTO | undefined;
+  labOrder: LabOrderDetailedPageDTO | undefined;
   oystehr: Oystehr | undefined;
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
@@ -143,10 +143,10 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
         {showOrderInfo && (
           <SampleInformationCard
-          // orderAddedDateTime={serviceRequest.orderDateTime}
-          // orderingPhysician={serviceRequest.orderingPhysician || ''}
+          // orderAddedDateTime={labOrder?.orderAddedDate}
+          // orderingPhysician={labOrder?.orderingPhysician || ''}
           // individualCollectingSample={'The best nurse'}
-          // collectionDateTime={serviceRequest.sampleCollectionDateTime}
+          // collectionDateTime={DateTime.now().toString()}
           // showInPatientPortal={showInPatientPortal}
           />
         )}

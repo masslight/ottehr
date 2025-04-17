@@ -9,53 +9,49 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { LabOrderDTO } from 'utils';
 
 interface UseDeleteLabOrderDialogProps {
-  deleteOrder: (params: { orderId: string; encounterId?: string }) => Promise<boolean>;
-  encounterId?: string;
+  deleteOrder: ({ serviceRequestId }: { serviceRequestId: string }) => Promise<boolean>;
 }
 
 interface UseDeleteLabOrderDialogResult {
-  onDeleteOrder: (order: LabOrderDTO, encounterIdOverride?: string) => void;
+  showDeleteLabOrderDialog: ({
+    serviceRequestId,
+    testItemName,
+  }: {
+    serviceRequestId: string;
+    testItemName: string;
+  }) => void;
   DeleteOrderDialog: ReactElement | null;
 }
 
 export const useDeleteLabOrderDialog = ({
   deleteOrder,
-  encounterId,
 }: UseDeleteLabOrderDialogProps): UseDeleteLabOrderDialogResult => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [currentOrderToDelete, setCurrentOrderToDelete] = useState<LabOrderDTO | null>(null);
-  const [currentOrderEncounterId, setCurrentOrderEncounterId] = useState<string | undefined>(encounterId);
+  const [serviceRequestIdToDelete, setServiceRequestIdToDelete] = useState<string>('');
+  const [testItemNameToDelete, setTestItemNameToDelete] = useState<string>('');
 
-  const onDeleteOrder = useCallback(
-    (order: LabOrderDTO, encounterIdOverride?: string): void => {
-      setCurrentOrderToDelete(order);
-      setCurrentOrderEncounterId(encounterIdOverride || encounterId);
+  const showDeleteLabOrderDialog = useCallback(
+    ({ serviceRequestId, testItemName }: { serviceRequestId: string; testItemName: string }): void => {
+      setServiceRequestIdToDelete(serviceRequestId);
+      setTestItemNameToDelete(testItemName);
       setIsDeleteDialogOpen(true);
       setDeleteError(null);
     },
-    [encounterId]
+    []
   );
 
   const closeDeleteDialog = useCallback((): void => {
     setIsDeleteDialogOpen(false);
     setDeleteError(null);
-    setCurrentOrderEncounterId(undefined);
   }, []);
 
   const confirmDeleteOrder = useCallback(async (): Promise<void> => {
-    if (!currentOrderToDelete || !currentOrderToDelete.serviceRequestId) {
+    if (!serviceRequestIdToDelete) {
       setDeleteError('No lab order selected for deletion');
-      return;
-    }
-
-    const effectiveEncounterId = currentOrderEncounterId || encounterId;
-    if (!effectiveEncounterId) {
-      setDeleteError('Encounter ID is required to delete lab order');
       return;
     }
 
@@ -63,8 +59,7 @@ export const useDeleteLabOrderDialog = ({
 
     try {
       const success = await deleteOrder({
-        orderId: currentOrderToDelete.serviceRequestId,
-        encounterId: effectiveEncounterId,
+        serviceRequestId: serviceRequestIdToDelete,
       });
 
       if (success) {
@@ -79,7 +74,7 @@ export const useDeleteLabOrderDialog = ({
     } finally {
       setIsDeleting(false);
     }
-  }, [currentOrderToDelete, deleteOrder, encounterId, currentOrderEncounterId]);
+  }, [serviceRequestIdToDelete, deleteOrder]);
 
   const DeleteOrderDialog = isDeleteDialogOpen ? (
     <Dialog open={isDeleteDialogOpen} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
@@ -92,7 +87,7 @@ export const useDeleteLabOrderDialog = ({
         <DialogTitle>Delete Lab Order</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the lab order for test <strong>{currentOrderToDelete?.testItem}</strong>?
+            Are you sure you want to delete the lab order for test <strong>{testItemNameToDelete}</strong>?
             <br />
             <br />
             This action cannot be undone.
@@ -122,7 +117,7 @@ export const useDeleteLabOrderDialog = ({
   ) : null;
 
   return {
-    onDeleteOrder,
+    showDeleteLabOrderDialog,
     DeleteOrderDialog,
   };
 };

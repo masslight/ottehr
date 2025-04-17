@@ -81,17 +81,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
 
     const orderDetails: OrderDetails = {
-      diagnosis: serviceRequest?.reasonCode?.map((reasonCode) => reasonCode.text).join('; ') || 'Missing diagnosis',
-      patientName: 'Patient Name',
-      orderName: (serviceRequest?.contained?.[0] as ActivityDefinition)?.title || 'Missing Order name',
-      orderTypeDetail: serviceRequest.orderDetail?.[0].text || 'Missing order type detail',
-      orderingPhysician: practitioner.name
-        ? oystehr?.fhir.formatHumanName(practitioner.name?.[0]) || 'Missing Provider name'
-        : 'Missing Provider name',
-      orderDateTime: task.authoredOn,
-      labName: (serviceRequest?.contained?.[0] as ActivityDefinition).publisher || 'Missing Publisher name',
-      accountNumber: accountNumber,
-      sampleCollectionDateTime: DateTime.now().toString(),
+      // diagnosis: serviceRequest?.reasonCode?.map((reasonCode) => reasonCode.text).join('; ') || 'Missing diagnosis',
+      // patientName: 'Patient Name',
+      // orderName: (serviceRequest?.contained?.[0] as ActivityDefinition)?.title || 'Missing Order name',
+      // orderTypeDetail: serviceRequest.orderDetail?.[0].text || 'Missing order type detail',
+      // orderingPhysician: practitioner.name
+      //   ? oystehr?.fhir.formatHumanName(practitioner.name?.[0]) || 'Missing Provider name'
+      //   : 'Missing Provider name',
+      // orderDateTime: task.authoredOn,
+      // labName: (serviceRequest?.contained?.[0] as ActivityDefinition).publisher || 'Missing Publisher name',
+      // accountNumber: accountNumber,
+      // sampleCollectionDateTime: DateTime.now().toString(),
       labQuestions: questionnaire,
       labQuestionnaireResponses: questionnaireResponseItems,
     };

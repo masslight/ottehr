@@ -9,7 +9,6 @@ import {
   CreateUserParams,
   GetEmployeesResponse,
   GetLabOrderDetailsInput,
-  GetLabOrdersParameters,
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -24,6 +23,8 @@ import {
   ListScheduleOwnersResponse,
   ScheduleDTO,
   UpdateScheduleParams,
+  GetLabOrdersParameters,
+  DeleteLabOrderParams,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -619,15 +620,15 @@ export const getCreateLabOrderResources = async (
   }
 };
 
-export const getLabOrders = async (
+export const getLabOrders = async <RequestParameters extends GetLabOrdersParameters>(
   oystehr: Oystehr,
-  parameters: GetLabOrdersParameters
-): Promise<PaginatedLabOrderResponse> => {
+  parameters: RequestParameters
+): Promise<PaginatedLabOrderResponse<RequestParameters>> => {
   try {
     if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get lab orders zambda environment variable could not be loaded');
     }
-    const searchBy = parameters.serviceRequestId || parameters.encounterId || parameters.patientId;
+    const { searchBy } = parameters;
     if (!searchBy) {
       throw new Error(
         `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
@@ -646,12 +647,7 @@ export const getLabOrders = async (
   }
 };
 
-export interface DeleteLabOrderParameters {
-  labOrderId: string;
-  encounterId: string;
-}
-
-export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrderParameters): Promise<any> => {
+export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrderParams): Promise<any> => {
   try {
     if (DELETE_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('delete lab order zambda environment variable could not be loaded');

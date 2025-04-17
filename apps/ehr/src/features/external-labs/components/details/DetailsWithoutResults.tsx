@@ -7,7 +7,7 @@ import { StatusString } from '../StatusChip';
 import { useParams } from 'react-router-dom';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { LabOrderDTO, LabQuestionnaireResponse, OrderDetails } from 'utils';
+import { LabOrderDetailedPageDTO, LabQuestionnaireResponse, OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../../api/api';
 import { QuestionnaireItem } from 'fhir/r4b';
 import { LabOrderLoading } from '../labs-orders/LabOrderLoading';
@@ -20,7 +20,7 @@ interface CollectionInstructions {
   collectionInstructions: string;
 }
 
-export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ labOrder }) => {
+export const DetailsWithoutResults: React.FC<{ labOrder: LabOrderDetailedPageDTO }> = ({ labOrder }) => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
 
@@ -76,7 +76,7 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
   return (
     <>
       <Stack spacing={2} sx={{ p: 3 }}>
-        <CSSPageTitle>{serviceRequest.orderName}</CSSPageTitle>
+        <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
         <Stack
           direction="row"
           spacing={2}
@@ -85,22 +85,24 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
             alignItems: 'center',
           }}
         >
-          <Typography variant="body1">{serviceRequest.diagnosis}</Typography>
+          <Typography sx={{ minWidth: '400px' }} variant="body1">
+            {labOrder.diagnoses}
+          </Typography>
           <Grid container justifyContent="end" spacing={2}>
             <Grid item>
               <StatusChip status={taskStatus} />
             </Grid>
             <Grid item>
-              <Typography variant="body1">{serviceRequest.orderTypeDetail}</Typography>
+              <Typography variant="body1">{labOrder.orderSource}</Typography>
             </Grid>
           </Grid>
         </Stack>
         {/* {taskStatus === 'pending' && (
           <TaskBanner
-            orderName={serviceRequest?.orderName || ''}
-            orderingPhysician={serviceRequest?.orderingPhysician || ''}
-            orderedOnDate={serviceRequest.orderDateTime}
-            labName={serviceRequest?.labName || ''}
+            orderName={labOrder.testItem}
+            orderingPhysician={labOrder.orderingPhysician}
+            orderedOnDate={labOrder.orderAddedDate}
+            labName={labOrder?.fillerLab}
             taskStatus={taskStatus}
           />
         )} */}
@@ -115,7 +117,7 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
             specimen={specimen}
             serviceRequestID={serviceRequestID}
             serviceRequest={serviceRequest}
-            accountNumber={serviceRequest.accountNumber}
+            accountNumber={labOrder.accountNumber!}
             _onCollectionSubmit={handleSampleCollectionTaskChange}
             oystehr={oystehrZambda}
             labOrder={labOrder}

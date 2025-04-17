@@ -1,7 +1,7 @@
 import { QuestionnaireItem } from 'fhir/r4b';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { OrderDetails } from 'utils';
+import { LabOrderDetailedPageDTO, OrderDetails } from 'utils';
 import { getLabOrderDetails } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { OrderCollection } from '../OrderCollection';
@@ -18,10 +18,12 @@ interface CollectionInstructions {
 
 // todo fix typo in name
 export const Questionarie: React.FC<{
+  labOrder: LabOrderDetailedPageDTO;
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
-}> = ({ showActionButtons = true, showOrderInfo = true, isAOECollapsed = false }) => {
+  accountNumber: string;
+}> = ({ showActionButtons = true, showOrderInfo = true, isAOECollapsed = false, accountNumber, labOrder }) => {
   const { serviceRequestID } = useParams();
   const { oystehrZambda } = useApiClients();
   const [serviceRequest, setServiceRequest] = useState<OrderDetails | undefined>(undefined);
@@ -84,12 +86,13 @@ export const Questionarie: React.FC<{
       specimen={specimen}
       serviceRequestID={serviceRequestID}
       serviceRequest={serviceRequest}
-      accountNumber={serviceRequest.accountNumber}
+      accountNumber={accountNumber}
       _onCollectionSubmit={handleSampleCollectionTaskChange}
       oystehr={oystehrZambda}
       showActionButtons={showActionButtons}
       showOrderInfo={showOrderInfo}
       isAOECollapsed={isAOECollapsed}
+      labOrder={labOrder}
     />
   );
 };
