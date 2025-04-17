@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { AvailableLocationInformation } from 'utils';
-import { isClosureOverride, getOpeningTime, getClosingTime, isWalkinOpen } from 'utils';
+import { isClosureOverride, getOpeningTime, getClosingTime } from 'utils';
 
 interface CheckOfficeOpenOutput {
   officeOpen: boolean;
