@@ -1,14 +1,12 @@
 import { AvailableLocationInformation, ScheduleType } from '../common';
+import { SlotListItem } from '../../utils';
 
 export interface GetScheduleResponse {
   message: string;
-  location: AvailableLocationInformation;
-  locationID?: string;
-  providerID?: string;
-  groupID?: string;
-  available: string[];
-  waitingMinutes: number;
-  telemedAvailable: string[];
+  available: SlotListItem[];
+  waitingMinutes: number; // why does this exist?
+  location?: AvailableLocationInformation;
+  telemedAvailable: SlotListItem[];
   displayTomorrowSlotsAtHour: number;
   walkinOpen: boolean;
   openTime: string | undefined;
@@ -18,4 +16,5 @@ export interface GetScheduleRequestParams {
   scheduleType: ScheduleType;
   slug: string;
   specificSlot?: string;
+  isWalkin?: boolean; // todo: remove when walkin flow dependency on get-schedule is removed
 }

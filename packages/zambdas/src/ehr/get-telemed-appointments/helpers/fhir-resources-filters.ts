@@ -1,21 +1,38 @@
 import { Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse, Resource } from 'fhir/r4b';
-import { AppointmentLocation, isTruthy, mapEncounterStatusHistory, TelemedCallStatuses } from 'utils';
+import {
+  AppointmentLocation,
+  appointmentTypeForAppointment,
+  isTruthy,
+  mapEncounterStatusHistory,
+  TelemedCallStatuses,
+} from 'utils';
 import { mapStatusToTelemed, removePrefix } from '../../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { getLocationIdFromAppointment } from './helpers';
 import { mapQuestionnaireToEncountersIds, mapTelemedEncountersToAppointmentsIdsMap } from './mappers';
 import { AppointmentPackage, LocationIdToAbbreviationMap } from './types';
 
-export const filterLocationForAppointment = (
+export const findVirtualLocationForAppointment = (
   appointment: Appointment,
   virtualLocationsMap: LocationIdToAbbreviationMap
 ): AppointmentLocation | undefined => {
   const locationId = getLocationIdFromAppointment(appointment);
   if (locationId) {
-    const abbreviation = Object.keys(virtualLocationsMap).find((abbreviation) => {
-      return virtualLocationsMap[abbreviation] === locationId;
+    const stateAbbreviation = Object.keys(virtualLocationsMap).find((abbreviation) => {
+      return virtualLocationsMap[abbreviation].id === locationId;
     });
-    return { locationID: locationId, state: abbreviation };
+    if (!stateAbbreviation) {
+      console.error('No state abbreviation found for location', locationId);
+      return undefined;
+    }
+    const location = virtualLocationsMap[stateAbbreviation];
+    return {
+      reference: locationId ? `Location/${locationId}` : undefined,
+      state: stateAbbreviation,
+      resourceType: 'Location',
+      id: locationId,
+      extension: location.extension,
+    };
   }
   return undefined;
 };
@@ -39,12 +56,19 @@ const filterPractitionerForEncounter = (allResources: Resource[], encounter: Enc
   return undefined;
 };
 
-export const filterAppointmentsFromResources = (
-  allResources: Resource[],
-  statusesFilter: TelemedCallStatuses[],
-  virtualLocationsMap: LocationIdToAbbreviationMap,
-  locationsIdsFilter?: string[]
-): AppointmentPackage[] => {
+export const filterAppointmentsAndCreatePackages = ({
+  allResources,
+  statusesFilter,
+  virtualLocationsMap,
+  visitTypes,
+  locationsIdsFilter,
+}: {
+  allResources: Resource[];
+  statusesFilter: TelemedCallStatuses[];
+  virtualLocationsMap: LocationIdToAbbreviationMap;
+  visitTypes?: string[];
+  locationsIdsFilter?: string[];
+}): AppointmentPackage[] => {
   const resultAppointments: AppointmentPackage[] = [];
   const appointmentEncounterMap: { [key: string]: Encounter } = mapTelemedEncountersToAppointmentsIdsMap(allResources);
   const encounterQuestionnaireMap: { [key: string]: QuestionnaireResponse } =
@@ -71,19 +95,31 @@ export const filterAppointmentsFromResources = (
       return;
     }
 
+    console.log('visitTypes', visitTypes);
+    console.log('type in appt', appointment.appointmentType, appointmentTypeForAppointment(appointment));
+    // add visit type filtering
+    if (visitTypes && visitTypes.length > 0 && !visitTypes?.includes(appointmentTypeForAppointment(appointment))) {
+      return;
+    }
+
     const encounter = appointmentEncounterMap[appointment.id!];
     if (encounter) {
       const telemedStatus = mapStatusToTelemed(encounter.status, appointment.status);
       const paperwork = encounterQuestionnaireMap[encounter.id!];
 
       if (telemedStatus && statusesFilter.includes(telemedStatus)) {
-        const location = filterLocationForAppointment(appointment, virtualLocationsMap);
+        const locationVirtual = findVirtualLocationForAppointment(appointment, virtualLocationsMap);
         const practitioner = filterPractitionerForEncounter(allResources, encounter);
+
+        if (!locationVirtual) {
+          console.error('No location for appointment', appointment.id);
+          return;
+        }
 
         resultAppointments.push({
           appointment,
           paperwork,
-          location,
+          locationVirtual,
           encounter,
           telemedStatus,
           practitioner,

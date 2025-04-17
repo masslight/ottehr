@@ -1,18 +1,27 @@
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { CircularProgress, Grid, Typography } from '@mui/material';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
-import GroupMembers from './GroupMembers';
-import { useApiClients } from '../../hooks/useAppClients';
+import GroupMembers from '../components/schedule/GroupMembers';
+import { useApiClients } from '../hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 import { getPatchBinary } from 'utils';
 import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { useParams } from 'react-router-dom';
+import PageContainer from '../layout/PageContainer';
 
-interface GroupScheduleProps {
-  groupID: string;
+export default function GroupPage(): ReactElement {
+  return (
+    <PageContainer>
+      <GroupPageContent />
+    </PageContainer>
+  );
 }
 
-export default function GroupSchedule({ groupID }: GroupScheduleProps): ReactElement {
+function GroupPageContent(): ReactElement {
   const { oystehr } = useApiClients();
+
+  const groupID = useParams()['group-id'] as string;
+
   const [group, setGroup] = useState<HealthcareService | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [locations, setLocations] = useState<Location[] | undefined>(undefined);
@@ -219,7 +228,6 @@ export default function GroupSchedule({ groupID }: GroupScheduleProps): ReactEle
     void (await getOptions());
     setLoading(false);
   }
-
   if (!group) {
     return (
       <div style={{ width: '100%', height: '250px' }}>

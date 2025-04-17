@@ -22,6 +22,7 @@ export const useGetTelemedAppointments = (
     patientFilter,
     statusesFilter,
     locationsIdsFilter,
+    visitTypesFilter,
   }: {
     apiClient: OystehrTelemedAPIClient | null;
   } & GetAppointmentsRequestParams,
@@ -39,6 +40,7 @@ export const useGetTelemedAppointments = (
         patientFilter,
         statusesFilter,
         locationsIdsFilter,
+        visitTypesFilter,
       },
     ],
     () => {
@@ -51,6 +53,7 @@ export const useGetTelemedAppointments = (
           patientFilter,
           statusesFilter,
           locationsIdsFilter,
+          visitTypesFilter,
         });
       }
       throw new Error('api client not defined');

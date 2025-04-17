@@ -2,6 +2,8 @@ import { Box, Button, Tab, Tabs, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Slots } from './Slots';
+import { Slot } from 'fhir/r4b';
+import { nextAvailableFrom } from 'utils';
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -47,28 +49,12 @@ const tabProps = (
     'aria-controls': `appointment-picker-tabpanel-${index}`,
   };
 };
-
-const nextAvailableFrom = (firstDate: DateTime, slotDataFHIR: string[], timezone: string): DateTime | undefined => {
-  const nextDaySlot = slotDataFHIR.find((slot) => {
-    const dt = DateTime.fromISO(slot, { zone: timezone });
-    if (dt.ordinal === firstDate.ordinal) {
-      return false;
-    }
-    return dt > firstDate;
-  });
-
-  if (nextDaySlot) {
-    return DateTime.fromISO(nextDaySlot, { zone: timezone });
-  }
-  return undefined;
-};
-
 interface SlotPickerProps {
-  slotData: string[] | undefined;
+  slotData: Slot[] | undefined;
   slotsLoading: boolean;
   timezone: string;
-  selectedSlot: string | undefined;
-  setSelectedSlot: (slot: string | undefined) => void;
+  selectedSlot: Slot | undefined;
+  setSelectedSlot: (slot: Slot | undefined) => void;
 }
 
 const SlotPicker = ({
@@ -87,9 +73,9 @@ const SlotPicker = ({
       const slots = [...slotData];
 
       // This maps days to an array of slots
-      const map: { [ord: number]: string[] } = slots.reduce(
+      const map: { [ord: number]: Slot[] } = slots.reduce(
         (accumulator, current) => {
-          const dateOfCurrent = DateTime.fromISO(current, { zone: timezone });
+          const dateOfCurrent = DateTime.fromISO(current.start, { zone: timezone });
           const existing = accumulator[dateOfCurrent.ordinal];
           if (existing) {
             existing.push(current);
@@ -98,7 +84,7 @@ const SlotPicker = ({
           }
           return accumulator;
         },
-        {} as { [ord: number]: string[] }
+        {} as { [ord: number]: Slot[] }
       );
 
       return [slots, map];
@@ -114,9 +100,9 @@ const SlotPicker = ({
       return { firstAvailableDay, secondAvailableDay, lastSlot: undefined };
     }
 
-    firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotsList[0]), timezone);
+    firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotsList[0].start), timezone);
     const firstSlot = slotsList[0];
-    const firstTime = DateTime.fromISO(firstSlot)?.setZone(timezone).toISODate();
+    const firstTime = DateTime.fromISO(firstSlot.start)?.setZone(timezone).toISODate();
     const currentExistingTime = currentTime?.setZone(timezone)?.toISODate();
     if (!firstTime || !currentExistingTime) {
       return { firstAvailableDay, secondAvailableDay, lastSlot: undefined };
@@ -159,7 +145,7 @@ const SlotPicker = ({
   }, [currentTab, firstAvailableDay, secondAvailableDay, selectedOtherDate]);
 
   const getSlotsForDate = useCallback(
-    (date: DateTime | undefined): string[] => {
+    (date: DateTime | undefined): Slot[] => {
       if (date === undefined) {
         return [];
       }

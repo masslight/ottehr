@@ -1,7 +1,30 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
-import { SCHEDULE_NOT_FOUND_ERROR } from 'utils';
+import {
+  Appointment,
+  Encounter,
+  HealthcareService,
+  Location,
+  Patient,
+  Practitioner,
+  PractitionerRole,
+  Reference,
+  RelatedPerson,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
+import {
+  BookableScheduleData,
+  isValidUUID,
+  MISCONFIGURED_SCHEDULING_GROUP,
+  SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
+  SCHEDULE_NOT_FOUND_ERROR,
+  ScheduleStrategy,
+  scheduleStrategyForHealthcareService,
+  SLUG_SYSTEM,
+  unbundleBatchPostOutput,
+} from 'utils';
+import { uuid } from 'short-uuid';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
   const response: Patient = await oystehr.fhir.get({
@@ -12,16 +35,25 @@ export async function getPatientResource(patientID: string, oystehr: Oystehr): P
   return response;
 }
 
-export async function getSchedule(
+export async function getSchedules(
   oystehr: Oystehr,
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
-): Promise<{
-  schedule: Location | Practitioner | HealthcareService;
-  groupItems: (Location | Practitioner | HealthcareService)[];
-}> {
+): Promise<BookableScheduleData> {
+  const fhirType = (() => {
+    if (scheduleType === 'location') {
+      return 'Location';
+    }
+    if (scheduleType === 'provider') {
+      return 'Practitioner';
+    }
+    return 'HealthcareService';
+  })();
   // get specific schedule resource with all the slots
-  const searchParams: SearchParam[] = [{ name: 'identifier', value: slug }];
+  const searchParams: SearchParam[] = [
+    { name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` },
+    { name: '_revinclude', value: `Schedule:actor:${fhirType}` },
+  ];
 
   let resourceType;
   if (scheduleType === 'location') {
@@ -47,34 +79,155 @@ export async function getSchedule(
       {
         name: '_include:iterate',
         value: 'PractitionerRole:practitioner',
-      }
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'HealthcareService:location',
+      },
+      {
+        name: '_include:iterate',
+        value: 'PractitionerRole:service',
+      },
+      { name: '_revinclude:iterate', value: 'Schedule:actor:Practitioner' },
+      { name: '_revinclude:iterate', value: 'Schedule:actor:Location' }
     );
   }
 
   console.log('searching for resource with search params: ', searchParams);
-  const availableSchedule = (
-    await oystehr.fhir.search<Location | Practitioner | HealthcareService>({
+  const scheduleResources = (
+    await oystehr.fhir.search<Location | Practitioner | HealthcareService | Schedule | PractitionerRole>({
       resourceType,
       params: searchParams,
     })
   ).unbundle();
 
-  if (availableSchedule.length === 0) {
-    console.log(`schedule ${slug} is not found`);
+  const scheduleOwner = scheduleResources.find((res) => {
+    return res.resourceType === fhirType && res.identifier?.[0]?.value === slug;
+  }) as Location | Practitioner | HealthcareService;
+
+  let hsSchedulingStrategy: ScheduleStrategy | undefined;
+  if (scheduleOwner?.resourceType === 'HealthcareService') {
+    hsSchedulingStrategy = scheduleStrategyForHealthcareService(scheduleOwner as HealthcareService);
+  }
+  if (hsSchedulingStrategy === undefined && scheduleOwner?.resourceType === 'HealthcareService') {
+    throw MISCONFIGURED_SCHEDULING_GROUP(
+      `HealthcareService/${scheduleOwner?.id} needs to be (configured with a scheduling strategy)[todo: link to docs] in order to be used as a schedule provider.`
+    );
+  }
+
+  if (scheduleOwner === undefined) {
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
 
-  const schedule: Location | Practitioner | HealthcareService = availableSchedule[0];
-
-  if (!schedule.id) {
-    throw new Error('schedule id is not defined');
+  if (scheduleResources.length === 0) {
+    console.log(`schedule for ${fhirType} with identifier "${slug}" was not found`);
+    throw SCHEDULE_NOT_FOUND_ERROR;
   }
-  console.log(`successfully retrieved schedule with id ${schedule.id}`);
+
+  const schedule = scheduleResources.find((res) => {
+    return res.resourceType === 'Schedule' && res.actor?.[0]?.reference === `${fhirType}/${scheduleOwner.id}`;
+  }) as Schedule | undefined;
+
+  //const schedule: Location | Practitioner | HealthcareService = scheduleResources[0];
+
+  if (!schedule?.id && (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns)) {
+    throw SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
+      `No Schedule associated with ${fhirType} with identifier "${slug}" could be found. To cure this, create a Schedule resource referencing this ${fhirType} resource via its "actor" field and give it an extension with the requisite (schedule extension json)[todo: link to docs].`
+    );
+  }
+
+  const practitioners: Practitioner[] = [];
+  const schedules: Schedule[] = [];
+  const locations: Location[] = [];
+
+  scheduleResources.forEach((res) => {
+    if (res.resourceType === 'Practitioner') {
+      practitioners.push(res);
+    }
+    if (res.resourceType === 'Schedule') {
+      schedules.push(res);
+    }
+    if (res.resourceType === 'Location') {
+      locations.push(res);
+    }
+  });
+
+  const scheduleList: BookableScheduleData['scheduleList'] = [];
+  if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsProviders) {
+    const practitioners: Practitioner[] = [];
+    const schedules: Schedule[] = [];
+
+    scheduleResources.forEach((res) => {
+      if (res.resourceType === 'Practitioner') {
+        practitioners.push(res);
+      }
+      if (res.resourceType === 'Schedule') {
+        schedules.push(res);
+      }
+    });
+
+    schedules.forEach((sched) => {
+      const owner = sched.actor[0]?.reference ?? '';
+      const [ownerResourceType, ownerId] = owner.split('/');
+      if (ownerResourceType === 'Practitioner' && ownerId) {
+        const practitioner = practitioners.find((prac) => {
+          return prac.id === ownerId;
+        });
+        if (practitioner) {
+          scheduleList.push({
+            schedule: sched,
+            owner: practitioner,
+          });
+        }
+      }
+    });
+  }
+
+  // todo: there's clearly a generic func to be extracted here...
+  if (hsSchedulingStrategy === ScheduleStrategy.poolsAll || hsSchedulingStrategy === ScheduleStrategy.poolsLocations) {
+    const locations: Location[] = [];
+    const schedules: Schedule[] = [];
+
+    scheduleResources.forEach((res) => {
+      if (res.resourceType === 'Location') {
+        locations.push(res);
+      }
+      if (res.resourceType === 'Schedule') {
+        schedules.push(res);
+      }
+    });
+
+    schedules.forEach((sched) => {
+      const owner = sched.actor[0]?.reference ?? '';
+      const [ownerResourceType, ownerId] = owner.split('/');
+      if (ownerResourceType === 'Location' && ownerId) {
+        const location = locations.find((loc) => {
+          return loc.id === ownerId;
+        });
+        if (location) {
+          scheduleList.push({
+            schedule: sched,
+            owner: location,
+          });
+        }
+      }
+    });
+  }
+
+  if (hsSchedulingStrategy === undefined || hsSchedulingStrategy === ScheduleStrategy.owns) {
+    const matchingSchedules = schedules.filter((res) => {
+      return res.actor?.[0]?.reference === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
+    });
+    scheduleList.push(...matchingSchedules.map((sched) => ({ schedule: sched, owner: scheduleOwner })));
+  }
+
   return {
-    schedule,
-    groupItems: availableSchedule.filter(
-      (resourceTemp) => resourceTemp.resourceType === 'Location' || resourceTemp.resourceType === 'Practitioner'
-    ),
+    metadata: {
+      type: scheduleType,
+      strategy: hsSchedulingStrategy,
+    },
+    scheduleList,
+    owner: scheduleOwner, // this probable isn't needed. just the ref can go in metadata
   };
 }
 
@@ -100,12 +253,50 @@ export async function updateAppointmentTime(
   appointment: Appointment,
   startTime: string,
   endTime: string,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  slot?: Slot
 ): Promise<Appointment> {
   try {
-    const json: Appointment = await oystehr.fhir.patch({
-      resourceType: 'Appointment',
-      id: appointment.id ?? '',
+    const currentSlotRef = appointment?.slot?.[0]?.reference;
+    let newSlotReference: Reference | undefined;
+    const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
+    if (slot && `Slot/${slot.id}` !== currentSlotRef) {
+      // we need to update the Appointment with the passed in Slot
+      if (isValidUUID(slot?.id ?? '') && slot?.meta !== undefined) {
+        // assume slot already persisted
+        newSlotReference = {
+          reference: `Slot/${slot.id}`,
+        };
+      } else if (slot) {
+        postSlotRequests.push({
+          method: 'POST',
+          url: '/Slot',
+          resource: {
+            ...slot,
+            resourceType: 'Slot',
+            id: undefined,
+            status: 'busy',
+          },
+          fullUrl: `urn:uuid:${uuid()}`,
+        });
+        newSlotReference = {
+          reference: postSlotRequests[0].fullUrl,
+        };
+      }
+    }
+
+    const slotRefOps: Operation[] = [];
+    if (newSlotReference) {
+      slotRefOps.push({
+        op: appointment.slot === undefined ? 'add' : 'replace',
+        path: '/slot',
+        value: [newSlotReference],
+      });
+    }
+
+    const patchRequest: BatchInputPatchRequest<Appointment> = {
+      method: 'PATCH',
+      url: `Appointment/${appointment.id}`,
       operations: [
         {
           op: 'replace',
@@ -117,9 +308,18 @@ export async function updateAppointmentTime(
           path: '/end',
           value: endTime,
         },
+        ...slotRefOps,
       ],
+    };
+    const json = await oystehr.fhir.transaction<Appointment | Slot>({
+      requests: [...postSlotRequests, patchRequest],
     });
-    return json;
+    const flattened = unbundleBatchPostOutput<Appointment | Slot>(json);
+    const apt = flattened.find((res): res is Appointment => res.resourceType === 'Appointment');
+    if (!apt) {
+      throw new Error('Appointment not returned in bundle');
+    }
+    return apt;
   } catch (error: unknown) {
     throw new Error(`Failed to update Appointment: ${JSON.stringify(error)}`);
   }

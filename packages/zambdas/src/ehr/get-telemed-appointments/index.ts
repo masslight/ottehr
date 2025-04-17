@@ -5,14 +5,15 @@ import {
   GetTelemedAppointmentsInput,
   GetTelemedAppointmentsResponseEhr,
   TelemedAppointmentInformation,
+  appointmentTypeForAppointment,
   createSmsModel,
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
 } from 'utils';
 import { ZambdaInput, checkOrCreateM2MClientToken } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { filterAppointmentsFromResources, filterPatientForAppointment } from './helpers/fhir-resources-filters';
-import { getAllPrefilteredFhirResourcesByCredentialingCriteria, getAllVirtualLocationsMap } from './helpers/fhir-utils';
+import { filterAppointmentsAndCreatePackages, filterPatientForAppointment } from './helpers/fhir-resources-filters';
+import { getAllPartiallyPrefilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';
 import { getPhoneNumberFromQuestionnaire } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -53,11 +54,11 @@ export const performEffect = async (
   oystehrm2m: Oystehr,
   oystehrCurrentUser: Oystehr
 ): Promise<GetTelemedAppointmentsResponseEhr> => {
-  const { statusesFilter, locationsIdsFilter } = params;
+  const { statusesFilter, locationsIdsFilter, visitTypesFilter } = params;
   const virtualLocationsMap = await getAllVirtualLocationsMap(oystehrm2m);
   console.log('Created virtual locations map.');
 
-  const allResources = await getAllPrefilteredFhirResourcesByCredentialingCriteria(
+  const allResources = await getAllPartiallyPrefilteredFhirResources(
     oystehrm2m,
     oystehrCurrentUser,
     params,
@@ -70,12 +71,13 @@ export const performEffect = async (
     };
   }
 
-  const allPackages = filterAppointmentsFromResources(
+  const allPackages = filterAppointmentsAndCreatePackages({
     allResources,
     statusesFilter,
     virtualLocationsMap,
-    locationsIdsFilter
-  );
+    visitTypes: visitTypesFilter,
+    locationsIdsFilter,
+  });
   console.log('Received all appointments with type "virtual":', allPackages.length);
 
   const resultAppointments: TelemedAppointmentInformation[] = [];
@@ -85,7 +87,7 @@ export const performEffect = async (
 
     for (let i = 0; i < allPackages.length; i++) {
       const appointmentPackage = allPackages[i];
-      const { appointment, telemedStatus, telemedStatusHistory, location, practitioner, encounter } =
+      const { appointment, telemedStatus, telemedStatusHistory, locationVirtual, practitioner, encounter } =
         appointmentPackage;
       const patient = filterPatientForAppointment(appointment, allResources);
 
@@ -109,7 +111,6 @@ export const performEffect = async (
           id: patient.id || 'Unknown',
           firstName: patient?.name?.[0].given?.[0],
           lastName: patient?.name?.[0].family,
-          // suffix: patient?.name?.[0].suffix?.[0] || '',
           dateOfBirth: patient.birthDate || 'Unknown',
           sex: patient.gender,
           phone: patientPhone,
@@ -118,10 +119,7 @@ export const performEffect = async (
         reasonForVisit: appointment.description,
         comment: appointment.comment,
         appointmentStatus: appointment.status,
-        location: {
-          locationID: location?.locationID ? `Location/${location.locationID}` : undefined,
-          state: location?.state,
-        },
+        locationVirtual,
         encounter,
         paperwork: appointmentPackage.paperwork,
         telemedStatus: telemedStatus,
@@ -131,6 +129,7 @@ export const performEffect = async (
         visitStatusHistory: getVisitStatusHistory(encounter),
         practitioner,
         encounterId: encounter.id || 'Unknown',
+        appointmentType: appointmentTypeForAppointment(appointment),
       };
 
       resultAppointments.push(appointmentTemp);

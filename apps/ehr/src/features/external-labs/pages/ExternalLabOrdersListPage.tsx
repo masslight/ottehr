@@ -1,37 +1,53 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Box, Button, Paper, Typography, useTheme } from '@mui/material';
-import ExternalLabsTable from '../components/ExternalLabsTable';
+import { Box, Stack } from '@mui/material';
+import React, { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { PageTitle } from '../../../telemed/components/PageTitle';
+import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import { ButtonRounded } from '../../css-module/components/RoundedButton';
+import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
+import { AUTO_REDIRECTED_PARAM } from 'utils/lib/types/data/labs/labs.constants';
 
-interface ExternalLabOrdersListPageProps {
-  appointmentID?: string;
-}
+const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
 
-export const ExternalLabOrdersListPage: React.FC<ExternalLabOrdersListPageProps> = () => {
-  const theme = useTheme();
+export const ExternalLabOrdersListPage: React.FC = () => {
+  const navigate = useNavigate();
+  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+
+  const handleCreateOrder = useCallback(
+    ({ isAutoRedirected }: { isAutoRedirected?: boolean } = {}): void => {
+      const params = isAutoRedirected ? `?${AUTO_REDIRECTED_PARAM}` : '';
+      navigate(`create${params}`);
+    },
+    [navigate]
+  );
+
   return (
-    <Box sx={{ padding: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h2" gutterBottom sx={{ flexGrow: 1, color: theme.palette.primary.dark }}>
-          Labs
-        </Typography>
-        <Button
-          component={Link}
-          to="create"
-          variant="contained"
-          sx={{
-            textTransform: 'none',
-            borderRadius: 28,
-            fontWeight: 'bold',
-            width: 120,
-          }}
-        >
-          Order
-        </Button>
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <PageTitle label="Labs" showIntakeNotesButton={false} />
+        <Stack direction="row" spacing={2} alignItems="center">
+          <ButtonRounded
+            variant="contained"
+            color="primary"
+            size={'medium'}
+            onClick={() => handleCreateOrder()}
+            sx={{
+              py: 1,
+              px: 5,
+            }}
+          >
+            Order
+          </ButtonRounded>
+        </Stack>
       </Box>
-      <Paper>
-        <ExternalLabsTable></ExternalLabsTable>
-      </Paper>
+      <LabsTable
+        encounterId={encounterId}
+        columns={externalLabsColumns}
+        showFilters={false}
+        allowDelete={true}
+        redirectToOrderCreateIfOrdersEmpty={true}
+        onCreateOrder={handleCreateOrder}
+      />
     </Box>
   );
 };

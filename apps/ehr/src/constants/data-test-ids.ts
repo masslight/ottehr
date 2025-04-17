@@ -89,15 +89,30 @@ export const dataTestIds = {
   patientDetailsContainer: {
     patientsEthnicity: 'patients-ethnicity',
     patientsRace: 'patients-race',
+    sexualOrientation: 'sexual-orientation',
+    genderIdentity: 'gender-identity',
+    howDidYouHearAboutUs: 'how-did-you-hear-about-us',
+    sendMarketingMessages: 'send-marketing-messages',
+    preferredLanguage: 'preffered-language',
+    commonWellConsent: 'commonwell-consent',
   },
+  primaryCarePhysicianContainer: {
+    pcpCheckbox: 'pcp-checkbox',
+    firstName: ' primaryCarePhysicianContainer-first-name',
+    lastName: ' primaryCarePhysicianContainer-last-name',
+    practiceName: ' primaryCarePhysicianContainer-practice-name',
+    address: ' primaryCarePhysicianContainer-address',
+    mobile: ' primaryCarePhysicianContainer-mobile',
+  },
+
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
-    relationshipDropdown: 'relationship-dropdown',
-    firstName: 'first-name',
-    lastName: 'last-name',
-    dateOfBirthDropdown: 'date-of-birth-dropdown',
-    birthSexDropdown: 'birth-sex-dropdown',
-    phoneInput: 'phone-input',
+    relationshipDropdown: 'responsible-party-information-container-relationship-dropdown',
+    firstName: 'responsible-party-information-container-first-name',
+    lastName: 'responsible-party-information-container-last-name',
+    dateOfBirthDropdown: 'responsible-party-information-container-date-of-birth-dropdown',
+    birthSexDropdown: 'responsible-party-information-container-birth-sex-dropdown',
+    phoneInput: 'responsible-party-information-container-phone-input',
   },
 
   userSettingsContainer: {
@@ -171,6 +186,7 @@ export const dataTestIds = {
     statusChip: 'employee-status-chip',
   },
   telemedEhrFlow: {
+    trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
@@ -206,6 +222,7 @@ export const dataTestIds = {
     hpiCurrentMedicationsList: (listType: 'scheduled' | 'as-needed') =>
       `telemed-hpi-current-medications-list-${listType}`,
     hpiCurrentMedicationsListItem: (listDataTestId: string) => `${listDataTestId}-item`,
+    hpiCurrentMedicationsColumn: 'telemed-hpi-current-medications-column',
     hpiKnownAllergiesColumn: 'telemed-hpi-known-allergies-column',
     hpiKnownAllergiesList: 'telemed-hpi-known-allergies-list',
     hpiKnownAllergiesPatientProvidedList: 'telemed-hpi-known-allergies-patient-provided-list',

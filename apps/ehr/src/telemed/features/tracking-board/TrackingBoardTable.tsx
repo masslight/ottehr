@@ -39,27 +39,19 @@ interface ColumnConditions {
 const TRACKING_BOARD_COLUMNS_CONFIG: Record<string, TrackingBoardColumn> = {
   STATUS: {
     id: 'status',
-    label: 'Status',
+    label: 'Type & Status',
   },
   WAITING_TIME: {
     id: 'waitingTime',
     label: 'Waiting time',
   },
-  GROUP: {
-    id: 'group',
-    label: 'Group',
-  },
-  PATIENT_INFO: {
-    id: 'patient',
-    label: 'Patient',
+  PATIENT_INFO_REASON: {
+    id: 'patient-info-reason',
+    label: 'Patient & Reason',
   },
   LOCATION: {
     id: 'state',
     label: 'State',
-  },
-  REASON: {
-    id: 'reason',
-    label: 'Reason',
   },
   PROVIDER: {
     id: 'provider',
@@ -67,6 +59,10 @@ const TRACKING_BOARD_COLUMNS_CONFIG: Record<string, TrackingBoardColumn> = {
     conditional: {
       showWhen: 'showProvider',
     },
+  },
+  GROUP: {
+    id: 'group',
+    label: 'Group',
   },
   CHAT: {
     id: 'chat',
@@ -100,11 +96,11 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
     const createGroups = (): Record<string, TelemedAppointmentInformation[]> => {
       return filteredAppointments.reduce<Record<string, TelemedAppointmentInformation[]>>(
         (accumulator, appointment) => {
-          if (appointment.location.state) {
-            if (!accumulator[appointment.location.state]) {
-              accumulator[appointment.location.state] = [];
+          if (appointment.locationVirtual.state) {
+            if (!accumulator[appointment.locationVirtual.state]) {
+              accumulator[appointment.locationVirtual.state] = [];
             }
-            accumulator[appointment.location.state].push(appointment);
+            accumulator[appointment.locationVirtual.state].push(appointment);
             return accumulator;
           } else if (appointment.provider) {
             if (!accumulator[appointment.provider.join(',')]) {
@@ -150,7 +146,7 @@ export function TrackingBoardTable({ tab }: AppointmentTableProps): ReactElement
   }, {});
 
   const oldestId = filteredAppointments
-    .filter((appointment) => availableStates.includes(appointment.location.state!))
+    .filter((appointment) => availableStates.includes(appointment.locationVirtual.state!))
     .sort((a, b) => compareLuxonDates(DateTime.fromISO(a.start!), DateTime.fromISO(b.start!)))?.[0]?.id;
   const showNext = tab === ApptTelemedTab.ready;
 
