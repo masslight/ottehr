@@ -136,9 +136,9 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
 
-    await qualificationNumberField.locator('input').fill(qualification.number);
+    await qualificationNumberField.locator('input').fill(qualification.number || '');
 
-    await qualificationExpDatePicker.locator('input').fill(qualification.date);
+    await qualificationExpDatePicker.locator('input').fill(qualification.date || '');
 
     await createQualificationButton.click(DEFAULT_TIMEOUT);
   }
