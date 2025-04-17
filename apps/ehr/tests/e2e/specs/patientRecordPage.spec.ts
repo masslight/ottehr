@@ -169,9 +169,6 @@ test.describe('Patient Record Page mutating tests', () => {
     const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
     insuranceCarrier1 = insuranceCarriersOptions.at(0);
     insuranceCarrier2 = insuranceCarriersOptions.at(1);
-    console.log('AAAAAAAAAAAAAAAAAA');
-    console.log(JSON.stringify(insuranceCarriersOptions.at(0), null, 2));
-    console.log(JSON.stringify(insuranceCarriersOptions.at(1), null, 2));
   });
 
   const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
