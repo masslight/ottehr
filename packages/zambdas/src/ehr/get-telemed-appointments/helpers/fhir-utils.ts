@@ -111,7 +111,9 @@ export const getPractLicensesLocationsAbbreviations = async (oystehr: Oystehr): 
     })) ?? null;
   console.log('Me as practitioner: ' + JSON.stringify(practitioner));
 
-  return allLicensesForPractitioner(practitioner).map((license) => license.state);
+  return allLicensesForPractitioner(practitioner)
+    .filter((license) => license.active)
+    .map((license) => license.state);
 };
 
 const locationIdsForAppointmentsSearch = async (
@@ -177,7 +179,7 @@ const locationIdsForAppointmentsSearch = async (
   return mapStatesToLocationIds([], virtualLocationsMap);
 };
 
-export const getAllPrefilteredFhirResourcesByCredentialingCriteria = async (
+export const getAllPartiallyPrefilteredFhirResources = async (
   oystehrm2m: Oystehr,
   oystehrCurrentUser: Oystehr,
   params: GetTelemedAppointmentsInput,
@@ -230,7 +232,7 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
       const locationId = location.id;
 
       if (state && locationId) {
-        virtualLocationsMap[state] = locationId;
+        virtualLocationsMap[state] = location;
         locations.push(location);
       }
     }
