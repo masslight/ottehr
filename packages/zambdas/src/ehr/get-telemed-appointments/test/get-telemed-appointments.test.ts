@@ -1,15 +1,11 @@
 import Oystehr, { OystehrConfig, User } from '@oystehr/sdk';
+import { mapEncounterStatusHistory } from 'utils';
+import { vi } from 'vitest';
 import { mapStatusToTelemed } from '../../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
+import { filterAppointmentsAndCreatePackages } from '../helpers/fhir-resources-filters';
 import { getPractLicensesLocationsAbbreviations } from '../helpers/fhir-utils';
 import { mapQuestionnaireToEncountersIds } from '../helpers/mappers';
-import {
-  testVirtualLocationsMap,
-  virtualPreVideoAppointment,
-  virtualOnVideoAppointment,
-  virtualUnsignedAppointment,
-  virtualCompleteAppointment,
-} from './test-data';
 import {
   allLocations,
   allTestResources,
@@ -20,14 +16,16 @@ import {
   myPractitioner,
   questionnaireForPreVideoEncounter,
   questionnaireForReadyEncounter,
+  testVirtualLocationsMap,
   unsignedEncounterMappedStatusHistory,
+  virtualCompleteAppointment,
+  virtualOnVideoAppointment,
+  virtualPreVideoAppointment,
   virtualPreVideoAppointmentEncounter,
   virtualReadyAppointment,
   virtualReadyAppointmentEncounter,
+  virtualUnsignedAppointment,
 } from './test-data';
-import { filterAppointmentsFromResources } from '../helpers/fhir-resources-filters';
-import { mapEncounterStatusHistory } from 'utils';
-import { vi } from 'vitest';
 
 describe('Test "get-telemed-appointments" endpoint', () => {
   describe('Test "filterAppointmentsFromResources" function', () => {
@@ -63,21 +61,41 @@ describe('Test "get-telemed-appointments" endpoint', () => {
     });
 
     test('Filter appointments from all resources, success', async () => {
-      let appointments = filterAppointmentsFromResources(allTestResources, ['ready'], testVirtualLocationsMap);
+      let appointments = filterAppointmentsAndCreatePackages({
+        allResources: allTestResources,
+        statusesFilter: ['ready'],
+        virtualLocationsMap: testVirtualLocationsMap,
+      });
       expect(appointments[0].appointment).toEqual(virtualReadyAppointment);
       expect(appointments[0].paperwork).toEqual(questionnaireForReadyEncounter);
 
-      appointments = filterAppointmentsFromResources(allTestResources, ['pre-video'], testVirtualLocationsMap);
+      appointments = filterAppointmentsAndCreatePackages({
+        allResources: allTestResources,
+        statusesFilter: ['pre-video'],
+        virtualLocationsMap: testVirtualLocationsMap,
+      });
       expect(appointments[0].appointment).toEqual(virtualPreVideoAppointment);
       expect(appointments[0].paperwork).toEqual(questionnaireForPreVideoEncounter);
 
-      appointments = filterAppointmentsFromResources(allTestResources, ['on-video'], testVirtualLocationsMap);
+      appointments = filterAppointmentsAndCreatePackages({
+        allResources: allTestResources,
+        statusesFilter: ['on-video'],
+        virtualLocationsMap: testVirtualLocationsMap,
+      });
       expect(appointments[0].appointment).toEqual(virtualOnVideoAppointment);
 
-      appointments = filterAppointmentsFromResources(allTestResources, ['unsigned'], testVirtualLocationsMap);
+      appointments = filterAppointmentsAndCreatePackages({
+        allResources: allTestResources,
+        statusesFilter: ['unsigned'],
+        virtualLocationsMap: testVirtualLocationsMap,
+      });
       expect(appointments[0].appointment).toEqual(virtualUnsignedAppointment);
 
-      appointments = filterAppointmentsFromResources(allTestResources, ['complete'], testVirtualLocationsMap);
+      appointments = filterAppointmentsAndCreatePackages({
+        allResources: allTestResources,
+        statusesFilter: ['complete'],
+        virtualLocationsMap: testVirtualLocationsMap,
+      });
       expect(appointments[0].appointment).toEqual(virtualCompleteAppointment);
     });
   });

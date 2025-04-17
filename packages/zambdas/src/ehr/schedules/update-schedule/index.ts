@@ -38,7 +38,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('get-patient-account', error, input.secrets);
+    return topLevelCatch('update-schedule', error, input.secrets);
   }
 };
 
