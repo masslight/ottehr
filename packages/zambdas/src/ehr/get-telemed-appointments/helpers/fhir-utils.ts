@@ -111,7 +111,9 @@ export const getPractLicensesLocationsAbbreviations = async (oystehr: Oystehr): 
     })) ?? null;
   console.log('Me as practitioner: ' + JSON.stringify(practitioner));
 
-  return allLicensesForPractitioner(practitioner).map((license) => license.state);
+  return allLicensesForPractitioner(practitioner)
+    .filter((license) => license.active)
+    .map((license) => license.state);
 };
 
 const locationIdsForAppointmentsSearch = async (

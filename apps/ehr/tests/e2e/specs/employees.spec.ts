@@ -118,10 +118,13 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
     }
   }
   // ADDING ALL QUALIFICATIONS IN EMPLOYEE OBJ
-  await page.getByTestId(dataTestIds.employeesPage.addQualificationAccordion).click(DEFAULT_TIMEOUT);
+  await page.getByTestId(dataTestIds.employeesPage.addQualificationCard).click(DEFAULT_TIMEOUT);
   const qualificationStateDropdown = page.getByTestId(dataTestIds.employeesPage.newQualificationStateDropdown);
   const qualificationTypeDropdown = page.getByTestId(dataTestIds.employeesPage.newQualificationTypeDropdown);
+  const qualificationNumberField = page.getByTestId(dataTestIds.employeesPage.newQualificationNumberField);
+  const qualificationExpDatePicker = page.getByTestId(dataTestIds.employeesPage.newQualificationExpDatePicker);
   const createQualificationButton = page.getByTestId(dataTestIds.employeesPage.addQualificationButton);
+
   for (const qualification of employee.qualification) {
     await qualificationStateDropdown.getByRole('button').click(DEFAULT_TIMEOUT);
     await qualificationStateDropdown.locator('input').fill(qualification.state);
@@ -132,6 +135,10 @@ async function updateEmployeesFields(page: Page, employee: TestEmployeeInvitePar
     await qualificationTypeDropdown.locator('input').fill(qualification.code);
     await page.keyboard.press('ArrowDown');
     await page.keyboard.press('Enter');
+
+    await qualificationNumberField.locator('input').fill(qualification.number);
+
+    await qualificationExpDatePicker.locator('input').fill(qualification.date);
 
     await createQualificationButton.click(DEFAULT_TIMEOUT);
   }

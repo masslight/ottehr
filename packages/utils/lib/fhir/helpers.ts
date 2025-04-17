@@ -682,6 +682,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
         const qualificationState = stateExtension?.valueCodeableConcept?.coding?.find(
           (coding) => coding.system === PRACTITIONER_QUALIFICATION_STATE_SYSTEM
         )?.code;
+        const licenseNumber = qualificationExt.extension?.find((ext) => ext.url === 'number')?.valueString;
+        const licenseExpDate = qualificationExt.extension?.find((ext) => ext.url === 'expDate')?.valueDate;
 
         const statusExtension = qualificationExt.extension?.find((ext) => ext.url === 'status')?.valueCode;
 
@@ -689,6 +691,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
           allLicenses.push({
             state: qualificationState,
             code: qualificationCode,
+            number: licenseNumber,
+            date: licenseExpDate,
             active: statusExtension === 'active',
           });
       }
