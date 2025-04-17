@@ -4,7 +4,7 @@ import {
   getPatchBinary,
   isValidUUID,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -305,7 +305,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       resourceType: 'ServiceRequest',
       id: serviceRequestID,
     });
-    const orderID = serviceRequestTemp.identifier?.find((item) => item.system === LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+    const orderID = serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+      ?.value;
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const pdfDetail = await createExternalLabsOrderFormPDF(

@@ -18,7 +18,7 @@ import {
   EncounterLabResult,
   LabOrderResult,
   LabOrderResultPDFConfig,
-  LAB_ORDER_PLACER_ID_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   LAB_RESULT_DOC_REF_CODING_CODE,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
@@ -232,7 +232,7 @@ export const makeEncounterLabResult = async (
         ?.reference;
       if (serviceRequestRef) {
         const relatedSR = serviceRequestMap[serviceRequestRef];
-        const orderNumber = relatedSR.identifier?.find((id) => id.system === LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+        const orderNumber = relatedSR.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
         const activityDef = relatedSR.contained?.find((resource) => resource.resourceType === 'ActivityDefinition');
         const testName = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display;
         const labName = activityDef?.publisher;
