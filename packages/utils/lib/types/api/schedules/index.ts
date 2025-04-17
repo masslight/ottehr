@@ -1,5 +1,5 @@
 import { HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
-import { Closure } from '../../../main';
+import { Closure, Timezone } from '../../../main';
 import { DailySchedule, ScheduleOverrides } from '../../../utils';
 
 export interface UpdateScheduleParams {
@@ -35,6 +35,7 @@ export interface ScheduleOwnerListItem {
 export interface ScheduleListItem {
   resourceType: Schedule['resourceType'];
   id: string;
+  timezone: Timezone;
   upcomingScheduleChanges?: string;
   todayHoursISO?: {
     open: string;
