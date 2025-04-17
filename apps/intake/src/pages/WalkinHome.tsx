@@ -13,7 +13,6 @@ import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { ottehrLightBlue } from '../telemed/assets';
 import { t } from 'i18next';
-import BookingHome from './Welcome';
 
 const WalkinHome: FC = () => {
   const { pathname } = useLocation();
