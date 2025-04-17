@@ -14,7 +14,7 @@ import {
 import { ReactElement, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder } from 'utils';
-import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
+import { getRadiologyOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabOrderLoading } from './LabOrderLoading';
 import { RadiologyTableRow } from './RadiologyTableRow';
 import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
@@ -50,7 +50,7 @@ export const RadiologyTable = ({
     });
 
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
-    navigateTo(getExternalLabOrderEditUrl(order.appointmentId, order.serviceRequestId));
+    navigateTo(getRadiologyOrderEditUrl(order.appointmentId, order.serviceRequestId));
   };
 
   // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)

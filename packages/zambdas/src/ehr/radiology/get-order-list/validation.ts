@@ -1,5 +1,5 @@
 import { GetRadiologyOrderListZambdaInput, isValidUUID, Secrets } from 'utils';
-import { DEFAULT_RADS_ITEMS_PER_PAGE, ValidatedInput } from '.';
+import { ValidatedInput } from '.';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
 
 export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput> => {
@@ -17,7 +17,7 @@ export const validateInput = async (input: ZambdaInput): Promise<ValidatedInput>
 };
 
 const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZambdaInput> => {
-  const { encounterId, patientId, itemsPerPage = DEFAULT_RADS_ITEMS_PER_PAGE, pageIndex = 0 } = validateJsonBody(input);
+  const { encounterId, patientId, itemsPerPage, pageIndex } = validateJsonBody(input);
 
   if (patientId && encounterId) {
     throw new Error('Only one of patientId or encounterId may be sent at a time');
@@ -35,12 +35,12 @@ const validateBody = async (input: ZambdaInput): Promise<GetRadiologyOrderListZa
     throw new Error('patientId must be a uuid');
   }
 
-  if (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1) {
-    throw new Error('Invalid parameter: itemsPerPage must be a number greater than 0');
+  if (itemsPerPage && (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1)) {
+    throw new Error('Invalid parameter: If itemsPerPage is included then it must be a number greater than 0');
   }
 
-  if (typeof pageIndex !== 'number' || isNaN(pageIndex) || pageIndex < 0) {
-    throw new Error('Invalid parameter: pageIndex must be a number greater than or equal to 0');
+  if (pageIndex && (typeof pageIndex !== 'number' || isNaN(pageIndex) || pageIndex < 0)) {
+    throw new Error('Invalid parameter: If pageIndex is included then it must be a number greater than or equal to 0');
   }
 
   return {

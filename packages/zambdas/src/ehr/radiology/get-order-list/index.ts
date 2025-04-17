@@ -1,7 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
+import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import {
+  DEFAULT_RADIOLOGY_ITEMS_PER_PAGE,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
@@ -21,9 +22,6 @@ export interface ValidatedInput {
   body: GetRadiologyOrderListZambdaInput;
   callerAccessToken: string;
 }
-
-// Constants
-export const DEFAULT_RADS_ITEMS_PER_PAGE = 10;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -74,7 +72,12 @@ const performEffect = async (
   validatedInput: ValidatedInput,
   oystehr: Oystehr
 ): Promise<GetRadiologyOrderListZambdaOutput> => {
-  const { encounterId, patientId, itemsPerPage, pageIndex } = validatedInput.body;
+  const {
+    encounterId,
+    patientId,
+    itemsPerPage = DEFAULT_RADIOLOGY_ITEMS_PER_PAGE,
+    pageIndex = 0,
+  } = validatedInput.body;
 
   const searchParams = [
     {
@@ -104,6 +107,10 @@ const performEffect = async (
     {
       name: '_include',
       value: 'ServiceRequest:requester',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:encounter',
     },
     {
       name: '_include',
@@ -165,14 +172,11 @@ const parseResultsToOrder = (
   tasks: Task[],
   diagnosticReports: DiagnosticReport[],
   practitioners: Practitioner[],
-  _encounters: Encounter[]
+  encounters: Encounter[]
 ): GetRadiologyOrderListZambdaOrder => {
   if (serviceRequest.id == null) {
     throw new Error('ServiceRequest ID is unexpectedly null');
   }
-  // const myEncounter = encounters.find((encounter) =>
-  //   encounter.id === serviceRequest.encounter?.reference?.split('/')[1];
-  // );
 
   const cptCode = serviceRequest.code?.coding?.[0]?.code;
   if (!cptCode) {
@@ -193,12 +197,6 @@ const parseResultsToOrder = (
   if (!cptCodeDisplay) {
     throw new Error('cptCodeDisplay is unexpectedly null');
   }
-
-  // const visitDateTime = myEncounter?.period?.start;
-  // TODO figure out how to get this value
-  // if (!visitDateTime) {
-  //   throw new Error('Encounter period start is unexpectedly null');
-  // }
 
   const orderAddedDateTime = serviceRequest.authoredOn;
   if (!orderAddedDateTime) {
@@ -243,8 +241,11 @@ const parseResultsToOrder = (
     throw new Error('Order is in an invalid state, could not determine status.');
   }
 
+  const appointmentId = parseAppointmentId(serviceRequest, encounters);
+
   return {
     serviceRequestId: serviceRequest.id,
+    appointmentId,
     studyType: `${cptCode} — ${cptCodeDisplay}`,
     visitDateTime: '', // TODO
     orderAddedDateTime,
@@ -255,7 +256,7 @@ const parseResultsToOrder = (
 };
 
 const extractResources = (
-  resources: (ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter)[]
+  resources: (ServiceRequest | Task | Practitioner | DiagnosticReport | Encounter | Appointment)[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -336,4 +337,26 @@ export const parsePaginationFromResponse = (data: {
     totalItems,
     totalPages,
   };
+};
+
+export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {
+  const encounterId = parseEncounterId(serviceRequest);
+  const NOT_FOUND = '';
+
+  if (!encounterId) {
+    return NOT_FOUND;
+  }
+
+  const relatedEncounter = encounters.find((encounter) => encounter.id === encounterId);
+
+  if (relatedEncounter?.appointment?.length) {
+    return relatedEncounter.appointment[0]?.reference?.split('/').pop() || NOT_FOUND;
+  }
+
+  return NOT_FOUND;
+};
+
+const parseEncounterId = (serviceRequest: ServiceRequest): string => {
+  const NOT_FOUND = '';
+  return serviceRequest.encounter?.reference?.split('/').pop() || NOT_FOUND;
 };
