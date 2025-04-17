@@ -37,6 +37,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
 
   test.beforeAll(async () => {
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   });
 
   test.afterAll(async () => {
@@ -109,6 +110,7 @@ test.describe('Medical conditions', async () => {
     const context = await browser.newContext();
     page = await context.newPage();
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -220,6 +222,7 @@ test.describe('Current medications', () => {
     const context = await browser.newContext();
     page = await context.newPage();
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -382,6 +385,7 @@ test.describe('Known allergies', () => {
     const context = await browser.newContext();
     page = await context.newPage();
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });

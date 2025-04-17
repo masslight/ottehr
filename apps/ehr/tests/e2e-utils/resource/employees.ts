@@ -64,11 +64,15 @@ export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
     {
       code: 'CISW',
       state: 'AR',
+      number: '12345',
+      date: '2026-04-23',
       active: true,
     },
     {
       code: 'PHARMACY-ASSISTA',
       state: 'AK',
+      number: '54321',
+      date: '2026-04-23',
       active: true,
     },
   ],
@@ -85,16 +89,22 @@ export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
     {
       code: 'CISW',
       state: 'AR',
+      number: '12345',
+      date: '2026-04-23',
       active: true,
     },
     {
       code: 'PHARMACY-ASSISTA',
       state: 'AK',
+      number: '54321',
+      date: '2026-04-23',
       active: true,
     },
     {
       code: 'CMSW',
       state: 'CA',
+      number: '15243',
+      date: '2026-04-23',
       active: true,
     },
   ],
