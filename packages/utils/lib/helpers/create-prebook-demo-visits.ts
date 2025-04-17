@@ -31,7 +31,6 @@ import {
   getMedicalConditionsStepAnswers,
   getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
-  getPaymentOptionInsuranceAnswers,
   getPaymentOptionSelfPayAnswers,
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
@@ -276,7 +275,6 @@ const processPrebookPaperwork = async (
           getSchoolWorkNoteStepAnswers(),
           getConsentStepAnswers({}),
           getInviteParticipantStepAnswers(),
-          getPaymentOptionInsuranceAnswers({}),
         ]
       : [
           getContactInformationAnswers({
@@ -292,7 +290,6 @@ const processPrebookPaperwork = async (
           getResponsiblePartyStepAnswers({}),
           getPrimaryCarePhysicianStepAnswers({}),
           getConsentStepAnswers({}),
-          getPaymentOptionInsuranceAnswers({}),
         ];
 
     // Execute the paperwork patches

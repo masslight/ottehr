@@ -235,43 +235,6 @@ export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
 export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
 export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
 export const DEMO_VISIT_PHYSICIAN_MOBILE = '(123) 456-7890';
-export const DEMO_VISIT_INSURANCE_CARRIER = {
-  valueReference: {
-    reference: 'Organization/f5f197fe-7c24-4ffb-a136-25092296e245',
-  },
-};
-export const DEMO_VISIT_INSURANCE_MEMBER_ID = 'insuranceMemberId';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'insurancePolicyHolderFirstName';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'insurancePolicyHolderLastName';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'insurancePolicyHolderMiddleName';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH = '2001-10-10';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_BIRTH_SEX = 'Female';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT = false;
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS = 'insurancePolicyHolderAddress';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE = 'insurancePolicyHolderAddressAdditionalLine';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_CITY = 'New York';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_STATE = 'CA';
-export const DEMO_VISIT_INSURANCE_POLICYHOLDER_ZIP = '06002';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Parent';
-export const DEMO_VISIT_INSURANCE_CARRIER_2 = {
-  valueReference: {
-    reference: 'Organization/f5f197fe-7c24-4ffb-a136-25092296e245',
-  },
-};
-export const DEMO_VISIT_INSURANCE_MEMBER_ID_2 = 'insuranceMemberId_2';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_FIRST_NAME_2 = 'insurancePolicyHolderFirstName_2';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_LAST_NAME_2 = 'insurancePolicyHolderLastName_2';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2 = 'insurancePolicyHolderMiddleName_2';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH_2 = '2002-12-12';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_BIRTH_SEX_2 = '<Male>';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT_2 = false;
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_2 = 'insurancePolicyHolderAddress_2';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE_2 =
-  'insurancePolicyHolderAddressAdditionalLine_2';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_CITY_2 = 'New York';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_STATE_2 = 'CA';
-export const DEMO_VISIT_INSURANCE_POLICYHOLDER_ZIP_2 = '06002';
-export const DEMO_VISIT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2 = 'Parent';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -520,63 +483,63 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
 }
 
 export function getPaymentOptionInsuranceAnswers({
-  insuranceCarrier = DEMO_VISIT_INSURANCE_CARRIER,
-  insuranceMemberId = DEMO_VISIT_INSURANCE_MEMBER_ID,
-  insurancePolicyHolderFirstName = DEMO_VISIT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
-  insurancePolicyHolderLastName = DEMO_VISIT_INSURANCE_POLICY_HOLDER_LAST_NAME,
-  insurancePolicyHolderMiddleName = DEMO_VISIT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
-  insurancePolicyHolderDateOfBirth = DEMO_VISIT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
-  insurancePolicyHolderBirthSex = DEMO_VISIT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
-  insurancePolicyHolderAddressAsPatient = DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
-  insurancePolicyHolderAddress = DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS,
-  insurancePolicyHolderAddressAdditionalLine = DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
-  insurancePolicyHolderCity = DEMO_VISIT_INSURANCE_POLICY_HOLDER_CITY,
-  insurancePolicyHolderState = DEMO_VISIT_INSURANCE_POLICY_HOLDER_STATE,
-  insurancePolicyHolderZip = DEMO_VISIT_INSURANCE_POLICYHOLDER_ZIP,
-  insurancePolicyHolderRelationshipToInsured = DEMO_VISIT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
-  insuranceCarrier2 = DEMO_VISIT_INSURANCE_CARRIER_2,
-  insuranceMemberId2 = DEMO_VISIT_INSURANCE_MEMBER_ID_2,
-  insurancePolicyHolderFirstName2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_FIRST_NAME_2,
-  insurancePolicyHolderLastName2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_LAST_NAME_2,
-  insurancePolicyHolderMiddleName2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2,
-  insurancePolicyHolderDateOfBirth2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH_2,
-  insurancePolicyHolderBirthSex2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_BIRTH_SEX_2,
-  insurancePolicyHolderAddressAsPatient2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT_2,
-  insurancePolicyHolderAddress2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_2,
-  insurancePolicyHolderAddressAdditionalLine2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE_2,
-  insurancePolicyHolderCity2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_CITY_2,
-  insurancePolicyHolderState2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_STATE_2,
-  insurancePolicyHolderZip2 = DEMO_VISIT_INSURANCE_POLICYHOLDER_ZIP_2,
-  insurancePolicyHolderRelationshipToInsured2 = DEMO_VISIT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2,
+  insuranceCarrier,
+  insuranceMemberId,
+  insurancePolicyHolderFirstName,
+  insurancePolicyHolderLastName,
+  insurancePolicyHolderMiddleName,
+  insurancePolicyHolderDateOfBirth,
+  insurancePolicyHolderBirthSex,
+  insurancePolicyHolderAddressAsPatient,
+  insurancePolicyHolderAddress,
+  insurancePolicyHolderAddressAdditionalLine,
+  insurancePolicyHolderCity,
+  insurancePolicyHolderState,
+  insurancePolicyHolderZip,
+  insurancePolicyHolderRelationshipToInsured,
+  insuranceCarrier2,
+  insuranceMemberId2,
+  insurancePolicyHolderFirstName2,
+  insurancePolicyHolderLastName2,
+  insurancePolicyHolderMiddleName2,
+  insurancePolicyHolderDateOfBirth2,
+  insurancePolicyHolderBirthSex2,
+  insurancePolicyHolderAddressAsPatient2,
+  insurancePolicyHolderAddress2,
+  insurancePolicyHolderAddressAdditionalLine2,
+  insurancePolicyHolderCity2,
+  insurancePolicyHolderState2,
+  insurancePolicyHolderZip2,
+  insurancePolicyHolderRelationshipToInsured2,
 }: {
-  insuranceCarrier?: QuestionnaireResponseItemAnswer;
-  insuranceMemberId?: string;
-  insurancePolicyHolderFirstName?: string;
-  insurancePolicyHolderLastName?: string;
-  insurancePolicyHolderMiddleName?: string;
-  insurancePolicyHolderDateOfBirth?: string;
-  insurancePolicyHolderBirthSex?: string;
-  insurancePolicyHolderAddressAsPatient?: boolean;
-  insurancePolicyHolderAddress?: string;
-  insurancePolicyHolderAddressAdditionalLine?: string;
-  insurancePolicyHolderCity?: string;
-  insurancePolicyHolderState?: string;
-  insurancePolicyHolderZip?: string;
-  insurancePolicyHolderRelationshipToInsured?: string;
-  insurancePolicyHolderFirstName2?: string;
-  insurancePolicyHolderLastName2?: string;
-  insurancePolicyHolderMiddleName2?: string;
-  insurancePolicyHolderDateOfBirth2?: string;
-  insurancePolicyHolderBirthSex2?: string;
-  insurancePolicyHolderAddressAsPatient2?: boolean;
-  insurancePolicyHolderAddress2?: string;
-  insurancePolicyHolderAddressAdditionalLine2?: string;
-  insurancePolicyHolderCity2?: string;
-  insurancePolicyHolderState2?: string;
-  insurancePolicyHolderZip2?: string;
-  insurancePolicyHolderRelationshipToInsured2?: string;
-  insuranceCarrier2?: QuestionnaireResponseItemAnswer;
-  insuranceMemberId2?: string;
+  insuranceCarrier: QuestionnaireResponseItemAnswer;
+  insuranceMemberId: string;
+  insurancePolicyHolderFirstName: string;
+  insurancePolicyHolderLastName: string;
+  insurancePolicyHolderMiddleName: string;
+  insurancePolicyHolderDateOfBirth: string;
+  insurancePolicyHolderBirthSex: string;
+  insurancePolicyHolderAddressAsPatient: boolean;
+  insurancePolicyHolderAddress: string;
+  insurancePolicyHolderAddressAdditionalLine: string;
+  insurancePolicyHolderCity: string;
+  insurancePolicyHolderState: string;
+  insurancePolicyHolderZip: string;
+  insurancePolicyHolderRelationshipToInsured: string;
+  insurancePolicyHolderFirstName2: string;
+  insurancePolicyHolderLastName2: string;
+  insurancePolicyHolderMiddleName2: string;
+  insurancePolicyHolderDateOfBirth2: string;
+  insurancePolicyHolderBirthSex2: string;
+  insurancePolicyHolderAddressAsPatient2: boolean;
+  insurancePolicyHolderAddress2: string;
+  insurancePolicyHolderAddressAdditionalLine2: string;
+  insurancePolicyHolderCity2: string;
+  insurancePolicyHolderState2: string;
+  insurancePolicyHolderZip2: string;
+  insurancePolicyHolderRelationshipToInsured2: string;
+  insuranceCarrier2: QuestionnaireResponseItemAnswer;
+  insuranceMemberId2: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'payment-option-page',
