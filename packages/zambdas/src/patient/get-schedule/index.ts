@@ -18,7 +18,6 @@ import {
   getSecret,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
-  isWalkinOpen,
 } from 'utils';
 import {
   captureSentryException,

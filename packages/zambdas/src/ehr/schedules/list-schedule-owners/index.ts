@@ -5,6 +5,7 @@ import {
   ClosureType,
   DOW,
   getScheduleDetails,
+  getTimezone,
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
@@ -15,6 +16,7 @@ import {
   ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
+  TIMEZONES,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
@@ -176,7 +178,8 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
 };
 
 const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHoursISO'] => {
-  const dayOfWeek = DateTime.now().toLocaleString({ weekday: 'long' }).toLowerCase();
+  const tz = getTimezone(item) ?? TIMEZONES[0];
+  const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
 
   const scheduleTemp = getScheduleDetails(item);
   if (!scheduleTemp) {
@@ -190,8 +193,8 @@ const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHou
   if (scheduleTemp.scheduleOverrides) {
     for (const dateKey in scheduleOverrides) {
       if (Object.hasOwnProperty.call(scheduleOverrides, dateKey)) {
-        const date = DateTime.fromFormat(dateKey, OVERRIDE_DATE_FORMAT).toISODate();
-        const todayDate = DateTime.local().toISODate();
+        const date = DateTime.fromFormat(dateKey, OVERRIDE_DATE_FORMAT).setZone(tz).toISODate();
+        const todayDate = DateTime.now().setZone(tz).toISODate();
         if (date === todayDate) {
           open = scheduleOverrides[dateKey].open;
           close = scheduleOverrides[dateKey].close;
