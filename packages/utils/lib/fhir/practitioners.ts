@@ -1,5 +1,5 @@
 import { PractitionerLicense } from '../types';
-import { PractitionerQualification } from 'fhir/r4b';
+import { Extension, PractitionerQualification } from 'fhir/r4b';
 import {
   PRACTITIONER_QUALIFICATION_CODE_SYSTEM,
   PRACTITIONER_QUALIFICATION_EXTENSION_URL,
@@ -7,6 +7,20 @@ import {
 } from './constants';
 
 export function makeQualificationForPractitioner(license: PractitionerLicense): PractitionerQualification {
+  const number = license.number
+    ? {
+        url: 'number',
+        valueString: license.number,
+      }
+    : undefined;
+  const date = license.date
+    ? {
+        url: 'expDate',
+        valueDate: license.date,
+      }
+    : undefined;
+  const extraExtensions = [number, date].filter(Boolean) as Extension[];
+
   return {
     code: {
       coding: [
@@ -37,6 +51,7 @@ export function makeQualificationForPractitioner(license: PractitionerLicense): 
               ],
             },
           },
+          ...extraExtensions,
         ],
       },
     ],

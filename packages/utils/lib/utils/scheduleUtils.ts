@@ -1577,3 +1577,13 @@ export const applyOverridesToOperatingHours = (input: OverrideOperatingHoursInpu
   }
   return hoursOfOperation;
 };
+
+export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {
+  if (fhirType === 'Location') {
+    return ScheduleType.location;
+  }
+  if (fhirType === 'Practitioner') {
+    return ScheduleType.provider;
+  }
+  return ScheduleType.group;
+};
