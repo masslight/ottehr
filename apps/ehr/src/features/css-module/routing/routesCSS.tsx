@@ -19,6 +19,7 @@ import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
+import { OttehrAi } from '../pages/OttehrAi';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -37,6 +38,7 @@ export enum ROUTER_PATH {
   EXAMINATION = 'examination',
   PLAN = 'plan',
   ERX = 'erx',
+  OTTEHR_AI = 'ottehr-ai',
 
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
@@ -50,6 +52,13 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: <ProgressNote />,
     text: 'Progress Note',
     iconKey: 'Progress Note',
+  },
+  [ROUTER_PATH.OTTEHR_AI]: {
+    path: ROUTER_PATH.OTTEHR_AI,
+    modes: ['provider', 'readonly'],
+    element: <OttehrAi />,
+    text: 'Ottehr AI',
+    iconKey: 'Ottehr AI',
   },
   [ROUTER_PATH.PATIENT_INFO]: {
     path: ROUTER_PATH.PATIENT_INFO,
