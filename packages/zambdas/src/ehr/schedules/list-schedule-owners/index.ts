@@ -76,6 +76,7 @@ const performEffect = (input: EffectInput): ListScheduleOwnersResponse => {
         },
         schedules: schedules.map((schedule) => ({
           resourceType: schedule.resourceType,
+          timezone: getTimezone(schedule) ?? TIMEZONES[0],
           id: schedule.id!,
           upcomingScheduleChanges: getItemOverrideInformation(schedule),
           todayHoursISO: getHoursOfOperationForToday(schedule),
