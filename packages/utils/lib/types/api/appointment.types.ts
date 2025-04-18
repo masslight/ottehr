@@ -101,8 +101,9 @@ export interface UpdateAppointmentParameters {
   slot: Slot;
 }
 
-export interface GetWalkinStartParams {
-  scheduleId: string;
+export interface WalkinAvailabilityCheckParams {
+  scheduleId?: string;
+  locationName?: string;
 }
 
 export interface WalkinAvailabilityCheckResult {

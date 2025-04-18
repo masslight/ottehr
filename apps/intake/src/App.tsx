@@ -47,6 +47,7 @@ import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
 import AIInterview from './pages/AIInterview';
+import { WalkinLanding } from './pages/WalkinLanding';
 
 const {
   MODE: environment,
@@ -107,6 +108,10 @@ export const intakeFlowPageRoute = {
     path: '/welcome',
     getPage: () => <Welcome />,
   }, // ET
+  WalkinLanding: {
+    path: '/walkin/schedule/:id',
+    getPage: () => <WalkinLanding />,
+  },
   RequestVirtualVisit: {
     path: '/request-virtual-visit',
     getPage: () => <RequestVirtualVisit />,
@@ -431,6 +436,10 @@ function App(): JSX.Element {
               <Route
                 path={intakeFlowPageRoute.PrebookVisit.path}
                 element={intakeFlowPageRoute.PrebookVisit.getPage()}
+              />
+              <Route
+                path={intakeFlowPageRoute.WalkinLanding.path}
+                element={intakeFlowPageRoute.WalkinLanding.getPage()}
               />
               <Route
                 path={intakeFlowPageRoute.PrebookVisitDynamic.path}

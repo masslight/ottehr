@@ -104,7 +104,7 @@ export default function SchedulePage(): ReactElement {
     }
     return false;
   })();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const { isLoading, isFetching, isRefetching } = useQuery(
     ['ehr-get-schedule', { zambdaClient: oystehrZambda, scheduleId, ownerId, scheduleType }],
     () =>

@@ -5,8 +5,8 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { ServiceMode, VisitType } from 'utils';
-import { BOOKING_SERVICE_MODE_PARAM, bookingBasePath, intakeFlowPageRoute } from '../../App';
+import { ServiceMode } from 'utils';
+import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../../App';
 import { otherColors } from '../../IntakeThemeProvider';
 import { pastVisits } from '../assets/icons';
 import { CancelVisitDialog } from '../components';
@@ -48,15 +48,11 @@ const Homepage = (): JSX.Element => {
       link to register for a walk-in visit. this might be something a front desk person texts to the individual after getting
       their phone number, or maybe a link the user opens by scanning a QR code made available at the location. 
     */
-    const basePath = generatePath(bookingBasePath, {
-      slug: 'testing',
-      visit_type: `${VisitType.WalkIn}`,
-      service_mode: ServiceMode['in-person'],
+    const basePath = generatePath(intakeFlowPageRoute.WalkinLanding.path, {
+      id: '03945c47-c91d-40f2-87a0-264a46f6f3c1',
     });
 
-    navigate(`${basePath}/patients`, {
-      state: { scheduleType: 'location' },
-    });
+    navigate(basePath);
   };
 
   const handleReturnToCall = (): void => {

@@ -9,6 +9,7 @@ import {
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
+  WalkinAvailabilityCheckParams,
   HandleAnswerInput,
   PatchPaperworkParameters,
   PatientInfo,
@@ -23,6 +24,7 @@ import {
   chooseJson,
   isApiError,
   isoStringFromMDYString,
+  WalkinAvailabilityCheckResult,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -55,6 +57,7 @@ const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBD
 const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START_ZAMBDA_ID;
 const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
 const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID;
+const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 
 export interface AvailableLocationInformation {
   id: string | undefined;
@@ -403,7 +406,18 @@ class API {
 
       const response = await zambdaClient.execute(GET_ELIGIBILITY_ZAMBDA_ID, input);
       const jsonToUse = chooseJson(response);
-      console.log('json from get eligibility', jsonToUse);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getWalkinAvailability(
+    input: WalkinAvailabilityCheckParams,
+    zambdaClient: ZambdaClient
+  ): Promise<WalkinAvailabilityCheckResult> {
+    try {
+      const response = await zambdaClient.executePublic(GET_WALKIN_AVAILABILITY_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);

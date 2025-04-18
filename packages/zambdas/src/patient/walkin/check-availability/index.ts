@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { LocationHoursOfOperation, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
@@ -11,12 +11,11 @@ import {
   getSecret,
   getServiceModeFromScheduleOwner,
   getTimezone,
-  GetWalkinStartParams,
+  WalkinAvailabilityCheckParams,
   HOURS_OF_OPERATION_FORMAT,
   INVALID_INPUT_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
-  MISSING_REQUIRED_PARAMETERS,
   MISSING_SCHEDULE_EXTENSION_ERROR,
   OVERRIDE_DATE_FORMAT,
   ScheduleExtension,
@@ -116,23 +115,27 @@ const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
   };
 };
 
-type BasicInput = GetWalkinStartParams;
+type BasicInput = WalkinAvailabilityCheckParams;
 const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { scheduleId } = JSON.parse(input.body);
+  const { scheduleId, locationName } = JSON.parse(input.body);
 
-  if (!scheduleId) {
-    throw MISSING_REQUIRED_PARAMETERS(['scheduleId']);
+  if (!scheduleId && !locationName) {
+    throw INVALID_INPUT_ERROR('Either "scheduleId" or "scheduleName" must be provided');
   }
 
-  if (isValidUUID(scheduleId) === false) {
+  if (scheduleId && isValidUUID(scheduleId) === false) {
     throw INVALID_INPUT_ERROR('"scheduleId" must be a valid UUID');
   }
 
-  return { scheduleId };
+  if (locationName && typeof locationName !== 'string') {
+    throw INVALID_INPUT_ERROR('"scheduleName" must be a string');
+  }
+
+  return { scheduleId, locationName };
 };
 
 interface EffectInput {
@@ -141,18 +144,39 @@ interface EffectInput {
   serviceMode?: ServiceMode;
 }
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId } = input;
+  const { scheduleId, locationName } = input;
 
-  const params = [
-    {
-      name: '_id',
-      value: scheduleId,
-    },
-    {
-      name: '_include',
-      value: 'Schedule:actor',
-    },
-  ];
+  const params: SearchParam[] = [];
+
+  if (scheduleId) {
+    params.push(
+      ...[
+        {
+          name: '_id',
+          value: scheduleId,
+        },
+        {
+          name: '_include',
+          value: 'Schedule:actor',
+        },
+      ]
+    );
+  } else if (locationName) {
+    params.push(
+      ...[
+        {
+          name: 'actor:Location.name:exact',
+          value: locationName,
+        },
+        {
+          name: '_include',
+          value: 'Schedule:actor',
+        },
+      ]
+    );
+  } else {
+    throw new Error('Validation failed: scheduleId or scheduleName is required');
+  }
 
   const scheduleAndOwnerResults = (
     await oystehr.fhir.search<Schedule | PractitionerRole | ScheduleOwnerFhirResource>({
@@ -164,11 +188,12 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   let scheduleOwner: ScheduleOwnerFhirResource | undefined;
 
   const schedule = scheduleAndOwnerResults.find((res) => {
-    return res.resourceType === 'Schedule' && res.id === scheduleId;
+    return res.resourceType === 'Schedule';
   }) as Schedule;
   if (!schedule) {
     throw FHIR_RESOURCE_NOT_FOUND('Schedule');
   }
+  console.log('schedule', schedule.id);
   const scheduleOwnerRef = schedule.actor?.[0]?.reference ?? '';
   const [scheduleOwnerType, scheduleOwnerId] = scheduleOwnerRef.split('/');
   if (scheduleOwnerType && scheduleOwnerId) {
