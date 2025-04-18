@@ -21,6 +21,11 @@ export const ExternalLabOrdersListPage: React.FC = () => {
     [navigate]
   );
 
+  if (!encounterId) {
+    console.error('No encounter ID found');
+    return null;
+  }
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -41,7 +46,7 @@ export const ExternalLabOrdersListPage: React.FC = () => {
         </Stack>
       </Box>
       <LabsTable
-        encounterId={encounterId}
+        searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
         columns={externalLabsColumns}
         showFilters={false}
         allowDelete={true}

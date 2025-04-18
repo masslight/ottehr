@@ -1,4 +1,4 @@
-import { Questionnaire, Encounter } from 'fhir/r4b';
+import { Questionnaire, Encounter, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
@@ -81,96 +81,99 @@ export type LabOrderResultDetails = {
   reviewedDate: string | null;
 };
 
-export interface LabOrderDTO {
+export type QuestionnaireData = {
+  questionnaire: Questionnaire;
+  questionnaireResponse: QuestionnaireResponse;
+  questionnaireResponseItems: QuestionnaireResponseItem[];
+  serviceRequestId: string;
+};
+
+export type LabOrderListPageDTO = {
   serviceRequestId: string; // ServiceRequest.id
   testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
   fillerLab: string; // ServiceRequest.contained[0](ActivityDefinition).publisher
   orderAddedDate: string; // Task PST authoredOn
-  providerName: string; // SR.requester name
-  diagnoses: DiagnosisDTO[]; // SR.reasonCode
+  orderingPhysician: string; // SR.requester name
+  diagnosesDTO: DiagnosisDTO[]; // SR.reasonCode
+  diagnoses: string; // SR.reasonCode joins
   orderStatus: ExternalLabsStatus; // Derived from SR, Tasks and DiagnosticReports based on the mapping table
   isPSC: boolean; // Derived from SR.orderDetail
   reflexResultsCount: number; // Number of DiagnosticReports with the same SR identifier but different test codes
   appointmentId: string;
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
-  dx: string; // SR.reasonCode joins
-  performedBy: string; // order performed (SR.orderDetail code.display)
-  accessionNumbers: string[]; // DiagnosticReport.identifier
+  accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
+};
+
+export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
+  accountNumber: string; // identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM (organization identifier) [added if list requested by ServiceRequest id]
   history: LabOrderHistoryRow[];
   resultsDetails: LabOrderResultDetails[];
-}
+  orderSource: string; // order source (SR.orderDetail code.display)
+  questionnaire: QuestionnaireData[];
+};
 
-export interface Pagination {
+export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
+  searchBy: { field: 'serviceRequestId' };
+}
+  ? LabOrderDetailedPageDTO
+  : LabOrderListPageDTO;
+
+export type Pagination = {
   currentPageIndex: number;
   totalItems: number;
   totalPages: number;
-}
+};
 
-export interface PaginatedLabOrderResponse {
-  data: LabOrderDTO[];
+export type PaginatedLabOrderResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
+  data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
-}
+};
 
-interface GetLabOrdersSearchFilters {
-  orderableItemCode?: string; // search filter by lab
-  visitDate?: string; // search filter by visit date
-}
+export type LabOrdersSearchBy = {
+  searchBy:
+    | { field: 'encounterId'; value: string }
+    | { field: 'patientId'; value: string }
+    | { field: 'serviceRequestId'; value: string };
+};
 
-interface GetLabOrdersPaginationOptions {
+export type LabOrdersSearchFilters = {
+  orderableItemCode?: string;
+  visitDate?: string;
+};
+
+export type LabOrdersPaginationOptions = {
   itemsPerPage?: number;
   pageIndex?: number;
-}
+};
 
-interface GetLabOrdersByEncounter {
-  encounterId: string;
-  patientId?: never;
-  serviceRequestId?: never;
-}
+export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
 
-interface GetLabOrdersByPatient {
-  encounterId?: never;
-  patientId: string;
-  serviceRequestId?: never;
-}
-
-interface GetLabOrdersByServiceRequest {
-  encounterId?: never;
-  patientId?: never;
-  serviceRequestId: string;
-}
-
-type GetLabOrdersBaseParameters = GetLabOrdersSearchFilters & GetLabOrdersPaginationOptions;
-
-type GetLabOrdersByEncounterParameters = GetLabOrdersByEncounter & GetLabOrdersBaseParameters;
-type GetLabOrdersByPatientParameters = GetLabOrdersByPatient & GetLabOrdersBaseParameters;
-type GetLabOrdersByServiceRequestParameters = GetLabOrdersByServiceRequest & GetLabOrdersBaseParameters;
-
-export type GetLabOrdersParameters =
-  | GetLabOrdersByEncounterParameters // use case: Patient Chart
-  | GetLabOrdersByPatientParameters // use case: Patient Page
-  | GetLabOrdersByServiceRequestParameters; // use case: Lab Order Detail Page
-
-export interface CreateLabOrderParameters {
+export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];
   encounter: Encounter;
   orderableItem: OrderableItemSearchResult;
   psc: boolean;
-}
-export interface GetCreateLabOrderResources {
-  encounter: Encounter;
-}
+};
 
-export interface LabOrderResourcesRes {
+export type GetCreateLabOrderResources = {
+  encounter: Encounter;
+};
+
+export type LabOrderResourcesRes = {
   coverageName: string;
   labs: OrderableItemSearchResult[];
-}
+};
 
 export const VALID_LAB_ORDER_UPDATE_EVENTS = ['reviewed'] as const;
 
-export interface UpdateLabOrderResourceParams {
+export type UpdateLabOrderResourceParams = {
   taskId: string;
   serviceRequestId: string;
   diagnosticReportId: string;
   event: (typeof VALID_LAB_ORDER_UPDATE_EVENTS)[number];
-}
+};
+
+export type DeleteLabOrderParams = {
+  serviceRequestId: string;
+};

@@ -9,17 +9,15 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
   }
 
   const {
-    encounterId,
-    patientId,
+    searchBy,
     orderableItemCode,
     visitDate,
     itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
     pageIndex = 0,
-    serviceRequestId,
-  } = JSON.parse(input.body);
+  } = JSON.parse(input.body) as GetLabOrdersParameters;
 
-  if (!encounterId && !patientId && !serviceRequestId) {
-    throw new Error('Missing required parameter: either encounterId or patientId or serviceRequestId must be provided');
+  if (!searchBy.field || !searchBy.value) {
+    throw new Error(`Missing searchBy field or value: ${JSON.stringify(searchBy)}`);
   }
 
   if (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1) {
@@ -31,9 +29,7 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
   }
 
   return {
-    serviceRequestId,
-    encounterId,
-    patientId,
+    searchBy,
     orderableItemCode,
     visitDate,
     itemsPerPage,

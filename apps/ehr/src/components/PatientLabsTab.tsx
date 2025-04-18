@@ -22,7 +22,7 @@ export const PatientLabsTab = ({ patientId }: PatientLabsTabProps): ReactElement
   return (
     <Box sx={{ mt: 2 }}>
       <LabsTable
-        patientId={patientId}
+        searchBy={{ searchBy: { field: 'patientId', value: patientId } }}
         columns={patientLabOrdersColumns}
         showFilters={true}
         allowDelete={false}

@@ -1,12 +1,12 @@
 import { ReactElement } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
-import { LabOrderDTO, LabOrderResultDetails } from 'utils';
+import { LabOrderDetailedPageDTO, LabOrderResultDetails } from 'utils';
 import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
 
 interface ResultItemProps {
-  labOrder: LabOrderDTO;
+  labOrder: LabOrderDetailedPageDTO;
   onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
 }
