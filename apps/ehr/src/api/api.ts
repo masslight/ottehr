@@ -391,7 +391,7 @@ export const listScheduleOwners = async (
 ): Promise<ListScheduleOwnersResponse> => {
   try {
     if (LIST_SCHEDULE_OWNERS_ZAMBDA_ID == null) {
-      throw new Error('ehr-get-schedule zambda environment variable could not be loaded');
+      throw new Error('list-schedule-owners zambda environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({

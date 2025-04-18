@@ -41,5 +41,5 @@ popd
 
 pushd scripts/deploy/gcp
 terraform init
-terraform apply
+terraform apply -auto-approve
 popd
