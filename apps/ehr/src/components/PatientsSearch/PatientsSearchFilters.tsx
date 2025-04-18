@@ -27,7 +27,7 @@ export const PatientsSearchFilters: React.FC<{
     <FormControl component="form" onSubmit={handleSubmit} fullWidth>
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <TextField
-          data-testid={dataTestIds.patients.searchByNameField}
+          data-testid={dataTestIds.patients.searchByLastNameField}
           sx={{ flex: 1 }}
           label="Last Name"
           placeholder="Doe"
@@ -35,7 +35,7 @@ export const PatientsSearchFilters: React.FC<{
           onChange={(e) => setSearchField({ field: 'lastName', value: e.target.value })}
         />
         <TextField
-          data-testid={dataTestIds.patients.searchByNameField}
+          data-testid={dataTestIds.patients.searchByGivenNamesField}
           sx={{ flex: 1 }}
           label="Given Names"
           placeholder="John Henry"
