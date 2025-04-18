@@ -19,7 +19,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const { serviceRequest, questionnaireResponse, task } = await getLabOrderRelatedResources(
+    const { serviceRequest, questionnaireResponse, task, labConditions } = await getLabOrderRelatedResources(
       oystehr,
       validatedParameters
     );
@@ -43,9 +43,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       deleteRequests.push(makeDeleteResourceRequest('Task', task.id));
     }
 
+    labConditions.forEach((condition) => {
+      condition.id && deleteRequests.push(makeDeleteResourceRequest('Condition', condition.id));
+    });
+
     if (deleteRequests.length > 0) {
       console.log(
-        `Deleting lab order ${serviceRequestId} and questionnaire response id: ${questionnaireResponse?.id} and task id: ${task?.id}`
+        `Deleting lab order for service request id: ${serviceRequestId}; request: ${JSON.stringify(
+          deleteRequests,
+          null,
+          2
+        )}`
       );
 
       await oystehr.fhir.transaction({
@@ -61,6 +69,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           serviceRequest,
           questionnaireResponse,
           task,
+          labConditions,
         },
       }),
     };
