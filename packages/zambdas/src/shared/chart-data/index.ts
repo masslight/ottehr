@@ -1136,6 +1136,12 @@ const mapResourceToChartDataFields = (
     const resourse = makeObservationDTO(resource);
     if (resourse) data.observations?.push(resourse);
     resourceMapped = true;
+  } else if (
+    resource.resourceType === 'QuestionnaireResponse' &&
+    resource.questionnaire === '#aiInterviewQuestionnaire'
+  ) {
+    data.aiChat = resource;
+    resourceMapped = true;
   }
   return {
     chartDataFields: data,

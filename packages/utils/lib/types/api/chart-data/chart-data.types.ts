@@ -10,6 +10,7 @@ import {
   Observation,
   Practitioner,
   Procedure,
+  QuestionnaireResponse,
   Reference,
   Resource,
   ServiceRequest,
@@ -61,6 +62,7 @@ export interface ChartDataFields {
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
+  aiChat?: QuestionnaireResponse;
 }
 
 export type ChartDataFieldsKeys = keyof ChartDataFields;

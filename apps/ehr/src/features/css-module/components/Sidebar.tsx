@@ -11,6 +11,8 @@ import { usePractitionerActions } from '../hooks/usePractitioner';
 import { getVisitStatus } from 'utils';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import ottehrAiIcon from '../../../assets/ottehr-ai-icon.svg';
+
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="20" cy="20" r="20" fill="#2169F5" fillOpacity=".04" />
@@ -179,6 +181,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  'Ottehr AI': <img src={ottehrAiIcon} style={{ width: '22px' }} />,
 };
 
 const drawerWidth = 244;

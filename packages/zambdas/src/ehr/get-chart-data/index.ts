@@ -162,6 +162,22 @@ export async function getChartData(
     );
   }
 
+  // AI chat
+  chartDataRequests.push(
+    createFindResourceRequest(
+      patient,
+      encounter,
+      'QuestionnaireResponse',
+      {
+        questionnaire: {
+          type: 'string',
+          value: '#aiInterviewQuestionnaire',
+        },
+      },
+      'encounter'
+    )
+  );
+
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
   let result: Bundle<FhirResource> | undefined;
