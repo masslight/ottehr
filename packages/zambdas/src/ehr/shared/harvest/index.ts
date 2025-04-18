@@ -123,6 +123,7 @@ interface ResponsiblePartyContact {
   firstName: string;
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  address: Address;
 
   number?: string;
 }
@@ -1968,6 +1969,21 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
 
+  const city = findAnswer('responsible-party-city');
+  const addressLine = findAnswer('responsible-party-address');
+  const line = addressLine ? [addressLine] : undefined;
+  const addressLine2 = findAnswer('responsible-party-address-2');
+  if (addressLine2) line?.push(addressLine2);
+  const state = findAnswer('responsible-party-state');
+  const postalCode = findAnswer('responsible-party-zip');
+
+  const guarantorAddress: Address = {
+    city,
+    line,
+    state,
+    postalCode,
+  };
+
   const contact: ResponsiblePartyContact = {
     birthSex: findAnswer('responsible-party-birth-sex') as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer('responsible-party-date-of-birth') ?? '',
@@ -1979,6 +1995,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
       | 'Parent'
       | 'Legal Guardian'
       | 'Other',
+    address: guarantorAddress,
     number: findAnswer('responsible-party-number'),
   };
 
@@ -2923,6 +2940,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     gender: mapBirthSexToGender(guarantor.birthSex),
     telecom,
     patient: { reference: `Patient/${patientId}` },
+    address: [guarantor.address],
     relationship: [
       {
         coding: [

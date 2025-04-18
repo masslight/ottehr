@@ -127,7 +127,7 @@ const PatientInformationPage: FC = () => {
       setInsurancePlans(uniquePlans);
     }
   });
-
+  console.log('accountData', JSON.stringify(accountData));
   const { patient, coverages, isFetching, defaultFormVals } = useMemo(() => {
     const patient = accountData?.patient;
     const coverages: { resource: Coverage; startingPriority: number }[] = [];

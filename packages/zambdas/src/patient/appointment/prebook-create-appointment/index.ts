@@ -197,7 +197,6 @@ export async function createAppointment(
 
   console.log('getting questionnaire ID to create blank questionnaire response');
   const currentQuestionnaire = await getCanonicalQuestionnaire(questionnaireUrl, oystehr);
-
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
   if (!patient.id && !verifiedPhoneNumber) {

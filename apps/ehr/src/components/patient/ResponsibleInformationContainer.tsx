@@ -1,13 +1,15 @@
 import dayjs from 'dayjs';
 import { FC, useEffect } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useFormContext, Controller } from 'react-hook-form';
 import { phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { PatientGuarantorFields, RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
 import { dataTestIds } from '../../constants/data-test-ids';
 import InputMask from '../InputMask';
-import { FormFields as AllFormFields } from '../../constants';
+import { FormFields as AllFormFields, STATE_OPTIONS } from '../../constants';
+import { Autocomplete, Box, TextField } from '@mui/material';
+import { isPostalCodeValid } from 'utils';
 
 const FormFields = AllFormFields.responsibleParty;
 const LocalDependentFields = [
@@ -16,12 +18,19 @@ const LocalDependentFields = [
   FormFields.birthDate.key,
   FormFields.birthSex.key,
   FormFields.phone.key,
+  FormFields.addressLine1.key,
+  FormFields.addressLine2.key,
+  FormFields.city.key,
+  FormFields.state.key,
+  FormFields.zip.key,
 ];
 export const ResponsibleInformationContainer: FC = () => {
   const { control, watch, setValue } = useFormContext();
 
   const patientData = watch(PatientGuarantorFields);
   const localData = watch(LocalDependentFields);
+  console.log('patientData', JSON.stringify(patientData));
+  console.log('localData', JSON.stringify(localData));
   const selfSelected = watch(FormFields.relationship.key) === 'Self';
 
   useEffect(() => {
@@ -33,6 +42,9 @@ export const ResponsibleInformationContainer: FC = () => {
       }
     }
   }, [localData, patientData, selfSelected, setValue]);
+
+  console.log('FormFields.addressLine1', FormFields.addressLine1);
+  console.log('FormFields.lastName', FormFields.lastName);
 
   return (
     <Section title="Responsible party information" dataTestId={dataTestIds.responsiblePartyInformationContainer.id}>
@@ -124,6 +136,74 @@ export const ResponsibleInformationContainer: FC = () => {
           }}
           disabled={selfSelected}
         />
+      </Row>
+      <Row label={FormFields.addressLine1.label} required inputId={FormFields.addressLine1.key}>
+        <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.addressLine1}
+          name={FormFields.addressLine1.key}
+          control={control}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+          id={FormFields.addressLine1.key}
+          disabled={selfSelected}
+        />
+      </Row>
+      <Row label={FormFields.addressLine2.label} inputId={FormFields.addressLine2.key}>
+        <FormTextField
+          data-testid={dataTestIds.responsiblePartyInformationContainer.addressLine2}
+          name={FormFields.addressLine2.key}
+          control={control}
+          id={FormFields.addressLine2.key}
+          disabled={selfSelected}
+        />
+      </Row>
+      <Row label="City, State, ZIP" required>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <FormTextField
+            name={FormFields.city.key}
+            control={control}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+            }}
+            data-testid={dataTestIds.responsiblePartyInformationContainer.city}
+          />
+          <Controller
+            name={FormFields.state.key}
+            control={control}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+            }}
+            render={({ field: { value }, fieldState: { error } }) => {
+              return (
+                <Autocomplete
+                  options={STATE_OPTIONS.map((option) => option.value)}
+                  value={value ?? ''}
+                  data-testid={dataTestIds.responsiblePartyInformationContainer.state}
+                  onChange={(_, newValue) => {
+                    if (newValue) {
+                      setValue(FormFields.state.key, newValue);
+                    } else {
+                      setValue(FormFields.state.key, '');
+                    }
+                  }}
+                  disableClearable
+                  fullWidth
+                  renderInput={(params) => (
+                    <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
+                  )}
+                />
+              );
+            }}
+          />
+          <FormTextField
+            name={FormFields.zip.key}
+            control={control}
+            rules={{
+              required: REQUIRED_FIELD_ERROR_MESSAGE,
+              validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
+            }}
+            data-testid={dataTestIds.responsiblePartyInformationContainer.zip}
+          />
+        </Box>
       </Row>
     </Section>
   );

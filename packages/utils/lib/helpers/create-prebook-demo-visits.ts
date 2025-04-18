@@ -161,6 +161,7 @@ export const createSamplePrebookAppointments = async ({
           selectedLocationId
         );
 
+        console.log('createAppointmentZambdaId', createAppointmentZambdaId);
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',
           headers: {
@@ -181,6 +182,7 @@ export const createSamplePrebookAppointments = async ({
         if ((appointmentData as any)?.output) {
           appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
         }
+        console.log('wut', JSON.stringify(appointmentData.resources.questionnaire));
 
         if (!appointmentData) {
           console.error('Error: appointment data is null');
@@ -292,6 +294,7 @@ const processPrebookPaperwork = async (
           getConsentStepAnswers({}),
         ];
 
+    // console.log('seriously wtf', JSON.stringify(paperworkPatches));
     // Execute the paperwork patches
     await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
 
@@ -464,7 +467,7 @@ export async function makeSequentialPaperworkPatches(
 ): Promise<void> {
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
-
+    console.log('answer', answer);
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {
