@@ -4,7 +4,7 @@ import { FC, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import noop from 'lodash/noop';
 import { BoldPurpleInputLabel } from 'ui-components';
-import { BookableItem, GetScheduleResponse, ScheduleType, ServiceMode, VisitType } from 'utils';
+import { BookableItem, CreateSlotParams, GetScheduleResponse, ScheduleType, ServiceMode, VisitType } from 'utils';
 import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
   BOOKING_SCHEDULE_TYPE_QUERY_PARAM,
@@ -160,13 +160,35 @@ const PrebookVisit: FC = () => {
     setLocation(newValue);
   };
 
+  /*
+    export interface CreateSlotParams {
+      scheduleId: string;
+      startISO: string;
+      serviceModality: ServiceMode;
+      lengthInMinutes?: number;
+      lengthInHours?: number;
+      status?: Slot['status'];
+      walkin?: boolean;
+    }
+*/
+
   const handleSlotSelection = (slot?: Slot): void => {
     console.log('slot selection', slot);
-    if (slot && slugToFetch) {
+    if (slot) {
+      const createSlotInput: CreateSlotParams = {
+        scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
+        startISO: slot.start,
+        serviceModality: serviceMode,
+        status: slot.status,
+        walkin: false,
+      };
+      console.log('createSlotInput', createSlotInput);
+    }
+    /*if (slot && slugToFetch) {
       navigate(`/book/${slugToFetch}/${VisitType.PreBook}/${serviceMode}/patients`, {
         state: { slot, scheduleType },
       });
-    }
+    }*/
   };
 
   const title = getLocationTitleText({ selectedLocation, bookingOn, slotData, isSlotsLoading });

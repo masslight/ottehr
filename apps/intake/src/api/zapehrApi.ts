@@ -1,4 +1,4 @@
-import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   Closure,
@@ -25,6 +25,9 @@ import {
   isApiError,
   isoStringFromMDYString,
   WalkinAvailabilityCheckResult,
+  CreateSlotParams,
+  GetSlotDetailsParams,
+  GetSlotDetailsResponse,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -58,6 +61,8 @@ const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START
 const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
 const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID;
 const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
+const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
+const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 
 export interface AvailableLocationInformation {
   id: string | undefined;
@@ -417,6 +422,26 @@ class API {
   ): Promise<WalkinAvailabilityCheckResult> {
     try {
       const response = await zambdaClient.executePublic(GET_WALKIN_AVAILABILITY_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async createSlot(input: CreateSlotParams, zambdaClient: ZambdaClient): Promise<Slot> {
+    try {
+      const response = await zambdaClient.executePublic(CREATE_SLOT_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async getSlotDetails(input: GetSlotDetailsParams, zambdaClient: ZambdaClient): Promise<GetSlotDetailsResponse> {
+    try {
+      const response = await zambdaClient.executePublic(GET_SLOT_DETAILS_ZAMBDA_ID, input);
       const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
