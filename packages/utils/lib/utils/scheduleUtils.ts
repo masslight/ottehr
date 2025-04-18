@@ -1,40 +1,40 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
 import {
   Appointment,
+  Encounter,
+  FhirResource,
+  HealthcareService,
   Location,
+  Practitioner,
+  Resource,
   Schedule,
   Slot,
-  Encounter,
-  Practitioner,
-  HealthcareService,
-  Resource,
-  FhirResource,
   LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BookableScheduleData,
   Closure,
   ClosureType,
   getDateTimeFromDateAndTime,
+  getFullName,
   getPatchOperationForNewMetaTag,
   OVERRIDE_DATE_FORMAT,
-  VisitType,
-  scheduleStrategyForHealthcareService,
-  ScheduleStrategy,
-  SCHEDULE_NUM_DAYS,
   SCHEDULE_EXTENSION_URL,
-  BookableScheduleData,
+  SCHEDULE_NUM_DAYS,
   ScheduleAndOwner,
-  getFullName,
-  TIMEZONES,
-  ScheduleType,
   ScheduleOwnerFhirResource,
+  ScheduleStrategy,
+  scheduleStrategyForHealthcareService,
+  ScheduleType,
   Timezone,
   SlotServiceCategory,
   ServiceMode,
   codingContainedInList,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   HOURS_OF_OPERATION_FORMAT,
+  TIMEZONES,
+  VisitType,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -235,7 +235,9 @@ export function getScheduleDetails(
   return { schedule, scheduleOverrides, closures };
 }
 
-export function getTimezone(schedule: Location | Practitioner | HealthcareService | Schedule): string {
+export function getTimezone(
+  schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
+): string {
   const timezone = schedule.extension?.find(
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;

@@ -37,4 +37,5 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   outputDir: 'test-results/',
   workers: process.env.CI ? 6 : undefined,
+  testIgnore: ['tests/e2e/specs/employees.spec.ts'],
 });

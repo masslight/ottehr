@@ -179,7 +179,7 @@ const locationIdsForAppointmentsSearch = async (
   return mapStatesToLocationIds([], virtualLocationsMap);
 };
 
-export const getAllPrefilteredFhirResourcesByCredentialingCriteria = async (
+export const getAllPartiallyPrefilteredFhirResources = async (
   oystehrm2m: Oystehr,
   oystehrCurrentUser: Oystehr,
   params: GetTelemedAppointmentsInput,
@@ -232,7 +232,7 @@ export const getAllVirtualLocationsMap = async (oystehr: Oystehr): Promise<Locat
       const locationId = location.id;
 
       if (state && locationId) {
-        virtualLocationsMap[state] = locationId;
+        virtualLocationsMap[state] = location;
         locations.push(location);
       }
     }

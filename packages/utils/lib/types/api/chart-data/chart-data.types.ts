@@ -54,6 +54,7 @@ export interface ChartDataFields {
   disposition?: DispositionDTO;
   episodeOfCare?: HospitalizationDTO[];
   diagnosis?: DiagnosisDTO[];
+  aiPotentialDiagnosis?: DiagnosisDTO[];
   patientInfoConfirmed?: BooleanValueDTO;
   addToVisitNote?: BooleanValueDTO;
   addendumNote?: FreeTextNoteDTO;
@@ -327,6 +328,7 @@ export interface DiagnosisDTO extends SaveableDTO {
   code: string;
   display: string;
   isPrimary: boolean;
+  addedViaLabOrder?: boolean;
 }
 
 export interface BirthHistoryDTO extends SaveableDTO {
