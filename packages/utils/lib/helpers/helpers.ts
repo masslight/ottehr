@@ -218,13 +218,17 @@ export const DEMO_VISIT_CITY = 'New York';
 export const DEMO_VISIT_STATE = 'NY';
 export const DEMO_VISIT_ZIP = '06001';
 export const DEMO_VISIT_RESPONSIBLE_RELATIONSHIP = 'Legal Guardian';
-export const DEMO_VISIT_RESPONSIBLE_FIRST_NAME = 'fwe';
+export const DEMO_VISIT_RESPONSIBLE_FIRST_NAME = 'fweeee';
 export const DEMO_VISIT_RESPONSIBLE_LAST_NAME = 'sf';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
-export const DEMO_VISIT_RESPONSIBLE_PHONE = '(233) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(244) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
+export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
+export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
+export const DEMO_VISIT_RESPONSIBLE_ZIP = '44101';
 export const DEMO_VISIT_PATIENT_ETHNICITY = 'Decline to Specify';
 export const DEMO_VISIT_PATIENT_RACE = 'Native Hawaiian or Other Pacific Islander';
 export const DEMO_VISIT_POINT_OF_DISCOVERY = 'Friend/Family';
@@ -414,7 +418,7 @@ export function getPatientDetailsStepAnswers({
 
 export function getResponsiblePartyStepAnswers({
   relationship = DEMO_VISIT_RESPONSIBLE_RELATIONSHIP,
-  firstName = DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
+  // firstName = DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
   lastName = DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   birthDate = {
     day: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
@@ -423,12 +427,20 @@ export function getResponsiblePartyStepAnswers({
   },
   birthSex = DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   phone = DEMO_VISIT_RESPONSIBLE_PHONE,
+  // address1 = DEMO_VISIT_RESPONSIBLE_ADDRESS1,
+  city = DEMO_VISIT_RESPONSIBLE_CITY,
+  state = DEMO_VISIT_RESPONSIBLE_STATE,
+  zip = DEMO_VISIT_RESPONSIBLE_ZIP,
 }: {
   firstName?: string;
   relationship?: string;
   birthDate?: { day: string; month: string; year: string };
   birthSex?: string;
   lastName?: string;
+  address1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
   phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -440,7 +452,7 @@ export function getResponsiblePartyStepAnswers({
       },
       {
         linkId: 'responsible-party-first-name',
-        answer: [{ valueString: firstName }],
+        answer: [{ valueString: 'UGHHHH' }],
       },
       {
         linkId: 'responsible-party-last-name',
@@ -457,6 +469,22 @@ export function getResponsiblePartyStepAnswers({
       {
         linkId: 'responsible-party-birth-sex',
         answer: [{ valueString: birthSex }],
+      },
+      {
+        linkId: 'responsible-party-address',
+        answer: [{ valueString: 'hardcoded address' }],
+      },
+      {
+        linkId: 'responsible-party-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'responsible-party-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'responsible-party-zip',
+        answer: [{ valueString: zip }],
       },
       {
         linkId: 'responsible-party-number',

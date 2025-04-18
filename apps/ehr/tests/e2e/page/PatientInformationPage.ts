@@ -20,6 +20,7 @@ export enum Field {
   DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
   DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTHDATE,
+  DEMO_VISIT_RESPONSIBLE_ADDRESS1,
   DEMO_VISIT_RESPONSIBLE_PHONE,
   DEMO_VISIT_PROVIDER_FIRST_NAME,
   DEMO_VISIT_PROVIDER_LAST_NAME,
@@ -47,6 +48,7 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.DEMO_VISIT_RESPONSIBLE_FIRST_NAME, dataTestIds.responsiblePartyInformationContainer.firstName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_LAST_NAME, dataTestIds.responsiblePartyInformationContainer.lastName)
   .set(Field.DEMO_VISIT_RESPONSIBLE_BIRTHDATE, dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
+  .set(Field.DEMO_VISIT_RESPONSIBLE_ADDRESS1, dataTestIds.responsiblePartyInformationContainer.addressLine1)
   .set(Field.DEMO_VISIT_RESPONSIBLE_PHONE, dataTestIds.responsiblePartyInformationContainer.phoneInput)
   .set(Field.DEMO_VISIT_POINT_OF_DISCOVERY, dataTestIds.patientDetailsContainer.sendMarketingMessages)
   .set(Field.DEMO_VISIT_PREFERRED_LANGUAGE, dataTestIds.patientDetailsContainer.preferredLanguage)
@@ -500,6 +502,74 @@ export class PatientInformationPage {
     for (let i = 0; i <= 20; i++) {
       await this.#page.keyboard.press('Backspace');
     }
+  }
+
+  async enterStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
+      .locator('input')
+      .fill(line1);
+  }
+
+  async verifyStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1).locator('input')
+    ).toHaveValue(line1);
+  }
+
+  async clearStreetLine1FromResponsibleContainer(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
+      .locator('input')
+      .click();
+    for (let i = 0; i <= 20; i++) {
+      await this.#page.keyboard.press('Backspace');
+    }
+  }
+
+  async enterResponsiblePartyCity(city: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input').fill(city);
+  }
+
+  async verifyResponsiblePartyCity(city: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input')
+    ).toHaveValue(city);
+  }
+
+  async clearResponsiblePartyCity(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input').clear();
+  }
+
+  async selectResponsiblePartyState(state: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.state).click();
+    await this.#page.getByText(state, { exact: true }).click();
+  }
+
+  async verifyResponsiblePartyState(state: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.state).locator('input')
+    ).toHaveValue(state);
+  }
+
+  async enterResponsiblePartyZip(zip: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input').fill(zip);
+  }
+
+  async verifyResponsiblePartyZip(zip: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input')
+    ).toHaveValue(zip);
+  }
+
+  async verifyResponsiblePartyValidationErrorZipField(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('p:text("Must be 5 digits")')
+    ).toBeVisible();
+  }
+
+  async clearResponsiblePartyZip(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input').clear();
   }
 
   async verifyValidationErrorInvalidPhoneFromResponsibleContainer(): Promise<void> {
