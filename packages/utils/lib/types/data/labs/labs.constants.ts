@@ -1,4 +1,4 @@
-import { Pagination } from './labs.types';
+import { Pagination } from '..';
 
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
@@ -35,6 +35,7 @@ export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
 export const OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API = `${OYSTEHR_LAB_API_BASE}/orderableItem`;
 
 export const DEFAULT_LABS_ITEMS_PER_PAGE = 10;
+export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 10;
 
 export const EMPTY_PAGINATION: Pagination = {
   currentPageIndex: 0,

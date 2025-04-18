@@ -19,6 +19,9 @@ import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
+import { CreateRadiologyOrder } from '../../radiology/pages/CreateRadiologyOrder';
+import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersListPage';
+import { RadiologyOrderDetailsPage } from '../../radiology/pages/RadiologyOrderDetails';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -41,6 +44,9 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
+  RADIOLOGY_ORDER = 'radiology',
+  RADIOLOGY_ORDER_CREATE = `radiology/create`,
+  RADIOLOGY_ORDER_DETAILS = `radiology/:serviceRequestID/order-details`,
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -155,6 +161,29 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
     text: 'Order Details',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <RadiologyOrdersListPage /> : null,
+    text: 'Radiology',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER_CREATE]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <CreateRadiologyOrder /> : null,
+    text: 'Radiology',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER_DETAILS]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <RadiologyOrderDetailsPage /> : null,
+    text: 'Radiology',
     iconKey: 'External Labs',
   },
   [ROUTER_PATH.ERX]: {
