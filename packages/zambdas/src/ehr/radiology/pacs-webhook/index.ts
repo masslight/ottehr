@@ -76,6 +76,7 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
   }
 
   if (resource.resourceType === 'ServiceRequest') {
+    console.log('processing ServiceRequest');
     const accessionNumber = resource.identifier?.find((i) => {
       return (
         i.type?.coding?.[0].system === HL7_IDENTIFIER_TYPE_CODE_SYSTEM &&
@@ -114,6 +115,7 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
     }
 
     const srToUpdate = srResults[0];
+    console.log('Updating our ServiceRequest with ID: ', srToUpdate.id);
 
     if (srToUpdate.id == null) {
       throw new Error('ServiceRequest ID is required');
@@ -148,12 +150,14 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
       }
     }
 
-    await oystehr.fhir.patch<ServiceRequest>({
+    const patchResponse = await oystehr.fhir.patch<ServiceRequest>({
       resourceType: 'ServiceRequest',
       id: srToUpdate.id,
       operations,
     });
+    console.log('Patch succeeded: ', patchResponse);
   } else if (resource.resourceType === 'DiagnosticReport') {
+    console.log('processing DiagnosticReport');
     // We get a DR from PACS
     // Look up DR in our system, how:
     // Fetch the basedOn ServiceRequest, find SR in our system with same accession number, include DRs, now we have our DR?
@@ -179,6 +183,7 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
     } else if (drSearchResults.length === 1) {
       // Update case
       const drToUpdate = drSearchResults[0];
+      console.log('Updating our DiagnosticReport with ID: ', drToUpdate.id);
 
       const operations: Operation[] = [
         {
@@ -200,6 +205,8 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
           value: DateTime.now().toISO(),
         });
       }
+
+      // Todo send patch
     } else if (drSearchResults.length === 0) {
       // Create case
       // Now look up the SR via DR.basedOn, so we can create our own DR with our own SR basedOn
@@ -218,9 +225,9 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
       const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
       await createOurDiagnosticReport(ourServiceRequest, resource, oystehr);
     }
+  } else {
+    throw new Error('Unexpected resource type in performEffect');
   }
-
-  throw new Error('Unexpected resource type in performEffect');
 };
 
 const getAdvaPacsServiceRequestByID = async (

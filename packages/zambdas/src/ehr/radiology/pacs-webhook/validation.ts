@@ -13,10 +13,14 @@ const validateBody = async (input: ZambdaInput): Promise<ValidatedInput> => {
 
   if (resourceType === 'ServiceRequest') {
     // TODO expand to cover ensuring that expected fields are present and have expected values of ServiceRequest
-    return maybeFHIRResource;
+    return {
+      resource: maybeFHIRResource,
+    };
   } else if (resourceType === 'DiagnosticReport') {
     // TODO expand to cover ensuring that expected fields are present and have expected values of DiagnosticReport
-    return maybeFHIRResource;
+    return {
+      resource: maybeFHIRResource,
+    };
   }
 
   throw new Error('Invalid webhook input');
@@ -27,8 +31,17 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     throw new Error('Secrets are required');
   }
 
-  const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, ADVAPACS_WEBHOOK_SECRET } =
-    secrets;
+  const {
+    AUTH0_ENDPOINT,
+    AUTH0_CLIENT,
+    AUTH0_SECRET,
+    AUTH0_AUDIENCE,
+    FHIR_API,
+    PROJECT_API,
+    ADVAPACS_CLIENT_ID,
+    ADVAPACS_CLIENT_SECRET,
+    ADVAPACS_WEBHOOK_SECRET,
+  } = secrets;
   if (
     !AUTH0_ENDPOINT ||
     !AUTH0_CLIENT ||
@@ -36,6 +49,8 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     !AUTH0_AUDIENCE ||
     !FHIR_API ||
     !PROJECT_API ||
+    !ADVAPACS_CLIENT_ID ||
+    !ADVAPACS_CLIENT_SECRET ||
     !ADVAPACS_WEBHOOK_SECRET
   ) {
     throw new Error('Missing required secrets');
@@ -47,6 +62,8 @@ export const validateSecrets = (secrets: Secrets | null): Secrets => {
     AUTH0_AUDIENCE,
     FHIR_API,
     PROJECT_API,
+    ADVAPACS_CLIENT_ID,
+    ADVAPACS_CLIENT_SECRET,
     ADVAPACS_WEBHOOK_SECRET,
   };
 };
