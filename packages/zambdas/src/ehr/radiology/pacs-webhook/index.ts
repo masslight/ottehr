@@ -158,11 +158,6 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
     console.log('Patch succeeded: ', patchResponse);
   } else if (resource.resourceType === 'DiagnosticReport') {
     console.log('processing DiagnosticReport');
-    // We get a DR from PACS
-    // Look up DR in our system, how:
-    // Fetch the basedOn ServiceRequest, find SR in our system with same accession number, include DRs, now we have our DR?
-    // OR when we first create DR, we put their ID in our system as an identifier. That is better let's do that.
-
     // First we want to figure out if we need to create or update, so we search for the DR in our FHIR store
     const drSearchResults = (
       await oystehr.fhir.search<DiagnosticReport>({
@@ -183,6 +178,10 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
     } else if (drSearchResults.length === 1) {
       // Update case
       const drToUpdate = drSearchResults[0];
+      if (drToUpdate.id == null) {
+        throw new Error('DiagnosticReport ID is required');
+      }
+
       console.log('Updating our DiagnosticReport with ID: ', drToUpdate.id);
 
       const operations: Operation[] = [
@@ -206,7 +205,14 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
         });
       }
 
-      // Todo send patch
+      console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(operations, null, 2));
+
+      const patchResult = await oystehr.fhir.patch<DiagnosticReport>({
+        resourceType: 'DiagnosticReport',
+        id: drToUpdate.id,
+        operations,
+      });
+      console.log('DiagnosticReport Patch succeeded: ', JSON.stringify(patchResult, null, 2));
     } else if (drSearchResults.length === 0) {
       console.log('Creating our DiagnosticReport');
       // Now look up the SR via DR.basedOn, so we can create our own DR with our own SR basedOn
