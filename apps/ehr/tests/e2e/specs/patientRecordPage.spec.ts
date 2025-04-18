@@ -1,9 +1,34 @@
-import { BrowserContext, Page, test } from '@playwright/test';
+import { BrowserContext, expect, Page, test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
   PATIENT_GENDER,
+  PATIENT_INSURANCE_MEMBER_ID,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
+  PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
+  PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
+  PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
+  PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
+  PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
+  PATIENT_INSURANCE_POLICY_HOLDER_CITY,
+  PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
+  PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
+  PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
+  PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
+  PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
+  PATIENT_INSURANCE_POLICY_HOLDER_STATE,
+  PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
   PATIENT_LAST_NAME,
   PATIENT_PHONE_NUMBER,
   ResourceHandler,
@@ -37,13 +62,21 @@ import {
   DEMO_VISIT_STREET_ADDRESS_OPTIONAL,
   DEMO_VISIT_ZIP,
   unpackFhirResponse,
+  INSURANCE_PLAN_PAYER_META_TAG_CODE,
+  getContactInformationAnswers,
+  isoToDateObject,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionInsuranceAnswers,
+  getResponsiblePartyStepAnswers,
+  getConsentStepAnswers,
+  getPrimaryCarePhysicianStepAnswers,
 } from 'utils';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { openAddPatientPage } from '../page/AddPatientPage';
 import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
 
-const resourceHandler = new ResourceHandler();
 const NEW_PATIENT_LAST_NAME = 'Test_lastname';
 const NEW_PATIENT_FIRST_NAME = 'Test_firstname';
 const NEW_PATIENT_MIDDLE_NAME = 'Test_middle';
@@ -83,6 +116,8 @@ const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
 test.describe('Patient Record Page non-mutating tests', () => {
+  const resourceHandler = new ResourceHandler();
+
   test.beforeAll(async () => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
@@ -101,6 +136,70 @@ test.describe('Patient Record Page non-mutating tests', () => {
 });
 
 test.describe('Patient Record Page mutating tests', () => {
+  let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined;
+  let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined;
+
+  test.beforeAll(async () => {
+    const oystehr = await ResourceHandler.getOystehr();
+    const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
+      id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
+      answerSource: {
+        resourceType: 'InsurancePlan',
+        query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
+      },
+    });
+    const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
+    insuranceCarrier1 = insuranceCarriersOptions.at(0);
+    insuranceCarrier2 = insuranceCarriersOptions.at(1);
+  });
+
+  const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
+    return [
+      getContactInformationAnswers({
+        firstName: patientInfo.patient.firstName,
+        lastName: patientInfo.patient.lastName,
+        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
+        email: patientInfo.patient.email,
+        phoneNumber: patientInfo.patient.phoneNumber,
+        birthSex: patientInfo.patient.sex,
+      }),
+      getPatientDetailsStepAnswers({}),
+      getPaymentOptionInsuranceAnswers({
+        insuranceCarrier: insuranceCarrier1!,
+        insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
+        insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
+        insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
+        insurancePolicyHolderMiddleName: PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
+        insurancePolicyHolderDateOfBirth: PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
+        insurancePolicyHolderBirthSex: PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
+        insurancePolicyHolderAddressAsPatient: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
+        insurancePolicyHolderAddress: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
+        insurancePolicyHolderAddressAdditionalLine: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
+        insurancePolicyHolderCity: PATIENT_INSURANCE_POLICY_HOLDER_CITY,
+        insurancePolicyHolderState: PATIENT_INSURANCE_POLICY_HOLDER_STATE,
+        insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
+        insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
+        insuranceCarrier2: insuranceCarrier2!,
+        insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID,
+        insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
+        insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
+        insurancePolicyHolderMiddleName2: PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
+        insurancePolicyHolderDateOfBirth2: PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
+        insurancePolicyHolderBirthSex2: PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
+        insurancePolicyHolderAddressAsPatient2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
+        insurancePolicyHolderAddress2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
+        insurancePolicyHolderAddressAdditionalLine2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
+        insurancePolicyHolderCity2: PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
+        insurancePolicyHolderState2: PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
+        insurancePolicyHolderZip2: PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
+        insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
+      }),
+      getResponsiblePartyStepAnswers({}),
+      getConsentStepAnswers({}),
+      getPrimaryCarePhysicianStepAnswers({}),
+    ];
+  });
+
   test.beforeEach(async () => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
@@ -448,6 +547,7 @@ test.describe('Patient Record Page mutating tests', () => {
 });
 
 test.describe('Patient Record Page tests with zero patient data filled in', () => {
+  const resourceHandler = new ResourceHandler();
   let appointmentIds: string[] = [];
   let context: BrowserContext;
   let page: Page;
