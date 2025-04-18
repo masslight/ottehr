@@ -22,6 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { DateTime } from 'luxon';
 import { usePatientStore } from '../state/patient.store';
 import { styled } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 
 const FileAttachmentHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -151,6 +152,18 @@ const PatientDocumentsExplorerPage: FC = () => {
       }
 
       const fileName = selectedFile.name;
+
+      const validFileNamePattern = /^[a-zA-Z0-9+!\-_'()\\.@$]+$/;
+      if (!validFileNamePattern.test(fileName)) {
+        enqueueSnackbar(
+          "Invalid file name. Spaces are not allowed. Only letters, numbers, and these characters are allowed: + ! - _ ' ( ) . @ $",
+          {
+            variant: 'error',
+          }
+        );
+        event.target.value = '';
+        return;
+      }
 
       const folderId = selectedFolder?.id;
       if (!folderId) {

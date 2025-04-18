@@ -4,6 +4,7 @@ import { Alert, Snackbar, Typography, Box } from '@mui/material';
 import { ConfirmationDialog, IntakeThemeContext, PageForm } from 'ui-components';
 import { InvitedParticipantInfo } from 'utils';
 import { useCancelInviteMutation } from '../waiting-room';
+import { dataTestIds } from '../../../../src/helpers/data-test-ids';
 
 type InvitedParticipantListProps = {
   items: InvitedParticipantInfo[];
@@ -51,12 +52,13 @@ export const InvitedParticipantList: FC<InvitedParticipantListProps> = ({ items,
             maxWidth: '100%',
           }}
         >
-          <Typography variant="subtitle1" color="primary.main">
+          <Typography variant="subtitle1" color="primary.main" data-testid={dataTestIds.wrInviteeName}>
             {name}
           </Typography>
           <Typography
             variant="subtitle2"
             color="primary.main"
+            data-testid={dataTestIds.wrInviteeContact}
             sx={{
               fontWeight: 'normal',
               maxWidth: '100%',

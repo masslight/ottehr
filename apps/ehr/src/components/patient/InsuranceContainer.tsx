@@ -231,7 +231,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             required
             dataTestId={dataTestIds.insuranceContainer.policyHoldersDateOfBirth}
           >
-            <DatePicker name={FormFields.birthDate.key} control={control} required={true} disabled={selfSelected} />
+            <DatePicker
+              name={FormFields.birthDate.key}
+              control={control}
+              rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
+              disabled={selfSelected}
+            />
           </Row>
           <Row label="Policy holder's sex" required dataTestId={dataTestIds.insuranceContainer.policyHoldersSex}>
             <FormSelect

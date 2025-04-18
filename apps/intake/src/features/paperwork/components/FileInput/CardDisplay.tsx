@@ -1,6 +1,7 @@
 import { FC, useContext } from 'react';
 import { Box, Button, Skeleton, useTheme } from '@mui/material';
 import { IntakeThemeContext } from 'ui-components';
+import { dataTestIds } from '../../../../helpers/data-test-ids';
 
 interface CardDisplayProps {
   name: string;
@@ -45,6 +46,7 @@ const CardDisplay: FC<CardDisplayProps> = ({ name, previewUrl, isLoading, onClea
           mt: 2,
           '&:hover': { backgroundColor: 'transparent' },
         }}
+        data-testid={isLoading ? dataTestIds.fileCardUploadingButton : dataTestIds.fileCardClearButton}
       >
         {isLoading ? 'Uploading...' : 'Clear'}
       </Button>
