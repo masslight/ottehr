@@ -1,9 +1,10 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { phone } from 'phone';
 import { OTTEHR_MODULE } from '../fhir';
 import { PatchPaperworkParameters } from '../types';
-import { zipRegex } from '../validation';
+import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -64,7 +65,12 @@ export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => 
   }
   const plusOneRegex = /^\+1\d{10}$/;
   const tenDigitRegex = /^\d{10}$/;
-  return plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber);
+  return (
+    plusOneRegex.test(phoneNumber) ||
+    tenDigitRegex.test(phoneNumber) ||
+    phoneRegex.test(phoneNumber) ||
+    phone(phoneNumber).isValid
+  );
 };
 
 export function formatPhoneNumber(phoneNumber: string | undefined): string | undefined {
