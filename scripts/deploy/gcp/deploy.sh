@@ -13,7 +13,7 @@ fi
 echo $first_setup
 
 if $first_setup; then
-    sh scripts/ottehr-setup.sh $project_id $access_token $provider_email $environment
+    ./scripts/ottehr-setup.sh $project_id $access_token $provider_email $environment
 else
     npm install
 fi
@@ -41,5 +41,5 @@ popd
 
 pushd scripts/deploy/gcp
 terraform init
-terraform apply
+terraform apply -auto-approve
 popd
