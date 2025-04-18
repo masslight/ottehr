@@ -4,7 +4,6 @@ import { Appointment, ContactPoint, Encounter, Patient, RelatedPerson } from 'fh
 import { SignJWT } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import {
-  FHIR_EXTENSION,
   SecretsKeys,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
@@ -128,8 +127,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const inviteUrl = `${websiteUrl}/invited-waiting-room?appointment_id=${appointmentId}&token=${jwt}`;
 
-    const chosenName = patientResource.extension?.find((ext) => ext.url === FHIR_EXTENSION.Patient.chosenName.url)
-      ?.valueString;
+    const chosenName = patientResource.name?.find((name) => name.use === 'nickname')?.given?.[0];
     const patientChosenName = chosenName || patientResource.name?.[0].given?.[0] || 'Patient';
 
     if (emailAddress) {

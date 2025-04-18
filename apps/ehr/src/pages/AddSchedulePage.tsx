@@ -7,7 +7,7 @@ import { ScheduleStrategyCoding } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { getResource } from './Schedule';
+import { getResource } from './SchedulePage';
 
 export default function AddSchedulePage(): ReactElement {
   // Define variables to interact w database and navigate to other pages
@@ -59,7 +59,7 @@ export default function AddSchedulePage(): ReactElement {
     }
     const resource = await oystehr.fhir.create<Location | Practitioner | HealthcareService>(resourceData);
     setLoading(false);
-    navigate(`/schedule/${scheduleType}/${resource.id}`);
+    navigate(`/schedule/new/${scheduleType}/${resource.id}`);
   }
 
   return (

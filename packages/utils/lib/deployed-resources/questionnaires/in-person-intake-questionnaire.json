@@ -3,8 +3,8 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson",
-    "version": "1.0.5",
-    "name": "in-person_pre-visit_paperwork (please_do_not_delete)",
+    "version": "1.0.6",
+    "name": "in-person_pre-visit_paperwork",
     "title": "in-person pre-visit paperwork",
     "status": "active",
     "item": [
@@ -713,9 +713,9 @@
             ]
           },
           {
-            "linkId": "card-payment-data",
-            "type": "group",
-            "readOnly": true,
+            "linkId": "self-pay-alert-text",
+            "text": "By choosing to proceed with self-pay without insurance, you agree to pay $100 at the time of service.",
+            "type": "display",
             "enableWhen": [
               {
                 "question": "payment-option",
@@ -725,65 +725,8 @@
             ],
             "extension": [
               {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-question",
-                    "valueString": "payment-option"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-operator",
-                    "valueString": "="
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/require-when-answer",
-                    "valueString": "I will pay without insurance"
-                  }
-                ]
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-question",
-                    "valueString": "payment-option"
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-operator",
-                    "valueString": "!="
-                  },
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/filter-when-answer",
-                    "valueString": "I will pay without insurance"
-                  }
-                ]
-              },
-              {
-                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/group-type",
-                "valueString": "credit-card-collection"
-              }
-            ],
-            "item": [
-              {
-                "linkId": "credit-card-details-text",
-                "text": "Credit card details",
-                "type": "display",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/text-type",
-                    "valueString": "h3"
-                  }
-                ]
-              },
-              {
-                "linkId": "valid-card-on-file",
-                "type": "boolean",
-                "extension": [
-                  {
-                    "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
-                    "valueString": "Payment Validation"
-                  }
-                ]
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "Call Out"
               }
             ]
           },
@@ -2432,6 +2375,23 @@
         ]
       },
       {
+        "linkId": "card-payment-page",
+        "type": "group",
+        "text": "Credit card details",
+        "item": [
+          {
+            "linkId": "valid-card-on-file",
+            "type": "boolean",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "Payment Validation"
+              }
+            ]
+          }
+        ]
+      },
+      {
         "linkId": "responsible-party-page",
         "text": "Responsible party information",
         "type": "group",
@@ -2678,7 +2638,7 @@
         "item": [
           {
             "linkId": "hipaa-acknowledgement",
-            "text": "I have reviewed and accept [HIPAA Acknowledgement](/hippa_notice_template.pdf)",
+            "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
             "type": "boolean",
             "required": true
           },

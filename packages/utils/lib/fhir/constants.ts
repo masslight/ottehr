@@ -1,4 +1,4 @@
-import { Account, Identifier } from 'fhir/r4b';
+import { Account, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -32,6 +32,7 @@ export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM_TAX = 'http://terminology.hl7.org/CodeSystem/v2-0203';
 export const FHIR_IDENTIFIER_CODE_TAX_EMPLOYER = 'NE';
 export const FHIR_IDENTIFIER_CODE_TAX_SS = 'SS';
+export const FHIR_AI_CHAT_CONSENT_CATEGORY_CODE = 'ai-chat';
 
 export const FHIR_EXTENSION = {
   Appointment: {
@@ -66,9 +67,6 @@ export const FHIR_EXTENSION = {
     },
     weightLastUpdated: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/weight-last-updated`,
-    },
-    chosenName: {
-      url: `${PRIVATE_EXTENSION_BASE_URL}/chosen-name`,
     },
   },
   Paperwork: {
@@ -246,6 +244,23 @@ export enum ScheduleStrategy {
   poolsAll = 'pools-all',
 }
 
+export interface ScheduleAndOwner {
+  schedule: Schedule;
+  owner: Location | Practitioner | HealthcareService;
+}
+
+interface BaseScheduleResponse {
+  owner: HealthcareService | Location | Practitioner;
+  scheduleList: ScheduleAndOwner[];
+}
+interface ScheduleMetaData {
+  type: 'location' | 'provider' | 'group';
+  strategy?: ScheduleStrategy;
+}
+export interface BookableScheduleData extends BaseScheduleResponse {
+  metadata: ScheduleMetaData;
+}
+
 export const ScheduleStrategyCoding = {
   owns: {
     system: SCHEDULE_STRATEGY_SYSTEM,
@@ -415,3 +430,5 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
   seriousFailure: '8',
   majorFailure: '12',
 };
+
+export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';

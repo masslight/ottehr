@@ -1,8 +1,9 @@
-import { Address, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   Closure,
   CreateAppointmentInputParams,
+  GetAppointmentDetailsResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
@@ -11,11 +12,13 @@ import {
   HandleAnswerInput,
   PatchPaperworkParameters,
   PatientInfo,
+  PersistConsentInput,
   PresignUploadUrlResponse,
   ScheduleType,
   StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
+  UpdateAppointmentParameters,
   VisitType,
   chooseJson,
   isApiError,
@@ -25,7 +28,6 @@ import {
   CancelAppointmentParameters,
   GetAppointmentParameters,
   GetPaperworkParameters,
-  UpdateAppointmentParameters,
   UpdatePaperworkParameters,
 } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
@@ -52,6 +54,7 @@ const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAM
 const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
 const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START_ZAMBDA_ID;
 const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
+const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID;
 
 export interface AvailableLocationInformation {
   id: string | undefined;
@@ -72,11 +75,6 @@ export interface AppointmentBasicInfo {
   location: AvailableLocationInformation;
   visitType: string;
   status?: string;
-}
-interface GetAppointmentDetailsResponse {
-  appointment: AppointmentBasicInfo;
-  availableSlots: string[];
-  displayTomorrowSlotsAtHour: number;
 }
 
 export interface CreateAppointmentResponse {
@@ -433,6 +431,19 @@ class API {
       const response = await zambdaClient.execute(AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID, input);
       const jsonToUse = chooseJson(response);
       return jsonToUse as QuestionnaireResponse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async aIInterviewPersistConsent(input: PersistConsentInput, zambdaClient: ZambdaClient): Promise<Consent> {
+    try {
+      if (AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
+        throw new Error('AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID environment variable is missing');
+      }
+      const response = await zambdaClient.execute(AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse as Consent;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
     }

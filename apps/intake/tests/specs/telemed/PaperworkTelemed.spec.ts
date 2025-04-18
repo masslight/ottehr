@@ -26,6 +26,7 @@ let insuranceData: Awaited<ReturnType<Paperwork['fillInsuranceAllFieldsWithoutCa
 let secondaryInsuranceData: Awaited<ReturnType<Paperwork['fillSecondaryInsuranceAllFieldsWithoutCards']>>;
 let responsiblePartyData: Awaited<ReturnType<Paperwork['fillResponsiblePartyDataNotSelf']>>;
 let consentFormsData: Awaited<ReturnType<Paperwork['fillConsentForms']>>;
+let inviteeData: Awaited<ReturnType<PaperworkTelemed['fillInviteParticipant']>>;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
@@ -875,7 +876,7 @@ test.describe('Consent forms - Check and fill all fields', () => {
     );
   });
   test('PCF-4 Consent Forms - Check links are correct', async () => {
-    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hippa_notice_template.pdf');
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
     expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
       '/consent_to_treat_template.pdf'
     );
@@ -897,5 +898,101 @@ test.describe('Consent forms - Check and fill all fields', () => {
     await expect(locator.signature).toHaveValue(consentFormsData.signature);
     await expect(locator.consentFullName).toHaveValue(consentFormsData.consentFullName);
     await expect(locator.consentSignerRelationship).toHaveValue(consentFormsData.relationshipConsentForms);
+  });
+});
+test.describe('Invite participant', () => {
+  test.describe.configure({ mode: 'serial' });
+  test('PIP-1 Open invite screen', async () => {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/invite-participant`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+  });
+  test('PIP-2 Invite participant - Check patient name is displayed', async () => {
+    await paperwork.checkPatientNameIsDisplayed(
+      bookingData.patientBasicInfo.firstName,
+      bookingData.patientBasicInfo.lastName
+    );
+  });
+  test('PIP-3 Invite participant - Check required fields', async () => {
+    await paperwork.checkRequiredFields(
+      '"Is anyone joining this visit from another device?"',
+      'Would you like someone to join this call?',
+      false
+    );
+  });
+  test('PIP-4 Invite participant - Select "No" and click Continue', async () => {
+    await paperworkTelemed.fillAndCheckNoInviteParticipant();
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+  });
+  test('PIP-5 Invite participant - Select "Yes" and check required fields', async () => {
+    await locator.inviteParticipantYes.click();
+    await paperwork.checkRequiredFields(
+      '"First name","Last name","Preferable contact"',
+      'Would you like someone to join this call?',
+      true
+    );
+  });
+  test('PIP-6 Invite participant - Select "Yes" and "Email", check required fields', async () => {
+    await locator.inviteeContactEmail.click();
+    await paperwork.checkRequiredFields(
+      '"First name","Last name","Email address"',
+      'Would you like someone to join this call?',
+      true
+    );
+  });
+  test('PIP-7 Invite participant - Select "Yes" and "Phone", check required fields', async () => {
+    await locator.inviteeContactPhone.click();
+    await paperwork.checkRequiredFields(
+      '"First name","Last name","Phone number"',
+      'Would you like someone to join this call?',
+      true
+    );
+  });
+  test('PIP-8 Invite participant - Check phone validations', async () => {
+    await paperwork.checkPhoneValidations(locator.inviteePhone);
+  });
+  test('PIP-9 Invite participant - Check email validations', async () => {
+    await paperwork.checkEmailValidations(locator.inviteeEmail);
+  });
+  test('PIP-10 Invite participant by phone', async () => {
+    inviteeData = await paperworkTelemed.fillInviteParticipant('phone');
+  });
+  test('PIP-11 Invite participant by phone - data is saved after reload', async () => {
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
+    await expect(locator.inviteeContactPhone).toBeChecked();
+  });
+  test('PIP-12 Invite participant by phone - data is saved after coming back', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
+    await expect(locator.inviteeContactPhone).toBeChecked();
+  });
+  test('PIP-13 Invite participant by email', async () => {
+    inviteeData = await paperworkTelemed.fillInviteParticipant('email');
+  });
+  test('PIP-14 Invite participant by email - data is saved after reload', async () => {
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
+    await expect(locator.inviteeContactEmail).toBeChecked();
+  });
+  test('PIP-15 Invite participant by email - data is saved after coming back', async () => {
+    await locator.clickContinueButton();
+    await paperwork.checkCorrectPageOpens('Review and submit');
+    await locator.clickBackButton();
+    await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
+    await expect(locator.inviteeContactEmail).toBeChecked();
   });
 });

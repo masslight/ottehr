@@ -19,6 +19,7 @@ import {
   removeTimeFromDate,
 } from 'utils';
 import { AppointmentInsuranceRelatedResourcesExtension } from 'utils';
+import { assertDefined } from '../helpers';
 
 export function getPatientFromAppointment(appointment: Appointment): string | undefined {
   return appointment.participant
@@ -220,37 +221,6 @@ export function creatingPatientUpdateRequest(
     // Do not update weight last updated date
   }
 
-  // Update chosen name
-  const chosenNameExtMaybe = patientExtension.find((ext) => ext.url === FHIR_EXTENSION.Patient.chosenName.url);
-  const chosenNameExtIndex = patientExtension.findIndex((ext) => ext.url === FHIR_EXTENSION.Patient.chosenName.url);
-  if (patient.chosenName) {
-    const chosenName = {
-      url: FHIR_EXTENSION.Patient.chosenName.url,
-      valueString: patient.chosenName,
-    };
-    // Check if chosenName exists
-    if (chosenNameExtMaybe) {
-      // Thus chosenNameExtIndex !== -1
-      const chosenNameExt = chosenNameExtMaybe;
-      if (chosenNameExt.valueString !== patient.chosenName) {
-        // Update if chosenName needs to be updated
-        patientExtension[chosenNameExtIndex] = chosenName;
-      } else {
-        // If chosenName does not exist within the extension, add it
-        patientExtension.push(chosenName);
-      }
-    } else {
-      // Since no extensions exist, it must be added via patch operations
-      patientExtension.push(chosenName);
-    }
-  } else if (chosenNameExtIndex >= 0) {
-    // Since chosenName exists within the extension but no new name is provided, delete the old one
-    patientExtension = [
-      ...patientExtension.slice(0, chosenNameExtIndex),
-      ...patientExtension.slice(chosenNameExtIndex + 1),
-    ];
-  }
-
   console.log('patient extension', patientExtension);
 
   patientPatchOperations.push({
@@ -264,15 +234,47 @@ export function creatingPatientUpdateRequest(
     patientPatchOperations.push(...emailPatchOps);
   }
 
-  const fhirPatientMiddleName = maybeFhirPatient?.name?.[0].given?.[1];
+  const fhirPatientName = assertDefined(maybeFhirPatient.name, 'patient.name');
+
+  let fhirPatientOfficialNameIndex = fhirPatientName.findIndex((name) => name.use === 'official');
+
+  if (fhirPatientOfficialNameIndex === -1) {
+    fhirPatientOfficialNameIndex = 0;
+  }
+
+  const fhirPatientMiddleName = fhirPatientName[fhirPatientOfficialNameIndex].given?.[1];
 
   if (patient.middleName && !fhirPatientMiddleName) {
     console.log('adding patch op to add middle name', patient.middleName);
     patientPatchOperations.push({
       op: 'add',
-      path: `/name/0/given/1`,
+      path: `/name/${fhirPatientOfficialNameIndex}/given/1`,
       value: patient.middleName,
     });
+  }
+
+  const fhirPatientPreferredName = maybeFhirPatient?.name?.find((name) => name.use === 'nickname');
+  const fhirPatientPreferredNameIndex = maybeFhirPatient.name?.findIndex((name) => name.use === 'nickname');
+
+  if (patient.chosenName) {
+    if (fhirPatientPreferredName) {
+      if (fhirPatientPreferredName.given?.[0] !== patient.chosenName) {
+        patientPatchOperations.push({
+          op: 'replace',
+          path: `/name/${fhirPatientPreferredNameIndex}/given/0`,
+          value: patient.chosenName,
+        });
+      }
+    } else {
+      patientPatchOperations.push({
+        op: 'add',
+        path: `/name/-`,
+        value: {
+          given: [patient.chosenName],
+          use: 'nickname',
+        },
+      });
+    }
   }
 
   if (patient.sex !== maybeFhirPatient.gender) {
@@ -385,9 +387,9 @@ export function creatingPatientCreateRequest(
     active: true,
   };
   if (patient.chosenName) {
-    patientResource.extension?.push({
-      url: FHIR_EXTENSION.Patient.chosenName.url,
-      valueString: patient.chosenName,
+    patientResource.name!.push({
+      given: [patient.chosenName],
+      use: 'nickname',
     });
   }
   if (patient.weight) {

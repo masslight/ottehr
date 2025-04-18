@@ -35,10 +35,11 @@ import { FeatureFlagsProvider } from './features/css-module/context/featureFlags
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
 import PatientFollowup from './components/patient/PatientFollowup';
 import AddPatientFollowup from './components/patient/AddPatientFollowup';
-import SchedulePage from './pages/Schedule';
+import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
 import AddSchedulePage from './pages/AddSchedulePage';
 import AddEmployeePage from './pages/AddEmployeePage';
+import GroupPage from './pages/GroupPage';
 import('@photonhealth/elements').catch(console.log);
 
 const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
@@ -202,7 +203,9 @@ function App(): ReactElement {
                   <Route path="/visit/:id" element={<AppointmentPage />} />
                   <Route path="/schedules" element={<SchedulesPage />} />
                   <Route path="/schedule/:schedule-type/add" element={<AddSchedulePage />} />
-                  <Route path="/schedule/:schedule-type/:id" element={<SchedulePage />} />
+                  <Route path="/group/id/:group-id" element={<GroupPage />} />
+                  <Route path="/schedule/id/:schedule-id" element={<SchedulePage />} />
+                  <Route path="/schedule/new/:schedule-type/:owner-id" element={<SchedulePage />} />
                   <Route path="/employees" element={<EmployeesPage />} />
                   <Route path="/employees/add" element={<AddEmployeePage />} />
                   <Route path="/employee/:id" element={<EditEmployeePage />} />

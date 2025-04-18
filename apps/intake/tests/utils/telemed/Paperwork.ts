@@ -1,6 +1,8 @@
 import { Page, expect } from '@playwright/test';
 import { waitForResponseWithData } from 'test-utils';
 import { FillingInfo } from './FillingInfo';
+import { Paperwork } from '../Paperwork';
+import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { UIDesign } from './UIdesign';
 import {
   CURRENT_MEDICATIONS_ABSENT_LABEL,
@@ -20,12 +22,16 @@ export class PaperworkTelemed {
   fillingInfo: FillingInfo;
   uiDesign: UIDesign;
   locators: Locators;
+  paperwork: Paperwork;
+  commonLocatorsHelper: CommonLocatorsHelper;
 
   constructor(page: Page) {
     this.page = page;
     this.fillingInfo = new FillingInfo(page);
     this.uiDesign = new UIDesign(page);
     this.locators = new Locators(page);
+    this.paperwork = new Paperwork(page);
+    this.commonLocatorsHelper = new CommonLocatorsHelper(page);
   }
 
   private async clickContinueButton(awaitRedirect = true): Promise<void> {
@@ -413,5 +419,76 @@ export class PaperworkTelemed {
   async fillAndCheckNoInviteParticipant() {
     const value = 'No, only one device will be connected';
     await this.page.locator(`input[value='${value}']`).click();
+  }
+  async fillInviteParticipantName(): Promise<{
+    firstName: string;
+    lastName: string;
+  }> {
+    const firstName = 'Invitee First Name';
+    const lastName = 'Invitee Last Name';
+    await this.locators.inviteeFirstName.fill(firstName);
+    await this.locators.inviteeLastName.fill(lastName);
+    return { firstName, lastName };
+  }
+  async fillInviteParticipantPhone(): Promise<{
+    phone: string;
+    formattedPhoneNumber: string;
+  }> {
+    const phone = '1234567890';
+    const formattedPhoneNumber = await this.paperwork.formatPhoneNumber(phone);
+    await this.locators.inviteeContactPhone.check();
+    await this.commonLocatorsHelper.clearField(this.locators.inviteeEmail);
+    await this.locators.inviteePhone.fill(phone);
+    return { phone, formattedPhoneNumber };
+  }
+  async fillInviteParticipantEmail(): Promise<{
+    email: string;
+  }> {
+    const email = 'example@mail.com';
+    await this.locators.inviteeContactEmail.check();
+    await this.commonLocatorsHelper.clearField(this.locators.inviteePhone);
+    await this.locators.inviteeEmail.fill(email);
+    return { email };
+  }
+  async fillInviteParticipant(choice: string): Promise<{
+    inviteeName: { firstName: string; lastName: string };
+    phone: string | null;
+    email: string | null;
+  }> {
+    const inviteeName = await this.fillInviteParticipantName();
+    const phone = choice === 'phone' ? (await this.fillInviteParticipantPhone()).formattedPhoneNumber : null;
+    const email = choice === 'email' ? (await this.fillInviteParticipantEmail()).email : null;
+    return { inviteeName, phone, email };
+  }
+  async fillPaperworkOnlyRequiredFieldsTelemed(): Promise<void> {
+    await this.paperwork.fillContactInformationRequiredFields();
+    await this.locators.clickContinueButton();
+    await this.paperwork.fillPatientDetailsTelemedAllFields();
+    await this.locators.clickContinueButton();
+    await this.paperwork.skipPrimaryCarePhysician();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptyCurrentMedications();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptyCurrentAllergies();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptyMedicalHistory();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckEmptySurgicalHistory();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckAdditionalQuestions();
+    await this.locators.clickContinueButton();
+    await this.paperwork.selectSelfPayPayment();
+    await this.locators.clickContinueButton();
+    await this.paperwork.fillResponsiblePartyDataSelf();
+    await this.locators.clickContinueButton();
+    await this.paperwork.skipPhotoID();
+    await this.locators.clickContinueButton();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckSchoolWorkNoteAsNone();
+    await this.locators.clickContinueButton();
+    await this.paperwork.fillConsentForms();
+    await this.locators.clickContinueButton();
+    await this.fillAndCheckNoInviteParticipant();
+    await this.locators.clickContinueButton();
   }
 }

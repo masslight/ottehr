@@ -1,23 +1,27 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, HealthcareService, Location, Patient, Practitioner, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_CANT_BE_IN_PAST_ERROR,
+  BookableScheduleData,
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
+  ScheduleType,
   Secrets,
   checkValidBookingTime,
-  getAvailableSlotsForSchedule,
+  getAvailableSlotsForSchedules,
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
   getSMSNumberForIndividual,
   isPostTelemedAppointment,
+  UpdateAppointmentParameters,
+  normalizeSlotToUTC,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -33,11 +37,9 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import { getSlugForBookableResource } from '../../bookable/helpers';
 
-export interface UpdateAppointmentInput {
-  appointmentID: string;
-  slot: string;
-  language: string;
+export interface UpdateAppointmentInput extends UpdateAppointmentParameters {
   secrets: Secrets | null;
 }
 
@@ -50,7 +52,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.group('validateRequestParameters');
     // Step 1: Validate input
     const validatedParameters = validateRequestParameters(input);
-    const { appointmentID, language, slot, secrets } = validatedParameters;
+    const { appointmentID, language, slot: inputSlot, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -63,19 +65,17 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const oystehr = createOystehrClient(zapehrToken, secrets);
 
-    let startTime = slot;
+    const slot = normalizeSlotToUTC(inputSlot);
+
+    const startTime = slot.start;
+    const endTime = slot.end;
     if (!checkValidBookingTime(startTime)) {
       throw APPOINTMENT_CANT_BE_IN_PAST_ERROR;
     }
-
-    startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
-    const originalDate = DateTime.fromISO(startTime).setZone('UTC');
-    const endTime = originalDate.plus({ minutes: 15 }).toISO();
-
     console.log('getting appointment and related schedule resource');
 
     const allResources = (
-      await oystehr.fhir.search<Appointment | Location | HealthcareService | Practitioner>({
+      await oystehr.fhir.search<Appointment | Location | HealthcareService | Practitioner | Slot | Schedule>({
         resourceType: 'Appointment',
         params: [
           {
@@ -85,6 +85,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           {
             name: '_include',
             value: 'Appointment:actor',
+          },
+          {
+            name: '_include',
+            value: 'Appointment:slot',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Slot:schedule',
           },
         ],
       })
@@ -96,6 +104,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     if (isPostTelemedAppointment(fhirAppointment)) {
       throw POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR;
     }
+
+    const originalDate = DateTime.fromISO(fhirAppointment?.start ?? '').setZone('UTC');
 
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
     if (fhirAppointment.status === 'arrived') {
@@ -112,26 +122,61 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const fhirLocation = allResources.find((resource) => resource.resourceType === 'Location');
     const fhirHS = allResources.find((resource) => resource.resourceType === 'HealthcareService');
-    const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner'); // todo is this right ?
-    let scheduleResource: Location | HealthcareService | Practitioner | undefined;
+    const fhirPractitioner = allResources.find((resource) => resource.resourceType === 'Practitioner');
+    const fhirSchedule = allResources.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
+
+    let scheduleOwner: Location | HealthcareService | Practitioner | undefined;
     if (fhirLocation) {
-      scheduleResource = fhirLocation as Location;
+      scheduleOwner = fhirLocation as Location;
     } else if (fhirHS) {
-      scheduleResource = fhirHS as HealthcareService;
+      scheduleOwner = fhirHS as HealthcareService;
     } else if (fhirPractitioner) {
-      scheduleResource = fhirPractitioner as Practitioner;
+      scheduleOwner = fhirPractitioner as Practitioner;
     }
 
-    if (!scheduleResource) {
+    if (!scheduleOwner || !fhirSchedule) {
       console.log('scheduleResource is missing');
       throw SCHEDULE_NOT_FOUND_ERROR;
     }
+    let scheduleType: ScheduleType;
+    if (scheduleOwner.resourceType === 'Location') {
+      scheduleType = ScheduleType.location;
+    } else if (scheduleOwner.resourceType === 'Practitioner') {
+      scheduleType = ScheduleType.provider;
+    } else {
+      scheduleType = ScheduleType.group;
+    }
 
-    const { availableSlots } = await getAvailableSlotsForSchedule(oystehr, scheduleResource, DateTime.now());
+    const slug = getSlugForBookableResource(scheduleOwner);
+    if (!slug) {
+      // todo: better error message?
+      throw new Error('slug is missing');
+    }
 
-    if (availableSlots.includes(slot)) {
+    const scheduleData: BookableScheduleData = {
+      scheduleList: [
+        {
+          schedule: fhirSchedule,
+          owner: scheduleOwner,
+        },
+      ],
+      owner: scheduleOwner,
+      metadata: {
+        type: scheduleType,
+      },
+    };
+
+    const { availableSlots } = await getAvailableSlotsForSchedules({
+      now: DateTime.now(),
+      scheduleList: scheduleData.scheduleList,
+      busySlots: [], // todo: add busy slots or refactor - see previous todo, these can be queried form the passed in slot
+    });
+
+    // todo: another place to refactor with a slot comparator utility func
+    if (availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {
       console.log('slot is available');
     } else {
+      console.log('slot start', slot.start, availableSlots[0].slot.start);
       console.log('slot is unavailable', slot);
       const response = {
         message: 'Slot unavailable',
@@ -148,8 +193,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const updatedAppointment: Appointment = await updateAppointmentTime(
       fhirAppointment,
       startTime,
-      endTime ?? '',
-      oystehr
+      endTime,
+      oystehr,
+      slot
     );
     console.log('getting patient');
     const fhirPatient: Patient = await oystehr.fhir.get({
@@ -161,7 +207,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // const user = await appClient.getMe();
     const relatedPerson = await getRelatedPersonForPatient(fhirPatient.id || '', oystehr);
     if (relatedPerson) {
-      const timezone = scheduleResource.extension?.find(
+      const timezone = scheduleOwner.extension?.find(
         (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString;
       const smsNumber = getSMSNumberForIndividual(relatedPerson);
@@ -170,9 +216,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           getPatientContactEmail(fhirPatient), // todo use the right email
           getPatientFirstName(fhirPatient),
           `RelatedPerson/${relatedPerson.id}`,
-          originalDate.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+          DateTime.fromISO(startTime).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
           secrets,
-          scheduleResource,
+          scheduleOwner,
           appointmentID,
           fhirAppointment.appointmentType?.text || '',
           language,

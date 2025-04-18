@@ -1,15 +1,30 @@
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, Bundle } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, List, Location, Observation, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  Account,
+  Appointment,
+  Encounter,
+  FhirResource,
+  List,
+  Location,
+  Observation,
+  Patient,
+  QuestionnaireResponseItem,
+  RelatedPerson,
+} from 'fhir/r4b';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  checkBundleOutcomeOk,
+  flattenBundleResources,
   flattenIntakeQuestionnaireItems,
+  getActiveAccountGuarantorReference,
   getRelatedPersonForPatient,
   getSecret,
   IntakeQuestionnaireItem,
   SecretsKeys,
+  takeContainedOrFind,
 } from 'utils';
 import {
   createConsentResources,
@@ -18,6 +33,7 @@ import {
   createMasterRecordPatchOperations,
   flagPaperworkEdit,
   updatePatientAccountFromQuestionnaire,
+  updateStripeCustomer,
 } from '../../../ehr/shared/harvest';
 import {
   captureSentryException,
@@ -33,6 +49,7 @@ import {
 import '../../../shared/instrument.mjs';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
+import { getStripeClient } from '../../../patient/payment-methods/helpers';
 
 let zapehrToken: string;
 
@@ -136,14 +153,41 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   }
   console.timeEnd('patching patient resource');
 
+  // we hold onto this in order to use the updated resources to update the stripe customer name and email
+  let accountBundle: Bundle<FhirResource> | undefined;
   try {
-    await updatePatientAccountFromQuestionnaire(
+    accountBundle = (await updatePatientAccountFromQuestionnaire(
       { patientId: patientResource.id, questionnaireResponseItem: flattenedPaperwork },
       oystehr
-    );
+    )) as Bundle<FhirResource> | undefined;
   } catch (error: unknown) {
     tasksFailed.push(`Failed to update Account: ${JSON.stringify(error)}`);
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
+  }
+  if (accountBundle && checkBundleOutcomeOk(accountBundle)) {
+    try {
+      const bundleResources = flattenBundleResources(accountBundle);
+      const accountResource = bundleResources.find((res) => res.resourceType === 'Account') as Account;
+      if (accountResource) {
+        const guarantorReference = getActiveAccountGuarantorReference(accountResource);
+        if (guarantorReference) {
+          const guarantorResource = takeContainedOrFind<RelatedPerson | Patient>(
+            guarantorReference,
+            bundleResources,
+            accountResource
+          );
+          if (guarantorResource) {
+            console.time('updating stripe customer');
+            const stripeClient = getStripeClient(secrets);
+            await updateStripeCustomer({ account: accountResource, guarantorResource, stripeClient });
+            console.timeEnd('updating stripe customer');
+          }
+        }
+      }
+    } catch (error: unknown) {
+      tasksFailed.push('update stripe customer');
+      console.log(`Failed to update stripe customer: ${JSON.stringify(error)}`);
+    }
   }
 
   const hipaa = flattenedPaperwork.find((data) => data.linkId === 'hipaa-acknowledgement')?.answer?.[0]?.valueBoolean;
@@ -274,5 +318,6 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
       secrets
     );
   }
+
   return response;
 };

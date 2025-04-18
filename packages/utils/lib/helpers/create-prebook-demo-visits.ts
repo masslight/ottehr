@@ -1,5 +1,14 @@
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { Address, Appointment, Location, Patient, Practitioner, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  Address,
+  Appointment,
+  Location,
+  Patient,
+  Practitioner,
+  QuestionnaireResponseItem,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import {
@@ -120,14 +129,14 @@ export const createSamplePrebookAppointments = async ({
   demoData?: DemoAppointmentData;
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
-}): Promise<CreateAppointmentResponse | { error: string }> => {
+}): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
 
   if (!oystehr) {
     console.log('oystehr client is not defined');
-    return { error: 'no oystehr client' };
+    throw new Error('oystehr client is not defined');
   }
 
   try {
@@ -174,7 +183,7 @@ export const createSamplePrebookAppointments = async ({
 
         if (!appointmentData) {
           console.error('Error: appointment data is null');
-          return { error: 'appointment data is null' };
+          throw new Error('Error: appointment data is null');
         }
 
         await processPrebookPaperwork(
@@ -199,7 +208,7 @@ export const createSamplePrebookAppointments = async ({
         return appointmentData;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, error);
-        return { error: (error as any).message || JSON.stringify(error) };
+        throw error;
       }
     });
 
@@ -348,15 +357,19 @@ const generateRandomPatientInfo = async (
       .toISODate();
   const randomSex = (gender as Patient['gender']) || sexes[Math.floor(Math.random() * sexes.length)];
 
-  const allOffices = (
-    await oystehr.fhir.search<Location>({
+  const allOfficesAndSchedules = (
+    await oystehr.fhir.search<Location | Schedule>({
       resourceType: 'Location',
       params: [
         { name: '_count', value: '1000' },
         { name: 'address-state:missing', value: 'false' },
+        { name: '_revinclude', value: 'Schedule:actor:Location' },
       ],
     })
   ).unbundle();
+
+  const allOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
+  const allSchedules = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Schedule') as Schedule[];
 
   const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
   const activeOffices = allOffices.filter((item) => item.status === 'active');
@@ -375,6 +388,31 @@ const generateRandomPatientInfo = async (
   const randomTelemedLocationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id;
   const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
+  const matchingRandomSchedule = allSchedules.find((schedule) => {
+    const scheduleOwner = schedule.actor?.[0]?.reference;
+    if (scheduleOwner) {
+      const [type, id] = scheduleOwner.split('/');
+      return type === 'Location' && id === randomLocationId;
+    }
+    return false;
+  });
+
+  if (!matchingRandomSchedule) {
+    throw new Error(`No matching schedule found for location ID: ${randomLocationId}`);
+  }
+  const now = DateTime.now();
+  const startTime = now.plus({ hours: 2 }).toISO();
+  const endTime = now.plus({ hours: 2, minutes: 15 }).toISO();
+  const slot: Slot = {
+    resourceType: 'Slot',
+    id: `${matchingRandomSchedule}-${startTime}`,
+    status: 'busy',
+    start: startTime,
+    end: endTime,
+    schedule: {
+      reference: `Schedule/${matchingRandomSchedule.id}`,
+    },
+  };
 
   const patientData = {
     newPatient: true,
@@ -398,7 +436,7 @@ const generateRandomPatientInfo = async (
       serviceType: ServiceMode.virtual,
       providerID: randomProviderId,
       locationID: randomTelemedLocationId,
-      slot: DateTime.now().plus({ hours: 2 }).toISO(),
+      slot,
       language: 'en',
     };
   }
@@ -410,7 +448,7 @@ const generateRandomPatientInfo = async (
     serviceType: ServiceMode['in-person'],
     providerID: randomProviderId,
     locationID: selectedLocationId || randomLocationId,
-    slot: DateTime.now().plus({ hours: 2 }).toISO(),
+    slot,
     language: 'en',
   };
 };

@@ -46,6 +46,11 @@ const BASE_FORM_VALUES = [
   },
   {
     linkId: 'policy-holder-middle-name',
+    answer: [
+      {
+        valueString: 'Eloise',
+      },
+    ],
   },
   {
     linkId: 'policy-holder-last-name',
@@ -183,6 +188,11 @@ const BASE_FORM_VALUES = [
       },
       {
         linkId: 'policy-holder-middle-name-2',
+        answer: [
+          {
+            valueString: 'Thaddeus',
+          },
+        ],
       },
       {
         linkId: 'policy-holder-last-name-2',

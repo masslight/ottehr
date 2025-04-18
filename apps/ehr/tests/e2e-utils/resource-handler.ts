@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -16,6 +16,7 @@ import {
   RelationshipOption,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
+import { fetchWithOystAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -128,6 +129,10 @@ export class ResourceHandler {
     return oystehr;
   }
 
+  public get apiClient(): Oystehr {
+    return this.#apiClient;
+  }
+
   constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.#flow = flow;
     this.#paperworkAnswers = paperworkAnswers;
@@ -226,11 +231,6 @@ export class ResourceHandler {
               projectId: process.env.PROJECT_ID!,
               paperworkAnswers: this.#paperworkAnswers,
             });
-
-      if ('error' in appointmentData) {
-        throw new Error(appointmentData.error);
-      }
-
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
@@ -311,7 +311,7 @@ export class ResourceHandler {
               },
             ],
           })
-        ).unbundle()[0];
+        ).unbundle()[0] as Appointment;
 
         const tags = appointment.meta?.tag || [];
         const isProcessed = tags.some((tag) => tag?.code === FHIR_APPOINTMENT_PREPROCESSED_TAG.code);
@@ -402,5 +402,49 @@ export class ResourceHandler {
 
   async cleanAppointment(appointmentId: string): Promise<boolean> {
     return cleanAppointment(appointmentId, process.env.ENV!);
+  }
+
+  async patientIdByAppointmentId(appointmentId: string): Promise<string> {
+    const appointment = await this.#apiClient.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    });
+    const patientId = appointment.participant
+      .find((participant) => participant.actor?.reference?.startsWith('Patient/'))
+      ?.actor?.reference?.split('/')[1];
+    if (patientId == null) {
+      throw new Error(`Patient for appointment ${appointmentId} not found`);
+    }
+    return patientId;
+  }
+
+  async getTestsUserAndPractitioner(): Promise<{
+    id: string;
+    name: string;
+    email: string;
+    practitioner: Practitioner;
+  }> {
+    await this.#initPromise;
+    const users = await fetchWithOystAuth<
+      {
+        id: string;
+        name: string;
+        email: string;
+        profile: string;
+      }[]
+    >('GET', 'https://project-api.zapehr.com/v1/user', this.#authToken);
+
+    const user = users?.find((user) => user.email === process.env.TEXT_USERNAME);
+    if (!user) throw new Error('Failed to find authorized user');
+    const practitioner = (await this.#apiClient.fhir.get({
+      resourceType: 'Practitioner',
+      id: user.profile.replace('Practitioner/', ''),
+    })) as Practitioner;
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      practitioner,
+    };
   }
 }

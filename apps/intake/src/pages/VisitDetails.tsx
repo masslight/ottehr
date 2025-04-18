@@ -12,6 +12,42 @@ import { otherColors } from '../IntakeThemeProvider';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { useZapEHRAPIClient } from '../telemed/utils';
 
+const ExcuseNoteContent = ({
+  appointmentID,
+  docType,
+}: {
+  appointmentID: string;
+  docType: string;
+}): JSX.Element | null => {
+  const apiClient = useZapEHRAPIClient();
+  const openExternalLink = useOpenExternalLink();
+  const { data } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(appointmentID), appointmentID);
+
+  return data?.files[docType] ? (
+    <>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+        <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
+          {docType} note
+        </Typography>
+        <Button
+          variant="text"
+          startIcon={<DownloadIcon />}
+          onClick={() => {
+            openExternalLink(data.files[docType].presignedUrl || '');
+          }}
+          disabled={!data?.files[docType].presignedUrl}
+        >
+          Download PDF
+        </Button>
+      </Box>
+
+      <Divider sx={{ my: 3 }} />
+    </>
+  ) : (
+    <></>
+  );
+};
+
 const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.Element | null => {
   const apiClient = useZapEHRAPIClient();
   const openExternalLink = useOpenExternalLink();
@@ -39,7 +75,7 @@ const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.
       {data?.files['visit-note'] && (
         <>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Typography variant="subtitle1" color="primary.dark">
+            <Typography variant="subtitle1" color="primary.dark" textTransform={'capitalize'}>
               Full visit note
             </Typography>
             <Button
@@ -58,27 +94,9 @@ const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.
         </>
       )}
 
-      {data?.files['school-work-note'] && (
-        <>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
-            <Typography variant="subtitle1" color="primary.dark">
-              School & work notes
-            </Typography>
-            <Button
-              variant="text"
-              startIcon={<DownloadIcon />}
-              onClick={() => {
-                openExternalLink(data.files['school-work-note'].presignedUrl || '');
-              }}
-              disabled={!data?.files['school-work-note'].presignedUrl}
-            >
-              Download PDF
-            </Button>
-          </Box>
-
-          <Divider sx={{ my: 3 }} />
-        </>
-      )}
+      {['school', 'work'].map((docType) => (
+        <ExcuseNoteContent key={docType} appointmentID={appointmentID} docType={docType} />
+      ))}
 
       <Box>
         <Typography variant="subtitle1" color="primary.dark">

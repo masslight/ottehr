@@ -195,8 +195,8 @@ export const SettingsContainer: FC = () => {
                             <DatePicker
                               name={patientFieldPaths.deceasedDate}
                               control={control}
+                              rules={{ required: field.value === 'known' ? REQUIRED_FIELD_ERROR_MESSAGE : false }}
                               disabled={field.value === 'unknown'}
-                              required={field.value === 'known'}
                               variant="outlined"
                               defaultValue={patient?.deceasedDateTime}
                               onChange={(dateStr) => {

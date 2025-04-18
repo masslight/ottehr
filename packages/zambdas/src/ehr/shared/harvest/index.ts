@@ -105,11 +105,15 @@ import {
   getSecret,
   Secrets,
   SecretsKeys,
+  getStripeCustomerIdFromAccount,
+  getEmailForIndividual,
+  STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   getPatchOperationToAddOrUpdatePreferredName,
 } from 'utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
+import Stripe from 'stripe';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -128,6 +132,7 @@ interface PolicyHolder {
   birthSex: 'Male' | 'Female' | 'Intersex';
   dob: string;
   firstName: string;
+  middleName: string;
   lastName: string;
   memberId: string;
   relationship: 'Self' | 'Child' | 'Parent' | 'Spouse' | 'Common Law Spouse' | 'Injured Party' | 'Other';
@@ -684,10 +689,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     },
     {
-      uploadURL: `${baseUploadURL}-hippa-acknowledgement.pdf`,
+      uploadURL: `${baseUploadURL}-hipaa-acknowledgement.pdf`,
       copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
       formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPPA forms',
+      resourceTitle: 'HIPAA forms',
       type: {
         coding: [
           {
@@ -1067,7 +1072,6 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-name-suffix': patientFieldPaths.suffix,
   'patient-preferred-name': patientFieldPaths.preferredName,
   'patient-birth-sex': patientFieldPaths.gender,
-  'patient-birth-sex-missing': patientFieldPaths.genderIdentityDetails,
   'patient-number': patientFieldPaths.phone,
   'patient-email': patientFieldPaths.email,
   'preferred-language': patientFieldPaths.preferredLanguage,
@@ -1087,6 +1091,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-ethnicity': patientFieldPaths.ethnicity,
   'patient-race': patientFieldPaths.race,
   'patient-gender-identity': patientFieldPaths.genderIdentity,
+  'patient-gender-identity-details': patientFieldPaths.genderIdentityDetails,
   'patient-sexual-orientation': patientFieldPaths.sexualOrientation,
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
@@ -1919,6 +1924,7 @@ const extractPolicyHolder = (items: QuestionnaireResponseItem[], keySuffix?: str
     birthSex: findAnswer(`policy-holder-birth-sex${suffix}`) as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer(`policy-holder-date-of-birth${suffix}`) ?? '',
     firstName: findAnswer(`policy-holder-first-name${suffix}`) ?? '',
+    middleName: findAnswer(`policy-holder-middle-name${suffix}`) ?? '',
     lastName: findAnswer(`policy-holder-last-name${suffix}`) ?? '',
     number: findAnswer(`policy-holder-number${suffix}`),
     email: findAnswer(`policy-holder-email${suffix}`),
@@ -2023,7 +2029,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
   const memberId = policyHolder.memberId;
 
   const policyHolderId = 'coverageSubscriber';
-  const policyHolderName = createFhirHumanName(policyHolder.firstName, undefined, policyHolder.lastName);
+  const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
   const containedPolicyHolder: RelatedPerson = {
     resourceType: 'RelatedPerson',
@@ -3238,5 +3244,25 @@ export const updatePatientAccountFromQuestionnaire = async (
   } catch (error: unknown) {
     console.log(`Failed to update Account: ${JSON.stringify(error)}`);
     throw error;
+  }
+};
+
+interface UpdateStripeCustomerInput {
+  account: Account;
+  guarantorResource: RelatedPerson | Patient;
+  stripeClient: Stripe;
+}
+export const updateStripeCustomer = async (input: UpdateStripeCustomerInput): Promise<void> => {
+  const { guarantorResource, account } = input;
+  const stripeCustomerId = getStripeCustomerIdFromAccount(account);
+  const email = getEmailForIndividual(guarantorResource);
+  const name = getFullName(guarantorResource);
+  if (stripeCustomerId) {
+    await input.stripeClient.customers.update(stripeCustomerId, {
+      email,
+      name,
+    });
+  } else {
+    throw STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR;
   }
 };

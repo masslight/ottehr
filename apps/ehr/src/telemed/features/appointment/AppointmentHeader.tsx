@@ -1,9 +1,9 @@
-import { FC } from 'react';
-import { AppBar, Box, IconButton, useTheme } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { AppBar, Box, IconButton, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { adjustTopForBannerHeight } from '../../../helpers/misc.helper';
 import { AppointmentTabsHeader } from './AppointmentTabsHeader';
-import { adjustTopForBannerHeight } from '../../../constants';
 
 export const AppointmentHeader: FC = () => {
   const theme = useTheme();

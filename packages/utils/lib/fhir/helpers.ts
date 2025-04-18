@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
+  Account,
   Appointment,
   Bundle,
   CodeableConcept,
@@ -50,6 +51,7 @@ import {
   VisitType,
 } from '../types';
 import {
+  ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_CODE_TAX_EMPLOYER,
@@ -648,7 +650,7 @@ export function getTaskResource(coding: TaskCoding, appointmentID: string): Task
     intent: 'plan',
     focus: {
       type: 'Appointment',
-      reference: `Appointment/${appointmentID}`,
+      reference: appointmentID.startsWith('urn:uuid:') ? appointmentID : `Appointment/${appointmentID}`,
     },
     code: {
       coding: [coding],
@@ -680,6 +682,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
         const qualificationState = stateExtension?.valueCodeableConcept?.coding?.find(
           (coding) => coding.system === PRACTITIONER_QUALIFICATION_STATE_SYSTEM
         )?.code;
+        const licenseNumber = qualificationExt.extension?.find((ext) => ext.url === 'number')?.valueString;
+        const licenseExpDate = qualificationExt.extension?.find((ext) => ext.url === 'expDate')?.valueDate;
 
         const statusExtension = qualificationExt.extension?.find((ext) => ext.url === 'status')?.valueCode;
 
@@ -687,6 +691,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
           allLicenses.push({
             state: qualificationState,
             code: qualificationCode,
+            number: licenseNumber,
+            date: licenseExpDate,
             active: statusExtension === 'active',
           });
       }
@@ -1265,4 +1271,15 @@ export const getVersionedReferencesFromBundleResources = (bundle: Bundle): Refer
 export const checkBundleOutcomeOk = (bundle: Bundle): boolean => {
   const outcomeEntry = bundle.entry?.[0]?.response?.outcome?.id === 'ok';
   return outcomeEntry;
+};
+
+export const getStripeCustomerIdFromAccount = (account: Account): string | undefined => {
+  return account.identifier?.find((ident) => {
+    return ident.system === ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE;
+  })?.value;
+};
+
+export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
+  const guarantor = account?.guarantor?.find((g) => g.period?.end === undefined)?.party;
+  return guarantor?.reference;
 };

@@ -135,6 +135,10 @@ export class Locators {
   secondaryInsuranceHeading: Locator;
   policyAddressIsTheSame: Locator;
   secondaryPolicyAddressIsTheSame: Locator;
+  creditCardNumber: Locator;
+  creditCardExpiry: Locator;
+  creditCardCVC: Locator;
+  addCardButton: Locator;
   paperworkSelectOptionFieldErrorMessage: Locator;
   paperworkErrorInFieldAboveMessage: Locator;
   currentMedicationsPresent: Locator;
@@ -182,6 +186,30 @@ export class Locators {
   removeFile: Locator;
   schoolNoteFile: Locator;
   workNoteFile: Locator;
+  inviteParticipantYes: Locator;
+  inviteeFirstName: Locator;
+  inviteeLastName: Locator;
+  inviteeEmail: Locator;
+  inviteePhone: Locator;
+  inviteeContactEmail: Locator;
+  inviteeContactPhone: Locator;
+  emailErrorText: Locator;
+  currentMedicationsChipStatus: Locator;
+  currentAllergiesChipStatus: Locator;
+  medicalHistoryChipStatus: Locator;
+  surgicalHistoryChipStatus: Locator;
+  additionalQuestionsChipStatus: Locator;
+  patientConditionChipStatus: Locator;
+  schoolWorkNotesChipStatus: Locator;
+  inviteParticipantChipStatus: Locator;
+  currentMedicationsEditButton: Locator;
+  currentAllergiesEditButton: Locator;
+  medicalHistoryEditButton: Locator;
+  surgicalHistoryEditButton: Locator;
+  additionalQuestionsEditButton: Locator;
+  patientConditionEditButton: Locator;
+  schoolWorkNotesEditButton: Locator;
+  inviteParticipantEditButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -207,6 +235,7 @@ export class Locators {
     this.bookAgainButton = page.getByRole('button', { name: 'Book again' });
     this.homeScreenHeading = page.getByRole('heading', { name: 'Welcome to Ottehr' });
     this.numberErrorText = page.getByText('Phone number must be 10 digits in the format (xxx) xxx-xxxx');
+    this.emailErrorText = page.getByText('Email is not valid');
     this.zipErrorText = page.getByText('ZIP Code must be 5 numbers');
     this.dateOlder18YearsError = page.getByText('Must be 18 years or older');
     this.dateFutureError = page.getByText('Date may not be in the future');
@@ -304,6 +333,13 @@ export class Locators {
     this.secondaryInsuranceBackImage = page.locator('[id="secondary-insurance.item.15-description"]');
     this.secondaryPolicyAddressIsTheSame = page.getByLabel('policy-holder-address-as-patient-2-label');
 
+    // Credit Card locators
+    const stripeIframe = page.frameLocator('iframe[title="Secure card payment input frame"]');
+    this.creditCardNumber = stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]');
+    this.creditCardExpiry = stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]');
+    this.creditCardCVC = stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]');
+    this.addCardButton = page.getByRole('button').filter({ hasText: 'Add card' });
+
     // Responsible Party locators
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
     this.responsiblePartyFirstName = page.locator('[id="responsible-party-first-name"]');
@@ -382,6 +418,16 @@ export class Locators {
     this.schoolNoteFile = page.getByText('school-work-note-template-school.pdf');
     this.workNoteFile = page.getByText('school-work-note-template-work.pdf');
 
+    // Paperwork - Invite participant
+    this.inviteParticipantYes = page.getByText('Yes, I will add invite details below');
+    this.inviteeFirstName = page.locator("[id='invite-first']");
+    this.inviteeLastName = page.locator("[id='invite-last']");
+    this.inviteeFirstName = page.locator("[id='invite-first']");
+    this.inviteeEmail = page.locator("[id='invite-email']");
+    this.inviteePhone = page.locator("[id='invite-phone']");
+    this.inviteeContactEmail = page.locator(`input[value='Email']`);
+    this.inviteeContactPhone = page.locator(`input[value='Phone']`);
+
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });
     this.patientNamePaperworkReviewScreen = page.getByTestId(dataTestIds.patientNamePaperworkReviewScreen);
@@ -401,6 +447,24 @@ export class Locators {
     this.responsiblePartyChipStatus = page.locator('[data-testid="responsible-party-page-status"] div');
     this.photoIdChipStatus = page.locator('[data-testid="photo-id-page-status"] div');
     this.consentFormsChipStatus = page.locator('[data-testid="consent-forms-page-status"] div');
+
+    // Paperwork Telemed - Review and Submit locators
+    this.currentMedicationsEditButton = page.getByTestId('current-medications-page-edit');
+    this.currentAllergiesEditButton = page.getByTestId('allergies-page-edit');
+    this.medicalHistoryEditButton = page.getByTestId('medical-history-page-edit');
+    this.surgicalHistoryEditButton = page.getByTestId('surgical-history-page-edit');
+    this.additionalQuestionsEditButton = page.getByTestId('additional-page-edit');
+    this.patientConditionEditButton = page.getByTestId('patient-condition-page-edit');
+    this.schoolWorkNotesEditButton = page.getByTestId('school-work-note-page-edit');
+    this.inviteParticipantEditButton = page.getByTestId('invite-participant-page-edit');
+    this.currentMedicationsChipStatus = page.locator('[data-testid="current-medications-page-status"] div');
+    this.currentAllergiesChipStatus = page.locator('[data-testid="allergies-page-status"] div');
+    this.medicalHistoryChipStatus = page.locator('[data-testid="medical-history-page-status"] div');
+    this.surgicalHistoryChipStatus = page.locator('[data-testid="surgical-history-page-status"] div');
+    this.additionalQuestionsChipStatus = page.locator('[data-testid="additional-page-status"] div');
+    this.patientConditionChipStatus = page.locator('[data-testid="patient-condition-page-status"] div');
+    this.schoolWorkNotesChipStatus = page.locator('[data-testid="school-work-note-page-status"] div');
+    this.inviteParticipantChipStatus = page.locator('[data-testid="invite-participant-page-status"] div');
   }
 
   private getInputByValue(value: string): Locator {

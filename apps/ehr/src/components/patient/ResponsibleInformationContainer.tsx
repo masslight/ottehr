@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { FC, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
@@ -35,10 +36,13 @@ export const ResponsibleInformationContainer: FC = () => {
 
   return (
     <Section title="Responsible party information" dataTestId={dataTestIds.responsiblePartyInformationContainer.id}>
-      <Row label={FormFields.relationship.label} required>
+      <Row
+        label={FormFields.relationship.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
+        required
+      >
         <FormSelect
           name={FormFields.relationship.key}
-          data-testid={dataTestIds.responsiblePartyInformationContainer.relationshipDropdown}
           control={control}
           options={RELATIONSHIP_OPTIONS}
           rules={{
@@ -71,15 +75,28 @@ export const ResponsibleInformationContainer: FC = () => {
         <DatePicker
           name={FormFields.birthDate.key}
           control={control}
-          required={true}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+            validate: (value: string) => {
+              if (!value) return true;
+              const dob = dayjs(value);
+              const today = dayjs();
+              const age = today.diff(dob, 'year');
+              return age >= 18 || 'Responsible party should be older than 18 years';
+            },
+          }}
           defaultValue={''}
           disabled={selfSelected}
+          dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
         />
       </Row>
-      <Row label={FormFields.birthSex.label} required>
+      <Row
+        label={FormFields.birthSex.label}
+        dataTestId={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
+        required
+      >
         <FormSelect
           name={FormFields.birthSex.key}
-          data-testid={dataTestIds.responsiblePartyInformationContainer.birthSexDropdown}
           control={control}
           options={SEX_OPTIONS}
           rules={{

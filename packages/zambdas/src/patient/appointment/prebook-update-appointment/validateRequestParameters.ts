@@ -15,8 +15,8 @@ export function validateRequestParameters(input: ZambdaInput): UpdateAppointment
     throw new Error('These fields are required: "appointmentID", "slot"');
   }
 
-  if (!isISODateTime(slot)) {
-    throw new Error(`"slot" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS)`);
+  if (!isISODateTime(slot.start)) {
+    throw new Error(`"slot.start" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS)`);
   }
 
   return {
