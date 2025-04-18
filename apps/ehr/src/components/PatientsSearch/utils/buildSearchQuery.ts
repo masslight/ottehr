@@ -23,10 +23,8 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
     params.push(`family:contains=${encodeURIComponent(filter.lastName)}`);
   }
   if (filter.givenNames) {
-    const names = filter.givenNames.split(' ');
-    names.forEach((name) => {
-      params.push(`given:contains=${encodeURIComponent(name)}`);
-    });
+    const names = filter.givenNames.replace(' ', ',');
+    params.push(`given:contains=${encodeURIComponent(names)}`);
   }
 
   if (filter.status === 'Active') params.push('active=true');
