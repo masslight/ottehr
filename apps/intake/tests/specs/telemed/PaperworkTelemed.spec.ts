@@ -958,11 +958,11 @@ test.describe('Invite participant', () => {
     await paperwork.checkEmailValidations(locator.inviteeEmail);
   });
   test('PIP-10 Invite participant by phone', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('phone');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('phone', 'paperwork');
   });
   test('PIP-11 Invite participant by phone - data is saved after reload', async () => {
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
     await expect(locator.inviteeContactPhone).toBeChecked();
   });
@@ -971,17 +971,17 @@ test.describe('Invite participant', () => {
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
     await expect(locator.inviteeContactPhone).toBeChecked();
   });
   test('PIP-13 Invite participant by email', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('email');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('email', 'paperwork');
   });
   test('PIP-14 Invite participant by email - data is saved after reload', async () => {
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
     await expect(locator.inviteeContactEmail).toBeChecked();
   });
@@ -990,8 +990,8 @@ test.describe('Invite participant', () => {
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
     await expect(locator.inviteeContactEmail).toBeChecked();
   });

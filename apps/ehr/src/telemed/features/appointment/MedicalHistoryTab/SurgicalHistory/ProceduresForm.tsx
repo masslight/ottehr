@@ -78,19 +78,22 @@ export const ProceduresForm: FC = () => {
         {isChartDataLoading ? (
           <ProviderSideListSkeleton />
         ) : (
-          <ActionsList
-            data={procedures}
-            getKey={(value) => value.resourceId!}
-            renderItem={(value) => (
-              <Typography>
-                {value.code} {value.display}
-              </Typography>
-            )}
-            renderActions={(value) => (
-              <DeleteIconButton disabled={isLoading} onClick={() => onRemove(value.resourceId!)} />
-            )}
-            divider
-          />
+          <Box data-testid={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList}>
+            <ActionsList
+              data={procedures}
+              itemDataTestId={dataTestIds.telemedEhrFlow.hpiSurgicalHistoryListItem}
+              getKey={(value) => value.resourceId!}
+              renderItem={(value) => (
+                <Typography>
+                  {value.code} {value.display}
+                </Typography>
+              )}
+              renderActions={(value) => (
+                <DeleteIconButton disabled={isLoading} onClick={() => onRemove(value.resourceId!)} />
+              )}
+              divider
+            />
+          </Box>
         )}
       </Box>
       <Card
