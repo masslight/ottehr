@@ -13,6 +13,7 @@ import {
   FhirResource,
   DocumentReference,
   DiagnosticReport,
+  ActivityDefinition,
 } from 'fhir/r4b';
 import {
   EncounterLabResult,
@@ -233,7 +234,9 @@ export const makeEncounterLabResult = async (
       if (serviceRequestRef) {
         const relatedSR = serviceRequestMap[serviceRequestRef];
         const orderNumber = relatedSR.identifier?.find((id) => id.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
-        const activityDef = relatedSR.contained?.find((resource) => resource.resourceType === 'ActivityDefinition');
+        const activityDef = relatedSR.contained?.find(
+          (resource) => resource.resourceType === 'ActivityDefinition'
+        ) as ActivityDefinition;
         const testName = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display;
         const labName = activityDef?.publisher;
         let formattedName = `${testName} / ${labName}`;
@@ -268,10 +271,13 @@ export const makeEncounterLabResult = async (
     const ogOrderResIdx = labOrderResults.findIndex(
       (res) => res?.orderNumber && res.orderNumber === reflexRes.orderNumber
     );
-    if (!labOrderResults[ogOrderResIdx].reflexResults) {
-      labOrderResults[ogOrderResIdx].reflexResults = [reflexRes];
-    } else {
-      labOrderResults[ogOrderResIdx].reflexResults.push(reflexRes);
+    if (ogOrderResIdx !== -1) {
+      const ogOrderRes = labOrderResults[ogOrderResIdx];
+      if (!ogOrderRes.reflexResults) {
+        ogOrderRes.reflexResults = [reflexRes];
+      } else {
+        ogOrderRes.reflexResults.push(reflexRes);
+      }
     }
   });
 
