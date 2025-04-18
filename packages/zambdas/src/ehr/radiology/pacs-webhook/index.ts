@@ -208,14 +208,15 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
 
       // Todo send patch
     } else if (drSearchResults.length === 0) {
-      // Create case
+      console.log('Creating our DiagnosticReport');
       // Now look up the SR via DR.basedOn, so we can create our own DR with our own SR basedOn
-      const pacsServiceRequestID = resource.basedOn?.[0]?.reference;
-      if (pacsServiceRequestID == null) {
+      const pacsServiceRequestRelativeReference = resource.basedOn?.[0]?.reference;
+      if (pacsServiceRequestRelativeReference == null) {
         throw new Error('The DiagnosticReport was not associated with any ServiceRequest');
       }
 
-      const pacsServiceRequest = await getAdvaPacsServiceRequestByID(pacsServiceRequestID, secrets);
+      const pacsServiceRequest = await getAdvaPacsServiceRequestByID(pacsServiceRequestRelativeReference, secrets);
+      console.log('Found PACS ServiceRequest: ', pacsServiceRequest);
       const pacsServiceRequestAccessionNumber = pacsServiceRequest.identifier?.find(
         (i) => i.system === ACCESSION_NUMBER_CODE_SYSTEM
       )?.value;
@@ -223,6 +224,7 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
         throw new Error('The ServiceRequest was not associated with any accession number');
       }
       const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
+      console.log('Found our ServiceRequest: ', pacsServiceRequest);
       await createOurDiagnosticReport(ourServiceRequest, resource, oystehr);
     }
   } else {
@@ -239,7 +241,7 @@ const getAdvaPacsServiceRequestByID = async (
     const advapacsClientSecret = getSecret(SecretsKeys.ADVAPACS_CLIENT_SECRET, secrets);
     const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
-    const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/${serviceRequestRelativeReference}}`, {
+    const advapacsResponse = await fetch(`${ADVAPACS_FHIR_BASE_URL}/${serviceRequestRelativeReference}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/fhir+json',
@@ -262,7 +264,7 @@ const getAdvaPacsServiceRequestByID = async (
 
     return maybeSR;
   } catch (error) {
-    console.log('write transaction to advapacs error: ', error);
+    console.log('getAdvaPacsServiceRequestByID error: ', error);
     throw error;
   }
 };
@@ -311,7 +313,7 @@ const createOurDiagnosticReport = async (
     subject: serviceRequest.subject,
     basedOn: [
       {
-        reference: serviceRequest.id,
+        reference: `ServiceRequest/${serviceRequest.id}`,
       },
     ],
     identifier: [
@@ -320,9 +322,19 @@ const createOurDiagnosticReport = async (
         value: pacsDiagnosticReport.id,
       },
     ],
-    code: pacsDiagnosticReport.code,
+    code: pacsDiagnosticReport.code ?? {
+      // Advapacs does not send a code even though it is required in the FHIR spec
+      coding: [
+        {
+          system: 'http://loinc.org',
+          code: '18748-4',
+          display: 'Radiology Report',
+        },
+      ],
+    },
     presentedForm: pacsDiagnosticReport.presentedForm,
   };
 
-  await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
+  const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
+  console.log('Created our DiagnosticReport: ', createResult);
 };
