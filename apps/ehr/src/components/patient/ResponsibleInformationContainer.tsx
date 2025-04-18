@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import { FC, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
@@ -74,7 +75,16 @@ export const ResponsibleInformationContainer: FC = () => {
         <DatePicker
           name={FormFields.birthDate.key}
           control={control}
-          required={true}
+          rules={{
+            required: REQUIRED_FIELD_ERROR_MESSAGE,
+            validate: (value: string) => {
+              if (!value) return true;
+              const dob = dayjs(value);
+              const today = dayjs();
+              const age = today.diff(dob, 'year');
+              return age >= 18 || 'Responsible party should be older than 18 years';
+            },
+          }}
           defaultValue={''}
           disabled={selfSelected}
           dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
