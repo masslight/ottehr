@@ -91,6 +91,9 @@ export const useDeleteLabOrderDialog = ({
         <DialogContent>
           <DialogContentText>
             Are you sure you want to delete this order <strong>{testItemNameToDelete}</strong>?
+            <br />
+            <br />
+            Deleting this order will also remove any additional associated diagnoses.
           </DialogContentText>
           {deleteError && (
             <Box sx={{ mt: 2, color: 'error.main' }}>

@@ -8,7 +8,6 @@ import {
   CreateUserOutput,
   CreateUserParams,
   GetEmployeesResponse,
-  GetLabOrderDetailsInput,
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -46,7 +45,6 @@ export interface PatchOperation {
 }
 
 const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
-const GET_LAB_ORDER_DETAILS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDER_DETAILS_ZAMBDA_ID;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_LAB_ORDER_ZAMBDA_ID;
 const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_APPOINTMENTS_ZAMBDA_ID;
 const CREATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
@@ -95,26 +93,6 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
 
     const response = await oystehr.zambda.execute({
       id: SUBMIT_LAB_ORDER_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw new Error(JSON.stringify(error));
-  }
-};
-
-export const getLabOrderDetails = async (
-  oystehr: Oystehr,
-  parameters: GetLabOrderDetailsInput
-): Promise<OrderDetails> => {
-  try {
-    if (GET_LAB_ORDER_DETAILS_ZAMBDA_ID == null) {
-      throw new Error('get lab order details zambda environment variable could not be loaded');
-    }
-
-    const response = await oystehr.zambda.execute({
-      id: GET_LAB_ORDER_DETAILS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);

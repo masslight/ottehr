@@ -11,7 +11,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets } = validatedParameters;
+    const { secrets, searchBy } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -28,7 +28,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       appointments,
       provenances,
       organizations,
-    } = await getLabResources(oystehr, validatedParameters);
+      questionnaires,
+    } = await getLabResources(oystehr, validatedParameters, m2mtoken, {
+      searchBy: validatedParameters.searchBy,
+    });
 
     if (!serviceRequests.length) {
       return {
@@ -41,6 +44,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const labOrders = mapResourcesToLabOrderDTOs(
+      { searchBy },
       serviceRequests,
       tasks,
       diagnosticReports,
@@ -48,7 +52,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounters,
       appointments,
       provenances,
-      organizations
+      organizations,
+      questionnaires
     );
 
     return {

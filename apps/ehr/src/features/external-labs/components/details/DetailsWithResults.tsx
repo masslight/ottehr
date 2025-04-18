@@ -2,11 +2,10 @@ import { Stack } from '@mui/system';
 import React from 'react';
 import { LabOrderDetailedPageDTO, UpdateLabOrderResourceParams } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
-import { OrderHistoryCard } from '../OrderHistoryCard';
-import { Questionarie } from './Questionarie';
 import { ResultItem } from './ResultItem';
 import { Button, Typography } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { OrderCollection } from '../OrderCollection';
 
 export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
@@ -19,7 +18,7 @@ export const DetailsWithResults: React.FC<{
   };
 
   return (
-    <div style={{ maxWidth: '714px', margin: '0 auto' }}>
+    <div style={{ maxWidth: '890px', width: '100%', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
         <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
@@ -45,14 +44,7 @@ export const DetailsWithResults: React.FC<{
           />
         ))}
 
-        <Questionarie
-          showActionButtons={false}
-          showOrderInfo={false}
-          isAOECollapsed={true}
-          accountNumber={labOrder.accountNumber!}
-          labOrder={labOrder}
-        />
-        <OrderHistoryCard orderHistory={labOrder.history} />
+        <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
 
         <Button
           variant="outlined"

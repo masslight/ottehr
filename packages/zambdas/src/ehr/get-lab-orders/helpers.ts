@@ -13,17 +13,23 @@ import {
   Reference,
   Provenance,
   Organization,
+  QuestionnaireResponse,
+  Questionnaire,
+  QuestionnaireResponseItem,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LabOrderDetailedPageDTO,
   LabOrderHistoryRow,
+  LabOrderListPageDTO,
   LabOrderResultDetails,
   LabOrdersSearchBy,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
+  QuestionnaireData,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
 } from 'utils';
@@ -38,6 +44,7 @@ type Cache = {
 };
 
 export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
+  searchBy: SearchBy,
   serviceRequests: ServiceRequest[],
   tasks: Task[],
   results: DiagnosticReport[],
@@ -45,7 +52,8 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   encounters: Encounter[],
   appointments: Appointment[],
   provenances: Provenance[],
-  organizations: Organization[]
+  organizations: Organization[],
+  questionnaires: QuestionnaireData[]
 ): LabOrderDTO<SearchBy>[] => {
   return serviceRequests.map((serviceRequest) => {
     const parsedResults = parseResults(serviceRequest, results);
@@ -57,7 +65,8 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       parsedTasks,
     };
 
-    const details = parseOrderDetails({
+    return parseOrderDetails({
+      searchBy,
       tasks,
       serviceRequest,
       results,
@@ -66,33 +75,14 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       practitioners,
       provenances,
       organizations,
+      questionnaires,
       cache,
     });
-
-    return {
-      serviceRequestId: details.serviceRequestId,
-      appointmentId: details.appointmentId,
-      orderingPhysician: details.orderingPhysician,
-      diagnosesDTO: details.diagnoses,
-      diagnoses: details.dx,
-      orderStatus: details.orderStatus,
-      reflexResultsCount: details.reflexResultsCount,
-      isPSC: details.isPSC,
-      testItem: details.testItem,
-      fillerLab: details.fillerLab,
-      visitDate: details.visitDate,
-      orderAddedDate: details.orderAddedDate, // order date
-      orderSource: details.orderSource, // order source (PSC currently)
-      lastResultReceivedDate: details.lastResultReceivedDate,
-      accessionNumbers: details.accessionNumbers,
-      history: details.history,
-      resultsDetails: details.resultsDetails,
-      accountNumber: details.accountNumber,
-    };
   });
 };
 
-export const parseOrderDetails = ({
+export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
+  searchBy,
   serviceRequest,
   tasks,
   results,
@@ -101,8 +91,10 @@ export const parseOrderDetails = ({
   practitioners,
   provenances,
   organizations,
+  questionnaires,
   cache,
 }: {
+  searchBy: SearchBy;
   serviceRequest: ServiceRequest;
   tasks: Task[];
   results: DiagnosticReport[];
@@ -111,27 +103,9 @@ export const parseOrderDetails = ({
   practitioners: Practitioner[];
   provenances: Provenance[];
   organizations: Organization[];
+  questionnaires: QuestionnaireData[];
   cache?: Cache;
-}): {
-  appointmentId: string;
-  serviceRequestId: string;
-  orderStatus: ExternalLabsStatus;
-  accessionNumbers: string[];
-  orderAddedDate: string;
-  lastResultReceivedDate: string;
-  visitDate: string;
-  testItem: string;
-  fillerLab: string;
-  isPSC: boolean;
-  reflexResultsCount: number;
-  diagnoses: DiagnosisDTO[];
-  orderingPhysician: string;
-  dx: string;
-  orderSource: string;
-  accountNumber?: string;
-  history: LabOrderHistoryRow[];
-  resultsDetails: LabOrderResultDetails[];
-} => {
+}): LabOrderDTO<SearchBy> => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -140,7 +114,7 @@ export const parseOrderDetails = ({
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
 
-  return {
+  const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem,
     fillerLab,
@@ -152,14 +126,25 @@ export const parseOrderDetails = ({
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
     reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
-    diagnoses: parseDiagnoses(serviceRequest),
+    diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
-    dx: parseDx(serviceRequest),
-    orderSource: parsePerformed(serviceRequest),
-    history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
-    accountNumber: parseAccountNumber(serviceRequest, organizations),
-    resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, cache),
+    diagnoses: parseDx(serviceRequest),
   };
+
+  if (searchBy.searchBy.field === 'serviceRequestId') {
+    const detailedPageDTO: LabOrderDetailedPageDTO = {
+      ...listPageDTO,
+      orderSource: parsePerformed(serviceRequest),
+      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
+      accountNumber: parseAccountNumber(serviceRequest, organizations),
+      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, cache),
+      questionnaire: questionnaires,
+    };
+
+    return detailedPageDTO as LabOrderDTO<SearchBy>;
+  }
+
+  return listPageDTO as LabOrderDTO<SearchBy>;
 };
 
 /**
@@ -302,7 +287,9 @@ export const parseResults = (
 
 export const getLabResources = async (
   oystehr: Oystehr,
-  params: GetZambdaLabOrdersParams
+  params: GetZambdaLabOrdersParams,
+  m2mtoken: string,
+  searchBy: LabOrdersSearchBy
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -314,6 +301,7 @@ export const getLabResources = async (
   appointments: Appointment[];
   provenances: Provenance[];
   organizations: Organization[];
+  questionnaires: QuestionnaireData[];
 }> => {
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
@@ -325,8 +313,17 @@ export const getLabResources = async (
   const labResources =
     labOrdersResponse.entry
       ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task | Encounter | DiagnosticReport | Provenance | Organization =>
-        Boolean(res)
+      .filter(
+        (
+          res
+        ): res is
+          | ServiceRequest
+          | Task
+          | Encounter
+          | DiagnosticReport
+          | Provenance
+          | Organization
+          | QuestionnaireResponse => Boolean(res)
       ) || [];
 
   const {
@@ -337,12 +334,16 @@ export const getLabResources = async (
     observations,
     provenances,
     organizations,
+    questionnaireResponses,
   } = extractLabResources(labResources);
 
-  const [practitioners, appointments, finalAndPrelimTasks] = await Promise.all([
+  const [practitioners, appointments, finalAndPrelimTasks, questionnaires] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
     fetchFinalAndPrelimTasks(oystehr, diagnosticReports),
+    ...(searchBy.searchBy.field === 'serviceRequestId'
+      ? [fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)]
+      : [Promise.resolve([] as QuestionnaireData[])]),
   ]);
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
@@ -357,6 +358,7 @@ export const getLabResources = async (
     appointments,
     provenances,
     organizations,
+    questionnaires,
     pagination,
   };
 };
@@ -446,6 +448,11 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
       name: '_include',
       value: 'ServiceRequest:performer',
     });
+
+    searchParams.push({
+      name: '_revinclude',
+      value: 'QuestionnaireResponse:based-on',
+    });
   }
 
   if (visitDate) {
@@ -459,7 +466,16 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
 };
 
 export const extractLabResources = (
-  resources: (ServiceRequest | Task | DiagnosticReport | Encounter | Observation | Provenance | Organization)[]
+  resources: (
+    | ServiceRequest
+    | Task
+    | DiagnosticReport
+    | Encounter
+    | Observation
+    | Provenance
+    | Organization
+    | QuestionnaireResponse
+  )[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -468,6 +484,7 @@ export const extractLabResources = (
   observations: Observation[];
   provenances: Provenance[];
   organizations: Organization[];
+  questionnaireResponses: QuestionnaireResponse[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -476,6 +493,7 @@ export const extractLabResources = (
   const observations: Observation[] = [];
   const provenances: Provenance[] = [];
   const organizations: Organization[] = [];
+  const questionnaireResponses: QuestionnaireResponse[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -487,7 +505,6 @@ export const extractLabResources = (
         serviceRequests.push(serviceRequest);
       }
     } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
-      // todo: filtering out cancelled tasks looks valid, but better to confirm this
       tasks.push(resource as Task);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource as DiagnosticReport);
@@ -499,6 +516,8 @@ export const extractLabResources = (
       provenances.push(resource as Provenance);
     } else if (resource.resourceType === 'Organization') {
       organizations.push(resource as Organization);
+    } else if (resource.resourceType === 'QuestionnaireResponse') {
+      questionnaireResponses.push(resource as QuestionnaireResponse);
     }
   }
 
@@ -510,6 +529,7 @@ export const extractLabResources = (
     observations,
     provenances,
     organizations,
+    questionnaireResponses,
   };
 };
 
@@ -598,6 +618,56 @@ export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: Diagno
   });
 
   return tasksResponse.unbundle();
+};
+
+export const fetchQuestionnaireForServiceRequests = async (
+  m2mtoken: string,
+  serviceRequests: ServiceRequest[],
+  questionnaireResponses: QuestionnaireResponse[]
+): Promise<QuestionnaireData[]> => {
+  const results: {
+    questionnaireUrl: string;
+    serviceRequestId: string;
+    questionnaireResponse: QuestionnaireResponse;
+  }[] = [];
+
+  for (const serviceRequest of serviceRequests) {
+    for (const questionnaireResponse of questionnaireResponses) {
+      if (
+        questionnaireResponse.basedOn?.some((b) => b.reference === `ServiceRequest/${serviceRequest.id}`) &&
+        !results.some((q) => q.serviceRequestId === serviceRequest.id) &&
+        questionnaireResponse.questionnaire &&
+        serviceRequest.id
+      ) {
+        results.push({
+          questionnaireUrl: questionnaireResponse.questionnaire,
+          serviceRequestId: serviceRequest.id,
+          questionnaireResponse,
+        });
+      }
+    }
+  }
+
+  return Promise.all(
+    results.map(async (result) => {
+      const questionnaireRequest = await fetch(result.questionnaireUrl, {
+        headers: {
+          Authorization: `Bearer ${m2mtoken}`,
+        },
+      });
+
+      const { questionnaireResponse, serviceRequestId } = result;
+
+      const questionnaire = (await questionnaireRequest.json()) as Questionnaire;
+
+      return {
+        questionnaire,
+        questionnaireResponse,
+        questionnaireResponseItems: parseQuestionnaireResponseItems(questionnaireResponse, questionnaire),
+        serviceRequestId,
+      };
+    })
+  );
 };
 
 export const parseLabOrderStatus = (
@@ -1029,14 +1099,11 @@ export const parseLabOrdersHistory = (
   return history;
 };
 
-export const parseAccountNumber = (
-  serviceRequest: ServiceRequest,
-  organizations: Organization[]
-): string | undefined => {
-  console.log('processpid', process.pid);
+export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations: Organization[]): string => {
+  const NOT_FOUND = '';
 
   if (!serviceRequest.performer || !serviceRequest.performer.length) {
-    return;
+    return NOT_FOUND;
   }
 
   for (const performer of serviceRequest.performer) {
@@ -1049,12 +1116,12 @@ export const parseAccountNumber = (
           (identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM
         )?.value;
 
-        return accountNumber;
+        return accountNumber || NOT_FOUND;
       }
     }
   }
 
-  return;
+  return NOT_FOUND;
 };
 
 export const parseTaskReceivedAndReviewedHistory = (
@@ -1381,4 +1448,41 @@ export const parseResultByTask = (task: Task, results: DiagnosticReport[]): Diag
     const resultId = result.id;
     return taskBasedOn.includes(`DiagnosticReport/${resultId}`);
   });
+};
+
+export const parseQuestionnaireResponseItems = (
+  questionnaireResponse: QuestionnaireResponse,
+  questionnaire: Questionnaire
+): QuestionnaireResponseItem[] => {
+  const questionnaireResponseItems = questionnaireResponse.item?.map((item) => {
+    const question = questionnaire.item?.find((q) => q.linkId === item.linkId);
+
+    if (!question) {
+      throw new Error(`question ${item.linkId} is not found`);
+    }
+
+    return {
+      linkId: item.linkId,
+      type: question.type,
+      response: item.answer?.map((answer) => {
+        if (question.type === 'text') {
+          return answer.valueString;
+        } else if (question.type === 'boolean') {
+          return answer.valueBoolean;
+        } else if (question.type === 'date') {
+          return answer.valueDate;
+        } else if (question.type === 'decimal') {
+          return answer.valueDecimal;
+        } else if (question.type === 'integer') {
+          return answer.valueInteger;
+        } else if (question.type === 'choice') {
+          return answer.valueString;
+        } else {
+          throw new Error(`Unknown question type: ${question.type}`);
+        }
+      }),
+    };
+  });
+
+  return questionnaireResponseItems || [];
 };

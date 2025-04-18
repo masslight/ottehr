@@ -1,4 +1,4 @@
-import { Questionnaire, Encounter } from 'fhir/r4b';
+import { Questionnaire, Encounter, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
@@ -81,6 +81,13 @@ export type LabOrderResultDetails = {
   reviewedDate: string | null;
 };
 
+export type QuestionnaireData = {
+  questionnaire: Questionnaire;
+  questionnaireResponse: QuestionnaireResponse;
+  questionnaireResponseItems: QuestionnaireResponseItem[];
+  serviceRequestId: string;
+};
+
 export type LabOrderListPageDTO = {
   serviceRequestId: string; // ServiceRequest.id
   testItem: string; // ServiceRequest.contained[0](ActivityDefinition).title
@@ -99,10 +106,11 @@ export type LabOrderListPageDTO = {
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
-  accountNumber?: string; // identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM (organization identifier) [added if list requested by ServiceRequest id]
+  accountNumber: string; // identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM (organization identifier) [added if list requested by ServiceRequest id]
   history: LabOrderHistoryRow[];
   resultsDetails: LabOrderResultDetails[];
   orderSource: string; // order source (SR.orderDetail code.display)
+  questionnaire: QuestionnaireData[];
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
