@@ -1,3 +1,4 @@
+import { AiChatHistory } from 'ui-components';
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
@@ -43,11 +44,12 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
   return (
     <Stack spacing={1}>
       <AccordionCard>
-        <Box style={{ padding: '16px' }}>
+        <Box style={{ padding: '16px', height: '350px', overflowY: 'auto' }}>
           <Box
             style={{
               display: 'flex',
               alignItems: 'center',
+              paddingBottom: '8px',
             }}
           >
             <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
@@ -55,6 +57,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
               CHAT WITH OTTEHR AI
             </Typography>
           </Box>
+          <AiChatHistory questionnaireResponse={chartData?.aiChat} />
         </Box>
       </AccordionCard>
       <AccordionCard>

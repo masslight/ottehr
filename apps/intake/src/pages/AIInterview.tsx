@@ -53,6 +53,7 @@ const AIInterview = (): JSX.Element => {
           questionnaireResponse={questionnaireResponse}
           aiLoading={loading}
           unprocessedUserAnswer={unprocessedUserAnswer}
+          scrollToBottomOnUpdate={true}
         />
       </Box>
       <Box

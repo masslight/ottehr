@@ -1,5 +1,5 @@
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
-import { FC, useEffect, useState } from 'react';
+import { FC, useEffect, useRef } from 'react';
 import { Box } from '@mui/system';
 import { Avatar, Typography } from '@mui/material';
 import { ottehrDarkBlue } from '../assets/icons';
@@ -10,6 +10,7 @@ export interface AiChatHistoryProps {
   questionnaireResponse?: QuestionnaireResponse;
   unprocessedUserAnswer?: string;
   aiLoading?: boolean;
+  scrollToBottomOnUpdate?: boolean;
 }
 
 interface Message {
@@ -18,32 +19,35 @@ interface Message {
   text: string;
 }
 
-export const AiChatHistory: FC<AiChatHistoryProps> = ({ questionnaireResponse, unprocessedUserAnswer, aiLoading }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  if (questionnaireResponse != null) {
-    const messages = createMessages(questionnaireResponse);
-    if (aiLoading) {
-      if (unprocessedUserAnswer != null) {
-        messages.push({
-          linkId: '1000000',
-          author: 'user',
-          text: unprocessedUserAnswer,
-        });
-      }
+export const AiChatHistory: FC<AiChatHistoryProps> = ({
+  questionnaireResponse,
+  unprocessedUserAnswer,
+  aiLoading,
+  scrollToBottomOnUpdate,
+}) => {
+  const messages = createMessages(questionnaireResponse);
+  if (aiLoading) {
+    if (unprocessedUserAnswer != null) {
       messages.push({
-        linkId: '1000001',
-        author: 'ai',
-        text: '...',
+        linkId: '1000000',
+        author: 'user',
+        text: unprocessedUserAnswer,
       });
     }
-    setMessages(messages);
+    messages.push({
+      linkId: '1000001',
+      author: 'ai',
+      text: '...',
+    });
   }
 
+  const bottomRef = useRef<null | HTMLDivElement>(null);
   useEffect(() => {
-    if (messages.length) {
-      scrollToBottom();
+    if (scrollToBottomOnUpdate === true) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  });
+
   return (
     <Box id={MESSAGES_CONTAINER_ID}>
       {messages.map((message) => (
@@ -74,11 +78,15 @@ export const AiChatHistory: FC<AiChatHistoryProps> = ({ questionnaireResponse, u
           {message.author === 'user' && <Avatar style={{ width: '24px', height: '24px', marginLeft: '10px' }} />}
         </Box>
       ))}
+      <div ref={bottomRef} />
     </Box>
   );
 };
 
-function createMessages(questionnaireResponse: QuestionnaireResponse): Message[] {
+function createMessages(questionnaireResponse: QuestionnaireResponse | undefined): Message[] {
+  if (questionnaireResponse == null) {
+    return [];
+  }
   const questionnaire = questionnaireResponse.contained?.[0] as Questionnaire;
   return (
     questionnaire.item
@@ -100,13 +108,4 @@ function createMessages(questionnaireResponse: QuestionnaireResponse): Message[]
         return result;
       }) ?? []
   );
-}
-
-function scrollToBottom(): void {
-  setTimeout(() => {
-    const element = document.getElementById(MESSAGES_CONTAINER_ID);
-    if (element) {
-      element.scrollTop = element?.scrollHeight;
-    }
-  }, 0);
 }
