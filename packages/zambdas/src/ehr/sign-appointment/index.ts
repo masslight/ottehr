@@ -88,9 +88,10 @@ export const performEffect = async (
 
   const isInPersonAppointment = !!visitResources.appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
 
-  const chartDataPromise = getChartData(oystehr, visitResources.encounter.id!);
+  const chartDataPromise = getChartData(oystehr, m2mtoken, visitResources.encounter.id!);
   const additionalChartDataPromise = getChartData(
     oystehr,
+    m2mtoken,
     visitResources.encounter.id!,
     isInPersonAppointment ? getProgressNoteChartDataRequestedFields() : telemedProgressNoteChartDataRequestedFields
   );
