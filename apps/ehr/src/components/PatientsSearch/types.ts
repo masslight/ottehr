@@ -14,7 +14,8 @@ export interface PartialSearchOptionsState {
 }
 
 export interface SearchOptionsFilters {
-  name: string;
+  givenNames: string;
+  lastName: string;
   dob: string;
   pid: string;
   phone: string;

@@ -27,12 +27,20 @@ export const PatientsSearchFilters: React.FC<{
     <FormControl component="form" onSubmit={handleSubmit} fullWidth>
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         <TextField
-          data-testid={dataTestIds.patients.searchByNameField}
+          data-testid={dataTestIds.patients.searchByLastNameField}
           sx={{ flex: 1 }}
-          label="Name"
-          placeholder="Last, First, Middle"
-          value={searchFilters.name}
-          onChange={(e) => setSearchField({ field: 'name', value: e.target.value })}
+          label="Last Name"
+          placeholder="Doe"
+          value={searchFilters.lastName}
+          onChange={(e) => setSearchField({ field: 'lastName', value: e.target.value })}
+        />
+        <TextField
+          data-testid={dataTestIds.patients.searchByGivenNamesField}
+          sx={{ flex: 1 }}
+          label="Given Names"
+          placeholder="John Henry"
+          value={searchFilters.givenNames}
+          onChange={(e) => setSearchField({ field: 'givenNames', value: e.target.value })}
         />
         <Box sx={{ flex: 1 }}>
           <DateSearch
