@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, Button, CircularProgress, Divider, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
@@ -17,23 +18,15 @@ import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZa
 import { GetScheduleResponse, PatientInfo, ScheduleType, ServiceMode, VisitType, getSelectors } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import zapehrApi, { AvailableLocationInformation } from '../api/zapehrApi';
-import {
-  BOOKING_SERVICE_MODE_PARAM,
-  BOOKING_SLUG_PARAMS,
-  BOOKING_VISIT_TYPE_PARAM,
-  bookingBasePath,
-  intakeFlowPageRoute,
-} from '../App';
+import zapehrApi, { AvailableLocationInformation } from '../api/ottehrApi';
+import { BOOKING_SLOT_ID_PARAM, bookingBasePath, intakeFlowPageRoute } from '../App';
 import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer, Schedule } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { PatientInfoInProgress } from '../features/patients/types';
-import { NO_LOCATION_ERROR } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { SlotListItem } from 'utils/lib/utils';
-import { Slot } from 'fhir/r4b';
 
 type BookingState = {
   visitType: VisitType | undefined;
@@ -234,15 +227,11 @@ const BookingHome: FC = () => {
     'setScheduleType',
     'slotData',
   ]);
-  const {
-    [BOOKING_SLUG_PARAMS]: slugParam,
-    [BOOKING_VISIT_TYPE_PARAM]: visitTypeParam,
-    [BOOKING_SERVICE_MODE_PARAM]: serviceTypeParam,
-  } = useParams();
+  const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
 
-  const [locationLoading, setLocationLoading] = useState(LoadingState.initial);
+  // const [locationLoading, setLocationLoading] = useState(LoadingState.initial);
   const [patientsLoading, setPatientsLoading] = useState(LoadingState.initial);
-  const { pathname, state: navState } = useLocation();
+  const { pathname } = useLocation();
   const navigate = useNavigate();
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
@@ -251,6 +240,7 @@ const BookingHome: FC = () => {
   const { isAuthenticated, isLoading: authIsLoading } = useAuth0();
   const { t } = useTranslation();
 
+  /*
   useEffect(() => {
     const slot = navState?.slot as Slot | undefined;
     const scheduleType = navState?.scheduleType;
@@ -265,6 +255,7 @@ const BookingHome: FC = () => {
   const scheduleTypeForFetch = useMemo(() => {
     return navState?.scheduleType ?? scheduleType;
   }, [navState?.scheduleType, scheduleType]);
+  */
   const outletContext: BookAppointmentContext = useMemo(() => {
     let selectedLocationTemp: AvailableLocationInformation | undefined = undefined;
     let waitingMinutesTemp: number | undefined = undefined;
@@ -272,14 +263,10 @@ const BookingHome: FC = () => {
       selectedLocationTemp = selectedLocationResponse.location;
       waitingMinutesTemp = selectedLocationResponse.waitingMinutes;
     }
-    let visitType = VisitType.PreBook;
-    if (visitTypeParam === VisitType.WalkIn) {
-      visitType = VisitType.WalkIn;
-    }
-    let serviceType = ServiceMode['in-person'];
-    if (serviceTypeParam === ServiceMode.virtual) {
-      serviceType = ServiceMode.virtual;
-    }
+
+    // todo: get this from slot details response
+    const visitType = VisitType.PreBook;
+    const serviceType = ServiceMode['in-person'];
     const getSlotListItemWithId = (slotId: string): SlotListItem | undefined => {
       return slotData.find((si) => `${si.slot.id}` === `${slotId}`);
     };
@@ -292,7 +279,7 @@ const BookingHome: FC = () => {
       visitType,
       scheduleType,
       serviceType,
-      locationLoading: locationLoading !== LoadingState.complete,
+      locationLoading: false,
       patientsLoading: patientsLoading !== LoadingState.complete,
       selectedSlot,
       unconfirmedDateOfBirth,
@@ -305,12 +292,9 @@ const BookingHome: FC = () => {
     };
   }, [
     selectedLocationResponse,
-    visitTypeParam,
-    serviceTypeParam,
     patients,
     patientInfo,
     scheduleType,
-    locationLoading,
     patientsLoading,
     selectedSlot,
     unconfirmedDateOfBirth,
@@ -331,6 +315,7 @@ const BookingHome: FC = () => {
 
   // console.log('outlet context in root', outletContext);
 
+  /*
   useEffect(() => {
     const fetchLocation = async (locationSlug: string, scheduleType: ScheduleType, isWalkin: boolean): Promise<any> => {
       try {
@@ -374,6 +359,7 @@ const BookingHome: FC = () => {
     tokenlessZambdaClient,
     visitTypeParam,
   ]);
+  */
 
   useEffect(() => {
     async function getPatients(): Promise<void> {
@@ -388,26 +374,8 @@ const BookingHome: FC = () => {
       if (patients.length > 0) {
         setPatients(patients);
       } else {
-        // Navigate to NewUser if patients not found
-        if (slugParam && visitTypeParam && serviceTypeParam) {
-          const basePath = generatePath(bookingBasePath, {
-            slug: slugParam,
-            visit_type: visitTypeParam ?? 'prebook',
-            service_mode: serviceTypeParam,
-          });
-          // if walkin is open or the base path contains prebook, redirect to new-user page
-          if (visitTypeParam == 'walkin') {
-            if (walkinOpen) {
-              navigate(`${basePath}/new-user`);
-            } else {
-              // if walkin is closed, redirect to the walkin closed page
-              navigate(basePath);
-            }
-          } else if (visitTypeParam == 'prebook') {
-            navigate(`${basePath}/new-user`, {
-              state: { slot: navState?.slot, scheduleType: navState?.scheduleType },
-            });
-          }
+        if (slotIdParam) {
+          // Navigate to NewUser if patients not found?
         }
         // navigate to the root domain (localhost:3002 or welcome.ottehr.com) if either of stateParam or slugParam or visitTypeParam are undefined.
         else {
@@ -416,7 +384,7 @@ const BookingHome: FC = () => {
       }
     }
 
-    if (isAuthenticated && slugParam && patientsLoading === LoadingState.initial) {
+    if (isAuthenticated && patientsLoading === LoadingState.initial) {
       getPatients()
         .catch((error) => {
           console.log(error);
@@ -426,18 +394,16 @@ const BookingHome: FC = () => {
   }, [
     isAuthenticated,
     setPatients,
-    slugParam,
     tokenfulZambdaClient,
     patientsLoading,
-    visitTypeParam,
     walkinOpen,
     navigate,
-    serviceTypeParam,
     selectedSlot,
     scheduleType,
-    navState,
+    slotIdParam,
   ]);
 
+  /*
   useEffect(() => {
     const recoverFromLostData = async (slug: string, zambdaClient: ZambdaClient): Promise<void> => {
       try {
@@ -471,17 +437,17 @@ const BookingHome: FC = () => {
     t,
     scheduleType,
   ]);
+  */
 
   const renderWelcome = useMemo(() => {
+    // todo: consider whether this is needed. this page shouldn't be rendered when id param is missing
     if (pathname === '/') {
       return true;
     }
     console.log('pathname', pathname);
-    if (slugParam && visitTypeParam && serviceTypeParam && scheduleType) {
+    if (slotIdParam) {
       const solvedPath = generatePath(bookingBasePath, {
-        slug: slugParam,
-        visit_type: visitTypeParam,
-        service_mode: serviceTypeParam,
+        slotId: slotIdParam,
       });
       if (solvedPath === pathname) {
         return true;
@@ -491,23 +457,18 @@ const BookingHome: FC = () => {
     }
     console.log('returning false from renderWelcome');
     return false; // figure out what to do here
-  }, [pathname, scheduleType, serviceTypeParam, slugParam, visitTypeParam]);
+  }, [pathname, slotIdParam]);
 
   // all this is to say, "if the user wound up somewhere in
   // the booking flow by finishing the booking and then pounding
   // the back button, escort them gently to the start of the flow"
   if (!patientInfo) {
-    if (slugParam && visitTypeParam && serviceTypeParam) {
+    if (slotIdParam) {
       const solvedPath = generatePath(pathname, {
-        slug: slugParam,
-        visit_type: visitTypeParam ?? 'prebook',
-        service_type: serviceTypeParam,
-        schedule_type: scheduleType || ScheduleType.location,
+        slotId: slotIdParam,
       });
       const basePath = generatePath(bookingBasePath, {
-        slug: slugParam,
-        visit_type: visitTypeParam ?? 'prebook',
-        service_mode: serviceTypeParam,
+        slotId: slotIdParam,
       });
       const shouldStartAtBeginning = isPostPatientSelectionPath(basePath, solvedPath) && !patientsLoading;
       // console.log('basePath, solvedPath, shouldSAB', basePath, solvedPath, shouldStartAtBeginning);
@@ -583,9 +544,11 @@ const BookingHome: FC = () => {
   );
 };
 
+// todo: I believe this entire component can be removed and the whole booking flow can just be in suspense mode while
+// the call to get slot details loads
 const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
   const navigate = useNavigate();
-  const { slug: slugParam, visit_type: visitTypeParam, [BOOKING_SERVICE_MODE_PARAM]: serviceTypeParam } = useParams();
+  const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
   const { isAuthenticated, loginWithRedirect } = useAuth0();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const theme = useTheme();
@@ -621,13 +584,18 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
   }, [slotData, selectedSlot]);
 
   const getCustomContainerText = (): CustomContainerText => {
-    if (visitTypeParam === VisitType.PreBook) {
+    /*if (visitTypeParam === VisitType.PreBook) {
       return { title: t('welcome.title') };
     } else if (visitTypeParam === VisitType.WalkIn && !walkinOpen && !locationLoading) {
       return { title: t('welcome.titleClosed') };
     } else {
       return { title: t('welcome.titleBranded'), subtext: t('welcome.subtitleBranded') };
+    }*/
+    // looks like the walkin case would show titleBranded here??
+    if (context.visitType === VisitType.PreBook) {
+      return { title: t('welcome.title') };
     }
+    return { title: t('welcome.titleBranded'), subtext: t('welcome.subtitleBranded') };
   };
 
   const { title, subtext } = getCustomContainerText();
@@ -644,12 +612,12 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
       imgAlt="ottehr icon"
       imgWidth={150}
       topOutsideCardComponent={
-        visitTypeParam === VisitType.PreBook && officeOpen ? (
+        context.visitType === VisitType.PreBook && officeOpen ? (
           <WaitingEstimateCard waitingMinutes={waitingMinutes} />
         ) : undefined
       }
     >
-      {visitTypeParam === VisitType.PreBook && (
+      {context.visitType === VisitType.PreBook && (
         <>
           <Schedule
             slotsLoading={locationLoading}
@@ -657,13 +625,14 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
             timezone={selectedLocation?.timezone || 'America/New_York'}
             existingSelectedSlot={slotData?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
             handleSlotSelected={(slot) => {
-              setSelectedSlot(slot.id);
+              // todo: evalutate whether this is even needed now that we have the PrebookVisit page
+              /*setSelectedSlot(slot.id);
               navigate(
                 preserveQueryParams(`/${scheduleType}/${slugParam}/${visitTypeParam}/${serviceTypeParam}/get-ready`),
                 {
                   state: { waitingTime: waitingMinutes?.toString() },
                 }
-              );
+              );*/
             }}
             forceClosedToday={officeHasClosureOverrideToday}
             forceClosedTomorrow={officeHasClosureOverrideTomorrow}
@@ -674,7 +643,7 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
           </Typography>
         </>
       )}
-      {visitTypeParam === VisitType.WalkIn &&
+      {context.visitType === VisitType.WalkIn &&
         (!locationLoading ? (
           walkinOpen ? (
             <>
@@ -683,7 +652,7 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
               </Typography>
               <PageForm
                 onSubmit={(_) => {
-                  if (!isAuthenticated) {
+                  /*if (!isAuthenticated) {
                     // if the user is not signed in, redirect them to auth0
                     loginWithRedirect({
                       appState: {
@@ -697,7 +666,7 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
                   } else {
                     // if the location has loaded and the user is signed in, redirect them to the landing page
                     navigate(intakeFlowPageRoute.Homepage.path);
-                  }
+                  }*/
                 }}
                 controlButtons={{ backButton: false }}
               />

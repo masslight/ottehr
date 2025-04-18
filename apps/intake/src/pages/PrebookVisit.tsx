@@ -1,16 +1,25 @@
 import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { Box, styled } from '@mui/system';
 import { FC, useState } from 'react';
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { generatePath, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import noop from 'lodash/noop';
-import { BoldPurpleInputLabel } from 'ui-components';
-import { BookableItem, CreateSlotParams, GetScheduleResponse, ScheduleType, ServiceMode, VisitType } from 'utils';
+import { BoldPurpleInputLabel, useUCZambdaClient } from 'ui-components';
+import {
+  BookableItem,
+  CreateSlotParams,
+  getAppointmentDurationFromSlot,
+  GetScheduleResponse,
+  getServiceModeFromSlot,
+  ScheduleType,
+  ServiceMode,
+} from 'utils';
 import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
   BOOKING_SCHEDULE_TYPE_QUERY_PARAM,
   BOOKING_SERVICE_MODE_PARAM,
   BOOKING_SCHEDULE_SELECTED_SLOT,
   intakeFlowPageRoute,
+  bookingBasePath,
 } from '../App';
 import { PageContainer, Schedule } from '../components';
 import { otherColors } from '../IntakeThemeProvider';
@@ -18,6 +27,7 @@ import { useGetBookableItems, useGetSchedule } from '../telemed/features/appoint
 import { useZapEHRAPIClient } from '../telemed/utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { Slot } from 'fhir/r4b';
+import ottehrApi from '../api/ottehrApi';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
@@ -140,6 +150,7 @@ const PrebookVisit: FC = () => {
     (serviceModeFromParam ?? serviceMode) === 'in-person' ? selectedInPersonLocation : selectedVirtualLocation;
 
   const { bookingOn, scheduleType, selectedSlot, slugToFetch } = useBookingParams(selectedLocation);
+  const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   // const [specificScheduleId] = bookingOn?.split('Schedule/') ?? [];
@@ -160,35 +171,32 @@ const PrebookVisit: FC = () => {
     setLocation(newValue);
   };
 
-  /*
-    export interface CreateSlotParams {
-      scheduleId: string;
-      startISO: string;
-      serviceModality: ServiceMode;
-      lengthInMinutes?: number;
-      lengthInHours?: number;
-      status?: Slot['status'];
-      walkin?: boolean;
-    }
-*/
-
-  const handleSlotSelection = (slot?: Slot): void => {
+  const handleSlotSelection = async (slot?: Slot): Promise<void> => {
     console.log('slot selection', slot);
-    if (slot) {
+    if (slot && tokenlessZambdaClient) {
       const createSlotInput: CreateSlotParams = {
         scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
         startISO: slot.start,
-        serviceModality: serviceMode,
-        status: slot.status,
+        serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
+        lengthInMinutes: getAppointmentDurationFromSlot(slot),
+        status: 'busy-tentative',
         walkin: false,
       };
       console.log('createSlotInput', createSlotInput);
+      try {
+        const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
+        console.log('createSlotResponse', slot);
+        const basePath = generatePath(bookingBasePath, {
+          slotId: slot.id!,
+        });
+        navigate(`${basePath}/patients`, {
+          state: { slot, scheduleType },
+        });
+      } catch (error) {
+        console.error('Error creating slot:', error);
+        // todo: handle error
+      }
     }
-    /*if (slot && slugToFetch) {
-      navigate(`/book/${slugToFetch}/${VisitType.PreBook}/${serviceMode}/patients`, {
-        state: { slot, scheduleType },
-      });
-    }*/
   };
 
   const title = getLocationTitleText({ selectedLocation, bookingOn, slotData, isSlotsLoading });

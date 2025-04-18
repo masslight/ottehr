@@ -19,7 +19,7 @@ import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZa
 import { VisitType, makeValidationSchema, pickFirstValueFromAnswerItem, uuidRegex } from 'utils';
 import { ValidationError } from 'yup';
 import { otherColors } from '../IntakeThemeProvider';
-import api from '../api/zapehrApi';
+import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
 import { UNEXPECTED_ERROR_CONFIG } from '../helpers';

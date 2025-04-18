@@ -43,7 +43,7 @@ import { persist } from 'zustand/middleware';
 import { DateTime } from 'luxon';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { useGetFullName } from '../hooks/useGetFullName';
-import api from '../api/zapehrApi';
+import api from '../api/ottehrApi';
 import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';

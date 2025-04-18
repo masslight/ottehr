@@ -13,7 +13,7 @@ import {
   SlotListItem,
   VisitType,
 } from 'utils';
-import zapehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/zapehrApi';
+import zapehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/ottehrApi';
 import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';

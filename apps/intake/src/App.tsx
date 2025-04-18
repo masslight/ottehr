@@ -84,14 +84,13 @@ const queryClient = new QueryClient({
   },
 });
 
+export const BOOKING_SLOT_ID_PARAM = 'slotId';
 export const BOOKING_SERVICE_MODE_PARAM = 'service_mode';
-export const BOOKING_SLUG_PARAMS = 'slug';
-export const BOOKING_VISIT_TYPE_PARAM = 'visit_type';
 export const BOOKING_SCHEDULE_TYPE_QUERY_PARAM = 'scheduleType';
 export const BOOKING_SCHEDULE_ON_QUERY_PARAM = 'bookingOn';
 export const BOOKING_SCHEDULE_SELECTED_SLOT = 'slot';
 
-export const bookingBasePath = `/book/:slug/:visit_type/:${BOOKING_SERVICE_MODE_PARAM}`;
+export const bookingBasePath = `/book/:${BOOKING_SLOT_ID_PARAM}`;
 export const paperworkBasePath = '/paperwork/:id';
 export const telemedPaperworkBasePath = `/telemed${paperworkBasePath}`;
 export const visitBasePath = '/visit/:id';

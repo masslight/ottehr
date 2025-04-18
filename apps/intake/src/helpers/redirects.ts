@@ -1,6 +1,6 @@
 import { generatePath } from 'react-router-dom';
 import { ServiceMode, VisitType } from 'utils';
-import { AvailableLocationInformation } from '../api/zapehrApi';
+import { AvailableLocationInformation } from '../api/ottehrApi';
 import { bookingBasePath } from '../App';
 
 interface RedirectResult {

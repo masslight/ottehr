@@ -1589,3 +1589,10 @@ export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType'])
   }
   return ScheduleType.group;
 };
+
+export const getAppointmentDurationFromSlot = (slot: Slot, unit: 'minutes' | 'hours' = 'minutes'): number => {
+  const start = DateTime.fromISO(slot.start);
+  const end = DateTime.fromISO(slot.end);
+  const duration = end.diff(start, unit).toObject();
+  return duration[unit] || 0;
+};

@@ -15,7 +15,7 @@ import {
   VisitType,
 } from 'utils';
 import { otherColors, palette } from '../IntakeThemeProvider';
-import zapehrApi from '../api/zapehrApi';
+import zapehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';

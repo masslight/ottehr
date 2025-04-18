@@ -20,7 +20,7 @@ import { VisitType, makeValidationSchema, pickFirstValueFromAnswerItem, uuidRege
 import { ValidationError } from 'yup';
 import { intakeFlowPageRoute } from '../../App';
 import { otherColors } from '../../IntakeThemeProvider';
-import api from '../../api/zapehrApi';
+import api from '../../api/ottehrApi';
 import { PageContainer } from '../../components';
 import ValidationErrorMessageContent from '../../features/paperwork/components/ValidationErrorMessage';
 import { UNEXPECTED_ERROR_CONFIG } from '../../helpers';

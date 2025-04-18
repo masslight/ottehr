@@ -32,7 +32,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import zapehrApi from '../api/zapehrApi';
+import zapehrApi from '../api/ottehrApi';
 import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer } from '../components';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -42,7 +42,7 @@ import i18n from '../lib/i18n';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { ottehrAiLogo } from '../assets';
 import { LoadingButton } from '@mui/lab';
-import api from '../api/zapehrApi';
+import api from '../api/ottehrApi';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,
