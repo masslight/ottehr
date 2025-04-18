@@ -166,6 +166,8 @@ export default function EmployeeInformationForm({
         variant: 'success',
       });
       if (evolveUser?.id === user.id) {
+        // wait 3 seconds for the snackbar to be seen before reloading
+        await new Promise((resolve) => setTimeout(resolve, 3000));
         window.location.reload();
       }
     } catch (error) {
