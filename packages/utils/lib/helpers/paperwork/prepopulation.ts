@@ -25,7 +25,6 @@ import {
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
 } from '../../types';
-import { capitalize } from 'lodash-es';
 import { PRACTICE_NAME_URL } from '../../types';
 
 // used when patient books an appointment and some of the inputs come from the create-appointment params
@@ -42,6 +41,12 @@ interface PrepopulationInput {
   documents?: DocumentReference[];
   accountInfo?: PatientAccountResponse | undefined;
 }
+
+const genderMap = {
+  male: 'Male',
+  female: 'Female',
+  other: 'Intersex',
+};
 
 export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): QuestionnaireResponseItem[] => {
   const {
@@ -90,14 +95,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   )?.valueString;
   const language = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
 
-  let patientSex: string | undefined;
-  if (patient?.gender === 'male') {
-    patientSex = 'Male';
-  } else if (patient?.gender === 'female') {
-    patientSex = 'Female';
-  } else if (patient?.gender !== undefined) {
-    patientSex = 'Intersex';
-  }
+  const patientSex = patient?.gender ? genderMap[patient.gender as keyof typeof genderMap] || '' : '';
+
+  const patientDOB = getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth);
 
   const photoIdFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'photo-id-front')
@@ -130,11 +130,22 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const patientFirstName = getFirstName(patient) ?? '';
   const patientLastName = getLastName(patient) ?? '';
 
+  const patientAnswers = {
+    patientFirstName,
+    patientLastName,
+    patientAddressLine1,
+    patientAddressLine2,
+    patientCity,
+    patientState,
+    patientPostalCode,
+    patientDOB,
+    patientSex,
+  };
+
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = item.item ?? [].filter((i: QuestionnaireItem) => i.type !== 'display');
       if (item.linkId === 'contact-information-page') {
-        // todo: consolidate this with mapPatientItemsToQuestionnaireResponseItems
         return itemItems.map((item) => {
           let answer: QuestionnaireResponseItemAnswer[] | undefined;
           const { linkId } = item;
@@ -144,11 +155,8 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
               'Boolean'
             );
           }
-          if (linkId === 'patient-birthdate') {
-            const patientDOB = getPatientDOB(patient, newPatientDob, unconfirmedDateOfBirth);
-            if (patientDOB) {
-              answer = makeAnswer(patientDOB);
-            }
+          if (linkId === 'patient-birthdate' && patientDOB) {
+            answer = makeAnswer(patientDOB);
           }
           if (linkId === 'is-new-qrs-patient') {
             answer = makeAnswer(isNewQrsPatient, 'Boolean');
@@ -235,12 +243,14 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
           guarantorResource: accountInfo?.guarantorResource,
         });
       } else if (COVERAGE_ITEMS.includes(item.linkId)) {
-        return mapCoveragesToQuestionnaireResponseItems({
+        return mapCoveragesToQRSItems({
           items: itemItems,
           coverages: accountInfo?.coverages ?? {},
-          insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
           insurancePlans: accountInfo?.insurancePlans ?? [],
+          insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
           documents,
+          patient,
+          patientAnswers,
         });
       } else if (item.linkId === 'photo-id-page') {
         return itemItems.map((item) => {
@@ -553,12 +563,10 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
     }
 
     if (linkId === 'pcp-practice' && practiceName) {
-      // not really sure where this will come from yet...
       answer = makeAnswer(practiceName);
     }
 
     if (linkId === 'pcp-address' && address) {
-      // not really sure where this will come from yet...
       answer = makeAnswer(address);
     }
 
@@ -576,6 +584,368 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
 };
 
 const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2', 'payment-option-page'];
+
+const mapCoveragesToQRSItems = (input: {
+  items: QuestionnaireItem[];
+  coverages: PatientAccountResponse['coverages'];
+  insurancePlans: PatientAccountResponse['insurancePlans'];
+  insuranceOrgs: PatientAccountResponse['insuranceOrgs'];
+  documents?: DocumentReference[];
+  patient: Patient;
+  patientAnswers: {
+    patientFirstName: string;
+    patientLastName: string;
+    patientAddressLine1?: string;
+    patientAddressLine2?: string;
+    patientCity?: string;
+    patientState?: string;
+    patientPostalCode?: string;
+    patientDOB?: string;
+    patientSex: string;
+  };
+}): QuestionnaireResponseItem[] => {
+  const { items, coverages, insurancePlans, insuranceOrgs, documents, patient, patientAnswers } = input;
+
+  const insuranceCardFrontDocumentReference = documents?.find((doc) =>
+    doc.content.some((item) => item.attachment.title === 'insurance-card-front')
+  );
+
+  const insuranceCardFront = {
+    url: insuranceCardFrontDocumentReference?.content[0].attachment.url,
+    title: insuranceCardFrontDocumentReference?.content[0].attachment.title,
+    creation: insuranceCardFrontDocumentReference?.date,
+    contentType: insuranceCardFrontDocumentReference?.content[0].attachment.contentType,
+  };
+
+  const insuranceCardBackDocumentReference = documents?.find((doc) =>
+    doc.content.some((item) => item.attachment.title === 'insurance-card-back')
+  );
+
+  const insuranceCardBack = {
+    url: insuranceCardBackDocumentReference?.content[0].attachment.url,
+    title: insuranceCardBackDocumentReference?.content[0].attachment.title,
+    creation: insuranceCardBackDocumentReference?.date,
+    contentType: insuranceCardBackDocumentReference?.content[0].attachment.contentType,
+  };
+
+  const secondaryInsuranceCardFrontDocumentReference = documents?.find((doc) =>
+    doc.content.some((item) => item.attachment.title === 'insurance-card-front-2')
+  );
+
+  const secondaryInsuranceCardFront = {
+    url: secondaryInsuranceCardFrontDocumentReference?.content[0].attachment.url,
+    title: secondaryInsuranceCardFrontDocumentReference?.content[0].attachment.title,
+    creation: secondaryInsuranceCardFrontDocumentReference?.date,
+    contentType: secondaryInsuranceCardFrontDocumentReference?.content[0].attachment.contentType,
+  };
+
+  const secondaryInsuranceCardBackDocumentReference = documents?.find((doc) =>
+    doc.content.some((item) => item.attachment.title === 'insurance-card-back-2')
+  );
+
+  const secondaryInsuranceCardBack = {
+    url: secondaryInsuranceCardBackDocumentReference?.content[0].attachment.url,
+    title: secondaryInsuranceCardBackDocumentReference?.content[0].attachment.title,
+    creation: secondaryInsuranceCardBackDocumentReference?.date,
+    contentType: secondaryInsuranceCardBackDocumentReference?.content[0].attachment.contentType,
+  };
+
+  const { primary, secondary, primarySubscriber, secondarySubscriber } = coverages;
+
+  let primaryInsurancePlanReference: Reference | undefined;
+
+  if (primary && insuranceOrgs && insurancePlans) {
+    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === primary.payor?.[0].reference);
+    const matchingPlan =
+      matchingOrg &&
+      insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
+    if (matchingPlan) {
+      primaryInsurancePlanReference = {
+        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
+        display: matchingPlan.name,
+      };
+    }
+  }
+
+  const primaryRelationshipToInsured = primary?.relationship?.coding?.[0].display;
+  const primarySubscriberHolderAddress = primarySubscriber?.address?.[0];
+  const primarySubscriberZip = primarySubscriberHolderAddress?.postalCode;
+  const primarySubscriberState = primarySubscriberHolderAddress?.state;
+  const primarySubscriberCity = primarySubscriberHolderAddress?.city;
+  const primarySubscriberAddressLine = primarySubscriberHolderAddress?.line?.[0];
+  const primarySubscriberAddressAdditionalLine = primarySubscriberHolderAddress?.line?.[1];
+
+  const primarySubscriberBirthSex = primarySubscriber?.gender
+    ? genderMap[primarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
+
+  const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
+
+  let primarySubscriberFirstName = '';
+  let primarySubscriberMiddleName = '';
+  let primarySubscriberLastName = '';
+
+  if (primarySubscriber) {
+    primarySubscriberFirstName = getFirstName(primarySubscriber) ?? '';
+    primarySubscriberMiddleName = getMiddleName(primarySubscriber) ?? '';
+    primarySubscriberLastName = getLastName(primarySubscriber) ?? '';
+  }
+
+  let primaryMemberId = '';
+
+  if (primary) {
+    primaryMemberId =
+      primary.identifier?.find(
+        (i) => i.type?.coding?.[0]?.code === 'MB' && i.assigner?.reference === primary.payor[0]?.reference
+      )?.value ?? '';
+  }
+
+  const selfPrimarySubscriber = primary?.subscriber?.reference === `Patient/${patient.id}`;
+
+  const displaySecondaryInsurance = !!secondary;
+
+  let secondaryInsurancePlanReference: Reference | undefined;
+
+  if (secondary && insuranceOrgs && insurancePlans) {
+    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === secondary.payor?.[0].reference);
+    const matchingPlan =
+      matchingOrg &&
+      insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
+    if (matchingPlan) {
+      secondaryInsurancePlanReference = {
+        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
+        display: matchingPlan.name,
+      };
+    }
+  }
+
+  const secondaryRelationshipToInsured = secondary?.relationship?.coding?.[0].display;
+  const secondarySubscriberAddress = secondarySubscriber?.address?.[0];
+  const secondarySubscriberZip = secondarySubscriberAddress?.postalCode;
+  const secondarySubscriberState = secondarySubscriberAddress?.state;
+  const secondarySubscriberCity = secondarySubscriberAddress?.city;
+  const secondarySubscriberAddressLine = secondarySubscriberAddress?.line?.[0];
+  const secondarySubscriberAddressAdditionalLine = secondarySubscriberAddress?.line?.[1];
+
+  const secondarySubscriberBirthSex = secondarySubscriber?.gender
+    ? genderMap[secondarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
+
+  const secondarySubscriberDoB = secondarySubscriber?.birthDate;
+
+  let secondarySubscriberFirstName = '';
+  let secondarySubscriberMiddleName = '';
+  let secondarySubscriberLastName = '';
+
+  if (secondarySubscriber) {
+    secondarySubscriberFirstName = getFirstName(secondarySubscriber) ?? '';
+    secondarySubscriberMiddleName = getMiddleName(secondarySubscriber) ?? '';
+    secondarySubscriberLastName = getLastName(secondarySubscriber) ?? '';
+  }
+
+  let secondaryMemberId = '';
+  if (secondary) {
+    secondaryMemberId =
+      secondary.identifier?.find(
+        (i) => i.type?.coding?.[0]?.code === 'MB' && i.assigner?.reference === secondary.payor[0]?.reference
+      )?.value ?? '';
+  }
+
+  const selfSecondarySubscriber = secondary?.subscriber?.reference === `Patient/${patient.id}`;
+
+  return items.map((item) => {
+    let answer: QuestionnaireResponseItemAnswer[] | undefined;
+    let nestedItem: QuestionnaireResponseItem[] | undefined;
+    const { linkId } = item;
+    if (selfPrimarySubscriber) {
+      if (linkId === 'patient-relationship-to-insured') {
+        answer = makeAnswer('Self');
+      }
+      if (linkId === 'policy-holder-birth-sex' && patientAnswers.patientSex) {
+        answer = makeAnswer(patientAnswers.patientSex);
+      }
+      if (linkId === 'policy-holder-date-of-birth' && patientAnswers.patientDOB) {
+        answer = makeAnswer(patientAnswers.patientDOB);
+      }
+      if (linkId === 'policy-holder-last-name') {
+        answer = makeAnswer(patientAnswers.patientLastName);
+      }
+      if (linkId === 'policy-holder-middle-name') {
+        answer = makeAnswer(getMiddleName(patient) ?? '');
+      }
+      if (linkId === 'policy-holder-first-name') {
+        answer = makeAnswer(patientAnswers.patientFirstName);
+      }
+      if (linkId === 'policy-holder-zip' && patientAnswers.patientPostalCode) {
+        answer = makeAnswer(patientAnswers.patientPostalCode);
+      }
+      if (linkId === 'policy-holder-state' && patientAnswers.patientState) {
+        answer = makeAnswer(patientAnswers.patientState);
+      }
+      if (linkId === 'policy-holder-city' && patientAnswers.patientCity) {
+        answer = makeAnswer(patientAnswers.patientCity);
+      }
+      if (linkId === 'policy-holder-address' && patientAnswers.patientAddressLine1) {
+        answer = makeAnswer(patientAnswers.patientAddressLine1);
+      }
+      if (linkId === 'policy-holder-address-additional-line' && patientAnswers.patientAddressLine2) {
+        answer = makeAnswer(patientAnswers.patientAddressLine2);
+      }
+    } else {
+      if (linkId === 'patient-relationship-to-insured' && primaryRelationshipToInsured) {
+        answer = makeAnswer(primaryRelationshipToInsured);
+      }
+      if (linkId === 'policy-holder-birth-sex' && primarySubscriberBirthSex) {
+        answer = makeAnswer(primarySubscriberBirthSex);
+      }
+      if (linkId === 'policy-holder-date-of-birth' && primarySubscriberDoB) {
+        answer = makeAnswer(primarySubscriberDoB);
+      }
+      if (linkId === 'policy-holder-last-name' && primarySubscriberLastName) {
+        answer = makeAnswer(primarySubscriberLastName);
+      }
+      if (linkId === 'policy-holder-middle-name' && primarySubscriberMiddleName) {
+        answer = makeAnswer(primarySubscriberMiddleName);
+      }
+      if (linkId === 'policy-holder-first-name' && primarySubscriberFirstName) {
+        answer = makeAnswer(primarySubscriberFirstName);
+      }
+      if (linkId === 'policy-holder-zip' && primarySubscriberZip) {
+        answer = makeAnswer(primarySubscriberZip);
+      }
+      if (linkId === 'policy-holder-state' && primarySubscriberState) {
+        answer = makeAnswer(primarySubscriberState);
+      }
+      if (linkId === 'policy-holder-city' && primarySubscriberCity) {
+        answer = makeAnswer(primarySubscriberCity);
+      }
+      if (linkId === 'policy-holder-address' && primarySubscriberAddressLine) {
+        answer = makeAnswer(primarySubscriberAddressLine);
+      }
+      if (linkId === 'policy-holder-address-additional-line' && primarySubscriberAddressAdditionalLine) {
+        answer = makeAnswer(primarySubscriberAddressAdditionalLine);
+      }
+    }
+    if (linkId === 'insurance-card-front' && insuranceCardFrontDocumentReference) {
+      answer = makeAnswer(insuranceCardFront, 'Attachment');
+    }
+    if (linkId === 'insurance-card-back' && insuranceCardBackDocumentReference) {
+      answer = makeAnswer(insuranceCardBack, 'Attachment');
+    }
+    if (linkId === 'insurance-member-id' && primaryMemberId) {
+      answer = makeAnswer(primaryMemberId);
+    }
+    if (linkId === 'insurance-carrier' && primaryInsurancePlanReference) {
+      answer = makeAnswer(primaryInsurancePlanReference, 'Reference');
+    }
+    if (linkId === 'payment-option' && primary) {
+      answer = makeAnswer('I have insurance');
+    }
+    if (linkId === 'display-secondary-insurance') {
+      answer = makeAnswer(displaySecondaryInsurance, 'Boolean');
+    }
+    if (linkId === 'secondary-insurance') {
+      nestedItem = (item.item ?? [])
+        .filter((item: QuestionnaireItem) => item.type !== 'display')
+        .map((item: QuestionnaireItem) => {
+          let answer: QuestionnaireResponseItemAnswer[] | undefined;
+          const { linkId } = item;
+          if (selfSecondarySubscriber) {
+            if (linkId === 'patient-relationship-to-insured-2') {
+              answer = makeAnswer('Self');
+            }
+            if (linkId === 'policy-holder-birth-sex-2' && patientAnswers.patientSex) {
+              answer = makeAnswer(patientAnswers.patientSex);
+            }
+            if (linkId === 'policy-holder-date-of-birth-2' && patientAnswers.patientDOB) {
+              answer = makeAnswer(patientAnswers.patientDOB);
+            }
+            if (linkId === 'policy-holder-last-name-2') {
+              answer = makeAnswer(patientAnswers.patientLastName);
+            }
+            if (linkId === 'policy-holder-middle-name-2') {
+              answer = makeAnswer(getMiddleName(patient) ?? '');
+            }
+            if (linkId === 'policy-holder-first-name-2') {
+              answer = makeAnswer(patientAnswers.patientFirstName);
+            }
+            if (linkId === 'policy-holder-zip-2' && patientAnswers.patientPostalCode) {
+              answer = makeAnswer(patientAnswers.patientPostalCode);
+            }
+            if (linkId === 'policy-holder-state-2' && patientAnswers.patientState) {
+              answer = makeAnswer(patientAnswers.patientState);
+            }
+            if (linkId === 'policy-holder-city-2' && patientAnswers.patientCity) {
+              answer = makeAnswer(patientAnswers.patientCity);
+            }
+            if (linkId === 'policy-holder-address-2' && patientAnswers.patientAddressLine1) {
+              answer = makeAnswer(patientAnswers.patientAddressLine1);
+            }
+            if (linkId === 'policy-holder-address-additional-line-2' && patientAnswers.patientAddressLine2) {
+              answer = makeAnswer(patientAnswers.patientAddressLine2);
+            }
+          } else {
+            if (linkId === 'patient-relationship-to-insured-2' && secondaryRelationshipToInsured) {
+              answer = makeAnswer(secondaryRelationshipToInsured);
+            }
+            if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
+              answer = makeAnswer(secondarySubscriberBirthSex);
+            }
+            if (linkId === 'policy-holder-date-of-birth-2' && secondarySubscriberDoB) {
+              answer = makeAnswer(secondarySubscriberDoB);
+            }
+            if (linkId === 'policy-holder-last-name-2' && secondarySubscriberLastName) {
+              answer = makeAnswer(secondarySubscriberLastName);
+            }
+            if (linkId === 'policy-holder-middle-name-2' && secondarySubscriberMiddleName) {
+              answer = makeAnswer(secondarySubscriberMiddleName);
+            }
+            if (linkId === 'policy-holder-first-name-2' && secondarySubscriberFirstName) {
+              answer = makeAnswer(secondarySubscriberFirstName);
+            }
+            if (linkId === 'policy-holder-zip-2' && secondarySubscriberZip) {
+              answer = makeAnswer(secondarySubscriberZip);
+            }
+            if (linkId === 'policy-holder-state-2' && secondarySubscriberState) {
+              answer = makeAnswer(secondarySubscriberState);
+            }
+            if (linkId === 'policy-holder-city-2' && secondarySubscriberCity) {
+              answer = makeAnswer(secondarySubscriberCity);
+            }
+            if (linkId === 'policy-holder-address-2' && secondarySubscriberAddressLine) {
+              answer = makeAnswer(secondarySubscriberAddressLine);
+            }
+            if (linkId === 'policy-holder-address-additional-line-2' && secondarySubscriberAddressAdditionalLine) {
+              answer = makeAnswer(secondarySubscriberAddressAdditionalLine);
+            }
+          }
+          if (linkId === 'insurance-card-front-2' && secondaryInsuranceCardFrontDocumentReference) {
+            answer = makeAnswer(secondaryInsuranceCardFront, 'Attachment');
+          }
+          if (linkId === 'insurance-card-back-2' && secondaryInsuranceCardBackDocumentReference) {
+            answer = makeAnswer(secondaryInsuranceCardBack, 'Attachment');
+          }
+          if (linkId === 'insurance-member-id-2' && secondaryMemberId) {
+            answer = makeAnswer(secondaryMemberId);
+          }
+          if (linkId === 'insurance-carrier-2' && secondaryInsurancePlanReference) {
+            answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
+          }
+          return {
+            linkId,
+            answer,
+          };
+        });
+    }
+
+    return {
+      linkId,
+      answer,
+      item: nestedItem,
+    };
+  });
+};
+
 interface MapCoverageItemsInput {
   items: QuestionnaireItem[];
   coverages: PatientAccountResponse['coverages'];
@@ -679,7 +1049,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
-  const primarySubscriberBirthSex = capitalize(primarySubscriber?.gender ?? '');
+  const primarySubscriberBirthSex = primarySubscriber?.gender
+    ? genderMap[primarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
   let primarySubscriberFirstName = '';
   let primarySubscriberLastName = '';
   let primarySubscriberMiddleName = '';
@@ -697,7 +1069,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     primarySubscriberMiddleName = primarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
   const secondarySubscriberDoB = secondarySubscriber?.birthDate;
-  const secondarySubscriberBirthSex = secondarySubscriber?.gender;
+  const secondarySubscriberBirthSex = secondarySubscriber?.gender
+    ? genderMap[secondarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
   let secondarySubscriberFirstName: string | undefined;
   let secondarySubscriberLastName: string | undefined;
   let secondarySubscriberMiddleName: string | undefined;
@@ -764,7 +1138,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       answer = makeAnswer(primarySubscriberBirthSex);
     }
     if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
-      answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
+      answer = makeAnswer(secondarySubscriberBirthSex);
     }
     if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
       answer = makeAnswer(relationshipToInsured);
@@ -842,11 +1216,7 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
   );
-  let birthSex: string | undefined;
-  if (guarantorResource?.gender) {
-    const genderString = guarantorResource?.gender === 'other' ? 'Intersex' : guarantorResource?.gender;
-    birthSex = capitalize(genderString);
-  }
+  const birthSex = guarantorResource?.gender ? genderMap[guarantorResource.gender as keyof typeof genderMap] || '' : '';
   const dob = guarantorResource?.birthDate;
   let firstName = '';
   let lastName = '';
