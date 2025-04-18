@@ -216,7 +216,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           getPatientContactEmail(fhirPatient), // todo use the right email
           getPatientFirstName(fhirPatient),
           `RelatedPerson/${relatedPerson.id}`,
-          originalDate.setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
+          DateTime.fromISO(startTime).setZone(timezone).toFormat(DATETIME_FULL_NO_YEAR),
           secrets,
           scheduleOwner,
           appointmentID,
