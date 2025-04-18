@@ -19,11 +19,14 @@ export const buildSearchQuery = (filter: Partial<SearchOptionsFilters>): string 
     params.push('_revinclude:iterate=Person:link');
   }
 
-  if (filter.name) {
-    const [last = '', first = '', middle = ''] = filter.name.split(',').map((part) => part.trim());
-    if (first) params.push(`given:contains=${encodeURIComponent(first)}`);
-    if (middle) params.push(`given:contains=${encodeURIComponent(middle)}`);
-    if (last) params.push(`family:contains=${encodeURIComponent(last)}`);
+  if (filter.lastName) {
+    params.push(`family:contains=${encodeURIComponent(filter.lastName)}`);
+  }
+  if (filter.givenNames) {
+    const names = filter.givenNames.split(' ');
+    names.forEach((name) => {
+      params.push(`given:contains=${encodeURIComponent(name)}`);
+    });
   }
 
   if (filter.status === 'Active') params.push('active=true');
