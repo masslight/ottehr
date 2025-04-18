@@ -685,6 +685,92 @@ export class PatientInformationPage {
   async clearMobileFromPcp(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').clear();
   }
+
+  async verifyInsuranceType(type: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.type).locator('input')).toHaveValue(type);
+  }
+
+  async verifyInsuranceCarrier(insuranceCarrier: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).locator('input')).toHaveValue(
+      insuranceCarrier
+    );
+  }
+
+  async verifyMemberId(memberId: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.memberId).locator('input')).toHaveValue(
+      memberId
+    );
+  }
+
+  async clickShowMoreButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.insuranceContainer.showMoreButton).click();
+  }
+
+  async verifyPolicyHoldersFirstName(firstName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.insuranceContainer.policyHoldersFirstName).locator('input')
+    ).toHaveValue(firstName);
+  }
+
+  async verifyPolicyHoldersLastName(lastName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.insuranceContainer.policyHoldersLastName).locator('input')
+    ).toHaveValue(lastName);
+  }
+
+  async verifyPolicyHoldersMiddleName(middleName: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.insuranceContainer.policyHoldersMiddleName).locator('input')
+    ).toHaveValue(middleName);
+  }
+
+  async verifyPolicyHoldersDateOfBirth(policyHoldersDateOfBirth: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.insuranceContainer.policyHoldersDateOfBirth).locator('input')
+    ).toHaveValue(policyHoldersDateOfBirth);
+  }
+
+  async verifyPolicyHoldersSex(sex: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.policyHoldersSex).locator('input')).toHaveValue(
+      sex
+    );
+  }
+
+  async verifyInsuranceStreetAddress(streetAddress: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.streetAddress).locator('input')).toHaveValue(
+      streetAddress
+    );
+  }
+
+  async verifyInsuranceAddressLine2(addressLine2: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.addressLine2).locator('input')).toHaveValue(
+      addressLine2
+    );
+  }
+
+  async verifyInsuranceCity(city: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.city).locator('input')).toHaveValue(city);
+  }
+
+  async verifyInsuranceState(state: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.state).locator('input')).toHaveValue(state);
+  }
+
+  async verifyInsuranceZip(zip: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.zip).locator('input')).toHaveValue(zip);
+  }
+
+  async verifyPatientsRelationshipToInjured(relationship: string): Promise<void> {
+    await expect(this.#page.getByTestId(dataTestIds.insuranceContainer.relationship).locator('input')).toHaveValue(
+      relationship
+    );
+  }
+
+  async verifyAdditionalInsuranceInformation(additionalInfo: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.insuranceContainer.additionalInformation).locator('input')
+    ).toHaveValue(additionalInfo);
+  }
 }
 
 export async function expectPatientInformationPage(page: Page, patientId: string): Promise<PatientInformationPage> {
