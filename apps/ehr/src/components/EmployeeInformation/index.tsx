@@ -162,14 +162,16 @@ export default function EmployeeInformationForm({
         npi: data.npi,
       });
       await getUserAndUpdatePage();
-      enqueueSnackbar(`User ${data.firstName} ${data.lastName} was updated successfully`, {
-        variant: 'success',
-      });
+      const successMessage = `User ${data.firstName} ${data.lastName} was updated successfully.`;
       if (evolveUser?.id === user.id) {
+        enqueueSnackbar(`${successMessage} The page will be refreshed in 3 seconds.`, {
+          variant: 'success',
+        });
         // wait 3 seconds for the snackbar to be seen before reloading
         await new Promise((resolve) => setTimeout(resolve, 3000));
         window.location.reload();
       }
+      enqueueSnackbar(successMessage, { variant: 'success' });
     } catch (error) {
       console.log(`Failed to update user: ${error}`);
       enqueueSnackbar('An error has occurred while updating user. Please try again.', {
