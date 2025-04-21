@@ -1,4 +1,4 @@
-import { AiChatHistory, useUCZambdaClient } from 'ui-components';
+import { useUCZambdaClient } from 'ui-components';
 import { PageContainer } from '../components';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
@@ -7,6 +7,7 @@ import { Box } from '@mui/system';
 import { Button, TextField } from '@mui/material';
 import { Send } from '@mui/icons-material';
 import { useParams } from 'react-router-dom';
+import { AiChatHistory } from '../components/AiChatHistory';
 
 const AIInterview = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });

@@ -1,4 +1,3 @@
-import { AiChatHistory } from 'ui-components';
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
@@ -9,6 +8,7 @@ import { useAppointment } from '../hooks/useAppointment';
 import ottehrAiIcon from '../../../assets/ottehr-ai-icon.svg';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../components/AiSuggestion';
+import { AiChatHistory } from '../../../components/AiChatHistory';
 
 const AI_OBSERVATION_FIELDS = [
   [AiObservationField.HistoryOfPresentIllness, 'History of Present Illness (HPI)'],
