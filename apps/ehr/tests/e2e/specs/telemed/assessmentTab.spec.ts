@@ -60,9 +60,12 @@ test('Remove MDM and check missing required fields on review and sign page', asy
   await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
   await telemedProgressNotePage.expectLoaded();
   await telemedProgressNotePage.verifyReviewAndSignButtonDisabled();
-  await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
-  await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
-  await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+  await test.step('Verify missing card is visible and has all required missing fields', async () => {
+    await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
+  });
   await page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink).click();
   await telemedAssessmentPage.expectDiagnosisDropdown();
   await telemedAssessmentPage.expectEmCodeDropdown();
@@ -247,5 +250,8 @@ test('Add E&M code', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await telemedProgressNotePage.expectLoaded();
     await expect(page.getByText(E_M_CODE)).toBeVisible();
+  });
+  await test.step('Verify missing card is not visible', async () => {
+    await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeVisible();
   });
 });
