@@ -7,6 +7,7 @@ export interface CreateAppointmentInputParams {
   patient: PatientInfo;
   slotId: string;
   language?: string;
+  locationState?: string;
   unconfirmedDateOfBirth?: string | undefined;
 }
 

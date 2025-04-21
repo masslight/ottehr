@@ -264,11 +264,11 @@ export const intakeFlowPageRoute = {
     path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}`,
     getPage: () => <PrebookVisit />,
   },
-  WelcomeType: {
+  BookingHome: {
     path: bookingBasePath,
     getPage: () => <BookingHome />,
   }, // IP
-  WelcomeBack: {
+  ChoosePatient: {
     path: `${bookingBasePath}/patients`,
     getPage: () => <WelcomeBack />,
   }, // IP
@@ -444,10 +444,10 @@ function App(): JSX.Element {
                 path={intakeFlowPageRoute.PrebookVisitDynamic.path}
                 element={intakeFlowPageRoute.PrebookVisitDynamic.getPage()}
               />
-              <Route path={intakeFlowPageRoute.WelcomeType.path} element={intakeFlowPageRoute.WelcomeType.getPage()}>
+              <Route path={intakeFlowPageRoute.BookingHome.path} element={intakeFlowPageRoute.BookingHome.getPage()}>
                 <Route
-                  path={intakeFlowPageRoute.WelcomeBack.path}
-                  element={intakeFlowPageRoute.WelcomeBack.getPage()}
+                  path={intakeFlowPageRoute.ChoosePatient.path}
+                  element={intakeFlowPageRoute.ChoosePatient.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.GetReadyForVisit.path}
