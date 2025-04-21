@@ -274,12 +274,12 @@ export const dataTestIds = {
     emCodeLink: 'em-code-link',
     visitNoteCard: 'visit-note-card',
   },
-  assessmentPage: {
-    diagnosisDropdown: 'diagnosis-dropdown',
+  assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
     medicalDecisionField: 'medical-decision-field',
   },
   diagnosisContainer: {
+    diagnosisDropdown: 'diagnosis-dropdown',
     primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
     secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
     primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',

@@ -1,6 +1,9 @@
-import React, { FC } from 'react';
-import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
 import { Stack, Typography } from '@mui/material';
+import { FC } from 'react';
+import { getProgressNoteChartDataRequestedFields, NOTE_TYPE } from 'utils';
+import { dataTestIds } from '../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -17,11 +20,9 @@ import {
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
-import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useChartData } from '../../hooks/useChartData';
+import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
-import { NOTE_TYPE, getProgressNoteChartDataRequestedFields } from 'utils';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
@@ -96,7 +97,7 @@ export const ProgressNoteDetails: FC = () => {
   ].filter(Boolean);
 
   return (
-    <AccordionCard label="Objective">
+    <AccordionCard label="Objective" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
       <SectionList sections={sections} sx={{ p: 2 }} />
     </AccordionCard>
   );

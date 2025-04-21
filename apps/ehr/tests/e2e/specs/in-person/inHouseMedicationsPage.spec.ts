@@ -181,8 +181,8 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   const progressNotePage = await expectInPersonProgressNotePage(page);
   await patientInfoPage.sideMenu().clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);
-  await assessmentPage.selectDiagnosis(DIAGNOSIS);
-  await assessmentPage.selectDiagnosis(NEW_DIAGNOSIS);
+  await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
+  await assessmentPage.selectDiagnosis({ diagnosisNamePart: NEW_DIAGNOSIS });
   const inHouseMedicationsPage = await progressNotePage.sideMenu().clickInHouseMedications();
   return await inHouseMedicationsPage.clickOrderButton();
 }

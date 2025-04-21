@@ -131,7 +131,7 @@ export const BillingCodesContainer: FC = () => {
               size="small"
               label="E&M code"
               placeholder="Search E&M code"
-              data-testid={dataTestIds.assessmentPage.emCodeDropdown}
+              data-testid={dataTestIds.assessmentCard.emCodeDropdown}
             />
           )}
         />

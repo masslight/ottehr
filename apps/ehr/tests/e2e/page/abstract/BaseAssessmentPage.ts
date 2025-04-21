@@ -11,16 +11,16 @@ export abstract class BaseAssessmentPage {
   }
 
   async expectDiagnosisDropdown(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown).locator('input').waitFor({
+    await this.#page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown).locator('input').waitFor({
       state: 'visible',
     });
-    const diagnosisAutocomplete = this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown);
+    const diagnosisAutocomplete = this.#page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown);
     await expect(await diagnosisAutocomplete.locator('input')).toBeVisible(DEFAULT_TIMEOUT);
   }
 
   async expectMdmField(options?: { text?: string }): Promise<void> {
     const { text } = options ?? {};
-    const mdmField = await this.#page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
+    const mdmField = await this.#page.getByTestId(dataTestIds.assessmentCard.medicalDecisionField);
     await expect(await mdmField.locator('textarea:visible')).toBeVisible(DEFAULT_TIMEOUT);
     if (text) {
       await expect(await mdmField.locator('textarea:visible')).toHaveText(text);
@@ -28,7 +28,7 @@ export abstract class BaseAssessmentPage {
   }
 
   async fillMdmField(text: string): Promise<void> {
-    const mdmField = await this.#page.getByTestId(dataTestIds.assessmentPage.medicalDecisionField);
+    const mdmField = await this.#page.getByTestId(dataTestIds.assessmentCard.medicalDecisionField);
     await mdmField.locator('textarea:visible').fill(text);
   }
 
@@ -43,7 +43,7 @@ export abstract class BaseAssessmentPage {
       throw new Error('Either diagnosisCode or diagnosisNamePart must be provided');
     }
 
-    const diagnosisAutocomplete = await this.#page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown);
+    const diagnosisAutocomplete = await this.#page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown);
 
     const searchText = diagnosisCode ?? diagnosisNamePart ?? '';
 
@@ -60,12 +60,12 @@ export abstract class BaseAssessmentPage {
   }
 
   async expectEmCodeDropdown(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown)).toBeVisible();
+    await expect(this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown)).toBeVisible();
   }
 
   async selectEmCode(code: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown).click();
-    await this.#page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown).locator('input').fill(code);
+    await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).click();
+    await this.#page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).locator('input').fill(code);
     await this.#page.getByRole('option').first().waitFor();
     await this.#page.getByRole('option').first().click();
   }

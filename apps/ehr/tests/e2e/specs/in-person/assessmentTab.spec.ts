@@ -1,15 +1,18 @@
 import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
-import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
+import { MDM_FIELD_DEFAULT_TEXT } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { TelemedAssessmentPage } from '../../page/telemed/TelemedAssessmentPage';
-import { TelemedProgressNotePage } from '../../page/telemed/TelemedProgressNotePage';
+import { CssHeader } from '../../page/CssHeader';
+import { InPersonAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
+import { InPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
+import { SideMenu } from '../../page/SideMenu';
 
-const resourceHandler = new ResourceHandler('telemed');
-let assessmentPage: TelemedAssessmentPage;
-let progressNotePage: TelemedProgressNotePage;
+const resourceHandler = new ResourceHandler('in-person');
+let assessmentPage: InPersonAssessmentPage;
+let progressNotePage: InPersonProgressNotePage;
+let sideMenu: SideMenu;
+let cssHeader: CssHeader;
 let context: BrowserContext;
 let page: Page;
 
@@ -24,10 +27,15 @@ test.describe.configure({ mode: 'serial' });
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
-  assessmentPage = new TelemedAssessmentPage(page);
-  progressNotePage = new TelemedProgressNotePage(page);
+  assessmentPage = new InPersonAssessmentPage(page);
+  progressNotePage = new InPersonProgressNotePage(page);
+  sideMenu = new SideMenu(page);
+  cssHeader = new CssHeader(page);
   await resourceHandler.setResources();
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
+  await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+  await cssHeader.clickSwitchStatusButton('provider');
+  await progressNotePage.expectLoaded();
 });
 
 test.afterAll(async () => {
@@ -37,12 +45,7 @@ test.afterAll(async () => {
 });
 
 test('Check assessment page initial state and default MDM saving', async () => {
-  await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
-  await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
-    .click();
-
+  await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
   await assessmentPage.expectDiagnosisDropdown();
   await expect(page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis)).not.toBeVisible();
   await expect(page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis)).not.toBeVisible();
@@ -50,14 +53,12 @@ test('Check assessment page initial state and default MDM saving', async () => {
 });
 
 test('Remove MDM and check missing required fields on review and sign page', async () => {
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
-    .click();
+  await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
   await assessmentPage.expectMdmField();
   await assessmentPage.fillMdmField('');
   await waitForChartDataDeletion(page);
 
-  await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+  await sideMenu.clickProgressNote();
   await progressNotePage.expectLoaded();
   await progressNotePage.verifyReviewAndSignButtonDisabled();
   await test.step('Verify missing card is visible and has all required missing fields', async () => {
@@ -73,9 +74,7 @@ test('Remove MDM and check missing required fields on review and sign page', asy
 });
 
 test('Search and select diagnoses', async () => {
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
-    .click();
+  await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
   await assessmentPage.expectDiagnosisDropdown();
 
   // Test ICD 10 code search
@@ -122,7 +121,7 @@ test('Search and select diagnoses', async () => {
 
   // Verify diagnoses on Review and Sign page
   await test.step('Verify diagnoses on Review and Sign page', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await sideMenu.clickProgressNote();
     await progressNotePage.expectLoaded();
 
     // Verify both diagnoses are present
@@ -132,9 +131,7 @@ test('Search and select diagnoses', async () => {
 });
 
 test('Change primary diagnosis', async () => {
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
-    .click();
+  await sideMenu.clickAssessment();
   await assessmentPage.expectDiagnosisDropdown();
   // Get initial values
   const initialPrimaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
@@ -156,7 +153,7 @@ test('Change primary diagnosis', async () => {
 
   // Verify on Review and Sign page
   await test.step('Verify swapped diagnoses on Review and Sign page', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await sideMenu.clickProgressNote();
     await progressNotePage.expectLoaded();
 
     // Verify both diagnoses are present
@@ -166,9 +163,7 @@ test('Change primary diagnosis', async () => {
 });
 
 test('Delete primary diagnosis', async () => {
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
-    .click();
+  await sideMenu.clickAssessment();
   await assessmentPage.expectDiagnosisDropdown();
   const primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
   const primaryDiagnosisValue = await primaryDiagnosis.textContent();
@@ -194,7 +189,7 @@ test('Delete primary diagnosis', async () => {
 
   // Verify on Review and Sign page
   await test.step('Verify promoted diagnosis on Review and Sign page, deleted diagnosis is not present', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await sideMenu.clickProgressNote();
     await progressNotePage.expectLoaded();
 
     // Verify only one diagnosis is present
@@ -204,9 +199,7 @@ test('Delete primary diagnosis', async () => {
 });
 
 test('Medical Decision Making functionality', async () => {
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
-    .click();
+  await sideMenu.clickAssessment();
   await assessmentPage.expectDiagnosisDropdown();
 
   // Check default text
@@ -220,15 +213,13 @@ test('Medical Decision Making functionality', async () => {
   await assessmentPage.expectMdmField({ text: newText });
 
   // Navigate to Review and Sign to verify text is displayed
-  await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+  await sideMenu.clickProgressNote();
   await progressNotePage.expectLoaded();
   await expect(page.getByText(newText)).toBeVisible();
 });
 
 test('Add E&M code', async () => {
-  await page
-    .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
-    .click();
+  await sideMenu.clickAssessment();
   await assessmentPage.expectDiagnosisDropdown();
 
   // Select E&M code
@@ -241,13 +232,13 @@ test('Add E&M code', async () => {
     const value = await page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown).locator('input').inputValue();
 
     // Navigate to Review and Sign to verify code is displayed
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await sideMenu.clickProgressNote();
     await progressNotePage.expectLoaded();
     await expect(page.getByText(value)).toBeVisible();
   });
 
   await test.step('Verify E&M code is added', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await sideMenu.clickProgressNote();
     await progressNotePage.expectLoaded();
     await expect(page.getByText(E_M_CODE)).toBeVisible();
   });
