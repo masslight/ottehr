@@ -1489,10 +1489,10 @@ export const getServiceModeFromScheduleOwner = (owner: ScheduleOwnerFhirResource
   const [codeableConcept] = getSlotServiceCategoryCodingFromScheduleOwner(owner) || [];
   if (codeableConcept) {
     const coding = codeableConcept.coding?.[0] ?? {};
-    if (codingContainedInList(coding, [SlotServiceCategory.inPersonServiceMode])) {
+    if (codingContainedInList(coding, SlotServiceCategory.inPersonServiceMode.coding!)) {
       return ServiceMode['in-person'];
     }
-    if (codingContainedInList(coding, [SlotServiceCategory.virtualServiceMode])) {
+    if (codingContainedInList(coding, SlotServiceCategory.virtualServiceMode.coding!)) {
       return ServiceMode.virtual;
     }
   }
@@ -1502,13 +1502,17 @@ export const getServiceModeFromScheduleOwner = (owner: ScheduleOwnerFhirResource
 export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
   let serviceMode: ServiceMode | undefined;
   (slot.serviceCategory ?? []).forEach((category) => {
-    if (codingContainedInList(category, [SlotServiceCategory.inPersonServiceMode])) {
+    const categoryCoding = category.coding?.[0] ?? {};
+    if (codingContainedInList(categoryCoding, SlotServiceCategory.inPersonServiceMode.coding!)) {
+      console.log('service mode in-person found');
       serviceMode = ServiceMode['in-person'];
     }
-    if (codingContainedInList(category, [SlotServiceCategory.virtualServiceMode])) {
+    if (codingContainedInList(categoryCoding, SlotServiceCategory.virtualServiceMode.coding!)) {
+      console.log('service mode virtual found');
       serviceMode = ServiceMode.virtual;
     }
   });
+  console.log('service mode from slot', serviceMode, slot.id);
   return serviceMode;
 };
 

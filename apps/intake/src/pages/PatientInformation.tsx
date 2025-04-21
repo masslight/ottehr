@@ -18,10 +18,10 @@ import {
   PatientSexOptions,
   ReasonForVisitOptions,
 } from '../features/patients';
-import { getStartingPath } from '../helpers';
 import { getPatientAgeDependentDataWithPatientData } from '../helpers/validation';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
-import { useBookingContext } from './Welcome';
+import { useBookingContext } from './BookingHome';
+import { bookingBasePath } from '../App';
 
 interface PatientInformation {
   dobYear: string | undefined;
@@ -44,9 +44,8 @@ const PatientInformation = (): JSX.Element => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const { patients, patientInfo, unconfirmedDateOfBirth, selectedLocation, visitType, serviceType, setPatientInfo } =
-    useBookingContext();
-  const selectPatientPageUrl = getStartingPath(selectedLocation, visitType, serviceType) + '/patients';
+  const { patients, slotId, patientInfo, unconfirmedDateOfBirth, setPatientInfo } = useBookingContext();
+  const selectPatientPageUrl = `${bookingBasePath}/${slotId}/patients`;
 
   // console.log('patient info', patientInfo);
 

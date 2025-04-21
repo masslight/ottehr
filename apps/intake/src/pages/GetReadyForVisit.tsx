@@ -1,16 +1,14 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, List, ListItem, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { generatePath, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { generatePath, useLocation, useNavigate } from 'react-router-dom';
 import { PageForm } from 'ui-components';
 import { VisitType } from 'utils';
 import { otherColors } from '../IntakeThemeProvider';
 import { PageContainer } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
-import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
-import { useBookingContext } from './Welcome';
+import { useBookingContext } from './BookingHome';
 
 const GetReadyForVisit = (): JSX.Element => {
   const theme = useTheme();
@@ -18,22 +16,16 @@ const GetReadyForVisit = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, loginWithRedirect } = useAuth0();
-  const { BOOKING_SLOT_ID_PARAM: slotIdParam } = useParams();
 
   const waitingMinutes = location.state && parseInt(location.state.waitingTime);
-  const { selectedLocation, visitType } = useBookingContext();
+  const { officeOpen, slotId, visitType } = useBookingContext();
   const preserveQueryParams = usePreserveQueryParams();
 
-  const { officeOpen } = useCheckOfficeOpen(selectedLocation);
-
   const onSubmit = async (): Promise<void> => {
-    if (!slotIdParam) {
-      return;
-    }
-    const solvedPath = generatePath(slotIdParam, {
-      slotId: slotIdParam,
+    const solvedPath = generatePath(slotId, {
+      slotId,
     });
-    if (!isAuthenticated && slotIdParam) {
+    if (!isAuthenticated && slotId) {
       loginWithRedirect({
         appState: {
           target: preserveQueryParams(`${solvedPath}/patients`),
@@ -45,13 +37,6 @@ const GetReadyForVisit = (): JSX.Element => {
       navigate(`${solvedPath}/patients`);
     }
   };
-
-  useTrackMixpanelEvents({
-    eventName: 'Get Ready For Visit',
-    visitType: visitType,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   return (
     <PageContainer

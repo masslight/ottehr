@@ -19,6 +19,7 @@ import {
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Schedule, Slot } from 'fhir/r4b';
+import { getNameForOwner } from '../../../ehr/schedules/shared';
 
 let m2mtoken: string;
 
@@ -57,12 +58,14 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
   const ownerType = scheduleOwner.resourceType;
   const ownerId = scheduleOwner.id!;
   const isWalkin = getSlotIsWalkin(slot);
+  const ownerName = getNameForOwner(scheduleOwner);
 
   // how to handle timezone is fairly context/use case specific
   // here we're defaulting to the schedule's timezone if it exists, else the schedule owner's timezone
   const timezoneForDisplay = getTimezone(schedule) ?? getTimezone(scheduleOwner);
 
   return {
+    slotId: slot.id!,
     startISO,
     endISO,
     serviceMode,
@@ -72,6 +75,7 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
     appointmentId,
     comment: slot.comment,
     timezoneForDisplay,
+    ownerName,
   };
 };
 

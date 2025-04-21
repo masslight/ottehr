@@ -41,11 +41,13 @@ export interface GetSlotDetailsParams {
 }
 
 export interface GetSlotDetailsResponse {
+  slotId: string;
   startISO: string;
   endISO: string;
   serviceMode: ServiceMode;
   ownerType: ScheduleOwnerFhirResource['resourceType'];
   ownerId: string;
+  ownerName: string;
   isWalkin: boolean;
   appointmentId?: string;
   comment?: string;

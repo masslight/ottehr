@@ -1,13 +1,12 @@
 import { EditOutlined } from '@mui/icons-material';
 import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import mixpanel from 'mixpanel-browser';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, generatePath, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm, useUCZambdaClient } from 'ui-components';
 import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, VisitType } from 'utils';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 import { PageContainer } from '../components';
 import { useIntakeCommonStore } from '../features/common';
 import { NO_PATIENT_ERROR, PAST_APPT_ERROR } from '../helpers';
@@ -15,7 +14,7 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { safelyCaptureException } from '../helpers/sentry';
 import { useGetFullName } from '../hooks/useGetFullName';
 import i18n from '../lib/i18n';
-import { useBookingContext } from './Welcome';
+import { useBookingContext } from './BookingHome';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 interface ReviewItem {
@@ -29,8 +28,16 @@ interface ReviewItem {
 const Review = (): JSX.Element => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const { patientInfo, unconfirmedDateOfBirth, selectedLocation, visitType, slotId, setPatientInfo, completeBooking } =
-    useBookingContext();
+  const {
+    patientInfo,
+    unconfirmedDateOfBirth,
+    visitType,
+    slotId,
+    scheduleOwnerName,
+    timezone,
+    setPatientInfo,
+    completeBooking,
+  } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const patientFullName = useGetFullName(patientInfo);
   const theme = useTheme();
@@ -71,25 +78,14 @@ const Review = (): JSX.Element => {
       setLoading(true);
 
       // Create the appointment
-      const res = await zapehrApi.createAppointment(zambdaClient, {
+      const res = await ottehrApi.createAppointment(zambdaClient, {
         slotId,
         patient: patientInfo,
         unconfirmedDateOfBirth: unconfirmedDateOfBirth,
         language: 'en', // replace with i18n.language to enable
       });
-      const { appointment, fhirPatientId } = res;
+      const { appointment } = res;
       const fhirAppointmentId = appointment;
-
-      // Track new or returning patient event in Mixpanel
-      const locationCity = selectedLocation?.address?.city ?? '';
-      const locationState = selectedLocation?.address?.state ?? '';
-      mixpanel.track('IP Visit Booked', {
-        uc_bookingcity_evt: locationCity,
-        uc_bookingstate_evt: locationState,
-        visit_status_evt: 'Not Complete',
-        fhir_visit_id: fhirAppointmentId,
-        fhir_patient_id: fhirPatientId,
-      });
 
       // Track QRS Booking conversion event in Google Tag Manager
       // https://developers.google.com/tag-platform/tag-manager/datalayer#how_data_layer_information_is_processed
@@ -128,7 +124,7 @@ const Review = (): JSX.Element => {
     },
     {
       name: t('reviewAndSubmit.office'),
-      valueString: selectedLocation ? `${selectedLocation?.name}` : 'Unknown',
+      valueString: scheduleOwnerName,
       testId: 'r&s_ProviderType',
       valueTestId: dataTestIds.locationNameReviewScreen,
     },
@@ -150,7 +146,7 @@ const Review = (): JSX.Element => {
   } else if (visitType === VisitType.WalkIn) {
     reviewItems.push({
       name: t('reviewAndSubmit.walkInTime'),
-      valueString: getLocaleDateTimeString(DateTime.now().setZone(selectedLocation?.timezone), 'medium', i18n.language),
+      valueString: getLocaleDateTimeString(DateTime.now().setZone(timezone), 'medium', i18n.language),
       testId: 'r&s_walkInTime',
       valueTestId: dataTestIds.walkInSlotReviewScreen,
     });

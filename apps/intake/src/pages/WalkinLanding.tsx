@@ -4,7 +4,7 @@ import { Box } from '@mui/system';
 import { FC, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useUCZambdaClient, ErrorDialog, PageForm, ErrorDialogConfig } from 'ui-components';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 import { PageContainer } from '../components';
 import { ottehrLightBlue } from '../telemed/assets';
 import { t } from 'i18next';
@@ -14,9 +14,9 @@ export const WalkinLanding: FC = () => {
   // const navigate = useNavigate();
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const scheduleId = useParams().id;
-  const getWalkinAvailability = zapehrApi.getWalkinAvailability;
+  const getWalkinAvailability = ottehrApi.getWalkinAvailability;
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const { data, error, isLoading, isFetching, isRefetching } = useQuery(
     ['walkin-check-availability', { zambdaClient: tokenlessZambdaClient, scheduleId }],
     () => (tokenlessZambdaClient && scheduleId ? getWalkinAvailability({ scheduleId }, tokenlessZambdaClient) : null),

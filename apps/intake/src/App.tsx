@@ -20,7 +20,7 @@ import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
 import ThankYou from './pages/ThankYou';
-import WelcomeBack from './pages/WelcomeBack';
+import WelcomeBack from './pages/ChoosePatient';
 import { ErrorAlert } from './telemed/components/ErrorAlert';
 import { IOSMessagesHandler } from './telemed/components/IOSMessagesHandler';
 import { ProtectedRoute } from './telemed/features/auth';

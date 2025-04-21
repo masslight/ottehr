@@ -3,7 +3,7 @@ import { FieldValues } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKEDIN_APT_ERROR } from 'utils';
-import zapehrApi from '../api/ottehrApi';
+import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
@@ -66,7 +66,7 @@ const CancellationReason = (): JSX.Element => {
       }
       setLoading(true);
 
-      await zapehrApi.cancelAppointment(zambdaClient, {
+      await ottehrApi.cancelAppointment(zambdaClient, {
         appointmentID: appointmentID,
         language: 'en', // replace with i18n.language to enable
         cancellationReason: data.cancellationReason,

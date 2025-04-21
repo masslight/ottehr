@@ -13,7 +13,7 @@ import {
   SlotListItem,
   VisitType,
 } from 'utils';
-import zapehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/ottehrApi';
+import ottehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/ottehrApi';
 import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
@@ -59,7 +59,7 @@ const Reschedule = (): JSX.Element => {
           return;
         }
         setLoading(true);
-        const response = await zapehrApi.getAppointmentDetails(tokenlessZambdaClient, appointmentID);
+        const response = await ottehrApi.getAppointmentDetails(tokenlessZambdaClient, appointmentID);
         const appointment = response.appointment;
         const location: AvailableLocationInformation = appointment.location;
         if (!location) {
@@ -124,7 +124,7 @@ const Reschedule = (): JSX.Element => {
       setSubmitPending(true);
 
       try {
-        const res = await zapehrApi.updateAppointment(tokenlessZambdaClient, {
+        const res = await ottehrApi.updateAppointment(tokenlessZambdaClient, {
           appointmentID: appointmentIDParam,
           slot: slot,
           language: 'en', // replace with i18n.language to enable

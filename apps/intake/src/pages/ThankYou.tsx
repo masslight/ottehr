@@ -32,7 +32,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import zapehrApi from '../api/ottehrApi';
+import ottehrApi from '../api/ottehrApi';
 import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer } from '../components';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -199,7 +199,7 @@ const ThankYou = (): JSX.Element => {
       setLoading(true);
       let paperworkResponse: UCGetPaperworkResponse | undefined = undefined;
       try {
-        paperworkResponse = await zapehrApi.getPaperwork(tokenlessZambdaClient, {
+        paperworkResponse = await ottehrApi.getPaperwork(tokenlessZambdaClient, {
           appointmentID: appointmentID,
         });
       } catch (error: any) {

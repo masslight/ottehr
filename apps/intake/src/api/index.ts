@@ -1,2 +1,2 @@
 export { apiErrorToThrow } from './errorHelpers';
-export { default as zapehrApi } from './ottehrApi';
+export { default as ottehrApi } from './ottehrApi';

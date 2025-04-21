@@ -34,7 +34,7 @@ import {
   convertQuesitonnaireItemToQRLinkIdMap,
   convertQRItemToLinkIdMap,
 } from 'utils';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { PageContainer } from '../components';
 import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
@@ -182,7 +182,7 @@ export const PaperworkHome: FC = () => {
     const fetchAuthedPaperwork = async (apptId: string, zambdaClient: ZambdaClient): Promise<void> => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
-        const paperworkResponse = await zapehrApi.getPaperwork(zambdaClient, {
+        const paperworkResponse = await ottehrApi.getPaperwork(zambdaClient, {
           appointmentID: apptId,
         });
         setResponse(paperworkResponse);

@@ -115,6 +115,8 @@ export const codingsEqual = (coding1: Coding, coding2: Coding): boolean => {
   const systemsAreEqual = coding1.system === coding2.system;
   const codesAreEqual = coding1.code === coding2.code;
 
+  console.log('coding 1, coding 2', coding1, coding2, systemsAreEqual, codesAreEqual);
+
   return systemsAreEqual && codesAreEqual;
 };
 
