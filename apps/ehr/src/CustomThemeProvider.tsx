@@ -19,11 +19,23 @@ const palette = {
     dark: '#377DCE',
     contrast: '#FFFFFF',
   },
+  tertiary: {
+    main: '#ECE4FB',
+    light: '#ECE4FB',
+    dark: '#ECE4FB',
+    contrastText: '#000000',
+  },
   error: {
     main: '#D32F2F',
     light: '#EF5350',
     dark: '#C62828',
     contrast: '#FFFFFF',
+  },
+  destructive: {
+    main: '#EB5757',
+    light: '#EB5757',
+    dark: '#EB5757',
+    contrastText: '#FFFFFF',
   },
   warning: {
     main: '#FB8C00',
