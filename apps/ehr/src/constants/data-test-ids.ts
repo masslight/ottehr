@@ -248,6 +248,10 @@ export const dataTestIds = {
     reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
+    reviewTabAdditionalQuestion: (questionSymptom: string) =>
+      `telemed-review-tab-additional-question-${questionSymptom}`,
+    reviewTabChiefComplaintContainer: 'telemed-review-tab-chief-complaint-container',
+    reviewTabRosContainer: 'telemed-review-tab-ros-container',
     cancelThisVisitButton: 'telemed-cancel-this-visit-button',
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
