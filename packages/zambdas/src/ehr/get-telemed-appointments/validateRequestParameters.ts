@@ -10,9 +10,8 @@ export function validateRequestParameters(
     throw new Error('No request body provided');
   }
 
-  const { dateFilter, usStatesFilter, statusesFilter, patientFilter, locationsIdsFilter } = JSON.parse(
-    input.body
-  ) as GetTelemedAppointmentsInput;
+  const { dateFilter, usStatesFilter, statusesFilter, patientFilter, locationsIdsFilter, visitTypesFilter } =
+    JSON.parse(input.body) as GetTelemedAppointmentsInput;
 
   if (statusesFilter === undefined) {
     throw new Error('These fields are required: "statusesFilter"');
@@ -35,5 +34,6 @@ export function validateRequestParameters(
     secrets: input.secrets,
     userToken,
     locationsIdsFilter,
+    visitTypesFilter,
   };
 }

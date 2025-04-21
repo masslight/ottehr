@@ -82,10 +82,10 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           }}
         />
       </Row>
-      <Row label="Sexual orientation">
+      <Row label="Sexual orientation" dataTestId={dataTestIds.patientDetailsContainer.sexualOrientation}>
         <FormSelect name={FormFields.sexualOrientation.key} control={control} options={SEXUAL_ORIENTATION_OPTIONS} />
       </Row>
-      <Row label="Gender identity">
+      <Row label="Gender identity" dataTestId={dataTestIds.patientDetailsContainer.genderIdentity}>
         <FormSelect name={FormFields.genderIdentity.key} control={control} options={GENDER_IDENTITY_OPTIONS} />
       </Row>
       {genderIdentityCurrentValue === 'Non-binary gender identity' && (
@@ -101,7 +101,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           </Box>
         </Box>
       )}
-      <Row label="How did you hear about us?">
+      <Row label="How did you hear about us?" dataTestId={dataTestIds.patientDetailsContainer.howDidYouHearAboutUs}>
         <FormSelect name={FormFields.pointOfDiscovery.key} control={control} options={POINT_OF_DISCOVERY_OPTIONS} />
       </Row>
       <Box
@@ -128,6 +128,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
                   const boolValue = e.target.value === 'true';
                   field.onChange(boolValue);
                 }}
+                data-testid={dataTestIds.patientDetailsContainer.sendMarketingMessages}
               >
                 {[
                   { value: 'true', label: 'Yes' },
@@ -157,7 +158,13 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
             name={FormFields.language.key}
             control={control}
             render={({ field }) => (
-              <Select {...field} value={field.value || ''} variant="standard" sx={{ width: '100%' }}>
+              <Select
+                {...field}
+                value={field.value || ''}
+                variant="standard"
+                sx={{ width: '100%' }}
+                data-testid={dataTestIds.patientDetailsContainer.preferredLanguage}
+              >
                 {Object.entries(LANGUAGE_OPTIONS).map(([key, value]) => (
                   <MenuItem key={value} value={value}>
                     {key}
@@ -192,6 +199,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
                   const boolValue = e.target.value === 'true';
                   field.onChange(boolValue);
                 }}
+                data-testid={dataTestIds.patientDetailsContainer.commonWellConsent}
               >
                 {[
                   { value: 'true', label: 'Yes' },

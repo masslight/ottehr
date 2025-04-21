@@ -1,20 +1,16 @@
-import {
-  // TextField,
-  CircularProgress,
-  Table,
-  TableRow,
-  TableCell,
-} from '@mui/material';
+import { Table, TableRow, TableCell } from '@mui/material';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
+import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
 
 interface OrderHistoryProps {
-  instructions?: string;
+  isLoading?: boolean;
+  isCollapsed?: boolean;
+  orderHistory?: LabOrderHistoryRow[];
 }
 
-export const OrderHistoryCard: React.FC<OrderHistoryProps> = () => {
-  const [collapsed, setCollapsed] = useState(false);
-  const [isLoading, _setLoading] = useState(false);
+export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = false, orderHistory = [] }) => {
+  const [collapsed, setCollapsed] = useState(isCollapsed);
 
   return (
     <>
@@ -26,17 +22,19 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = () => {
           setCollapsed((prevState) => !prevState);
         }}
       >
-        {isLoading ? (
-          <CircularProgress />
-        ) : (
-          <Table>
-            <TableRow>
-              <TableCell>Ordered</TableCell>
-              <TableCell>Dr. Smith</TableCell>
-              <TableCell>10/21/2024 at 8:07 AM</TableCell>
-            </TableRow>
-          </Table>
-        )}
+        <Table>
+          {orderHistory.map((row) => {
+            const isReviewOrReceiveAction = row.action === 'reviewed' || row.action === 'received';
+            const actionDescription = isReviewOrReceiveAction ? `${row.action} (${row.testType})` : row.action;
+            return (
+              <TableRow key={`${row.action}-${row.performer}-${row.date}`}>
+                <TableCell>{actionDescription}</TableCell>
+                <TableCell>{row.performer}</TableCell>
+                <TableCell>{row.date}</TableCell>
+              </TableRow>
+            );
+          })}
+        </Table>
       </AccordionCard>
     </>
   );

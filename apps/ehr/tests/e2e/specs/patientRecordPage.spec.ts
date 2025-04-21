@@ -9,12 +9,21 @@ import {
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 
-import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
-import { expectPatientRecordPage } from '../page/PatientRecordPage';
+import { waitForResponseWithData } from 'test-utils';
 import {
   chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
+  DEMO_VISIT_MARKETING_MESSAGING,
+  DEMO_VISIT_PATIENT_ETHNICITY,
+  DEMO_VISIT_PATIENT_RACE,
+  DEMO_VISIT_PHYSICIAN_ADDRESS,
+  DEMO_VISIT_PHYSICIAN_MOBILE,
+  DEMO_VISIT_POINT_OF_DISCOVERY,
+  DEMO_VISIT_PRACTICE_NAME,
+  DEMO_VISIT_PREFERRED_LANGUAGE,
+  DEMO_VISIT_PROVIDER_FIRST_NAME,
+  DEMO_VISIT_PROVIDER_LAST_NAME,
   DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
   DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH,
@@ -29,9 +38,10 @@ import {
   DEMO_VISIT_ZIP,
   unpackFhirResponse,
 } from 'utils';
-import { openAddPatientPage } from '../page/AddPatientPage';
-import { waitForResponseWithData } from 'test-utils';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { openAddPatientPage } from '../page/AddPatientPage';
+import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
+import { expectPatientRecordPage } from '../page/PatientRecordPage';
 
 const resourceHandler = new ResourceHandler();
 const NEW_PATIENT_LAST_NAME = 'Test_lastname';
@@ -51,17 +61,26 @@ const NEW_PATIENT_EMAIL = 'testemail@getMaxListeners.com';
 const NEW_PATIENT_MOBILE = '2027139680';
 const NEW_PATIENT_ETHNICITY = 'Hispanic or Latino';
 const NEW_PATIENT_RACE = 'Asian';
+const NEW_PATIENT_SEXUAL_ORIENTATION = 'Straight';
+const NEW_PATIENT_GENDER_IDENTITY = 'Female';
+const NEW_PATIENT_HOW_DID_YOU_HEAR = 'Webinar';
+const NEW_SEND_MARKETING_MESSAGES = 'No';
+const NEW_PREFERRED_LANGUAGE = 'Spanish';
+const NEW_COMMON_WELL_CONSENT = 'Yes';
 const NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER = 'Parent';
 const NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER = 'First name';
 const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
 const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
+const NEW_PROVIDER_FIRST_NAME = 'John';
+const NEW_PROVIDER_LAST_NAME = 'Doe';
+const NEW_PRACTICE_NAME = 'Dental';
+const NEW_PHYSICIAN_ADDRESS = '5th avenue';
+const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
+
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
-
-let context: BrowserContext;
-let page: Page;
 
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
@@ -82,34 +101,13 @@ test.describe('Patient Record Page non-mutating tests', () => {
 });
 
 test.describe('Patient Record Page mutating tests', () => {
-  let appointmentIds: string[] = [];
-
-  test.beforeAll(async ({ browser }) => {
-    context = await browser.newContext();
-    page = await context.newPage();
-    page.on('response', async (response) => {
-      if (response.url().includes('/create-appointment/')) {
-        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-        if (appointment && !appointmentIds.includes(appointment)) {
-          console.log('Created appointment: ', appointment);
-          appointmentIds.push(appointment);
-        }
-      }
-    });
-  });
-
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async () => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-    await page.goto('/patient/' + resourceHandler.patient.id);
   });
 
   test.afterEach(async () => {
     await resourceHandler.cleanupResources();
-    for (const id of appointmentIds) {
-      await resourceHandler.cleanAppointment(id);
-    }
-    appointmentIds = [];
   });
 
   test('Fill and save required values on Patient Info Page, values are saved and updated successfully- Happy path', async ({
@@ -350,7 +348,133 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 
-  test('Check state, ethnicity, race, relationship to patient are required', async ({ page }) => {
+  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
+    await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
+    await patientInformationPage.verifyMarketingMessaging(DEMO_VISIT_MARKETING_MESSAGING ? 'Yes' : 'No');
+    await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
+  });
+
+  test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
+    await patientInformationPage.selectPatientRace(NEW_PATIENT_RACE);
+    await patientInformationPage.selectSexualOrientation(NEW_PATIENT_SEXUAL_ORIENTATION);
+    await patientInformationPage.selectGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.selectHowDidYouHear(NEW_PATIENT_HOW_DID_YOU_HEAR);
+    await patientInformationPage.selectMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
+    await patientInformationPage.selectPreferredLanguage(NEW_PREFERRED_LANGUAGE);
+    await patientInformationPage.selectCommonwellConsent(NEW_COMMON_WELL_CONSENT);
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+
+    await patientInformationPage.verifyPatientEthnicity(NEW_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyPatientRace(NEW_PATIENT_RACE);
+    await patientInformationPage.verifySexualOrientation(NEW_PATIENT_SEXUAL_ORIENTATION);
+    await patientInformationPage.verifyGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.verifyHowDidYouHear(NEW_PATIENT_HOW_DID_YOU_HEAR);
+    await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
+    await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
+    await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
+  });
+
+  test('Verify data from Primary Care Physician block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+  });
+
+  /* test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyCheckboxOff();
+    await patientInformationPage.verifyFirstNameFromPcpIsVisible();
+    await patientInformationPage.verifyLastNameFromPcpIsVisible();
+    await patientInformationPage.verifyPracticeNameFromPcpIsVisible();
+    await patientInformationPage.verifyAddressFromPcpIsVisible();
+    await patientInformationPage.verifyMobileFromPcpIsVisible();
+
+    await patientInformationPage.clearFirstNameFromPcp();
+    await patientInformationPage.clearLastNameFromPcp();
+    await patientInformationPage.clearPracticeNameFromPcp();
+    await patientInformationPage.clearAddressFromPcp();
+    await patientInformationPage.clearMobileFromPcp();
+    await patientInformationPage.clickSaveChangesButton();
+
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_MOBILE);
+  });*/
+  // todo: uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
+
+  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.setCheckboxOn();
+    await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyAddressFromPcpIsNotVisible();
+    await patientInformationPage.verifyMobileFromPcpIsNotVisible();
+  });
+
+  test('Updated values from Primary Care Physician block are saved and displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.enterFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
+    await patientInformationPage.enterLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
+    await patientInformationPage.enterPracticeNameFromPcp(NEW_PRACTICE_NAME);
+    await patientInformationPage.enterAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
+    await patientInformationPage.enterMobileFromPcp(NEW_PHYSICIAN_MOBILE);
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+
+    await patientInformationPage.verifyFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(NEW_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(NEW_PHYSICIAN_MOBILE);
+  });
+});
+
+test.describe('Patient Record Page tests with zero patient data filled in', () => {
+  let appointmentIds: string[] = [];
+  let context: BrowserContext;
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    context = await browser.newContext();
+    page = await context.newPage();
+    page.on('response', async (response) => {
+      if (response.url().includes('/create-appointment/')) {
+        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
+        if (appointment && !appointmentIds.includes(appointment)) {
+          console.log('Created appointment: ', appointment);
+          appointmentIds.push(appointment);
+        }
+      }
+    });
+  });
+
+  test.afterEach(async () => {
+    for (const id of appointmentIds) {
+      await resourceHandler.cleanAppointment(id);
+    }
+    appointmentIds = [];
+  });
+
+  test('Check state, ethnicity, race, relationship to patient are required', async () => {
+    await page.goto('/patient/' + resourceHandler.patient.id);
     const addPatientPage = await openAddPatientPage(page);
     await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
     await addPatientPage.enterMobilePhone(NEW_PATIENT_MOBILE);

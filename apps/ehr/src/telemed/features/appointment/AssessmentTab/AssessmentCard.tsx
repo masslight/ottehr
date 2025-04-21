@@ -12,6 +12,7 @@ import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useAppointmentStore } from '../../../state';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
+import { AiPotentialDiagnosesCard } from './AiPotentialDiagnosesCard';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 
 export const AssessmentCard: FC = () => {
@@ -24,6 +25,7 @@ export const AssessmentCard: FC = () => {
   return (
     <Stack spacing={1}>
       <PageTitle label="Assessment" showIntakeNotesButton={false} />
+      <AiPotentialDiagnosesCard />
       <AccordionCard label={css ? undefined : 'Assessment'}>
         <DoubleColumnContainer
           divider
