@@ -57,8 +57,8 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     path: ROUTER_PATH.OTTEHR_AI,
     modes: ['provider', 'readonly'],
     element: <OttehrAi />,
-    text: 'Ottehr AI',
-    iconKey: 'Ottehr AI',
+    text: 'Oystehr AI',
+    iconKey: 'Oystehr AI',
   },
   [ROUTER_PATH.PATIENT_INFO]: {
     path: ROUTER_PATH.PATIENT_INFO,

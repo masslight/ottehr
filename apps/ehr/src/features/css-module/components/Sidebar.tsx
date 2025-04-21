@@ -182,7 +182,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
-  'Ottehr AI': <img src={ottehrAiIcon} style={{ width: '22px' }} />,
+  'Oystehr AI': <img src={ottehrAiIcon} style={{ width: '22px' }} />,
 };
 
 const drawerWidth = 244;

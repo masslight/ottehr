@@ -24,7 +24,7 @@ export default function AiSuggestion({ title, content, hideHeader }: AiSuggestio
         >
           <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
           <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-            OTTEHR AI
+            OYSTEHR AI
           </Typography>
         </Box>
       ) : undefined}

@@ -54,7 +54,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
           >
             <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
             <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-              CHAT WITH OTTEHR AI
+              CHAT WITH OYSTEHR AI
             </Typography>
           </Box>
           <AiChatHistory questionnaireResponse={chartData?.aiChat} />
@@ -70,7 +70,7 @@ export const OttehrAi: React.FC<OttehrAiProps> = () => {
           >
             <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
             <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-              OTTEHR AI SUGGESTIONS
+              OYSTEHR AI SUGGESTIONS
             </Typography>
           </Box>
           {AI_OBSERVATION_FIELDS.map(([filed, title]) => {
