@@ -284,6 +284,10 @@ export class PaperworkTelemed {
     await this.page.click('#responsible-party-birth-sex');
     await this.page.getByText('Female').click();
     await this.page.fill('#responsible-party-number', '3425325324');
+    await this.page.fill('#responsible-party-address', '123 fake place');
+    await this.page.fill('#responsible-party-city', 'new york');
+    await this.page.fill('#responsible-party-state', 'NY');
+    await this.page.fill('#responsible-party-zip', '10003');
     await this.page.click('[data-testid="loading-button"]');
   }
 

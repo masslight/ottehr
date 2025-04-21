@@ -429,6 +429,10 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyBirthSex).toHaveValue(responsiblePartyData.birthSex);
     await expect(locator.responsiblePartyRelationship).toHaveValue(responsiblePartyData.relationship);
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue(responsiblePartyData.dob);
+    await expect(locator.responsiblePartyAddress1).toHaveValue(responsiblePartyData.address1);
+    await expect(locator.responsiblePartyCity).toHaveValue(responsiblePartyData.city);
+    await expect(locator.responsiblePartyState).toHaveValue(responsiblePartyData.state);
+    await expect(locator.responsiblePartyZip).toHaveValue(responsiblePartyData.zip);
   });
 });
 test.describe('Photo ID - Upload photo', () => {

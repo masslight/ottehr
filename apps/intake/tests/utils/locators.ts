@@ -86,6 +86,10 @@ export class Locators {
   photoIdFrontImage: Locator;
   photoIdBackImage: Locator;
   responsiblePartyNumber: Locator;
+  responsiblePartyAddress1: Locator;
+  responsiblePartyCity: Locator;
+  responsiblePartyState: Locator;
+  responsiblePartyZip: Locator;
   numberErrorText: Locator;
   zipErrorText: Locator;
   responsiblePartyDOBAnswer: Locator;
@@ -347,6 +351,10 @@ export class Locators {
     this.responsiblePartyBirthSex = page.locator('[id="responsible-party-birth-sex"]');
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
+    this.responsiblePartyAddress1 = page.locator('[id="responsible-party-address"]');
+    this.responsiblePartyCity = page.locator('[id="responsible-party-city"]');
+    this.responsiblePartyState = page.locator('[id="responsible-party-state"]');
+    this.responsiblePartyZip = page.locator('[id="responsible-party-zip"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');
