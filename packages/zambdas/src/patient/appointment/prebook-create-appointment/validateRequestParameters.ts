@@ -1,6 +1,7 @@
 import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  AllStates,
   APPOINTMENT_ALREADY_EXISTS_ERROR,
   CanonicalUrl,
   CHARACTER_LIMIT_EXCEEDED_ERROR,
@@ -33,6 +34,7 @@ export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   currentCanonicalQuestionnaireUrl: string;
   user: User;
   isEHRUser: boolean;
+  locationState?: string;
 };
 
 export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
@@ -47,7 +49,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = !user?.name?.startsWith?.('+');
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, unconfirmedDateOfBirth } = bodyJSON;
+  const { slotId, language, patient, unconfirmedDateOfBirth, locationState } = bodyJSON;
   console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
@@ -113,6 +115,20 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     throw INVALID_INPUT_ERROR('"language" must be one of: "en", "es"');
   }
 
+  if (unconfirmedDateOfBirth) {
+    const isInvalidUnconfirmedDateOfBirth = !DateTime.fromISO(unconfirmedDateOfBirth).isValid;
+    if (isInvalidUnconfirmedDateOfBirth) {
+      throw INVALID_INPUT_ERROR('"unconfirmedDateOfBirth" was not read as a valid date');
+    }
+  }
+
+  if (locationState) {
+    const isValidLocationState = AllStates.some((state) => state.value.toLowerCase() === locationState.toLowerCase());
+    if (isValidLocationState === false) {
+      throw INVALID_INPUT_ERROR('"locationState" must be a valid US state postal abbreviation');
+    }
+  }
+
   return {
     slotId,
     user,
@@ -122,51 +138,10 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     language,
     unconfirmedDateOfBirth,
     currentCanonicalQuestionnaireUrl,
+    locationState,
   };
 }
 
-/*
-interface TransactionInput {
-  reasonForVisit: string;
-  startTime: string;
-  endTime: string;
-  visitType: VisitType;
-  scheduleType: ScheduleType;
-  serviceType: ServiceMode;
-  schedule: Location | Practitioner | HealthcareService;
-  questionnaire: Questionnaire;
-  oystehr: Oystehr;
-  secrets: Secrets | null;
-  createdBy: string;
-  verifiedPhoneNumber: string | undefined;
-  contactInfo: { phone: string; email: string };
-  additionalInfo?: string;
-  unconfirmedDateOfBirth?: string;
-  patient?: Patient;
-  newPatientDob?: string;
-  createPatientRequest?: BatchInputPostRequest<Patient>;
-  listRequests: BatchInputRequest<List>[];
-  updatePatientRequest?: BatchInputRequest<Patient>;
-  formUser?: string;
-  slot?: Slot;
-}
-  */
-
-/*
-const {
-    slot,
-    schedule,
-    scheduleType,
-    patient,
-    user,
-    secrets,
-    visitType,
-    unconfirmedDateOfBirth,
-    serviceType,
-    questionnaireCanonical: questionnaireUrl,
-  } = input;
-
-*/
 export interface CreateAppointmentEffectInput {
   slot: Slot;
   scheduleOwner: ScheduleOwnerFhirResource;
@@ -181,7 +156,7 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient } = input;
+  const { slotId, isEHRUser, user, patient, locationState } = input;
 
   // patient input complex validation
   if (patient.id) {
@@ -242,6 +217,10 @@ export const createAppointmentComplexValidation = async (
   // todo: better error with link to docs here?
   if (serviceMode === undefined) {
     throw new Error('Service mode not found');
+  }
+
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
   }
 
   const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, input.secrets);

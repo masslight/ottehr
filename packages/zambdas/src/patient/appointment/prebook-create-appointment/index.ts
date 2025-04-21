@@ -74,6 +74,7 @@ interface CreateAppointmentInput {
   secrets: Secrets | null;
   visitType: VisitType;
   language?: string;
+  locationState?: string;
   unconfirmedDateOfBirth?: string;
 }
 
@@ -88,7 +89,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('getting user');
 
     const token = input.headers.Authorization.replace('Bearer ', '');
-    const user = await getUser(token, input.secrets); // check
+    const user = await getUser(token, input.secrets);
 
     const validatedParameters = validateCreateAppointmentParams(input, user);
     const { secrets, unconfirmedDateOfBirth, language } = validatedParameters;
@@ -338,27 +339,34 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const patientRef = patient ? `Patient/${patient.id}` : createPatientRequest?.fullUrl || '';
 
   const now = DateTime.now().setZone('UTC');
+  const nowIso = now.toISO() ?? '';
   let initialAppointmentStatus: FhirAppointmentStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'booked' : 'arrived';
   let initialEncounterStatus: FhirEncounterStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'planned' : 'arrived';
 
+  const apptExtensions: Extension[] = [];
+  const encExtensions: Extension[] = [];
+
   if (serviceMode === ServiceMode.virtual) {
     initialAppointmentStatus = 'arrived';
     initialEncounterStatus = 'planned';
+
+    const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =
+      getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
+    apptExtensions.push(...telemedApptExtensions);
+    encExtensions.push(...telemedEncExtensions);
   }
 
-  const extension: Extension[] = [];
-
   if (unconfirmedDateOfBirth) {
-    extension.push({
+    apptExtensions.push({
       url: FHIR_EXTENSION.Appointment.unconfirmedDateOfBirth.url,
       valueString: unconfirmedDateOfBirth,
     });
   }
 
   if (additionalInfo) {
-    extension.push({
+    apptExtensions.push({
       url: FHIR_EXTENSION.Appointment.additionalInfo.url,
       valueString: additionalInfo,
     });
@@ -378,13 +386,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     },
     status: 'accepted',
   });
-
-  const nowIso = DateTime.now().setZone('UTC').toISO() ?? '';
-
-  const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =
-    getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
-
-  const isVirtual = serviceMode === ServiceMode['virtual'];
 
   let slotReference: Reference | undefined;
   const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
@@ -426,7 +427,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     resourceType: 'Appointment',
     meta: {
       tag: [
-        { code: isVirtual ? OTTEHR_MODULE.TM : OTTEHR_MODULE.IP },
+        { code: serviceMode === ServiceMode.virtual ? OTTEHR_MODULE.TM : OTTEHR_MODULE.IP },
         {
           system: CREATED_BY_SYSTEM,
           display: createdBy,
@@ -443,7 +444,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     description: reasonForVisit,
     status: initialAppointmentStatus,
     created: now.toISO() ?? '',
-    extension: [...extension, ...(isVirtual ? telemedApptExtensions : [])],
+    extension: apptExtensions,
   };
 
   const encUrl = `urn:uuid:${uuid()}`;
@@ -477,7 +478,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
             },
           ]
         : [],
-    extension: [...(isVirtual ? telemedEncExtensions : [])],
+    extension: encExtensions,
   };
 
   const { documents, accountInfo } = await getRelatedResources(oystehr, patient?.id);
