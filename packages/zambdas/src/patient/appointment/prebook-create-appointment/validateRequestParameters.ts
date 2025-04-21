@@ -1,30 +1,41 @@
-import Oystehr from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  APPOINTMENT_CANT_BE_IN_PAST_ERROR,
+  APPOINTMENT_ALREADY_EXISTS_ERROR,
+  CanonicalUrl,
+  CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentInputParams,
+  FHIR_RESOURCE_NOT_FOUND,
   getSecret,
-  isISODateTime,
+  getServiceModeFromScheduleOwner,
+  getServiceModeFromSlot,
+  getSlotIsPostTelemed,
+  getSlotIsWalkin,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUIRED_PARAMETERS,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  PatientInfo,
   PersonSex,
+  REASON_MAXIMUM_CHAR_LIMIT,
+  ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
+  ServiceMode,
+  userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { SCHEDULE_TYPES } from '../../get-schedule/validateRequestParameters';
-import { checkValidBookingTime, phoneRegex, ZambdaInput } from '../../../shared';
-export interface CreateAppointmentValidatedInput
-  extends Omit<CreateAppointmentInputParams, 'providerID' | 'groupID' | 'locationID'> {
-  currentCanonicalQuestionnaireUrl: string;
-  schedule: Location | Practitioner | HealthcareService;
-  secrets: Secrets | null;
-}
+import { phoneRegex, ZambdaInput } from '../../../shared';
+import Oystehr, { User } from '@oystehr/sdk';
+import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 
-export async function validateCreateAppointmentParams(
-  input: ZambdaInput,
-  isEHRUser: boolean,
-  oystehr: Oystehr
-): Promise<CreateAppointmentValidatedInput> {
+export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
+  secrets: Secrets | null;
+  currentCanonicalQuestionnaireUrl: string;
+  user: User;
+  isEHRUser: boolean;
+};
+
+export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -33,118 +44,53 @@ export async function validateCreateAppointmentParams(
   if (currentCanonicalQuestionnaireUrl === '') {
     throw new Error(`Missing secret with name ${SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE}`);
   }
+  const isEHRUser = !user?.name?.startsWith?.('+');
 
   const bodyJSON = JSON.parse(input.body);
-  const {
-    slot,
-    language,
-    patient,
-    scheduleType,
-    locationID,
-    providerID,
-    groupID,
-    visitType,
-    unconfirmedDateOfBirth,
-    serviceType,
-  } = bodyJSON;
+  const { slotId, language, patient, unconfirmedDateOfBirth } = bodyJSON;
   console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
-
+  console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
-  if (patient === undefined || scheduleType === undefined || visitType === undefined) {
-    console.log('patient:', patient, 'scheduleType:', scheduleType, 'visitType:', visitType);
-    throw new Error('These fields are required: "patient", "scheduleType", "visitType"');
+  if (patient === undefined) {
+    throw MISSING_REQUIRED_PARAMETERS(['patient']);
   }
-
-  if (!SCHEDULE_TYPES.includes(scheduleType)) {
-    throw new Error(`scheduleType must be either ${SCHEDULE_TYPES}`);
-  }
-
-  if (scheduleType === 'location' && !locationID) {
-    throw new Error('If scheduleType is "location", locationID is required');
-  }
-  if (scheduleType === 'provider' && !providerID) {
-    throw new Error('If scheduleType is "provider", providerID is required');
-  }
-  if (scheduleType === 'group' && !groupID) {
-    throw new Error('If scheduleType is "group", groupID is required');
-  }
-
-  let schedule;
-  if (scheduleType === 'location') {
-    schedule = await oystehr.fhir.get<Location>({
-      resourceType: 'Location',
-      id: locationID,
-    });
-  } else if (scheduleType === 'group') {
-    schedule = await oystehr.fhir.get<HealthcareService>({
-      resourceType: 'HealthcareService',
-      id: groupID,
-    });
-  } else if (scheduleType === 'provider') {
-    schedule = await oystehr.fhir.get<Practitioner>({
-      resourceType: 'Practitioner',
-      id: providerID,
-    });
-  }
-
-  if (!schedule) {
-    throw new Error(`Couldn't find schedule resource`);
+  if (slotId === undefined) {
+    throw MISSING_REQUIRED_PARAMETERS(['slotId']);
   }
 
   // Patient details
-  if (
-    patient.firstName === undefined ||
-    patient.lastName === undefined ||
-    patient.dateOfBirth === undefined ||
-    patient.reasonForVisit === undefined ||
-    (!isEHRUser && patient.sex === undefined) ||
-    (!isEHRUser && patient.email === undefined) ||
-    patient.firstName === '' ||
-    patient.lastName === '' ||
-    patient.reasonForVisit === '' ||
-    (!isEHRUser && patient.sex === '') ||
-    (!isEHRUser && patient.email === '')
-  ) {
-    throw new Error(
-      'These fields are required and may not be empty: "patient.firstName", "patient.lastName", "patient.dateOfBirth", "patient.reasonForVisit", "patient.email", "patient.sex"'
-    );
+  const missingRequiredPatientFields: string[] = [];
+  if (Boolean(patient.firstName) === false) {
+    missingRequiredPatientFields.push('firstName');
+  }
+  if (Boolean(patient.lastName) === false) {
+    missingRequiredPatientFields.push('lastName');
+  }
+  if (Boolean(patient.dateOfBirth) === false) {
+    missingRequiredPatientFields.push('dateOfBirth');
+  }
+  if (Boolean(patient.reasonForVisit) === undefined) {
+    missingRequiredPatientFields.push('reasonForVisit');
+  }
+  if (!isEHRUser && Boolean(patient.sex) === false) {
+    missingRequiredPatientFields.push('sex');
+  }
+  if (!isEHRUser && Boolean(patient.email === undefined)) {
+    missingRequiredPatientFields.push('email');
+  }
+  if (missingRequiredPatientFields.length > 0) {
+    throw MISSING_REQUIRED_PARAMETERS(missingRequiredPatientFields.map((field) => `patient.${field}`));
   }
 
   const isInvalidPatientDate = !DateTime.fromISO(patient.dateOfBirth).isValid;
   if (isInvalidPatientDate) {
-    throw new Error('"patient.dateOfBirth" was not read as a valid date');
+    throw INVALID_INPUT_ERROR('"patient.dateOfBirth" was not read as a valid date');
   }
 
-  if (!isEHRUser && !Object.values(PersonSex).includes(patient.sex)) {
-    throw new Error(`"patient.sex" must be one of the following values: ${JSON.stringify(Object.values(PersonSex))}`);
-  }
-
-  if (visitType !== VisitType.PreBook && visitType !== VisitType.WalkIn && visitType !== VisitType.PostTelemed) {
-    throw new Error(`visitType must be either ${VisitType.PreBook} or ${VisitType.WalkIn} or ${VisitType.PostTelemed}`);
-  }
-
-  if (visitType === VisitType.PostTelemed && !isEHRUser) {
-    throw new Error(`visitType ${VisitType.PostTelemed} can only be created by EHR users`);
-  }
-
-  if (visitType === VisitType.PreBook || visitType === VisitType.PostTelemed) {
-    if (slot === undefined) {
-      throw new Error(`"slot" is required for appointment with visit type prebook`);
-    }
-    if (!isISODateTime(slot.start)) {
-      throw new Error(`"slot.start" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS+zz:zz)`);
-    }
-    if (!checkValidBookingTime(slot.start)) {
-      throw APPOINTMENT_CANT_BE_IN_PAST_ERROR;
-    }
-  }
-
-  if (visitType === VisitType.PreBook && !slot) {
-    throw new Error(`"slot" is required for prebooked appointments`);
-  }
-
-  if (!isEHRUser && !patient.email) {
-    throw new Error('patient email is not defined');
+  if (patient.sex && !Object.values(PersonSex).includes(patient.sex)) {
+    throw INVALID_INPUT_ERROR(
+      `"patient.sex" must be one of the following values: ${JSON.stringify(Object.values(PersonSex))}`
+    );
   }
 
   if (isEHRUser && !patient.email) {
@@ -152,30 +98,166 @@ export async function validateCreateAppointmentParams(
   }
 
   if (patient?.phoneNumber && !phoneRegex.test(patient.phoneNumber)) {
-    throw new Error('patient phone number is not valid');
+    throw INVALID_INPUT_ERROR('patient phone number is not valid');
   }
 
   patient.reasonForVisit = `${patient.reasonForVisit}${
     patient?.reasonAdditional ? ` - ${patient?.reasonAdditional}` : ''
   }`;
 
-  // if (!DateTime.fromFormat(patient.dateOfBirth, 'yyyy-mm-dd')) {
-  //   throw new Error(`"patient.dateOfBirth" must be in the format yyyy-mm-dd`);
-  // }
+  if (patient.reasonForVisit && patient.reasonForVisit.length > REASON_MAXIMUM_CHAR_LIMIT) {
+    throw CHARACTER_LIMIT_EXCEEDED_ERROR('Reason for visit', REASON_MAXIMUM_CHAR_LIMIT);
+  }
+
+  if (language && ['en', 'es'].includes(language) === false) {
+    throw INVALID_INPUT_ERROR('"language" must be one of: "en", "es"');
+  }
 
   return {
-    slot: visitType === VisitType.WalkIn ? undefined : slot,
+    slotId,
+    user,
+    isEHRUser,
     patient,
-    schedule,
-    scheduleType,
-    serviceType,
-    // locationID,
-    // providerID,
-    // groupID,
     secrets: input.secrets,
-    visitType,
     language,
     unconfirmedDateOfBirth,
     currentCanonicalQuestionnaireUrl,
   };
 }
+
+/*
+interface TransactionInput {
+  reasonForVisit: string;
+  startTime: string;
+  endTime: string;
+  visitType: VisitType;
+  scheduleType: ScheduleType;
+  serviceType: ServiceMode;
+  schedule: Location | Practitioner | HealthcareService;
+  questionnaire: Questionnaire;
+  oystehr: Oystehr;
+  secrets: Secrets | null;
+  createdBy: string;
+  verifiedPhoneNumber: string | undefined;
+  contactInfo: { phone: string; email: string };
+  additionalInfo?: string;
+  unconfirmedDateOfBirth?: string;
+  patient?: Patient;
+  newPatientDob?: string;
+  createPatientRequest?: BatchInputPostRequest<Patient>;
+  listRequests: BatchInputRequest<List>[];
+  updatePatientRequest?: BatchInputRequest<Patient>;
+  formUser?: string;
+  slot?: Slot;
+}
+  */
+
+/*
+const {
+    slot,
+    schedule,
+    scheduleType,
+    patient,
+    user,
+    secrets,
+    visitType,
+    unconfirmedDateOfBirth,
+    serviceType,
+    questionnaireCanonical: questionnaireUrl,
+  } = input;
+
+*/
+export interface CreateAppointmentEffectInput {
+  slot: Slot;
+  scheduleOwner: ScheduleOwnerFhirResource;
+  serviceMode: ServiceMode;
+  patient: PatientInfo;
+  user: User;
+  questionnaireCanonical: CanonicalUrl;
+  visitType: VisitType;
+}
+
+export const createAppointmentComplexValidation = async (
+  input: CreateAppointmentBasicInput,
+  oystehrClient: Oystehr
+): Promise<CreateAppointmentEffectInput> => {
+  const { slotId, isEHRUser, user, patient } = input;
+
+  // patient input complex validation
+  if (patient.id) {
+    const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
+    if (!userAccess && !isEHRUser) {
+      throw NO_READ_ACCESS_TO_PATIENT_ERROR;
+    }
+  }
+
+  // schedule and owner complex validation
+  const fhirResources = (
+    await oystehrClient.fhir.search<Slot | Schedule | ScheduleOwnerFhirResource | Appointment>({
+      resourceType: 'Slot',
+      params: [
+        {
+          name: '_id',
+          value: slotId,
+        },
+        {
+          name: '_include',
+          value: 'Slot:schedule',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Schedule:actor',
+        },
+        {
+          name: '_revinclude',
+          value: 'Appointment:slot',
+        },
+      ],
+    })
+  ).unbundle();
+  const slot = fhirResources.find((resource) => resource.resourceType === 'Slot') as Slot;
+  const schedule = fhirResources.find((resource) => resource.resourceType === 'Schedule') as Schedule | undefined;
+  const scheduleOwner = fhirResources.find((resource) => {
+    const asRef = `${resource.resourceType}/${resource.id}`;
+    return schedule?.actor?.some((actor) => actor.reference === asRef);
+  }) as ScheduleOwnerFhirResource | undefined;
+  const appointment = fhirResources.find((resource) => resource.resourceType === 'Appointment') as
+    | Appointment
+    | undefined;
+  if (!slot.id) {
+    throw FHIR_RESOURCE_NOT_FOUND('Slot');
+  }
+  if (scheduleOwner === undefined) {
+    // this will be a 500 error
+    throw new Error('Schedule owner not found');
+  }
+  if (appointment?.id) {
+    throw APPOINTMENT_ALREADY_EXISTS_ERROR;
+  }
+
+  let serviceMode = getServiceModeFromSlot(slot);
+  if (serviceMode === undefined) {
+    serviceMode = getServiceModeFromScheduleOwner(scheduleOwner);
+  }
+  // todo: better error with link to docs here?
+  if (serviceMode === undefined) {
+    throw new Error('Service mode not found');
+  }
+
+  const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, input.secrets);
+
+  let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
+  if (getSlotIsWalkin(slot)) {
+    visitType = VisitType.WalkIn;
+  }
+
+  return {
+    slot,
+    scheduleOwner,
+    serviceMode,
+    user,
+    patient,
+    questionnaireCanonical,
+    visitType,
+  };
+};

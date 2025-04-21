@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 import {
   Address,
@@ -16,10 +17,8 @@ import {
   CreateAppointmentResponse,
   PatchPaperworkParameters,
   PersonSex,
-  ScheduleType,
   ServiceMode,
   SubmitPaperworkParameters,
-  VisitType,
 } from '../types';
 import { GetPaperworkAnswers } from './create-telemed-demo-visits';
 import {
@@ -431,24 +430,14 @@ const generateRandomPatientInfo = async (
     return {
       patient: patientData,
       unconfirmedDateOfBirth: randomDateOfBirth,
-      scheduleType: ScheduleType.location,
-      visitType: VisitType.PreBook,
-      serviceType: ServiceMode.virtual,
-      providerID: randomProviderId,
-      locationID: randomTelemedLocationId,
-      slot,
+      slotId: slot.id!,
       language: 'en',
     };
   }
 
   return {
     patient: patientData,
-    scheduleType: ScheduleType.location,
-    visitType: VisitType.PreBook,
-    serviceType: ServiceMode['in-person'],
-    providerID: randomProviderId,
-    locationID: selectedLocationId || randomLocationId,
-    slot,
+    slotId: slot.id!,
     language: 'en',
   };
 };

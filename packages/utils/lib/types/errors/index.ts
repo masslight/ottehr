@@ -34,6 +34,7 @@ export enum APIErrorCode {
   MISSING_SCHEDULE_EXTENSION = 4305,
   MISSING_PATIENT_COVERAGE_INFO = 4306,
   INVALID_INPUT = 4340,
+  APPOINTMENT_ALREADY_EXISTS = 4341,
 }
 
 export interface APIError {
@@ -258,4 +259,9 @@ export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
 export const SLOT_UNAVAILABLE_ERROR = {
   code: APIErrorCode.SLOT_UNAVAILABLE,
   message: 'The requested slot is unavailable',
+};
+
+export const APPOINTMENT_ALREADY_EXISTS_ERROR = {
+  code: APIErrorCode.APPOINTMENT_ALREADY_EXISTS,
+  message: 'An appointment can not be created because the slot provided is already attached to an Appointment resource',
 };

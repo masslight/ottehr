@@ -105,7 +105,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR;
     }
 
-    const originalDate = DateTime.fromISO(fhirAppointment?.start ?? '').setZone('UTC');
+    // const originalDate = DateTime.fromISO(fhirAppointment?.start ?? '').setZone('UTC');
 
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
     if (fhirAppointment.status === 'arrived') {

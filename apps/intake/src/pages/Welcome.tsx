@@ -20,12 +20,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import zapehrApi, { AvailableLocationInformation } from '../api/ottehrApi';
 import { BOOKING_SLOT_ID_PARAM, bookingBasePath, intakeFlowPageRoute } from '../App';
-import { ottehrLightBlue } from '../assets/icons';
-import { PageContainer, Schedule } from '../components';
-import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
+import { PageContainer } from '../components';
 import { PatientInfoInProgress } from '../features/patients/types';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
-import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { SlotListItem } from 'utils/lib/utils';
 
 type BookingState = {
@@ -33,11 +30,11 @@ type BookingState = {
   serviceType: ServiceMode | undefined;
   scheduleType: ScheduleType | undefined;
   selectedLocationResponse: GetScheduleResponse | undefined;
-  selectedSlot: string | undefined;
+  // selectedSlot: string | undefined;
   patients: PatientInfo[];
   patientInfo: PatientInfoInProgress | undefined;
   unconfirmedDateOfBirth: string | undefined;
-  slotData: SlotListItem[];
+  // slotData: SlotListItem[];
 };
 
 interface BookingStoreActions {
@@ -57,11 +54,11 @@ const BOOKING_INITIAL: BookingState = {
   patientInfo: undefined,
   unconfirmedDateOfBirth: undefined,
   selectedLocationResponse: undefined,
-  selectedSlot: undefined,
+  //selectedSlot: undefined,
   visitType: undefined,
   serviceType: undefined,
   scheduleType: undefined,
-  slotData: [],
+  //slotData: [],
 };
 
 const useBookingStore = create<BookingState & BookingStoreActions>()(
@@ -162,12 +159,13 @@ interface BookAppointmentContext
       'setLocationPath' | 'setSelectedLocationResponse' | 'handleLogout' | 'setPatients' | 'setScheduleType'
     > {
   visitType: VisitType | undefined;
+  slotId: string;
   selectedLocation: AvailableLocationInformation | undefined;
-  slotData: SlotListItem[];
+  //slotData: SlotListItem[];
   waitingMinutes: number | undefined;
   locationLoading: boolean;
   patientsLoading: boolean;
-  getSlotListItemWithId: (slotId: string) => SlotListItem | undefined;
+  // getSlotListItemWithId: (slotId: string) => SlotListItem | undefined;
 }
 
 export const useBookingContext = (): BookAppointmentContext => {
@@ -195,10 +193,10 @@ const BookingHome: FC = () => {
     selectedLocationResponse,
     patients,
     patientInfo,
-    selectedSlot,
+    //selectedSlot,
     unconfirmedDateOfBirth,
     scheduleType,
-    slotData,
+    //slotData,
     setSelectedLocationResponse,
     setPatientInfo,
     setPatients,
@@ -215,7 +213,7 @@ const BookingHome: FC = () => {
     'setSelectedLocationResponse',
     'patients',
     'visitType',
-    'selectedSlot',
+    //'selectedSlot',
     'setPatientInfo',
     'setPatients',
     'setUnconfirmedDateOfBirth',
@@ -225,7 +223,7 @@ const BookingHome: FC = () => {
     'handleLogout',
     'scheduleType',
     'setScheduleType',
-    'slotData',
+    //'slotData',
   ]);
   const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
 
@@ -239,6 +237,7 @@ const BookingHome: FC = () => {
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const { isAuthenticated, isLoading: authIsLoading } = useAuth0();
   const { t } = useTranslation();
+  const { BOOKING_SLOT_ID_PARAM: slotIdParm } = useParams();
 
   /*
   useEffect(() => {
@@ -267,13 +266,14 @@ const BookingHome: FC = () => {
     // todo: get this from slot details response
     const visitType = VisitType.PreBook;
     const serviceType = ServiceMode['in-person'];
-    const getSlotListItemWithId = (slotId: string): SlotListItem | undefined => {
+    /*const getSlotListItemWithId = (slotId: string): SlotListItem | undefined => {
       return slotData.find((si) => `${si.slot.id}` === `${slotId}`);
-    };
+    };*/
     return {
       patients,
       patientInfo,
-      slotData,
+      // slotData,
+      slotId: slotIdParm ?? '',
       selectedLocation: selectedLocationTemp,
       waitingMinutes: waitingMinutesTemp,
       visitType,
@@ -281,29 +281,28 @@ const BookingHome: FC = () => {
       serviceType,
       locationLoading: false,
       patientsLoading: patientsLoading !== LoadingState.complete,
-      selectedSlot,
+      // selectedSlot,
       unconfirmedDateOfBirth,
       setPatientInfo,
       setUnconfirmedDateOfBirth,
       setSelectedSlot,
       completeBooking,
       setSlotData,
-      getSlotListItemWithId,
+      // getSlotListItemWithId,
     };
   }, [
     selectedLocationResponse,
     patients,
     patientInfo,
+    slotIdParm,
     scheduleType,
     patientsLoading,
-    selectedSlot,
     unconfirmedDateOfBirth,
     setPatientInfo,
     setUnconfirmedDateOfBirth,
     setSelectedSlot,
     completeBooking,
     setSlotData,
-    slotData,
   ]);
   const { walkinOpen } = useCheckOfficeOpen(outletContext.selectedLocation);
 
@@ -398,7 +397,6 @@ const BookingHome: FC = () => {
     patientsLoading,
     walkinOpen,
     navigate,
-    selectedSlot,
     scheduleType,
     slotIdParam,
   ]);
@@ -438,26 +436,6 @@ const BookingHome: FC = () => {
     scheduleType,
   ]);
   */
-
-  const renderWelcome = useMemo(() => {
-    // todo: consider whether this is needed. this page shouldn't be rendered when id param is missing
-    if (pathname === '/') {
-      return true;
-    }
-    console.log('pathname', pathname);
-    if (slotIdParam) {
-      const solvedPath = generatePath(bookingBasePath, {
-        slotId: slotIdParam,
-      });
-      if (solvedPath === pathname) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-    console.log('returning false from renderWelcome');
-    return false; // figure out what to do here
-  }, [pathname, slotIdParam]);
 
   // all this is to say, "if the user wound up somewhere in
   // the booking flow by finishing the booking and then pounding
@@ -530,7 +508,6 @@ const BookingHome: FC = () => {
 
   return (
     <>
-      {renderWelcome ? <Welcome context={outletContext} /> : <Outlet context={{ ...outletContext }} />}
       <ErrorDialog
         open={errorConfig != undefined}
         title={errorConfig?.title ?? ''}
@@ -543,162 +520,4 @@ const BookingHome: FC = () => {
     </>
   );
 };
-
-// todo: I believe this entire component can be removed and the whole booking flow can just be in suspense mode while
-// the call to get slot details loads
-const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
-  const navigate = useNavigate();
-  const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
-  const { isAuthenticated, loginWithRedirect } = useAuth0();
-  const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-  const theme = useTheme();
-  const preserveQueryParams = usePreserveQueryParams();
-  const { t } = useTranslation();
-
-  console.log('isAuthenticated in welcome page', isAuthenticated);
-
-  const { selectedLocation, selectedSlot, waitingMinutes, slotData, locationLoading, scheduleType, setSelectedSlot } =
-    context;
-
-  // console.log('selectedLocation, locationLoading', selectedLocation, locationLoading, context);
-
-  const { officeOpen, walkinOpen, officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow } =
-    useCheckOfficeOpen(selectedLocation);
-
-  const allAvailableSlots = useMemo(() => {
-    if (!selectedSlot) {
-      return slotData;
-    } else {
-      const selected = slotData?.find((si) => si.slot.id === selectedSlot);
-      const allButSelected =
-        slotData?.filter((si) => {
-          return si.slot.id !== selectedSlot;
-        }) ?? [];
-      // todo: this shouldn't be necessary...
-      const toSort = [...allButSelected];
-      if (selected) {
-        toSort.push(selected);
-      }
-      return [...toSort].sort((a: SlotListItem, b: SlotListItem) => a.slot.start.localeCompare(b.slot.start));
-    }
-  }, [slotData, selectedSlot]);
-
-  const getCustomContainerText = (): CustomContainerText => {
-    /*if (visitTypeParam === VisitType.PreBook) {
-      return { title: t('welcome.title') };
-    } else if (visitTypeParam === VisitType.WalkIn && !walkinOpen && !locationLoading) {
-      return { title: t('welcome.titleClosed') };
-    } else {
-      return { title: t('welcome.titleBranded'), subtext: t('welcome.subtitleBranded') };
-    }*/
-    // looks like the walkin case would show titleBranded here??
-    if (context.visitType === VisitType.PreBook) {
-      return { title: t('welcome.title') };
-    }
-    return { title: t('welcome.titleBranded'), subtext: t('welcome.subtitleBranded') };
-  };
-
-  const { title, subtext } = getCustomContainerText();
-
-  // console.log('selected slot', selectedSlot);
-
-  return (
-    <PageContainer
-      title={title}
-      subtitle={locationLoading ? t('welcome.loading') : `${selectedLocation?.name}`}
-      subtext={locationLoading ? '' : subtext}
-      isFirstPage
-      img={ottehrLightBlue}
-      imgAlt="ottehr icon"
-      imgWidth={150}
-      topOutsideCardComponent={
-        context.visitType === VisitType.PreBook && officeOpen ? (
-          <WaitingEstimateCard waitingMinutes={waitingMinutes} />
-        ) : undefined
-      }
-    >
-      {context.visitType === VisitType.PreBook && (
-        <>
-          <Schedule
-            slotsLoading={locationLoading}
-            slotData={allAvailableSlots.map((si) => si.slot)}
-            timezone={selectedLocation?.timezone || 'America/New_York'}
-            existingSelectedSlot={slotData?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
-            handleSlotSelected={(slot) => {
-              // todo: evalutate whether this is even needed now that we have the PrebookVisit page
-              /*setSelectedSlot(slot.id);
-              navigate(
-                preserveQueryParams(`/${scheduleType}/${slugParam}/${visitTypeParam}/${serviceTypeParam}/get-ready`),
-                {
-                  state: { waitingTime: waitingMinutes?.toString() },
-                }
-              );*/
-            }}
-            forceClosedToday={officeHasClosureOverrideToday}
-            forceClosedTomorrow={officeHasClosureOverrideTomorrow}
-          />
-          <Divider sx={{ marginTop: 3, marginBottom: 3 }} />
-          <Typography variant="h4" color={theme.palette.primary.main}>
-            {t('welcome.dontSeeTime')}
-          </Typography>
-        </>
-      )}
-      {context.visitType === VisitType.WalkIn &&
-        (!locationLoading ? (
-          walkinOpen ? (
-            <>
-              <Typography variant="body1" marginTop={2}>
-                {t('welcome.walkinOpen.title')}
-              </Typography>
-              <PageForm
-                onSubmit={(_) => {
-                  /*if (!isAuthenticated) {
-                    // if the user is not signed in, redirect them to auth0
-                    loginWithRedirect({
-                      appState: {
-                        target: preserveQueryParams(
-                          `/${scheduleType}/${slugParam}/${visitTypeParam}/${serviceTypeParam}/patients`
-                        ),
-                      },
-                    }).catch((error) => {
-                      throw new Error(`Error calling loginWithRedirect Auth0: ${error}`);
-                    });
-                  } else {
-                    // if the location has loaded and the user is signed in, redirect them to the landing page
-                    navigate(intakeFlowPageRoute.Homepage.path);
-                  }*/
-                }}
-                controlButtons={{ backButton: false }}
-              />
-              <ErrorDialog
-                open={errorConfig != undefined}
-                title={errorConfig?.title ?? ''}
-                description={errorConfig?.description ?? ''}
-                closeButtonText={errorConfig?.closeButtonText ?? 'OK'}
-                handleClose={() => {
-                  setErrorConfig(undefined);
-                }}
-              />
-            </>
-          ) : (
-            <>
-              <Typography variant="body1" marginTop={1}>
-                {t('welcome.errors.closed.description')}
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
-                <Link to="https://ottehr.com" aria-label="Ottehr website" target="_blank">
-                  <Button variant="contained" color="primary">
-                    {t('welcome.goToWebsite')}
-                  </Button>
-                </Link>
-              </Box>
-            </>
-          )
-        ) : (
-          <CircularProgress />
-        ))}
-    </PageContainer>
-  );
-};
-
 export default BookingHome;

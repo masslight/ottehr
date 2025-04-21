@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useAuth0 } from '@auth0/auth0-react';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
@@ -26,13 +27,11 @@ import { otherColors } from '../IntakeThemeProvider';
 import { zapehrApi } from '../api';
 import { ottehrLightBlue } from '../assets/icons';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
-import { getStartingPath } from '../helpers';
 import { safelyCaptureException } from '../helpers/sentry';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { Appointment } from '../types';
 import { useBookingContext } from './Welcome';
-import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 
 const WelcomeBack = (): JSX.Element => {
   const navigate = useNavigate();
@@ -42,11 +41,10 @@ const WelcomeBack = (): JSX.Element => {
     patients,
     patientInfo,
     visitType,
-    serviceType,
     selectedLocation,
     patientsLoading,
     setPatientInfo,
-    selectedSlot,
+    //selectedSlot,
     scheduleType,
   } = useBookingContext();
   const [appointmentsLoading, setAppointmentsLoading] = useState<boolean>(true);
@@ -63,8 +61,7 @@ const WelcomeBack = (): JSX.Element => {
 
   const navigateInFlow = useNavigateInFlow();
 
-  const { walkinOpen } = useCheckOfficeOpen(selectedLocation);
-
+  /*
   useEffect(() => {
     if (visitType === VisitType.WalkIn && !walkinOpen) {
       navigate(getStartingPath(selectedLocation, visitType, serviceType, selectedSlot), {
@@ -73,6 +70,7 @@ const WelcomeBack = (): JSX.Element => {
       });
     }
   }, [selectedLocation, visitType, serviceType, selectedSlot, walkinOpen, navigate]);
+  */
 
   const formElements: FormInputType[] = useMemo(() => {
     return [
@@ -285,10 +283,13 @@ const WelcomeBack = (): JSX.Element => {
   };
 
   const alreadyBooked = (patientID: string): string | undefined => {
-    let bookedAppointmentID: string | undefined;
+    // todo: return the appointment id from the slot details if it matches with some already booked appointment for the patient
+    console.log('already booked', patientID);
+    return undefined;
+    /*(let bookedAppointmentID: string | undefined;
     const timezone = selectedLocation?.timezone;
 
-    if (patientID && selectedSlot && timezone) {
+    if (patientID && timezone) {
       // get appointments for the selected slot date
       // can't use strict equality for luxon datetimes so use equals() instead
       const today = DateTime.now().setZone(timezone).startOf('day');
@@ -305,6 +306,7 @@ const WelcomeBack = (): JSX.Element => {
       bookedAppointmentID = alreadyBookedAtThisLocation?.id;
     }
     return bookedAppointmentID;
+    */
   };
 
   const checkInIfAppointmentBooked = async (checkIns: Appointment[], cancels: Appointment[]): Promise<void> => {

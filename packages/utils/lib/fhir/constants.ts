@@ -442,6 +442,15 @@ export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
   ],
 };
 
+export const SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: 'FOLLOWUP',
+    },
+  ],
+};
+
 export enum SlotServiceCategoryCode {
   virtualServiceMode = 'virtual-service-mode',
   inPersonServiceMode = 'in-person-service-mode',

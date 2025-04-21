@@ -1,4 +1,4 @@
-import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest, User } from '@oystehr/sdk';
+import Oystehr, { BatchInput, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
@@ -8,11 +8,8 @@ import {
   Bundle,
   Encounter,
   Extension,
-  HealthcareService,
   List,
-  Location,
   Patient,
-  Practitioner,
   Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
@@ -25,7 +22,6 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
   CanonicalUrl,
-  CHARACTER_LIMIT_EXCEEDED_ERROR,
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
@@ -35,21 +31,20 @@ import {
   FhirEncounterStatus,
   formatPhoneNumber,
   formatPhoneNumberDisplay,
+  getAppointmentDurationFromSlot,
   getCanonicalQuestionnaire,
   getPatchOperationForNewMetaTag,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
   OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   PatientInfo,
-  REASON_MAXIMUM_CHAR_LIMIT,
-  ScheduleType,
+  ScheduleOwnerFhirResource,
   Secrets,
   ServiceMode,
   TaskIndicator,
-  userHasAccessToPatient,
+  User,
   VisitType,
 } from 'utils';
 import '../../../shared/instrument.mjs';
@@ -65,18 +60,21 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
-import {
-  getCanonicalUrlForPrevisitQuestionnaire,
-  getEncounterClass,
-  getRelatedResources,
-  getTelemedRequiredAppointmentEncounterExtensions,
-} from '../helpers';
-import { CreateAppointmentValidatedInput, validateCreateAppointmentParams } from './validateRequestParameters';
+import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
+import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
 import _ from 'lodash';
 
-interface CreateAppointmentInput extends Omit<CreateAppointmentValidatedInput, 'currentCanonicalQuestionnaireUrl'> {
+interface CreateAppointmentInput {
+  slot: Slot;
+  scheduleOwner: ScheduleOwnerFhirResource;
+  serviceMode: ServiceMode;
+  patient: PatientInfo;
   user: User;
   questionnaireCanonical: CanonicalUrl;
+  secrets: Secrets | null;
+  visitType: VisitType;
+  language?: string;
+  unconfirmedDateOfBirth?: string;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -92,7 +90,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const token = input.headers.Authorization.replace('Bearer ', '');
     const user = await getUser(token, input.secrets); // check
 
-    const isEHRUser = !user?.name?.startsWith?.('+');
+    const validatedParameters = validateCreateAppointmentParams(input, user);
+    const { secrets, unconfirmedDateOfBirth, language } = validatedParameters;
+    console.groupEnd();
+    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
+
     if (!zapehrToken) {
       console.log('getting token');
       zapehrToken = await getAuth0Token(input.secrets);
@@ -101,34 +103,20 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
     const oystehr = createOystehrClient(zapehrToken, input.secrets);
 
-    const validatedParameters = await validateCreateAppointmentParams(input, isEHRUser, oystehr);
+    console.time('performing-complex-validation');
+    const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
+    const { slot, scheduleOwner, serviceMode, patient, questionnaireCanonical, visitType } = effectInput;
+    console.log('effectInput', effectInput);
+    console.timeEnd('performing-complex-validation');
 
-    const { slot, schedule, language, patient, secrets, scheduleType, visitType, unconfirmedDateOfBirth, serviceType } =
-      validatedParameters;
-    const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(ServiceMode[serviceType], input.secrets);
-    console.groupEnd();
-    console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
-
-    // todo access check? or just let zapehr handle??
-    // * Validate internal information *
-    validateInternalInformation(patient);
-    // If it's a returning patient, check if the user has
-    // access to create appointments for this patient
-    if (patient.id) {
-      const userAccess = await userHasAccessToPatient(user, patient.id, oystehr);
-      if (!userAccess && !isEHRUser) {
-        throw NO_READ_ACCESS_TO_PATIENT_ERROR;
-      }
-    }
     console.log('creating appointment');
 
     const data_appointment = await createAppointment(
       {
         slot,
-        scheduleType,
-        schedule,
+        scheduleOwner,
         patient,
-        serviceType,
+        serviceMode,
         user,
         language,
         secrets,
@@ -144,7 +132,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const { message, appointment, fhirPatientId, questionnaireResponseId, encounterId, resources, relatedPersonId } =
       data_appointment;
 
-    await createAuditEvent(AuditableZambdaEndpoints.appointmentCreate, oystehr, input, fhirPatientId, secrets);
+    await createAuditEvent(
+      AuditableZambdaEndpoints.appointmentCreate,
+      oystehr,
+      input,
+      fhirPatientId,
+      validatedParameters.secrets
+    );
 
     const response = {
       message,
@@ -172,14 +166,13 @@ export async function createAppointment(
 ): Promise<CreateAppointmentResponse> {
   const {
     slot,
-    schedule,
-    scheduleType,
+    scheduleOwner,
     patient,
     user,
     secrets,
     visitType,
     unconfirmedDateOfBirth,
-    serviceType,
+    serviceMode,
     questionnaireCanonical: questionnaireUrl,
   } = input;
 
@@ -189,7 +182,7 @@ export async function createAppointment(
   let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : slot?.start ?? '';
   startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
   const originalDate = DateTime.fromISO(startTime).setZone('UTC');
-  const endTime = originalDate.plus({ minutes: 15 }).toISO() || ''; // todo: should this be scraped from the Appointment?
+  const endTime = originalDate.plus({ minutes: getAppointmentDurationFromSlot(slot) }).toISO() || '';
   const formattedUserNumber = formatPhoneNumberDisplay(user.name.replace('+1', ''));
   const createdBy = isEHRUser
     ? `Staff ${user?.email} via QRS`
@@ -226,10 +219,9 @@ export async function createAppointment(
     reasonForVisit: patient?.reasonForVisit || '',
     startTime,
     endTime,
-    serviceType,
+    serviceMode,
+    scheduleOwner,
     visitType,
-    schedule,
-    scheduleType,
     secrets,
     verifiedPhoneNumber: verifiedFormattedPhoneNumber,
     contactInfo: { phone: verifiedFormattedPhoneNumber ?? 'not provided', email: patient.email ?? 'not provided' },
@@ -285,20 +277,13 @@ export async function createAppointment(
   };
 }
 
-function validateInternalInformation(patient: PatientInfo): void {
-  if (patient.reasonForVisit && patient.reasonForVisit.length > REASON_MAXIMUM_CHAR_LIMIT) {
-    throw CHARACTER_LIMIT_EXCEEDED_ERROR('Reason for visit', REASON_MAXIMUM_CHAR_LIMIT);
-  }
-}
-
 interface TransactionInput {
   reasonForVisit: string;
   startTime: string;
   endTime: string;
   visitType: VisitType;
-  scheduleType: ScheduleType;
-  serviceType: ServiceMode;
-  schedule: Location | Practitioner | HealthcareService;
+  scheduleOwner: ScheduleOwnerFhirResource;
+  serviceMode: ServiceMode;
   questionnaire: Questionnaire;
   oystehr: Oystehr;
   secrets: Secrets | null;
@@ -328,8 +313,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   const {
     oystehr,
     patient,
-    schedule,
-    scheduleType,
+    scheduleOwner,
     questionnaire,
     reasonForVisit,
     startTime,
@@ -344,7 +328,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     updatePatientRequest,
     newPatientDob,
     createdBy,
-    serviceType,
+    serviceMode,
     slot,
   } = input;
 
@@ -359,7 +343,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   let initialEncounterStatus: FhirEncounterStatus =
     visitType === VisitType.PreBook || visitType === VisitType.PostTelemed ? 'planned' : 'arrived';
 
-  if (serviceType === ServiceMode.virtual) {
+  if (serviceMode === ServiceMode.virtual) {
     initialAppointmentStatus = 'arrived';
     initialEncounterStatus = 'planned';
   }
@@ -388,45 +372,39 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     },
     status: 'accepted',
   });
-  if (scheduleType === 'location') {
-    participants.push({
-      actor: {
-        reference: `Location/${schedule.id}`,
-      },
-      status: 'accepted',
-    });
-  }
-  if (scheduleType === 'provider') {
-    participants.push({
-      actor: {
-        reference: `Practitioner/${schedule.id}`,
-      },
-      status: 'accepted',
-    });
-  }
-  if (scheduleType === 'group') {
-    participants.push({
-      actor: {
-        reference: `HealthcareService/${schedule.id}`,
-      },
-      status: 'accepted',
-    });
-  }
+  participants.push({
+    actor: {
+      reference: `${scheduleOwner.resourceType}/${scheduleOwner.id}`,
+    },
+    status: 'accepted',
+  });
 
   const nowIso = DateTime.now().setZone('UTC').toISO() ?? '';
 
   const { encExtensions: telemedEncExtensions, apptExtensions: telemedApptExtensions } =
     getTelemedRequiredAppointmentEncounterExtensions(patientRef, nowIso);
 
-  const isVirtual = serviceType === ServiceMode['virtual'];
+  const isVirtual = serviceMode === ServiceMode['virtual'];
 
   let slotReference: Reference | undefined;
   const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
+  const patchSlotRequests: BatchInputRequest<Slot>[] = [];
   if (isValidUUID(slot?.id ?? '') && slot?.meta !== undefined) {
     // assume slot already persisted
     slotReference = {
       reference: `Slot/${slot.id}`,
     };
+    patchSlotRequests.push({
+      method: 'PATCH',
+      url: `/Slot/${slot.id}`,
+      operations: [
+        {
+          op: 'replace',
+          path: '/status',
+          value: 'busy',
+        },
+      ],
+    });
   } else if (slot) {
     postSlotRequests.push({
       method: 'POST',
@@ -482,7 +460,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       },
     ],
     // todo double check this is the correct classification
-    class: getEncounterClass(serviceType),
+    class: getEncounterClass(serviceMode),
     subject: { reference: patientRef },
     appointment: [
       {
@@ -490,11 +468,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       },
     ],
     location:
-      scheduleType === 'location'
+      scheduleOwner.resourceType === 'Location'
         ? [
             {
               location: {
-                reference: `Location/${schedule.id}`,
+                reference: `Location/${scheduleOwner.id}`,
               },
             },
           ]
@@ -613,6 +591,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       ...listRequests,
       ...postAccountRequests,
       ...postSlotRequests,
+      ...patchSlotRequests,
       postApptReq,
       postEncRequest,
       postQuestionnaireResponseRequest,

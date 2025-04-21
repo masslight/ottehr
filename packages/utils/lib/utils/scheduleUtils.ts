@@ -35,6 +35,7 @@ import {
   HOURS_OF_OPERATION_FORMAT,
   TIMEZONES,
   VisitType,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -1515,6 +1516,14 @@ export const getSlotIsWalkin = (slot: Slot): boolean => {
   const appointmentType = slot.appointmentType?.coding?.[0];
   if (appointmentType) {
     return codingContainedInList(appointmentType, SLOT_WALKIN_APPOINTMENT_TYPE_CODING.coding!);
+  }
+  return false;
+};
+
+export const getSlotIsPostTelemed = (slot: Slot): boolean => {
+  const appointmentType = slot.appointmentType?.coding?.[0];
+  if (appointmentType) {
+    return codingContainedInList(appointmentType, SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING.coding!);
   }
   return false;
 };
