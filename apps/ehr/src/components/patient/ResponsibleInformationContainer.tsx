@@ -1,7 +1,7 @@
 import dayjs from 'dayjs';
 import { FC, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { phoneRegex, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import { PatientGuarantorFields, RELATIONSHIP_OPTIONS, SEX_OPTIONS } from '../../constants';
 import { Row, Section } from '../layout';
@@ -119,7 +119,7 @@ export const ResponsibleInformationContainer: FC = () => {
           rules={{
             validate: (value: string) => {
               if (!value) return true;
-              return phoneRegex.test(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+              return isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
             },
           }}
           disabled={selfSelected}
