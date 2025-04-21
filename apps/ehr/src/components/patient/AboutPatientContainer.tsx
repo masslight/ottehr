@@ -61,7 +61,7 @@ export const AboutPatientContainer: FC = () => {
           id={FormFields.birthDate.key}
           name={FormFields.birthDate.key}
           control={control}
-          required={true}
+          rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           dataTestId={dataTestIds.patientInformationContainer.patientDateOfBirth}
         />
       </Row>

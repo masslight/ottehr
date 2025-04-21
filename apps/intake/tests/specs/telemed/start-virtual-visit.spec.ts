@@ -37,7 +37,7 @@ test.describe('Start virtual visit with required information only', async () => 
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
 
-  let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
+  let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>>;
   let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
   async function clickContinueButton(awaitRedirect = true): Promise<void> {
@@ -248,6 +248,17 @@ test.describe('Start virtual visit with required information only', async () => 
 
     await paperwork.fillAndCheckSelfPay();
   });
+  test('Should fill in responsible party as self', async () => {
+    await paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
+      firstName: patientInfo?.firstName,
+      lastName: patientInfo?.lastName,
+      email: patientInfo?.email,
+      birthSex: patientInfo?.birthSex,
+      thisEmailBelongsTo: patientInfo?.thisEmailBelongsTo,
+      reasonForVisit: patientInfo?.reasonForVisit,
+    });
+    await clickContinueButton();
+  });
 
   test('Skip optional Photo ID', async () => {
     await clickContinueButton();
@@ -290,7 +301,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
 
-  let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>> | undefined;
+  let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>>;
   let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
 
   async function clickContinueButton(awaitRedirect = true): Promise<void> {
@@ -489,7 +500,17 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
 
     await paperwork.fillAndCheckSelfPay();
   });
-
+  test('Should fill in responsible party as self', async () => {
+    await paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
+      firstName: patientInfo?.firstName,
+      lastName: patientInfo?.lastName,
+      email: patientInfo?.email,
+      birthSex: patientInfo?.birthSex,
+      thisEmailBelongsTo: patientInfo?.thisEmailBelongsTo,
+      reasonForVisit: patientInfo?.reasonForVisit,
+    });
+    await clickContinueButton();
+  });
   test('Skip optional Photo ID', async () => {
     await clickContinueButton();
   });
