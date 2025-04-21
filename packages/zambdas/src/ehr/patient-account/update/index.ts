@@ -237,7 +237,7 @@ interface FinishedInput extends BasicInput {
 
 const complexValidation = async (input: BasicInput, oystehrM2M: Oystehr): Promise<FinishedInput> => {
   const { secrets, userToken, questionnaireResponse } = input;
-  console.log('questionnaireResponse 123', JSON.stringify(questionnaireResponse));
+  console.log('questionnaireResponse', JSON.stringify(questionnaireResponse));
   const oystehr = createOystehrClient(userToken, secrets);
   const user = await oystehr.user.me();
   if (!user) {

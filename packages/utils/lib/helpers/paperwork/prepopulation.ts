@@ -129,6 +129,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
 
   const patientFirstName = getFirstName(patient) ?? '';
   const patientLastName = getLastName(patient) ?? '';
+
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = item.item ?? [].filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -837,6 +838,7 @@ interface MapGuantorItemsInput {
 
 const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): QuestionnaireResponseItem[] => {
   const { guarantorResource, items } = input;
+
   const phone = formatPhoneNumberDisplay(
     guarantorResource?.telecom?.find((c) => c.system === 'phone' && c.period?.end === undefined)?.value ?? ''
   );

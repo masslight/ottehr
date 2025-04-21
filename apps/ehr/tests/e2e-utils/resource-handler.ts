@@ -239,9 +239,6 @@ export class ResourceHandler {
 
       Object.values(appointmentData.resources).forEach((resource) => {
         console.log(`✅ created ${resource.resourceType}: ${resource.id}`);
-        if (resource.resourceType === 'QuestionnaireResponse') {
-          console.log('check me!!', JSON.stringify(resource));
-        }
       });
 
       if (appointmentData.relatedPersonId) {
@@ -257,7 +254,6 @@ export class ResourceHandler {
 
   public async setResources(params?: CreateTestAppointmentInput): Promise<void> {
     const response = await this.createAppointment(params);
-    console.log('halo', JSON.stringify(response.resources.questionnaire));
     this.#resources = {
       ...response.resources,
       // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id

@@ -218,7 +218,7 @@ export const DEMO_VISIT_CITY = 'New York';
 export const DEMO_VISIT_STATE = 'NY';
 export const DEMO_VISIT_ZIP = '06001';
 export const DEMO_VISIT_RESPONSIBLE_RELATIONSHIP = 'Legal Guardian';
-export const DEMO_VISIT_RESPONSIBLE_FIRST_NAME = 'fweeee';
+export const DEMO_VISIT_RESPONSIBLE_FIRST_NAME = 'fwe';
 export const DEMO_VISIT_RESPONSIBLE_LAST_NAME = 'sf';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
@@ -418,7 +418,7 @@ export function getPatientDetailsStepAnswers({
 
 export function getResponsiblePartyStepAnswers({
   relationship = DEMO_VISIT_RESPONSIBLE_RELATIONSHIP,
-  // firstName = DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
+  firstName = DEMO_VISIT_RESPONSIBLE_FIRST_NAME,
   lastName = DEMO_VISIT_RESPONSIBLE_LAST_NAME,
   birthDate = {
     day: DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY,
@@ -427,7 +427,7 @@ export function getResponsiblePartyStepAnswers({
   },
   birthSex = DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   phone = DEMO_VISIT_RESPONSIBLE_PHONE,
-  // address1 = DEMO_VISIT_RESPONSIBLE_ADDRESS1,
+  address1 = DEMO_VISIT_RESPONSIBLE_ADDRESS1,
   city = DEMO_VISIT_RESPONSIBLE_CITY,
   state = DEMO_VISIT_RESPONSIBLE_STATE,
   zip = DEMO_VISIT_RESPONSIBLE_ZIP,
@@ -452,7 +452,7 @@ export function getResponsiblePartyStepAnswers({
       },
       {
         linkId: 'responsible-party-first-name',
-        answer: [{ valueString: 'UGHHHH' }],
+        answer: [{ valueString: firstName }],
       },
       {
         linkId: 'responsible-party-last-name',
@@ -472,7 +472,7 @@ export function getResponsiblePartyStepAnswers({
       },
       {
         linkId: 'responsible-party-address',
-        answer: [{ valueString: 'hardcoded address' }],
+        answer: [{ valueString: address1 }],
       },
       {
         linkId: 'responsible-party-city',

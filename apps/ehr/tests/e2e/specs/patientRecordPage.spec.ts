@@ -199,7 +199,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
   });
   test('Updated values from Patient info block are saved and displayed correctly', async ({ page }) => {
-    console.log('resourceHandler check', JSON.stringify(resourceHandler.questionnaireResponse));
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientLastName(NEW_PATIENT_LAST_NAME);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);

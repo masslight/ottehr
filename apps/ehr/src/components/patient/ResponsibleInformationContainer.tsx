@@ -28,8 +28,6 @@ export const ResponsibleInformationContainer: FC = () => {
 
   const patientData = watch(PatientGuarantorFields);
   const localData = watch(LocalDependentFields);
-  console.log('patientData', JSON.stringify(patientData));
-  console.log('localData', JSON.stringify(localData));
   const selfSelected = watch(FormFields.relationship.key) === 'Self';
 
   useEffect(() => {
@@ -41,9 +39,6 @@ export const ResponsibleInformationContainer: FC = () => {
       }
     }
   }, [localData, patientData, selfSelected, setValue]);
-
-  console.log('FormFields.addressLine1', FormFields.addressLine1);
-  console.log('FormFields.lastName', FormFields.lastName);
 
   return (
     <Section title="Responsible party information" dataTestId={dataTestIds.responsiblePartyInformationContainer.id}>
