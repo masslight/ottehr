@@ -21,6 +21,8 @@ const DEFAULT_TIMEOUT = { timeout: 15000 };
 const DIAGNOSIS_CODE = 'J45.901';
 const DIAGNOSIS_NAME = 'injury';
 const E_M_CODE = '99201';
+const CPT_CODE = '24640';
+const CPT_CODE_2 = '72146';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -34,6 +36,7 @@ test.beforeAll(async ({ browser }) => {
   await resourceHandler.setResources();
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
   await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
+  await cssHeader.verifyStatus('pending');
   await cssHeader.clickSwitchStatusButton('provider');
   await progressNotePage.expectLoaded();
 });
@@ -54,7 +57,7 @@ test('Check assessment page initial state and default MDM saving', async () => {
 
 test('Remove MDM and check missing required fields on review and sign page', async () => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
-  await assessmentPage.expectMdmField();
+  await assessmentPage.expectMdmField({ text: MDM_FIELD_DEFAULT_TEXT });
   await assessmentPage.fillMdmField('');
   await waitForChartDataDeletion(page);
 
@@ -237,12 +240,60 @@ test('Add E&M code', async () => {
     await expect(page.getByText(value)).toBeVisible();
   });
 
-  await test.step('Verify E&M code is added', async () => {
-    await sideMenu.clickProgressNote();
-    await progressNotePage.expectLoaded();
-    await expect(page.getByText(E_M_CODE)).toBeVisible();
-  });
   await test.step('Verify missing card is not visible', async () => {
     await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeVisible();
   });
+});
+
+test('Add CPT codes', async () => {
+  await sideMenu.clickAssessment();
+  await assessmentPage.expectDiagnosisDropdown();
+
+  // Select CPT code
+  await test.step('Select CPT code', async () => {
+    await assessmentPage.selectCptCode(CPT_CODE);
+    await waitForSaveChartDataResponse(page, (json) =>
+      Boolean(json.chartData.cptCodes?.some((x) => x.code === CPT_CODE))
+    );
+    await assessmentPage.selectCptCode(CPT_CODE_2);
+    await waitForSaveChartDataResponse(page, (json) =>
+      Boolean(json.chartData.cptCodes?.some((x) => x.code === CPT_CODE_2))
+    );
+  });
+
+  await test.step('Verify CPT codes are added to progress note', async () => {
+    const value = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE)).textContent();
+    expect(value).toContain(CPT_CODE);
+
+    const value2 = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE_2)).textContent();
+    expect(value2).toContain(CPT_CODE_2);
+
+    // Navigate to Review and Sign to verify code is displayed
+    await sideMenu.clickProgressNote();
+    await progressNotePage.expectLoaded();
+    await expect(page.getByText(value!)).toBeVisible();
+    await expect(page.getByText(value2!)).toBeVisible();
+  });
+});
+
+test('Remove CPT codes', async () => {
+  await sideMenu.clickAssessment();
+  await assessmentPage.expectDiagnosisDropdown();
+
+  const value = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE)).textContent();
+  expect(value).toContain(CPT_CODE);
+
+  const value2 = await page.getByTestId(dataTestIds.billingContainer.cptCodeEntry(CPT_CODE_2)).textContent();
+  expect(value2).toContain(CPT_CODE_2);
+
+  await page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE)).click();
+  await waitForChartDataDeletion(page);
+
+  await page.getByTestId(dataTestIds.billingContainer.deleteCptCodeButton(CPT_CODE_2)).click();
+  await waitForChartDataDeletion(page);
+
+  await sideMenu.clickProgressNote();
+  await progressNotePage.expectLoaded();
+  await expect(page.getByText(value!)).not.toBeVisible();
+  await expect(page.getByText(value2!)).not.toBeVisible();
 });

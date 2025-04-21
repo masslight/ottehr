@@ -277,6 +277,7 @@ export const dataTestIds = {
   assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
     medicalDecisionField: 'medical-decision-field',
+    cptCodeField: 'cpt-code-field',
   },
   diagnosisContainer: {
     diagnosisDropdown: 'diagnosis-dropdown',
@@ -288,6 +289,8 @@ export const dataTestIds = {
   },
   billingContainer: {
     deleteButton: 'billing-container-delete-button',
+    deleteCptCodeButton: (code: string) => `billing-container-delete-cpt-code-button-${code}`,
+    cptCodeEntry: (code: string) => `cpt-code-entry-${code}`,
   },
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
