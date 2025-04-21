@@ -78,8 +78,7 @@
     "styled-system": "^5.1.5",
     "tsconfig": "*",
     "utils": "*",
-    "uuid": "^11.0.3",
-    "ui-components": "*"
+    "uuid": "^11.0.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
