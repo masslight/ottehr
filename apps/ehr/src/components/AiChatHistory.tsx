@@ -2,7 +2,7 @@ import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
 import { Box } from '@mui/system';
 import { Avatar, Typography } from '@mui/material';
-import { ottehrDarkBlue } from 'ui-components/lib/assets/icons';
+import ottehrDarkBlue from '../assets/ottehr-dark-blue.svg';
 
 const MESSAGES_CONTAINER_ID = 'messages-container';
 
