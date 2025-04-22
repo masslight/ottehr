@@ -254,7 +254,6 @@ export class ResourceHandler {
 
   public async setResources(params?: CreateTestAppointmentInput): Promise<void> {
     const response = await this.createAppointment(params);
-
     this.#resources = {
       ...response.resources,
       // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
