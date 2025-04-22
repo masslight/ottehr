@@ -52,7 +52,7 @@ export function TrackingBoardBody(): ReactElement {
                 value="all-patients"
                 data-testid={dataTestIds.telemedEhrFlow.allPatientsButton}
               >
-                All Patients
+                Patients Matching My Credentials
               </ContainedPrimaryToggleButton>
             </ToggleButtonGroup>
 

@@ -89,18 +89,15 @@ const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   });
 
   test.afterAll(async () => {
     await resourceHandler.cleanupResources();
   });
 
-  test.beforeEach(async ({ page }) => {
-    await page.waitForTimeout(2000);
-    await page.goto('/patient/' + resourceHandler.patient.id);
-  });
-
   test('Click on "See all patient info button", Patient Info Page is opened', async ({ page }) => {
+    await page.goto('/patient/' + resourceHandler.patient.id);
     const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
     await patientRecordPage.clickSeeAllPatientInfoButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
@@ -110,6 +107,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
 test.describe('Patient Record Page mutating tests', () => {
   test.beforeEach(async () => {
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   });
 
   test.afterEach(async () => {

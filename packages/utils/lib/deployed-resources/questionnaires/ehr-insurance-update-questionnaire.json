@@ -399,6 +399,11 @@
             ]
           },
           {
+            "linkId": "patient-gender-identity-details",
+            "type": "string",
+            "required": false
+          },
+          {
             "linkId": "preferred-language",
             "text": "Preferred language",
             "type": "choice",

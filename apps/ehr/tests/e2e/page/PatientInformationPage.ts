@@ -149,7 +149,6 @@ export class PatientInformationPage {
   async enterPatientDateOfBirth(patientDateOfBirth: string): Promise<void> {
     const locator = this.#page.getByTestId(dataTestIds.patientInformationContainer.patientDateOfBirth).locator('input');
     await locator.click();
-    await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(patientDateOfBirth);
   }
 
@@ -447,7 +446,6 @@ export class PatientInformationPage {
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
       .locator('input');
     await locator.click();
-    await this.#page.waitForTimeout(2000);
     await locator.pressSequentially(dateOfBirth);
   }
 

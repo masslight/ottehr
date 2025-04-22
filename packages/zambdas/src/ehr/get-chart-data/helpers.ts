@@ -195,6 +195,7 @@ export function convertSearchResultsToResponse(
           schoolWorkNotes: [],
           observations: [],
           practitioners: [],
+          aiPotentialDiagnosis: [],
         }),
   };
 

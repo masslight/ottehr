@@ -214,6 +214,21 @@ export class Locators {
   patientConditionEditButton: Locator;
   schoolWorkNotesEditButton: Locator;
   inviteParticipantEditButton: Locator;
+  manageParticipant: Locator;
+  leaveWaitingRoom: Locator;
+  cancelVisit: Locator;
+  modalInviteParticipantTitle: Locator;
+  sendInvite: Locator;
+  inviteeList: Locator;
+  modalManageParticipantsTitle: Locator;
+  wrInviteeName: Locator;
+  wrInviteeContact: Locator;
+  cancelInvite: Locator;
+  keepInvite: Locator;
+  wrInviteePhoneNumber: Locator;
+  wrInviteeEmail: Locator;
+  wrInviteeFirstName: Locator;
+  wrInviteeLastName: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -433,8 +448,8 @@ export class Locators {
     this.inviteeFirstName = page.locator("[id='invite-first']");
     this.inviteeEmail = page.locator("[id='invite-email']");
     this.inviteePhone = page.locator("[id='invite-phone']");
-    this.inviteeContactEmail = page.locator(`input[value='Email']`);
-    this.inviteeContactPhone = page.locator(`input[value='Phone']`);
+    this.inviteeContactEmail = page.locator(`input[value='Email' i]`);
+    this.inviteeContactPhone = page.locator(`input[value='Phone' i]`);
 
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });
@@ -473,6 +488,23 @@ export class Locators {
     this.patientConditionChipStatus = page.locator('[data-testid="patient-condition-page-status"] div');
     this.schoolWorkNotesChipStatus = page.locator('[data-testid="school-work-note-page-status"] div');
     this.inviteParticipantChipStatus = page.locator('[data-testid="invite-participant-page-status"] div');
+
+    // Waiting room
+    this.manageParticipant = page.getByText('Manage participants');
+    this.leaveWaitingRoom = page.getByText('Leave waiting room');
+    this.cancelVisit = page.getByText('Cancel visit');
+    this.modalInviteParticipantTitle = page.getByText('Invite participant');
+    this.modalManageParticipantsTitle = page.locator('h2', { hasText: 'Manage participants' });
+    this.sendInvite = page.getByRole('button', { name: 'Send invite' });
+    this.inviteeList = page.getByTestId('manage-participants');
+    this.wrInviteeName = page.getByTestId(dataTestIds.wrInviteeName);
+    this.wrInviteeContact = page.getByTestId(dataTestIds.wrInviteeContact);
+    this.cancelInvite = page.getByRole('button', { name: 'Cancel invite' });
+    this.keepInvite = page.getByRole('button', { name: 'Keep invite' });
+    this.wrInviteePhoneNumber = page.locator("[id='phoneNumber']");
+    this.wrInviteeEmail = page.locator("[id='email']");
+    this.wrInviteeFirstName = page.locator("[id='firstName']");
+    this.wrInviteeLastName = page.locator("[id='lastName']");
   }
 
   private getInputByValue(value: string): Locator {
