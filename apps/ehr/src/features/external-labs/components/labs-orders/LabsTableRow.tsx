@@ -1,5 +1,5 @@
 import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Button, Typography } from '@mui/material';
+import { TableCell, TableRow, Box, Button, Typography, Tooltip, useTheme } from '@mui/material';
 import { formatDate, LabOrderListPageDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
@@ -21,6 +21,8 @@ export const LabsTableRow = ({
   allowDelete = false,
   onRowClick,
 }: LabsTableRowProps): ReactElement => {
+  const theme = useTheme();
+
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
     if (onDeleteOrder) {
@@ -48,10 +50,19 @@ export const LabsTableRow = ({
       case 'provider':
         return labOrderData.orderingPhysician || '';
       case 'dx': {
-        // <Tooltip title={fullDxText} arrow placement="top">
-        //   <Typography variant="body2">{dx}</Typography>
-        // </Tooltip>
-        return <Typography variant="body2">{labOrderData.diagnoses}</Typography>;
+        const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
+        const fullDxText = labOrderData.diagnosesDTO.map((dx) => dx.display).join('; ');
+        const dxCount = labOrderData.diagnosesDTO.length;
+        if (dxCount > 1) {
+          return (
+            <Tooltip title={fullDxText} arrow placement="top">
+              <Typography variant="body2">
+                {firstDx}; <span style={{ color: theme.palette.text.secondary }}>+ {dxCount - 1} more</span>
+              </Typography>
+            </Tooltip>
+          );
+        }
+        return <Typography variant="body2">{firstDx}</Typography>;
       }
       case 'resultsReceived':
         return <DateTimeDisplay dateTimeString={labOrderData.lastResultReceivedDate} />;
