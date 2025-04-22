@@ -116,7 +116,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const observationsTemp: Observation[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Observation => resourceTemp.resourceType === 'Observation'
   );
-  console.log(2, observationsTemp);
+  console.log(2, diagnosticReportsTemp);
 
   if (serviceRequestsTemp?.length !== 1) {
     throw new Error('service request is not found');
@@ -140,10 +140,6 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
 
   if (orgsTemp?.length !== 1) {
     throw new Error('performing lab Org not found');
-  }
-
-  if (diagnosticReportsTemp?.length !== 1) {
-    throw new Error('diagnosticreport not found');
   }
 
   if (appointmentsTemp?.length !== 1) {

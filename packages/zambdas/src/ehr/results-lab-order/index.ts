@@ -1,5 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { isValidUUID } from 'utils';
+import { isValidUUID, OYSTEHR_LAB_OI_CODE_SYSTEM } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -171,18 +171,27 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         reviewingProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
         reviewDate: reviewDate,
         performingLabCode:
-          organization.identifier?.find((temp) => temp.system === 'https://identifiers.fhir.oystehr.com/lab-guid')
-            ?.value || ORDER_RESULT_ITEM_UNKNOWN,
+          diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+          diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
+          ORDER_RESULT_ITEM_UNKNOWN,
         performingLabName: organization.name || ORDER_RESULT_ITEM_UNKNOWN,
         performingLabStreetAddress: organization.address?.[0].line?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
         performingLabCity: organization.address?.[0].city || ORDER_RESULT_ITEM_UNKNOWN,
         performingLabState: organization.address?.[0].state || ORDER_RESULT_ITEM_UNKNOWN,
         performingLabZip: organization.address?.[0].postalCode || ORDER_RESULT_ITEM_UNKNOWN,
         performingLabPhone:
-          organization.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+          organization.contact
+            ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
+            ?.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
         // abnormalResult: true,
-        performingLabProviderFirstName: organization.contact?.[0].name?.given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
-        performingLabProviderLastName: organization.contact?.[0].name?.family || ORDER_RESULT_ITEM_UNKNOWN,
+        performingLabProviderFirstName:
+          organization.contact
+            ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
+            ?.name?.given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+        performingLabProviderLastName:
+          organization.contact?.find(
+            (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
+          )?.name?.family || ORDER_RESULT_ITEM_UNKNOWN,
         performingLabProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
         // performingLabDirector: organization.contact?.[0].name
         //   ? oystehr.fhir.formatHumanName(organization.contact?.[0].name)

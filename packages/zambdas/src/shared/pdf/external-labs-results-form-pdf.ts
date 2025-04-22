@@ -453,7 +453,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
 
   // Performing lab details
-  drawRegularTextRight(`PERFORMING LAB: ${data.performingLabCode}, ${data.performingLabName}`);
+  drawRegularTextRight(`PERFORMING LAB: ${data.performingLabName}`);
   addNewLine();
   drawRegularTextRight(
     `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip}`
