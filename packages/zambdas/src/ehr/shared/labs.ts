@@ -24,6 +24,8 @@ import {
   LAB_RESULT_DOC_REF_CODING_CODE,
   OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   getPresignedURL,
+  LAB_DR_TYPE_TAG,
+  nameLabTest,
 } from 'utils';
 
 export type LabOrderResources = {
@@ -228,7 +230,9 @@ export const makeEncounterLabResult = async (
     )?.reference;
     if (diagnosticReportRef) {
       const relatedDR = diagnosticReportMap[diagnosticReportRef];
-      const isReflex = relatedDR.meta?.tag?.find((t) => t.system === 'result-type' && t.display === 'reflex');
+      const isReflex = relatedDR.meta?.tag?.find(
+        (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
+      );
       const serviceRequestRef = relatedDR?.basedOn?.find((based) => based.reference?.startsWith('ServiceRequest'))
         ?.reference;
       if (serviceRequestRef) {
@@ -239,10 +243,10 @@ export const makeEncounterLabResult = async (
         ) as ActivityDefinition;
         const testName = activityDef?.code?.coding?.find((c) => c.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display;
         const labName = activityDef?.publisher;
-        let formattedName = `${testName} / ${labName}`;
+        let formattedName = nameLabTest(testName, labName, false);
         if (isReflex) {
-          const reflexTestName = relatedDR.code.coding?.[0].display;
-          formattedName = `${reflexTestName ? reflexTestName : 'Name missing'} (reflex)`;
+          const reflexTestName = relatedDR.code.coding?.[0].display || 'Name missing';
+          formattedName = nameLabTest(reflexTestName, labName, true);
         }
 
         const resultsConfigs = await getLabOrderResultPDFConfig(docRef, formattedName, m2mtoken, orderNumber);
@@ -281,7 +285,6 @@ export const makeEncounterLabResult = async (
     }
   });
 
-  // todo confirm this logic is sound
   const resultsPending = activeServiceRequests.length > 0;
 
   const result: EncounterLabResult = {

@@ -13,3 +13,4 @@ export * from './create-prebook-demo-visits';
 export * from './create-telemed-demo-visits';
 export * from './visit-note';
 export * from './vitals';
+export * from './labs';

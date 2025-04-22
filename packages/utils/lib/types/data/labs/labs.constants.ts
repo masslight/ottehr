@@ -21,6 +21,13 @@ export const LAB_RESULT_DOC_REF_CODING_CODE = {
   display: 'Referral lab test panel',
 };
 
+export const LAB_DR_TYPE_TAG = {
+  system: 'result-type',
+  display: {
+    reflex: 'reflex',
+  },
+};
+
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';
