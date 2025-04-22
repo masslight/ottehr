@@ -5,6 +5,7 @@ import {
   PATIENT_FIRST_NAME,
   PATIENT_GENDER,
   PATIENT_INSURANCE_MEMBER_ID,
+  PATIENT_INSURANCE_MEMBER_ID_2,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
   PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
@@ -76,6 +77,7 @@ import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { openAddPatientPage } from '../page/AddPatientPage';
 import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 
 const NEW_PATIENT_LAST_NAME = 'Test_lastname';
 const NEW_PATIENT_FIRST_NAME = 'Test_firstname';
@@ -111,14 +113,103 @@ const NEW_PROVIDER_LAST_NAME = 'Doe';
 const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
+const POLICY_HOLDER_DATE_OF_BIRTH = '01/01/1990';
+const POLICY_HOLDER_2_DATE_OF_BIRTH = '01/01/1991';
+const NEW_PATIENT_INSURANCE_MEMBER_ID = 'abc1234567';
+const NEW_PATIENT_INSURANCE_MEMBER_ID_2 = '125897ftr';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS = 'street 21';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE = 'additional2';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX = 'Intersex';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY = 'Las Vegas';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH = '03/03/1993';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Alise';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Wonder';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME = 'Louisa';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED = 'Mother';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_STATE = 'NJ';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP = '32567';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS = 'street 17';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE = 'additional';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX = 'Intersex';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY = 'Anchorage';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH = '04/04/1992';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'James';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Cannock';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'Bob';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Father';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'AK';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '78956';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
+const NEW__PATIENT_INSURANCE_TYPE = 'Secondary';
+const NEW__PATIENT_INSURANCE_TYPE_2 = 'Primary';
 
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
 test.describe('Patient Record Page non-mutating tests', () => {
-  const resourceHandler = new ResourceHandler();
+  let resourceHandler: ResourceHandler;
 
   test.beforeAll(async () => {
+    let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
+    let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
+    resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
+      return [
+        getContactInformationAnswers({
+          firstName: patientInfo.patient.firstName,
+          lastName: patientInfo.patient.lastName,
+          birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
+          email: patientInfo.patient.email,
+          phoneNumber: patientInfo.patient.phoneNumber,
+          birthSex: patientInfo.patient.sex,
+        }),
+        getPatientDetailsStepAnswers({}),
+        getPaymentOptionInsuranceAnswers({
+          insuranceCarrier: insuranceCarrier1!,
+          insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
+          insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
+          insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
+          insurancePolicyHolderMiddleName: PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth: PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex: PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity: PATIENT_INSURANCE_POLICY_HOLDER_CITY,
+          insurancePolicyHolderState: PATIENT_INSURANCE_POLICY_HOLDER_STATE,
+          insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
+          insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
+          insuranceCarrier2: insuranceCarrier2!,
+          insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID_2,
+          insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
+          insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
+          insurancePolicyHolderMiddleName2: PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth2: PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex2: PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity2: PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
+          insurancePolicyHolderState2: PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
+          insurancePolicyHolderZip2: PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
+          insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
+        }),
+        getResponsiblePartyStepAnswers({}),
+        getConsentStepAnswers({}),
+        getPrimaryCarePhysicianStepAnswers({}),
+      ];
+    });
+    const oystehr = await ResourceHandler.getOystehr();
+    const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
+      id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
+      answerSource: {
+        resourceType: 'InsurancePlan',
+        query: `status=active&_tag=${INSURANCE_PLAN_PAYER_META_TAG_CODE}`,
+      },
+    });
+    const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
+    insuranceCarrier1 = insuranceCarriersOptions.at(0);
+    insuranceCarrier2 = insuranceCarriersOptions.at(1);
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   });
@@ -133,13 +224,224 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientRecordPage.clickSeeAllPatientInfoButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
   });
+
+  test('Verify required data from Patient info block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
+    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
+  });
+
+  test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
+    await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
+    await patientInformationPage.verifyCity(DEMO_VISIT_CITY);
+    await patientInformationPage.verifyState(DEMO_VISIT_STATE);
+    await patientInformationPage.verifyZip(DEMO_VISIT_ZIP);
+    await patientInformationPage.verifyPatientEmail(PATIENT_EMAIL);
+    await patientInformationPage.verifyPatientMobile(PATIENT_PHONE_NUMBER);
+  });
+
+  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
+    await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
+    await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(
+      DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH +
+        '/' +
+        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY +
+        '/' +
+        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR
+    );
+    await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
+    await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
+  });
+
+  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
+    await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
+    await patientInformationPage.verifyMarketingMessaging(DEMO_VISIT_MARKETING_MESSAGING ? 'Yes' : 'No');
+    await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
+  });
+
+  test('Verify data from Primary Care Physician block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+  });
+
+  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.setCheckboxOn();
+    await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyAddressFromPcpIsNotVisible();
+    await patientInformationPage.verifyMobileFromPcpIsNotVisible();
+  });
+
+  test('Verify data from Primary and Secondary Insurances blocks are displayed correctly displayed correctly', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+    await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+    await primaryInsuranceCard.verifyInsuranceType('Primary');
+    //await primaryInsuranceCard.verifyInsuranceCarrier('');
+    await primaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID);
+    await primaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.verifyAdditionalFieldsAreVisible();
+    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+    await primaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_DATE_OF_BIRTH);
+    await primaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
+    await primaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
+    await primaryInsuranceCard.verifyInsuranceAddressLine2(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
+    await primaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_CITY);
+    await primaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_STATE);
+    await primaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
+    await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
+    );
+    await primaryInsuranceCard.verifyAdditionalInsuranceInformation('');
+    await primaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+    await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+    await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+    await secondaryInsuranceCard.verifyInsuranceType('Secondary');
+    //await secondaryInsuranceCard.verifyInsuranceCarrier('');
+    await secondaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID_2);
+    await secondaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.verifyAdditionalFieldsAreVisible();
+    await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+    await secondaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
+    await secondaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
+    await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
+    await secondaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_2_DATE_OF_BIRTH);
+    await secondaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
+    await secondaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
+    await secondaryInsuranceCard.verifyInsuranceAddressLine2(PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE);
+    await secondaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
+    await secondaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
+    await secondaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
+    await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
+    );
+    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('');
+    await secondaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+  });
+
+  test('Check validation error is displayed if any required field in Insurance information block is missing', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.clearMemberIdField();
+    await primaryInsuranceCard.clearPolicyHolderFirstNameField();
+    await primaryInsuranceCard.clearPolicyHolderLastNameField();
+    await primaryInsuranceCard.clearDateOfBirthFromInsuranceContainer();
+    await primaryInsuranceCard.clearStreetAddressFromInsuranceContainer();
+    await primaryInsuranceCard.clearCityFromInsuranceContainer();
+    await primaryInsuranceCard.clearZipFromInsuranceContainer();
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.clearMemberIdField();
+    await secondaryInsuranceCard.clearPolicyHolderFirstNameField();
+    await secondaryInsuranceCard.clearPolicyHolderLastNameField();
+    await secondaryInsuranceCard.clearDateOfBirthFromInsuranceContainer();
+    await secondaryInsuranceCard.clearStreetAddressFromInsuranceContainer();
+    await secondaryInsuranceCard.clearCityFromInsuranceContainer();
+    await secondaryInsuranceCard.clearZipFromInsuranceContainer();
+    await patientInformationPage.clickSaveChangesButton();
+
+    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.memberId);
+    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersFirstName);
+    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersLastName);
+    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersDateOfBirth);
+    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.streetAddress);
+    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.city);
+    await primaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.zip);
+
+    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.memberId);
+    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersFirstName);
+    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersLastName);
+    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.policyHoldersDateOfBirth);
+    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.streetAddress);
+    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.city);
+    await secondaryInsuranceCard.verifyValidationErrorShown(dataTestIds.insuranceContainer.zip);
+  });
 });
 
 test.describe('Patient Record Page mutating tests', () => {
-  let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined;
-  let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined;
+  let resourceHandler: ResourceHandler;
 
   test.beforeAll(async () => {
+    let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
+    let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
+    resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
+      return [
+        getContactInformationAnswers({
+          firstName: patientInfo.patient.firstName,
+          lastName: patientInfo.patient.lastName,
+          birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
+          email: patientInfo.patient.email,
+          phoneNumber: patientInfo.patient.phoneNumber,
+          birthSex: patientInfo.patient.sex,
+        }),
+        getPatientDetailsStepAnswers({}),
+        getPaymentOptionInsuranceAnswers({
+          insuranceCarrier: insuranceCarrier1!,
+          insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
+          insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
+          insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
+          insurancePolicyHolderMiddleName: PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth: PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex: PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity: PATIENT_INSURANCE_POLICY_HOLDER_CITY,
+          insurancePolicyHolderState: PATIENT_INSURANCE_POLICY_HOLDER_STATE,
+          insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
+          insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
+          insuranceCarrier2: insuranceCarrier2!,
+          insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID,
+          insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
+          insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
+          insurancePolicyHolderMiddleName2: PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
+          insurancePolicyHolderDateOfBirth2: PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
+          insurancePolicyHolderBirthSex2: PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
+          insurancePolicyHolderAddressAsPatient2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
+          insurancePolicyHolderAddress2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
+          insurancePolicyHolderAddressAdditionalLine2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
+          insurancePolicyHolderCity2: PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
+          insurancePolicyHolderState2: PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
+          insurancePolicyHolderZip2: PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
+          insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
+        }),
+        getResponsiblePartyStepAnswers({}),
+        getConsentStepAnswers({}),
+        getPrimaryCarePhysicianStepAnswers({}),
+      ];
+    });
     const oystehr = await ResourceHandler.getOystehr();
     const insuranceCarriersOptionsResponse = await oystehr.zambda.execute({
       id: process.env.GET_ANSWER_OPTIONS_ZAMBDA_ID!,
@@ -151,53 +453,6 @@ test.describe('Patient Record Page mutating tests', () => {
     const insuranceCarriersOptions = chooseJson(insuranceCarriersOptionsResponse) as QuestionnaireItemAnswerOption[];
     insuranceCarrier1 = insuranceCarriersOptions.at(0);
     insuranceCarrier2 = insuranceCarriersOptions.at(1);
-  });
-
-  const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
-    return [
-      getContactInformationAnswers({
-        firstName: patientInfo.patient.firstName,
-        lastName: patientInfo.patient.lastName,
-        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
-        email: patientInfo.patient.email,
-        phoneNumber: patientInfo.patient.phoneNumber,
-        birthSex: patientInfo.patient.sex,
-      }),
-      getPatientDetailsStepAnswers({}),
-      getPaymentOptionInsuranceAnswers({
-        insuranceCarrier: insuranceCarrier1!,
-        insuranceMemberId: PATIENT_INSURANCE_MEMBER_ID,
-        insurancePolicyHolderFirstName: PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME,
-        insurancePolicyHolderLastName: PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME,
-        insurancePolicyHolderMiddleName: PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME,
-        insurancePolicyHolderDateOfBirth: PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH,
-        insurancePolicyHolderBirthSex: PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX,
-        insurancePolicyHolderAddressAsPatient: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_AS_PATIENT,
-        insurancePolicyHolderAddress: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS,
-        insurancePolicyHolderAddressAdditionalLine: PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE,
-        insurancePolicyHolderCity: PATIENT_INSURANCE_POLICY_HOLDER_CITY,
-        insurancePolicyHolderState: PATIENT_INSURANCE_POLICY_HOLDER_STATE,
-        insurancePolicyHolderZip: PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
-        insurancePolicyHolderRelationshipToInsured: PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED,
-        insuranceCarrier2: insuranceCarrier2!,
-        insuranceMemberId2: PATIENT_INSURANCE_MEMBER_ID,
-        insurancePolicyHolderFirstName2: PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME,
-        insurancePolicyHolderLastName2: PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME,
-        insurancePolicyHolderMiddleName2: PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME,
-        insurancePolicyHolderDateOfBirth2: PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH,
-        insurancePolicyHolderBirthSex2: PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX,
-        insurancePolicyHolderAddressAsPatient2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_AS_PATIENT,
-        insurancePolicyHolderAddress2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS,
-        insurancePolicyHolderAddressAdditionalLine2: PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE,
-        insurancePolicyHolderCity2: PATIENT_INSURANCE_POLICY_HOLDER_2_CITY,
-        insurancePolicyHolderState2: PATIENT_INSURANCE_POLICY_HOLDER_2_STATE,
-        insurancePolicyHolderZip2: PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP,
-        insurancePolicyHolderRelationshipToInsured2: PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED,
-      }),
-      getResponsiblePartyStepAnswers({}),
-      getConsentStepAnswers({}),
-      getPrimaryCarePhysicianStepAnswers({}),
-    ];
   });
 
   test.beforeEach(async () => {
@@ -267,14 +522,6 @@ test.describe('Patient Record Page mutating tests', () => {
     */
   });
 
-  test('Verify required data from Patient info block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
-    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
-    await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-    await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
-  });
-
   test('Check validation error is displayed if any required field in Patient info block is missing', async ({
     page,
   }) => {
@@ -287,6 +534,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_FIRST_NAME);
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
   });
+
   test('Updated values from Patient info block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientLastName(NEW_PATIENT_LAST_NAME);
@@ -310,17 +558,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
     await patientInformationPage.verifyPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
     await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
-  });
-
-  test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
-    await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
-    await patientInformationPage.verifyCity(DEMO_VISIT_CITY);
-    await patientInformationPage.verifyState(DEMO_VISIT_STATE);
-    await patientInformationPage.verifyZip(DEMO_VISIT_ZIP);
-    await patientInformationPage.verifyPatientEmail(PATIENT_EMAIL);
-    await patientInformationPage.verifyPatientMobile(PATIENT_PHONE_NUMBER);
   });
 
   test('Check validation error is displayed if any required field in Contact info block is missing', async ({
@@ -386,22 +623,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
   });
 
-  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
-    await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
-    await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(
-      DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH +
-        '/' +
-        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY +
-        '/' +
-        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR
-    );
-    await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
-    await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
-  });
-
   test('Check validation error is displayed if any required field in Responsible party information block is missing or phone number is invalid', async ({
     page,
   }) => {
@@ -447,15 +668,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 
-  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
-    await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
-    await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
-    await patientInformationPage.verifyMarketingMessaging(DEMO_VISIT_MARKETING_MESSAGING ? 'Yes' : 'No');
-    await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
-  });
-
   test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
@@ -479,15 +691,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
     await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
     await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
-  });
-
-  test('Verify data from Primary Care Physician block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
-    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
-    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
-    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
   /* test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
@@ -516,16 +719,6 @@ test.describe('Patient Record Page mutating tests', () => {
   });*/
   // todo: uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
 
-  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.setCheckboxOn();
-    await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyAddressFromPcpIsNotVisible();
-    await patientInformationPage.verifyMobileFromPcpIsNotVisible();
-  });
-
   test('Updated values from Primary Care Physician block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
@@ -543,6 +736,118 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPracticeNameFromPcp(NEW_PRACTICE_NAME);
     await patientInformationPage.verifyAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
     await patientInformationPage.verifyMobileFromPcp(NEW_PHYSICIAN_MOBILE);
+  });
+
+  test('Enter invalid zip on Insurance information block, validation error are shown', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.enterZipFromInsuranceContainer('11');
+    await patientInformationPage.clickSaveChangesButton();
+    await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+    await primaryInsuranceCard.enterZipFromInsuranceContainer('11223344');
+    await patientInformationPage.clickSaveChangesButton();
+    await primaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.enterZipFromInsuranceContainer('11');
+    await patientInformationPage.clickSaveChangesButton();
+    await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+    await secondaryInsuranceCard.enterZipFromInsuranceContainer('11223344');
+    await patientInformationPage.clickSaveChangesButton();
+    await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
+  });
+
+  test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.selectInsuranceType(NEW__PATIENT_INSURANCE_TYPE);
+    //???await primaryInsuranceCard.selectInsuranceCarrier();
+    await primaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
+    await primaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
+    await primaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
+    await primaryInsuranceCard.enterPolicyHolderLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
+    await primaryInsuranceCard.enterDateOfBirthFromInsuranceContainer(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH
+    );
+    await primaryInsuranceCard.selectPolicyHoldersBirthSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
+    await primaryInsuranceCard.enterPolicyHolderStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
+    await primaryInsuranceCard.enterPolicyHolderAddressLine2(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE
+    );
+    await primaryInsuranceCard.enterPolicyHolderCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY);
+    await primaryInsuranceCard.selectPolicyHoldersState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
+    await primaryInsuranceCard.enterZipFromInsuranceContainer(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
+    await primaryInsuranceCard.selectPatientsRelationship(NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
+    await primaryInsuranceCard.enterAdditionalInsuranceInformation(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
+
+    await primaryInsuranceCard.verifyInsuranceType(NEW__PATIENT_INSURANCE_TYPE);
+    //???await primaryInsuranceCard.verifyInsuranceCarrier();
+    await primaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
+    await primaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
+    await primaryInsuranceCard.verifyPolicyHoldersSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
+    await primaryInsuranceCard.verifyInsuranceStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
+    await primaryInsuranceCard.verifyInsuranceAddressLine2(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
+    await primaryInsuranceCard.verifyInsuranceCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY);
+    await primaryInsuranceCard.verifyInsuranceState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
+    await primaryInsuranceCard.verifyInsuranceZip(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
+    await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
+    );
+    await primaryInsuranceCard.verifyAdditionalInsuranceInformation(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
+    );
+
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.selectInsuranceType(NEW__PATIENT_INSURANCE_TYPE_2);
+    //???await secondaryInsuranceCard.selectInsuranceCarrier();
+    await secondaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
+    await secondaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
+    await secondaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
+    await secondaryInsuranceCard.enterPolicyHolderLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
+    await secondaryInsuranceCard.enterDateOfBirthFromInsuranceContainer(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH
+    );
+    await secondaryInsuranceCard.selectPolicyHoldersBirthSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
+    await secondaryInsuranceCard.enterPolicyHolderStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
+    await secondaryInsuranceCard.enterPolicyHolderAddressLine2(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE
+    );
+    await secondaryInsuranceCard.enterPolicyHolderCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
+    await secondaryInsuranceCard.selectPolicyHoldersState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
+    await secondaryInsuranceCard.enterZipFromInsuranceContainer(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
+    await secondaryInsuranceCard.selectPatientsRelationship(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
+    );
+    await secondaryInsuranceCard.enterAdditionalInsuranceInformation(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
+    );
+
+    await secondaryInsuranceCard.verifyInsuranceType(NEW__PATIENT_INSURANCE_TYPE_2);
+    //???await secondaryInsuranceCard.verifyInsuranceCarrier();
+    await secondaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
+    await secondaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
+    await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
+    await secondaryInsuranceCard.verifyPolicyHoldersLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
+    await secondaryInsuranceCard.verifyPolicyHoldersDateOfBirth(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH);
+    await secondaryInsuranceCard.verifyPolicyHoldersSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
+    await secondaryInsuranceCard.verifyInsuranceStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
+    await secondaryInsuranceCard.verifyInsuranceAddressLine2(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE
+    );
+    await secondaryInsuranceCard.verifyInsuranceCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
+    await secondaryInsuranceCard.verifyInsuranceState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
+    await secondaryInsuranceCard.verifyInsuranceZip(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
+    await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
+    );
+    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
+    );
   });
 });
 

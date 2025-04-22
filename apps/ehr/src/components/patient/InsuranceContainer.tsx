@@ -98,7 +98,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
   };
 
   return (
-    <Section title="Insurance information">
+    <Section title="Insurance information" dataTestId="insuranceContainer">
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
@@ -178,11 +178,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
         />
       </Row>
-      <Box
-        sx={{ display: 'flex', justifyContent: 'flex-end' }}
-        data-testid={dataTestIds.insuranceContainer.showMoreButton}
-      >
-        <ShowMoreButton onClick={toggleMoreInfo} isOpen={showMoreInfo} />
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <ShowMoreButton
+          onClick={toggleMoreInfo}
+          isOpen={showMoreInfo}
+          dataTestId={dataTestIds.insuranceContainer.showMoreButton}
+        />
       </Box>
       {showMoreInfo && (
         <>
