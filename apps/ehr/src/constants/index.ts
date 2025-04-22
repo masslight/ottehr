@@ -641,6 +641,11 @@ export const FormFields = {
     birthDate: { key: 'responsible-party-date-of-birth', type: 'String', label: 'Date of birth' },
     birthSex: { key: 'responsible-party-birth-sex', type: 'String', label: 'Birth sex' },
     phone: { key: 'responsible-party-number', type: 'String', label: 'Phone' },
+    addressLine1: { key: 'responsible-party-address', type: 'String', label: 'Street Addresss' },
+    addressLine2: { key: 'responsible-party-address-2', type: 'String', label: 'Addresss line 2' },
+    city: { key: 'responsible-party-city', type: 'String', label: 'City' },
+    state: { key: 'responsible-party-state', type: 'String', label: 'State' },
+    zip: { key: 'responsible-party-zip', type: 'String', label: 'Zip' },
   },
 };
 

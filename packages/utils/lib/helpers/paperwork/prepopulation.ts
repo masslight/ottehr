@@ -869,6 +869,14 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
       }
     }
   }
+
+  const guarantorAddress = guarantorResource?.address?.[0];
+  const line = guarantorAddress?.line?.[0];
+  const line2 = guarantorAddress?.line?.[1];
+  const city = guarantorAddress?.city;
+  const state = guarantorAddress?.state;
+  const zip = guarantorAddress?.postalCode;
+
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
     const { linkId } = item;
@@ -890,6 +898,21 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
     }
     if (linkId === 'responsible-party-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'responsible-party-address' && line) {
+      answer = makeAnswer(line);
+    }
+    if (linkId === 'responsible-party-address-2' && line2) {
+      answer = makeAnswer(line2);
+    }
+    if (linkId === 'responsible-party-city' && city) {
+      answer = makeAnswer(city);
+    }
+    if (linkId === 'responsible-party-state' && state) {
+      answer = makeAnswer(state);
+    }
+    if (linkId === 'responsible-party-zip' && zip) {
+      answer = makeAnswer(zip);
     }
     return {
       linkId,
