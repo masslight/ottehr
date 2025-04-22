@@ -451,7 +451,6 @@ export async function makeSequentialPaperworkPatches(
 ): Promise<void> {
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
-
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {

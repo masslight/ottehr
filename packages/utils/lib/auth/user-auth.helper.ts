@@ -3,6 +3,8 @@ import { Patient, Person, RelatedPerson } from 'fhir/r4b';
 
 // ***
 export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<Patient[]> {
+  console.time(`Getting patients for user: ${user.name}`);
+  console.log(`User: ${JSON.stringify(user.name)}`);
   const resources = (
     await oystehr.fhir.search<Person | RelatedPerson | Patient>({
       resourceType: 'Person',
@@ -23,6 +25,8 @@ export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<
     })
   ).unbundle();
   const resourcesTemp = resources.filter((resourceTemp) => resourceTemp.resourceType === 'Patient');
+  console.timeEnd(`Getting patients for user: ${user.name}`);
+  // console.log(`Get patients for user resources: ${JSON.stringify(resourcesTemp)}`);
   return resourcesTemp as Patient[];
 }
 
