@@ -2,19 +2,23 @@ import { InfoOutlined } from '@mui/icons-material';
 import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BoldPurpleInputLabel, CustomTooltip, PageForm } from 'ui-components';
+import { generatePath, useNavigate } from 'react-router-dom';
+import { BoldPurpleInputLabel, CustomTooltip, PageForm, useUCZambdaClient } from 'ui-components';
 import {
   checkTelemedLocationAvailability,
+  CreateSlotParams,
+  ServiceMode,
   stateCodeToFullName,
   TelemedLocation,
   telemedStateWorkingSchedule,
 } from 'utils';
-import { intakeFlowPageRoute } from '../App';
+import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedStates } from '../telemed/features/appointments';
 import { useZapEHRAPIClient } from '../telemed/utils';
 import { PageContainer } from '../components';
+import { DateTime } from 'luxon';
+import ottehrApi from '../api/ottehrApi';
 
 const emptyArray: [] = [];
 
@@ -26,6 +30,7 @@ const StartVirtualVisit = (): JSX.Element => {
 
   const apiClient = useZapEHRAPIClient();
   const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
+  const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
   const telemedStates = locationsResponse?.locations || emptyArray;
 
@@ -35,8 +40,29 @@ const StartVirtualVisit = (): JSX.Element => {
 
   const onSubmit = async (): Promise<void> => {
     try {
-      if (!selectedLocation?.state) {
+      if (!selectedLocation?.state || !tokenlessZambdaClient) {
         return;
+      }
+
+      const createSlotInput: CreateSlotParams = {
+        scheduleId: selectedLocation.scheduleId,
+        startISO: DateTime.now().toISO(),
+        serviceModality: ServiceMode.virtual,
+        lengthInMinutes: 15,
+        status: 'busy-tentative',
+        walkin: true,
+      };
+
+      try {
+        const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
+        console.log('createSlotResponse', slot);
+        const basePath = generatePath(bookingBasePath, {
+          slotId: slot.id!,
+        });
+        navigate(`${basePath}/patients`);
+      } catch (error) {
+        console.error('Error creating slot:', error);
+        // todo: handle error
       }
 
       setIsSubmitting(true);
@@ -68,6 +94,7 @@ const StartVirtualVisit = (): JSX.Element => {
           available: serverState ? checkTelemedLocationAvailability(serverState) : false,
           workingHours: (Boolean(serverState?.available) && telemedStateWorkingSchedule[stateCode]) || null,
           fullName: stateCodeToFullName[stateCode] || stateCode,
+          scheduleId: serverState?.scheduleId || '',
         };
       })
       .sort((a, b) => {

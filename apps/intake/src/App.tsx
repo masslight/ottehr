@@ -26,7 +26,6 @@ import { IOSMessagesHandler } from './telemed/components/IOSMessagesHandler';
 import { ProtectedRoute } from './telemed/features/auth';
 import { ErrorFallbackScreen, LoadingScreen } from './telemed/features/common';
 import { useIOSAppSync } from './telemed/features/ios-communication/useIOSAppSync';
-import TelemedConfirmDateOfBirth from './telemed/pages/ConfirmDateOfBirth';
 import Homepage from './telemed/pages/Homepage';
 import { IOSCallEndedPage } from './telemed/pages/IOS/IOSCallEndedPage';
 import { IOSPatientManageParticipantsPage } from './telemed/pages/IOS/IOSManageParticipantsPage';
@@ -38,8 +37,6 @@ import {
 } from './telemed/pages/PaperworkPage';
 import PastVisits from './pages/PastVisits';
 import VisitDetails from './pages/VisitDetails';
-import TelemedPatientInformation from './telemed/pages/PatientInformation';
-import RequestVirtualVisit from './telemed/pages/RequestVirtualVisit';
 import TelemedReviewPaperwork from './telemed/pages/ReviewPaperwork';
 import TelemedSelectPatient from './telemed/pages/SelectPatient';
 import UserFlowRoot from './telemed/pages/UserFlowRoot';
@@ -48,6 +45,7 @@ import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
 import AIInterview from './pages/AIInterview';
 import { WalkinLanding } from './pages/WalkinLanding';
+import StartVirtualVisit from './pages/StartVirtualVisit';
 
 const {
   MODE: environment,
@@ -111,10 +109,6 @@ export const intakeFlowPageRoute = {
     path: '/walkin/schedule/:id',
     getPage: () => <WalkinLanding />,
   },
-  RequestVirtualVisit: {
-    path: '/request-virtual-visit',
-    getPage: () => <RequestVirtualVisit />,
-  }, // ET
   Appointments: {
     path: '/visits',
     getPage: () => <Appointments />,
@@ -173,18 +167,10 @@ export const intakeFlowPageRoute = {
     path: '/select-patient',
     getPage: () => <TelemedSelectPatient />,
   }, // ET
-  TelemedConfirmDateOfBirth: {
-    path: '/confirm-date-of-birth',
-    getPage: () => <TelemedConfirmDateOfBirth />,
-  }, // ET
   TelemedGetReadyForVisit: {
     path: '/paperwork/get-ready-for-the-visit',
     getPage: () => <GetReadyForVisit />,
   }, // ET
-  TelemedPatientInformation: {
-    path: '/about-patient',
-    getPage: () => <TelemedPatientInformation />,
-  },
   TelemedPaperworkHomeRoute: {
     path: telemedPaperworkBasePath,
     getPage: () => <TelemedPaperworkHome />,
@@ -248,6 +234,10 @@ export const intakeFlowPageRoute = {
     path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}`,
     getPage: () => <PrebookVisit />,
   },
+  StartVirtualVisit: {
+    path: '/start-virtual',
+    getPage: () => <StartVirtualVisit />,
+  },
   BookingHome: {
     path: bookingBasePath,
     getPage: () => <BookingHome />,
@@ -277,14 +267,6 @@ export const intakeFlowPageRoute = {
     getPage: () => <NewUser />,
   }, // IP
 } as const;
-
-// export const FORM_PAGES = [
-//   intakeFlowPageRoute.NewUser,
-//   intakeFlowPageRoute.PatientInformation,
-//   intakeFlowPageRoute.Review,
-//   intakeFlowPageRoute.ReviewPaperwork,
-//   intakeFlowPageRoute.ConfirmDateOfBirth,
-// ];
 
 function App(): JSX.Element {
   useIOSAppSync();
@@ -349,10 +331,6 @@ function App(): JSX.Element {
                 }
               >
                 <Route path="/" element={<UserFlowRoot />} />
-                <Route
-                  path={intakeFlowPageRoute.RequestVirtualVisit.path}
-                  element={intakeFlowPageRoute.RequestVirtualVisit.getPage()}
-                />
                 <Route path={intakeFlowPageRoute.Homepage.path} element={intakeFlowPageRoute.Homepage.getPage()} />
                 <Route
                   path={intakeFlowPageRoute.TelemedSelectPatient.path}
@@ -363,15 +341,6 @@ function App(): JSX.Element {
                   path={intakeFlowPageRoute.VisitDetails.path}
                   element={intakeFlowPageRoute.VisitDetails.getPage()}
                 />
-                <Route
-                  path={intakeFlowPageRoute.TelemedConfirmDateOfBirth.path}
-                  element={intakeFlowPageRoute.TelemedConfirmDateOfBirth.getPage()}
-                />
-                <Route
-                  path={intakeFlowPageRoute.TelemedPatientInformation.path}
-                  element={intakeFlowPageRoute.TelemedPatientInformation.getPage()}
-                />
-
                 <Route
                   path={intakeFlowPageRoute.WaitingRoom.path}
                   element={intakeFlowPageRoute.WaitingRoom.getPage()}
@@ -393,26 +362,6 @@ function App(): JSX.Element {
                     element={intakeFlowPageRoute.TelemedReviewPaperwork.getPage()}
                   />
                 </Route>
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PatientCondition.path}*/}
-                {/*  element={intakeFlowPageRoute.PatientCondition.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PaymentOption.path}*/}
-                {/*  element={intakeFlowPageRoute.PaymentOption.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PaperworkPage.path}*/}
-                {/*  element={intakeFlowPageRoute.PaperworkPage.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PersonAccompanying.path}*/}
-                {/*  element={intakeFlowPageRoute.PersonAccompanying.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.TelemedReviewPaperwork.path}*/}
-                {/*  element={intakeFlowPageRoute.TelemedReviewPaperwork.getPage()}*/}
-                {/*/>*/}
                 <Route path={intakeFlowPageRoute.VideoCall.path} element={intakeFlowPageRoute.VideoCall.getPage()} />
                 <Route path={intakeFlowPageRoute.CallEnded.path} element={intakeFlowPageRoute.CallEnded.getPage()} />
               </Route>
@@ -423,6 +372,10 @@ function App(): JSX.Element {
               <Route
                 path={intakeFlowPageRoute.WalkinLanding.path}
                 element={intakeFlowPageRoute.WalkinLanding.getPage()}
+              />
+              <Route
+                path={intakeFlowPageRoute.StartVirtualVisit.path}
+                element={intakeFlowPageRoute.StartVirtualVisit.getPage()}
               />
               <Route
                 path={intakeFlowPageRoute.PrebookVisitDynamic.path}

@@ -39,7 +39,7 @@ const Homepage = (): JSX.Element => {
   }, [refetch, apiClient]);
 
   const handleRequestVisit = (): void => {
-    navigate(`${intakeFlowPageRoute.TelemedSelectPatient.path}?flow=requestVisit`);
+    navigate(intakeFlowPageRoute.StartVirtualVisit.path);
   };
 
   const handleWalkIn = (): void => {
