@@ -12,7 +12,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.debug('validateRequestParameters success');
 
     const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
-
     const response: IcdSearchResponse = { codes: [] };
     // search codes
     try {

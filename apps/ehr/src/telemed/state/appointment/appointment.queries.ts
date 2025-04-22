@@ -599,7 +599,7 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
     },
     {
       onError: (error: any) => {
-        console.error('ICD Search Error:', error);
+        console.log('Error: ', error);
         openError();
       },
       enabled: Boolean(apiClient),
