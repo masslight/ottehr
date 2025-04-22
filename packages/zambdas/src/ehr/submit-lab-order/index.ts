@@ -24,11 +24,11 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
-import { getLabOrderResources } from '../shared/labs';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import Oystehr from '@oystehr/sdk';
 import { PdfInfo } from '../../shared/pdf/pdf-utils';
 import { randomUUID } from 'crypto';
+import { getLabOrderResources } from '../shared/labs';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -57,6 +57,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       appointment,
       encounter,
     } = await getLabOrderResources(oystehr, serviceRequestID);
+
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
     if (!appointment.id) {

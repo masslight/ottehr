@@ -1,96 +1,136 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { Condition, ServiceRequest } from 'fhir/r4b';
+import { Condition, Encounter, QuestionnaireResponse, ServiceRequest, Task } from 'fhir/r4b';
 import { DeleteLabOrderParams } from './validateRequestParameters';
+import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
 
-/**
- * Creates a delete request for a FHIR resource
- */
 export const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
   method: 'DELETE',
   url: `${resourceType}/${id}`,
 });
 
-/**
- * Check if the lab order can be deleted (only pending/draft lab orders can be deleted)
- */
 export const canDeleteLabOrder = (labOrder: ServiceRequest): boolean => {
-  const deletableStatuses = ['draft'];
-  return deletableStatuses.includes(labOrder.status);
+  return labOrder.status === 'draft';
 };
 
-/**
- * Get the lab order resource and related diagnoses
- */
-export const getLabOrderAndRelatedResources = async (
+export const getLabOrderRelatedResources = async (
   oystehr: Oystehr,
   params: DeleteLabOrderParams
 ): Promise<{
   serviceRequest: ServiceRequest | null;
-  relatedDiagnoses: Condition[];
+  questionnaireResponse: QuestionnaireResponse | null;
+  task: Task | null;
+  labConditions: Condition[];
 }> => {
   try {
-    const serviceRequestResponse = await oystehr.fhir.search<ServiceRequest>({
-      resourceType: 'ServiceRequest',
-      params: [
-        {
-          name: '_id',
-          value: params.labOrderId,
-        },
-      ],
-    });
+    const serviceRequestResponse = (
+      await oystehr.fhir.search<ServiceRequest | Task | Encounter | Condition>({
+        resourceType: 'ServiceRequest',
+        params: [
+          {
+            name: '_id',
+            value: params.serviceRequestId,
+          },
+          {
+            name: '_revinclude',
+            value: 'Task:based-on',
+          },
+          {
+            name: '_include',
+            value: 'ServiceRequest:encounter',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Condition:encounter',
+          },
+        ],
+      })
+    ).unbundle();
 
-    const serviceRequestData = serviceRequestResponse?.entry?.[0]?.resource;
+    const { serviceRequests, tasks, conditions, encounters } = serviceRequestResponse.reduce(
+      (acc, resource) => {
+        if (resource.resourceType === 'ServiceRequest' && resource.id === params.serviceRequestId) {
+          acc.serviceRequests.push(resource);
+        } else if (
+          resource.resourceType === 'Task' &&
+          resource.basedOn?.some((ref) => ref.reference === `ServiceRequest/${params.serviceRequestId}`)
+        ) {
+          acc.tasks.push(resource);
+        } else if (resource.resourceType === 'Condition') {
+          acc.conditions.push(resource);
+        } else if (resource.resourceType === 'Encounter') {
+          acc.encounters.push(resource);
+        }
 
-    if (!serviceRequestData || !serviceRequestData.id) {
-      console.error('Lab order not found or invalid response', serviceRequestResponse);
-      return { serviceRequest: null, relatedDiagnoses: [] };
-    }
+        return acc;
+      },
+      {
+        serviceRequests: [] as ServiceRequest[],
+        tasks: [] as Task[],
+        conditions: [] as Condition[],
+        encounters: [] as Encounter[],
+      }
+    );
 
-    if (!canDeleteLabOrder(serviceRequestData)) {
-      const errorMessage = `Cannot delete lab order with status: ${serviceRequestData.status}. Only pending orders can be deleted.`;
+    const serviceRequest = serviceRequests[0];
+    const task = tasks[0];
+
+    if (!canDeleteLabOrder(serviceRequest)) {
+      const errorMessage = `Cannot delete lab order; ServiceRequest has status: ${serviceRequest.status}. Only pending orders can be deleted.`;
       console.error(errorMessage);
       throw new Error(errorMessage);
     }
 
-    // Get diagnoses that were added as supporting info for this order
-    const relatedDiagnoses: Condition[] = [];
-
-    // If there are supporting info references that point to Condition resources, fetch them
-    if (serviceRequestData.supportingInfo && serviceRequestData.supportingInfo.length > 0) {
-      const conditionReferences = serviceRequestData.supportingInfo
-        .filter((ref) => ref.reference?.startsWith('Condition/'))
-        .map((ref) => ref.reference!.split('/')[1]);
-
-      if (conditionReferences.length > 0) {
-        const conditionIdsQuery = conditionReferences.join(',');
-
-        const diagnosesResponse = await oystehr.fhir.search<Condition>({
-          resourceType: 'Condition',
-          params: [
-            {
-              name: '_id',
-              value: conditionIdsQuery,
-            },
-            {
-              name: 'encounter',
-              value: `Encounter/${params.encounterId}`,
-            },
-          ],
-        });
-
-        if (diagnosesResponse && diagnosesResponse.entry) {
-          diagnosesResponse.entry.forEach((entry) => {
-            if (entry.resource && entry.resource.resourceType === 'Condition') {
-              relatedDiagnoses.push(entry.resource as Condition);
-            }
-          });
-        }
-      }
+    if (!serviceRequest?.id) {
+      console.error('Lab order not found or invalid response', serviceRequestResponse);
+      return { serviceRequest: null, questionnaireResponse: null, task: null, labConditions: [] };
     }
 
+    const encounter = encounters.find(
+      (encounter) => encounter.id === serviceRequest.encounter?.reference?.split('/')[1]
+    );
+
+    // this Conditions were added from lab order page and should be deleted if the lab order is deleted
+    const labConditions = conditions.filter(
+      (condition) =>
+        condition.encounter?.reference === `Encounter/${encounter?.id}` &&
+        condition.extension?.some((ext) => ext.url === ADDED_VIA_LAB_ORDER_SYSTEM && ext.valueBoolean === true)
+    );
+
+    const questionnaireResponse = await (async () => {
+      if (serviceRequest.supportingInfo && serviceRequest.supportingInfo.length > 0) {
+        const questionnaireResponseId = serviceRequest.supportingInfo
+          .filter((ref) => ref.reference?.startsWith('QuestionnaireResponse/'))
+          .map((ref) => ref.reference!.split('/')[1])[0];
+
+        if (questionnaireResponseId) {
+          const questionnaireResponse = (
+            await oystehr.fhir.search<QuestionnaireResponse>({
+              resourceType: 'QuestionnaireResponse',
+              params: [
+                {
+                  name: '_id',
+                  value: questionnaireResponseId,
+                },
+              ],
+            })
+          ).unbundle()[0];
+
+          if (questionnaireResponse.id === questionnaireResponseId) {
+            return questionnaireResponse;
+          }
+
+          return null;
+        }
+      }
+
+      return null;
+    })();
+
     return {
-      serviceRequest: serviceRequestData,
-      relatedDiagnoses,
+      serviceRequest,
+      questionnaireResponse,
+      task,
+      labConditions,
     };
   } catch (error) {
     console.error('Error fetching lab order and related resources:', error);

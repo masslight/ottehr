@@ -113,6 +113,11 @@ export const dataTestIds = {
     dateOfBirthDropdown: 'responsible-party-information-container-date-of-birth-dropdown',
     birthSexDropdown: 'responsible-party-information-container-birth-sex-dropdown',
     phoneInput: 'responsible-party-information-container-phone-input',
+    addressLine1: 'responsible-party-information-container-address',
+    addressLine2: 'responsible-party-information-container-address-2',
+    city: 'responsible-party-information-container-city',
+    state: 'responsible-party-information-container-state',
+    zip: 'responsible-party-information-container-zip',
   },
 
   userSettingsContainer: {
@@ -231,9 +236,10 @@ export const dataTestIds = {
     hpiKnownAllergiesInput: 'telemed-hpi-known-allergies-input',
     hpiKnownAllergiesListItem: 'telemed-hpi-known-allergies-list-item',
     hpiSurgicalHistoryColumn: 'telemed-hpi-surgical-history-column',
-    // hpiSurgicalHistoryList: 'telemed-hpi-surgical-history-list',
+    hpiSurgicalHistoryList: 'telemed-hpi-surgical-history-list',
     hpiSurgicalHistoryPatientProvidedList: 'telemed-hpi-surgical-history-patient-provided-list',
     hpiSurgicalHistoryInput: 'telemed-hpi-surgical-history-input',
+    hpiSurgicalHistoryListItem: 'telemed-hpi-surgical-history-list-item',
     hpiAdditionalQuestions: (questionSymptom: string) => `telemed-additional-questions-${questionSymptom}`,
     hpiAdditionalQuestionsPatientProvided: (questionSymptom: string) =>
       `telemed-additional-questions-patient-provided-${questionSymptom}`,
@@ -250,6 +256,7 @@ export const dataTestIds = {
     reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
+    reviewTabSurgicalHistoryContainer: 'telemed-review-tab-surgical-history-container',
     cancelThisVisitButton: 'telemed-cancel-this-visit-button',
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',

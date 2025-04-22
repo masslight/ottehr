@@ -133,7 +133,6 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:ai-interview-handle-answer',
           'Zambda:Function:ai-interview-persist-consent',
           'Zambda:Function:get-lab-orders',
-          'Zambda:Function:get-lab-order-details',
           'Zambda:Function:submit-lab-order',
           'Zambda:Function:update-lab-order-resources',
         ],

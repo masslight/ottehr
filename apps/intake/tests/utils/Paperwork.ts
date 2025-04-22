@@ -137,6 +137,7 @@ export class Paperwork {
     const randomState = this.getRandomState();
     await this.locator.patientState.click();
     await this.locator.patientState.fill(randomState);
+    console.log('check me!', await this.page.getByRole('option', { name: randomState }));
     await this.page.getByRole('option', { name: randomState }).click();
     await expect(this.locator.patientState).toHaveValue(randomState);
   }
@@ -439,17 +440,29 @@ export class Paperwork {
     firstName: string;
     lastName: string;
     dob: string;
+    address1: string;
+    city: string;
+    state: string;
+    zip: string;
   }> {
     const { relationship } = await this.fillResponsiblePartyNotSelfRelationship();
     const name = await this.fillResponsiblePartyPatientName();
     const { birthSex } = await this.fillResponsiblePartyBirthSex();
     const { paperworkDOB } = await this.fillPaperworkDOB(this.locator.responsiblePartyDOBAnswer);
+    const { address: address1 } = await this.fillResponsiblePartyAddress();
+    const { city } = await this.fillResponsiblePartyCity();
+    const { state } = await this.fillResponsiblePartytState();
+    const { zip } = await this.fillResponsiblePartyZip();
     return {
       relationship,
       birthSex,
       firstName: name.firstName,
       lastName: name.lastName,
       dob: paperworkDOB,
+      address1,
+      city,
+      state,
+      zip,
     };
   }
   async fillResponsiblePartyPatientName(): Promise<{ firstName: string; lastName: string }> {
@@ -495,6 +508,30 @@ export class Paperwork {
     const relationship = this.getRandomElement(this.relationshipResponsiblePartyNotSelf);
     await this.page.getByRole('option', { name: relationship }).click();
     return { relationship };
+  }
+  async fillResponsiblePartyAddress(): Promise<{ address: string }> {
+    const address = `Address ${this.getRandomString()}`;
+    await this.locator.responsiblePartyAddress1.fill(address);
+    return { address };
+  }
+  async fillResponsiblePartyCity(): Promise<{ city: string }> {
+    const city = `City${this.getRandomString()}`;
+    await this.locator.responsiblePartyCity.fill(city);
+    return { city };
+  }
+  async fillResponsiblePartytState(): Promise<{ state: string }> {
+    // const nyState = 'NY';
+    await this.locator.responsiblePartyState.click();
+    // await this.locator.responsiblePartyState.fill(nyState);
+    // await this.page.getByRole('option', { name: nyState }).click();
+    await this.page.getByRole('option').first().click();
+    await expect(this.locator.responsiblePartyState).toHaveValue('AL');
+    return { state: 'AL' };
+  }
+  async fillResponsiblePartyZip(): Promise<{ zip: string }> {
+    const zip = '12345';
+    await this.locator.responsiblePartyZip.fill(zip);
+    return { zip };
   }
   async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();

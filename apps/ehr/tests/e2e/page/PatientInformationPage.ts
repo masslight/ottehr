@@ -500,6 +500,74 @@ export class PatientInformationPage {
     }
   }
 
+  async enterStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
+      .locator('input')
+      .fill(line1);
+  }
+
+  async verifyStreetLine1FromResponsibleContainer(line1: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1).locator('input')
+    ).toHaveValue(line1);
+  }
+
+  async clearStreetLine1FromResponsibleContainer(): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.responsiblePartyInformationContainer.addressLine1)
+      .locator('input')
+      .click();
+    for (let i = 0; i <= 20; i++) {
+      await this.#page.keyboard.press('Backspace');
+    }
+  }
+
+  async enterResponsiblePartyCity(city: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input').fill(city);
+  }
+
+  async verifyResponsiblePartyCity(city: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input')
+    ).toHaveValue(city);
+  }
+
+  async clearResponsiblePartyCity(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.city).locator('input').clear();
+  }
+
+  async selectResponsiblePartyState(state: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.state).click();
+    await this.#page.getByText(state, { exact: true }).click();
+  }
+
+  async verifyResponsiblePartyState(state: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.state).locator('input')
+    ).toHaveValue(state);
+  }
+
+  async enterResponsiblePartyZip(zip: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input').fill(zip);
+  }
+
+  async verifyResponsiblePartyZip(zip: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input')
+    ).toHaveValue(zip);
+  }
+
+  async verifyResponsiblePartyValidationErrorZipField(): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('p:text("Must be 5 digits")')
+    ).toBeVisible();
+  }
+
+  async clearResponsiblePartyZip(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.responsiblePartyInformationContainer.zip).locator('input').clear();
+  }
+
   async verifyValidationErrorInvalidPhoneFromResponsibleContainer(): Promise<void> {
     await expect(
       this.#page

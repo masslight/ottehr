@@ -1,41 +1,30 @@
 import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
-import { Button, Stack, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
-import Oystehr from '@oystehr/sdk';
-import { LabOrderDTO, LabQuestionnaireResponse, OrderDetails } from 'utils';
+import { LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
-import { QuestionnaireItem } from 'fhir/r4b';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getPresignedFileUrl } from '../../../helpers/files.helper';
 import { SampleInformationCard } from './SampleInformationCard';
 import { OrderHistoryCard } from './OrderHistoryCard';
-import { StatusString } from './StatusChip';
+import { useApiClients } from '../../../hooks/useAppClients';
+// import { StatusString } from './StatusChip';
 
-interface CollectionInstructions {
-  container: string;
-  volume: string;
-  minimumVolume: string;
-  storageRequirements: string;
-  collectionInstructions: string;
-}
+// interface CollectionInstructions {
+//   container: string;
+//   volume: string;
+//   minimumVolume: string;
+//   storageRequirements: string;
+//   collectionInstructions: string;
+// }
 
 interface SampleCollectionProps {
-  aoe: QuestionnaireItem[];
-  status: StatusString;
-  labQuestionnaireResponses?: LabQuestionnaireResponse[];
-  collectionInstructions: CollectionInstructions;
-  specimen: any;
-  serviceRequestID: string;
-  serviceRequest: OrderDetails;
-  accountNumber: string;
-  _onCollectionSubmit: () => void;
-  labOrder?: LabOrderDTO | undefined;
-  oystehr: Oystehr | undefined;
+  labOrder: LabOrderDetailedPageDTO;
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
@@ -54,30 +43,22 @@ export async function openLabOrder(url: string): Promise<void> {
 }
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
-  aoe,
-  status,
-  // collectionInstructions,
-  labQuestionnaireResponses,
-  specimen: _2,
-  serviceRequestID,
-  accountNumber,
-  // serviceRequest,
-  _onCollectionSubmit,
   labOrder,
-  oystehr,
   showActionButtons = true,
   showOrderInfo = true,
   isAOECollapsed = false,
 }) => {
+  const { oystehrZambda: oystehr } = useApiClients();
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
   const navigate = useNavigate();
   const { id: appointmentID } = useParams();
   const { getAccessTokenSilently } = useAuth0();
   // const currentUser = useEvolveUser();
-
-  // TODO: might want to do this in a useMemo for perf
-
+  const questionnaireData = labOrder.questionnaire[0];
+  const orderStatus = labOrder.orderStatus;
+  const aoe = questionnaireData.questionnaire.item || [];
+  const labQuestionnaireResponses = questionnaireData.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<boolean>(false);
 
@@ -112,8 +93,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
       try {
         const request: any = await submitLabOrder(oystehr, {
-          serviceRequestID: serviceRequestID,
-          accountNumber: accountNumber,
+          serviceRequestID: labOrder.serviceRequestId,
+          accountNumber: labOrder.accountNumber,
           data: data,
         });
         const token = await getAccessTokenSilently();
@@ -139,18 +120,26 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
-        <AOECard questions={aoe} labQuestionnaireResponses={labQuestionnaireResponses} isCollapsed={isAOECollapsed} />
+        <AOECard
+          questions={aoe}
+          labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
+          isCollapsed={isAOECollapsed}
+        />
         {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
         {showOrderInfo && (
           <SampleInformationCard
-          // orderAddedDateTime={serviceRequest.orderDateTime}
-          // orderingPhysician={serviceRequest.orderingPhysician || ''}
+          // orderAddedDateTime={labOrder?.orderAddedDate}
+          // orderingPhysician={labOrder?.orderingPhysician || ''}
           // individualCollectingSample={'The best nurse'}
-          // collectionDateTime={serviceRequest.sampleCollectionDateTime}
+          // collectionDateTime={DateTime.now().toString()}
           // showInPatientPortal={showInPatientPortal}
           />
         )}
-        {status !== 'pending' && <OrderHistoryCard orderHistory={labOrder?.history} />}
+
+        <Box sx={{ mt: 2 }}>
+          <OrderHistoryCard orderHistory={labOrder?.history} />
+        </Box>
+
         {showActionButtons && (
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
             <Link to={`/in-person/${appointmentID}/external-lab-orders`}>
@@ -158,7 +147,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                 Back
               </Button>
             </Link>
-            {status === 'pending' && (
+            {orderStatus === 'pending' && (
               <Stack>
                 {error && (
                   <Typography variant="body1" color="error">
@@ -169,7 +158,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   loading={submitLoading}
                   variant="contained"
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
-                  // onClick={methods.handleSubmit(sampleCollectionSubmit)}
                   type="submit"
                 >
                   Order
