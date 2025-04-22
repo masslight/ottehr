@@ -16,6 +16,7 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
         'FHIR:Person',
         'FHIR:Medication',
         'FHIR:List',
+        'FHIR:Schedule',
       ],
     },
     {
@@ -99,6 +100,7 @@ export const MANAGER_RULES: AccessPolicy = {
         'FHIR:Person',
         'FHIR:Medication',
         'FHIR:List',
+        'FHIR:Schedule',
       ],
     },
     {
@@ -189,6 +191,7 @@ export const STAFF_RULES: AccessPolicy = {
         'FHIR:QuestionnaireResponse',
         'FHIR:DocumentReference',
         'FHIR:Person',
+        'FHIR:Schedule',
       ],
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',
@@ -250,6 +253,7 @@ export const PROVIDER_RULES: AccessPolicy = {
         'FHIR:Person',
         'FHIR:Task',
         'FHIR:List',
+        'FHIR:Schedule',
       ],
       action: ['FHIR:Search', 'FHIR:Read'],
       effect: 'Allow',

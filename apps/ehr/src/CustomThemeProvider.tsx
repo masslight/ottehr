@@ -31,7 +31,7 @@ const typography: TypographyOptions = {
   },
   h4: {
     fontSize: 24,
-    fontWeight: '500 !important',
+    fontWeight: '600 !important',
     fontFamily: headerFonts.join(','),
     lineHeight: '140%',
   },

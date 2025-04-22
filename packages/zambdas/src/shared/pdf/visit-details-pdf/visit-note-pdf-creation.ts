@@ -226,8 +226,8 @@ function composeDataForPdf(
   // --- Work-school excuse ---
   const workSchoolExcuse: string[] = [];
   chartData.schoolWorkNotes?.forEach((ws) => {
-    if (ws.type === 'school') workSchoolExcuse.push(`There was a school note created`);
-    else workSchoolExcuse.push('There was work note generated');
+    if (ws.type === 'school') workSchoolExcuse.push(`There was a school note generated`);
+    else workSchoolExcuse.push('There was a work note generated');
   });
 
   return {

@@ -281,6 +281,8 @@ export const PractitionerQualificationCodesDisplay = Object.keys(PractitionerQua
 export interface PractitionerLicense {
   state: StateType;
   code: PractitionerQualificationCode;
+  number?: string;
+  date?: string;
   active: boolean;
 }
 

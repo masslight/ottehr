@@ -108,7 +108,7 @@ export default function AddPatient(): JSX.Element {
     forcePatientSearch: true,
   });
 
-  console.log('slot', slot);
+  // console.log('slot', slot);
 
   // general variables
   const theme = useTheme();

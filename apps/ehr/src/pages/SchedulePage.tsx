@@ -28,6 +28,7 @@ import {
   isApiError,
   isValidUUID,
   ScheduleDTO,
+  scheduleTypeFromFHIRType,
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
@@ -75,7 +76,13 @@ export default function SchedulePage(): ReactElement {
   // the underlying fhir resource representing the schedule owner
   const [slug, setSlug] = useState<string | undefined>(undefined);
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
-  const defaultIntakeUrl = `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${item?.owner.type}`;
+  const defaultIntakeUrl = (() => {
+    const fhirType = item?.owner.type;
+    if (slug && fhirType) {
+      return `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(fhirType)}`;
+    }
+    return '';
+  })();
 
   useEffect(() => {
     if (item) {
@@ -287,9 +294,9 @@ export default function SchedulePage(): ReactElement {
                 }}
               >
                 <TabPanel value="schedule" sx={{ padding: 0 }}>
-                  {scheduleId && (
+                  {(scheduleId || createMode) && (
                     <ScheduleComponent
-                      id={scheduleId}
+                      id={scheduleId || 'new'}
                       item={item}
                       loading={somethingIsLoadingInSomeWay}
                       update={onSaveSchedule}
@@ -332,7 +339,7 @@ export default function SchedulePage(): ReactElement {
                       <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600 }}>
                         Share booking link to this schedule:
                       </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 3 }}>
+                      <Box sx={{ display: defaultIntakeUrl ? 'flex' : 'none', alignItems: 'center', gap: 0.5, mb: 3 }}>
                         <Tooltip
                           title={isCopied ? 'Link copied!' : 'Copy link'}
                           placement="top"

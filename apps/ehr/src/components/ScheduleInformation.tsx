@@ -205,26 +205,19 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
 
 const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
   if (!item.schedules.length) {
-    if (item.owner.name.includes('Sarah')) {
-      console.log('zacag exit 1');
-    }
     return 'No scheduled hours';
   }
-  const hoursOfOperation = item.schedules[0].todayHoursISO;
+  const schedule = item.schedules[0];
+  const hoursOfOperation = schedule.todayHoursISO;
+  const timezone = schedule.timezone;
   if (!hoursOfOperation) {
-    if (item.owner.name.includes('Sarah')) {
-      console.log('zacag exit 2');
-    }
     return 'No scheduled hours';
   }
   const { open, close } = hoursOfOperation;
-  const openTime = DateTime.fromISO(open);
-  const closeTime = DateTime.fromISO(close);
+  const openTime = DateTime.fromISO(open).setZone(timezone);
+  const closeTime = DateTime.fromISO(close).setZone(timezone);
   if (openTime.isValid && closeTime.isValid) {
     return openTime.toFormat('h:mm a') + ' - ' + closeTime.toFormat('h:mm a');
-  }
-  if (item.owner.name.includes('Sarah')) {
-    console.log('zacag open close', openTime.isValid, closeTime.isValid);
   }
   return 'No scheduled hours';
 };

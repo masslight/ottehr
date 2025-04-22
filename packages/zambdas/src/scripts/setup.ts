@@ -248,7 +248,7 @@ export async function setupEHR(
       },
       healthcareService: [
         {
-          reference: `urn:uuid:${hsPostRequest.fullUrl}`,
+          reference: hsPostRequest.fullUrl,
         },
       ],
     };
@@ -281,7 +281,7 @@ export async function setupEHR(
         },
       ],
       actor: [{
-        reference: practitionerRolePostRequest.fullUrl,
+        reference: `Practitioner/${userId}`,
       }],
     };
     healthcareServicePostRequests.push({

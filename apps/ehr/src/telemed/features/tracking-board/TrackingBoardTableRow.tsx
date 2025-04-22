@@ -10,18 +10,20 @@ import {
   Tooltip,
   Typography,
   alpha,
+  capitalize,
   useTheme,
 } from '@mui/material';
+import { DateTime } from 'luxon';
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, calculatePatientAge } from 'utils';
+import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, calculatePatientAge, getTimezone } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
+import { otherColors } from '@theme/colors';
 import ChatModal from '../../../features/chat/ChatModal';
 import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
 import { quickTexts } from '../../utils';
 import { TrackingBoardTableButton } from './TrackingBoardTableButton';
-import { otherColors } from '@theme/colors';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 interface AppointmentTableProps {
   appointment: TelemedAppointmentInformation;
@@ -102,6 +104,18 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
     navigate(`/telemed/appointments/${appointment.id}`);
   };
 
+  let start;
+  if (appointment.start) {
+    let timezone = 'America/New_York';
+    try {
+      timezone = getTimezone(appointment.locationVirtual);
+    } catch (error) {
+      console.error('Error getting timezone for appointment', appointment.id, error);
+    }
+    const dateTime = DateTime.fromISO(appointment.start).setZone(timezone);
+    start = dateTime.toFormat('h:mm a');
+  }
+
   return (
     <TableRow
       data-testid={dataTestIds.telemedEhrFlow.trackingBoardTableRow(appointment.id)}
@@ -115,7 +129,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
         ...(next && { boxShadow: `inset 0 0 0 1px ${otherColors.orange800}` }),
       }}
     >
-      <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
+      <TableCell sx={{ verticalAlign: 'middle', cursor: 'pointer' }} onClick={goToAppointment}>
         {next && (
           <Box
             sx={{
@@ -145,6 +159,10 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
             </Typography>
           </Box>
         )}
+        <Typography variant="body1">{capitalize?.((appointment.appointmentType || '').toString())}</Typography>
+        <Typography variant="body1">
+          <strong>{start}</strong>
+        </Typography>
         <AppointmentStatusChip status={appointment.telemedStatus} />
         {appointment.telemedStatus == TelemedAppointmentStatusEnum.cancelled ? (
           <Tooltip title={appointment.cancellationReason}>
@@ -181,19 +199,11 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
           </Typography>
         </Tooltip>
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'top' }}>
+      <TableCell sx={{ verticalAlign: 'middle' }}>
         <StatusHistory history={appointment.telemedStatusHistory} currentStatus={appointment.telemedStatus} />
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'top' }}>
-        <Typography>{appointment.group?.join(', ')}</Typography>
-      </TableCell>
-      <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
+      <TableCell sx={{ verticalAlign: 'middle', cursor: 'pointer' }} onClick={goToAppointment}>
         {patientInfo}
-      </TableCell>
-      <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
-        <Typography sx={{ fontSize: '16px' }}>{appointment.locationVirtual.state}</Typography>
-      </TableCell>
-      <TableCell sx={{ verticalAlign: 'top', cursor: 'pointer' }} onClick={goToAppointment}>
         <Tooltip title={reasonForVisit}>
           <Typography
             variant="body2"
@@ -209,12 +219,18 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
           </Typography>
         </Tooltip>
       </TableCell>
+      <TableCell sx={{ verticalAlign: 'middle', cursor: 'pointer' }} onClick={goToAppointment}>
+        <Typography sx={{ fontSize: '16px' }}>{appointment.locationVirtual.state}</Typography>
+      </TableCell>
       {showProvider && (
-        <TableCell sx={{ verticalAlign: 'top' }}>
+        <TableCell sx={{ verticalAlign: 'middle' }}>
           <Box>{displayedPractitionerName}</Box>
         </TableCell>
       )}
-      <TableCell sx={{ verticalAlign: 'top' }}>
+      <TableCell sx={{ verticalAlign: 'middle' }}>
+        <Typography>{appointment.group?.join(', ')}</Typography>
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'middle' }}>
         {showChatIcon && (
           <IconButton
             color="primary"
@@ -272,7 +288,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
           </IconButton>
         )}
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'top' }}>
+      <TableCell sx={{ verticalAlign: 'middle' }}>
         <TrackingBoardTableButton appointment={appointment} />
       </TableCell>
       {chatModalOpen && (
@@ -334,11 +350,6 @@ export const TrackingBoardTableRowSkeleton: FC<{
             </Skeleton>
           </TableCell>
           <TableCell sx={{ verticalAlign: 'top' }}>
-            <Skeleton width="100%">
-              <Typography>Group</Typography>
-            </Skeleton>
-          </TableCell>
-          <TableCell sx={{ verticalAlign: 'top' }}>
             <Skeleton>
               <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
                 Patient name
@@ -353,11 +364,6 @@ export const TrackingBoardTableRowSkeleton: FC<{
               <Typography sx={{ fontSize: '16px' }}>ST</Typography>
             </Skeleton>
           </TableCell>
-          <TableCell sx={{ verticalAlign: 'top' }}>
-            <Skeleton width="100%">
-              <Typography sx={{ fontSize: '16px' }}>Reason for visit</Typography>
-            </Skeleton>
-          </TableCell>
           {showProvider && (
             <TableCell sx={{ verticalAlign: 'top' }}>
               <Skeleton width="100%">
@@ -365,6 +371,11 @@ export const TrackingBoardTableRowSkeleton: FC<{
               </Skeleton>
             </TableCell>
           )}
+          <TableCell sx={{ verticalAlign: 'top' }}>
+            <Skeleton width="100%">
+              <Typography>Group</Typography>
+            </Skeleton>
+          </TableCell>
           <TableCell sx={{ verticalAlign: 'top' }}>
             <Skeleton variant="circular">
               <IconButton

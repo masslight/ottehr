@@ -104,7 +104,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       }
     }
 
-    if (encounter && oystehrZambda && loadingState === LoadingState.initial) {
+    if (encounter.id && oystehrZambda && loadingState === LoadingState.initial) {
       void getResources(oystehrZambda);
     }
   }, [encounter, oystehrZambda, loadingState]);

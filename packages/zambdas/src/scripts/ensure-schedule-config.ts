@@ -35,6 +35,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
 
     const schedules = telemedLocationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
     const telemedLocations = telemedLocationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
+    console.log('telemedLocations', telemedLocations.length);
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
     const locationUpdateRequests: BatchInputPutRequest<Location>[] = [];
@@ -84,7 +85,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
         });
       }
     });
-    
+    console.log('schedulePostRequests', schedulePostRequests.length);
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [
         ...schedulePostRequests,
@@ -182,7 +183,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
       }
     });
 
-     //console.log('schedulePostRequests', schedulePostRequests.length);
+    console.log('schedulePostRequests', schedulePostRequests.length);
      //console.log('practitionerUpdateRequests', practitionerUpdateRequests.length);
      //console.log('pracititioners', JSON.stringify(practitioners, null, 2));
 
