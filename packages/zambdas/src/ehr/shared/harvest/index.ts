@@ -5,7 +5,7 @@ import Oystehr, {
   BatchInputRequest,
 } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Operation } from 'fast-json-patch';
+import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
   AccountGuarantor,
@@ -109,6 +109,7 @@ import {
   getEmailForIndividual,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   getPatchOperationToAddOrUpdatePreferredName,
+  getPatchOperationToRemovePreferredLanguage,
 } from 'utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
@@ -1092,6 +1093,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-ethnicity': patientFieldPaths.ethnicity,
   'patient-race': patientFieldPaths.race,
   'patient-gender-identity': patientFieldPaths.genderIdentity,
+  'patient-gender-identity-details': patientFieldPaths.genderIdentityDetails,
   'patient-sexual-orientation': patientFieldPaths.sexualOrientation,
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
@@ -1182,7 +1184,9 @@ export function createMasterRecordPatchOperations(
 
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
-    if (value === undefined) return;
+
+    const isAnswerEmpty = value === undefined || value === '';
+
     if (PCP_FIELDS.includes(item.linkId)) {
       pcpItems.push(item);
       return;
@@ -1213,7 +1217,13 @@ export function createMasterRecordPatchOperations(
         // Handle telecom fields
         const contactTelecomConfig = contactTelecomConfigs[item.linkId];
         if (contactTelecomConfig) {
-          const operation = createPatchOperationForTelecom(value as string, contactTelecomConfig, patient, path);
+          if (isAnswerEmpty) {
+            const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, undefined);
+            if (operation) tempOperations.patient.push(operation);
+            return;
+          }
+
+          const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, value as string);
           if (operation) tempOperations.patient.push(operation);
           return;
         }
@@ -1224,7 +1234,7 @@ export function createMasterRecordPatchOperations(
           const currentValue = getCurrentValue(patient, path);
           if (value !== currentValue) {
             let operation: Operation | undefined;
-            if (value === '') {
+            if (isAnswerEmpty) {
               if (currentValue !== undefined && currentValue !== null) {
                 operation = getPatchOperationToRemoveExtension(patient, { url });
               }
@@ -1239,12 +1249,18 @@ export function createMasterRecordPatchOperations(
         // Special handler for preferred-language
         if (item.linkId === 'preferred-language') {
           const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-          if (value !== currentValue) {
+          if (isAnswerEmpty) {
+            if (currentValue) {
+              const operation = getPatchOperationToRemovePreferredLanguage(patient);
+              if (operation) tempOperations.patient.push(operation);
+            }
+            return;
+          } else if (value !== currentValue) {
             const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
               value as LanguageOption,
               path,
               patient,
-              currentValue as LanguageOption
+              currentValue as LanguageOption | undefined
             );
 
             if (operation) tempOperations.patient.push(operation);
@@ -1276,9 +1292,13 @@ export function createMasterRecordPatchOperations(
             | string[]
             | undefined;
 
+          if (isAnswerEmpty) {
+            if (!effectiveArrayValue) return undefined;
+          }
+
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
-            const operation = createBasicPatchOperation([value], parentPath, currentParentValue);
+            const operation = createBasicPatchOperation([value as PatchValueBase], parentPath, currentParentValue);
             if (operation) tempOperations.patient.push(operation);
             return;
           }
@@ -1322,8 +1342,18 @@ export function createMasterRecordPatchOperations(
         // Handle regular fields
         const currentValue = getCurrentValue(patient, path);
         if (value !== currentValue) {
-          const operation = createBasicPatchOperation(value, path, currentValue);
-          if (operation) tempOperations.patient.push(operation);
+          if (isAnswerEmpty) {
+            if (currentValue !== undefined && currentValue !== null) {
+              const removeOp: RemoveOperation = {
+                op: 'remove',
+                path,
+              };
+              tempOperations.patient.push(removeOp);
+            }
+          } else {
+            const operation = createBasicPatchOperation(value, path, currentValue);
+            if (operation) tempOperations.patient.push(operation);
+          }
         }
         break;
       }
@@ -1405,7 +1435,7 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
     }
 
     if (phone) {
-      telecom = [{ system: 'phone', value: phone }];
+      telecom = [{ system: 'phone', value: formatPhoneNumber(phone) }];
     }
     if (pcpAddress) {
       address = [{ text: pcpAddress }];
