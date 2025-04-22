@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
-import { Button, Stack, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
@@ -57,7 +57,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   // const currentUser = useEvolveUser();
   const questionnaireData = labOrder.questionnaire[0];
   const orderStatus = labOrder.orderStatus;
-  const aoe = questionnaireData.questionnaire.item;
+  const aoe = questionnaireData.questionnaire.item || [];
   const labQuestionnaireResponses = questionnaireData.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<boolean>(false);
@@ -75,7 +75,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           delete data[item];
           return;
         }
-        const question = aoe!.find((question) => question.linkId === item);
+        const question = aoe.find((question) => question.linkId === item);
 
         if (question && question.type === 'boolean') {
           if (data[item] === 'true') {
@@ -121,7 +121,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
         <AOECard
-          questions={aoe!}
+          questions={aoe}
           labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
           isCollapsed={isAOECollapsed}
         />
@@ -135,7 +135,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           // showInPatientPortal={showInPatientPortal}
           />
         )}
-        <OrderHistoryCard orderHistory={labOrder?.history} />
+
+        <Box sx={{ mt: 2 }}>
+          <OrderHistoryCard orderHistory={labOrder?.history} />
+        </Box>
+
         {showActionButtons && (
           <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
             <Link to={`/in-person/${appointmentID}/external-lab-orders`}>

@@ -2,8 +2,8 @@ import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
 import { ExternalLabsStatus } from 'utils';
 
-interface ExternalLabsStatusChipProps {
-  status?: keyof typeof ExternalLabsStatus;
+interface LabsOrderStatusChipProps {
+  status: keyof typeof ExternalLabsStatus;
 }
 
 export const ExternalLabsStatusPalette: {
@@ -76,18 +76,7 @@ export const ExternalLabsStatusPalette: {
   },
 };
 
-// todo: looks like ExternalLabsStatusChip is a duplicate of LabTableStatusChip and should be deleted
-export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChipProps): ReactElement {
-  if (!status) {
-    console.error('Status is undefined');
-    return <span>Unknown status</span>;
-  }
-
-  if (!ExternalLabsStatusPalette[status]) {
-    console.error(`Status "${status}" not found in ExternalLabsStatusPalette`);
-    return <span>Invalid status: {status}</span>;
-  }
-
+export function LabsOrderStatusChip({ status }: LabsOrderStatusChipProps): ReactElement {
   return (
     <Chip
       size="small"

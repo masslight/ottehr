@@ -1,9 +1,9 @@
 import { ReactElement } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import { LabOrderDetailedPageDTO, LabOrderResultDetails } from 'utils';
-import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface ResultItemProps {
   labOrder: LabOrderDetailedPageDTO;
@@ -37,7 +37,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
           <span>{resultDetails.testItem}</span>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
-          <LabTableStatusChip status={resultDetails.labStatus} />
+          <LabsOrderStatusChip status={resultDetails.labStatus} />
           {labOrder.isPSC && (
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
               PSC

@@ -3,7 +3,7 @@ import { Typography, Stack, Grid } from '@mui/material';
 import { OrderCollection } from '../OrderCollection';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { LabOrderDetailedPageDTO } from 'utils';
-import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface CollectionInstructions {
   container: string;
@@ -37,7 +37,7 @@ export const DetailsWithoutResults: React.FC<{ labOrder: LabOrderDetailedPageDTO
           </Typography>
           <Grid container justifyContent="end" spacing={2}>
             <Grid item>
-              <LabTableStatusChip status={labOrder.orderStatus} />
+              <LabsOrderStatusChip status={labOrder.orderStatus} />
             </Grid>
             <Grid item>
               <Typography variant="body1">{labOrder.orderSource}</Typography>

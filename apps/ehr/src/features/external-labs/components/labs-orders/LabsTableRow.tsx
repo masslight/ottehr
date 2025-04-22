@@ -4,7 +4,7 @@ import { formatDate, LabOrderListPageDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { otherColors } from '../../../../CustomThemeProvider';
-import { LabTableStatusChip } from './LabTableStatusChip';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
@@ -58,7 +58,7 @@ export const LabsTableRow = ({
       case 'accessionNumber':
         return labOrderData.accessionNumbers.join(', ');
       case 'status':
-        return <LabTableStatusChip status={labOrderData.orderStatus} />;
+        return <LabsOrderStatusChip status={labOrderData.orderStatus} />;
       case 'psc':
         return labOrderData.isPSC ? 'PSC' : '';
       case 'actions':
