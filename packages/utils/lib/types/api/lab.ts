@@ -1,9 +1,5 @@
 import { Questionnaire } from 'fhir/r4b';
 
-export interface GetLabOrderDetailsInput {
-  serviceRequestID: string;
-}
-
 export interface SubmitLabOrderInput {
   serviceRequestID: string;
   accountNumber: string;
