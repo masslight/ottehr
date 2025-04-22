@@ -26,7 +26,7 @@ export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<
   ).unbundle();
   const resourcesTemp = resources.filter((resourceTemp) => resourceTemp.resourceType === 'Patient');
   console.timeEnd(`Getting patients for user: ${user.name}`);
-  console.log(`Get patients for user resources: ${JSON.stringify(resourcesTemp)}`);
+  // console.log(`Get patients for user resources: ${JSON.stringify(resourcesTemp)}`);
   return resourcesTemp as Patient[];
 }
 
