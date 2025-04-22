@@ -7,11 +7,13 @@ import {
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
+  OVERRIDE_DATE_FORMAT,
   Secrets,
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
 import { ZambdaInput } from '../../../shared';
+import { DateTime } from 'luxon';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';
@@ -103,13 +105,28 @@ export const validateUpdateScheduleParameters = (input: ZambdaInput): UpdateSche
       if (typeof closure !== 'object') {
         throw INVALID_INPUT_ERROR('"closures" must be an array of objects');
       }
-      if (!closure.start || !closure.end) {
-        throw INVALID_INPUT_ERROR('"closures" must be an array of objects with start and end');
+      if (!closure.start) {
+        throw INVALID_INPUT_ERROR('"closures" must be an array of objects with start date');
+      } else if (DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).isValid === false) {
+        throw INVALID_INPUT_ERROR(
+          `"closures" start dates must be valid date strings in ${OVERRIDE_DATE_FORMAT} format`
+        );
+      }
+      if (closure.end && DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).isValid === false) {
+        throw INVALID_INPUT_ERROR(`"closures" end dates must be valid date strings in ${OVERRIDE_DATE_FORMAT} format`);
       }
       if (Object.values(ClosureType).includes(closure.type) === false) {
         throw INVALID_INPUT_ERROR(
           `"closures" must be an array of objects with a type of ${Object.values(ClosureType).join(', ')}`
         );
+      } else if (closure.type === 'period' && !closure.end) {
+        throw INVALID_INPUT_ERROR('"closures" of type "period" must have an end date');
+      } else if (
+        closure.type === 'period' &&
+        DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT) >=
+          DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT)
+      ) {
+        throw INVALID_INPUT_ERROR('"closures" of type "period" must have start date before end date');
       }
     });
   }
