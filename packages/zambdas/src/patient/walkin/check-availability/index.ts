@@ -12,7 +12,6 @@ import {
   getServiceModeFromScheduleOwner,
   getTimezone,
   WalkinAvailabilityCheckParams,
-  HOURS_OF_OPERATION_FORMAT,
   INVALID_INPUT_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
@@ -54,8 +53,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.error('Failed to get bookables', error);
-    return topLevelCatch('list-bookables', error, input.secrets);
+    console.error('walkin-check-availability error', error);
+    return topLevelCatch('walkin-check-availability', error, input.secrets);
   }
 };
 
@@ -225,15 +224,17 @@ function getOpeningTime(
   currentDate: DateTime
 ): DateTime | undefined {
   const currentHoursOfOperation = getCurrentHoursOfOperation(hoursOfOperation, currentDate);
-  return currentHoursOfOperation?.openingTime
-    ? DateTime.fromFormat(currentHoursOfOperation?.openingTime, HOURS_OF_OPERATION_FORMAT, {
-        zone: timezone,
-      }).set({
-        year: currentDate.year,
-        month: currentDate.month,
-        day: currentDate.day,
-      })
-    : undefined;
+  console.log('currentHoursOfOperation', currentHoursOfOperation?.openingTime);
+  const parsedInt = parseInt(currentHoursOfOperation?.openingTime ?? '');
+  if (isNaN(parsedInt)) {
+    return undefined;
+  }
+  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: parsedInt });
+  return dt.set({
+    year: currentDate.year,
+    month: currentDate.month,
+    day: currentDate.day,
+  });
 }
 
 export function getClosingTime(
@@ -242,15 +243,16 @@ export function getClosingTime(
   currentDate: DateTime
 ): DateTime | undefined {
   const currentHoursOfOperation = getCurrentHoursOfOperation(hoursOfOperation, currentDate);
-  const formattedClosingTime = currentHoursOfOperation?.closingTime
-    ? DateTime.fromFormat(currentHoursOfOperation?.closingTime, HOURS_OF_OPERATION_FORMAT, {
-        zone: timezone,
-      }).set({
-        year: currentDate.year,
-        month: currentDate.month,
-        day: currentDate.day,
-      })
-    : undefined;
+  const parsedInt = parseInt(currentHoursOfOperation?.closingTime ?? '');
+  if (isNaN(parsedInt)) {
+    return undefined;
+  }
+  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: parsedInt });
+  const formattedClosingTime = dt.set({
+    year: currentDate.year,
+    month: currentDate.month,
+    day: currentDate.day,
+  });
   // if time is midnight, add 1 day to closing time
   if (
     formattedClosingTime !== undefined &&

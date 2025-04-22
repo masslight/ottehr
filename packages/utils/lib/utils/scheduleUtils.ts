@@ -36,6 +36,7 @@ import {
   TIMEZONES,
   VisitType,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
+  isLocationVirtual,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -881,6 +882,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
       resourceType: 'Slot',
       id: `${scheduleId}-${startTime}`,
       start: startTime,
+      serviceCategory: getSlotServiceCategoryCodingFromScheduleOwner(ownerResource),
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
@@ -1474,16 +1476,45 @@ export const getSlotServiceCategoryCodingFromScheduleOwner = (
   // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
 
   console.log('getting service category from schedule owner', owner);
+  if (owner.resourceType === 'Location' && isLocationVirtual(owner as Location)) {
+    return [SlotServiceCategory.virtualServiceMode];
+  }
 
   // default to in-person service mode
   return [SlotServiceCategory.inPersonServiceMode];
 };
 
-export const getServiceModeFromScheduleOwner = (owner: ScheduleOwnerFhirResource): ServiceMode | undefined => {
-  // customization point - override this to return a specific service category given a known schedule owner. if a category is returned here,
-  // the service modality may be inferred from the schedule owner. the service modality will then be used to specify the service mode for the appointment
-  // when the slot is submitted to the create-appointment endpoint. alternatively, the service modality can be written to the slot directly by passing a value for
-  // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
+export const getServiceModeFromScheduleOwner = (
+  owner: ScheduleOwnerFhirResource,
+  schedule?: Schedule
+): ServiceMode | undefined => {
+  // customization point - override this to return a specific service mode given a known schedule owner, or, optionally a schedule.
+  // for use cases that offer virtual or in-person services but not both, the owner resource may be sufficient to determine the service mode.
+  // for more complex cases, a given provider may offer both virtual and in-person services, and may wish to configure separate schedules for each service mode.
+  // if a schedule with a specific serivce mode is provided, it will be used to determine the service mode for any slots returned against that schedule.
+  // in any event, the value returned here may be ovverridden by passing a value for the serviceMode param to the create-slot endpoint.
+
+  const scheduleServiceCategory = schedule?.serviceCategory;
+  if (scheduleServiceCategory) {
+    const isVirtual = scheduleServiceCategory.some((category) => {
+      const codingList = category.coding ?? [];
+      return codingList.some((coding) => {
+        return codingContainedInList(coding, SlotServiceCategory.virtualServiceMode.coding!);
+      });
+    });
+    if (isVirtual) {
+      return ServiceMode.virtual;
+    }
+    const isInPerson = scheduleServiceCategory.some((category) => {
+      const codingList = category.coding ?? [];
+      return codingList.some((coding) => {
+        return codingContainedInList(coding, SlotServiceCategory.inPersonServiceMode.coding!);
+      });
+    });
+    if (isInPerson) {
+      return ServiceMode['in-person'];
+    }
+  }
 
   // default to in-person service mode
   const [codeableConcept] = getSlotServiceCategoryCodingFromScheduleOwner(owner) || [];

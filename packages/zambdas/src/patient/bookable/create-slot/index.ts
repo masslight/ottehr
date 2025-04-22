@@ -10,6 +10,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
   ServiceMode,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
@@ -182,29 +183,22 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     },
   };
   if (walkin) {
-    // todo: define a const somewhere so this can be safely checked for elsewhere
-    slot.appointmentType = {
-      coding: [
-        {
-          system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
-          code: 'WALKIN',
-        },
-      ],
-    };
+    slot.appointmentType = { ...SLOT_WALKIN_APPOINTMENT_TYPE_CODING };
+  } else {
+    // check if slot is available
+    const isAvailable = await checkSlotAvailable(
+      {
+        slot,
+        schedule,
+      },
+      oystehr
+    );
+    if (!isAvailable) {
+      // todo: better custom error here
+      throw INVALID_INPUT_ERROR('Slot is not available');
+    }
   }
 
-  // check if slot is available
-  const isAvailable = await checkSlotAvailable(
-    {
-      slot,
-      schedule,
-    },
-    oystehr
-  );
-  if (!isAvailable) {
-    // todo: better custom error here
-    throw INVALID_INPUT_ERROR('Slot is not available');
-  }
   // optional: check if the schedule owner permits the provided service modality
   // we do this instead at appointment creation time
 

@@ -184,23 +184,7 @@ export const intakeFlowPageRoute = {
   TelemedPatientInformation: {
     path: '/about-patient',
     getPage: () => <TelemedPatientInformation />,
-  }, // ET
-  // PatientCondition: {
-  //   path: '/paperwork/patient-condition',
-  //   getPage: () => <PatientCondition />,
-  // }, // ET
-  // PaymentOption: {
-  //   path: '/paperwork/payment-option',
-  //   getPage: () => <PaymentOption />,
-  // }, // ET
-  // PaperworkPage: {
-  //   path: '/paperwork/:slug',
-  //   getPage: () => <TelemedPaperworkPage />,
-  // }, // ET
-  // PersonAccompanying: {
-  //   path: '/paperwork/person-accompanying-the-minor-patient',
-  //   getPage: () => <PersonAccompanying />,
-  // }, // ET
+  },
   TelemedPaperworkHomeRoute: {
     path: telemedPaperworkBasePath,
     getPage: () => <TelemedPaperworkHome />,

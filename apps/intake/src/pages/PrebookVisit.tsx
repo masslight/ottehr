@@ -172,7 +172,6 @@ const PrebookVisit: FC = () => {
   };
 
   const handleSlotSelection = async (slot?: Slot): Promise<void> => {
-    console.log('slot selection', slot);
     if (slot && tokenlessZambdaClient) {
       const createSlotInput: CreateSlotParams = {
         scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
@@ -182,16 +181,14 @@ const PrebookVisit: FC = () => {
         status: 'busy-tentative',
         walkin: false,
       };
-      console.log('createSlotInput', createSlotInput);
+
       try {
         const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
         console.log('createSlotResponse', slot);
         const basePath = generatePath(bookingBasePath, {
           slotId: slot.id!,
         });
-        navigate(`${basePath}/patients`, {
-          state: { slot, scheduleType },
-        });
+        navigate(`${basePath}/patients`);
       } catch (error) {
         console.error('Error creating slot:', error);
         // todo: handle error

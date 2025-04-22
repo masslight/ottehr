@@ -1,4 +1,4 @@
-import { Appointment, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AllStates,
@@ -13,6 +13,7 @@ import {
   getSlotIsPostTelemed,
   getSlotIsWalkin,
   INVALID_INPUT_ERROR,
+  isLocationVirtual,
   MISSING_REQUIRED_PARAMETERS,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   PatientInfo,
@@ -150,13 +151,16 @@ export interface CreateAppointmentEffectInput {
   user: User;
   questionnaireCanonical: CanonicalUrl;
   visitType: VisitType;
+  locationState?: string;
 }
 
 export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient, locationState } = input;
+  const { slotId, isEHRUser, user, patient } = input;
+
+  let locationState = input.locationState;
 
   // patient input complex validation
   if (patient.id) {
@@ -219,15 +223,27 @@ export const createAppointmentComplexValidation = async (
     throw new Error('Service mode not found');
   }
 
-  if (serviceMode === ServiceMode.virtual && !locationState) {
-    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
-  }
-
   const questionnaireCanonical = getCanonicalUrlForPrevisitQuestionnaire(serviceMode, input.secrets);
 
   let visitType = getSlotIsPostTelemed(slot) ? VisitType.PostTelemed : VisitType.PreBook;
   if (getSlotIsWalkin(slot)) {
     visitType = VisitType.WalkIn;
+  }
+
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    if (scheduleOwner.resourceType === 'Location' && isLocationVirtual(scheduleOwner as Location)) {
+      const state = scheduleOwner.address?.state;
+      const isValidLocationState = AllStates.some(
+        (stateTemp) => state && stateTemp.value.toLowerCase() === state.toLowerCase()
+      );
+      if (isValidLocationState) {
+        locationState = state;
+      }
+    }
+  }
+
+  if (serviceMode === ServiceMode.virtual && !locationState) {
+    throw INVALID_INPUT_ERROR('"locationState" is required for virtual appointments');
   }
 
   return {
@@ -238,5 +254,6 @@ export const createAppointmentComplexValidation = async (
     patient,
     questionnaireCanonical,
     visitType,
+    locationState,
   };
 };

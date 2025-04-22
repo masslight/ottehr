@@ -53,9 +53,6 @@ export interface GetPaperworkInput {
   authorization: string | undefined;
 }
 
-// http://localhost:3003/location/ak/anchorage/prebook
-// http://localhost:3003/visit/d1040d74-cd91-45f5-b910-7efd6fbcdfbc
-
 export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'patient'> & {
   patient: {
     id: string | undefined;
@@ -213,6 +210,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       'ip-questionnaire-item-value-set',
       oystehr
     );
+    console.timeEnd('get-questionnaire');
 
     if (!questionnaire.item) {
       questionnaire.item = [];

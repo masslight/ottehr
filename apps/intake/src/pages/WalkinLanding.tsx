@@ -2,16 +2,19 @@
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
 import { useUCZambdaClient, ErrorDialog, PageForm, ErrorDialogConfig } from 'ui-components';
 import { ottehrApi } from '../api';
 import { PageContainer } from '../components';
 import { ottehrLightBlue } from '../telemed/assets';
 import { t } from 'i18next';
 import { useQuery } from 'react-query';
+import { CreateSlotParams, ServiceMode } from 'utils';
+import { DateTime } from 'luxon';
+import { bookingBasePath } from '../App';
 
 export const WalkinLanding: FC = () => {
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const scheduleId = useParams().id;
   const getWalkinAvailability = ottehrApi.getWalkinAvailability;
@@ -56,29 +59,35 @@ export const WalkinLanding: FC = () => {
       imgAlt="ottehr icon"
       imgWidth={150}
     >
-      {!somethingIsLoadingInSomeWay ? (
-        data?.walkinOpen ? (
+      {!somethingIsLoadingInSomeWay && data ? (
+        data.walkinOpen ? (
           <>
             <Typography variant="body1" marginTop={2}>
               {t('welcome.walkinOpen.title')}
             </Typography>
             <PageForm
-              onSubmit={(_) => {
-                /*if (!isAuthenticated) {
-              // if the user is not signed in, redirect them to auth0
-              loginWithRedirect({
-                appState: {
-                  target: preserveQueryParams(
-                    `/${scheduleType}/${slugParam}/${visitTypeParam}/${serviceTypeParam}/patients`
-                  ),
-                },
-              }).catch((error) => {
-                throw new Error(`Error calling loginWithRedirect Auth0: ${error}`);
-              });
-            } else {
-              // if the location has loaded and the user is signed in, redirect them to the landing page
-              navigate(intakeFlowPageRoute.Homepage.path);
-            }*/
+              onSubmit={async (_) => {
+                if (tokenlessZambdaClient && scheduleId) {
+                  const createSlotInput: CreateSlotParams = {
+                    scheduleId,
+                    startISO: DateTime.now().toISO(),
+                    serviceModality: data.serviceMode as ServiceMode,
+                    lengthInMinutes: 15,
+                    status: 'busy-tentative',
+                    walkin: true,
+                  };
+                  try {
+                    const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
+                    console.log('createSlotResponse', slot);
+                    const basePath = generatePath(bookingBasePath, {
+                      slotId: slot.id!,
+                    });
+                    navigate(`${basePath}/patients`);
+                  } catch (error) {
+                    console.error('Error creating slot:', error);
+                    // todo: handle error
+                  }
+                }
               }}
               controlButtons={{ backButton: false }}
             />
