@@ -598,10 +598,11 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
       return apiClient?.icdSearch({ search, sabs });
     },
     {
-      onError: (_err) => {
+      onError: (error: any) => {
+        console.error('ICD Search Error:', error);
         openError();
       },
-      enabled: Boolean(apiClient && search),
+      enabled: Boolean(apiClient),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
     }

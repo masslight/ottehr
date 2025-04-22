@@ -7,15 +7,17 @@ import { useFeatureFlags } from '../../../../../features/css-module/context/feat
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../../../../state';
+import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { DiagnosesField } from './DiagnosesField';
+import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
   const { mutateAsync: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
+  const { isError: hasIcdSearchError } = useGetIcd10Search({ search: '', sabs: 'ICD10CM' });
 
   const isLoading = isSaveLoading || isDeleteLoading;
 
@@ -134,6 +136,10 @@ export const DiagnosesContainer: FC = () => {
     });
   };
 
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -142,6 +148,8 @@ export const DiagnosesContainer: FC = () => {
       </Box>
 
       {isReadOnly && diagnoses.length === 0 && <Typography color="secondary.light">Not provided</Typography>}
+
+      {hasIcdSearchError && <CompleteConfiguration handleSetup={handleSetup} />}
 
       {primaryDiagnosis && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

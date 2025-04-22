@@ -29,6 +29,7 @@ export enum APIErrorCode {
   STRIPE_CUSTOMER_ID_NOT_FOUND = 4302,
   STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED = 4303,
   MISSING_PATIENT_COVERAGE_INFO = 4304,
+  MISSING_NLM_API_KEY_ERROR = 4400,
 }
 
 export interface APIError {
@@ -221,4 +222,9 @@ export const STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR: APIError = {
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
+};
+
+export const MISSING_NLM_API_KEY_ERROR = {
+  code: APIErrorCode.MISSING_NLM_API_KEY_ERROR,
+  message: 'No nlm api key was provided.',
 };
