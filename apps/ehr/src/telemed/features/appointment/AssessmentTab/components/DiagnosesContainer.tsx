@@ -17,7 +17,7 @@ export const DiagnosesContainer: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
   const { mutateAsync: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
-  const { isError: hasIcdSearchError } = useGetIcd10Search({ search: '', sabs: 'ICD10CM' });
+  const { isError: hasIcdSearchError } = useGetIcd10Search({ search: 'nlm', sabs: 'ICD10CM' });
 
   const isLoading = isSaveLoading || isDeleteLoading;
 

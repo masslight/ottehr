@@ -12,6 +12,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.debug('validateRequestParameters success');
 
     const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+
+    if (!apiKey) {
+      return {
+        statusCode: 419,
+        body: JSON.stringify({ error: 'NLM_API_KEY is not configured' }),
+      };
+    }
+
     const response: IcdSearchResponse = { codes: [] };
     // search codes
     try {

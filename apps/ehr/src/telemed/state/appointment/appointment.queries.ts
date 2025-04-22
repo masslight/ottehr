@@ -599,10 +599,10 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
     },
     {
       onError: (error: any) => {
-        console.log('Error: ', error);
+        console.log('Error: ', JSON.stringify(error));
         openError();
       },
-      enabled: Boolean(apiClient),
+      enabled: Boolean(apiClient && search),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
     }
