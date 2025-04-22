@@ -359,7 +359,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       ? data.surgicalHistory.forEach((record) => {
           regularText(record);
         })
-      : regularText('No surgical history recorded');
+      : regularText('No surgical history');
     separateLine();
   }
 
@@ -369,7 +369,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       ? data.hospitalization.forEach((record) => {
           regularText(record);
         })
-      : regularText('No hospitalization recorded');
+      : regularText('No hospitalizations');
     separateLine();
   }
 

@@ -6,7 +6,7 @@ import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
-import { UploadDocs } from '../../utils/UploadDocs';
+import { UploadDocs, UploadedFile } from '../../utils/UploadDocs';
 
 let page: Page;
 let context: BrowserContext;
@@ -587,9 +587,7 @@ test.describe('Secondary Insurance', () => {
 test.describe('Responsible party information - check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PRPI-0 Open Responsible party information', async () => {
-    await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
-    await page.waitForLoadState('networkidle');
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await openResponsiblePartyPage();
   });
   test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(
@@ -651,6 +649,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.dateFutureError).toBeVisible();
   });
   test('PRPI-9 Fill all fields and click [Continue]', async () => {
+    await openResponsiblePartyPage();
     responsiblePartyData = await paperwork.fillResponsiblePartyDataNotSelf();
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
     await expect(locator.dateFutureError).not.toBeVisible();
@@ -665,6 +664,12 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyRelationship).toHaveValue(responsiblePartyData.relationship);
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue(responsiblePartyData.dob);
   });
+
+  async function openResponsiblePartyPage(): Promise<void> {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Responsible party information');
+  }
 });
 test.describe('Photo ID - Upload photo', () => {
   test.describe.configure({ mode: 'serial' });
@@ -734,8 +739,8 @@ test.describe('Patient condition', () => {
 });
 test.describe('School/work notes', () => {
   test.describe.configure({ mode: 'serial' });
-  let uploadedSchoolTemplate;
-  let uploadedWorkTemplate;
+  let uploadedSchoolTemplate: UploadedFile | null = null;
+  let uploadedWorkTemplate: UploadedFile | null = null;
   test('PSWN-1 Open School/work note', async () => {
     await page.goto(`paperwork/${bookingData.bookingUUID}/school-work-note`);
     await page.waitForLoadState('networkidle');
@@ -831,8 +836,8 @@ test.describe('School/work notes', () => {
     await locator.clickContinueButton();
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
-    await expect(uploadedSchoolTemplate.uploadedFile).toBeVisible();
-    await expect(uploadedWorkTemplate.uploadedFile).toBeVisible();
+    await expect(uploadedSchoolTemplate!.uploadedFile).toBeVisible();
+    await expect(uploadedWorkTemplate!.uploadedFile).toBeVisible();
   });
   // Need to remove skip for PSWN-18,PSWN-19, PSWN-20, when https://github.com/masslight/ottehr/issues/1671 is fixed
   test.skip('PSWN-18 Open next page, click [Back] - check school/work link values are correct', async () => {
@@ -840,19 +845,19 @@ test.describe('School/work notes', () => {
     await paperwork.checkCorrectPageOpens('Complete consent forms');
     await locator.clickBackButton();
     const currentSchoolLink = await locator.schoolNoteFile.getAttribute('href');
-    await expect(uploadedSchoolTemplate.link).toBe(currentSchoolLink);
+    await expect(uploadedSchoolTemplate!.link).toBe(currentSchoolLink);
     const currentWorkLink = await locator.workNoteFile.getAttribute('href');
-    await expect(uploadedWorkTemplate.link).toBe(currentWorkLink);
+    await expect(uploadedWorkTemplate!.link).toBe(currentWorkLink);
   });
   test.skip('PSWN-19 Check school note link value after reload', async () => {
     await page.reload();
     const currentLink = await locator.schoolNoteFile.getAttribute('href');
-    await expect(uploadedSchoolTemplate.link).toBe(currentLink);
+    await expect(uploadedSchoolTemplate!.link).toBe(currentLink);
   });
   test.skip('PSWN-20 Check work note link value after reload', async () => {
     await page.reload();
     const currentLink = await locator.workNoteFile.getAttribute('href');
-    await expect(uploadedWorkTemplate.link).toBe(currentLink);
+    await expect(uploadedWorkTemplate!.link).toBe(currentLink);
   });
 });
 test.describe('Consent forms - Check and fill all fields', () => {
@@ -876,7 +881,7 @@ test.describe('Consent forms - Check and fill all fields', () => {
     );
   });
   test('PCF-4 Consent Forms - Check links are correct', async () => {
-    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hippa_notice_template.pdf');
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
     expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
       '/consent_to_treat_template.pdf'
     );
@@ -958,11 +963,11 @@ test.describe('Invite participant', () => {
     await paperwork.checkEmailValidations(locator.inviteeEmail);
   });
   test('PIP-10 Invite participant by phone', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('phone');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('phone', 'paperwork');
   });
   test('PIP-11 Invite participant by phone - data is saved after reload', async () => {
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
     await expect(locator.inviteeContactPhone).toBeChecked();
   });
@@ -971,17 +976,17 @@ test.describe('Invite participant', () => {
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
     await expect(locator.inviteeContactPhone).toBeChecked();
   });
   test('PIP-13 Invite participant by email', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('email');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('email', 'paperwork');
   });
   test('PIP-14 Invite participant by email - data is saved after reload', async () => {
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
     await expect(locator.inviteeContactEmail).toBeChecked();
   });
@@ -990,8 +995,8 @@ test.describe('Invite participant', () => {
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
     await expect(locator.inviteeContactEmail).toBeChecked();
   });

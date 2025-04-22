@@ -7,11 +7,195 @@ import {
   QuestionnaireResponse,
   Resource,
 } from 'fhir/r4b';
-import { TELEMED_VIDEO_ROOM_CODE } from 'utils';
-import { TelemedStatusHistoryElement } from 'utils';
+import { TELEMED_VIDEO_ROOM_CODE, TelemedStatusHistoryElement } from 'utils';
 import { LocationIdToAbbreviationMap } from '../helpers/types';
 
 // VR - Video Room
+
+export const newYorkLocation: Location = {
+  resourceType: 'Location',
+  address: {
+    state: 'NY',
+  },
+  id: '6d3fe1c9-1ebe-4625-b3e7-66bfccb89385',
+  meta: {
+    versionId: '1e2bb903-0f83-458e-902b-330facaea9fa',
+    lastUpdated: '2023-12-08T10:27:24.321Z',
+  },
+  extension: [
+    {
+      url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
+      valueCoding: {
+        system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
+        code: 'vi',
+        display: 'Virtual',
+      },
+    },
+  ],
+  name: 'New York virtual',
+};
+
+export const txLocation: Location = {
+  resourceType: 'Location',
+  address: {
+    state: 'TX',
+  },
+  id: '98e3eac8-74f3-42fa-8f32-156ef9437cc9',
+  meta: {
+    versionId: '1e2bb903-0f83-458e-902b-330facaea9fa',
+    lastUpdated: '2023-12-08T10:27:24.321Z',
+  },
+  extension: [
+    {
+      url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
+      valueCoding: {
+        system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
+        code: 'vi',
+        display: 'Virtual',
+      },
+    },
+  ],
+  name: 'Texas virtual',
+};
+
+export const losAngelesLocation: Location = {
+  resourceType: 'Location',
+  address: {
+    state: 'LA',
+  },
+  id: 'd0cd35f6-82d2-41ec-8116-5cc91ec25904',
+  meta: {
+    versionId: '98e3eac8-74f3-42fa-8f32-156ef9437cc9',
+    lastUpdated: '2023-12-08T12:39:11.643Z',
+  },
+  extension: [
+    {
+      url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
+      valueCoding: {
+        system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
+        code: 'vi',
+        display: 'Virtual',
+      },
+    },
+  ],
+  name: 'Los-Angeles virtual',
+};
+
+export const fullEncounterStatusHistory: EncounterStatusHistory[] = [
+  {
+    status: 'planned',
+    period: {
+      start: '2023-12-01T11:25:19.525Z',
+      end: '2023-12-01T11:26:19.525Z',
+    },
+  },
+  {
+    status: 'arrived',
+    period: {
+      start: '2023-12-01T11:26:19.525Z',
+      end: '2023-12-02T5:26:19.525Z',
+    },
+  },
+  {
+    status: 'in-progress',
+    period: {
+      start: '2023-12-02T5:26:19.525Z',
+      end: '2023-12-03T5:26:19.525Z',
+    },
+  },
+  {
+    status: 'finished',
+    period: {
+      start: '2023-12-03T5:26:19.525Z',
+      end: '2023-12-04T5:26:19.525Z',
+    },
+  },
+];
+
+export const unsignedEncounterMappedStatusHistory = [
+  {
+    status: 'ready',
+    start: '2023-12-01T11:25:19.525Z',
+    end: '2023-12-01T11:26:19.525Z',
+  },
+  {
+    status: 'pre-video',
+    start: '2023-12-01T11:26:19.525Z',
+    end: '2023-12-02T5:26:19.525Z',
+  },
+  {
+    status: 'on-video',
+    start: '2023-12-02T5:26:19.525Z',
+    end: '2023-12-03T5:26:19.525Z',
+  },
+  {
+    status: 'unsigned',
+    start: '2023-12-03T5:26:19.525Z',
+    end: '2023-12-04T5:26:19.525Z',
+  },
+];
+
+export const completeEncounterMappedStatusHistory: TelemedStatusHistoryElement[] = [
+  {
+    status: 'ready',
+    start: '2023-12-01T11:25:19.525Z',
+    end: '2023-12-01T11:26:19.525Z',
+  },
+  {
+    status: 'pre-video',
+    start: '2023-12-01T11:26:19.525Z',
+    end: '2023-12-02T5:26:19.525Z',
+  },
+  {
+    status: 'on-video',
+    start: '2023-12-02T5:26:19.525Z',
+    end: '2023-12-03T5:26:19.525Z',
+  },
+  {
+    status: 'unsigned',
+    start: '2023-12-03T5:26:19.525Z',
+    end: '2023-12-04T5:26:19.525Z',
+  },
+  {
+    status: 'complete',
+    start: '2023-12-04T5:26:19.525Z',
+  },
+];
+
+export const testVirtualLocationsMap: LocationIdToAbbreviationMap = {
+  NY: newYorkLocation,
+  TX: txLocation,
+  LA: losAngelesLocation,
+};
+
+export const myPractitionerLocations: Location[] = [losAngelesLocation, newYorkLocation];
+
+export const allLocations: (Location | Resource)[] = [
+  newYorkLocation,
+  losAngelesLocation,
+  {
+    resourceType: 'Location',
+    address: {
+      state: 'VI',
+    },
+    id: 'c006084d-d7b3-4cfa-9d6b-36a445cddd9b',
+    meta: {
+      versionId: 'fd9982e8-569a-49a7-b671-904bf2988661',
+      lastUpdated: '2023-12-08T17:27:31.020Z',
+    },
+    extension: [
+      {
+        url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
+        valueCoding: {
+          system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
+          code: 'vi',
+          display: 'Virtual',
+        },
+      },
+    ],
+    name: 'Virginia virtual',
+  },
+];
 
 export const virtualReadyAppointment: Appointment = {
   id: '265f8134-3546-40a6-9f6f-730f858ae1a3',
@@ -28,7 +212,7 @@ export const virtualReadyAppointment: Appointment = {
     {
       actor: {
         // NY
-        reference: 'Location/6d3fe1c9-1ebe-4625-b3e7-66bfccb89385',
+        reference: `Location/${newYorkLocation.id!}`,
       },
       status: 'accepted',
     },
@@ -381,7 +565,7 @@ export const virtualPreVideoAppointment: Appointment = {
     {
       actor: {
         // TX
-        reference: 'Location/7143e392-7b37-4fe4-9c06-4faf6ec8a406',
+        reference: `Location/${txLocation.id}`,
       },
       status: 'accepted',
     },
@@ -745,7 +929,7 @@ export const virtualOnVideoAppointment: Appointment = {
     {
       actor: {
         // LA
-        reference: 'Location/d0cd35f6-82d2-41ec-8116-5cc91ec25904',
+        reference: `Location/${losAngelesLocation.id}`,
       },
       status: 'accepted',
     },
@@ -868,8 +1052,8 @@ export const virtualUnsignedAppointment: Appointment = {
     },
     {
       actor: {
-        // VI
-        reference: 'Location/c006084d-d7b3-4cfa-9d6b-36a445cddd9b',
+        // TX
+        reference: `Location/${txLocation.id}`,
       },
       status: 'accepted',
     },
@@ -1002,7 +1186,7 @@ export const virtualCompleteAppointment: Appointment = {
     {
       actor: {
         // NY
-        reference: 'Location/6d3fe1c9-1ebe-4625-b3e7-66bfccb89385',
+        reference: `Location/${newYorkLocation.id}`,
       },
       status: 'accepted',
     },
@@ -1202,7 +1386,7 @@ export const appointmentWithoutVRExtension: Appointment = {
     },
     {
       actor: {
-        reference: 'Location/6d3fe1c9-1ebe-4625-b3e7-66bfccb89385',
+        reference: `Location/${newYorkLocation.id}`,
       },
       status: 'accepted',
     },
@@ -1312,217 +1496,6 @@ export const myPractitioner: Practitioner = {
     },
   ],
 };
-
-export const newYorkLocation: Location = {
-  resourceType: 'Location',
-  address: {
-    state: 'NY',
-  },
-  id: '6d3fe1c9-1ebe-4625-b3e7-66bfccb89385',
-  meta: {
-    versionId: '1e2bb903-0f83-458e-902b-330facaea9fa',
-    lastUpdated: '2023-12-08T10:27:24.321Z',
-  },
-  extension: [
-    {
-      url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
-      valueCoding: {
-        system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
-        code: 'vi',
-        display: 'Virtual',
-      },
-    },
-  ],
-  name: 'New York virtual',
-};
-
-export const losAngelesLocation: Location = {
-  resourceType: 'Location',
-  address: {
-    state: 'LA',
-  },
-  id: 'd0cd35f6-82d2-41ec-8116-5cc91ec25904',
-  meta: {
-    versionId: '98e3eac8-74f3-42fa-8f32-156ef9437cc9',
-    lastUpdated: '2023-12-08T12:39:11.643Z',
-  },
-  extension: [
-    {
-      url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
-      valueCoding: {
-        system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
-        code: 'vi',
-        display: 'Virtual',
-      },
-    },
-  ],
-  name: 'Los-Angeles virtual',
-};
-
-export const fullEncounterStatusHistory: EncounterStatusHistory[] = [
-  {
-    status: 'planned',
-    period: {
-      start: '2023-12-01T11:25:19.525Z',
-      end: '2023-12-01T11:26:19.525Z',
-    },
-  },
-  {
-    status: 'arrived',
-    period: {
-      start: '2023-12-01T11:26:19.525Z',
-      end: '2023-12-02T5:26:19.525Z',
-    },
-  },
-  {
-    status: 'in-progress',
-    period: {
-      start: '2023-12-02T5:26:19.525Z',
-      end: '2023-12-03T5:26:19.525Z',
-    },
-  },
-  {
-    status: 'finished',
-    period: {
-      start: '2023-12-03T5:26:19.525Z',
-      end: '2023-12-04T5:26:19.525Z',
-    },
-  },
-];
-
-export const unsignedEncounterMappedStatusHistory = [
-  {
-    status: 'ready',
-    start: '2023-12-01T11:25:19.525Z',
-    end: '2023-12-01T11:26:19.525Z',
-  },
-  {
-    status: 'pre-video',
-    start: '2023-12-01T11:26:19.525Z',
-    end: '2023-12-02T5:26:19.525Z',
-  },
-  {
-    status: 'on-video',
-    start: '2023-12-02T5:26:19.525Z',
-    end: '2023-12-03T5:26:19.525Z',
-  },
-  {
-    status: 'unsigned',
-    start: '2023-12-03T5:26:19.525Z',
-    end: '2023-12-04T5:26:19.525Z',
-  },
-];
-
-export const completeEncounterMappedStatusHistory: TelemedStatusHistoryElement[] = [
-  {
-    status: 'ready',
-    start: '2023-12-01T11:25:19.525Z',
-    end: '2023-12-01T11:26:19.525Z',
-  },
-  {
-    status: 'pre-video',
-    start: '2023-12-01T11:26:19.525Z',
-    end: '2023-12-02T5:26:19.525Z',
-  },
-  {
-    status: 'on-video',
-    start: '2023-12-02T5:26:19.525Z',
-    end: '2023-12-03T5:26:19.525Z',
-  },
-  {
-    status: 'unsigned',
-    start: '2023-12-03T5:26:19.525Z',
-    end: '2023-12-04T5:26:19.525Z',
-  },
-  {
-    status: 'complete',
-    start: '2023-12-04T5:26:19.525Z',
-  },
-];
-
-export const testVirtualLocationsMap: LocationIdToAbbreviationMap = {
-  AK: '0fceb44a-569a-4f7c-adb0-0d726526a0bc',
-  AL: '7f686fbd-2b39-4d78-9071-db6b121844c3',
-  AR: '51cf2846-2d01-4ade-b249-a3548009e6db',
-  AZ: 'a46ffdda-8ade-4bc6-927d-4ba51ea23e43',
-  CA: '0db7a6f3-aaea-46c8-8bc7-473a4adb3274',
-  CO: '916b5823-8ac9-4c4b-81cb-572a15ab3df7',
-  CT: '2ff3f184-49bf-40e7-9bca-b32e48971b3c',
-  DC: '1c0eaaef-e78b-4cfb-a01f-c754ed55a1eb',
-  DE: '7fc5d97c-8164-40d1-b868-0b6cd20af9bc',
-  FL: 'ac886f33-062b-44fd-96dc-bde14f1760e6',
-  GA: '241d3d86-8708-44e3-9c83-694cd919a10a',
-  HI: '6344bd7a-65bf-45b7-8145-e8ea9d08da31',
-  IA: '76bde1aa-1247-4b22-bac9-458353bded68',
-  ID: '1084f2a3-9748-4911-b368-a5bd16b017c4',
-  IL: 'b7c96703-f2a2-4872-aff2-2462ea5700f5',
-  IN: '4828244b-fc33-47e2-a2c6-6c32d500b2ff',
-  KS: 'b40c4bf9-bcf8-4bc7-98c2-05b1ff08c10e',
-  KY: 'f3a55f30-7473-44bf-bbea-5f89d02b0590',
-  LA: 'd0cd35f6-82d2-41ec-8116-5cc91ec25904',
-  MA: '2102c4e7-fefb-4c4a-896f-623fc29344c0',
-  MD: '850a4ff3-8da9-4fec-acf8-53b4b01e4fb2',
-  ME: 'fdf8563f-03e5-4494-98d0-4fd1229b3c99',
-  MI: '877794c7-af6d-444d-aa4c-9cbc9e55f4f8',
-  MN: '4537ec04-c703-48ec-918e-85991dc4ea55',
-  MO: '5af0d394-1c9e-4486-9c17-4b78f53bb828',
-  MS: '8fa45782-4104-4aac-8659-77432444cf83',
-  MT: '191a2ea8-cc11-487d-b8c5-116fc34c65bf',
-  NC: '1463c01a-6d6e-46f6-869f-18b28d7164ee',
-  ND: 'ea0c2c59-8489-451a-8ae7-d8de3ef2f76d',
-  NE: 'a6b1732f-7691-44cd-b653-2617e9c35f40',
-  NH: '12433833-0408-47ef-949e-6c76cd934cb9',
-  NJ: '455b81fc-d67f-4fc2-9ed7-208a925f4d11',
-  NM: 'b7232eee-2c27-49af-afc4-b6f361f361d5',
-  NV: '730017e9-eefb-4a57-b3f8-5172719bcce5',
-  NY: '6d3fe1c9-1ebe-4625-b3e7-66bfccb89385',
-  OH: 'b482e40f-ad37-4c86-be7e-7f55d43a3214',
-  OK: '8d54f653-5413-4702-a057-8b3dd4116d55',
-  OR: '2c931659-883d-45d8-abb5-9ab49e8bd3fd',
-  PA: '70f9ae05-ab2b-473d-bdca-236de1b89ca6',
-  RI: '9dfedd5d-7f4d-4a46-9fa0-c416cb94af8c',
-  SC: 'f65efc12-d6a7-48cc-ab99-44dc0be9ef3c',
-  SD: 'ca66ac21-1e4f-4d8e-8944-f18e51eba0a0',
-  TN: '1a6fd3cf-5736-4277-8118-01ceb1b45cc1',
-  TX: '7143e392-7b37-4fe4-9c06-4faf6ec8a406',
-  UT: 'c91c816f-9cf8-425a-9b4f-23ae80764a43',
-  VA: 'c751f751-a7b8-4c0f-8e5b-558d18eec336',
-  VI: 'c006084d-d7b3-4cfa-9d6b-36a445cddd9b',
-  VT: '8414172e-30b4-4688-bacb-7f2672889c73',
-  WA: '2dc84b95-e811-44e1-b405-65cd6cf2058b',
-  WI: '1fe41163-069d-4d8c-b1c8-001501272b62',
-  WV: '1802510d-01b4-409d-9919-fe1f95378ad0',
-  WY: '99b6d92c-9e73-4680-aeda-fcfdde6d8fd2',
-};
-
-export const myPractitionerLocations: Location[] = [losAngelesLocation, newYorkLocation];
-
-export const allLocations: (Location | Resource)[] = [
-  newYorkLocation,
-  losAngelesLocation,
-  {
-    resourceType: 'Location',
-    address: {
-      state: 'VI',
-    },
-    id: 'c006084d-d7b3-4cfa-9d6b-36a445cddd9b',
-    meta: {
-      versionId: 'fd9982e8-569a-49a7-b671-904bf2988661',
-      lastUpdated: '2023-12-08T17:27:31.020Z',
-    },
-    extension: [
-      {
-        url: 'https://extensions.fhir.zapehr.com/location-form-pre-release',
-        valueCoding: {
-          system: 'http://terminology.hl7.org/CodeSystem/location-physical-type',
-          code: 'vi',
-          display: 'Virtual',
-        },
-      },
-    ],
-    name: 'Virginia virtual',
-  },
-];
 
 export const allTestResources = [
   encounterWithVRExtension,

@@ -23,13 +23,17 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = fa
         }}
       >
         <Table>
-          {orderHistory.map((row) => (
-            <TableRow key={`${row.action}-${row.performer}-${row.date}`}>
-              <TableCell>{row.action}</TableCell>
-              <TableCell>{row.performer}</TableCell>
-              <TableCell>{row.date}</TableCell>
-            </TableRow>
-          ))}
+          {orderHistory.map((row) => {
+            const isReviewOrReceiveAction = row.action === 'reviewed' || row.action === 'received';
+            const actionDescription = isReviewOrReceiveAction ? `${row.action} (${row.testType})` : row.action;
+            return (
+              <TableRow key={`${row.action}-${row.performer}-${row.date}`}>
+                <TableCell>{actionDescription}</TableCell>
+                <TableCell>{row.performer}</TableCell>
+                <TableCell>{row.date}</TableCell>
+              </TableRow>
+            );
+          })}
         </Table>
       </AccordionCard>
     </>

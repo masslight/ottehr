@@ -53,7 +53,6 @@ import {
   getTelemedRequiredAppointmentEncounterExtensions,
 } from '../helpers';
 import { validateCreateAppointmentParams } from './validateRequestParameters';
-import _ from 'lodash';
 
 let zapehrToken: string;
 
@@ -318,11 +317,11 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
       coding: [
         {
           system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
-          code: VisitType.Virtual,
-          display: VisitType.Virtual,
+          code: VisitType.WalkIn,
+          display: VisitType.WalkIn,
         },
       ],
-      text: VisitType.Virtual,
+      text: VisitType.WalkIn,
     },
     // we have this status while the "create-paperwork" endpoint was not yet called
     status: 'proposed',

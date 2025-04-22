@@ -1,5 +1,5 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
-import { Appointment, Extension, Resource } from 'fhir/r4b';
+import { Appointment, Extension, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { OTTEHR_MODULE } from '../fhir';
 import { PatchPaperworkParameters } from '../types';
@@ -224,7 +224,21 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
-export const DEMO_VISIT_RESPONSIBLE_PHONE = '(233) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(244) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
+export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
+export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
+export const DEMO_VISIT_RESPONSIBLE_ZIP = '44101';
+export const DEMO_VISIT_PATIENT_ETHNICITY = 'Decline to Specify';
+export const DEMO_VISIT_PATIENT_RACE = 'Native Hawaiian or Other Pacific Islander';
+export const DEMO_VISIT_POINT_OF_DISCOVERY = 'Friend/Family';
+export const DEMO_VISIT_MARKETING_MESSAGING = true;
+export const DEMO_VISIT_PREFERRED_LANGUAGE = 'English';
+export const DEMO_VISIT_PROVIDER_FIRST_NAME = 'Provider first name';
+export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
+export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
+export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
+export const DEMO_VISIT_PHYSICIAN_MOBILE = '(123) 456-7890';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -247,7 +261,7 @@ export function getContactInformationAnswers({
   email = 'test-email@test-domain-1237843298123.co',
   phoneNumber = '(202) 733-9622',
 
-  mobileOptIn = true,
+  mobileOptIn = DEMO_VISIT_MARKETING_MESSAGING,
 }: {
   willBe18?: boolean;
   isNewPatient?: boolean;
@@ -345,8 +359,10 @@ export function getContactInformationAnswers({
 }
 
 export function getPatientDetailsStepAnswers({
-  ethnicity = 'Decline to Specify',
-  race = 'Native Hawaiian or Other Pacific Islander',
+  ethnicity = DEMO_VISIT_PATIENT_ETHNICITY,
+  race = DEMO_VISIT_PATIENT_RACE,
+  pointOfDiscovery = DEMO_VISIT_POINT_OF_DISCOVERY,
+  preferredLanguage = DEMO_VISIT_PREFERRED_LANGUAGE,
   pronouns = 'She/her',
   ovrpInterest = 'Need more info',
 }: {
@@ -354,6 +370,8 @@ export function getPatientDetailsStepAnswers({
   race?: string;
   pronouns?: string;
   ovrpInterest?: string;
+  pointOfDiscovery?: string;
+  preferredLanguage?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'patient-details-page',
@@ -367,6 +385,10 @@ export function getPatientDetailsStepAnswers({
         answer: [{ valueString: race }],
       },
       {
+        linkId: 'patient-point-of-discovery',
+        answer: [{ valueString: pointOfDiscovery }],
+      },
+      {
         linkId: 'patient-pronouns',
         answer: [{ valueString: pronouns }],
       },
@@ -378,7 +400,7 @@ export function getPatientDetailsStepAnswers({
         linkId: 'preferred-language',
         answer: [
           {
-            valueString: 'English',
+            valueString: preferredLanguage,
           },
         ],
       },
@@ -405,12 +427,20 @@ export function getResponsiblePartyStepAnswers({
   },
   birthSex = DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   phone = DEMO_VISIT_RESPONSIBLE_PHONE,
+  address1 = DEMO_VISIT_RESPONSIBLE_ADDRESS1,
+  city = DEMO_VISIT_RESPONSIBLE_CITY,
+  state = DEMO_VISIT_RESPONSIBLE_STATE,
+  zip = DEMO_VISIT_RESPONSIBLE_ZIP,
 }: {
   firstName?: string;
   relationship?: string;
   birthDate?: { day: string; month: string; year: string };
   birthSex?: string;
   lastName?: string;
+  address1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
   phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -441,6 +471,22 @@ export function getResponsiblePartyStepAnswers({
         answer: [{ valueString: birthSex }],
       },
       {
+        linkId: 'responsible-party-address',
+        answer: [{ valueString: address1 }],
+      },
+      {
+        linkId: 'responsible-party-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'responsible-party-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'responsible-party-zip',
+        answer: [{ valueString: zip }],
+      },
+      {
         linkId: 'responsible-party-number',
         answer: [
           {
@@ -459,6 +505,326 @@ export function getPaymentOptionSelfPayAnswers(): PatchPaperworkParameters['answ
       {
         linkId: 'payment-option',
         answer: [{ valueString: 'I will pay without insurance' }],
+      },
+    ],
+  };
+}
+
+export function getPaymentOptionInsuranceAnswers({
+  insuranceCarrier,
+  insuranceMemberId,
+  insurancePolicyHolderFirstName,
+  insurancePolicyHolderLastName,
+  insurancePolicyHolderMiddleName,
+  insurancePolicyHolderDateOfBirth,
+  insurancePolicyHolderBirthSex,
+  insurancePolicyHolderAddressAsPatient,
+  insurancePolicyHolderAddress,
+  insurancePolicyHolderAddressAdditionalLine,
+  insurancePolicyHolderCity,
+  insurancePolicyHolderState,
+  insurancePolicyHolderZip,
+  insurancePolicyHolderRelationshipToInsured,
+  insuranceCarrier2,
+  insuranceMemberId2,
+  insurancePolicyHolderFirstName2,
+  insurancePolicyHolderLastName2,
+  insurancePolicyHolderMiddleName2,
+  insurancePolicyHolderDateOfBirth2,
+  insurancePolicyHolderBirthSex2,
+  insurancePolicyHolderAddressAsPatient2,
+  insurancePolicyHolderAddress2,
+  insurancePolicyHolderAddressAdditionalLine2,
+  insurancePolicyHolderCity2,
+  insurancePolicyHolderState2,
+  insurancePolicyHolderZip2,
+  insurancePolicyHolderRelationshipToInsured2,
+}: {
+  insuranceCarrier: QuestionnaireResponseItemAnswer;
+  insuranceMemberId: string;
+  insurancePolicyHolderFirstName: string;
+  insurancePolicyHolderLastName: string;
+  insurancePolicyHolderMiddleName: string;
+  insurancePolicyHolderDateOfBirth: string;
+  insurancePolicyHolderBirthSex: string;
+  insurancePolicyHolderAddressAsPatient: boolean;
+  insurancePolicyHolderAddress: string;
+  insurancePolicyHolderAddressAdditionalLine: string;
+  insurancePolicyHolderCity: string;
+  insurancePolicyHolderState: string;
+  insurancePolicyHolderZip: string;
+  insurancePolicyHolderRelationshipToInsured: string;
+  insurancePolicyHolderFirstName2: string;
+  insurancePolicyHolderLastName2: string;
+  insurancePolicyHolderMiddleName2: string;
+  insurancePolicyHolderDateOfBirth2: string;
+  insurancePolicyHolderBirthSex2: string;
+  insurancePolicyHolderAddressAsPatient2: boolean;
+  insurancePolicyHolderAddress2: string;
+  insurancePolicyHolderAddressAdditionalLine2: string;
+  insurancePolicyHolderCity2: string;
+  insurancePolicyHolderState2: string;
+  insurancePolicyHolderZip2: string;
+  insurancePolicyHolderRelationshipToInsured2: string;
+  insuranceCarrier2: QuestionnaireResponseItemAnswer;
+  insuranceMemberId2: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'payment-option-page',
+    item: [
+      {
+        item: [
+          {
+            linkId: 'insurance-carrier-2',
+            answer: [insuranceCarrier2],
+          },
+          {
+            linkId: 'insurance-member-id-2',
+            answer: [
+              {
+                valueString: insuranceMemberId2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-first-name-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderFirstName2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-middle-name-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderMiddleName2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-last-name-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderLastName2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-date-of-birth-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderDateOfBirth2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-birth-sex-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderBirthSex2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-address-as-patient-2',
+            answer: [
+              {
+                valueBoolean: insurancePolicyHolderAddressAsPatient2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-address-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderAddress2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-address-additional-line-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderAddressAdditionalLine2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-city-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderCity2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-state-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderState2,
+              },
+            ],
+          },
+          {
+            linkId: 'policy-holder-zip-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderZip2,
+              },
+            ],
+          },
+          {
+            linkId: 'patient-relationship-to-insured-2',
+            answer: [
+              {
+                valueString: insurancePolicyHolderRelationshipToInsured2,
+              },
+            ],
+          },
+          {
+            linkId: 'insurance-card-front-2',
+          },
+          {
+            linkId: 'insurance-card-back-2',
+          },
+        ],
+        linkId: 'secondary-insurance',
+      },
+      {
+        linkId: 'display-secondary-insurance',
+        answer: [
+          {
+            valueBoolean: true,
+          },
+        ],
+      },
+      {
+        linkId: 'patient-relationship-to-insured',
+        answer: [
+          {
+            valueString: insurancePolicyHolderRelationshipToInsured,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-zip',
+        answer: [
+          {
+            valueString: insurancePolicyHolderZip,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-state',
+        answer: [
+          {
+            valueString: insurancePolicyHolderState,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-city',
+        answer: [
+          {
+            valueString: insurancePolicyHolderCity,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-address',
+        answer: [
+          {
+            valueString: insurancePolicyHolderAddress,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-address-additional-line',
+        answer: [
+          {
+            valueString: insurancePolicyHolderAddressAdditionalLine,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-birth-sex',
+        answer: [
+          {
+            valueString: insurancePolicyHolderBirthSex,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-address-as-patient',
+        answer: [
+          {
+            valueBoolean: insurancePolicyHolderAddressAsPatient,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-date-of-birth',
+        answer: [
+          {
+            valueString: insurancePolicyHolderDateOfBirth,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-last-name',
+        answer: [
+          {
+            valueString: insurancePolicyHolderLastName,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-middle-name',
+        answer: [
+          {
+            valueString: insurancePolicyHolderMiddleName,
+          },
+        ],
+      },
+      {
+        linkId: 'policy-holder-first-name',
+        answer: [
+          {
+            valueString: insurancePolicyHolderFirstName,
+          },
+        ],
+      },
+      {
+        linkId: 'insurance-member-id',
+        answer: [
+          {
+            valueString: insuranceMemberId,
+          },
+        ],
+      },
+      {
+        linkId: 'insurance-carrier',
+        answer: [insuranceCarrier],
+      },
+      {
+        linkId: 'payment-option',
+        answer: [
+          {
+            valueString: 'I have insurance',
+          },
+        ],
+      },
+      {
+        linkId: 'insurance-eligibility-verification-status',
+        answer: [
+          {
+            valueString: 'eligibility-check-not-supported',
+          },
+          {
+            valueString: 'eligibility-check-not-supported',
+          },
+        ],
       },
     ],
   };
@@ -630,6 +996,66 @@ export function getInviteParticipantStepAnswers(): PatchPaperworkParameters['ans
     linkId: 'invite-participant-page',
     item: [
       { linkId: 'invite-from-another-device', answer: [{ valueString: 'No, only one device will be connected' }] },
+    ],
+  };
+}
+
+export function getPrimaryCarePhysicianStepAnswers({
+  providerFirstName = DEMO_VISIT_PROVIDER_FIRST_NAME,
+  providerLastName = DEMO_VISIT_PROVIDER_LAST_NAME,
+  practiceName = DEMO_VISIT_PRACTICE_NAME,
+  address = DEMO_VISIT_PHYSICIAN_ADDRESS,
+  mobile = DEMO_VISIT_PHYSICIAN_MOBILE,
+}: {
+  providerFirstName?: string;
+  providerLastName?: string;
+  practiceName?: string;
+  address?: string;
+  mobile?: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'primary-care-physician-page',
+    item: [
+      {
+        linkId: 'pcp-first',
+        answer: [
+          {
+            valueString: providerFirstName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-last',
+        answer: [
+          {
+            valueString: providerLastName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-practice',
+        answer: [
+          {
+            valueString: practiceName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-address',
+        answer: [
+          {
+            valueString: address,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-number',
+        answer: [
+          {
+            valueString: mobile,
+          },
+        ],
+      },
     ],
   };
 }

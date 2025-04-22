@@ -86,6 +86,10 @@ export class Locators {
   photoIdFrontImage: Locator;
   photoIdBackImage: Locator;
   responsiblePartyNumber: Locator;
+  responsiblePartyAddress1: Locator;
+  responsiblePartyCity: Locator;
+  responsiblePartyState: Locator;
+  responsiblePartyZip: Locator;
   numberErrorText: Locator;
   zipErrorText: Locator;
   responsiblePartyDOBAnswer: Locator;
@@ -135,6 +139,10 @@ export class Locators {
   secondaryInsuranceHeading: Locator;
   policyAddressIsTheSame: Locator;
   secondaryPolicyAddressIsTheSame: Locator;
+  creditCardNumber: Locator;
+  creditCardExpiry: Locator;
+  creditCardCVC: Locator;
+  addCardButton: Locator;
   paperworkSelectOptionFieldErrorMessage: Locator;
   paperworkErrorInFieldAboveMessage: Locator;
   currentMedicationsPresent: Locator;
@@ -206,6 +214,21 @@ export class Locators {
   patientConditionEditButton: Locator;
   schoolWorkNotesEditButton: Locator;
   inviteParticipantEditButton: Locator;
+  manageParticipant: Locator;
+  leaveWaitingRoom: Locator;
+  cancelVisit: Locator;
+  modalInviteParticipantTitle: Locator;
+  sendInvite: Locator;
+  inviteeList: Locator;
+  modalManageParticipantsTitle: Locator;
+  wrInviteeName: Locator;
+  wrInviteeContact: Locator;
+  cancelInvite: Locator;
+  keepInvite: Locator;
+  wrInviteePhoneNumber: Locator;
+  wrInviteeEmail: Locator;
+  wrInviteeFirstName: Locator;
+  wrInviteeLastName: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -329,6 +352,13 @@ export class Locators {
     this.secondaryInsuranceBackImage = page.locator('[id="secondary-insurance.item.15-description"]');
     this.secondaryPolicyAddressIsTheSame = page.getByLabel('policy-holder-address-as-patient-2-label');
 
+    // Credit Card locators
+    const stripeIframe = page.frameLocator('iframe[title="Secure card payment input frame"]');
+    this.creditCardNumber = stripeIframe.locator('[data-elements-stable-field-name="cardNumber"]');
+    this.creditCardExpiry = stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]');
+    this.creditCardCVC = stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]');
+    this.addCardButton = page.getByRole('button').filter({ hasText: 'Add card' });
+
     // Responsible Party locators
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
     this.responsiblePartyFirstName = page.locator('[id="responsible-party-first-name"]');
@@ -336,6 +366,10 @@ export class Locators {
     this.responsiblePartyBirthSex = page.locator('[id="responsible-party-birth-sex"]');
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
+    this.responsiblePartyAddress1 = page.locator('[id="responsible-party-address"]');
+    this.responsiblePartyCity = page.locator('[id="responsible-party-city"]');
+    this.responsiblePartyState = page.locator('[id="responsible-party-state"]');
+    this.responsiblePartyZip = page.locator('[id="responsible-party-zip"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');
@@ -414,8 +448,8 @@ export class Locators {
     this.inviteeFirstName = page.locator("[id='invite-first']");
     this.inviteeEmail = page.locator("[id='invite-email']");
     this.inviteePhone = page.locator("[id='invite-phone']");
-    this.inviteeContactEmail = page.locator(`input[value='Email']`);
-    this.inviteeContactPhone = page.locator(`input[value='Phone']`);
+    this.inviteeContactEmail = page.locator(`input[value='Email' i]`);
+    this.inviteeContactPhone = page.locator(`input[value='Phone' i]`);
 
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });
@@ -454,6 +488,23 @@ export class Locators {
     this.patientConditionChipStatus = page.locator('[data-testid="patient-condition-page-status"] div');
     this.schoolWorkNotesChipStatus = page.locator('[data-testid="school-work-note-page-status"] div');
     this.inviteParticipantChipStatus = page.locator('[data-testid="invite-participant-page-status"] div');
+
+    // Waiting room
+    this.manageParticipant = page.getByText('Manage participants');
+    this.leaveWaitingRoom = page.getByText('Leave waiting room');
+    this.cancelVisit = page.getByText('Cancel visit');
+    this.modalInviteParticipantTitle = page.getByText('Invite participant');
+    this.modalManageParticipantsTitle = page.locator('h2', { hasText: 'Manage participants' });
+    this.sendInvite = page.getByRole('button', { name: 'Send invite' });
+    this.inviteeList = page.getByTestId('manage-participants');
+    this.wrInviteeName = page.getByTestId(dataTestIds.wrInviteeName);
+    this.wrInviteeContact = page.getByTestId(dataTestIds.wrInviteeContact);
+    this.cancelInvite = page.getByRole('button', { name: 'Cancel invite' });
+    this.keepInvite = page.getByRole('button', { name: 'Keep invite' });
+    this.wrInviteePhoneNumber = page.locator("[id='phoneNumber']");
+    this.wrInviteeEmail = page.locator("[id='email']");
+    this.wrInviteeFirstName = page.locator("[id='firstName']");
+    this.wrInviteeLastName = page.locator("[id='lastName']");
   }
 
   private getInputByValue(value: string): Locator {

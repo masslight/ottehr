@@ -5,16 +5,19 @@ import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
+  FHIR_RESOURCE_NOT_FOUND,
   GetScheduleResponse,
+  OTTEHR_SLUG_ID_SYSTEM,
+  ScheduleOwnerFhirResource,
   SecretsKeys,
-  getAvailableSlotsForSchedule,
+  SlotListItem,
+  fhirTypeForScheduleType,
+  getAvailableSlotsForSchedules,
   getOpeningTime,
   getScheduleDetails,
   getSecret,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
-  isWalkinOpen,
-  makeSlotTentativelyBusy,
 } from 'utils';
 import {
   captureSentryException,
@@ -22,7 +25,7 @@ import {
   createOystehrClient,
   getAuth0Token,
   getLocationInformation,
-  getSchedule,
+  getSchedules,
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
@@ -39,7 +42,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets, scheduleType, slug, specificSlot } = validatedParameters;
+    const { secrets, scheduleType, slug, isWalkin } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -55,9 +58,43 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw new Error('error initializing fhir client');
     }
 
-    console.time('get-schedule-from-slug');
-    const { schedule, groupItems } = await getSchedule(oystehr, scheduleType, slug);
-    console.timeEnd('get-schedule-from-slug');
+    const telemedAvailable: SlotListItem[] = [];
+    const availableSlots: SlotListItem[] = [];
+
+    let scheduleOwner: ScheduleOwnerFhirResource | undefined;
+    if (!isWalkin) {
+      console.time('get-schedule-from-slug');
+      const scheduleData = await getSchedules(oystehr, scheduleType, slug);
+      const { scheduleList, owner, metadata } = scheduleData;
+      scheduleOwner = owner;
+      console.timeEnd('get-schedule-from-slug');
+      console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
+      console.log('owner retrieved from getScheduleUtil:', JSON.stringify(owner, null, 2));
+      console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
+
+      console.time('synchronous_data_processing');
+      const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules({
+        now: DateTime.now(),
+        scheduleList,
+      });
+      telemedAvailable.push(...tmSlots);
+      availableSlots.push(...regularSlots);
+      console.timeEnd('synchronous_data_processing');
+    } else {
+      const ownerSearchResults = (
+        await oystehr.fhir.search<ScheduleOwnerFhirResource>({
+          resourceType: `${fhirTypeForScheduleType(scheduleType)}`,
+          params: [{ name: 'identifier', value: `${OTTEHR_SLUG_ID_SYSTEM}|${slug}` }],
+        })
+      ).unbundle();
+      console.log('ownerSearch', slug, JSON.stringify(ownerSearchResults, null, 2));
+      scheduleOwner = ownerSearchResults[0];
+    }
+
+    if (!scheduleOwner) {
+      throw FHIR_RESOURCE_NOT_FOUND(fhirTypeForScheduleType(scheduleType));
+    }
+
     const now = DateTime.now();
 
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
@@ -85,37 +122,17 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('organizing location information for response');
     const locationInformationWithClosures: AvailableLocationInformation = getLocationInformationWithClosures(
       oystehr,
-      schedule,
+      scheduleOwner,
       now
     );
 
     console.log('getting wait time based on longest waiting patient at location');
     console.time('get_waiting_minutes');
-    const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, schedule);
+    const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
     console.timeEnd('get_waiting_minutes');
-    console.time('synchronous_data_processing');
-    const { telemedAvailable, availableSlots } = await getAvailableSlotsForSchedule(
-      oystehr,
-      schedule,
-      DateTime.now(),
-      groupItems
-    );
-    console.timeEnd('synchronous_data_processing');
 
-    if (specificSlot) {
-      if (availableSlots.includes(specificSlot)) {
-        console.log('making the selected slot unavailable');
-        console.time('mark_slot_busy');
-        const specificSlotResource = await makeSlotTentativelyBusy(specificSlot, schedule, oystehr);
-        console.timeEnd('mark_slot_busy');
-        console.log('tentatively busy slot: ', specificSlotResource?.id);
-      } else {
-        console.log('selected slot is not available');
-      }
-    }
-
-    const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
-    const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, schedule);
+    // const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
+    // const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, scheduleOwner);
 
     const response: GetScheduleResponse = {
       message: 'Successfully retrieved all available slot times',
@@ -124,8 +141,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       location: locationInformationWithClosures,
       displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
       waitingMinutes,
-      walkinOpen,
-      openTime,
+      walkinOpen: true,
+      openTime: undefined,
     };
 
     console.log('response to return: ', response);

@@ -1,8 +1,9 @@
-import { Typography } from '@mui/material';
+import { Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 import { CSSLoader } from '../components/CSSLoader';
 import VitalsNotesCard from '../components/patient-info/VitalsNotesCard';
 import VitalsBloodPressureCard from '../components/vitals/blood-pressure/VitalsBloodPressureCard';
@@ -13,6 +14,7 @@ import VitalsRespirationRateCard from '../components/vitals/respiration-rate/Vit
 import VitalsTemperaturesCard from '../components/vitals/temperature/VitalsTemperaturesCard';
 import VitalsVisionCard from '../components/vitals/vision/VitalsVisionCard';
 import VitalsWeightsCard from '../components/vitals/weights/VitalsWeightsCard';
+import { useNavigationContext } from '../context/NavigationContext';
 import { useAppointment } from '../hooks/useAppointment';
 
 interface PatientVitalsProps {
@@ -29,12 +31,15 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
 
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
 
+  const { interactionMode } = useNavigationContext();
+
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <>
+    <Stack spacing={1}>
+      <PageTitle label="Vitals" showIntakeNotesButton={interactionMode === 'intake'} />
       <VitalsTemperaturesCard />
       <VitalsHeartbeatCard />
       <VitalsRespirationRateCard />
@@ -44,6 +49,6 @@ export const PatientVitals: React.FC<PatientVitalsProps> = () => {
       <VitalsHeightCard />
       <VitalsVisionCard />
       <VitalsNotesCard />
-    </>
+    </Stack>
   );
 };

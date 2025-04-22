@@ -44,7 +44,7 @@ const Homepage = (): JSX.Element => {
 
   const handleWalkIn = (): void => {
     /*
-      This hardcoded location simulates an experience where a patient who walks in to a physical locaiton is given a
+      This hardcoded location simulates an experience where a patient who walks in to a physical location is given a
       link to register for a walk-in visit. this might be something a front desk person texts to the individual after getting
       their phone number, or maybe a link the user opens by scanning a QR code made available at the location. 
     */

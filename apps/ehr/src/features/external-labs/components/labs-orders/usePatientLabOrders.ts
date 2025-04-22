@@ -1,28 +1,20 @@
-import { useCallback, useState, useEffect, ReactElement } from 'react';
+import { useCallback, useState, useEffect, ReactElement, useMemo } from 'react';
 import {
   EMPTY_PAGINATION,
   LabOrderDTO,
   DEFAULT_LABS_ITEMS_PER_PAGE,
   GetLabOrdersParameters,
   UpdateLabOrderResourceParams,
+  DeleteLabOrderParams,
+  LabOrdersSearchBy,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
 import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
 
-interface DeleteLabOrderParams {
-  labOrderId: string;
-  encounterId: string;
-}
-
-interface DeleteOrderParams {
-  orderId: string;
-  encounterId?: string;
-}
-
-interface UsePatientLabOrdersResult {
-  labOrders: LabOrderDTO[];
+interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
+  labOrders: LabOrderDTO<SearchBy>[];
   loading: boolean;
   error: Error | null;
   totalPages: number;
@@ -35,20 +27,25 @@ interface UsePatientLabOrdersResult {
   fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
   getCurrentSearchParams: () => GetLabOrdersParameters;
   showPagination: boolean;
-  deleteOrder: (params: DeleteOrderParams) => Promise<boolean>;
-  onDeleteOrder: (order: LabOrderDTO, encounterIdOverride?: string) => void;
+  deleteLabOrder: (params: DeleteLabOrderParams) => Promise<boolean>;
+  showDeleteLabOrderDialog: ({
+    serviceRequestId,
+    testItemName,
+  }: {
+    serviceRequestId: string;
+    testItemName: string;
+  }) => void;
   DeleteOrderDialog: ReactElement | null;
   updateTask: ({ taskId, event }: UpdateLabOrderResourceParams) => Promise<void>;
 }
 
-export const usePatientLabOrders = (options: {
-  patientId?: string;
-  encounterId?: string;
-  serviceRequestId?: string;
-}): UsePatientLabOrdersResult => {
+export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
+  // don't use this directly, use memoized searchBy instead,
+  // if parent component is re-rendered, _searchBy will be a new object and will trigger unnecessary effects
+  _searchBy: SearchBy
+): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
-  const { patientId, encounterId, serviceRequestId } = options;
-  const [labOrders, setLabOrders] = useState<LabOrderDTO[]>([]);
+  const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -57,38 +54,31 @@ export const usePatientLabOrders = (options: {
   const [orderableItemCodeFilter, setOrderableItemCodeFilter] = useState('');
   const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const searchBy = useMemo(() => _searchBy, [JSON.stringify(_searchBy)]);
+
+  const formatVisitDate = useCallback((date: DateTime | null): string | undefined => {
+    if (!date || !date.isValid) {
+      return undefined;
+    }
+    try {
+      return date.toISODate() || undefined;
+    } catch (dateError) {
+      console.error('Error formatting date:', dateError);
+    }
+    return;
+  }, []);
+
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetLabOrdersParameters => {
     const params: GetLabOrdersParameters = {
-      // pageIndex: 0,
       itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
-    } as GetLabOrdersParameters;
-
-    if (patientId) {
-      params.patientId = patientId;
-    }
-
-    if (encounterId) {
-      params.encounterId = encounterId;
-    }
-
-    if (serviceRequestId) {
-      params.serviceRequestId = serviceRequestId;
-    }
-
-    if (orderableItemCodeFilter) {
-      params.orderableItemCode = orderableItemCodeFilter;
-    }
-
-    if (visitDateFilter && visitDateFilter.isValid) {
-      try {
-        params.visitDate = visitDateFilter.toISODate() || undefined;
-      } catch (dateError) {
-        console.error('Error formatting date:', dateError);
-      }
-    }
+      ...searchBy,
+      ...(orderableItemCodeFilter && { orderableItemCode: orderableItemCodeFilter }),
+      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: formatVisitDate(visitDateFilter) }),
+    };
 
     return params;
-  }, [patientId, encounterId, serviceRequestId, orderableItemCodeFilter, visitDateFilter]);
+  }, [orderableItemCodeFilter, visitDateFilter, formatVisitDate, searchBy]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNubmer: number): GetLabOrdersParameters => {
@@ -124,7 +114,7 @@ export const usePatientLabOrders = (options: {
         }
 
         if (response?.data) {
-          setLabOrders(response.data);
+          setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
 
           if (response.pagination) {
             setTotalPages(response.pagination.totalPages || 1);
@@ -154,7 +144,11 @@ export const usePatientLabOrders = (options: {
   // initial fetch of lab orders, and when the search params change
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
-    void fetchLabOrders(searchParams);
+    if (searchParams.searchBy.field && searchParams.searchBy.value) {
+      void fetchLabOrders(searchParams);
+    } else {
+      console.error('searchParams are not valid', searchParams);
+    }
   }, [fetchLabOrders, getCurrentSearchParamsForPage]);
 
   const didOrdersFetch = labOrders.length > 0;
@@ -168,14 +162,11 @@ export const usePatientLabOrders = (options: {
     }
   }, [fetchLabOrders, getCurrentSearchParamsForPage, didOrdersFetch, page]);
 
-  const deleteOrder = useCallback(
-    async (params: DeleteOrderParams): Promise<boolean> => {
-      const { orderId, encounterId: paramEncounterId } = params;
-      const effectiveEncounterId = paramEncounterId || encounterId;
-
-      if (!orderId) {
-        console.error('Cannot delete lab order: Missing order ID');
-        setError(new Error('Missing lab order ID'));
+  const handleDeleteLabOrder = useCallback(
+    async ({ serviceRequestId }: DeleteLabOrderParams): Promise<boolean> => {
+      if (!serviceRequestId) {
+        console.error('Cannot delete lab order: Missing service request ID');
+        setError(new Error('Missing service request ID'));
         return false;
       }
 
@@ -185,19 +176,12 @@ export const usePatientLabOrders = (options: {
         return false;
       }
 
-      if (!effectiveEncounterId) {
-        console.error('Cannot delete lab order: Missing encounter ID');
-        setError(new Error('Encounter ID is required to delete lab order'));
-        return false;
-      }
-
       setLoading(true);
       setError(null);
 
       try {
         const deleteParams: DeleteLabOrderParams = {
-          labOrderId: orderId,
-          encounterId: effectiveEncounterId,
+          serviceRequestId,
         };
 
         await deleteLabOrder(oystehrZambda, deleteParams);
@@ -220,13 +204,12 @@ export const usePatientLabOrders = (options: {
         setLoading(false);
       }
     },
-    [encounterId, fetchLabOrders, getCurrentSearchParamsForPage, oystehrZambda]
+    [fetchLabOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
   // handle delete dialog
-  const { onDeleteOrder, DeleteOrderDialog } = useDeleteLabOrderDialog({
-    deleteOrder,
-    encounterId,
+  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteLabOrderDialog({
+    deleteOrder: handleDeleteLabOrder,
   });
 
   const updateTask = useCallback(
@@ -255,8 +238,8 @@ export const usePatientLabOrders = (options: {
     setVisitDateFilter,
     fetchLabOrders,
     showPagination,
-    deleteOrder,
-    onDeleteOrder,
+    deleteLabOrder: handleDeleteLabOrder,
+    showDeleteLabOrderDialog,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
     updateTask,

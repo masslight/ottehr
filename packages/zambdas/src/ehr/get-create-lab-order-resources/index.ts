@@ -68,7 +68,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (accounts.length !== 1)
       // there should only be one active account
-      throw new Error('patient must have one account account record to represent a guarantor to order labs');
+      throw new Error('patient must have one active account record to represent a guarantor to order labs');
     const patientAccount = accounts[0];
 
     const isSelfPay = !patientAccount.coverage?.length ? true : false;

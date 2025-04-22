@@ -11,7 +11,7 @@ export const OrderDetailsPage: React.FC = () => {
   const serviceRequestId = urlParams.serviceRequestID as string;
 
   const { labOrders, loading, updateTask } = usePatientLabOrders({
-    serviceRequestId,
+    searchBy: { field: 'serviceRequestId', value: serviceRequestId },
   });
 
   // todo: validate response on the get-lab-orders zambda and use labOrder[0]
@@ -24,16 +24,21 @@ export const OrderDetailsPage: React.FC = () => {
     return <LabOrderLoading />;
   }
 
+  if (!labOrder) {
+    console.error('No lab order found');
+    return null;
+  }
+
   if (status === 'pending' || status === 'sent') {
     return (
-      <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
+      <WithLabBreadcrumbs sectionName={labOrder.testItem}>
         <DetailsWithoutResults labOrder={labOrder} />
       </WithLabBreadcrumbs>
     );
   }
 
   return (
-    <WithLabBreadcrumbs sectionName={labOrder?.typeLab || 'order details'}>
+    <WithLabBreadcrumbs sectionName={labOrder.testItem}>
       <DetailsWithResults labOrder={labOrder} updateTask={updateTask} />
     </WithLabBreadcrumbs>
   );

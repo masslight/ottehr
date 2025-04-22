@@ -1,4 +1,4 @@
-import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
@@ -60,9 +60,12 @@ test('Remove MDM and check missing required fields on review and sign page', asy
   await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
   await telemedProgressNotePage.expectLoaded();
   await telemedProgressNotePage.verifyReviewAndSignButtonDisabled();
-  await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
-  await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
-  await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+  await test.step('Verify missing card is visible and has all required missing fields', async () => {
+    await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.emCodeLink)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.medicalDecisionLink)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink)).toBeVisible();
+  });
   await page.getByTestId(dataTestIds.progressNotePage.primaryDiagnosisLink).click();
   await telemedAssessmentPage.expectDiagnosisDropdown();
   await telemedAssessmentPage.expectEmCodeDropdown();
@@ -85,8 +88,8 @@ test('Search and select diagnoses', async () => {
     );
   });
 
-  let primaryDiagnosisValue;
-  let primaryDiagnosis;
+  let primaryDiagnosisValue: string | null = null;
+  let primaryDiagnosis: Locator | null = null;
   await test.step('Verify primary diagnosis is visible', async () => {
     primaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.primaryDiagnosis);
     await expect(primaryDiagnosis).toBeVisible();
@@ -107,8 +110,8 @@ test('Search and select diagnoses', async () => {
     );
   });
 
-  let secondaryDiagnosis;
-  let secondaryDiagnosisValue;
+  let secondaryDiagnosis: Locator | null = null;
+  let secondaryDiagnosisValue: string | null = null;
   await test.step('Verify secondary diagnosis is visible', async () => {
     secondaryDiagnosis = page.getByTestId(dataTestIds.diagnosisContainer.secondaryDiagnosis);
     await expect(secondaryDiagnosis).toBeVisible();
@@ -247,5 +250,8 @@ test('Add E&M code', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
     await telemedProgressNotePage.expectLoaded();
     await expect(page.getByText(E_M_CODE)).toBeVisible();
+  });
+  await test.step('Verify missing card is not visible', async () => {
+    await expect(page.getByTestId(dataTestIds.progressNotePage.missingCard)).not.toBeVisible();
   });
 });

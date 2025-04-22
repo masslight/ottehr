@@ -1,6 +1,6 @@
 {
   "name": "intake-ui",
-  "version": "1.6.1",
+  "version": "1.6.20",
   "private": true,
   "type": "module",
   "scripts": {
@@ -29,7 +29,7 @@
     "e2e:specs:in-person": "npm run e2e-skeleton ./tests/specs/in-person/ -- --ui",
     "e2e:specs:telemed": "npm run e2e-skeleton ./tests/specs/telemed/ -- --ui",
     "e2e:manual-login": "node ./auth.setup.js",
-    "e2e-skeleton": "env-cmd -f ./env/tests.${ENV}.json playwright test",
+    "e2e-skeleton": "tsc -b tsconfig.node.json && env-cmd -f ./env/tests.${ENV}.json playwright test",
     "setup-test-deps": "node setup-test-deps.js"
   },
   "engines": {

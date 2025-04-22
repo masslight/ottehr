@@ -2550,6 +2550,337 @@
             ]
           },
           {
+            "linkId": "responsible-party-address-as-patient",
+            "text": "Responsible party's address is the same as patient's address",
+            "type": "boolean",
+            "required": false,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-address",
+            "text": "Address",
+            "type": "string",
+            "required": true,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              },
+              {
+                "question": "responsible-party-address-as-patient",
+                "operator": "!=",
+                "answerBoolean": true
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-street-address"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-address-2",
+            "text": "Address line 2 (optional)",
+            "type": "string",
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              },
+              {
+                "question": "responsible-party-address-as-patient",
+                "operator": "!=",
+                "answerBoolean": true
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-street-address-2"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-city",
+            "text": "City",
+            "type": "string",
+            "required": true,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              },
+              {
+                "question": "responsible-party-address-as-patient",
+                "operator": "!=",
+                "answerBoolean": true
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-city"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-state",
+            "text": "State",
+            "type": "choice",
+            "answerOption": [
+              {
+                "valueString": "AL"
+              },
+              {
+                "valueString": "AK"
+              },
+              {
+                "valueString": "AZ"
+              },
+              {
+                "valueString": "AR"
+              },
+              {
+                "valueString": "CA"
+              },
+              {
+                "valueString": "CO"
+              },
+              {
+                "valueString": "CT"
+              },
+              {
+                "valueString": "DE"
+              },
+              {
+                "valueString": "DC"
+              },
+              {
+                "valueString": "FL"
+              },
+              {
+                "valueString": "GA"
+              },
+              {
+                "valueString": "HI"
+              },
+              {
+                "valueString": "ID"
+              },
+              {
+                "valueString": "IL"
+              },
+              {
+                "valueString": "IN"
+              },
+              {
+                "valueString": "IA"
+              },
+              {
+                "valueString": "KS"
+              },
+              {
+                "valueString": "KY"
+              },
+              {
+                "valueString": "LA"
+              },
+              {
+                "valueString": "ME"
+              },
+              {
+                "valueString": "MD"
+              },
+              {
+                "valueString": "MA"
+              },
+              {
+                "valueString": "MI"
+              },
+              {
+                "valueString": "MN"
+              },
+              {
+                "valueString": "MS"
+              },
+              {
+                "valueString": "MO"
+              },
+              {
+                "valueString": "MT"
+              },
+              {
+                "valueString": "NE"
+              },
+              {
+                "valueString": "NV"
+              },
+              {
+                "valueString": "NH"
+              },
+              {
+                "valueString": "NJ"
+              },
+              {
+                "valueString": "NM"
+              },
+              {
+                "valueString": "NY"
+              },
+              {
+                "valueString": "NC"
+              },
+              {
+                "valueString": "ND"
+              },
+              {
+                "valueString": "OH"
+              },
+              {
+                "valueString": "OK"
+              },
+              {
+                "valueString": "OR"
+              },
+              {
+                "valueString": "PA"
+              },
+              {
+                "valueString": "RI"
+              },
+              {
+                "valueString": "SC"
+              },
+              {
+                "valueString": "SD"
+              },
+              {
+                "valueString": "TN"
+              },
+              {
+                "valueString": "TX"
+              },
+              {
+                "valueString": "UT"
+              },
+              {
+                "valueString": "VT"
+              },
+              {
+                "valueString": "VA"
+              },
+              {
+                "valueString": "VI"
+              },
+              {
+                "valueString": "WA"
+              },
+              {
+                "valueString": "WV"
+              },
+              {
+                "valueString": "WI"
+              },
+              {
+                "valueString": "WY"
+              }
+            ],
+            "required": true,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              },
+              {
+                "question": "responsible-party-address-as-patient",
+                "operator": "!=",
+                "answerBoolean": true
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-state"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
+              }
+            ]
+          },
+          {
+            "linkId": "responsible-party-zip",
+            "text": "ZIP",
+            "type": "string",
+            "required": true,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              },
+              {
+                "question": "responsible-party-address-as-patient",
+                "operator": "!=",
+                "answerBoolean": true
+              }
+            ],
+            "enableBehavior": "all",
+            "extension": [
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
+                "valueString": "ZIP"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/input-width",
+                "valueString": "s"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-zip"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
+              }
+            ]
+          },
+          {
             "linkId": "responsible-party-number",
             "text": "Phone number (optional)",
             "type": "string",
@@ -2638,7 +2969,7 @@
         "item": [
           {
             "linkId": "hipaa-acknowledgement",
-            "text": "I have reviewed and accept [HIPAA Acknowledgement](/hippa_notice_template.pdf)",
+            "text": "I have reviewed and accept [HIPAA Acknowledgement](/hipaa_notice_template.pdf)",
             "type": "boolean",
             "required": true
           },

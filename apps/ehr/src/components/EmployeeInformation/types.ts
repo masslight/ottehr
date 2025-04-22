@@ -1,11 +1,14 @@
 import { Control, UseFormGetValues, UseFormSetValue } from 'react-hook-form';
 import { User, PractitionerLicense } from 'utils';
+import { DateTime } from 'luxon';
 
 export interface FormErrors {
   submit: boolean;
   roles: boolean;
   qualification: boolean;
   state: boolean;
+  number: boolean;
+  date: boolean;
   duplicateLicense: boolean;
   npi: boolean;
   phoneNumber: boolean;
@@ -16,6 +19,7 @@ export interface EditEmployeeInformationProps {
   existingUser: User;
   isActive: boolean | undefined;
   licenses: PractitionerLicense[];
+  getUserAndUpdatePage: () => Promise<void>;
 }
 
 export interface EmployeeForm {
@@ -28,6 +32,8 @@ export interface EmployeeForm {
   npi: string;
   newLicenseState?: string;
   newLicenseCode?: string;
+  newLicenseNumber?: string;
+  newLicenseExpirationDate?: DateTime;
 }
 
 export interface ProviderDetailsProps {

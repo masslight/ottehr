@@ -1,8 +1,7 @@
 import { ZambdaInput } from '../../shared';
 
 export interface DeleteLabOrderParams {
-  labOrderId: string;
-  encounterId: string;
+  serviceRequestId: string;
   secrets: any;
 }
 
@@ -11,19 +10,14 @@ export function validateRequestParameters(input: ZambdaInput): DeleteLabOrderPar
     throw new Error('No request body provided');
   }
 
-  const { labOrderId, encounterId } = JSON.parse(input.body);
+  const { serviceRequestId } = JSON.parse(input.body);
 
-  if (!labOrderId) {
-    throw new Error('missing required parameter: labOrderId');
-  }
-
-  if (!encounterId) {
-    throw new Error('missing required parameter: encounterId');
+  if (!serviceRequestId) {
+    throw new Error('missing required parameter: serviceRequestId');
   }
 
   return {
-    labOrderId,
-    encounterId,
+    serviceRequestId,
     secrets: input.secrets,
   };
 }

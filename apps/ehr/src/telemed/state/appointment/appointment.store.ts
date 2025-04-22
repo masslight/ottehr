@@ -6,6 +6,7 @@ type AppointmentState = {
   appointment: Appointment | undefined;
   patient: Patient | undefined;
   location: Location | undefined;
+  locationVirtual: Location | undefined;
   practitioner?: Practitioner;
   encounter: Encounter;
   questionnaireResponse: QuestionnaireResponse | undefined;
@@ -27,6 +28,7 @@ const APPOINTMENT_INITIAL: AppointmentState = {
   appointment: undefined,
   patient: undefined,
   location: undefined,
+  locationVirtual: undefined,
   practitioner: undefined,
   encounter: {} as Encounter,
   questionnaireResponse: undefined,

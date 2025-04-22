@@ -1,12 +1,12 @@
 import { ReactElement } from 'react';
-import { Box, Button, Typography, Divider, useTheme } from '@mui/material';
-import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
-import { LabOrderDTO, LabOrderResultDetails } from 'utils';
-import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
+import { Box, Typography, useTheme } from '@mui/material';
+import { LabOrderDetailedPageDTO, LabOrderResultDetails } from 'utils';
 import { FinalCardView } from './FinalCardView';
+import { PrelimCardView } from './PrelimCardView';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface ResultItemProps {
-  labOrder: LabOrderDTO;
+  labOrder: LabOrderDetailedPageDTO;
   onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
 }
@@ -34,10 +34,10 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
           }}
         >
           <span>{resultDetails.testType}:</span>
-          <span>{resultDetails.testName}</span>
+          <span>{resultDetails.testItem}</span>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
-          <LabTableStatusChip status={resultDetails.labStatus} />
+          <LabsOrderStatusChip status={resultDetails.labStatus} />
           {labOrder.isPSC && (
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
               PSC
@@ -46,24 +46,17 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
         </Box>
       </Box>
 
-      <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>
-        <Box sx={{ padding: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<BiotechOutlinedIcon />}
-            onClick={() => null} // todo: will be released in the future
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-            disabled={true}
-          >
-            View Results
-          </Button>
-        </Box>
-
-        <Divider />
-
+      {resultDetails.resultType === 'final' && (
         <FinalCardView labStatus={resultDetails.labStatus} onMarkAsReviewed={onMarkAsReviewed} />
-        {/* todo: use PrelimCardView for prelim case (apps/ehr/src/features/external-labs/components/details/PrelimCardView.tsx)*/}
-      </Box>
+      )}
+
+      {resultDetails.resultType === 'preliminary' && (
+        <PrelimCardView
+          receivedDate={resultDetails.receivedDate}
+          reviewedDate={resultDetails.reviewedDate}
+          onPrelimView={() => null}
+        />
+      )}
     </div>
   );
 };

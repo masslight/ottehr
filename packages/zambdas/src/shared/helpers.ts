@@ -270,6 +270,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   return parsedExtValue;
 }
 
+// todo: this needs to take a schedule.
 export function getLocationInformation(
   oystehr: Oystehr,
   scheduleResource: Location | Practitioner | HealthcareService,

@@ -1,5 +1,4 @@
-import { describe, it, expect, assert } from 'vitest';
-import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import { BatchInputPostRequest } from '@oystehr/sdk';
 import {
   Account,
   Coverage,
@@ -9,30 +8,31 @@ import {
   QuestionnaireResponse,
   RelatedPerson,
 } from 'fhir/r4b';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE, isValidUUID, flattenItems } from 'utils';
-import { v4 as uuidv4 } from 'uuid';
 import { DateTime } from 'luxon';
-import { BatchInputPostRequest } from '@oystehr/sdk';
+import { COVERAGE_MEMBER_IDENTIFIER_BASE, flattenItems, INSURANCE_PLAN_PAYER_META_TAG_CODE, isValidUUID } from 'utils';
+import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import { v4 as uuidv4 } from 'uuid';
+import { assert, describe, expect, it } from 'vitest';
+import {
+  createAccount,
+  createContainedGuarantor,
+  extractAccountGuarantor,
+  getAccountOperations,
+  GetAccountOperationsOutput,
+  getCoverageResources,
+  getCoverageUpdateResourcesFromUnbundled,
+  getPatientAddressPatchOps,
+  getPrimaryPolicyHolderFromAnswers,
+  getSecondaryPolicyHolderFromAnswers,
+  resolveCoverageUpdates,
+  resolveGuarantor,
+} from '../../../../ehr/shared/harvest';
 import {
   expectedAccountGuarantorFromQR1 as rawAGQR1,
   expectedPrimaryPolicyHolderFromQR1 as rawPPHQR1,
   expectedSecondaryPolicyHolderFromQR1 as rawSPHQR1,
 } from './data/expected-coverage-resources-qr1';
 import { fillReferences } from './helpers';
-import {
-  getCoverageResources,
-  getPatientAddressPatchOps,
-  getPrimaryPolicyHolderFromAnswers,
-  getSecondaryPolicyHolderFromAnswers,
-  extractAccountGuarantor,
-  createContainedGuarantor,
-  createAccount,
-  resolveCoverageUpdates,
-  resolveGuarantor,
-  getAccountOperations,
-  getCoverageUpdateResourcesFromUnbundled,
-  GetAccountOperationsOutput,
-} from '../../../../ehr/shared/harvest';
 
 const InPersonQuestionnaire = InPersonQuestionnaireFile.resource;
 
@@ -75,6 +75,14 @@ describe('Harvest Module', () => {
         birthDate: '1983-02-23',
         gender: 'female',
         patient: { reference: `Patient/${newPatient1.id}` },
+        address: [
+          {
+            city: 'fakeplace',
+            line: ['123 test lane'],
+            postalCode: '11111',
+            state: 'NY',
+          },
+        ],
         relationship: [
           {
             coding: [
@@ -135,6 +143,7 @@ describe('Harvest Module', () => {
   it('should extract primary policy holder information from answers', () => {
     const expectedPrimaryPolicyHolder = {
       firstName: 'Barnabas',
+      middleName: 'Thaddeus',
       lastName: 'Picklesworth',
       dob: '1982-02-23',
       birthSex: 'Male',
@@ -156,6 +165,7 @@ describe('Harvest Module', () => {
   it('should extract secondary policy holder information from answers', () => {
     const expectedSecondaryPolicyHolder = {
       firstName: 'Jennifer',
+      middleName: 'Celeste',
       lastName: 'Picklesworth',
       dob: '1983-02-23',
       birthSex: 'Female',
@@ -178,6 +188,12 @@ describe('Harvest Module', () => {
       firstName: 'Jane',
       lastName: 'Doe',
       dob: '1983-02-23',
+      address: {
+        city: 'fakeplace',
+        line: ['123 test lane'],
+        postalCode: '11111',
+        state: 'NY',
+      },
       relationship: 'Parent',
       birthSex: 'Female',
       number: '(555) 987-6543',
@@ -475,7 +491,7 @@ describe('Harvest Module', () => {
       id: uuidv4(),
       name: [
         {
-          given: ['Barnabas'],
+          given: ['Barnabas', 'Thaddeus'],
           family: 'Picklesworth',
         },
       ],
@@ -559,7 +575,7 @@ describe('Harvest Module', () => {
       id: uuidv4(),
       name: [
         {
-          given: ['Jennifer'],
+          given: ['Jennifer', 'Celeste'],
           family: 'Picklesworth',
         },
       ],
@@ -2009,7 +2025,7 @@ describe('Harvest Module', () => {
         id: uuidv4(),
         name: [
           {
-            given: ['Barnabas'],
+            given: ['Barnabas', 'Thaddeus'],
             family: 'Picklesworth',
           },
         ],
@@ -2137,7 +2153,7 @@ describe('Harvest Module', () => {
         id: uuidv4(),
         name: [
           {
-            given: ['Barnabas'],
+            given: ['Barnabas', 'Thaddeus'],
             family: 'Picklesworth',
           },
         ],
@@ -2250,7 +2266,7 @@ describe('Harvest Module', () => {
         id: uuidv4(),
         name: [
           {
-            given: ['Barnabas'],
+            given: ['Barnabas', 'Thaddeus'],
             family: 'Picklesworth',
           },
         ],
@@ -2881,6 +2897,11 @@ const questionnaireResponse1: QuestionnaireResponse = {
         },
         {
           linkId: 'policy-holder-middle-name',
+          answer: [
+            {
+              valueString: 'Thaddeus',
+            },
+          ],
         },
         {
           linkId: 'policy-holder-last-name',
@@ -3033,6 +3054,11 @@ const questionnaireResponse1: QuestionnaireResponse = {
             },
             {
               linkId: 'policy-holder-middle-name-2',
+              answer: [
+                {
+                  valueString: 'Celeste',
+                },
+              ],
             },
             {
               linkId: 'policy-holder-last-name-2',
@@ -3169,6 +3195,41 @@ const questionnaireResponse1: QuestionnaireResponse = {
           ],
         },
         {
+          linkId: 'responsible-party-address',
+          answer: [
+            {
+              valueString: '123 test lane',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-address-2',
+        },
+        {
+          linkId: 'responsible-party-city',
+          answer: [
+            {
+              valueString: 'fakeplace',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-state',
+          answer: [
+            {
+              valueString: 'NY',
+            },
+          ],
+        },
+        {
+          linkId: 'responsible-party-zip',
+          answer: [
+            {
+              valueString: '11111',
+            },
+          ],
+        },
+        {
           linkId: 'responsible-party-number',
           answer: [
             {
@@ -3194,7 +3255,7 @@ const insurancePlans1: InsurancePlan[] = [
     meta: {
       tag: [
         {
-          code: 'insurance-payer-plan',
+          code: INSURANCE_PLAN_PAYER_META_TAG_CODE,
         },
       ],
       versionId: 'dd91938c-7dac-4713-80bf-d813e4e798e5',
@@ -3255,7 +3316,7 @@ const insurancePlans1: InsurancePlan[] = [
     meta: {
       tag: [
         {
-          code: 'insurance-payer-plan',
+          code: INSURANCE_PLAN_PAYER_META_TAG_CODE,
         },
       ],
       versionId: 'b8833d6b-9530-4db2-af23-ed18ede74c56',
