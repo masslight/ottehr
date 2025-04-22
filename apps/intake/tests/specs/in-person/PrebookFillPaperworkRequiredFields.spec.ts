@@ -1,5 +1,4 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
@@ -38,7 +37,7 @@ test.afterAll(async () => {
   const env = process.env.ENV;
   for (const appointment of appointmentIds) {
     console.log(`Deleting ${appointment} on env: ${env}`);
-    await cleanAppointment(appointment, env!);
+    // await cleanAppointment(appointment, env!);
   }
 });
 
