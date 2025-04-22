@@ -3,6 +3,7 @@ import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import {
+  getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
   getConsentStepAnswers,
   getContactInformationAnswers,
@@ -11,7 +12,6 @@ import {
   getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
-  getQuestionnaireResponseByLinkId,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
@@ -19,7 +19,6 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
-import { getPatientConditionPhotosStepAnswers } from 'test-utils';
 import { describe } from 'vitest';
 
 async function checkDropdownHasOptionAndSelectIt(page: Page, dropdownTestId: string, pattern: string): Promise<void> {
@@ -501,12 +500,10 @@ test.describe('Additional questions', () => {
     }
   });
 
-  // todo: can't test it for now because i have no values for additional questions in questionnaire
-  test.skip('Should check provider has the same answers as Patient provided. Patient answered', async () => {
+  test('Should check provider has the same answers as Patient provided. Patient answered', async () => {
+    const answers = getAdditionalQuestionsAnswers().item;
     for (const question of ADDITIONAL_QUESTIONS) {
-      const answer =
-        getQuestionnaireResponseByLinkId(question.field, resourceHandler.questionnaireResponse)?.answer?.[0]
-          ?.valueString ?? '';
+      const answer = answers?.find((item) => item.linkId === question.field)?.answer?.[0]?.valueString ?? '';
       await expect(
         page
           .getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field))
@@ -514,64 +511,32 @@ test.describe('Additional questions', () => {
       ).toBeVisible();
     }
   });
-
-  test('Update answers', async () => {
-    for (const question of ADDITIONAL_QUESTIONS) {
-      const questionRadioLocator = page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(question.field))
-        .locator('input[value=true]');
-      await questionRadioLocator.click();
-      await expect(questionRadioLocator).toBeEnabled();
-    }
-  });
-
-  test('Updated answers appears correctly on Review&Sign tab', async () => {
-    await page.reload();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
-
-    for (const question of ADDITIONAL_QUESTIONS) {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field))).toHaveText(
-        'Yes'
-      );
-    }
-  });
 });
 
-describe("Additional questions. Check cases where patient didn't answered on additional questions", async () => {
-  const resourceHandlerWithoutAdditionalAnswers = new ResourceHandler(
-    'telemed',
-    async ({ patientInfo, appointmentId, authToken, zambdaUrl, projectId }) => {
-      const patientConditionPhotosStepAnswers = await getPatientConditionPhotosStepAnswers({
-        appointmentId,
-        authToken,
-        zambdaUrl,
-        projectId,
-        fileName: 'Landscape_1.jpg',
-      });
-      return [
-        getContactInformationAnswers({
-          firstName: patientInfo.patient.firstName,
-          lastName: patientInfo.patient.lastName,
-          birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
-          email: patientInfo.patient.email,
-          phoneNumber: patientInfo.patient.phoneNumber,
-          birthSex: patientInfo.patient.sex,
-        }),
-        getPatientDetailsStepAnswers({}),
-        getMedicationsStepAnswers(),
-        getAllergiesStepAnswers(),
-        getMedicalConditionsStepAnswers(),
-        getSurgicalHistoryStepAnswers(),
-        getPaymentOptionSelfPayAnswers(),
-        getResponsiblePartyStepAnswers({}),
-        getSchoolWorkNoteStepAnswers(),
-        getConsentStepAnswers({}),
-        getInviteParticipantStepAnswers(),
-        patientConditionPhotosStepAnswers,
-      ];
-    }
-  );
+test.describe("Additional questions. Check cases where patient didn't answered on additional questions", async () => {
+  const resourceHandlerWithoutAdditionalAnswers = new ResourceHandler('telemed', async ({ patientInfo }) => {
+    return [
+      getContactInformationAnswers({
+        firstName: patientInfo.patient.firstName,
+        lastName: patientInfo.patient.lastName,
+        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
+        email: patientInfo.patient.email,
+        phoneNumber: patientInfo.patient.phoneNumber,
+        birthSex: patientInfo.patient.sex,
+      }),
+      getPatientDetailsStepAnswers({}),
+      getMedicationsStepAnswers(),
+      getAllergiesStepAnswers(),
+      getMedicalConditionsStepAnswers(),
+      getSurgicalHistoryStepAnswers(),
+      getPaymentOptionSelfPayAnswers(),
+      getResponsiblePartyStepAnswers({}),
+      getSchoolWorkNoteStepAnswers(),
+      getConsentStepAnswers({}),
+      getInviteParticipantStepAnswers(),
+    ];
+  });
+
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
@@ -597,6 +562,30 @@ describe("Additional questions. Check cases where patient didn't answered on add
       await expect(patientAnswer).toBeVisible();
       await expect(patientAnswer).not.toHaveText('Yes');
       await expect(patientAnswer).not.toHaveText('No');
+    }
+  });
+
+  test('Update answers', async () => {
+    // here we are setting all answers to "Yes"
+    for (const question of ADDITIONAL_QUESTIONS) {
+      const questionRadioLocator = page
+        .getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(question.field))
+        .locator('input[value=true]');
+      await questionRadioLocator.click();
+      await expect(questionRadioLocator).toBeEnabled();
+    }
+  });
+
+  test('Updated answers appears correctly on Review&Sign tab', async () => {
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)).toBeVisible();
+    await page.reload();
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+
+    for (const question of ADDITIONAL_QUESTIONS) {
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field))).toHaveText(
+        'Yes'
+      );
     }
   });
 });
@@ -633,9 +622,13 @@ test.describe('Chief complaint', () => {
   };
 
   test('Should add HPI provider notes and ROS', async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).fill(providerNote);
+    await page
+      .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
+      .locator('textarea')
+      .first()
+      .fill(providerNote);
     await waitUntilChartDataReturns();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).fill(ROS);
+    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
     await waitUntilChartDataReturns();
   });
 
@@ -645,18 +638,20 @@ test.describe('Chief complaint', () => {
     await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
 
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabChiefComplaintContainer)).toHaveText(
-      providerNote
+      new RegExp(providerNote)
     );
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabRosContainer)).toHaveText(ROS);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabRosContainer)).toHaveText(new RegExp(ROS));
   });
 
   test('Should remove HPI provider notes and ROS', async () => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)).toBeVisible();
 
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).fill('');
+    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
+    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
     await waitUntilChartDataReturns();
-    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).fill('');
+    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
+    await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
     await waitUntilChartDataReturns();
   });
 
