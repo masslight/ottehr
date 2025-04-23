@@ -29,8 +29,6 @@ export const PrimaryCareContainer: FC = () => {
                   const checked = (e.target as HTMLInputElement).checked;
                   setValue(FormFields.active.key, !checked, { shouldDirty: true });
                   if (checked) {
-                    console.log('checked');
-
                     const pcpFields = [
                       FormFields.firstName.key,
                       FormFields.lastName.key,
