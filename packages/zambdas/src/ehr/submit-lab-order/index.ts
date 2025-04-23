@@ -1,5 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createFilesDocumentReferences, getPatchBinary, isValidUUID, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
+import {
+  createFilesDocumentReferences,
+  getPatchBinary,
+  isValidUUID,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -305,9 +311,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       resourceType: 'ServiceRequest',
       id: serviceRequestID,
     });
-    const orderID = serviceRequestTemp.identifier?.find(
-      (item) => item.system === 'https://identifiers.fhir.oystehr.com/lab-order-placer-id'
-    )?.value;
+    const orderID = serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+      ?.value;
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const pdfDetail = await createExternalLabsOrderFormPDF(

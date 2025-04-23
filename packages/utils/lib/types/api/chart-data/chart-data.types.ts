@@ -35,6 +35,7 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
+import { EncounterLabResult } from '../lab';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -61,6 +62,7 @@ export interface ChartDataFields {
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
+  labResults?: EncounterLabResult;
 }
 
 export type ChartDataFieldsKeys = keyof ChartDataFields;
