@@ -1,12 +1,13 @@
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import { TabContext, TabList } from '@mui/lab';
-import { Box, Tab, Typography } from '@mui/material';
+import { Box, SvgIcon, Tab, Typography } from '@mui/material';
 import React, { FC } from 'react';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } from '../../assets';
 import { useAppointmentStore } from '../../state';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
+import ottehrDarkBlue from '../../../assets/ottehr-dark-blue.svg';
 
 export const AppointmentTabsHeader: FC = () => {
   const { currentTab } = getSelectors(useAppointmentStore, ['currentTab']);
@@ -73,7 +74,7 @@ export const AppointmentTabsHeader: FC = () => {
         <Tab
           label={
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <ContractEditIcon />
+              <img src={ottehrDarkBlue} style={{ width: '24px' }} />
               <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr IA</Typography>
             </Box>
           }

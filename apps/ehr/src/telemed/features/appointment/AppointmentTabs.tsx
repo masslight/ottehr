@@ -51,9 +51,11 @@ export const AppointmentTabs: FC = () => {
       <TabPanel value={TelemedAppointmentVisitTabs.sign} sx={{ p: 0 }}>
         <ReviewTab />
       </TabPanel>
-      <TabPanel value={TelemedAppointmentVisitTabs.ottehrai} sx={{ p: 0 }}>
-        <OttehrAi />
-      </TabPanel>
+      {chartData?.aiChat != null ? (
+        <TabPanel value={TelemedAppointmentVisitTabs.ottehrai} sx={{ p: 0 }}>
+          <OttehrAi />
+        </TabPanel>
+      ) : undefined}
     </TabContext>
   );
 };
