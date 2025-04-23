@@ -7,7 +7,7 @@ import { BoldPurpleInputLabel, useUCZambdaClient } from 'ui-components';
 import {
   BookableItem,
   CreateSlotParams,
-  getAppointmentDurationFromSlot,
+  //getAppointmentDurationFromSlot,
   GetScheduleResponse,
   getServiceModeFromSlot,
   ScheduleType,
@@ -177,7 +177,7 @@ const PrebookVisit: FC = () => {
         scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
         startISO: slot.start,
         serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
-        lengthInMinutes: getAppointmentDurationFromSlot(slot),
+        lengthInMinutes: 15, // todo: test for this getAppointmentDurationFromSlot(slot),
         status: 'busy-tentative',
         walkin: false,
       };

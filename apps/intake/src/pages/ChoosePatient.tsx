@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useAuth0 } from '@auth0/auth0-react';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
@@ -122,7 +121,7 @@ const WelcomeBack = (): JSX.Element => {
     }
   }, [timezone, zambdaClient]);
 
-  const { todayAppointments, tomorrowAppointments, showCheckIn } = useMemo(() => {
+  const { todayAppointments, showCheckIn } = useMemo(() => {
     let todayAppointments: Appointment[] = [];
     let tomorrowAppointments: Appointment[] = [];
     let showCheckIn = false;

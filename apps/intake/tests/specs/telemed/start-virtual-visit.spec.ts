@@ -1,6 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
-import { chooseJson, CreateAppointmentUCTelemedResponse } from 'utils';
+import { chooseJson, CreateAppointmentResponse, CreateAppointmentUCTelemedResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { UploadDocs } from '../../utils/UploadDocs';
 import { Locators } from '../../utils/locators';
@@ -36,6 +36,7 @@ test.describe('Start virtual visit with required information only', async () => 
   let paperwork: PaperworkTelemed;
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
+  let slotId: string;
 
   let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>>;
   let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
@@ -53,10 +54,16 @@ test.describe('Start virtual visit with required information only', async () => 
     telemedFlow = new TelemedVisitFlow(page);
 
     page.on('response', async (response) => {
-      if (response.url().includes('/telemed-create-appointment/')) {
-        const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
+      if (response.url().includes('/create-appointment/')) {
+        const { resources } = chooseJson(await response.json()) as CreateAppointmentResponse;
+        const appointment = resources?.appointment;
+        const appointmentId = appointment?.id;
+        const slotIdFromAppt = appointment?.slot?.[0]?.reference?.split('/')[1];
         if (appointmentId && !appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
+        }
+        if (slotIdFromAppt) {
+          slotId = slotIdFromAppt;
         }
       }
     });
@@ -71,9 +78,9 @@ test.describe('Start virtual visit with required information only', async () => 
     await page.goto('/home');
 
     await telemedFlow.selectVisitAndContinue();
-    await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
     await telemedFlow.selectTimeLocationAndContinue();
+    await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
     const patientData = await telemedFlow.fillNewPatientDataAndContinue();
     patientInfo = patientData;
@@ -83,13 +90,16 @@ test.describe('Start virtual visit with required information only', async () => 
       randomYear: patientData.dob.y,
     };
 
+    await clickContinueButton();
+
     await paperwork.fillAndCheckContactInformation(patientInfo);
 
     await clickContinueButton();
   });
 
   test('Should display new patient in patients list', async () => {
-    await page.goto('/select-patient');
+    expect(slotId).toBeDefined();
+    await page.goto(`/book/${slotId}/patients`);
 
     const locator = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`).locator('..');
 
@@ -100,11 +110,15 @@ test.describe('Start virtual visit with required information only', async () => 
     await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
       timeout: 10000,
     });
+    /*
+    // telemed patient list included bithday but in person version does not
+    // if product wants to add birthday to the patient list we can uncomment this code
     await expect(
       locator.getByText(
         `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
       )
     ).toBeVisible();
+    */
   });
 
   // TODO: Fix the test, it should not be dependent on some resources that are pre-created at some moment

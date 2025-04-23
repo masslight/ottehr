@@ -38,7 +38,6 @@ import {
 import PastVisits from './pages/PastVisits';
 import VisitDetails from './pages/VisitDetails';
 import TelemedReviewPaperwork from './telemed/pages/ReviewPaperwork';
-import TelemedSelectPatient from './telemed/pages/SelectPatient';
 import UserFlowRoot from './telemed/pages/UserFlowRoot';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
@@ -161,12 +160,6 @@ export const intakeFlowPageRoute = {
     path: `${visitBasePath}/ai-interview`,
     getPage: () => <AIInterview />,
   }, // IP
-
-  // telemed
-  TelemedSelectPatient: {
-    path: '/select-patient',
-    getPage: () => <TelemedSelectPatient />,
-  }, // ET
   TelemedGetReadyForVisit: {
     path: '/paperwork/get-ready-for-the-visit',
     getPage: () => <GetReadyForVisit />,
@@ -332,10 +325,6 @@ function App(): JSX.Element {
               >
                 <Route path="/" element={<UserFlowRoot />} />
                 <Route path={intakeFlowPageRoute.Homepage.path} element={intakeFlowPageRoute.Homepage.getPage()} />
-                <Route
-                  path={intakeFlowPageRoute.TelemedSelectPatient.path}
-                  element={intakeFlowPageRoute.TelemedSelectPatient.getPage()}
-                />
                 <Route path={intakeFlowPageRoute.PastVisits.path} element={intakeFlowPageRoute.PastVisits.getPage()} />
                 <Route
                   path={intakeFlowPageRoute.VisitDetails.path}

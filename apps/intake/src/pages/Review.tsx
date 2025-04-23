@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, generatePath, useLocation, useNavigate } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm, useUCZambdaClient } from 'ui-components';
-import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, VisitType } from 'utils';
+import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, ServiceMode, VisitType } from 'utils';
 import { ottehrApi } from '../api';
 import { PageContainer } from '../components';
 import { useIntakeCommonStore } from '../features/common';
@@ -35,6 +35,7 @@ const Review = (): JSX.Element => {
     slotId,
     scheduleOwnerName,
     timezone,
+    serviceMode,
     setPatientInfo,
     completeBooking,
   } = useBookingContext();
@@ -44,6 +45,14 @@ const Review = (): JSX.Element => {
   const { pathname } = useLocation();
 
   const { t } = useTranslation();
+
+  const getNextPath = (appointmentId: string): string => {
+    if (serviceMode === ServiceMode.virtual && visitType === VisitType.WalkIn) {
+      return `/paperwork/${appointmentId}`;
+    } else {
+      return `/visit/${appointmentId}`;
+    }
+  };
 
   const zambdaClient = useUCZambdaClient({ tokenless: false });
   /*const { selectedSlotTimezoneAdjusted, selectedSlot } = useMemo(() => {
@@ -64,6 +73,7 @@ const Review = (): JSX.Element => {
   }, [selectedLocation?.timezone]);*/
 
   const onSubmit = async (): Promise<void> => {
+    console.log('submit reached!!!', unconfirmedDateOfBirth, patientInfo);
     try {
       if (!patientInfo) {
         console.log('no patient info error');
@@ -81,26 +91,13 @@ const Review = (): JSX.Element => {
       const res = await ottehrApi.createAppointment(zambdaClient, {
         slotId,
         patient: patientInfo,
-        unconfirmedDateOfBirth: unconfirmedDateOfBirth,
+        unconfirmedDateOfBirth,
         language: 'en', // replace with i18n.language to enable
       });
       const { appointment } = res;
       const fhirAppointmentId = appointment;
 
-      // Track QRS Booking conversion event in Google Tag Manager
-      // https://developers.google.com/tag-platform/tag-manager/datalayer#how_data_layer_information_is_processed
-      try {
-        if (!(window as any).dataLayer) {
-          throw new Error('no data layer found');
-        }
-        (window as any).dataLayer.push({ event: 'conversion_event_book_appointment' });
-      } catch (err) {
-        console.error('failed to track booking conversion');
-        console.log(err, (window as any).dataLayer);
-        safelyCaptureException(err);
-      }
-
-      navigate(`/visit/${fhirAppointmentId}`);
+      navigate(getNextPath(fhirAppointmentId));
       completeBooking();
     } catch (err) {
       if ((err as APIError)?.code === APPOINTMENT_CANT_BE_IN_PAST_ERROR.code) {

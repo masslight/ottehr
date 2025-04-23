@@ -59,15 +59,18 @@ const Homepage = (): JSX.Element => {
     navigate(`${intakeFlowPageRoute.WaitingRoom.path}?appointment_id=${appointmentID}`);
   };
 
+  // todo: investigate how to move this functionality
   const handleContinueRequest = (): void => {
     useAppointmentStore.setState({ appointmentDate: activeAppointment?.start, appointmentID });
-    navigate(`${intakeFlowPageRoute.TelemedSelectPatient.path}?flow=continueVisitRequest`, {
+    // was telemedSelectPatient
+    navigate(`${intakeFlowPageRoute.ChoosePatient.path}?flow=continueVisitRequest`, {
       state: { patientId: activeAppointment?.patient?.id },
     });
   };
 
   const handlePastVisits = (): void => {
-    navigate(`${intakeFlowPageRoute.TelemedSelectPatient.path}?flow=pastVisits`);
+    // was telemedSelectPatient
+    navigate(`${intakeFlowPageRoute.ChoosePatient.path}?flow=pastVisits`);
   };
 
   const handleContactSupport = (): void => {

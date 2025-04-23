@@ -1,25 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useAuth0 } from '@auth0/auth0-react';
-import { Box, Button, CircularProgress, Divider, Typography, useTheme } from '@mui/material';
+import { CircularProgress, Typography } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Link,
-  Navigate,
-  Outlet,
-  generatePath,
-  useLocation,
-  useNavigate,
-  useOutletContext,
-  useParams,
-} from 'react-router-dom';
-import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
-import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import { Navigate, Outlet, generatePath, useLocation, useOutletContext, useParams } from 'react-router-dom';
+import { ErrorDialog, ErrorDialogConfig } from 'ui-components';
+import { useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { PatientInfo, ServiceMode, TIMEZONES, Timezone, VisitType, getSelectors } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
-import { BOOKING_SLOT_ID_PARAM, bookingBasePath, intakeFlowPageRoute } from '../App';
+import { BOOKING_SLOT_ID_PARAM, bookingBasePath } from '../App';
 import { PageContainer } from '../components';
 import { PatientInfoInProgress } from '../features/patients/types';
 import { useQuery } from 'react-query';
@@ -116,10 +106,10 @@ export const useBookingContext = (): BookAppointmentContext => {
   };
 };
 
-interface CustomContainerText {
+/*interface CustomContainerText {
   title: string;
   subtext?: string;
-}
+}i*/
 
 const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): boolean => {
   // review is last step but we detect on submit instead so redirect doesnt jump
@@ -148,10 +138,10 @@ const BookingHome: FC = () => {
   const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
 
   const { pathname } = useLocation();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
   const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
-  const [pageNotFound, setPageNotFound] = useState(false);
+  const [pageNotFound, _setPageNotFound] = useState(false);
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const { isAuthenticated, isLoading: authIsLoading } = useAuth0();
   const { t } = useTranslation();
@@ -250,7 +240,7 @@ const BookingHome: FC = () => {
     setUnconfirmedDateOfBirth,
     completeBooking,
   ]);
-  const walkinOpen = outletContext?.walkinOpen ?? false;
+  // const walkinOpen = outletContext?.walkinOpen ?? false;
 
   useEffect(() => {
     if (!isAuthenticated && !authIsLoading) {

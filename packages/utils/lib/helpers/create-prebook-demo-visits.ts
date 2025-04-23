@@ -1,15 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import {
-  Address,
-  Appointment,
-  Location,
-  Patient,
-  Practitioner,
-  QuestionnaireResponseItem,
-  Schedule,
-  Slot,
-} from 'fhir/r4b';
+import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import {
@@ -326,7 +317,7 @@ const generateRandomPatientInfo = async (
   serviceMode: ServiceMode,
   phoneNumber?: string,
   demoData?: AppointmentData,
-  selectedLocationId?: string
+  _selectedLocationId?: string
 ): Promise<CreateAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
@@ -372,7 +363,7 @@ const generateRandomPatientInfo = async (
 
   const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
   const activeOffices = allOffices.filter((item) => item.status === 'active');
-  const practitionersTemp = (
+  /*const practitionersTemp = (
     await oystehr.fhir.search<Practitioner>({
       resourceType: 'Practitioner',
       params: [
@@ -381,17 +372,22 @@ const generateRandomPatientInfo = async (
       ],
     })
   ).unbundle();
+  */
 
   const randomLocationIndex = Math.floor(Math.random() * activeOffices.length);
   const randomLocationId = activeOffices[randomLocationIndex].id;
   const randomTelemedLocationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id;
-  const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
+  // const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
   const matchingRandomSchedule = allSchedules.find((schedule) => {
     const scheduleOwner = schedule.actor?.[0]?.reference;
     if (scheduleOwner) {
       const [type, id] = scheduleOwner.split('/');
-      return type === 'Location' && id === randomLocationId;
+      if (serviceMode === 'virtual') {
+        return type === 'Location' && id === randomTelemedLocationId;
+      } else {
+        return type === 'Location' && id === randomLocationId;
+      }
     }
     return false;
   });

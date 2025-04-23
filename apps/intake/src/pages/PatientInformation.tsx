@@ -118,10 +118,40 @@ const PatientInformation = (): JSX.Element => {
         {
           type: 'Date',
           name: 'dateOfBirth',
-          label: "Patient's date of birth",
-          defaultValue: patientInfo?.dateOfBirth,
+          label: t('aboutPatient.birthDate.label'),
           required: patientInfo?.newPatient,
           hidden: !patientInfo?.newPatient,
+          fieldMap: {
+            day: 'dobDay',
+            month: 'dobMonth',
+            year: 'dobYear',
+          },
+          fields: [
+            {
+              type: 'Date Year',
+              name: 'dobYear',
+              label: t('aboutPatient.birthDate.labelYear'),
+              defaultValue: patientInfo?.dobYear ?? defaultDateComponents.year,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+            {
+              type: 'Date Month',
+              name: 'dobMonth',
+              label: t('aboutPatient.birthDate.labelMonth'),
+              defaultValue: patientInfo?.dobMonth ?? defaultDateComponents.month,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+            {
+              type: 'Date Day',
+              name: 'dobDay',
+              label: t('aboutPatient.birthDate.labelDay'),
+              defaultValue: patientInfo?.dobDay ?? defaultDateComponents.day,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+          ],
         },
         {
           type: 'Select',
