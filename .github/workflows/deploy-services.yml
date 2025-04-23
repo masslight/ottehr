@@ -57,7 +57,7 @@ jobs:
         run: >
           'echo "Environment: ${{ github.event.inputs.environment }}"'
           'echo "Branch: ${{ github.ref }}"'
-          'echo "Increment Version: ${{ github.event.inputs.incrementVersion ? github.event.inputs.versionType : "no" }}"'
+          'echo "Increment Version: ${{ if [[ github.event.inputs.incrementVersion ]]; then github.event.inputs.versionType; else "no"; fi }}"'
           'echo "Confirm Production: ${{ github.event.inputs.confirmProduction }}"'
 
       - name: Install SSH Client
