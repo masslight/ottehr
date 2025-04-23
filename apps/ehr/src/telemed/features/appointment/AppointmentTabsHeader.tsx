@@ -76,7 +76,7 @@ export const AppointmentTabsHeader: FC = () => {
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                 <img src={ottehrAiIcon} style={{ width: '24px' }} />
-                <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr IA</Typography>
+                <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr AI</Typography>
               </Box>
             }
             value={TelemedAppointmentVisitTabs.ottehrai}
