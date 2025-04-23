@@ -1,5 +1,5 @@
 import { FC, useState, useMemo } from 'react';
-import { OrderableItemSearchResult } from 'utils';
+import { OrderableItemSearchResult, nameLabTest } from 'utils';
 import { Autocomplete, TextField, Box } from '@mui/material';
 
 type LabsAutocompleteProps = {
@@ -24,7 +24,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       <Autocomplete
         size="small"
         options={filterOptions}
-        getOptionLabel={(option) => `${option.item.itemName} / ${option.lab.labName}`}
+        getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
         noOptionsText={
           inputValue && filterOptions.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
         }

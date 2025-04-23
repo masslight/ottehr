@@ -1,5 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createFilesDocumentReferences, getPatchBinary, isValidUUID, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
+import {
+  createFilesDocumentReferences,
+  getPatchBinary,
+  isValidUUID,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -18,11 +24,11 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
-import { getLabOrderResources } from '../shared/labs';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import Oystehr from '@oystehr/sdk';
 import { PdfInfo } from '../../shared/pdf/pdf-utils';
 import { randomUUID } from 'crypto';
+import { getLabOrderResources } from '../shared/labs';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -51,6 +57,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       appointment,
       encounter,
     } = await getLabOrderResources(oystehr, serviceRequestID);
+
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
     if (!appointment.id) {
@@ -270,6 +277,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 },
               ],
             },
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'completed',
+            },
           ],
         }),
       ],
@@ -299,9 +311,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       resourceType: 'ServiceRequest',
       id: serviceRequestID,
     });
-    const orderID = serviceRequestTemp.identifier?.find(
-      (item) => item.system === 'https://identifiers.fhir.oystehr.com/lab-order-placer-id'
-    )?.value;
+    const orderID = serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
+      ?.value;
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
