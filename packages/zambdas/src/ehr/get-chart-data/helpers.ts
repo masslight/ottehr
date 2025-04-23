@@ -9,6 +9,7 @@ import {
   SearchParams,
 } from 'utils';
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
+import { makeEncounterLabResult } from '../shared/labs';
 
 type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 
@@ -170,12 +171,13 @@ function parseBundleResources(bundle: Bundle<FhirResource>): FhirResource[] {
   return resultResources;
 }
 
-export function convertSearchResultsToResponse(
+export async function convertSearchResultsToResponse(
   bundle: Bundle<FhirResource>,
+  m2mtoken: string,
   patientId: string,
   encounterId: string,
   fields?: (keyof ChartDataFields)[]
-): ChartDataWithResources {
+): Promise<ChartDataWithResources> {
   let getChartDataResponse: GetChartDataResponse = {
     patientId,
     ...(fields
@@ -198,7 +200,6 @@ export function convertSearchResultsToResponse(
           aiPotentialDiagnosis: [],
         }),
   };
-
   const resources = parseBundleResources(bundle);
 
   const chartDataResources: Resource[] = [];
@@ -215,6 +216,11 @@ export function convertSearchResultsToResponse(
   });
 
   getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
+  if (getChartDataResponse.labResults) {
+    console.log('constructing lab result config');
+    const labResultConfig = await makeEncounterLabResult(resources, m2mtoken);
+    getChartDataResponse.labResults = labResultConfig;
+  }
 
   return {
     chartData: { ...getChartDataResponse },
