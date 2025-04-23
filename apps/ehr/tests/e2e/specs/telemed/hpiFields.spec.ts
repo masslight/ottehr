@@ -19,7 +19,6 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
-import { describe } from 'vitest';
 
 async function checkDropdownHasOptionAndSelectIt(page: Page, dropdownTestId: string, pattern: string): Promise<void> {
   await page.getByTestId(dropdownTestId).locator('input').fill(pattern);
@@ -560,8 +559,7 @@ test.describe("Additional questions. Check cases where patient didn't answered o
         dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field)
       );
       await expect(patientAnswer).toBeVisible();
-      await expect(patientAnswer).not.toHaveText('Yes');
-      await expect(patientAnswer).not.toHaveText('No');
+      await expect(patientAnswer).toHaveText(question.label); // here we're checking strictly for question text without answer
     }
   });
 
@@ -584,7 +582,7 @@ test.describe("Additional questions. Check cases where patient didn't answered o
 
     for (const question of ADDITIONAL_QUESTIONS) {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field))).toHaveText(
-        'Yes'
+        new RegExp('Yes')
       );
     }
   });
@@ -611,12 +609,10 @@ test.describe('Chief complaint', () => {
 
   test.describe.configure({ mode: 'serial' });
 
-  const waitUntilChartDataReturns = async (): Promise<void> => {
+  const waitUntilRequestReturns = async (request: string): Promise<void> => {
     await page.waitForResponse((response) => {
       return (
-        response.request().method() === 'POST' &&
-        response.url().includes('/save-chart-data/') &&
-        response.status() === 200
+        response.request().method() === 'POST' && response.url().includes(`${request}`) && response.status() === 200
       );
     });
   };
@@ -627,9 +623,9 @@ test.describe('Chief complaint', () => {
       .locator('textarea')
       .first()
       .fill(providerNote);
-    await waitUntilChartDataReturns();
+    await waitUntilRequestReturns('save-chart-data');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
-    await waitUntilChartDataReturns();
+    await waitUntilRequestReturns('save-chart-data');
   });
 
   test('Should check HPI provider notes and ROS are saved on Review&Sign page', async () => {
@@ -649,10 +645,10 @@ test.describe('Chief complaint', () => {
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
-    await waitUntilChartDataReturns();
+    await waitUntilRequestReturns('delete-chart-data');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
-    await waitUntilChartDataReturns();
+    await waitUntilRequestReturns('delete-chart-data');
   });
 
   test('Should check HPI provider notes and ROS are removed from "Review and sign\' tab', async () => {

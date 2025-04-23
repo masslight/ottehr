@@ -55,10 +55,9 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
         );
 
         return value && value.length > 0 ? (
-          <Typography
-            key={index}
-            data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.label)}
-          >{`${question.label} - ${value}`}</Typography>
+          <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field)}>
+            <Typography key={index}>{`${question.label} - ${value}`}</Typography>
+          </Box>
         ) : null;
       })}
 
