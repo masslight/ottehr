@@ -271,6 +271,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 },
               ],
             },
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'completed',
+            },
           ],
         }),
       ],

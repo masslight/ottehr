@@ -10,6 +10,8 @@ let context: BrowserContext;
 let page: Page;
 const appointmentIds: string[] = [];
 
+test.describe.configure({ mode: 'serial' });
+
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
