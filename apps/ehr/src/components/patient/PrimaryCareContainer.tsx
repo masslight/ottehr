@@ -6,6 +6,7 @@ import { FormTextField } from '../form';
 import { FormFields as AllFormFields } from '../../constants';
 import InputMask from '../InputMask';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { isPhoneNumberValid } from 'utils';
 
 const FormFields = AllFormFields.primaryCarePhysician;
 export const PrimaryCareContainer: FC = () => {
@@ -74,6 +75,12 @@ export const PrimaryCareContainer: FC = () => {
             control={control}
             id={FormFields.phone.key}
             inputProps={{ mask: '(000) 000-0000' }}
+            rules={{
+              validate: (value: string) => {
+                if (!value) return true;
+                return isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
+              },
+            }}
             InputProps={{
               inputComponent: InputMask as any,
             }}
