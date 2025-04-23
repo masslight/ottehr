@@ -954,9 +954,25 @@ export class InsuranceCard {
     ).toBeVisible();
   }
 
+  async verifyValidationErrorOnPrimaryInsuranceType(): Promise<void> {
+    await expect(
+      this.#container
+        .getByTestId(dataTestIds.insuranceContainer.type)
+        .locator('p:text("Account may not have two secondary insurance plans")')
+    ).toBeVisible();
+  }
+
+  async verifyValidationErrorOnSecondaryInsuranceType(): Promise<void> {
+    await expect(
+      this.#container
+        .getByTestId(dataTestIds.insuranceContainer.type)
+        .locator('p:text("Account may not have two primary insurance plans")')
+    ).toBeVisible();
+  }
+
   async selectInsuranceType(type: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.insuranceContainer.type).click();
-    await this.#container.getByText(type, { exact: true }).click();
+    await this.#container.page().locator(`li:text("${type}")`).click();
   }
 
   async selectInsuranceCarrier(insuranceCarrier: string): Promise<void> {
@@ -999,7 +1015,7 @@ export class InsuranceCard {
 
   async selectPolicyHoldersBirthSex(birthSex: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.insuranceContainer.policyHoldersSex).click();
-    await this.#container.getByText(birthSex, { exact: true }).click();
+    await this.#container.page().locator(`li:text("${birthSex}")`).click();
   }
 
   async enterPolicyHolderStreetAddress(street: string): Promise<void> {
@@ -1016,7 +1032,7 @@ export class InsuranceCard {
 
   async selectPolicyHoldersState(state: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.insuranceContainer.state).click();
-    await this.#container.getByText(state, { exact: true }).click();
+    await this.#container.page().locator(`li:text("${state}")`).click();
   }
 
   async enterZipFromInsuranceContainer(zip: string): Promise<void> {
@@ -1025,7 +1041,7 @@ export class InsuranceCard {
 
   async selectPatientsRelationship(relationship: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.insuranceContainer.relationship).click();
-    await this.#container.getByText(relationship, { exact: true }).click();
+    await this.#container.page().locator(`li:text("${relationship}")`).click();
   }
 
   async enterAdditionalInsuranceInformation(additionalInfo: string): Promise<void> {
