@@ -42,24 +42,67 @@ export interface APIError {
 }
 
 export const isApiError = (errorObject: unknown | undefined): boolean => {
+  console.log('[isApiError] Received input:', errorObject);
+
   if (!errorObject) {
+    console.log('[isApiError] Input is falsy.');
     return false;
   }
+
   let asObj = errorObject;
   if (typeof asObj === 'string') {
     try {
       asObj = JSON.parse(asObj);
+      console.log('[isApiError] Successfully parsed string input:', asObj);
     } catch (_) {
+      console.log('[isApiError] Input is string, but failed JSON parsing:', errorObject);
       return false;
     }
+  } else {
+    console.log('[isApiError] Input is not a string, proceeding as object:', asObj);
   }
+
   const asAny = asObj as any;
   const output = asAny?.output;
-  if (asAny && asAny.code && asAny.message) {
-    return typeof asAny.message === 'string' && Object.values(APIErrorCode).includes(asAny.code);
-  } else if (output && output.code && output.message) {
-    return typeof output.message === 'string' && Object.values(APIErrorCode).includes(output.code);
+
+  if (output) {
+    console.log('[isApiError] Found "output" property:', output);
+  } else {
+    console.log('[isApiError] No "output" property found on object:', asAny);
   }
+
+  // Check direct properties
+  if (asAny && asAny.code && asAny.message) {
+    const code = asAny.code;
+    const message = asAny.message;
+    const isMessageString = typeof message === 'string';
+    const isCodeValid = Object.values(APIErrorCode).includes(code);
+
+    console.log(
+      `[isApiError] Checking direct properties: code=${code}, message=`,
+      message,
+      `isMessageString=${isMessageString}, isCodeValid=${isCodeValid}`
+    );
+
+    return isMessageString && isCodeValid;
+  }
+  // Check nested 'output' properties
+  else if (output && output.code && output.message) {
+    const code = output.code;
+    const message = output.message;
+    const isMessageString = typeof message === 'string';
+    const isCodeValid = Object.values(APIErrorCode).includes(code);
+
+    console.log(
+      `[isApiError] Checking "output" properties: code=${code}, message=`,
+      message,
+      `isMessageString=${isMessageString}, isCodeValid=${isCodeValid}`
+    );
+
+    return isMessageString && isCodeValid;
+  }
+
+  console.log('[isApiError] Object structure does not match expected API error format.');
   return false;
 };
 
@@ -256,7 +299,7 @@ export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   message: 'No coverage information found for this patient',
 };
 
-export const MISSING_NLM_API_KEY_ERROR = {
+export const MISSING_NLM_API_KEY_ERROR: APIError = {
   code: APIErrorCode.MISSING_NLM_API_KEY_ERROR,
   message: 'No nlm api key was provided.',
 };

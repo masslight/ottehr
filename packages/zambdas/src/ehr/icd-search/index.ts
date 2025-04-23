@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, IcdSearchResponse, SecretsKeys } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { getSecret, IcdSearchResponse, MISSING_NLM_API_KEY_ERROR, SecretsKeys } from 'utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -13,11 +13,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
 
+    const output = {
+      code: MISSING_NLM_API_KEY_ERROR.code,
+      message: MISSING_NLM_API_KEY_ERROR.message,
+    };
+
+    console.log('output', output);
+
     if (!apiKey) {
-      return {
-        statusCode: 419,
-        body: JSON.stringify({ error: 'NLM_API_KEY is not configured' }),
-      };
+      throw MISSING_NLM_API_KEY_ERROR;
     }
 
     const response: IcdSearchResponse = { codes: [] };
@@ -54,6 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
+    return await topLevelCatch('ehr-icd-search', error, input.secrets);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
