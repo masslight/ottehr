@@ -10,7 +10,7 @@ import { dataTestIds } from '../../constants/data-test-ids';
 
 const FormFields = AllFormFields.primaryCarePhysician;
 export const PrimaryCareContainer: FC = () => {
-  const { control, watch, setValue } = useFormContext();
+  const { control, watch, setValue, resetField } = useFormContext();
 
   const isActive = watch(FormFields.active.key, true);
 
@@ -28,6 +28,18 @@ export const PrimaryCareContainer: FC = () => {
                 onClick={(e) => {
                   const checked = (e.target as HTMLInputElement).checked;
                   setValue(FormFields.active.key, !checked, { shouldDirty: true });
+                  if (checked) {
+                    console.log('checked');
+
+                    const pcpFields = [
+                      FormFields.firstName.key,
+                      FormFields.lastName.key,
+                      FormFields.practiceName.key,
+                      FormFields.address.key,
+                      FormFields.phone.key,
+                    ];
+                    pcpFields.forEach((field) => resetField(field, { defaultValue: '' }));
+                  }
                 }}
               />
             }
