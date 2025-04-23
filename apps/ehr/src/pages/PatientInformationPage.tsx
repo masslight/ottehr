@@ -168,10 +168,13 @@ const PatientInformationPage: FC = () => {
   }, [defaultFormVals, methods, formState.isSubmitSuccessful, submitQR.isSuccess]);
 
   useEffect(() => {
-    if (formState.isSubmitting && !formState.isValid) {
+    // formState.isValid would still be false if the pcp isActive checkbox is toggled when some of the fields are empty
+    // this is because the validation is not triggered when the checkbox is toggled, but when the form is submitted,
+    // thus using `formState.errors.length` instead of `!formState.isValid`.
+    if (formState.isSubmitting && formState.errors.length) {
       enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
     }
-  }, [formState.isSubmitting, formState.isValid]);
+  }, [formState.isSubmitting, formState.errors]);
 
   const handleDiscardChanges = (): void => {
     methods.reset();

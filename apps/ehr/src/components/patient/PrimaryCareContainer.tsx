@@ -36,7 +36,7 @@ export const PrimaryCareContainer: FC = () => {
         )}
       />
       <Box sx={{ display: isActive ? 'contents' : 'none' }}>
-        <Row label="First name" inputId={FormFields.firstName.key}>
+        <Row label="First name" inputId={FormFields.firstName.key} required={isActive}>
           <FormTextField
             name={FormFields.firstName.key}
             control={control}
@@ -50,7 +50,7 @@ export const PrimaryCareContainer: FC = () => {
             data-testid={dataTestIds.primaryCarePhysicianContainer.firstName}
           />
         </Row>
-        <Row label="Last name" inputId={FormFields.lastName.key}>
+        <Row label="Last name" inputId={FormFields.lastName.key} required={isActive}>
           <FormTextField
             name={FormFields.lastName.key}
             control={control}
@@ -64,7 +64,7 @@ export const PrimaryCareContainer: FC = () => {
             data-testid={dataTestIds.primaryCarePhysicianContainer.lastName}
           />
         </Row>
-        <Row label="Practice name" inputId={FormFields.practiceName.key}>
+        <Row label="Practice name" inputId={FormFields.practiceName.key} required={isActive}>
           <FormTextField
             name={FormFields.practiceName.key}
             control={control}
@@ -78,7 +78,7 @@ export const PrimaryCareContainer: FC = () => {
             data-testid={dataTestIds.primaryCarePhysicianContainer.practiceName}
           />
         </Row>
-        <Row label="Address" inputId={FormFields.address.key}>
+        <Row label="Address" inputId={FormFields.address.key} required={isActive}>
           <FormTextField
             name={FormFields.address.key}
             control={control}
@@ -92,14 +92,15 @@ export const PrimaryCareContainer: FC = () => {
             data-testid={dataTestIds.primaryCarePhysicianContainer.address}
           />
         </Row>
-        <Row label="Mobile" inputId={FormFields.phone.key}>
+        <Row label="Mobile" inputId={FormFields.phone.key} required={isActive}>
           <FormTextField
             data-testid={dataTestIds.primaryCarePhysicianContainer.mobile}
             name={FormFields.phone.key}
             control={control}
             rules={{
               validate: (value: string) => {
-                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
+                if (!isActive) return true;
+                if (!value) return REQUIRED_FIELD_ERROR_MESSAGE;
                 return isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
               },
             }}
