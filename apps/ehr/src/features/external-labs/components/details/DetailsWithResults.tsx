@@ -17,17 +17,13 @@ export const DetailsWithResults: React.FC<{
     navigate(-1);
   };
 
-  const diagnoses = labOrder.diagnosesDTO.map((dx) => {
-    return dx.code || dx.display ? `${dx.code} ${dx.display}`.trim() : 'unspecified';
-  });
-
   return (
     <div style={{ maxWidth: '890px', width: '100%', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
         <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-          {diagnoses.join('; ')}
+          {labOrder.diagnoses}
         </Typography>
 
         {labOrder.resultsDetails.map((result) => (
