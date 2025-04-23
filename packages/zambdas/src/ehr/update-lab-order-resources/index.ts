@@ -170,8 +170,8 @@ const handleReviewedEvent = async ({
     fullUrl: tempProvenanceUuid,
   };
 
-  const isRreliminary = diagnosticReport.status === 'preliminary';
-  const shouldAddRelevantHistory = !isRreliminary; // no tracking of preliminary results reviewed date
+  const isPreliminary = diagnosticReport.status === 'preliminary';
+  const shouldAddRelevantHistory = !isPreliminary; // no tracking of preliminary results reviewed date
 
   const taskPatchOperations: Operation[] = [
     {
