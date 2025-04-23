@@ -70,6 +70,15 @@ export const AppointmentTabsHeader: FC = () => {
           data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)}
           value={TelemedAppointmentVisitTabs.sign}
         />
+        <Tab
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <ContractEditIcon />
+              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr IA</Typography>
+            </Box>
+          }
+          value={TelemedAppointmentVisitTabs.ottehrai}
+        />
       </TabList>
     </TabContext>
   );
