@@ -1,12 +1,12 @@
 import { Box, Checkbox, FormControlLabel, Typography } from '@mui/material';
 import { FC } from 'react';
+import { isPhoneNumberValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { Controller, useFormContext } from 'react-hook-form';
 import { Row, Section } from '../layout';
 import { FormTextField } from '../form';
 import { FormFields as AllFormFields } from '../../constants';
 import InputMask from '../InputMask';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { isPhoneNumberValid } from 'utils';
 
 const FormFields = AllFormFields.primaryCarePhysician;
 export const PrimaryCareContainer: FC = () => {
@@ -40,6 +40,12 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={FormFields.firstName.key}
             control={control}
+            rules={{
+              validate: (value: string) => {
+                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
+                return true;
+              },
+            }}
             id={FormFields.firstName.key}
             data-testid={dataTestIds.primaryCarePhysicianContainer.firstName}
           />
@@ -48,6 +54,12 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={FormFields.lastName.key}
             control={control}
+            rules={{
+              validate: (value: string) => {
+                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
+                return true;
+              },
+            }}
             id={FormFields.lastName.key}
             data-testid={dataTestIds.primaryCarePhysicianContainer.lastName}
           />
@@ -56,6 +68,12 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={FormFields.practiceName.key}
             control={control}
+            rules={{
+              validate: (value: string) => {
+                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
+                return true;
+              },
+            }}
             id={FormFields.practiceName.key}
             data-testid={dataTestIds.primaryCarePhysicianContainer.practiceName}
           />
@@ -64,6 +82,12 @@ export const PrimaryCareContainer: FC = () => {
           <FormTextField
             name={FormFields.address.key}
             control={control}
+            rules={{
+              validate: (value: string) => {
+                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
+                return true;
+              },
+            }}
             id={FormFields.address.key}
             data-testid={dataTestIds.primaryCarePhysicianContainer.address}
           />
@@ -73,14 +97,14 @@ export const PrimaryCareContainer: FC = () => {
             data-testid={dataTestIds.primaryCarePhysicianContainer.mobile}
             name={FormFields.phone.key}
             control={control}
-            id={FormFields.phone.key}
-            inputProps={{ mask: '(000) 000-0000' }}
             rules={{
               validate: (value: string) => {
-                if (!value) return true;
+                if (isActive && !value) return REQUIRED_FIELD_ERROR_MESSAGE;
                 return isPhoneNumberValid(value) || 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
               },
             }}
+            id={FormFields.phone.key}
+            inputProps={{ mask: '(000) 000-0000' }}
             InputProps={{
               inputComponent: InputMask as any,
             }}
