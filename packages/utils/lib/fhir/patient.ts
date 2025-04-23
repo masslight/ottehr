@@ -24,6 +24,7 @@ import {
   getUniquePhonesNumbers,
   PRIVATE_EXTENSION_BASE_URL,
 } from '.';
+import { removePrefix } from '../helpers';
 import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PatientInfo,
@@ -34,7 +35,6 @@ import {
   ProviderNotificationSettings,
   RelatedPersonMaps,
 } from '../types';
-import { removePrefix } from '../helpers';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(
@@ -111,17 +111,35 @@ export async function createUserResourcesForPatient(
         reference: `RelatedPerson/${relatedPerson.id}`,
       },
     };
-    await oystehr.fhir.patch({
-      resourceType: 'Person',
-      id: person.id || '',
-      operations: [
-        {
-          op: 'add',
-          path: hasLink ? '/link/0' : '/link',
-          value: hasLink ? link : [link],
-        },
-      ],
-    });
+    let retries = 0;
+    let result = undefined;
+    while (retries < 10) {
+      try {
+        result = await oystehr.fhir.patch(
+          {
+            resourceType: 'Person',
+            id: person.id || '',
+            operations: [
+              {
+                op: 'add',
+                path: hasLink ? '/link/0' : '/link',
+                value: hasLink ? link : [link],
+              },
+            ],
+          },
+          { optimisticLockingVersionId: person.meta!.versionId }
+        );
+        break;
+      } catch (e) {
+        console.log(`Error patching Person ${person.id}: ${e}. Retrying...`, JSON.stringify(e));
+        retries++;
+      }
+    }
+
+    if (!result) {
+      throw new Error(`Failed to patch Person ${person.id} after 10 retries`);
+    }
+
     console.log(`Updated Person with ID ${person.id}`);
   }
 

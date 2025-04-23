@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputDeleteRequest, BatchInputPatchRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, FhirPatchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -19,16 +19,46 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
   const appointmentId = process.argv[3];
 
   const allResources = await getAppointmentById(oystehr, appointmentId);
-  const [deleteRequests, updateRequests] = generateDeleteAndUpdateRequests(allResources);
+  const [deleteRequests, updateRequests] = generateDeleteRequestsAndUpdateOps(allResources);
 
-  await oystehr.fhir.batch({ requests: [...deleteRequests,...updateRequests] });
+  try {
+    
+  console.log(`Deleting resources...`);
+  await oystehr.fhir.batch({ requests: [...deleteRequests] });
+  } catch (e) {
+    console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
+  }
+  finally {
+    console.log(`Deleting resources complete`);
+  }
+
+  try {
+    console.log(`Updating resources...`);
+    updateRequests.forEach(async (patchParam) => {
+      let retries = 0;
+      while (retries < 5) {
+        try {
+          await oystehr.fhir.patch(patchParam, { optimisticLockingVersionId: patchParam.optimisticLockingVersionId });
+          break;
+        } catch (e) {
+          console.log(`Error patching resource: ${e}`, JSON.stringify(e));
+          retries++;
+        }
+      }
+    });
+  } catch (e) {
+    console.log(`Error updating resources: ${e}`, JSON.stringify(e));
+  }
+  finally {
+    console.log(`Updating resources complete`);
+  }
 
   console.log('Appointment data batch removed and person updated');
 };
 
-const generateDeleteAndUpdateRequests = (allResources: FhirResource[]): [BatchInputDeleteRequest[], BatchInputPatchRequest<Person>[]] => {
+const generateDeleteRequestsAndUpdateOps = (allResources: FhirResource[]): [BatchInputDeleteRequest[], (FhirPatchParams & { optimisticLockingVersionId: string })[]] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
-  const updateRequests: BatchInputPatchRequest<Person>[] = [];
+  const patchParams: (FhirPatchParams & { optimisticLockingVersionId: string })[] = [];
 
   const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as Person;
 
@@ -71,7 +101,7 @@ const generateDeleteAndUpdateRequests = (allResources: FhirResource[]): [BatchIn
                   } else {
                     operations.push({ op: 'remove', path: `/link/${linkIndex}` });
                   }
-                  updateRequests.push({method: 'PATCH', url: `/Person/${person?.id}`, operations});
+                  patchParams.push({resourceType: 'Person', id: person?.id!, operations, optimisticLockingVersionId: person?.meta?.versionId!});
                 }
               }
             }
@@ -99,13 +129,12 @@ const generateDeleteAndUpdateRequests = (allResources: FhirResource[]): [BatchIn
     console.log(`${resourceType}: ${id}`);
   });
 
-  console.log('Resources to be updated:');
-  updateRequests.forEach((request) => {
-    const [resourceType, id] = request.url.slice(1).split('/');
-    console.log(`${resourceType}: ${id}`);
+  console.log('Resources to be patched:');
+  patchParams.forEach((patchParam) => {
+    console.log(`${patchParam.resourceType}: ${patchParam.id}`);
   });
 
-  return [deleteRequests, updateRequests];
+  return [deleteRequests, patchParams];
 };
 
 const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Promise<FhirResource[]> => {
