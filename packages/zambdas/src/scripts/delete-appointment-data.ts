@@ -32,17 +32,29 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     console.log(`Deleting resources complete`);
   }
 
+  let patchResult = undefined;
+
   try {
     console.log(`Updating resources...`);
     updateRequests.forEach(async (patchParam) => {
       let retries = 0;
       while (retries < 5) {
         try {
-          await oystehr.fhir.patch(patchParam, { optimisticLockingVersionId: patchParam.optimisticLockingVersionId });
+          patchResult = await oystehr.fhir.patch(patchParam, { optimisticLockingVersionId: patchParam.optimisticLockingVersionId });
           break;
         } catch (e) {
           console.log(`Error patching resource: ${e}`, JSON.stringify(e));
           retries++;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          const patchResource = (await oystehr.fhir.search({
+            resourceType: patchParam.resourceType,
+            params: [{ name: 'id', value: patchParam.id }],
+          })).unbundle()[0];
+
+          if (patchResource) {
+            patchParam.id = patchResource.id!;
+            patchParam.optimisticLockingVersionId = patchResource.meta!.versionId!;
+          }
         }
       }
     });
@@ -51,6 +63,10 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
   }
   finally {
     console.log(`Updating resources complete`);
+  }
+
+  if (!patchResult) {
+    throw new Error(`Patch failed: ${JSON.stringify(patchResult)}`);
   }
 
   console.log('Appointment data batch removed and person updated');
