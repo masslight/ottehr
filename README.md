@@ -74,7 +74,7 @@ cd ottehr
 ### Run the Setup Script
 
 ```bash
-sh scripts/ottehr-setup.sh
+./scripts/ottehr-setup.sh
 ```
 
 The script will prompt you for the following information:
@@ -118,7 +118,7 @@ and choose "Administrator" as the role. Then, click "Invite". To set the passwor
 To set the environment files required to run e2e tests, run the following command in the root directory:
 
 ```bash
-sh scripts/e2e-test-setup.sh
+./scripts/e2e-test-setup.sh
 ```
 
 The script will prompt you for the following information:

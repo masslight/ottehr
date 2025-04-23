@@ -73,6 +73,10 @@ const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
 const NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
 const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
+const NEW_ADDRESS_RESPONSIBLE_PARTY = '123 fake lane';
+const NEW_CITY_RESPONSIBLE_PARTY = 'Los Angeles';
+const NEW_STATE_RESPONSIBLE_PARTY = 'NY';
+const NEW_ZIP_RESPONSIBLE_PARTY = '10003';
 const NEW_PROVIDER_FIRST_NAME = 'John';
 const NEW_PROVIDER_LAST_NAME = 'Doe';
 const NEW_PRACTICE_NAME = 'Dental';
@@ -85,18 +89,15 @@ const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
 test.describe('Patient Record Page non-mutating tests', () => {
   test.beforeAll(async () => {
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   });
 
   test.afterAll(async () => {
     await resourceHandler.cleanupResources();
   });
 
-  test.beforeEach(async ({ page }) => {
-    await page.waitForTimeout(2000);
-    await page.goto('/patient/' + resourceHandler.patient.id);
-  });
-
   test('Click on "See all patient info button", Patient Info Page is opened', async ({ page }) => {
+    await page.goto('/patient/' + resourceHandler.patient.id);
     const patientRecordPage = await expectPatientRecordPage(resourceHandler.patient.id!, page);
     await patientRecordPage.clickSeeAllPatientInfoButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
@@ -106,6 +107,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
 test.describe('Patient Record Page mutating tests', () => {
   test.beforeEach(async () => {
     await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
   });
 
   test.afterEach(async () => {
@@ -136,6 +138,10 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.enterStreetLine1FromResponsibleContainer(NEW_ADDRESS_RESPONSIBLE_PARTY);
+    await patientInformationPage.enterResponsiblePartyCity(NEW_CITY_RESPONSIBLE_PARTY);
+    await patientInformationPage.selectResponsiblePartyState(NEW_STATE_RESPONSIBLE_PARTY);
+    await patientInformationPage.enterResponsiblePartyZip(NEW_ZIP_RESPONSIBLE_PARTY);
     // await patientInformationPage.selectReleaseOfInfo(RELEASE_OF_INFO);
     // await patientInformationPage.selectRxHistoryConsent(RX_HISTORY_CONSENT);
     await patientInformationPage.clickSaveChangesButton();

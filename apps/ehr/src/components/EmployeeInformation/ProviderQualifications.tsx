@@ -1,13 +1,9 @@
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Box,
-  Button,
+  Card,
   FormControl,
   FormLabel,
-  Grid,
   IconButton,
+  Stack,
   Switch,
   Table,
   TableBody,
@@ -17,15 +13,17 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Control, Controller } from 'react-hook-form';
 import { Autocomplete, TextField } from '@mui/material';
-import { PractitionerLicense, PractitionerQualificationCodesLabels } from 'utils';
-import { AllStates } from '../../types/types';
+import { PractitionerLicense, PractitionerQualificationCodesLabels, AllStates } from 'utils';
 import { FormErrors } from './types';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { otherColors } from '../../CustomThemeProvider';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { RoundedButton } from '../RoundedButton';
+import { DateTime } from 'luxon';
 
 const displaystates = AllStates.map((state) => state.value);
 
@@ -47,13 +45,14 @@ export function ProviderQualifications({
   return (
     <FormControl sx={{ width: '100%' }}>
       <FormLabel sx={{ mt: 3, fontWeight: '600 !important' }}>Provider Qualifications</FormLabel>
-      <Box mt={1}>
+      <Stack mt={1} gap={2}>
         <TableContainer>
           <Table data-testid={dataTestIds.employeesPage.qualificationsTable}>
             <TableHead>
               <TableRow>
                 <TableCell>State</TableCell>
                 <TableCell align="left">Qualification</TableCell>
+                <TableCell align="left">License</TableCell>
                 <TableCell align="left">Operate in state</TableCell>
                 <TableCell align="left">Delete License</TableCell>
               </TableRow>
@@ -63,6 +62,14 @@ export function ProviderQualifications({
                 <TableRow key={index} data-testid={dataTestIds.employeesPage.qualificationRow(license.code)}>
                   <TableCell>{license.state}</TableCell>
                   <TableCell align="left">{license.code}</TableCell>
+                  <TableCell align="left">
+                    {license.number && <Typography>{license.number}</Typography>}
+                    {license.date && (
+                      <Typography variant="body2" color="secondary.light">
+                        till {DateTime.fromISO(license.date).toFormat('MM/dd/yyyy')}
+                      </Typography>
+                    )}
+                  </TableCell>
                   <TableCell align="center">
                     <Switch
                       checked={license.active}
@@ -97,88 +104,142 @@ export function ProviderQualifications({
             </TableBody>
           </Table>
         </TableContainer>
-        <Accordion>
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon />}
-            data-testid={dataTestIds.employeesPage.addQualificationAccordion}
-            sx={{
-              marginTop: '20px',
-              fontWeight: 'bold',
-              color: 'primary.main',
-              cursor: 'pointer',
-            }}
-          >
-            Add New State Qualification
-          </AccordionSummary>
-          <AccordionDetails>
-            <Grid container direction={'row'} spacing={1}>
-              <Grid item xs={4}>
-                <Controller
-                  name="newLicenseState"
-                  control={control}
-                  render={({ field }) => (
-                    <Autocomplete
-                      {...field}
-                      options={displaystates}
-                      getOptionLabel={(option: string) => option}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="State"
-                          data-testid={dataTestIds.employeesPage.newQualificationStateDropdown}
-                          error={errors.state}
-                          helperText={errors.state ? 'Please select a state' : null}
-                        />
-                      )}
-                      onChange={(_, value: string | null) => field.onChange(value ?? undefined)}
-                      value={field.value || null}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={4}>
-                <Controller
-                  name="newLicenseCode"
-                  control={control}
-                  render={({ field }) => (
-                    <Autocomplete
-                      {...field}
-                      options={Object.keys(PractitionerQualificationCodesLabels)}
-                      getOptionLabel={(option: string) => option}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          label="Qualification"
-                          data-testid={dataTestIds.employeesPage.newQualificationTypeDropdown}
-                          error={errors.qualification}
-                          helperText={errors.qualification ? 'Please select a qualification' : null}
-                        />
-                      )}
-                      onChange={(_, value: string | null) => field.onChange(value ?? undefined)}
-                      value={field.value || null}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={4} alignContent={'center'}>
-                <Button
-                  variant="contained"
-                  endIcon={<AddIcon />}
-                  data-testid={dataTestIds.employeesPage.addQualificationButton}
-                  sx={{ textTransform: 'none', fontWeight: 'bold', borderRadius: 28 }}
+
+        <Card
+          sx={{ p: 2, backgroundColor: otherColors.formCardBg }}
+          elevation={0}
+          component={Stack}
+          spacing={2}
+          data-testid={dataTestIds.employeesPage.addQualificationCard}
+        >
+          <Typography fontWeight={600} color="primary.dark">
+            Add state qualification
+          </Typography>
+
+          <Stack direction="row" spacing={2}>
+            <Controller
+              name="newLicenseState"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  {...field}
                   fullWidth
-                  onClick={handleAddLicense}
-                >
-                  Add
-                </Button>
-              </Grid>
-              {errors.duplicateLicense && (
-                <Typography color="error" variant="body2" mt={1} mx={1}>{`License already exists.`}</Typography>
+                  size="small"
+                  options={displaystates}
+                  getOptionLabel={(option: string) => option}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="State"
+                      data-testid={dataTestIds.employeesPage.newQualificationStateDropdown}
+                      error={errors.state}
+                      helperText={errors.state ? 'Please select a state' : null}
+                    />
+                  )}
+                  onChange={(_, value: string | null) => field.onChange(value ?? undefined)}
+                  value={field.value || null}
+                />
               )}
-            </Grid>
-          </AccordionDetails>
-        </Accordion>
-      </Box>
+            />
+
+            <Controller
+              name="newLicenseCode"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  {...field}
+                  fullWidth
+                  size="small"
+                  options={Object.keys(PractitionerQualificationCodesLabels)}
+                  getOptionLabel={(option: string) => option}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Qualification"
+                      data-testid={dataTestIds.employeesPage.newQualificationTypeDropdown}
+                      error={errors.qualification}
+                      helperText={errors.qualification ? 'Please select a qualification' : null}
+                    />
+                  )}
+                  onChange={(_, value: string | null) => field.onChange(value ?? undefined)}
+                  value={field.value || null}
+                />
+              )}
+            />
+          </Stack>
+
+          <Stack direction="row" spacing={2}>
+            <Controller
+              name="newLicenseNumber"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  fullWidth
+                  size="small"
+                  label="License number"
+                  data-testid={dataTestIds.employeesPage.newQualificationNumberField}
+                  error={errors.number}
+                  helperText={errors.number ? 'Please enter license number' : null}
+                  onChange={(e) => field.onChange(e.target.value ?? undefined)}
+                  value={field.value || ''}
+                />
+              )}
+            />
+
+            <Controller
+              name="newLicenseExpirationDate"
+              control={control}
+              render={({ field: { onChange, value } }) => (
+                <LocalizationProvider dateAdapter={AdapterLuxon}>
+                  <DatePicker
+                    label="Expiration date"
+                    onChange={onChange}
+                    slotProps={{
+                      textField: {
+                        style: { width: '100%' },
+                        size: 'small',
+                        helperText: errors.date ? 'Please enter expiration date' : null,
+                        error: errors.date,
+                        inputProps: {
+                          'data-testid': dataTestIds.employeesPage.newQualificationExpDatePicker,
+                        },
+                      },
+                    }}
+                    value={value || null}
+                  />
+                </LocalizationProvider>
+              )}
+            />
+
+            {/*<Controller*/}
+            {/*  name="newLicenseExpirationDate"*/}
+            {/*  control={control}*/}
+            {/*  render={({ field }) => (*/}
+            {/*    <TextField*/}
+            {/*      {...field}*/}
+            {/*      fullWidth*/}
+            {/*      size="small"*/}
+            {/*      label="Expiration date"*/}
+            {/*      data-testid={dataTestIds.employeesPage.newQualificationTypeDropdown}*/}
+            {/*      error={errors.qualification}*/}
+            {/*      helperText={errors.qualification ? 'Please select a qualification' : null}*/}
+            {/*      onChange={(e) => field.onChange(e.target.value ?? undefined)}*/}
+            {/*      value={field.value || null}*/}
+            {/*    />*/}
+            {/*  )}*/}
+            {/*/>*/}
+          </Stack>
+
+          <RoundedButton data-testid={dataTestIds.employeesPage.addQualificationButton} onClick={handleAddLicense}>
+            Add
+          </RoundedButton>
+
+          {errors.duplicateLicense && (
+            <Typography color="error" variant="body2" mt={1} mx={1}>{`License already exists.`}</Typography>
+          )}
+        </Card>
+      </Stack>
     </FormControl>
   );
 }

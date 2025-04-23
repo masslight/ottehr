@@ -8,8 +8,6 @@ import {
   CreateUserOutput,
   CreateUserParams,
   GetEmployeesResponse,
-  GetLabOrderDetailsInput,
-  GetLabOrdersParameters,
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
@@ -24,6 +22,8 @@ import {
   ListScheduleOwnersResponse,
   ScheduleDTO,
   UpdateScheduleParams,
+  GetLabOrdersParameters,
+  DeleteLabOrderParams,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -45,7 +45,6 @@ export interface PatchOperation {
 }
 
 const VITE_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
-const GET_LAB_ORDER_DETAILS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LAB_ORDER_DETAILS_ZAMBDA_ID;
 const SUBMIT_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_LAB_ORDER_ZAMBDA_ID;
 const GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_APPOINTMENTS_ZAMBDA_ID;
 const CREATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
@@ -94,26 +93,6 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
 
     const response = await oystehr.zambda.execute({
       id: SUBMIT_LAB_ORDER_ZAMBDA_ID,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw new Error(JSON.stringify(error));
-  }
-};
-
-export const getLabOrderDetails = async (
-  oystehr: Oystehr,
-  parameters: GetLabOrderDetailsInput
-): Promise<OrderDetails> => {
-  try {
-    if (GET_LAB_ORDER_DETAILS_ZAMBDA_ID == null) {
-      throw new Error('get lab order details zambda environment variable could not be loaded');
-    }
-
-    const response = await oystehr.zambda.execute({
-      id: GET_LAB_ORDER_DETAILS_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
@@ -441,7 +420,7 @@ export const listScheduleOwners = async (
 ): Promise<ListScheduleOwnersResponse> => {
   try {
     if (LIST_SCHEDULE_OWNERS_ZAMBDA_ID == null) {
-      throw new Error('ehr-get-schedule zambda environment variable could not be loaded');
+      throw new Error('list-schedule-owners zambda environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
@@ -619,15 +598,15 @@ export const getCreateLabOrderResources = async (
   }
 };
 
-export const getLabOrders = async (
+export const getLabOrders = async <RequestParameters extends GetLabOrdersParameters>(
   oystehr: Oystehr,
-  parameters: GetLabOrdersParameters
-): Promise<PaginatedLabOrderResponse> => {
+  parameters: RequestParameters
+): Promise<PaginatedLabOrderResponse<RequestParameters>> => {
   try {
     if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get lab orders zambda environment variable could not be loaded');
     }
-    const searchBy = parameters.serviceRequestId || parameters.encounterId || parameters.patientId;
+    const { searchBy } = parameters;
     if (!searchBy) {
       throw new Error(
         `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
@@ -646,12 +625,7 @@ export const getLabOrders = async (
   }
 };
 
-export interface DeleteLabOrderParameters {
-  labOrderId: string;
-  encounterId: string;
-}
-
-export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrderParameters): Promise<any> => {
+export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrderParams): Promise<any> => {
   try {
     if (DELETE_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('delete lab order zambda environment variable could not be loaded');

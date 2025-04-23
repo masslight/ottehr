@@ -1,5 +1,13 @@
+import { FEATURE_FLAGS } from '../../../constants/feature-flags';
+import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
+import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
+import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
+import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
 import { RouteCSS } from '../context/NavigationContext';
 import { Allergies } from '../pages/Allergies';
+import { ERX } from '../pages/ERX';
+import { Examination } from '../pages/Examination';
+import { Hospitalization } from '../pages/Hospitalization';
 import { InHouseMedication } from '../pages/InHouseMedication';
 import { InHouseOrderEdit } from '../pages/InHouseOrderEdit';
 import { InHouseOrderNew } from '../pages/InHouseOrderNew';
@@ -7,18 +15,10 @@ import { MedicalConditions } from '../pages/MedicalConditions';
 import { Medications } from '../pages/Medications';
 import { PatientInfo } from '../pages/PatientInfo';
 import { PatientVitals } from '../pages/PatientVitals';
+import { Plan } from '../pages/Plan';
 import { ProgressNote } from '../pages/ProgressNote';
-import { Hospitalization } from '../pages/Hospitalization';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
-import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
-import { Plan } from '../pages/Plan';
-import { Examination } from '../pages/Examination';
-import { ERX } from '../pages/ERX';
-import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
-import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
-import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
-import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',

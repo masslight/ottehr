@@ -238,8 +238,6 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
           coverages: accountInfo?.coverages ?? {},
-          insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
-          insurancePlans: accountInfo?.insurancePlans ?? [],
           documents,
         });
       } else if (item.linkId === 'photo-id-page') {
@@ -327,8 +325,7 @@ export interface PrepopulationFromPatientRecordInput extends PatientAccountRespo
 export const makePrepopulatedItemsFromPatientRecord = (
   input: PrepopulationFromPatientRecordInput
 ): QuestionnaireResponseItem[] => {
-  const { patient, questionnaire, primaryCarePhysician, coverages, insuranceOrgs, insurancePlans, guarantorResource } =
-    input;
+  const { patient, questionnaire, primaryCarePhysician, coverages, guarantorResource } = input;
   // console.log('making prepopulated items from patient record', coverages);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -350,8 +347,6 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
           coverages,
-          insuranceOrgs,
-          insurancePlans,
         });
       }
       if (GUARANTOR_ITEMS.includes(item.linkId)) {
@@ -579,12 +574,10 @@ const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2', 'payment-opt
 interface MapCoverageItemsInput {
   items: QuestionnaireItem[];
   coverages: PatientAccountResponse['coverages'];
-  insurancePlans: PatientAccountResponse['insurancePlans'];
-  insuranceOrgs: PatientAccountResponse['insuranceOrgs'];
   documents?: DocumentReference[];
 }
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
-  const { items, coverages, insuranceOrgs, insurancePlans, documents } = input;
+  const { items, coverages, documents } = input;
 
   const insuranceCardFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'insurance-card-front')
@@ -640,29 +633,18 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primaryMemberId = '';
   let secondaryMemberId = '';
 
-  if (primary && insuranceOrgs && insurancePlans) {
-    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === primary.payor?.[0].reference);
-    const matchingPlan =
-      matchingOrg &&
-      insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
-    if (matchingPlan) {
-      primaryInsurancePlanReference = {
-        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
-        display: matchingPlan.name,
-      };
-    }
+  if (primary) {
+    primaryInsurancePlanReference = {
+      reference: primary.class?.[0].value,
+      display: primary.class?.[0].name,
+    };
   }
-  if (secondary && insuranceOrgs && insurancePlans) {
-    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === secondary.payor?.[0].reference);
-    const matchingPlan =
-      matchingOrg &&
-      insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
-    if (matchingPlan) {
-      secondaryInsurancePlanReference = {
-        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
-        display: matchingPlan.name,
-      };
-    }
+
+  if (secondary) {
+    secondaryInsurancePlanReference = {
+      reference: secondary.class?.[0].value,
+      display: secondary.class?.[0].name,
+    };
   }
 
   if (primary) {
@@ -869,6 +851,14 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
       }
     }
   }
+
+  const guarantorAddress = guarantorResource?.address?.[0];
+  const line = guarantorAddress?.line?.[0];
+  const line2 = guarantorAddress?.line?.[1];
+  const city = guarantorAddress?.city;
+  const state = guarantorAddress?.state;
+  const zip = guarantorAddress?.postalCode;
+
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
     const { linkId } = item;
@@ -890,6 +880,21 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
     }
     if (linkId === 'responsible-party-number' && phone) {
       answer = makeAnswer(phone);
+    }
+    if (linkId === 'responsible-party-address' && line) {
+      answer = makeAnswer(line);
+    }
+    if (linkId === 'responsible-party-address-2' && line2) {
+      answer = makeAnswer(line2);
+    }
+    if (linkId === 'responsible-party-city' && city) {
+      answer = makeAnswer(city);
+    }
+    if (linkId === 'responsible-party-state' && state) {
+      answer = makeAnswer(state);
+    }
+    if (linkId === 'responsible-party-zip' && zip) {
+      answer = makeAnswer(zip);
     }
     return {
       linkId,
