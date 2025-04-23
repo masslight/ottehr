@@ -42,7 +42,7 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({ receivedDate, reviewed
         </Typography>
       </Box>
 
-      <Button disabled variant="text" color="primary" onClick={onPrelimView} sx={{ fontWeight: 500 }}>
+      <Button variant="text" color="primary" onClick={onPrelimView} sx={{ fontWeight: 700, textTransform: 'none' }}>
         View
       </Button>
     </Paper>

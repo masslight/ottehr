@@ -54,7 +54,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
         <PrelimCardView
           receivedDate={resultDetails.receivedDate}
           reviewedDate={resultDetails.reviewedDate}
-          onPrelimView={() => null}
+          onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
         />
       )}
     </div>

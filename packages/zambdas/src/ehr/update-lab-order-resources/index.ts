@@ -170,6 +170,9 @@ const handleReviewedEvent = async ({
     fullUrl: tempProvenanceUuid,
   };
 
+  const isRreliminary = diagnosticReport.status === 'preliminary';
+  const shouldAddRelevantHistory = !isRreliminary; // no tracking of preliminary results reviewed date
+
   const taskPatchOperations: Operation[] = [
     {
       op: 'replace',
@@ -183,15 +186,19 @@ const handleReviewedEvent = async ({
         reference: `Practitioner/${practitionerIdFromCurrentUser}`,
       },
     },
-    {
-      op: 'add',
-      path: '/relevantHistory',
-      value: [
-        {
-          reference: tempProvenanceUuid,
-        },
-      ],
-    },
+    ...(shouldAddRelevantHistory
+      ? [
+          {
+            op: 'add',
+            path: '/relevantHistory',
+            value: [
+              {
+                reference: tempProvenanceUuid,
+              },
+            ],
+          } as const,
+        ]
+      : []),
   ];
 
   const taskPatchRequest = getPatchBinary({
@@ -200,8 +207,10 @@ const handleReviewedEvent = async ({
     patchOperations: taskPatchOperations,
   });
 
+  const requests = shouldAddRelevantHistory ? [provenanceRequest, taskPatchRequest] : [taskPatchRequest];
+
   const updateTransactionRequest = await oystehr.fhir.transaction({
-    requests: [provenanceRequest, taskPatchRequest],
+    requests,
   });
 
   return updateTransactionRequest;
