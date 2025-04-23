@@ -1,17 +1,34 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputRequest } from '@oystehr/sdk';
-import { Appointment, Location, Schedule, Slot, Encounter, Practitioner, HealthcareService, Resource } from 'fhir/r4b';
+import {
+  Appointment,
+  Encounter,
+  FhirResource,
+  HealthcareService,
+  Location,
+  Practitioner,
+  Resource,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  BookableScheduleData,
   Closure,
   ClosureType,
   getDateTimeFromDateAndTime,
+  getFullName,
   getPatchOperationForNewMetaTag,
   OVERRIDE_DATE_FORMAT,
-  VisitType,
-  scheduleStrategyForHealthcareService,
-  ScheduleStrategy,
-  SCHEDULE_NUM_DAYS,
   SCHEDULE_EXTENSION_URL,
+  SCHEDULE_NUM_DAYS,
+  ScheduleAndOwner,
+  ScheduleOwnerFhirResource,
+  ScheduleStrategy,
+  scheduleStrategyForHealthcareService,
+  ScheduleType,
+  Timezone,
+  TIMEZONES,
+  VisitType,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -21,6 +38,7 @@ import {
 } from './dateUtils';
 
 export const FIRST_AVAILABLE_SLOT_OFFSET_IN_MINUTES = 14;
+
 export interface WaitTimeRange {
   low: number;
   high: number;
@@ -84,7 +102,48 @@ export interface ScheduleExtension {
   closures: Closure[] | undefined;
 }
 
+export interface ScheduleDTOOwner {
+  type: FhirResource['resourceType'];
+  id: string;
+  name: string;
+  slug: string;
+  active: boolean;
+  detailText?: string; // to take place of Location.address.line[0]
+  infoMessage?: string;
+  hoursOfOperation?: Location['hoursOfOperation'];
+  timezone: Timezone;
+}
+export interface ScheduleDTO {
+  id: string;
+  owner: ScheduleDTOOwner;
+  timezone: Timezone;
+  schema: ScheduleExtension;
+  bookingLink?: string;
+  active: boolean;
+}
+
 export type SlotCapacityMap = { [slot: string]: number };
+
+export interface SlotOwner {
+  resourceType: string;
+  id: string;
+  name: string;
+}
+
+export interface SlotListItem {
+  slot: Slot;
+  owner: SlotOwner;
+}
+
+export const mapSlotListItemToStartTimesArray = (items: SlotListItem[]): string[] => {
+  return items.map((item) => {
+    if (!item.slot.start) {
+      console.error('Slot does not have start time', item);
+      throw new Error('All slots must have a start time');
+    }
+    return item.slot.start;
+  });
+};
 
 export async function getWaitingMinutesAtSchedule(
   oystehr: Oystehr,
@@ -154,10 +213,10 @@ export function getWaitingMinutes(now: DateTime, encounters: Encounter[]): numbe
 }
 
 export function getScheduleDetails(
-  scheduleResource: Location | Practitioner | HealthcareService
+  scheduleResource: Location | Practitioner | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
   console.log(
-    `extracting schedule and possible overrides from extention on ${scheduleResource.resourceType}`,
+    `extracting schedule and possible overrides from extension on ${scheduleResource.resourceType}`,
     scheduleResource.id
   );
   const scheduleExtension = scheduleResource?.extension?.find(function (extensionTemp) {
@@ -170,13 +229,15 @@ export function getScheduleDetails(
   return { schedule, scheduleOverrides, closures };
 }
 
-export function getTimezone(schedule: Location | Practitioner | HealthcareService): string {
+export function getTimezone(
+  schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
+): string {
   const timezone = schedule.extension?.find(
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;
   if (!timezone) {
-    console.error('Schedule does not have timezone', schedule.resourceType, schedule.id);
-    throw new Error('schedule does not have timezone');
+    console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
+    return TIMEZONES[0];
   }
   return timezone;
 }
@@ -288,21 +349,16 @@ export function getSlotCapacityMapForDayAndSchedule(
 
 interface RemoveBusySlotsInput {
   slotCapacityMap: SlotCapacityMap;
-  appointments: Appointment[];
   busySlots: Slot[];
   // buffer? leaving this out for now as it's not clear it's needed
 }
 
 export const removeBusySlots = (input: RemoveBusySlotsInput): string[] => {
-  const { slotCapacityMap: timeSlots, appointments, busySlots } = input;
-  return distributeTimeSlots(timeSlots, appointments, busySlots);
+  const { slotCapacityMap: timeSlots, busySlots } = input;
+  return distributeTimeSlots(timeSlots, [], busySlots);
 };
 
-export function getPostTelemedSlots(
-  now: DateTime,
-  scheduleResource: Location | Practitioner | HealthcareService,
-  appointments: Appointment[]
-): string[] {
+export function getPostTelemedSlots(now: DateTime, scheduleResource: Schedule, appointments: Appointment[]): string[] {
   const { schedule } = getScheduleDetails(scheduleResource) || { schedule: undefined };
   const timezone = getTimezone(scheduleResource);
   const nowForTimezone = now.setZone(timezone);
@@ -344,14 +400,14 @@ function getSlotsForDayPostTelemed(
   return distributeTimeSlots(timeSlots, appointments, []);
 }
 
-interface GetSlotsInput {
+interface GetSlotCapacityMapInput {
   now: DateTime;
   finishDate: DateTime;
   scheduleExtension: ScheduleExtension;
   timezone: string;
 }
 // returns all slots given current time, schedule, and timezone, irrespective of booked/busy status of any of those slots
-export const getAllSlotsAsCapacityMap = (input: GetSlotsInput): SlotCapacityMap => {
+export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
   const { schedule, scheduleOverrides, closures } = scheduleExtension;
   const nowForTimezone = now.setZone(timezone);
@@ -366,13 +422,15 @@ export const getAllSlotsAsCapacityMap = (input: GetSlotsInput): SlotCapacityMap 
   return slots;
 };
 
-export function getAvailableSlots(
-  now: DateTime,
-  numDays: number,
-  schedule: Location | Practitioner | HealthcareService,
-  appointments: Appointment[],
-  busySlots: Slot[]
-): string[] {
+interface GetAvailableSlotsInput {
+  now: DateTime;
+  numDays: number;
+  schedule: Schedule;
+  busySlots: Slot[]; // todo: add these in upstream
+}
+
+export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
+  const { now, numDays, schedule, busySlots } = input;
   const timezone = getTimezone(schedule);
   const scheduleDetails = getScheduleDetails(schedule);
   if (!scheduleDetails) {
@@ -389,7 +447,6 @@ export function getAvailableSlots(
 
   const availableSlots = removeBusySlots({
     slotCapacityMap,
-    appointments,
     busySlots,
   });
 
@@ -660,29 +717,32 @@ export async function addWaitingMinutesToAppointment(
   return res;
 }
 
-export const getAvailableSlotsForSchedule = async (
-  oystehr: Oystehr,
-  scheduleResource: Location | HealthcareService | Practitioner,
-  now: DateTime,
-  groupItems?: (Location | Practitioner | HealthcareService)[]
-): Promise<{ availableSlots: string[]; telemedAvailable: string[] }> => {
-  const telemedAvailable: string[] = [];
-  const availableSlots: string[] = [];
-  const schedules: (Location | Practitioner | HealthcareService)[] = [];
+interface GetSlotsInput {
+  scheduleList: BookableScheduleData['scheduleList'];
+  now: DateTime;
+  busySlots?: Slot[];
+}
 
-  const slug = scheduleResource?.identifier?.find(
-    (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug'
-  )?.value;
+export const getAvailableSlotsForSchedules = async (
+  input: GetSlotsInput
+): Promise<{
+  availableSlots: SlotListItem[];
+  telemedAvailable: SlotListItem[];
+}> => {
+  const { now, scheduleList } = input;
+  const telemedAvailable: SlotListItem[] = [];
+  const availableSlots: SlotListItem[] = [];
 
-  if (!slug) {
-    console.log(`no slug on schedule resource, ${scheduleResource.id}`);
-    throw new Error(`no slug on schedule resource, ${scheduleResource.id}`);
-  }
-
+  const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
+    schedule: scheduleTemp.schedule,
+    owner: scheduleTemp.owner,
+  }));
+  /*
   const [appointments, busySlots] = await Promise.all([
     getAppointments(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
     checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
   ]);
+
 
   if (scheduleResource.resourceType === 'Location' || scheduleResource.resourceType === 'Practitioner') {
     schedules.push(scheduleResource);
@@ -714,37 +774,59 @@ export const getAvailableSlotsForSchedule = async (
     }
     schedules.push(...getSchedulesForGroup(scheduleResource, groupItems));
   }
+    */
 
   schedules.forEach((scheduleTemp) => {
     try {
-      const prebookAndWalkinAppointments = filterAppointmentsByType(appointments, [
+      // todo: find existing appointments and busy slots
+      /*filterAppointmentsByType(appointments, [
         VisitType.PreBook,
         VisitType.WalkIn,
-      ]);
-      const postTelemedAppointments = filterAppointmentsByType(appointments, [VisitType.PostTelemed]);
+      ]);*/
+      const busySlots: Slot[] = []; // checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleTemp);
+      // const postTelemedAppointments = filterAppointmentsByType(appointments, [VisitType.PostTelemed]);
       console.log('getting post telemed slots');
-      telemedAvailable.push(...getPostTelemedSlots(now, scheduleTemp, postTelemedAppointments));
+      const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
       console.log('getting available slots to display');
+      const slotStartsForSchedule = getAvailableSlots({
+        now,
+        numDays: SCHEDULE_NUM_DAYS,
+        schedule: scheduleTemp.schedule,
+        busySlots,
+      });
       availableSlots.push(
-        ...getAvailableSlots(now, SCHEDULE_NUM_DAYS, scheduleTemp, prebookAndWalkinAppointments, busySlots)
+        ...makeSlotListItems({
+          startTimes: slotStartsForSchedule,
+          scheduleId: scheduleTemp.schedule.id!,
+          owner: scheduleTemp.owner,
+        })
       );
+      telemedAvailable.push(
+        ...makeSlotListItems({
+          startTimes: telemedTimes,
+          scheduleId: scheduleTemp.schedule.id!,
+          owner: scheduleTemp.owner,
+        })
+      );
+      // console.log('available slots for schedule:', slotStartsForSchedule);
     } catch (err) {
-      console.error(`Error trying to get slots for schedule item: ${scheduleTemp.resourceType}/${scheduleTemp.id}`);
+      console.error(`Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`);
     }
   });
 
-  const usedSlots = new Set<string>();
+  // this logic removes duplicate slots even across schedules,
+  const usedSlots: { [time: string]: SlotListItem } = {};
   const dedupedSlots = availableSlots
     .sort((a, b) => {
-      const time1 = DateTime.fromISO(a);
-      const time2 = DateTime.fromISO(b);
+      const time1 = DateTime.fromISO(a.slot.start);
+      const time2 = DateTime.fromISO(b.slot.start);
       return time1.diff(time2).toMillis();
     })
     .filter((slot) => {
-      if (usedSlots.has(slot)) {
+      if (usedSlots[slot.slot.start]) {
         return false;
       }
-      usedSlots.add(slot);
+      usedSlots[slot.slot.start] = slot;
       return true;
     });
 
@@ -775,4 +857,538 @@ export const getSchedulesForGroup = (
     schedules.push(...groupItems);
   }
   return schedules;
+};
+
+interface MakeSlotListItemsInput {
+  startTimes: string[];
+  scheduleId: string;
+  owner: Practitioner | Location | HealthcareService;
+  appointmentLengthInMinutes?: number;
+}
+
+export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
+  const { startTimes, owner: ownerResource, scheduleId, appointmentLengthInMinutes = 15 } = input;
+  return startTimes.map((startTime) => {
+    const end = DateTime.fromISO(startTimes[0]).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
+    const slot: Slot = {
+      resourceType: 'Slot',
+      id: `${scheduleId}-${startTime}`,
+      start: startTime,
+      end,
+      schedule: { reference: `Schedule/${scheduleId}` },
+      status: 'free',
+    };
+    const owner = makeSlotOwnerFromResource(ownerResource);
+    return {
+      slot,
+      owner,
+    };
+  });
+};
+
+const makeSlotOwnerFromResource = (owner: Practitioner | Location | HealthcareService): SlotOwner => {
+  let name = '';
+  if (owner.resourceType === 'Location') {
+    name = (owner as Location).name || '';
+  }
+  if (owner.resourceType === 'Practitioner') {
+    name = getFullName(owner as Practitioner) ?? '';
+  }
+  if (owner.resourceType === 'HealthcareService') {
+    name = (owner as HealthcareService).name || '';
+  }
+  return {
+    resourceType: owner.resourceType,
+    id: owner.id!,
+    name,
+  };
+};
+
+export const nextAvailableFrom = (
+  firstDate: DateTime | undefined,
+  slotDataFHIR: Slot[],
+  timezone: string
+): DateTime | undefined => {
+  if (firstDate == undefined) {
+    return undefined;
+  }
+  const nextDaySlot = slotDataFHIR.find((slot) => {
+    const dt = DateTime.fromISO(slot.start, { zone: timezone });
+    if (dt.ordinal === firstDate.ordinal) {
+      return false;
+    }
+    return dt > firstDate;
+  });
+
+  if (nextDaySlot) {
+    return DateTime.fromISO(nextDaySlot.start, { zone: timezone });
+  }
+  return undefined;
+};
+
+export const normalizeSlotToUTC = (slotOriginal: Slot): Slot => {
+  const slot = {
+    ...slotOriginal,
+  };
+  const startTime = DateTime.fromISO(slot.start).setZone('UTC').toISO() || '';
+  slot.start = startTime;
+  const endTime = DateTime.fromISO(slot.end).setZone('UTC')?.toISO() ?? slot.end;
+  slot.end = endTime;
+  return slot;
+};
+
+export const SCHEDULE_CHANGES_DATE_FORMAT = 'MMM d';
+
+export const BLANK_SCHEDULE_JSON_TEMPLATE: ScheduleExtension = {
+  schedule: {
+    monday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    tuesday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    wednesday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    thursday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    friday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    saturday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+    sunday: {
+      open: 8,
+      close: 17,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 8,
+          capacity: 0,
+        },
+        {
+          hour: 9,
+          capacity: 0,
+        },
+        {
+          hour: 10,
+          capacity: 0,
+        },
+        {
+          hour: 11,
+          capacity: 0,
+        },
+        {
+          hour: 12,
+          capacity: 0,
+        },
+        {
+          hour: 13,
+          capacity: 0,
+        },
+        {
+          hour: 14,
+          capacity: 0,
+        },
+        {
+          hour: 15,
+          capacity: 0,
+        },
+        {
+          hour: 16,
+          capacity: 0,
+        },
+        {
+          hour: 17,
+          capacity: 0,
+        },
+        {
+          hour: 18,
+          capacity: 0,
+        },
+        {
+          hour: 19,
+          capacity: 0,
+        },
+        {
+          hour: 20,
+          capacity: 0,
+        },
+      ],
+    },
+  },
+  scheduleOverrides: {},
+  closures: [],
+};
+
+export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwnerFhirResource['resourceType'] => {
+  if (scheduleType === 'location') {
+    return 'Location';
+  }
+  if (scheduleType === 'provider') {
+    return 'Practitioner';
+  }
+  return 'HealthcareService';
+};
+
+export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {
+  if (fhirType === 'Location') {
+    return ScheduleType.location;
+  }
+  if (fhirType === 'Practitioner') {
+    return ScheduleType.provider;
+  }
+  return ScheduleType.group;
 };

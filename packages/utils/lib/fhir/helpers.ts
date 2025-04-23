@@ -30,6 +30,7 @@ import {
   Reference,
   RelatedPerson,
   Resource,
+  ServiceRequest,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -650,7 +651,7 @@ export function getTaskResource(coding: TaskCoding, appointmentID: string): Task
     intent: 'plan',
     focus: {
       type: 'Appointment',
-      reference: `Appointment/${appointmentID}`,
+      reference: appointmentID.startsWith('urn:uuid:') ? appointmentID : `Appointment/${appointmentID}`,
     },
     code: {
       coding: [coding],
@@ -682,6 +683,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
         const qualificationState = stateExtension?.valueCodeableConcept?.coding?.find(
           (coding) => coding.system === PRACTITIONER_QUALIFICATION_STATE_SYSTEM
         )?.code;
+        const licenseNumber = qualificationExt.extension?.find((ext) => ext.url === 'number')?.valueString;
+        const licenseExpDate = qualificationExt.extension?.find((ext) => ext.url === 'expDate')?.valueDate;
 
         const statusExtension = qualificationExt.extension?.find((ext) => ext.url === 'status')?.valueCode;
 
@@ -689,6 +692,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
           allLicenses.push({
             state: qualificationState,
             code: qualificationCode,
+            number: licenseNumber,
+            date: licenseExpDate,
             active: statusExtension === 'active',
           });
       }
@@ -1191,7 +1196,9 @@ export const checkForPatientDemographicMatch = (
 
   return true;
 };
-export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
+export function flattenBundleResources<T extends FhirResource = ServiceRequest | Task>(
+  searchResults: Bundle<FhirResource>
+): T[] {
   const flattenedResources: FhirResource[] = [];
 
   searchResults.entry?.forEach((resultEntry) => {
@@ -1206,7 +1213,7 @@ export function flattenBundleResources(searchResults: Bundle<FhirResource>): Fhi
     }
   });
 
-  return flattenedResources;
+  return flattenedResources as T[];
 }
 
 export function slashPathToLodashPath(slashPath: string): string {

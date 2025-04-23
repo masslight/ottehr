@@ -64,11 +64,15 @@ export const TEST_EMPLOYEE_1: TestEmployeeInviteParams = {
     {
       code: 'CISW',
       state: 'AR',
+      number: '12345',
+      date: '2026-04-23',
       active: true,
     },
     {
       code: 'PHARMACY-ASSISTA',
       state: 'AK',
+      number: '54321',
+      date: '2026-04-23',
       active: true,
     },
   ],
@@ -85,16 +89,22 @@ export const TEST_EMPLOYEE_1_UPDATED_INFO: TestEmployeeInviteParams = {
     {
       code: 'CISW',
       state: 'AR',
+      number: '12345',
+      date: '2026-04-23',
       active: true,
     },
     {
       code: 'PHARMACY-ASSISTA',
       state: 'AK',
+      number: '54321',
+      date: '2026-04-23',
       active: true,
     },
     {
       code: 'CMSW',
       state: 'CA',
+      number: '15243',
+      date: '2026-04-23',
       active: true,
     },
   ],
@@ -123,7 +133,7 @@ export function invitationParamsForEmployee(employee: TestEmployeeInviteParams, 
 
   return {
     username: employee.userName ?? `${testEmployeeUsernamePattern}${uuid}`,
-    email: employee.email ?? `e2e-employee-${uuid}@gmail.com`,
+    email: employee.email ?? `e2e-tests+${uuid}@ottehr.com`,
     applicationId: process.env.EHR_APPLICATION_ID,
     roles,
     resource: {

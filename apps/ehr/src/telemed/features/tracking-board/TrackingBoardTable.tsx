@@ -39,27 +39,19 @@ interface ColumnConditions {
 const TRACKING_BOARD_COLUMNS_CONFIG: Record<string, TrackingBoardColumn> = {
   STATUS: {
     id: 'status',
-    label: 'Status',
+    label: 'Type & Status',
   },
   WAITING_TIME: {
     id: 'waitingTime',
     label: 'Waiting time',
   },
-  GROUP: {
-    id: 'group',
-    label: 'Group',
-  },
-  PATIENT_INFO: {
-    id: 'patient',
-    label: 'Patient',
+  PATIENT_INFO_REASON: {
+    id: 'patient-info-reason',
+    label: 'Patient & Reason',
   },
   LOCATION: {
     id: 'state',
     label: 'State',
-  },
-  REASON: {
-    id: 'reason',
-    label: 'Reason',
   },
   PROVIDER: {
     id: 'provider',
@@ -67,6 +59,10 @@ const TRACKING_BOARD_COLUMNS_CONFIG: Record<string, TrackingBoardColumn> = {
     conditional: {
       showWhen: 'showProvider',
     },
+  },
+  GROUP: {
+    id: 'group',
+    label: 'Group',
   },
   CHAT: {
     id: 'chat',

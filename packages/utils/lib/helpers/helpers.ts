@@ -224,7 +224,21 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
-export const DEMO_VISIT_RESPONSIBLE_PHONE = '(233) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(244) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
+export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
+export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
+export const DEMO_VISIT_RESPONSIBLE_ZIP = '44101';
+export const DEMO_VISIT_PATIENT_ETHNICITY = 'Decline to Specify';
+export const DEMO_VISIT_PATIENT_RACE = 'Native Hawaiian or Other Pacific Islander';
+export const DEMO_VISIT_POINT_OF_DISCOVERY = 'Friend/Family';
+export const DEMO_VISIT_MARKETING_MESSAGING = true;
+export const DEMO_VISIT_PREFERRED_LANGUAGE = 'English';
+export const DEMO_VISIT_PROVIDER_FIRST_NAME = 'Provider first name';
+export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
+export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
+export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
+export const DEMO_VISIT_PHYSICIAN_MOBILE = '(123) 456-7890';
 
 export function getContactInformationAnswers({
   willBe18 = false,
@@ -247,7 +261,7 @@ export function getContactInformationAnswers({
   email = 'test-email@test-domain-1237843298123.co',
   phoneNumber = '(202) 733-9622',
 
-  mobileOptIn = true,
+  mobileOptIn = DEMO_VISIT_MARKETING_MESSAGING,
 }: {
   willBe18?: boolean;
   isNewPatient?: boolean;
@@ -345,8 +359,10 @@ export function getContactInformationAnswers({
 }
 
 export function getPatientDetailsStepAnswers({
-  ethnicity = 'Decline to Specify',
-  race = 'Native Hawaiian or Other Pacific Islander',
+  ethnicity = DEMO_VISIT_PATIENT_ETHNICITY,
+  race = DEMO_VISIT_PATIENT_RACE,
+  pointOfDiscovery = DEMO_VISIT_POINT_OF_DISCOVERY,
+  preferredLanguage = DEMO_VISIT_PREFERRED_LANGUAGE,
   pronouns = 'She/her',
   ovrpInterest = 'Need more info',
 }: {
@@ -354,6 +370,8 @@ export function getPatientDetailsStepAnswers({
   race?: string;
   pronouns?: string;
   ovrpInterest?: string;
+  pointOfDiscovery?: string;
+  preferredLanguage?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
     linkId: 'patient-details-page',
@@ -367,6 +385,10 @@ export function getPatientDetailsStepAnswers({
         answer: [{ valueString: race }],
       },
       {
+        linkId: 'patient-point-of-discovery',
+        answer: [{ valueString: pointOfDiscovery }],
+      },
+      {
         linkId: 'patient-pronouns',
         answer: [{ valueString: pronouns }],
       },
@@ -378,7 +400,7 @@ export function getPatientDetailsStepAnswers({
         linkId: 'preferred-language',
         answer: [
           {
-            valueString: 'English',
+            valueString: preferredLanguage,
           },
         ],
       },
@@ -405,12 +427,20 @@ export function getResponsiblePartyStepAnswers({
   },
   birthSex = DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   phone = DEMO_VISIT_RESPONSIBLE_PHONE,
+  address1 = DEMO_VISIT_RESPONSIBLE_ADDRESS1,
+  city = DEMO_VISIT_RESPONSIBLE_CITY,
+  state = DEMO_VISIT_RESPONSIBLE_STATE,
+  zip = DEMO_VISIT_RESPONSIBLE_ZIP,
 }: {
   firstName?: string;
   relationship?: string;
   birthDate?: { day: string; month: string; year: string };
   birthSex?: string;
   lastName?: string;
+  address1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
   phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -439,6 +469,22 @@ export function getResponsiblePartyStepAnswers({
       {
         linkId: 'responsible-party-birth-sex',
         answer: [{ valueString: birthSex }],
+      },
+      {
+        linkId: 'responsible-party-address',
+        answer: [{ valueString: address1 }],
+      },
+      {
+        linkId: 'responsible-party-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'responsible-party-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'responsible-party-zip',
+        answer: [{ valueString: zip }],
       },
       {
         linkId: 'responsible-party-number',
@@ -950,6 +996,66 @@ export function getInviteParticipantStepAnswers(): PatchPaperworkParameters['ans
     linkId: 'invite-participant-page',
     item: [
       { linkId: 'invite-from-another-device', answer: [{ valueString: 'No, only one device will be connected' }] },
+    ],
+  };
+}
+
+export function getPrimaryCarePhysicianStepAnswers({
+  providerFirstName = DEMO_VISIT_PROVIDER_FIRST_NAME,
+  providerLastName = DEMO_VISIT_PROVIDER_LAST_NAME,
+  practiceName = DEMO_VISIT_PRACTICE_NAME,
+  address = DEMO_VISIT_PHYSICIAN_ADDRESS,
+  mobile = DEMO_VISIT_PHYSICIAN_MOBILE,
+}: {
+  providerFirstName?: string;
+  providerLastName?: string;
+  practiceName?: string;
+  address?: string;
+  mobile?: string;
+}): PatchPaperworkParameters['answers'] {
+  return {
+    linkId: 'primary-care-physician-page',
+    item: [
+      {
+        linkId: 'pcp-first',
+        answer: [
+          {
+            valueString: providerFirstName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-last',
+        answer: [
+          {
+            valueString: providerLastName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-practice',
+        answer: [
+          {
+            valueString: practiceName,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-address',
+        answer: [
+          {
+            valueString: address,
+          },
+        ],
+      },
+      {
+        linkId: 'pcp-number',
+        answer: [
+          {
+            valueString: mobile,
+          },
+        ],
+      },
     ],
   };
 }

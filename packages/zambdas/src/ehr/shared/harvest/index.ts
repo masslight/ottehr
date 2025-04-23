@@ -123,6 +123,7 @@ interface ResponsiblePartyContact {
   firstName: string;
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  address: Address;
 
   number?: string;
 }
@@ -689,10 +690,10 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
       },
     },
     {
-      uploadURL: `${baseUploadURL}-hippa-acknowledgement.pdf`,
+      uploadURL: `${baseUploadURL}-hipaa-acknowledgement.pdf`,
       copyFromPath: './assets/HIPAA.Acknowledgement-S.pdf',
       formTitle: 'HIPAA Acknowledgement',
-      resourceTitle: 'HIPPA forms',
+      resourceTitle: 'HIPAA forms',
       type: {
         coding: [
           {
@@ -1072,7 +1073,6 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-name-suffix': patientFieldPaths.suffix,
   'patient-preferred-name': patientFieldPaths.preferredName,
   'patient-birth-sex': patientFieldPaths.gender,
-  'patient-birth-sex-missing': patientFieldPaths.genderIdentityDetails,
   'patient-number': patientFieldPaths.phone,
   'patient-email': patientFieldPaths.email,
   'preferred-language': patientFieldPaths.preferredLanguage,
@@ -1092,6 +1092,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'patient-ethnicity': patientFieldPaths.ethnicity,
   'patient-race': patientFieldPaths.race,
   'patient-gender-identity': patientFieldPaths.genderIdentity,
+  'patient-gender-identity-details': patientFieldPaths.genderIdentityDetails,
   'patient-sexual-orientation': patientFieldPaths.sexualOrientation,
   'patient-point-of-discovery': patientFieldPaths.pointOfDiscovery,
   'mobile-opt-in': patientFieldPaths.sendMarketing,
@@ -1968,6 +1969,21 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
 
+  const city = findAnswer('responsible-party-city');
+  const addressLine = findAnswer('responsible-party-address');
+  const line = addressLine ? [addressLine] : undefined;
+  const addressLine2 = findAnswer('responsible-party-address-2');
+  if (addressLine2) line?.push(addressLine2);
+  const state = findAnswer('responsible-party-state');
+  const postalCode = findAnswer('responsible-party-zip');
+
+  const guarantorAddress: Address = {
+    city,
+    line,
+    state,
+    postalCode,
+  };
+
   const contact: ResponsiblePartyContact = {
     birthSex: findAnswer('responsible-party-birth-sex') as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer('responsible-party-date-of-birth') ?? '',
@@ -1979,6 +1995,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
       | 'Parent'
       | 'Legal Guardian'
       | 'Other',
+    address: guarantorAddress,
     number: findAnswer('responsible-party-number'),
   };
 
@@ -2923,6 +2940,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     gender: mapBirthSexToGender(guarantor.birthSex),
     telecom,
     patient: { reference: `Patient/${patientId}` },
+    address: [guarantor.address],
     relationship: [
       {
         coding: [

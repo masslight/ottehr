@@ -1,6 +1,7 @@
 import {
   Appointment,
   Encounter,
+  Extension,
   HealthcareService,
   Location,
   Patient,
@@ -59,8 +60,11 @@ export type GetAppointmentsResponseEhr = AppointmentsResponse<AppointmentInforma
 export type GetTelemedAppointmentsResponseEhr = AppointmentsResponse<TelemedAppointmentInformation>;
 
 export interface AppointmentLocation {
-  locationID?: string;
+  reference?: string;
   state?: string;
+  resourceType: Location['resourceType'];
+  id: string;
+  extension?: Extension[];
 }
 
 export interface AppointmentInformation extends AppointmentMessaging {
@@ -78,6 +82,7 @@ export interface AppointmentInformation extends AppointmentMessaging {
   next: boolean;
   visitStatusHistory: VisitStatusHistoryEntry[];
   practitioner?: Practitioner;
+  appointmentType?: AppointmentType;
 }
 
 export interface ParticipantInfo {
@@ -96,7 +101,6 @@ export interface InPersonAppointmentInformation
   start: string;
   unconfirmedDOB: string;
   reasonForVisit: string;
-  appointmentType?: AppointmentType;
   status: VisitStatusLabel;
   provider?: string;
   group?: string;
@@ -138,6 +142,7 @@ export interface GetTelemedAppointmentsInput {
   groupsFilter?: string[];
   patientFilter: PatientFilterType;
   statusesFilter: TelemedCallStatuses[];
+  visitTypesFilter?: string[];
   userToken: string;
 }
 

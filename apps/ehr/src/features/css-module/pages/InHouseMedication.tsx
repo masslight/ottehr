@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useCallback, useLayoutEffect, useState } from 'react';
 import { Box, Tabs, Tab, AppBar, useTheme } from '@mui/material';
 import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
-import { PageHeader } from '../components/medication-administration/PageHeader';
 import { OrderButton } from '../components/medication-administration/OrderButton';
 import { MarTable } from '../components/medication-administration/mar/MarTable';
 import { MedicationList } from '../components/medication-administration/medication-details/MedicationList';
@@ -11,6 +10,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getInHouseMedicationMARUrl, getInHouseMedicationDetailsUrl } from '../routing/helpers';
 import { CSSLoader } from '../components/CSSLoader';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { PageTitle } from '../../../telemed/components/PageTitle';
 
 interface TabContentProps {
   isActive: boolean;
@@ -28,7 +28,7 @@ const TabContent: React.FC<TabContentProps> = ({ isActive, children }) => (
 );
 
 export const InHouseMedication: React.FC = () => {
-  const { id: encounterId } = useParams();
+  const { id: appointmentId } = useParams();
   const { medications } = useMedicationAPI();
   const navigate = useNavigate();
   const tabContentRef = useRef<HTMLDivElement>(null);
@@ -45,10 +45,10 @@ export const InHouseMedication: React.FC = () => {
     isTabTransitionRef.current = true;
     requestAnimationFrame(() => {
       tabName === 'mar'
-        ? navigate(getInHouseMedicationDetailsUrl(encounterId!))
-        : navigate(getInHouseMedicationMARUrl(encounterId!));
+        ? navigate(getInHouseMedicationDetailsUrl(appointmentId!))
+        : navigate(getInHouseMedicationMARUrl(appointmentId!));
     });
-  }, [encounterId, navigate, tabName]);
+  }, [appointmentId, navigate, tabName]);
 
   const [searchParams] = useSearchParams();
   const scrollTo = searchParams.get('scrollTo');
@@ -102,12 +102,11 @@ export const InHouseMedication: React.FC = () => {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" pl={0.5} mb={2} mt={2}>
-        <PageHeader
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+        <PageTitle
           dataTestId={dataTestIds.inHouseMedicationsPage.title}
-          title="Medications"
-          variant="h3"
-          component="h1"
+          label="Medications"
+          showIntakeNotesButton={false}
         />
         <OrderButton dataTestId={dataTestIds.inHouseMedicationsPage.orderButton} />
       </Box>

@@ -18,6 +18,7 @@ const resourceHandler = new ResourceHandler();
 
 test.beforeAll(async () => {
   await resourceHandler.setResources();
+  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 });
 
 test.afterAll(async () => {
@@ -25,7 +26,6 @@ test.afterAll(async () => {
 });
 
 test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000);
   await page.goto('/patient/' + resourceHandler.patient.id + '/info');
 });
 

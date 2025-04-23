@@ -27,15 +27,9 @@ export class FillingInfo {
 
   // randomize in tests maybe not a good idea, left one option for now
   private reasonForVisit = ['Fever'];
-  private cancelReason = ['Wait time too long'];
   private ethnicity = ['Hispanic or Latino', 'Not Hispanic or Latino', 'Decline to Specify'];
   private race = ['American Indian or Alaska Native'];
-  private pronouns = ['He/him'];
   private discovery = ['Friend/Family'];
-  private ovrp = ['No'];
-  private relationships = ['Father'];
-  private relationshipsConstentForms = ['Parent'];
-  private relationshipsInsurance = ['Child'];
   private months = ['Jan'];
   private birthSexes = ['Male'];
   private thisEmailBelongsTo = ['Patient'];
@@ -92,13 +86,6 @@ export class FillingInfo {
     return reasonForVisit;
   }
 
-  async fillMiddleName() {
-    const middleName = `TM-UserMN${this.getRandomString()}`;
-    await this.page.getByPlaceholder('Middle name').click();
-    await this.page.getByPlaceholder('Middle name').fill(middleName);
-    return middleName;
-  }
-
   async fillDOBless18() {
     const today = new Date();
     const YearMax = today.getFullYear() - 1;
@@ -107,17 +94,12 @@ export class FillingInfo {
     const randomDay = this.getRandomInt(1, 28).toString();
     const randomYear = this.getRandomInt(YearMin, YearMax).toString();
 
-    //await this.page.getByText('Month').first().click({ force: true });
     await this.page.getByRole('combobox').nth(0).click();
     await this.page.getByRole('option', { name: randomMonth }).click();
-    // await this.page.waitForTimeout(3000);
 
-    // await this.page.getByText('Day').first().click({ force: true });
     await this.page.getByRole('combobox').nth(1).click();
     await this.page.getByRole('option', { name: randomDay, exact: true }).click();
-    // await this.page.waitForTimeout(3000);
 
-    // await this.page.getByText('Year').first().click({ force: true });
     await this.page.getByRole('combobox').nth(2).click();
     await this.page.getByRole('option', { name: randomYear }).click();
 
@@ -144,56 +126,13 @@ export class FillingInfo {
     return { randomMonth, randomDay, randomYear };
   }
 
-  async fillDOBequal18() {
-    const today = new Date();
-    const Day = today.getDate().toString();
-    const Month = today.toLocaleString('default', { month: 'short' });
-    const Year = (today.getFullYear() - 18).toString();
-    // await this.page.getByText('Month').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(0).click({ force: true });
-    await this.page.getByRole('option', { name: Month }).click();
-    // await this.page.waitForTimeout(3000);
-
-    //  await this.page.getByText('Day').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
-    await this.page.getByRole('option', { name: Day, exact: true }).click({ timeout: 10000 });
-    // await this.page.waitForTimeout(3000);
-
-    // await this.page.getByText('Year').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
-    await this.page.getByRole('option', { name: Year }).click();
-
-    return { Month, Day, Year };
-  }
-
-  async fillDOBgreater26() {
-    //  await this.page.getByText('Month').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(0).click({ force: true });
-    await this.page.getByRole('option', { name: 'Jan' }).click();
-    // await this.page.waitForTimeout(3000);
-
-    //  await this.page.getByText('Day').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
-    await this.page.getByRole('option', { name: '10' }).click();
-    // await this.page.waitForTimeout(3000);
-
-    //  await this.page.getByText('Year').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
-    await this.page.getByRole('option', { name: '1997' }).click();
-  }
-
   async fillCorrectDOB(month: string, day: string, year: string) {
-    //await this.page.getByText('Month').first().click({ force: true });
     await this.page.getByRole('combobox').nth(0).click();
     await this.page.getByRole('option', { name: month }).click();
-    // await this.page.waitForTimeout(3000);
 
-    // await this.page.getByText('Day').first().click({ force: true });
     await this.page.getByRole('combobox').nth(1).click();
     await this.page.getByRole('option', { name: day, exact: true }).click();
-    // await this.page.waitForTimeout(3000);
 
-    // await this.page.getByText('Year').first().click({ force: true });
     await this.page.getByRole('combobox').nth(2).click();
     await this.page.getByRole('option', { name: year }).click();
   }
@@ -201,48 +140,17 @@ export class FillingInfo {
   async fillWrongDOB(month: string, day: string, year: string) {
     const wrongDay = (parseInt(day, 10) + 1).toString();
     const wrongYear = (parseInt(year, 10) + 1).toString();
-    //await this.page.getByText('Month').first().click({ force: true });
+
     await this.page.getByRole('combobox').nth(0).click();
     await this.page.getByRole('option', { name: month }).click();
-    // await this.page.waitForTimeout(3000);
 
-    //await this.page.getByText('Day').first().click({ force: true });
     await this.page.getByRole('combobox').nth(1).click();
     await this.page.getByRole('option', { name: wrongDay, exact: true }).click();
-    // await this.page.waitForTimeout(3000);
 
-    // await this.page.getByText('Year').first().click({ force: true });
     await this.page.getByRole('combobox').nth(2).click();
     await this.page.getByRole('option', { name: wrongYear }).click();
 
     return { month, wrongDay, wrongYear };
-  }
-
-  async fillInvalidDOB() {
-    //await this.page.getByText('Month').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(0).click({ force: true });
-    await this.page.getByRole('option', { name: 'Feb' }).click();
-    // await this.page.waitForTimeout(3000);
-
-    // await this.page.getByText('Day').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
-    await this.page.getByRole('option', { name: '31', exact: true }).click();
-    // await this.page.waitForTimeout(3000);
-
-    // await this.page.getByText('Year').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
-    await this.page.getByRole('option', { name: '2019' }).click();
-  }
-
-  async cancelPrebookVisit() {
-    const randomCancelReason = this.getRandomElement(this.cancelReason);
-    await this.page.getByRole('button', { name: 'Cancel' }).click();
-    await this.page.locator('#cancellationReason').click();
-    await this.page.getByRole('option', { name: randomCancelReason }).click();
-    await this.page.getByRole('button', { name: 'Cancel visit' }).click();
-    await expect(this.page.getByRole('heading', { name: 'Your visit has been canceled' })).toBeVisible({
-      timeout: 15000,
-    });
   }
 
   async fillContactInformation() {
@@ -382,162 +290,6 @@ export class FillingInfo {
     return { covid, test, travel };
   }
 
-  async fillSelfPayCardData(card: { number: string; expDate: string; cvc: string }) {
-    const stripeFrame = this.page.frameLocator('iframe').first();
-
-    await stripeFrame.locator('[placeholder="Card number"]').fill(card.number);
-    await stripeFrame.locator('[placeholder="MM / YY"]').fill(card.expDate);
-    await stripeFrame.locator('[placeholder="CVC"]').fill(card.cvc);
-  }
-
-  async NewPatientDetails() {
-    const randomEthnicity = this.getRandomElement(this.ethnicity);
-    const randomRace = this.getRandomElement(this.race);
-    const randomPronouns = this.getRandomElement(this.pronouns);
-    const randomDiscovery = this.getRandomElement(this.discovery);
-    const randomOVRP = this.getRandomElement(this.ovrp);
-    await this.page.locator('#patient-ethnicity').click();
-    await this.page.getByRole('option', { name: randomEthnicity, exact: true }).click();
-    await this.page.locator('#patient-race').click();
-    await this.page.getByRole('option', { name: randomRace, exact: true }).click();
-    await this.page.locator('#patient-pronouns').click();
-    await this.page.getByRole('option', { name: randomPronouns, exact: true }).click();
-    await this.page.locator('#patient-point-of-discovery').click();
-    await this.page.getByRole('option', { name: randomDiscovery, exact: true }).click();
-    await this.page.locator('#ovrp-interest').click();
-    await this.page.getByRole('option', { name: randomOVRP, exact: true }).click();
-    return { randomEthnicity, randomRace, randomPronouns, randomOVRP, randomDiscovery };
-  }
-  async PatientDetailsWithFilledPaperwor() {
-    const randomEthnicity = this.getRandomElement(this.ethnicity);
-    const randomRace = this.getRandomElement(this.race);
-    const randomPronouns = this.getRandomElement(this.pronouns);
-    const randomOVRP = this.getRandomElement(this.ovrp);
-    await this.page.locator('#patient-ethnicity').click();
-    await this.page.getByRole('option', { name: randomEthnicity, exact: true }).click();
-    await this.page.locator('#patient-race').click();
-    await this.page.getByRole('option', { name: randomRace, exact: true }).click();
-    await this.page.locator('#patient-pronouns').click();
-    await this.page.getByRole('option', { name: randomPronouns, exact: true }).click();
-    await this.page.locator('#ovrp-interest').click();
-    await this.page.getByRole('option', { name: randomOVRP, exact: true }).click();
-    return { randomEthnicity, randomRace, randomPronouns, randomOVRP };
-  }
-  async ResponsiblePartyRandom() {
-    const firstName = `TM-UserFN${this.getRandomString()}`;
-    const lastName = `TM-UserLN${this.getRandomString()}`;
-    const randomRelationship = this.getRandomElement(this.relationships);
-    const randomMonth = this.getRandomElement(this.months);
-    const randomDay = this.getRandomInt(1, 28).toString();
-    const randomYear = this.getRandomInt(1950, 2023).toString();
-    const randomBirthSex = this.getRandomElement(this.birthSexes);
-    await this.page.getByRole('heading', { name: 'Responsible party information' }).isVisible();
-    await this.page.locator('#responsible-party-relationship').click();
-    await this.page.getByRole('option', { name: randomRelationship }).click();
-    await this.page.locator('#responsible-party-first-name').click();
-    await this.page.getByRole('textbox', { name: 'First name' }).fill(firstName);
-    await this.page.locator('#responsible-party-last-name').click();
-    await this.page.getByRole('textbox', { name: 'Last name' }).fill(lastName);
-    //await this.page.getByText('Month').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomMonth}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomMonth }).click();
-    await this.page.waitForTimeout(500);
-    //await this.page.getByText('Day').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomDay}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomDay, exact: true }).click();
-    await this.page.waitForTimeout(500);
-    //await this.page.getByText('Year').first().click({ force: true });
-    await this.page.getByRole('combobox').nth(3).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomYear}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomYear }).click();
-    await this.page.waitForTimeout(500);
-    await this.page.locator('#responsible-party-birth-sex').click();
-    await this.page.getByRole('option', { name: randomBirthSex, exact: true }).click();
-  }
-  async ResponsiblePartyLegalGuardian() {
-    const firstName = `TM-UserFN${this.getRandomString()}`;
-    const lastName = `TM-UserLN${this.getRandomString()}`;
-    const randomMonth = this.getRandomElement(this.months);
-    const randomDay = this.getRandomInt(1, 28).toString();
-    const randomYear = this.getRandomInt(1950, 2023).toString();
-    const randomBirthSex = this.getRandomElement(this.birthSexes);
-    await this.page.getByRole('heading', { name: 'Responsible party information' }).isVisible();
-    await this.page.locator('#responsible-party-relationship').click();
-    await this.page.getByRole('option', { name: 'Legal Guardian' }).click();
-    await this.page.locator('#responsible-party-first-name').click();
-    await this.page.getByRole('textbox', { name: 'First name' }).fill(firstName);
-    await this.page.locator('#responsible-party-last-name').click();
-    await this.page.getByRole('textbox', { name: 'Last name' }).fill(lastName);
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomMonth}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomMonth }).click();
-    await this.page.waitForTimeout(500);
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomDay}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomDay, exact: true }).click();
-    await this.page.waitForTimeout(500);
-    await this.page.getByRole('combobox').nth(3).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomYear}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomYear }).click();
-    await this.page.waitForTimeout(500);
-    await this.page.locator('#responsible-party-birth-sex').click();
-    await this.page.getByRole('option', { name: randomBirthSex, exact: true }).click();
-  }
-  async fillConsentForm() {
-    const firstName = `TM-UserFN${this.getRandomString()}`;
-    const lastName = `TM-UserLN${this.getRandomString()}`;
-    const randomRelationships = this.getRandomElement(this.relationshipsConstentForms);
-    await this.page.getByLabel('I have reviewed and accept HIPAA Acknowledgement *').check();
-    await this.page.getByLabel('I have reviewed and accept Consent to Treat and Guarantee of Payment *').check();
-    await this.page.getByPlaceholder('Type out your full name').click();
-    await this.page.getByPlaceholder('Type out your full name').fill(firstName + ' ' + lastName);
-    await this.page.getByRole('textbox', { name: 'Full name' }).click();
-    await this.page.getByRole('textbox', { name: 'Full name' }).fill(firstName + ' ' + lastName);
-    await this.page.locator('#consent-form-signer-relationship').click();
-    await this.page.getByRole('option', { name: randomRelationships }).click();
-    return { firstName, lastName, randomRelationships };
-  }
-  async getMonthDay(monthStr: string, dayStr: string) {
-    const monthNumber = new Date(`${monthStr} 01 2000`).toLocaleDateString(`en`, { month: `2-digit` });
-    const dayNumber = new Date(`Jan ${dayStr} 2000`).toLocaleDateString(`en`, { day: `2-digit` });
-    return { monthNumber, dayNumber };
-  }
-  async fillInsuranceRequiredFields() {
-    const firstName = `TM-UserFN${this.getRandomString()}`;
-    const lastName = `TM-UserLN${this.getRandomString()}`;
-    const randomRelationships = this.getRandomElement(this.relationshipsInsurance);
-    const randomMonth = this.getRandomElement(this.months);
-    const randomDay = this.getRandomInt(1, 28).toString();
-    const randomYear = this.getRandomInt(1950, 2023).toString();
-    const randomBirthSex = this.getRandomElement(this.birthSexes);
-    await this.page.locator('#insurance-carrier').click();
-    await this.page.locator('#insurance-carrier').fill('Insurance carrier test');
-    await this.page.locator('#insurance-member-id').click();
-    await this.page.locator('#insurance-member-id').fill('Insurance member test');
-    await this.page.locator('#policy-holder-first-name').click();
-    await this.page.locator('#policy-holder-first-name').fill(firstName);
-    await this.page.locator('#policy-holder-last-name').click();
-    await this.page.locator('#policy-holder-last-name').fill(lastName);
-    await this.page.getByRole('combobox').nth(0).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomMonth}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomMonth }).click();
-    await this.page.waitForTimeout(500);
-    await this.page.getByRole('combobox').nth(1).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomDay}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomDay, exact: true }).click();
-    await this.page.waitForTimeout(500);
-    await this.page.getByRole('combobox').nth(2).click({ force: true });
-    await this.page.waitForSelector(`role=option[name="${randomYear}"]`, { state: 'visible' });
-    await this.page.getByRole('option', { name: randomYear }).click();
-    await this.page.waitForTimeout(500);
-    await this.page.locator('#policy-holder-birth-sex').click();
-    await this.page.getByRole('option', { name: randomBirthSex, exact: true }).click();
-    await this.page.locator('#patient-relationship-to-insured').click();
-    await this.page.getByRole('option', { name: randomRelationships }).click();
-    return { firstName, lastName, randomRelationships };
-  }
   async selectRandomSlot(): Promise<{ time: string; fullSlot: string }> {
     await expect(this.locators.firstAvailableTime).toBeVisible();
     const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');

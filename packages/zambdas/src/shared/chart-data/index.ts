@@ -25,6 +25,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
+  AI_OBSERVATION_META_SYSTEM,
   AllergyDTO,
   BirthHistoryDTO,
   BooleanValueDTO,
@@ -73,6 +74,7 @@ import {
   isVitalObservation,
   makeVitalsObservationDTO,
   removeOperation,
+  ADDED_VIA_LAB_ORDER_SYSTEM,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
@@ -767,7 +769,7 @@ export function makeDiagnosisConditionResource(
   data: DiagnosisDTO,
   fieldName: ProviderChartDataFieldsNames
 ): Condition {
-  return {
+  const conditionConfig: Condition = {
     id: data.resourceId,
     resourceType: 'Condition',
     subject: { reference: `Patient/${patientId}` },
@@ -783,14 +785,26 @@ export function makeDiagnosisConditionResource(
     },
     meta: getMetaWFieldName(fieldName),
   };
+  if (data.addedViaLabOrder) {
+    conditionConfig.extension = [
+      {
+        url: ADDED_VIA_LAB_ORDER_SYSTEM,
+        valueBoolean: true,
+      },
+    ];
+  }
+  return conditionConfig;
 }
 
 export function makeDiagnosisDTO(resource: Condition, isPrimary: boolean): DiagnosisDTO {
+  const addedViaLabOrder = !!resource.extension?.find((ext) => ext.url === ADDED_VIA_LAB_ORDER_SYSTEM)?.valueBoolean;
+
   return {
     resourceId: resource.id,
     code: resource.code?.coding?.[0].code || '',
     display: resource.code?.coding?.[0].display || '',
     isPrimary: isPrimary,
+    addedViaLabOrder,
   };
 }
 
@@ -1115,6 +1129,13 @@ const mapResourceToChartDataFields = (
     const hospitalizationDTO = makeHospitalizationDTO(resource);
     if (hospitalizationDTO) data.episodeOfCare?.push(hospitalizationDTO);
     resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'Observation' &&
+    chartDataResourceHasMetaTagBySystem(resource, `${PRIVATE_EXTENSION_BASE_URL}/${AI_OBSERVATION_META_SYSTEM}`)
+  ) {
+    const resourse = makeObservationDTO(resource);
+    if (resourse) data.observations?.push(resourse);
+    resourceMapped = true;
   }
   return {
     chartDataFields: data,
@@ -1183,6 +1204,15 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
   if (addendumNote) {
     data.addendumNote = { text: addendumNote.valueString };
   }
+
+  // 6. AI potential diagnoses
+  resources
+    .filter(
+      (resource) => resource.resourceType === 'Condition' && resource.meta?.tag?.[0].code === 'ai-potential-diagnosis'
+    )
+    .forEach((condition) => {
+      data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
+    });
 
   return data;
 }

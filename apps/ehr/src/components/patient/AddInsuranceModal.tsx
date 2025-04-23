@@ -234,7 +234,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   name={FormFields.birthDate.key}
                   variant="outlined"
                   control={control}
-                  required={true}
+                  rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                   defaultValue={''}
                 />
               </LabeledField>

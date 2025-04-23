@@ -1,7 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { AppointmentParticipant, Location } from 'fhir/r4b';
-import { fillWaitAndSelectDropdown, getPatientConditionPhotosStepAnswers } from 'test-utils';
+import {
+  fillWaitAndSelectDropdown,
+  getPatientConditionPhotosStepAnswers,
+  waitForSaveChartDataResponse,
+} from 'test-utils';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   allLicensesForPractitioner,
@@ -248,7 +252,7 @@ test.describe('Tests interacting with appointment state', () => {
 
     const expectedSms =
       'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
-    await expect(page.getByText(expectedSms)).toBeVisible({ timeout: 25000 });
+    await expect(page.getByText(expectedSms).first()).toBeVisible({ timeout: 25000 });
   });
 
   test('Buttons on visit page should not appear', async () => {
@@ -384,6 +388,20 @@ test.describe('Tests interacting with appointment state', () => {
           .click();
       }
 
+      for (const question of ADDITIONAL_QUESTIONS) {
+        await expect(
+          page
+            .getByTestId(dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(question.field))
+            .locator('input[type="radio"][value="true"]')
+        ).toBeEnabled();
+      }
+
+      const chiefComplaintResponsePromise = waitForSaveChartDataResponse(
+        page,
+        (json) => !!json.chartData.chiefComplaint?.resourceId
+      );
+      const rosResponsePromise = waitForSaveChartDataResponse(page, (json) => !!json.chartData.ros?.resourceId);
+
       await page
         .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
         .locator('textarea')
@@ -395,7 +413,8 @@ test.describe('Tests interacting with appointment state', () => {
         .first()
         .fill(chiefComplaintRos);
 
-      await page.waitForTimeout(10000); // ensure resources are saved
+      await chiefComplaintResponsePromise;
+      await rosResponsePromise;
     });
 
     await test.step('reload and wait until data is loaded', async () => {

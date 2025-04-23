@@ -358,9 +358,7 @@ test.describe('Secondary Insurance', () => {
 test.describe('Responsible party information - check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PRPI-0 Open Responsible party information', async () => {
-    await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
-    await page.waitForLoadState('networkidle');
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await openResponsiblePartyPage();
   });
   test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(bookingData.firstName, bookingData.lastName);
@@ -416,6 +414,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.dateFutureError).toBeVisible();
   });
   test('PRPI-9 Fill all fields and click [Continue]', async () => {
+    await openResponsiblePartyPage();
     responsiblePartyData = await paperwork.fillResponsiblePartyDataNotSelf();
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
     await expect(locator.dateFutureError).not.toBeVisible();
@@ -429,7 +428,17 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyBirthSex).toHaveValue(responsiblePartyData.birthSex);
     await expect(locator.responsiblePartyRelationship).toHaveValue(responsiblePartyData.relationship);
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue(responsiblePartyData.dob);
+    await expect(locator.responsiblePartyAddress1).toHaveValue(responsiblePartyData.address1);
+    await expect(locator.responsiblePartyCity).toHaveValue(responsiblePartyData.city);
+    await expect(locator.responsiblePartyState).toHaveValue(responsiblePartyData.state);
+    await expect(locator.responsiblePartyZip).toHaveValue(responsiblePartyData.zip);
   });
+
+  async function openResponsiblePartyPage(): Promise<void> {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Responsible party information');
+  }
 });
 test.describe('Photo ID - Upload photo', () => {
   test.describe.configure({ mode: 'serial' });
@@ -482,7 +491,7 @@ test.describe('Consent forms - Check and fill all fields', () => {
     );
   });
   test('PCF-4 Consent Forms - Check links are correct', async () => {
-    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hippa_notice_template.pdf');
+    expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
     expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
       '/consent_to_treat_template.pdf'
     );

@@ -12,6 +12,7 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
+import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {
   firstName?: string;
@@ -468,7 +469,6 @@ export enum FhirAppointmentType {
   walkin = 'walkin',
   posttelemed = 'posttelemed',
   prebook = 'prebook',
-  virtual = 'virtual',
 }
 
 // internal communication coding
@@ -877,3 +877,5 @@ export interface CanonicalUrl {
   url: string;
   version: string;
 }
+
+export type Timezone = (typeof TIMEZONES)[number];

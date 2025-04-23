@@ -8,12 +8,6 @@ export interface CancelAppointmentParameters {
   silent?: boolean;
 }
 
-export interface UpdateAppointmentParameters {
-  appointmentID: string;
-  language: string;
-  slot: string | undefined;
-}
-
 export interface UpdatePaperworkParameters {
   appointmentID: string;
   inProgress: string;
