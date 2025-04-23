@@ -38,7 +38,7 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     console.log(`Updating resources...`);
     updateRequests.forEach(async (patchParam) => {
       let retries = 0;
-      while (retries < 5) {
+      while (retries < 10) {
         try {
           patchResult = await oystehr.fhir.patch(patchParam, { optimisticLockingVersionId: patchParam.optimisticLockingVersionId });
           break;
@@ -48,7 +48,7 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
           await new Promise((resolve) => setTimeout(resolve, 100));
           const patchResource = (await oystehr.fhir.search({
             resourceType: patchParam.resourceType,
-            params: [{ name: 'id', value: patchParam.id }],
+            params: [{ name: '_id', value: patchParam.id }],
           })).unbundle()[0];
 
           if (patchResource) {
