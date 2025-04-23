@@ -1,16 +1,16 @@
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import { TabContext, TabList } from '@mui/lab';
-import { Box, SvgIcon, Tab, Typography } from '@mui/material';
+import { Box, Tab, Typography } from '@mui/material';
 import React, { FC } from 'react';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } from '../../assets';
 import { useAppointmentStore } from '../../state';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
-import ottehrDarkBlue from '../../../assets/ottehr-dark-blue.svg';
+import ottehrAiIcon from '../../../assets/ottehr-ai-icon.svg';
 
 export const AppointmentTabsHeader: FC = () => {
-  const { currentTab } = getSelectors(useAppointmentStore, ['currentTab']);
+  const { currentTab, chartData } = getSelectors(useAppointmentStore, ['currentTab', 'chartData']);
 
   const handleTabChange = (_event: React.SyntheticEvent, newTabName: string): void => {
     useAppointmentStore.setState({ currentTab: newTabName });
@@ -71,15 +71,17 @@ export const AppointmentTabsHeader: FC = () => {
           data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)}
           value={TelemedAppointmentVisitTabs.sign}
         />
-        <Tab
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <img src={ottehrDarkBlue} style={{ width: '24px' }} />
-              <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr IA</Typography>
-            </Box>
-          }
-          value={TelemedAppointmentVisitTabs.ottehrai}
-        />
+        {chartData?.aiChat != null ? (
+          <Tab
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <img src={ottehrAiIcon} style={{ width: '24px' }} />
+                <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr IA</Typography>
+              </Box>
+            }
+            value={TelemedAppointmentVisitTabs.ottehrai}
+          />
+        ) : undefined}
       </TabList>
     </TabContext>
   );
