@@ -131,7 +131,7 @@ export interface ExternalLabsData {
   insuredName?: string;
   insuredAddress?: string;
   aoeAnswers?: { question: string; answer: any }[];
-  orderName: string | undefined;
+  orderName?: string | undefined;
   assessmentCode: string;
   assessmentName: string;
   orderPriority: string;
@@ -144,7 +144,7 @@ export interface LabResultsData extends ExternalLabsData {
   // specimenReceived: string;
   // reportDate: string;
   // specimenSource: string;
-  labType: string;
+  testName: string;
   // specimenDescription: string;
   specimenValue?: string;
   specimenReferenceRange?: string;
@@ -155,7 +155,7 @@ export interface LabResultsData extends ExternalLabsData {
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
   reviewDate: string;
-  performingLabCode: string;
+  testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
   performingLabCity: string;
@@ -163,9 +163,9 @@ export interface LabResultsData extends ExternalLabsData {
   performingLabZip: string;
   performingLabDirector?: string;
   performingLabPhone: string;
-  performingLabProviderFirstName: string;
-  performingLabProviderLastName: string;
-  performingLabProviderTitle: string;
+  performingLabDirectorFirstName: string;
+  performingLabDirectorLastName: string;
+  performingLabDirectorTitle: string;
   abnormalResult?: boolean;
 } // TODO: change this based on the actual data brought in by the DORN webhook
 

@@ -15,10 +15,16 @@ export const LAB_ORDER_TASK = {
   },
 } as const;
 
-export const LAB_RESULT_DOC_REF_CODING_CODE = {
+export const LAB_ORDER_DOC_REF_CODING_CODE = {
   system: 'http://loinc.org',
   code: '51991-8',
   display: 'Referral lab test panel',
+};
+
+export const LAB_RESULT_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '11502-2',
+  display: 'Laboratory report',
 };
 
 export const LAB_DR_TYPE_TAG = {

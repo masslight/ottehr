@@ -121,7 +121,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('create-review-lab-results-task', error, input.secrets);
+    await topLevelCatch('handle-lab-result', error, input.secrets);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

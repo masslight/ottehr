@@ -4,7 +4,15 @@ import { Color, PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo, rgbNormalized } from './pdf-utils';
 import { LabResultsData } from './types';
-import { createFilesDocumentReferences, isValidUUID, OYSTEHR_LAB_OI_CODE_SYSTEM, Secrets } from 'utils';
+import {
+  createFilesDocumentReferences,
+  isValidUUID,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  Secrets,
+} from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
 import { randomUUID } from 'crypto';
@@ -58,7 +66,7 @@ export async function createLabResultPDF(
   }
 
   const provenanceRequestTemp = (
-    await oystehr.fhir.search({
+    await oystehr.fhir.search<Provenance | Practitioner>({
       resourceType: 'Provenance',
       params: [
         {
@@ -97,12 +105,9 @@ export async function createLabResultPDF(
   });
 
   const now = DateTime.now();
-  const orderID = serviceRequest.identifier?.find(
-    (item) => item.system === 'https://identifiers.fhir.oystehr.com/lab-order-placer-id'
-  )?.value;
+  const orderID = serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 
-  const diagnosticReportOrderID = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')
-    ?.value;
+  const accessionNumber = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value;
   const reviewDate = DateTime.fromISO(taskProvenance.recorded).toFormat('MM/dd/yyyy');
   const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
@@ -136,7 +141,7 @@ export async function createLabResultPDF(
       todayDate: now.toFormat('MM/dd/yy hh:mm a'),
       orderDate: now.toFormat('MM/dd/yy hh:mm a'),
       orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
-      labType:
+      testName:
         serviceRequest.contained
           ?.filter((item) => item.resourceType === 'ActivityDefinition')
           .map((resource) => resource.title)
@@ -144,7 +149,7 @@ export async function createLabResultPDF(
       assessmentCode:
         serviceRequest.reasonCode?.map((code) => code.coding?.[0].code).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
       assessmentName: serviceRequest.reasonCode?.map((code) => code.text).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
-      accessionNumber: diagnosticReportOrderID || ORDER_RESULT_ITEM_UNKNOWN,
+      accessionNumber: accessionNumber || ORDER_RESULT_ITEM_UNKNOWN,
       // orderReceived: '10/10/2024',
       // specimenReceived: '10/10/2024',
       // reportDate: '10/10/2024',
@@ -160,8 +165,7 @@ export async function createLabResultPDF(
       reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
       reviewDate: reviewDate,
-      orderName: undefined,
-      performingLabCode:
+      testItemCode:
         diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
         diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
         ORDER_RESULT_ITEM_UNKNOWN,
@@ -175,15 +179,15 @@ export async function createLabResultPDF(
           ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
           ?.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
       // abnormalResult: true,
-      performingLabProviderFirstName:
+      performingLabDirectorFirstName:
         organization.contact
           ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
           ?.name?.given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabProviderLastName:
+      performingLabDirectorLastName:
         organization.contact?.find(
           (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
         )?.name?.family || ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabDirectorTitle: ORDER_RESULT_ITEM_UNKNOWN,
       // performingLabDirector: organization.contact?.[0].name
       //   ? oystehr.fhir.formatHumanName(organization.contact?.[0].name)
       //   : ORDER_RESULT_ITEM_UNKNOWN,
@@ -193,16 +197,14 @@ export async function createLabResultPDF(
     token
   );
 
-  await makeLabPdfDocumentReference(
+  await makeLabPdfDocumentReference({
     oystehr,
-    'results',
-    pdfDetail,
-    patient.id,
-    diagnosticReport.id,
-    encounter.id,
-    undefined,
-    reviewed
-  );
+    type: 'results',
+    pdfInfo: pdfDetail,
+    patientID: patient.id,
+    encounterID: encounter.id,
+    diagnosticReportID: diagnosticReport.id,
+  });
 }
 
 async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Promise<Uint8Array> {
@@ -622,7 +624,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
   drawFieldLineLeft('Dx:', `${data.assessmentCode} ${`(${data.assessmentName})`}`);
   addNewLine(undefined, 3);
-  drawLargeHeader(data.labType.toUpperCase());
+  drawLargeHeader(data.testName.toUpperCase());
   addNewLine(undefined, 2);
   drawSeparatorLine(styles.margin.x, width - styles.margin.x);
   addNewLine();
@@ -632,10 +634,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
   drawFiveColumnText(
     data.resultPhase,
-    data.labType.toUpperCase(),
+    data.testName.toUpperCase(),
     data.specimenValue?.toUpperCase() || '',
     referenceRangeText(),
-    data.performingLabCode,
+    data.testItemCode,
     styles.regularTextBold.font,
     14,
     styles.colors.red
@@ -654,7 +656,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   );
   addNewLine();
   drawRegularTextRight(
-    `${data.performingLabProviderFirstName} ${data.performingLabProviderLastName}, ${data.performingLabProviderTitle}, ${data.performingLabPhone}`
+    `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`
   );
   addNewLine();
 
@@ -703,37 +705,36 @@ export async function createExternalLabsResultsFormPDF(
   return { title: fileName, uploadURL: baseFileUrl };
 }
 
-export async function makeLabPdfDocumentReference(
-  oystehr: Oystehr,
-  type: string,
-  pdfInfo: PdfInfo,
-  patientId: string,
-  diagnosticReportID: string,
-  encounterID: string,
-  listResources: List[] | undefined,
-  reviewed?: boolean
-): Promise<DocumentReference> {
+export async function makeLabPdfDocumentReference({
+  oystehr,
+  type,
+  pdfInfo,
+  patientID,
+  encounterID,
+  listResources,
+  serviceRequestID,
+  diagnosticReportID,
+  reviewed,
+}: {
+  oystehr: Oystehr;
+  type: string;
+  pdfInfo: PdfInfo;
+  patientID: string;
+  encounterID: string;
+  listResources?: List[] | undefined;
+  serviceRequestID?: string;
+  diagnosticReportID?: string;
+  reviewed?: boolean;
+}): Promise<DocumentReference> {
   let docType;
   if (type === 'results') {
     docType = {
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '11502-2',
-          display: 'Laboratory report',
-        },
-      ],
-      text: 'Lab order document',
+      coding: [LAB_RESULT_DOC_REF_CODING_CODE],
+      text: 'Lab result document',
     };
   } else if (type === 'order') {
     docType = {
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '51991-8',
-          display: 'Referral lab test panel',
-        },
-      ],
+      coding: [LAB_ORDER_DOC_REF_CODING_CODE],
       text: 'Lab order document',
     };
   } else {
@@ -749,12 +750,13 @@ export async function makeLabPdfDocumentReference(
     type: docType,
     references: {
       subject: {
-        reference: `Patient/${patientId}`,
+        reference: `Patient/${patientID}`,
       },
       context: {
         related: [
           {
-            reference: `DiagnosticReport/${diagnosticReportID}`,
+            reference:
+              type === 'order' ? `ServiceRequest/${serviceRequestID}` : `DiagnosticReport/${diagnosticReportID}`,
           },
         ],
         encounter: [{ reference: `Encounter/${encounterID}` }],

@@ -46,6 +46,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const {
       serviceRequest,
       patient,
+      diagnosticReport,
       practitioner: provider,
       questionnaireResponse,
       task,
@@ -61,6 +62,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!encounter.id) {
       throw new Error('encounter id is undefined');
+    }
+
+    if (!diagnosticReport.id) {
+      throw new Error('diagnostic report id is undefined');
     }
 
     if (!locationID || !isValidUUID(locationID)) {
@@ -362,7 +367,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       m2mtoken
     );
 
-    await makeLabPdfDocumentReference(oystehr, 'order', pdfDetail, patient.id, appointment.id, encounter.id, undefined);
+    await makeLabPdfDocumentReference({
+      oystehr,
+      type: 'order',
+      pdfInfo: pdfDetail,
+      patientID: patient.id,
+      encounterID: encounter.id,
+      serviceRequestID: serviceRequest.id,
+    });
 
     return {
       body: JSON.stringify({

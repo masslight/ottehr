@@ -392,12 +392,12 @@
       "src": "src/ehr/get-create-lab-order-resources/index",
       "zip": ".dist/zips/get-create-lab-order-resources.zip"
     },
-    "CREATE-REVIEW-LAB-RESULTS-TASK": {
-      "name": "CREATE-REVIEW-LAB-RESULT-TASK",
+    "HANDLE-LAB-RESULT": {
+      "name": "HANDLE-LAB-RESULT",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/subscriptions/diagnostic-report/create-review-lab-results-task/index",
-      "zip": ".dist/zips/create-review-lab-results-task.zip",
+      "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
+      "zip": ".dist/zips/handle-lab-result.zip",
       "subscription": {
         "criteria": "DiagnosticReport?category=OSL",
         "reason": "Received new preliminary or final lab result",
