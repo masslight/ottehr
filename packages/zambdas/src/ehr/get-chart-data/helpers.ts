@@ -25,7 +25,8 @@ type ResourceTypeWithPatientAsSubject =
   | 'ClinicalImpression'
   | 'Communication'
   | 'ServiceRequest'
-  | 'DocumentReference';
+  | 'DocumentReference'
+  | 'QuestionnaireResponse';
 
 export type SupportedResourceType = ResourceTypeWithPatientAsPatient | ResourceTypeWithPatientAsSubject;
 
@@ -41,6 +42,7 @@ type ResourceTypeWithEncounterAsEncounter = Extract<
   | 'ServiceRequest'
   | 'AllergyIntolerance'
   | 'DocumentReference'
+  | 'QuestionnaireResponse'
 >;
 
 type ResourceTypeWithEncounterAsContext = Extract<SupportedResourceType, 'MedicationStatement'>;

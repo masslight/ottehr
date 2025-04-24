@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, styled, alpha, Button } from '@mui/material';
 import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
-import { routesCSS } from '../routing/routesCSS';
+import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { CompleteIntakeButton } from './CompleteIntakeButton';
 import { practitionerType } from '../../../helpers/practitionerUtils';
 import { useAppointment } from '../hooks/useAppointment';
 import { usePractitionerActions } from '../hooks/usePractitioner';
-import { getVisitStatus } from 'utils';
+import { getSelectors, getVisitStatus } from 'utils';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import ottehrAiIcon from '../../../assets/ottehr-ai-icon.svg';
+import { useAppointmentStore } from '../../../telemed';
+
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="20" cy="20" r="20" fill="#2169F5" fillOpacity=".04" />
@@ -179,6 +182,7 @@ export const sidebarMenuIcons = {
       />
     </svg>
   ),
+  'Oystehr AI': <img src={ottehrAiIcon} style={{ width: '22px' }} />,
 };
 
 const drawerWidth = 244;
@@ -233,6 +237,7 @@ export const Sidebar = (): JSX.Element => {
   const { interactionMode } = useNavigationContext();
   const { id: appointmentID } = useParams();
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
+  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const { appointment, encounter } = telemedData;
   const status = appointment && encounter ? getVisitStatus(appointment, encounter) : undefined;
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
@@ -275,7 +280,11 @@ export const Sidebar = (): JSX.Element => {
       .filter((item) => item.visibility.has(interactionMode));
   };
 
-  const menuItems = generateMenuItems(Object.values(routesCSS).filter((route) => !route.isSkippedInNavigation));
+  const menuItems = generateMenuItems(
+    Object.values(routesCSS)
+      .filter((route) => !route.isSkippedInNavigation)
+      .filter((route) => route.path !== ROUTER_PATH.OTTEHR_AI || chartData?.aiChat != null)
+  );
 
   return (
     <Drawer

@@ -10,6 +10,7 @@ import { ExamTab } from './ExamTab';
 import { MedicalHistoryTab } from './MedicalHistoryTab';
 import { PlanTab } from './PlanTab';
 import { ReviewTab } from './ReviewTab';
+import { OttehrAi } from '../../../features/css-module/pages/OttehrAi';
 
 export const AppointmentTabs: FC = () => {
   const isInitialLoad = useRef(true);
@@ -50,6 +51,11 @@ export const AppointmentTabs: FC = () => {
       <TabPanel value={TelemedAppointmentVisitTabs.sign} sx={{ p: 0 }}>
         <ReviewTab />
       </TabPanel>
+      {chartData?.aiChat != null ? (
+        <TabPanel value={TelemedAppointmentVisitTabs.ottehrai} sx={{ p: 0 }}>
+          <OttehrAi />
+        </TabPanel>
+      ) : undefined}
     </TabContext>
   );
 };

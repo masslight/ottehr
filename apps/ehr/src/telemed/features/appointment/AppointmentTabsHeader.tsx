@@ -7,9 +7,10 @@ import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } fro
 import { useAppointmentStore } from '../../state';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
+import ottehrAiIcon from '../../../assets/ottehr-ai-icon.svg';
 
 export const AppointmentTabsHeader: FC = () => {
-  const { currentTab } = getSelectors(useAppointmentStore, ['currentTab']);
+  const { currentTab, chartData } = getSelectors(useAppointmentStore, ['currentTab', 'chartData']);
 
   const handleTabChange = (_event: React.SyntheticEvent, newTabName: string): void => {
     useAppointmentStore.setState({ currentTab: newTabName });
@@ -70,6 +71,17 @@ export const AppointmentTabsHeader: FC = () => {
           data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)}
           value={TelemedAppointmentVisitTabs.sign}
         />
+        {chartData?.aiChat != null ? (
+          <Tab
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <img src={ottehrAiIcon} style={{ width: '24px' }} />
+                <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Oystehr AI</Typography>
+              </Box>
+            }
+            value={TelemedAppointmentVisitTabs.ottehrai}
+          />
+        ) : undefined}
       </TabList>
     </TabContext>
   );
