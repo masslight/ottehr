@@ -267,6 +267,9 @@ export const dataTestIds = {
     completeIntakeButton: 'complete-intake-button',
     sideMenuItem: (item: string): string => `menu-item-${item}`,
   },
+  cssModal: {
+    confirmationDialogue: 'confirmation-dialogue',
+  },
   hospitalizationPage: {
     hospitalizationTitle: 'hospitalization-title',
   },
@@ -317,6 +320,7 @@ export const dataTestIds = {
     inputField: (field: string): string => `input-${field}`,
     fillOrderToSaveButton: 'fill-order-to-save-button',
     backButton: 'back-button',
+    confirmationDialogue: 'confirmation-dialogue',
   },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',
