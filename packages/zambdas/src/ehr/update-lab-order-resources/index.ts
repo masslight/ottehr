@@ -106,15 +106,12 @@ const handleReviewedEvent = async ({
 }): Promise<Bundle<FhirResource>> => {
   const resources = (
     await oystehr.fhir.search<Task | Encounter | DiagnosticReport | Observation | Provenance | ServiceRequest>({
-      resourceType: 'Task',
-      // todo: optimize query sonce some ids are already known
+      resourceType: 'DiagnosticReport',
       params: [
-        { name: '_id', value: taskId }, // task
-        { name: '_include', value: 'Task:encounter' }, // encounter
-        { name: '_include', value: 'Task:based-on' }, // diagnostic report
-        { name: '_include:iterate', value: 'DiagnosticReport:result' }, // observation
-        { name: '_revinclude:iterate', value: 'ServiceRequest:encounter' }, // service request
-        { name: '_revinclude', value: 'Provenance:target' }, // provenance
+        { name: '_id', value: diagnosticReportId }, // diagnostic report
+        { name: '_include', value: 'DiagnosticReport:based-on' }, // service request
+        { name: '_revinclude', value: 'Task:based-on' }, // tasks
+        { name: '_include', value: 'DiagnosticReport:result' }, // observation
       ],
     })
   ).unbundle();
@@ -149,12 +146,6 @@ const handleReviewedEvent = async ({
 
   const locationReference = serviceRequest.locationReference?.[0];
 
-  const targetReferences = [
-    { reference: `ServiceRequest/${serviceRequest.id}` },
-    { reference: `DiagnosticReport/${diagnosticReport.id}` },
-    { reference: `Observation/${observationId}` },
-  ];
-
   const tempProvenanceUuid = `urn:uuid:${crypto.randomUUID()}`;
 
   const provenanceRequest: BatchInputPostRequest<Provenance> = {
@@ -162,7 +153,11 @@ const handleReviewedEvent = async ({
     url: '/Provenance',
     resource: {
       resourceType: 'Provenance',
-      target: targetReferences,
+      target: [
+        { reference: `ServiceRequest/${serviceRequest.id}` },
+        { reference: `DiagnosticReport/${diagnosticReport.id}` },
+        { reference: `Observation/${observationId}` },
+      ],
       recorded: DateTime.now().toUTC().toISO(),
       location: locationReference as Reference, // TODO: should we throw error if locationReference is not present?
       agent: [
@@ -179,6 +174,9 @@ const handleReviewedEvent = async ({
     fullUrl: tempProvenanceUuid,
   };
 
+  const isPreliminary = diagnosticReport.status === 'preliminary';
+  const shouldAddRelevantHistory = !isPreliminary; // no tracking of preliminary results reviewed date
+
   const taskPatchOperations: Operation[] = [
     {
       op: 'replace',
@@ -192,15 +190,19 @@ const handleReviewedEvent = async ({
         reference: `Practitioner/${practitionerIdFromCurrentUser}`,
       },
     },
-    {
-      op: 'add',
-      path: '/relevantHistory',
-      value: [
-        {
-          reference: tempProvenanceUuid,
-        },
-      ],
-    },
+    ...(shouldAddRelevantHistory
+      ? [
+          {
+            op: 'add',
+            path: '/relevantHistory',
+            value: [
+              {
+                reference: tempProvenanceUuid,
+              },
+            ],
+          } as const,
+        ]
+      : []),
   ];
 
   const taskPatchRequest = getPatchBinary({
@@ -209,8 +211,10 @@ const handleReviewedEvent = async ({
     patchOperations: taskPatchOperations,
   });
 
+  const requests = shouldAddRelevantHistory ? [provenanceRequest, taskPatchRequest] : [taskPatchRequest];
+
   const updateTransactionRequest = await oystehr.fhir.transaction({
-    requests: [provenanceRequest, taskPatchRequest],
+    requests,
   });
 
   await createLabResultPDF(oystehr, serviceRequestId, true, secrets, m2mtoken);

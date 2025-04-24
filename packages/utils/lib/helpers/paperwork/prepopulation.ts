@@ -28,6 +28,12 @@ import {
 import { capitalize } from 'lodash-es';
 import { PRACTICE_NAME_URL } from '../../types';
 
+const genderMap = {
+  male: 'Male',
+  female: 'Female',
+  other: 'Intersex',
+};
+
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrepopulationInput {
   patient: Patient;
@@ -238,8 +244,6 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
           coverages: accountInfo?.coverages ?? {},
-          insuranceOrgs: accountInfo?.insuranceOrgs ?? [],
-          insurancePlans: accountInfo?.insurancePlans ?? [],
           documents,
         });
       } else if (item.linkId === 'photo-id-page') {
@@ -327,8 +331,7 @@ export interface PrepopulationFromPatientRecordInput extends PatientAccountRespo
 export const makePrepopulatedItemsFromPatientRecord = (
   input: PrepopulationFromPatientRecordInput
 ): QuestionnaireResponseItem[] => {
-  const { patient, questionnaire, primaryCarePhysician, coverages, insuranceOrgs, insurancePlans, guarantorResource } =
-    input;
+  const { patient, questionnaire, primaryCarePhysician, coverages, guarantorResource } = input;
   // console.log('making prepopulated items from patient record', coverages);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
@@ -350,8 +353,6 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
           coverages,
-          insuranceOrgs,
-          insurancePlans,
         });
       }
       if (GUARANTOR_ITEMS.includes(item.linkId)) {
@@ -579,12 +580,10 @@ const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2', 'payment-opt
 interface MapCoverageItemsInput {
   items: QuestionnaireItem[];
   coverages: PatientAccountResponse['coverages'];
-  insurancePlans: PatientAccountResponse['insurancePlans'];
-  insuranceOrgs: PatientAccountResponse['insuranceOrgs'];
   documents?: DocumentReference[];
 }
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
-  const { items, coverages, insuranceOrgs, insurancePlans, documents } = input;
+  const { items, coverages, documents } = input;
 
   const insuranceCardFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'insurance-card-front')
@@ -640,29 +639,18 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primaryMemberId = '';
   let secondaryMemberId = '';
 
-  if (primary && insuranceOrgs && insurancePlans) {
-    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === primary.payor?.[0].reference);
-    const matchingPlan =
-      matchingOrg &&
-      insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
-    if (matchingPlan) {
-      primaryInsurancePlanReference = {
-        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
-        display: matchingPlan.name,
-      };
-    }
+  if (primary) {
+    primaryInsurancePlanReference = {
+      reference: primary.class?.[0].value,
+      display: primary.class?.[0].name,
+    };
   }
-  if (secondary && insuranceOrgs && insurancePlans) {
-    const matchingOrg = insuranceOrgs.find((org) => `${org.resourceType}/${org.id}` === secondary.payor?.[0].reference);
-    const matchingPlan =
-      matchingOrg &&
-      insurancePlans.find((plan) => plan.ownedBy?.reference === `${matchingOrg.resourceType}/${matchingOrg.id}`);
-    if (matchingPlan) {
-      secondaryInsurancePlanReference = {
-        reference: `${matchingPlan.resourceType}/${matchingPlan.id}`,
-        display: matchingPlan.name,
-      };
-    }
+
+  if (secondary) {
+    secondaryInsurancePlanReference = {
+      reference: secondary.class?.[0].value,
+      display: secondary.class?.[0].name,
+    };
   }
 
   if (primary) {
@@ -679,7 +667,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
-  const primarySubscriberBirthSex = capitalize(primarySubscriber?.gender ?? '');
+  const primarySubscriberBirthSex = primarySubscriber?.gender
+    ? genderMap[primarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
   let primarySubscriberFirstName = '';
   let primarySubscriberLastName = '';
   let primarySubscriberMiddleName = '';
@@ -697,7 +687,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     primarySubscriberMiddleName = primarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
   const secondarySubscriberDoB = secondarySubscriber?.birthDate;
-  const secondarySubscriberBirthSex = secondarySubscriber?.gender;
+  const secondarySubscriberBirthSex = secondarySubscriber?.gender
+    ? genderMap[secondarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
   let secondarySubscriberFirstName: string | undefined;
   let secondarySubscriberLastName: string | undefined;
   let secondarySubscriberMiddleName: string | undefined;

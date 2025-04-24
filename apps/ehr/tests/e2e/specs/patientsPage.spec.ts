@@ -29,7 +29,7 @@ test('Search patients with different filters', async ({ page }) => {
 
   await test.step('Search by Last name', async () => {
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
       id: resourceHandler.patient.id!,
@@ -109,7 +109,8 @@ test('Search patients with different filters', async ({ page }) => {
 
   await test.step('Search by Last name and First name', async () => {
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByName(PATIENT_LAST_NAME + ',' + PATIENT_FIRST_NAME);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
       id: resourceHandler.patient.id!,
@@ -125,7 +126,7 @@ test('Search patients with different filters', async ({ page }) => {
 
   await test.step('Search by Last name and Date of birth', async () => {
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
@@ -142,7 +143,7 @@ test('Search patients with different filters', async ({ page }) => {
 
   await test.step('Search by Last name and Address', async () => {
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
     await patientsPage.searchByAddress(PATIENT_CITY);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
@@ -159,7 +160,7 @@ test('Search patients with different filters', async ({ page }) => {
 
   await test.step('Search by Last name and Phone number', async () => {
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
     await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
@@ -176,7 +177,8 @@ test('Search patients with different filters', async ({ page }) => {
 
   await test.step('Search by Last name, First name and Date of birth', async () => {
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByName(PATIENT_LAST_NAME + ',' + PATIENT_FIRST_NAME);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.clickSearchButton();
     await patientsPage.verifyPatientPresent({
@@ -193,7 +195,7 @@ test('Search patients with different filters', async ({ page }) => {
 
   await test.step('Reset filters', async () => {
     const patientsPage = await expectPatientsPage(page);
-    await patientsPage.searchByName(PATIENT_LAST_NAME);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
     await patientsPage.searchByAddress(PATIENT_CITY);

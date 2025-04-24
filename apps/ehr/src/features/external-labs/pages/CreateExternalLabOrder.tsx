@@ -126,14 +126,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
-        const errorMessage = ['There was an error ordering this lab'];
+        const errorMessage = ['There was an error creating this lab order'];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
-      if (errorMessage.length === 0) errorMessage.push('There was an error ordering this lab');
+      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
       setError(errorMessage);
     }
     setSubmitting(false);

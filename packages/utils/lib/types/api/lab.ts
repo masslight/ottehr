@@ -48,3 +48,18 @@ export interface OrderDetails {
   labQuestions: Questionnaire;
   labQuestionnaireResponses: LabQuestionnaireResponse[] | undefined;
 }
+
+export interface LabOrderResultPDFConfig {
+  name: string;
+  url: string;
+  orderNumber?: string;
+}
+
+export interface LabOrderResult extends LabOrderResultPDFConfig {
+  reflexResults?: LabOrderResultPDFConfig[];
+}
+
+export interface EncounterLabResult {
+  resultsPending: boolean;
+  labOrderResults: LabOrderResult[];
+}
