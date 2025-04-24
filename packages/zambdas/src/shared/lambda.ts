@@ -22,10 +22,9 @@ const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
     const body = JSON.stringify({ message, code });
 
     console.log('body', body);
-
     return {
       statusCode: 444, // we have 1 case currently so this is good enough for now
-      body: body,
+      body: JSON.stringify({ message, code }),
     };
   } else {
     return {

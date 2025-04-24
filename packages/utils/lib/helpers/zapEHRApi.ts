@@ -55,6 +55,7 @@ export const getZapEHRApiHelpers = <T extends Record<string, string>>(
       throw Error();
     } catch (error) {
       console.log('error', JSON.stringify(error));
+      console.log('error keys', Object.keys(error as any));
       console.log('stringified error', JSON.stringify((error as any).message));
       additionalErrorHandler && additionalErrorHandler(error);
       throw apiErrorToThrow(error);

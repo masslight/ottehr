@@ -39,11 +39,11 @@ export const formatMinutes = (minutes: number): string => {
 };
 
 export const getVisitStatus = (appointment: Appointment, encounter: Encounter): VisitStatusLabel => {
-  const admParticipant = encounter.participant?.find(
-    (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
+  const admParticipant = encounter.participant?.find((p) =>
+    p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ADM'))
   );
-  const atndParticipant = encounter.participant?.find(
-    (p) => p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
+  const atndParticipant = encounter.participant?.find((p) =>
+    p?.type?.find((t) => t?.coding?.find((coding) => coding.code === 'ATND'))
   );
 
   if (appointment.status === 'booked') {

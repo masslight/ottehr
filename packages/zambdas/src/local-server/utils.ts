@@ -23,12 +23,27 @@ export const expressLambda = async (
       res.setHeader(key, value);
     });
     res.status(handlerResponse.statusCode);
+    console.log('handlerResponse', JSON.stringify(handlerResponse));
     let body;
     try {
       body = JSON.parse(handlerResponse.body);
+      console.log('Try to parse body', JSON.stringify(body));
     } catch (_) {
       body = handlerResponse.body;
+      console.log('Failed to parse body', JSON.stringify(body));
     }
+    console.log(
+      'Sending response',
+      JSON.stringify({
+        status: handlerResponse.statusCode,
+        output: body,
+      })
+    );
+    // const errorBody = body;
+    // res.send({
+    //   message: errorBody.message,
+    //   code: errorBody.code || handlerResponse.statusCode,
+    // });
     res.send({
       status: handlerResponse.statusCode,
       output: body,

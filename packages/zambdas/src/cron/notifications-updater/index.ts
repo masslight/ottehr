@@ -566,8 +566,8 @@ async function getResourcePackagesAppointmentsMap(
   // fill in practitioners and locations
   Object.keys(resourcePackagesMap).forEach((appointmentId) => {
     const encounter = resourcePackagesMap[appointmentId].encounter;
-    const practitionerReference = encounter?.participant?.find(
-      (participant) => participant.individual?.reference?.startsWith('Practitioner')
+    const practitionerReference = encounter?.participant?.find((participant) =>
+      participant.individual?.reference?.startsWith('Practitioner')
     )?.individual?.reference;
     if (practitionerReference) {
       const practitionerId = removePrefix('Practitioner/', practitionerReference);

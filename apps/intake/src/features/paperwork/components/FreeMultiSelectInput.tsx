@@ -156,9 +156,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
       filterOptions={(options, state) => {
         const { inputValue, getOptionLabel } = state;
         const filtered = options.filter((option) => {
-          return getOptionLabel(option)
-            ?.toLowerCase()
-            ?.startsWith(inputValue?.toLowerCase());
+          return getOptionLabel(option)?.toLowerCase()?.startsWith(inputValue?.toLowerCase());
         });
         return filtered;
       }}

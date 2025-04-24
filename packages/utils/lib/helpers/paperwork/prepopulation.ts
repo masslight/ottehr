@@ -74,8 +74,9 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
   const patientPostalCode = patientAddress?.postalCode;
 
   const patientEmail = contactInfo?.email;
-  const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
-    ?.valueBoolean;
+  const patientSendMarketing = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`
+  )?.valueBoolean;
   const patientCommonWellConsent = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`
   )?.valueBoolean;
@@ -417,8 +418,9 @@ const mapPatientItemsToQuestionnaireResponseItems = (input: MapPatientItemsInput
   const patientPointOfDiscovery = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`
   )?.valueString;
-  const patientSendMarketing = patient.extension?.find((e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`)
-    ?.valueBoolean;
+  const patientSendMarketing = patient.extension?.find(
+    (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/send-marketing`
+  )?.valueBoolean;
   const patientPreferredLanguage = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
   const patientCommonWellConsent = patient.extension?.find(
     (e) => e.url === `${PRIVATE_EXTENSION_BASE_URL}/common-well-consent`

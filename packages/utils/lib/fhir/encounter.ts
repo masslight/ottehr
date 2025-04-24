@@ -52,24 +52,24 @@ export const formatFhirEncounterToPatientFollowupDetails = (
   location?: Location
 ): PatientFollowupDetails => {
   const followupType =
-    encounter.type?.find(
-      (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
+    encounter.type?.find((t) =>
+      t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
     )?.text || '';
   const reason = encounter?.reasonCode?.[0].text || '';
   const answered =
-    encounter?.participant?.find(
-      (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
+    encounter?.participant?.find((p) =>
+      p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
     )?.type?.[0].coding?.[0].display || '';
   const caller =
-    encounter?.participant?.find(
-      (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.callerUrl))
+    encounter?.participant?.find((p) =>
+      p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.callerUrl))
     )?.type?.[0].coding?.[0].display || '';
   const start = encounter.period?.start || DateTime.now().toISO();
   const end = encounter.period?.end;
   const message = encounter?.extension?.find((ext) => ext.url === FOLLOWUP_SYSTEMS.messageUrl)?.valueString || '';
 
-  const provider = encounter?.participant?.find(
-    (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.providerUrl))
+  const provider = encounter?.participant?.find((p) =>
+    p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.providerUrl))
   );
   let formattedProvider: ProviderDetails | undefined;
   if (provider) {

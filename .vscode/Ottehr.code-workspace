@@ -2,36 +2,36 @@
   "folders": [
     {
       "name": "ROOT",
-      "path": "../"
+      "path": "../",
     },
     {
       "name": "EHR UI",
-      "path": "../apps/ehr"
+      "path": "../apps/ehr",
     },
     {
       "name": "Patient Portal UI",
-      "path": "../apps/intake"
+      "path": "../apps/intake",
     },
     {
       "name": "Zambdas",
-      "path": "../packages/zambdas"
+      "path": "../packages/zambdas",
     },
     {
       "name": "UI Components",
-      "path": "../packages/ui-components"
+      "path": "../packages/ui-components",
     },
     {
       "name": "Utilities",
-      "path": "../packages/utils"
-    }
+      "path": "../packages/utils",
+    },
   ],
   "settings": {
     "files.exclude": {
       "node_modules/": true,
-      "packages/": true
-    }
+      "packages/": true,
+    },
   },
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint"]
-  }
+    "recommendations": ["dbaeumer.vscode-eslint"],
+  },
 }

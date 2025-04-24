@@ -13,9 +13,9 @@ export const ContactContainer: FC = () => {
   const streetAddressLine2 = getQuestionnaireResponseByLinkId('patient-street-address-2', questionnaireResponse)
     ?.answer?.[0]?.valueString;
   const cityStateZipString = `
-    ${getQuestionnaireResponseByLinkId('patient-city', questionnaireResponse)?.answer?.[0]
-      .valueString}, ${getQuestionnaireResponseByLinkId('patient-state', questionnaireResponse)?.answer?.[0]
-      .valueString}, ${getQuestionnaireResponseByLinkId('patient-zip', questionnaireResponse)?.answer?.[0]?.valueString}
+    ${getQuestionnaireResponseByLinkId('patient-city', questionnaireResponse)?.answer?.[0].valueString}, ${
+      getQuestionnaireResponseByLinkId('patient-state', questionnaireResponse)?.answer?.[0].valueString
+    }, ${getQuestionnaireResponseByLinkId('patient-zip', questionnaireResponse)?.answer?.[0]?.valueString}
   `;
   const fiilingOutAs = getQuestionnaireResponseByLinkId('patient-filling-out-as', questionnaireResponse)?.answer?.[0]
     .valueString;

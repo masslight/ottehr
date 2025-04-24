@@ -518,14 +518,12 @@ export function getPatientContactEmail(patient: Patient): string | undefined {
   }
   if (formUser === 'Parent/Guardian') {
     return patient.contact
-      ?.find(
-        (contactTemp) =>
-          contactTemp.relationship?.find(
-            (relationshipTemp) =>
-              relationshipTemp.coding?.find(
-                (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`
-              )
+      ?.find((contactTemp) =>
+        contactTemp.relationship?.find((relationshipTemp) =>
+          relationshipTemp.coding?.find(
+            (codingTemp) => codingTemp.system === `${PRIVATE_EXTENSION_BASE_URL}/relationship`
           )
+        )
       )
       ?.telecom?.find((telecomTemp) => telecomTemp.system === 'email')?.value;
   }

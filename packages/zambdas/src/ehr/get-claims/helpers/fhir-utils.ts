@@ -84,7 +84,7 @@ export async function addInsuranceToResultPackages(oystehr: Oystehr, packages: C
 }
 
 export function getInsuranceNameFromCoverage(coverage: Coverage): string | undefined {
-  return coverage?.class?.find(
-    (cls) => cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
+  return coverage?.class?.find((cls) =>
+    cls.type.coding?.find((coding) => coding.system === CODE_SYSTEM_COVERAGE_CLASS && coding.code === 'plan')
   )?.name;
 }

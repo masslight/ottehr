@@ -253,8 +253,8 @@ function parseResourcesIntoClaimPackages(resources: Resource[]): ClaimPackage[] 
     if (claim.facility?.reference)
       location = resources.find((res) => claim.facility?.reference === createReference(res).reference) as Location;
     if (encounter) {
-      appointment = resources.find(
-        (res) => encounter.appointment?.find((appt) => appt.reference === createReference(res).reference)
+      appointment = resources.find((res) =>
+        encounter.appointment?.find((appt) => appt.reference === createReference(res).reference)
       ) as Appointment;
       chargeItem = resources.find(
         (res) =>

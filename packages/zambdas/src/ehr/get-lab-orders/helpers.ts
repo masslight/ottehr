@@ -826,9 +826,8 @@ export const parseLabInfo = (serviceRequest: ServiceRequest): { testItem: string
 };
 
 export const parseIsPSC = (serviceRequest: ServiceRequest): boolean => {
-  return !!serviceRequest.orderDetail?.some(
-    (detail) =>
-      detail.coding?.some((coding) => coding.system === PSC_HOLD_CONFIG.system && coding.code === PSC_HOLD_CONFIG.code)
+  return !!serviceRequest.orderDetail?.some((detail) =>
+    detail.coding?.some((coding) => coding.system === PSC_HOLD_CONFIG.system && coding.code === PSC_HOLD_CONFIG.code)
   );
 };
 
@@ -1302,14 +1301,14 @@ export const parseResultDetails = (
       result.status === 'final' && task.status === 'ready'
         ? ExternalLabsStatus.received
         : result.status === 'final' && task.status === 'completed'
-        ? ExternalLabsStatus.reviewed
-        : result.status === 'preliminary'
-        ? ExternalLabsStatus.prelim
-        : serviceRequest.status === 'draft' && PSTTask?.status === 'ready'
-        ? ExternalLabsStatus.pending
-        : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
-        ? ExternalLabsStatus.sent
-        : ExternalLabsStatus.unparsed,
+          ? ExternalLabsStatus.reviewed
+          : result.status === 'preliminary'
+            ? ExternalLabsStatus.prelim
+            : serviceRequest.status === 'draft' && PSTTask?.status === 'ready'
+              ? ExternalLabsStatus.pending
+              : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
+                ? ExternalLabsStatus.sent
+                : ExternalLabsStatus.unparsed,
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
@@ -1370,8 +1369,8 @@ export const filterResourcesBasedOnTargetResource = <T extends Resource & { base
   targetResourceId: string;
   targetResourceType: string;
 }): T[] => {
-  return resources.filter(
-    (resource) => resource.basedOn?.some((basedOn) => basedOn.reference === `${targetResourceType}/${targetResourceId}`)
+  return resources.filter((resource) =>
+    resource.basedOn?.some((basedOn) => basedOn.reference === `${targetResourceType}/${targetResourceId}`)
   );
 };
 
