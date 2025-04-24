@@ -166,7 +166,8 @@ export const dataTestIds = {
     stateNameField: 'state-name-field',
   },
   patients: {
-    searchByNameField: 'search-name-field',
+    searchByLastNameField: 'search-last-name-field',
+    searchByGivenNamesField: 'search-given-names-field',
     searchByDateOfBirthField: 'searchByDateOfBirthField',
     searchByPhoneField: 'search-phone-field',
     searchByAddressField: 'search-by-address',

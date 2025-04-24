@@ -1430,13 +1430,13 @@ export const parseDx = (serviceRequest: ServiceRequest): string => {
         (reasonCode) =>
           reasonCode?.text ||
           reasonCode.coding
-            ?.map((coding) => coding.display)
+            ?.map((coding) => `${coding.code} ${coding.display}`.trim())
             .filter(Boolean)
-            .join(',') ||
+            .join('; ') ||
           ''
       )
       .filter(Boolean)
-      .join(',') || ''
+      .join('; ') || ''
   );
 };
 
