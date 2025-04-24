@@ -499,6 +499,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
 
     drawExaminationCard('General:   ', examination.general.items, undefined, examination.general.comment);
     drawExaminationCard('Head:   ', examination.head.items, undefined, examination.head.comment);
+    drawExaminationCard('Eyes:   ', examination.eyes.items, undefined);
     drawExaminationYesNoItems('Right eye:   ', examination.eyes.rightItems!);
     drawExaminationYesNoItems('Left eye:   ', examination.eyes.leftItems!);
     drawExamProviderComment(examination.eyes.comment);
@@ -509,9 +510,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     drawExaminationCard('Mouth:   ', examination.mouth.items, undefined, examination.mouth.comment);
     drawExaminationCard('Neck:   ', examination.neck.items, undefined, examination.neck.comment);
     drawExaminationCard('Chest:   ', examination.chest.items, undefined, examination.chest.comment);
-    drawExaminationCard('Abdomen:   ', examination.abdomen.items, undefined, examination.abdomen.comment);
     drawExaminationCard('Back:   ', examination.back.items, undefined, examination.back.comment);
     drawExaminationCard('Skin:   ', examination.skin.items, examination.skin.extraItems, examination.skin.comment);
+    drawExaminationCard('Abdomen:   ', examination.abdomen.items, undefined, examination.abdomen.comment);
     drawExaminationCard(
       'Extremities/Musculoskeletal:   ',
       examination.musculoskeletal.items,

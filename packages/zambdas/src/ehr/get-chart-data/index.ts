@@ -124,11 +124,13 @@ export async function getChartData(
   // instructions are just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'instructions', resourceType: 'Communication', defaultSearchBy: 'encounter' });
 
-  // disposition is just per-encounter, so no need to search by patient
-  addRequestIfNeeded({ field: 'disposition', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
-
   // for now school work notes are just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'schoolWorkNotes', resourceType: 'DocumentReference', defaultSearchBy: 'encounter' });
+
+  if (requestedFields?.disposition) {
+    // disposition is just per-encounter, so no need to search by patient
+    addRequestIfNeeded({ field: 'disposition', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
+  }
 
   if (requestedFields?.prescribedMedications) {
     // for now prescribed meds are just per-encounter, so no need to search by patient
