@@ -143,8 +143,8 @@ export async function createLabResultPDF(
       orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
       testName:
         serviceRequest.contained
-          ?.filter((item) => item.resourceType === 'ActivityDefinition')
-          .map((resource: ActivityDefinition) => resource.title)
+          ?.filter((item): item is ActivityDefinition => item.resourceType === 'ActivityDefinition')
+          .map((resource) => resource.title)
           .join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
       assessmentCode:
         serviceRequest.reasonCode?.map((code) => code.coding?.[0].code).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
