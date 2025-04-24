@@ -164,6 +164,24 @@ export async function getChartData(
     );
   }
 
+  if (requestedFields == null) {
+    // AI chat
+    chartDataRequests.push(
+      createFindResourceRequest(
+        patient,
+        encounter,
+        'QuestionnaireResponse',
+        {
+          questionnaire: {
+            type: 'string',
+            value: '#aiInterviewQuestionnaire',
+          },
+        },
+        'encounter'
+      )
+    );
+  }
+
   if (requestedFields?.labResults && encounter.id) {
     const labRequests = configLabRequestsForGetChartData(encounter.id);
     chartDataRequests.push(...labRequests);

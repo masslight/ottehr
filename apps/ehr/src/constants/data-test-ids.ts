@@ -267,6 +267,9 @@ export const dataTestIds = {
     completeIntakeButton: 'complete-intake-button',
     sideMenuItem: (item: string): string => `menu-item-${item}`,
   },
+  cssModal: {
+    confirmationDialogue: 'confirmation-dialogue',
+  },
   hospitalizationPage: {
     hospitalizationTitle: 'hospitalization-title',
   },
@@ -280,12 +283,13 @@ export const dataTestIds = {
     emCodeLink: 'em-code-link',
     visitNoteCard: 'visit-note-card',
   },
-  assessmentPage: {
-    diagnosisDropdown: 'diagnosis-dropdown',
+  assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
     medicalDecisionField: 'medical-decision-field',
+    cptCodeField: 'cpt-code-field',
   },
   diagnosisContainer: {
+    diagnosisDropdown: 'diagnosis-dropdown',
     primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
     secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
     primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
@@ -294,6 +298,8 @@ export const dataTestIds = {
   },
   billingContainer: {
     deleteButton: 'billing-container-delete-button',
+    deleteCptCodeButton: (code: string) => `billing-container-delete-cpt-code-button-${code}`,
+    cptCodeEntry: (code: string) => `cpt-code-entry-${code}`,
   },
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
@@ -314,6 +320,7 @@ export const dataTestIds = {
     inputField: (field: string): string => `input-${field}`,
     fillOrderToSaveButton: 'fill-order-to-save-button',
     backButton: 'back-button',
+    confirmationDialogue: 'confirmation-dialogue',
   },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',

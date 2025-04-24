@@ -23,6 +23,7 @@ import {
 } from '../../../telemed/features/paperwork/paperwork.queries';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { BoldPurpleInputLabel, usePaperworkContext } from 'ui-components';
+import { dataTestIds } from '../../../helpers/data-test-ids';
 
 const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
@@ -195,7 +196,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
                         alignItems: 'center',
                       }}
                     >
-                      <Typography>XXXX - XXXX - XXXX - {item.lastFour}</Typography>
+                      <Typography data-testid={dataTestIds.cardNumber}>XXXX - XXXX - XXXX - {item.lastFour}</Typography>
                     </Box>
                   }
                   sx={{
