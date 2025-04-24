@@ -131,7 +131,7 @@ export interface ExternalLabsData {
   insuredName?: string;
   insuredAddress?: string;
   aoeAnswers?: { question: string; answer: any }[];
-  // orderName: string;
+  orderName: string | undefined;
   assessmentCode: string;
   assessmentName: string;
   orderPriority: string;
@@ -150,6 +150,7 @@ export interface LabResultsData extends ExternalLabsData {
   specimenReferenceRange?: string;
   resultBody: string;
   resultPhase: string;
+  reviewed: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;

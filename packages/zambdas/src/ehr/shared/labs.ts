@@ -21,7 +21,7 @@ export type LabOrderResources = {
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
-  diagnosticReport?: DiagnosticReport;
+  diagnosticReport: DiagnosticReport;
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
