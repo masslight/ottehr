@@ -8,8 +8,6 @@ import { DynamicAOEInput, LabOrderDetailedPageDTO, LabQuestionnaireResponse } fr
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { useAuth0 } from '@auth0/auth0-react';
-import { getPresignedFileUrl } from '../../../helpers/files.helper';
 import { SampleInformationCard } from './SampleInformationCard';
 import { OrderHistoryCard } from './OrderHistoryCard';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -31,11 +29,7 @@ interface SampleCollectionProps {
 }
 
 export async function openLabOrder(url: string): Promise<void> {
-  const requestTemp = await fetch(url);
-  const orderForm = await requestTemp.blob();
-  const pdfUrl = URL.createObjectURL(orderForm);
-  console.log(pdfUrl);
-  window.open(pdfUrl);
+  window.open(url, '_blank');
 }
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
@@ -49,7 +43,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const methods = useForm<DynamicAOEInput>();
   const navigate = useNavigate();
   const { id: appointmentID } = useParams();
-  const { getAccessTokenSilently } = useAuth0();
   // const currentUser = useEvolveUser();
   const questionnaireData = labOrder?.questionnaire[0];
   const orderStatus = labOrder.orderStatus;
@@ -88,21 +81,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
 
       try {
-        const request = await submitLabOrder(oystehr, {
+        const { pdfUrl } = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data: data,
         });
 
-        const token = await getAccessTokenSilently();
-        const url = request.pdfUrl;
-        const urlTemp = await getPresignedFileUrl(url, token);
-
-        if (!urlTemp) {
-          throw new Error('error with a presigned url');
-        }
-
-        await openLabOrder(urlTemp);
+        await openLabOrder(pdfUrl);
         setSubmitLoading(false);
         setError(false);
         navigate(`/in-person/${appointmentID}/external-lab-orders`);

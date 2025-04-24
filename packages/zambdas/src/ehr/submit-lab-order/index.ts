@@ -5,6 +5,7 @@ import {
   isValidUUID,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  getPresignedURL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -398,9 +399,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     await makeLabOrderPdfDocumentReference(oystehr, pdfDetail, patient.id, appointment.id, encounter.id);
 
+    const presignedURL = await getPresignedURL(pdfDetail.uploadURL, m2mtoken);
+
     return {
       body: JSON.stringify({
-        pdfUrl: pdfDetail.uploadURL,
+        pdfUrl: presignedURL,
       }),
       statusCode: 200,
     };
