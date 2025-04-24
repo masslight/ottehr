@@ -33,6 +33,8 @@ import {
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
 import { ZambdaInput } from './types';
+import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import { v4 as uuidv4 } from 'uuid';
 
 export function createOystehrClient(token: string, secrets: Secrets | null): Oystehr {
   const FHIR_API = getSecret(SecretsKeys.FHIR_API, secrets).replace(/\/r4/g, '');
@@ -41,6 +43,59 @@ export function createOystehrClient(token: string, secrets: Secrets | null): Oys
     accessToken: token,
     fhirApiUrl: FHIR_API,
     projectApiUrl: PROJECT_API,
+    fetch: async (req: Request): Promise<Response> => {
+      const ENV = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+      if (ENV !== 'local') {
+        return fetch(req);
+      } else {
+        /* Some FHIR resources act as configuration to the product as opposed to data from     usage of the product.
+         * Using those resources from the FHIR API is problematic because pushing tweaks to them impacts all users of the shared local environment.
+         * For the local environment, we can instead use this special resources straight from code source so that we can tweak them without impacting other users.
+         * The code here is responsible for doing that.
+         */
+        const bodyText = await req.text();
+
+        // POST to Search for Questionnaire
+        if (
+          req.method === 'POST' &&
+          req.url.endsWith('Questionnaire/_search') &&
+          bodyText.includes('intake-paperwork-inperson')
+        ) {
+          const responseBody = JSON.stringify({
+            resourceType: 'Bundle',
+            type: 'collection',
+            entry: [
+              {
+                // Beware, fullUrl and resource.id are not real
+                fullUrl: InPersonQuestionnaireFile.resource.url,
+                resource: {
+                  id: uuidv4(),
+                  ...InPersonQuestionnaireFile.resource,
+                },
+              },
+            ],
+          });
+          const response = new Response(responseBody, {
+            status: 200,
+            statusText: 'OK',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          return Promise.resolve(response);
+        }
+
+        // If we don't have a special case, we can just use the default fetch
+        // But we have to make a new Request because we already read the body
+        return fetch(
+          new Request(req.url, {
+            method: req.method,
+            headers: req.headers,
+            body: bodyText ? bodyText : undefined,
+          })
+        );
+      }
+    },
   };
   return new Oystehr(CLIENT_CONFIG);
 }
