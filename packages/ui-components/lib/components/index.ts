@@ -10,3 +10,4 @@ export * from './QuestionMarkButton';
 export * from './ConfirmationDialog';
 export * from './CustomLoadingButton';
 export * from './LanguagePicker';
+export * from './AiChatHistory';
