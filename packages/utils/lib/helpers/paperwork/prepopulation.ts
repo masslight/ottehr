@@ -28,6 +28,12 @@ import {
 import { capitalize } from 'lodash-es';
 import { PRACTICE_NAME_URL } from '../../types';
 
+const genderMap = {
+  male: 'Male',
+  female: 'Female',
+  other: 'Intersex',
+};
+
 // used when patient books an appointment and some of the inputs come from the create-appointment params
 interface PrepopulationInput {
   patient: Patient;
@@ -661,7 +667,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   }
 
   const primarySubscriberDoB = primarySubscriber?.birthDate ?? '';
-  const primarySubscriberBirthSex = capitalize(primarySubscriber?.gender ?? '');
+  const primarySubscriberBirthSex = primarySubscriber?.gender
+    ? genderMap[primarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
   let primarySubscriberFirstName = '';
   let primarySubscriberLastName = '';
   let primarySubscriberMiddleName = '';
@@ -679,7 +687,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     primarySubscriberMiddleName = primarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
   const secondarySubscriberDoB = secondarySubscriber?.birthDate;
-  const secondarySubscriberBirthSex = secondarySubscriber?.gender;
+  const secondarySubscriberBirthSex = secondarySubscriber?.gender
+    ? genderMap[secondarySubscriber.gender as keyof typeof genderMap] || ''
+    : '';
   let secondarySubscriberFirstName: string | undefined;
   let secondarySubscriberLastName: string | undefined;
   let secondarySubscriberMiddleName: string | undefined;
