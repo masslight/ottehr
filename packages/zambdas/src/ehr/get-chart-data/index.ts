@@ -164,21 +164,23 @@ export async function getChartData(
     );
   }
 
-  // AI chat
-  chartDataRequests.push(
-    createFindResourceRequest(
-      patient,
-      encounter,
-      'QuestionnaireResponse',
-      {
-        questionnaire: {
-          type: 'string',
-          value: '#aiInterviewQuestionnaire',
+  if (requestedFields == null) {
+    // AI chat
+    chartDataRequests.push(
+      createFindResourceRequest(
+        patient,
+        encounter,
+        'QuestionnaireResponse',
+        {
+          questionnaire: {
+            type: 'string',
+            value: '#aiInterviewQuestionnaire',
+          },
         },
-      },
-      'encounter'
-    )
-  );
+        'encounter'
+      )
+    );
+  }
 
   if (requestedFields?.labResults && encounter.id) {
     const labRequests = configLabRequestsForGetChartData(encounter.id);
