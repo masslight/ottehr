@@ -15,6 +15,19 @@ export const LAB_ORDER_TASK = {
   },
 } as const;
 
+export const LAB_RESULT_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '51991-8',
+  display: 'Referral lab test panel',
+};
+
+export const LAB_DR_TYPE_TAG = {
+  system: 'result-type',
+  display: {
+    reflex: 'reflex',
+  },
+};
+
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';
@@ -28,6 +41,13 @@ export const OYSTEHR_LAB_OI_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/
 export const FHIR_IDC10_VALUESET_SYSTEM = 'http://hl7.org/fhir/valueset-icd-10.html';
 ('http://snomed.info/sct');
 export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-guid';
+export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
+
+export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
+  system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
+  code: 'OSL',
+  display: 'Outside Lab',
+};
 
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';

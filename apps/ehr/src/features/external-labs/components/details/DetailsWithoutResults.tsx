@@ -1,16 +1,9 @@
-import { Typography, Stack, CircularProgress, Grid } from '@mui/material';
-import React, { useState, useEffect } from 'react';
-import { StatusChip } from '../StatusChip';
+import React, { useState } from 'react';
+import { Typography, Stack, Grid } from '@mui/material';
 import { OrderCollection } from '../OrderCollection';
-// import { OrderHistoryCard } from '../OrderHistoryCard';
-import { StatusString } from '../StatusChip';
-import { useParams } from 'react-router-dom';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
-import { useApiClients } from '../../../../hooks/useAppClients';
-import { LabOrderDTO, LabQuestionnaireResponse, OrderDetails } from 'utils';
-import { getLabOrderDetails } from '../../../../api/api';
-import { QuestionnaireItem } from 'fhir/r4b';
-import { LabOrderLoading } from '../labs-orders/LabOrderLoading';
+import { LabOrderDetailedPageDTO } from 'utils';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface CollectionInstructions {
   container: string;
@@ -20,63 +13,17 @@ interface CollectionInstructions {
   collectionInstructions: string;
 }
 
-export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ labOrder }) => {
-  const { serviceRequestID } = useParams();
-  const { oystehrZambda } = useApiClients();
-
-  if (!serviceRequestID) {
-    throw new Error('serviceRequestID is undefined');
-  }
-  // TODO: The ServiceRequest and other necessary resources will have been made on Create Order. Just need to grab those
-  const [serviceRequest, setServiceRequest] = useState<OrderDetails | undefined>(undefined);
-
+export const DetailsWithoutResults: React.FC<{ labOrder: LabOrderDetailedPageDTO }> = ({ labOrder }) => {
   // Note: specimens are no longer MVP, and also we'll be getting specimens from Create Order
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [specimen, setSpecimen] = useState({});
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [collectionInstructions, setCollectionInstructions] = useState({} as CollectionInstructions);
-  const initialAoe: QuestionnaireItem[] = [];
-  const [labQuestionnaireResponses, setLabQuestionnaireResponses] = useState<LabQuestionnaireResponse[] | undefined>(
-    undefined
-  );
-  const [aoe, setAoe] = useState(initialAoe);
-  const [isLoading, setIsLoading] = useState(true);
-  const [taskStatus, setTaskStatus] = useState('pending' as StatusString);
-
-  const handleSampleCollectionTaskChange = React.useCallback(() => setTaskStatus('collected'), [setTaskStatus]);
-
-  useEffect(() => {
-    async function getLabOrderDetailsTemp(): Promise<void> {
-      if (!serviceRequestID) {
-        throw new Error('serviceRequestID is undefined');
-      }
-      if (!oystehrZambda) {
-        throw new Error('oystehr client is undefined');
-      }
-      const orderDetails = await getLabOrderDetails(oystehrZambda, { serviceRequestID });
-
-      setServiceRequest(orderDetails);
-      if (orderDetails.labQuestions.item) {
-        setAoe(orderDetails.labQuestions.item);
-      }
-      if (orderDetails.labQuestionnaireResponses) {
-        setLabQuestionnaireResponses(orderDetails.labQuestionnaireResponses);
-      }
-    }
-    getLabOrderDetailsTemp().catch((error) => console.log(error));
-
-    setIsLoading(false);
-    // setTaskStatus('collected');
-  }, [oystehrZambda, serviceRequestID]);
-
-  if (!serviceRequest) {
-    return <LabOrderLoading />;
-  }
 
   return (
     <>
       <Stack spacing={2} sx={{ p: 3 }}>
-        <CSSPageTitle>{serviceRequest.orderName}</CSSPageTitle>
+        <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
         <Stack
           direction="row"
           spacing={2}
@@ -85,44 +32,28 @@ export const DetailsWithoutResults: React.FC<{ labOrder?: LabOrderDTO }> = ({ la
             alignItems: 'center',
           }}
         >
-          <Typography variant="body1">{serviceRequest.diagnosis}</Typography>
+          <Typography sx={{ minWidth: '400px' }} variant="body1">
+            {labOrder.diagnoses}
+          </Typography>
           <Grid container justifyContent="end" spacing={2}>
             <Grid item>
-              <StatusChip status={taskStatus} />
+              <LabsOrderStatusChip status={labOrder.orderStatus} />
             </Grid>
             <Grid item>
-              <Typography variant="body1">{serviceRequest.orderTypeDetail}</Typography>
+              <Typography variant="body1">{labOrder.orderSource}</Typography>
             </Grid>
           </Grid>
         </Stack>
         {/* {taskStatus === 'pending' && (
           <TaskBanner
-            orderName={serviceRequest?.orderName || ''}
-            orderingPhysician={serviceRequest?.orderingPhysician || ''}
-            orderedOnDate={serviceRequest.orderDateTime}
-            labName={serviceRequest?.labName || ''}
+            orderName={labOrder.testItem}
+            orderingPhysician={labOrder.orderingPhysician}
+            orderedOnDate={labOrder.orderAddedDate}
+            labName={labOrder?.fillerLab}
             taskStatus={taskStatus}
           />
         )} */}
-        {isLoading ? (
-          <CircularProgress />
-        ) : (
-          <OrderCollection
-            aoe={aoe}
-            status={taskStatus}
-            labQuestionnaireResponses={labQuestionnaireResponses}
-            collectionInstructions={collectionInstructions}
-            specimen={specimen}
-            serviceRequestID={serviceRequestID}
-            serviceRequest={serviceRequest}
-            accountNumber={serviceRequest.accountNumber}
-            _onCollectionSubmit={handleSampleCollectionTaskChange}
-            oystehr={oystehrZambda}
-            labOrder={labOrder}
-          />
-        )}
-
-        {/* {taskStatus !== 'pending' && <OrderHistoryCard orderHistory={labOrder?.history} />} */}
+        <OrderCollection labOrder={labOrder} />
       </Stack>
     </>
   );
