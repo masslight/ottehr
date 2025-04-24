@@ -4,7 +4,7 @@ import { Box, Button, Stack, Typography } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
-import { LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
+import { DynamicAOEInput, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -28,10 +28,6 @@ interface SampleCollectionProps {
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
-}
-
-interface DynamicAOEInput {
-  [key: string]: any;
 }
 
 export async function openLabOrder(url: string): Promise<void> {
@@ -92,17 +88,20 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
 
       try {
-        const request: any = await submitLabOrder(oystehr, {
+        const request = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data: data,
         });
+
         const token = await getAccessTokenSilently();
-        const url = request.url;
+        const url = request.pdfUrl;
         const urlTemp = await getPresignedFileUrl(url, token);
+
         if (!urlTemp) {
           throw new Error('error with a presigned url');
         }
+
         await openLabOrder(urlTemp);
         setSubmitLoading(false);
         setError(false);
