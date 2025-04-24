@@ -74,7 +74,8 @@ const fetchPatients = async ({
 };
 
 const getFiltersFromUrl = (searchParams: URLSearchParams): SearchOptionsFilters => ({
-  name: searchParams.get('name') || '',
+  givenNames: searchParams.get('givenNames') || '',
+  lastName: searchParams.get('lastName') || '',
   dob: searchParams.get('dob') || '',
   pid: searchParams.get('pid') || '',
   phone: searchParams.get('phone') || '',
@@ -97,7 +98,8 @@ const getPaginationFromUrl = (searchParams: URLSearchParams): SearchOptionsPagin
 
 const defaultSearchOptions: SearchOptionsState = {
   filters: {
-    name: '',
+    givenNames: '',
+    lastName: '',
     dob: '',
     pid: '',
     phone: '',
