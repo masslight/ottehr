@@ -37,7 +37,7 @@ export default function ReportIssueDialog({
   const [issueDetails, setIssueDetails] = useState<string>('');
   const [error, setError] = useState<boolean>(false);
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

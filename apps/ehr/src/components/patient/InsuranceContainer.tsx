@@ -325,7 +325,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               color: theme.palette.error.main,
               textTransform: 'none',
               fontSize: '13px',
-              fontWeight: 700,
+              fontWeight: 500,
               display: handleRemoveClick !== undefined ? 'flex' : 'none',
               alignItems: 'center',
               justifyContent: 'flex-start',
