@@ -1,6 +1,9 @@
-import React, { FC } from 'react';
-import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
 import { Stack, Typography } from '@mui/material';
+import { FC } from 'react';
+import { getProgressNoteChartDataRequestedFields, NOTE_TYPE } from 'utils';
+import { dataTestIds } from '../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
 import {
   AdditionalQuestionsContainer,
   AllergiesContainer,
@@ -16,12 +19,11 @@ import {
   PrivacyPolicyAcknowledgement,
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
+  LabResultsReviewContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
-import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useChartData } from '../../hooks/useChartData';
+import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
-import { NOTE_TYPE, getProgressNoteChartDataRequestedFields } from 'utils';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
 
 export const ProgressNoteDetails: FC = () => {
@@ -39,6 +41,7 @@ export const ProgressNoteDetails: FC = () => {
         episodeOfCare: data?.episodeOfCare,
         vitalsObservations: data?.vitalsObservations,
         prescribedMedications: data?.prescribedMedications,
+        labResults: data?.labResults,
         disposition: data?.disposition,
       });
     },
@@ -56,6 +59,7 @@ export const ProgressNoteDetails: FC = () => {
   const prescriptions = chartData?.prescribedMedications;
   const observations = chartData?.observations;
   const vitalsObservations = chartData?.vitalsObservations;
+  const labResults = chartData?.labResults;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
@@ -65,6 +69,10 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
+  const showLabsResultsContainer = !!(
+    labResults?.resultsPending ||
+    (labResults?.labOrderResults && labResults?.labOrderResults.length > 0)
+  );
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
 
@@ -91,13 +99,14 @@ export const ProgressNoteDetails: FC = () => {
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
+    showLabsResultsContainer && <LabResultsReviewContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,
     <PrivacyPolicyAcknowledgement />,
   ].filter(Boolean);
 
   return (
-    <AccordionCard label="Objective">
+    <AccordionCard label="Objective" dataTestId={dataTestIds.progressNotePage.visitNoteCard}>
       <SectionList sections={sections} sx={{ p: 2 }} />
     </AccordionCard>
   );

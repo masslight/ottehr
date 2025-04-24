@@ -3,6 +3,7 @@ import { AllStates, PatientEthnicity, PatientRace } from 'utils';
 import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
+import { UploadDocs } from './UploadDocs';
 
 interface InsuranceRequiredData {
   firstName: string;
@@ -21,23 +22,64 @@ interface InsuranceOptionalData {
   policyHolderMiddleName: string;
   policyHolderAddressLine2: string;
 }
+
+interface PatientDetailsData {
+  randomEthnicity: string;
+  randomRace: string;
+  randomPronoun: string;
+  randomPoint: string;
+  randomLanguage: string;
+}
+interface PrimaryCarePhysicianData {
+  firstName: string;
+  lastName: string;
+  pcpAddress: string;
+  pcpName: string;
+  formattedPhoneNumber: string;
+}
+
+interface ResponsibleParty {
+  relationship: string;
+  birthSex: string;
+  firstName: string;
+  lastName: string;
+  dob: string;
+  address1: string;
+  additionalAddress: string;
+  phone: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
+export const PATIENT_ZIP = '12345';
+export const PATIENT_ADDRESS = 'Patient address';
+export const PATIENT_ADDRESS_LINE_2 = 'Patient address line 2';
+export const PATIENT_CITY = 'PatientCity';
+export const RELATIONSHIP_RESPONSIBLE_PARTY_SELF = 'Self';
+export const PHONE_NUMBER = '1234567890';
+export const CARD_NUMBER = '4242424242424242';
+export const CARD_CVV = '123';
+export const CARD_EXP_DATE = '11/30';
+
 export class Paperwork {
   page: Page;
   locator: Locators;
   fillingInfo: FillingInfo;
   CommonLocatorsHelper: CommonLocatorsHelper;
   context: BrowserContext;
+  uploadPhoto: UploadDocs;
 
   constructor(page: Page) {
     this.page = page;
     this.locator = new Locators(page);
     this.fillingInfo = new FillingInfo(page);
     this.CommonLocatorsHelper = new CommonLocatorsHelper(page);
+    this.uploadPhoto = new UploadDocs(page);
     this.context = page.context();
   }
   private language = ['English', 'Spanish'];
   private relationshipResponsiblePartyNotSelf = ['Legal Guardian', 'Parent', 'Other', 'Spouse'];
-  private relationshipResponsiblePartySelf = 'Self';
   private relationshipConsentForms = ['Legal Guardian', 'Parent', 'Other', 'Spouse', 'Self'];
   private birthSex = ['Male', 'Female', 'Intersex'];
   private pronouns = ['He/him', 'She/her', 'They/them', 'My pronouns are not listed'];
@@ -78,12 +120,94 @@ export class Paperwork {
     const digits = phoneNumber.replace(/\D/g, '');
     return digits.replace(/^1?(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3') || phoneNumber;
   }
+
   async clickProceedToPaperwork(): Promise<void> {
     await this.locator.proceedToPaperwork.click();
   }
   async checkContactInformationPageOpens(): Promise<void> {
     await expect(this.locator.flowHeading).toBeVisible();
     await expect(this.locator.flowHeading).toHaveText('Contact information');
+  }
+  async fillPaperworkAllFieldsInPerson(
+    payment: string,
+    responsibleParty: string
+  ): Promise<{
+    stateValue: string;
+    patientDetailsData: PatientDetailsData;
+    pcpData: PrimaryCarePhysicianData;
+    insuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null;
+    secondaryInsuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null;
+    responsiblePartyData: ResponsibleParty | null;
+  }> {
+    const { stateValue } = await this.fillContactInformationAllFields();
+    await this.locator.clickContinueButton();
+    const patientDetailsData = await this.fillPatientDetailsAllFields();
+    await this.locator.clickContinueButton();
+    const pcpData = await this.fillPrimaryCarePhysician();
+    await this.locator.clickContinueButton();
+    let insuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null = null;
+    let secondaryInsuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null = null;
+    if (payment === 'insurance') {
+      await this.selectInsurancePayment();
+      insuranceData = await this.fillInsuranceAllFieldsWithoutCards();
+      await this.uploadPhoto.fillInsuranceFront();
+      await this.uploadPhoto.fillInsuranceBack();
+      await this.locator.addSecondaryInsurance.click();
+      secondaryInsuranceData = await this.fillSecondaryInsuranceAllFieldsWithoutCards();
+      await this.uploadPhoto.fillSecondaryInsuranceFront();
+      await this.uploadPhoto.fillSecondaryInsuranceBack();
+      await this.locator.clickContinueButton();
+    } else {
+      await this.selectSelfPayPayment();
+      await this.locator.clickContinueButton();
+      await this.fillAndAddCreditCard();
+    }
+    await this.locator.clickContinueButton();
+    let responsiblePartyData: ResponsibleParty | null = null;
+    if (responsibleParty === 'self') {
+      await this.fillResponsiblePartyDataSelf();
+    } else {
+      responsiblePartyData = await this.fillResponsiblePartyDataNotSelf();
+    }
+    await this.locator.clickContinueButton();
+    await this.checkCorrectPageOpens('Photo ID');
+    await this.uploadPhoto.fillPhotoFrontID();
+    await this.uploadPhoto.fillPhotoBackID();
+    await this.locator.clickContinueButton();
+    await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+    return {
+      stateValue,
+      patientDetailsData: {
+        randomEthnicity: patientDetailsData.randomEthnicity,
+        randomRace: patientDetailsData.randomRace,
+        randomPronoun: patientDetailsData.randomPronoun,
+        randomLanguage: patientDetailsData.randomLanguage,
+        randomPoint: patientDetailsData.randomPoint,
+      },
+      pcpData: {
+        firstName: pcpData.firstName,
+        lastName: pcpData.lastName,
+        pcpAddress: pcpData.pcpAddress,
+        pcpName: pcpData.pcpName,
+        formattedPhoneNumber: pcpData.formattedPhoneNumber,
+      },
+      responsiblePartyData,
+      insuranceData,
+      secondaryInsuranceData,
+    };
   }
   async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<void> {
     await this.fillContactInformationRequiredFields();
@@ -103,8 +227,8 @@ export class Paperwork {
     await this.fillConsentForms();
     await this.locator.clickContinueButton();
   }
-  async fillContactInformationRequiredFields(): Promise<void> {
-    await this.fillPatientState();
+  async fillContactInformationRequiredFields(): Promise<{ stateValue: string }> {
+    const { stateValue } = await this.fillPatientState();
     await this.fillStreetAddress();
     await this.fillPatientCity();
     await this.fillPatientZip();
@@ -112,38 +236,37 @@ export class Paperwork {
     await expect(this.locator.patientCity).not.toBeEmpty();
     await expect(this.locator.patientState).not.toBeEmpty();
     await expect(this.locator.patientZip).not.toBeEmpty();
+    return { stateValue };
   }
-  async fillContactInformationAllFields(): Promise<void> {
-    await this.fillContactInformationRequiredFields();
+  async fillContactInformationAllFields(): Promise<{ stateValue: string }> {
+    const { stateValue } = await this.fillContactInformationRequiredFields();
     await this.fillStreetAddressLine2();
     await this.fillMobileOptIn();
+    return { stateValue };
   }
   async fillStreetAddress(): Promise<void> {
-    const address = `Address ${this.getRandomString()}`;
-    await this.locator.streetAddress.fill(address);
-    await expect(this.locator.streetAddress).toHaveValue(address);
+    await this.locator.streetAddress.fill(PATIENT_ADDRESS);
+    await expect(this.locator.streetAddress).toHaveValue(PATIENT_ADDRESS);
   }
   async fillStreetAddressLine2(): Promise<void> {
-    const addressLine2 = `Address Line 2 ${this.getRandomString()}`;
-    await this.locator.streetAddressLine2.fill(addressLine2);
-    await expect(this.locator.streetAddressLine2).toHaveValue(addressLine2);
+    await this.locator.streetAddressLine2.fill(PATIENT_ADDRESS_LINE_2);
+    await expect(this.locator.streetAddressLine2).toHaveValue(PATIENT_ADDRESS_LINE_2);
   }
   async fillPatientCity(): Promise<void> {
-    const city = `City${this.getRandomString()}`;
-    await this.locator.patientCity.fill(city);
-    await expect(this.locator.patientCity).toHaveValue(city);
+    await this.locator.patientCity.fill(PATIENT_CITY);
+    await expect(this.locator.patientCity).toHaveValue(PATIENT_CITY);
   }
-  async fillPatientState(): Promise<void> {
-    const randomState = this.getRandomState();
+  async fillPatientState(): Promise<{ stateValue: string }> {
+    const stateValue = this.getRandomState();
     await this.locator.patientState.click();
-    await this.locator.patientState.fill(randomState);
-    await this.page.getByRole('option', { name: randomState }).click();
-    await expect(this.locator.patientState).toHaveValue(randomState);
+    await this.locator.patientState.fill(stateValue);
+    await this.page.getByRole('option', { name: stateValue }).click();
+    await expect(this.locator.patientState).toHaveValue(stateValue);
+    return { stateValue };
   }
   async fillPatientZip(): Promise<void> {
-    const zip = '12345';
-    await this.locator.patientZip.fill(zip);
-    await expect(this.locator.patientZip).toHaveValue(zip);
+    await this.locator.patientZip.fill(PATIENT_ZIP);
+    await expect(this.locator.patientZip).toHaveValue(PATIENT_ZIP);
   }
   async fillMobileOptIn(): Promise<void> {
     await this.locator.mobileOptIn.check();
@@ -162,20 +285,23 @@ export class Paperwork {
     await expect(this.locator.flowHeading).toBeVisible({ timeout: 5000 });
     await expect(this.locator.flowHeading).toHaveText(pageTitle);
   }
-  async fillEthnicity(): Promise<void> {
+  async fillEthnicity(): Promise<{ randomEthnicity: string }> {
     await this.validateAllOptions(this.locator.patientEthnicity, Object.values(PatientEthnicity), 'ethnicity');
     const randomEthnicity = this.getRandomEthnicity();
     await this.page.getByRole('option', { name: randomEthnicity, exact: true }).click();
+    return { randomEthnicity };
   }
-  async fillRace(): Promise<void> {
+  async fillRace(): Promise<{ randomRace: string }> {
     await this.validateAllOptions(this.locator.patientRace, Object.values(PatientRace), 'race');
     const randomRace = this.getRandomRace();
     await this.page.getByRole('option', { name: randomRace }).click();
+    return { randomRace };
   }
-  async fillPronoun(): Promise<void> {
+  async fillPronoun(): Promise<{ randomPronoun: string }> {
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
     const randomPronoun = this.getRandomElement(this.pronouns);
     await this.page.getByRole('option', { name: randomPronoun }).click();
+    return { randomPronoun };
   }
   async fillNotListedPronouns(): Promise<void> {
     await this.validateAllOptions(this.locator.patientPronouns, this.pronouns, 'pronoun');
@@ -184,15 +310,17 @@ export class Paperwork {
     await expect(this.locator.patientMyPronounsInput).toBeVisible();
     await this.locator.patientMyPronounsInput.fill('Not listed pronouns');
   }
-  async fillPointOfDiscovery(): Promise<void> {
+  async fillPointOfDiscovery(): Promise<{ randomPoint: string }> {
     await this.validateAllOptions(this.locator.patientPointOfDiscovery, this.pointOfDiscovery, 'point of discovery');
     const randomPoint = this.getRandomElement(this.pointOfDiscovery);
     await this.page.getByRole('option', { name: randomPoint }).click();
+    return { randomPoint };
   }
-  async fillPreferredLanguage(): Promise<void> {
+  async fillPreferredLanguage(): Promise<{ randomLanguage: string }> {
     await this.validateAllOptions(this.locator.patientPreferredLanguage, this.language, 'language');
     const randomLanguage = this.getRandomElement(this.language);
     await this.page.getByRole('option', { name: randomLanguage }).click();
+    return { randomLanguage };
   }
   async checkRequiredFields(requiredFields: string, pageTitle: string, multiple: boolean): Promise<void> {
     await this.CommonLocatorsHelper.clickContinue();
@@ -211,12 +339,19 @@ export class Paperwork {
     await this.fillRace();
     await this.fillPreferredLanguage();
   }
-  async fillPatientDetailsAllFields(): Promise<void> {
-    await this.fillEthnicity();
-    await this.fillRace();
-    await this.fillPronoun();
-    await this.fillPointOfDiscovery();
-    await this.fillPreferredLanguage();
+  async fillPatientDetailsAllFields(): Promise<{
+    randomEthnicity: string;
+    randomRace: string;
+    randomPronoun: string;
+    randomPoint: string;
+    randomLanguage: string;
+  }> {
+    const { randomEthnicity } = await this.fillEthnicity();
+    const { randomRace } = await this.fillRace();
+    const { randomPronoun } = await this.fillPronoun();
+    const { randomPoint } = await this.fillPointOfDiscovery();
+    const { randomLanguage } = await this.fillPreferredLanguage();
+    return { randomEthnicity, randomRace, randomPronoun, randomPoint, randomLanguage };
   }
   async fillPatientDetailsTelemedAllFields(): Promise<void> {
     await this.fillPatientDetailsAllFields();
@@ -239,8 +374,7 @@ export class Paperwork {
     const lastName = `Last name test`;
     const pcpAddress = `PCP address test`;
     const pcpName = `PCP name test`;
-    const pcpNumber = '1234567890';
-    const formattedPhoneNumber = this.formatPhoneNumber(pcpNumber);
+    const formattedPhoneNumber = this.formatPhoneNumber(PHONE_NUMBER);
     await this.locator.pcpFirstName.fill(firstName);
     await expect(this.locator.pcpFirstName).toHaveValue(firstName);
     await this.locator.pcpLastName.fill(lastName);
@@ -249,7 +383,7 @@ export class Paperwork {
     await expect(this.locator.pcpAddress).toHaveValue(pcpAddress);
     await this.locator.pcpPractice.fill(pcpName);
     await expect(this.locator.pcpPractice).toHaveValue(pcpName);
-    await this.locator.pcpNumber.fill(pcpNumber);
+    await this.locator.pcpNumber.fill(PHONE_NUMBER);
     await expect(this.locator.pcpNumber).toHaveValue(formattedPhoneNumber);
     return { firstName, lastName, pcpAddress, pcpName, formattedPhoneNumber };
   }
@@ -284,9 +418,9 @@ export class Paperwork {
     await this.locator.selfPayOption.check();
   }
   async fillAndAddCreditCard(): Promise<void> {
-    await this.locator.creditCardNumber.fill('4242424242424242');
-    await this.locator.creditCardCVC.fill('123');
-    await this.locator.creditCardExpiry.fill('12/30');
+    await this.locator.creditCardNumber.fill(CARD_NUMBER);
+    await this.locator.creditCardCVC.fill(CARD_CVV);
+    await this.locator.creditCardExpiry.fill(CARD_EXP_DATE);
     await this.locator.addCardButton.click();
   }
   async selectInsurancePayment(): Promise<void> {
@@ -430,8 +564,10 @@ export class Paperwork {
     const insuranceOptionalData = await this.fillInsuranceOptionalFields(true);
     return { insuranceRequiredData, insuranceOptionalData };
   }
-  async fillResponsiblePartyDataSelf(): Promise<void> {
+  async fillResponsiblePartyDataSelf(): Promise<{ phone: string }> {
     await this.fillResponsiblePartySelfRelationship();
+    const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
+    return { phone };
   }
   async fillResponsiblePartyDataNotSelf(): Promise<{
     relationship: string;
@@ -439,17 +575,35 @@ export class Paperwork {
     firstName: string;
     lastName: string;
     dob: string;
+    address1: string;
+    additionalAddress: string;
+    phone: string;
+    city: string;
+    state: string;
+    zip: string;
   }> {
     const { relationship } = await this.fillResponsiblePartyNotSelfRelationship();
     const name = await this.fillResponsiblePartyPatientName();
     const { birthSex } = await this.fillResponsiblePartyBirthSex();
     const { paperworkDOB } = await this.fillPaperworkDOB(this.locator.responsiblePartyDOBAnswer);
+    const { address: address1 } = await this.fillResponsiblePartyAddress();
+    const { city } = await this.fillResponsiblePartyCity();
+    const { state } = await this.fillResponsiblePartytState();
+    const { zip } = await this.fillResponsiblePartyZip();
+    const { address: additionalAddress } = await this.fillResponsiblePartyAdditionalAddress();
+    const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
     return {
       relationship,
       birthSex,
       firstName: name.firstName,
       lastName: name.lastName,
       dob: paperworkDOB,
+      address1,
+      additionalAddress,
+      phone,
+      city,
+      state,
+      zip,
     };
   }
   async fillResponsiblePartyPatientName(): Promise<{ firstName: string; lastName: string }> {
@@ -481,10 +635,10 @@ export class Paperwork {
   async fillResponsiblePartySelfRelationship(): Promise<void> {
     await this.validateAllOptions(
       this.locator.responsiblePartyRelationship,
-      [this.relationshipResponsiblePartySelf],
+      [RELATIONSHIP_RESPONSIBLE_PARTY_SELF],
       'responsible party self'
     );
-    await this.page.getByRole('option', { name: this.relationshipResponsiblePartySelf }).click();
+    await this.page.getByRole('option', { name: RELATIONSHIP_RESPONSIBLE_PARTY_SELF }).click();
   }
   async fillResponsiblePartyNotSelfRelationship(): Promise<{ relationship: string }> {
     await this.validateAllOptions(
@@ -495,6 +649,40 @@ export class Paperwork {
     const relationship = this.getRandomElement(this.relationshipResponsiblePartyNotSelf);
     await this.page.getByRole('option', { name: relationship }).click();
     return { relationship };
+  }
+  async fillResponsiblePartyPhone(): Promise<{ formattedPhoneNumber: string }> {
+    const formattedPhoneNumber = this.formatPhoneNumber(PHONE_NUMBER);
+    await this.locator.responsiblePartyNumber.fill(PHONE_NUMBER);
+    return { formattedPhoneNumber };
+  }
+  async fillResponsiblePartyAddress(): Promise<{ address: string }> {
+    const address = `Address ${this.getRandomString()}`;
+    await this.locator.responsiblePartyAddress1.fill(address);
+    return { address };
+  }
+  async fillResponsiblePartyAdditionalAddress(): Promise<{ address: string }> {
+    const address = `Additional Address ${this.getRandomString()}`;
+    await this.locator.responsiblePartyAddress2.fill(address);
+    return { address };
+  }
+  async fillResponsiblePartyCity(): Promise<{ city: string }> {
+    const city = `City${this.getRandomString()}`;
+    await this.locator.responsiblePartyCity.fill(city);
+    return { city };
+  }
+  async fillResponsiblePartytState(): Promise<{ state: string }> {
+    // const nyState = 'NY';
+    await this.locator.responsiblePartyState.click();
+    // await this.locator.responsiblePartyState.fill(nyState);
+    // await this.page.getByRole('option', { name: nyState }).click();
+    await this.page.getByRole('option').first().click();
+    await expect(this.locator.responsiblePartyState).toHaveValue('AL');
+    return { state: 'AL' };
+  }
+  async fillResponsiblePartyZip(): Promise<{ zip: string }> {
+    const zip = '12345';
+    await this.locator.responsiblePartyZip.fill(zip);
+    return { zip };
   }
   async checkImagesIsSaved(image: Locator): Promise<void> {
     const today = await this.CommonLocatorsHelper.getToday();

@@ -10,6 +10,7 @@ import {
   Observation,
   Practitioner,
   Procedure,
+  QuestionnaireResponse,
   Reference,
   Resource,
   ServiceRequest,
@@ -35,6 +36,7 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
+import { EncounterLabResult } from '../lab';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -61,6 +63,8 @@ export interface ChartDataFields {
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
+  aiChat?: QuestionnaireResponse;
+  labResults?: EncounterLabResult;
 }
 
 export type ChartDataFieldsKeys = keyof ChartDataFields;

@@ -86,6 +86,10 @@ export class Locators {
   photoIdFrontImage: Locator;
   photoIdBackImage: Locator;
   responsiblePartyNumber: Locator;
+  responsiblePartyAddress1: Locator;
+  responsiblePartyCity: Locator;
+  responsiblePartyState: Locator;
+  responsiblePartyZip: Locator;
   numberErrorText: Locator;
   zipErrorText: Locator;
   responsiblePartyDOBAnswer: Locator;
@@ -225,6 +229,9 @@ export class Locators {
   wrInviteeEmail: Locator;
   wrInviteeFirstName: Locator;
   wrInviteeLastName: Locator;
+  responsiblePartyAddress2: Locator;
+  selectedCard: Locator;
+  cardNumberFilled: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -354,6 +361,8 @@ export class Locators {
     this.creditCardExpiry = stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]');
     this.creditCardCVC = stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]');
     this.addCardButton = page.getByRole('button').filter({ hasText: 'Add card' });
+    this.selectedCard = page.locator('[name="default-card-selection-group"]');
+    this.cardNumberFilled = page.getByTestId(dataTestIds.cardNumber);
 
     // Responsible Party locators
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
@@ -362,6 +371,11 @@ export class Locators {
     this.responsiblePartyBirthSex = page.locator('[id="responsible-party-birth-sex"]');
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
+    this.responsiblePartyAddress1 = page.locator('[id="responsible-party-address"]');
+    this.responsiblePartyAddress2 = page.locator('[id="responsible-party-address-2"]');
+    this.responsiblePartyCity = page.locator('[id="responsible-party-city"]');
+    this.responsiblePartyState = page.locator('[id="responsible-party-state"]');
+    this.responsiblePartyZip = page.locator('[id="responsible-party-zip"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');

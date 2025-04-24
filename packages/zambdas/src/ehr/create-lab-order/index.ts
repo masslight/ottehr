@@ -203,7 +203,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await topLevelCatch('admin-create-lab-order', error, input.secrets);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error submitting lab order: ${error}` }),
+      body: JSON.stringify({ message: `Error creating lab order: ${error}` }),
     };
   }
 };

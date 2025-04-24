@@ -12,6 +12,7 @@ import {
   SupportedResourceType,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { configLabRequestsForGetChartData } from '../shared/labs';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -24,7 +25,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const output = (await getChartData(oystehr, encounterId, requestedFields)).response;
+    const output = (await getChartData(oystehr, m2mtoken, encounterId, requestedFields)).response;
 
     return {
       body: JSON.stringify(output),
@@ -41,6 +42,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
 export async function getChartData(
   oystehr: Oystehr,
+  m2mtoken: string,
   encounterId: string,
   requestedFields?: ChartDataRequestedFields
 ): Promise<{
@@ -164,6 +166,29 @@ export async function getChartData(
     );
   }
 
+  if (requestedFields == null) {
+    // AI chat
+    chartDataRequests.push(
+      createFindResourceRequest(
+        patient,
+        encounter,
+        'QuestionnaireResponse',
+        {
+          questionnaire: {
+            type: 'string',
+            value: '#aiInterviewQuestionnaire',
+          },
+        },
+        'encounter'
+      )
+    );
+  }
+
+  if (requestedFields?.labResults && encounter.id) {
+    const labRequests = configLabRequestsForGetChartData(encounter.id);
+    chartDataRequests.push(...labRequests);
+  }
+
   console.timeLog('check', 'before resources fetch');
   console.log('Starting a transaction to retrieve chart data...');
   let result: Bundle<FhirResource> | undefined;
@@ -179,8 +204,9 @@ export async function getChartData(
   // console.debug('result JSON\n\n==============\n\n', JSON.stringify(result));
 
   console.timeLog('check', 'after fetch, before converting chart data to response');
-  const chartDataResult = convertSearchResultsToResponse(
+  const chartDataResult = await convertSearchResultsToResponse(
     result,
+    m2mtoken,
     patient.id!,
     encounterId,
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataFields)[]) : undefined

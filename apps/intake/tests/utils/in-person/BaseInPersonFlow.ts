@@ -66,7 +66,7 @@ export abstract class BaseInPersonFlow {
   }
 
   // Abstract method to be implemented in subclasses
-  protected abstract additionalStepsForPrebook(): Promise<
+  abstract additionalStepsForPrebook(): Promise<
     Partial<{ selectedSlot: { buttonName: string | null; selectedSlot: string | undefined }; location: string | null }>
   >;
   protected abstract clickVisitButton(): Promise<void>;

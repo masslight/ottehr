@@ -97,7 +97,7 @@ export const performEffect = async (
     const createResourcesRequests: BatchInputPostRequest<ChargeItem | Task>[] = [];
     console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
 
-    const chartData = (await getChartData(oystehr, visitResources.encounter.id!)).response;
+    const chartData = (await getChartData(oystehr, m2mtoken, visitResources.encounter.id!)).response;
     console.log('Chart data received');
     const pdfInfo = await composeAndCreateVisitNotePdf({ chartData }, visitResources, secrets, m2mtoken);
     if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);

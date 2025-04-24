@@ -19,6 +19,7 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
       .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
       .join(','),
   },
+  labResults: {},
 });
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
