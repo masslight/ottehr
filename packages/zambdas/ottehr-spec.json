@@ -786,7 +786,7 @@
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
       "zip": ".dist/zips/sub-intake-harvest.zip",
       "subscription": {
-        "criteria": "QuestionnaireResponse?status=completed,amended",
+        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
         "reason": "paperwork harvest",
         "event": "update"
       }
