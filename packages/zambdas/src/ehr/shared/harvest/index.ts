@@ -1197,7 +1197,12 @@ export function createMasterRecordPatchOperations(
 
     // Change index if path is changeable
     if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
-      const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+      let nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+
+      if (nameIndex === -1) {
+        nameIndex = 0;
+      }
+
       fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
     }
 
