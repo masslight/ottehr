@@ -17,7 +17,7 @@ import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
-import { DocumentReference, List, Location, Practitioner, Provenance } from 'fhir/r4b';
+import { ActivityDefinition, DocumentReference, List, Location, Practitioner, Provenance } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
 
 export async function createLabResultPDF(
@@ -31,7 +31,7 @@ export async function createLabResultPDF(
     serviceRequest,
     patient,
     practitioner: provider,
-    task,
+    task: taskPST,
     diagnosticReport,
     appointment,
     encounter,
@@ -71,7 +71,7 @@ export async function createLabResultPDF(
       params: [
         {
           name: '_id',
-          value: task.relevantHistory?.[0].reference?.replace('Provenance/', '') || '',
+          value: taskPST.relevantHistory?.[0].reference?.replace('Provenance/', '') || '',
         },
         {
           name: '_include',
@@ -144,7 +144,7 @@ export async function createLabResultPDF(
       testName:
         serviceRequest.contained
           ?.filter((item) => item.resourceType === 'ActivityDefinition')
-          .map((resource) => resource.title)
+          .map((resource: ActivityDefinition) => resource.title)
           .join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
       assessmentCode:
         serviceRequest.reasonCode?.map((code) => code.coding?.[0].code).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
