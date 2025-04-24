@@ -977,7 +977,7 @@ export class InsuranceCard {
 
   async selectInsuranceCarrier(insuranceCarrier: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).click();
-    await this.#container.getByText(insuranceCarrier, { exact: true }).click();
+    await this.#container.page().locator(`li:text("${insuranceCarrier}")`).click();
   }
 
   async enterMemberId(memberId: string): Promise<void> {

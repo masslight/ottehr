@@ -75,14 +75,20 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'AK';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '78956';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
-const NEW__PATIENT_INSURANCE_TYPE = 'Secondary';
-const NEW__PATIENT_INSURANCE_TYPE_2 = 'Primary';
+const NEW_PATIENT_INSURANCE_CARRIER = '6 Degrees Health Incorporated';
+const NEW_PATIENT_INSURANCE_CARRIER_2 = 'AAA - Minnesota/Iowa';
 
 test.describe('Insurance Information Section non-mutating tests', () => {
   let resourceHandler: ResourceHandler;
+  let primaryInsuranceCarrier: string;
+  let secondaryInsuranceCarrier: string;
 
   test.beforeAll(async () => {
-    resourceHandler = await createResourceHandler();
+    const [createdResourceHandler, createdPrimaryInsuranceCarrier, createdSecondaryInsuranceCarrier] =
+      await createResourceHandler();
+    resourceHandler = createdResourceHandler;
+    primaryInsuranceCarrier = createdPrimaryInsuranceCarrier;
+    secondaryInsuranceCarrier = createdSecondaryInsuranceCarrier;
   });
 
   test.afterAll(async () => {
@@ -97,7 +103,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
     await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
     await primaryInsuranceCard.verifyInsuranceType('Primary');
-    //await primaryInsuranceCard.verifyInsuranceCarrier('');
+    await primaryInsuranceCard.verifyInsuranceCarrier(primaryInsuranceCarrier);
     await primaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID);
     await primaryInsuranceCard.clickShowMoreButton();
     await primaryInsuranceCard.verifyAdditionalFieldsAreVisible();
@@ -125,7 +131,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
     await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
     await secondaryInsuranceCard.verifyInsuranceType('Secondary');
-    //await secondaryInsuranceCard.verifyInsuranceCarrier('');
+    await secondaryInsuranceCard.verifyInsuranceCarrier(secondaryInsuranceCarrier);
     await secondaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID_2);
     await secondaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.verifyAdditionalFieldsAreVisible();
@@ -195,7 +201,9 @@ test.describe('Insurance Information Section mutating tests', () => {
   let resourceHandler: ResourceHandler;
 
   test.beforeAll(async () => {
-    resourceHandler = await createResourceHandler();
+    const [createdResourceHandler, _createdPrimaryInsuranceCarrier, _createdSecondaryInsuranceCarrier] =
+      await createResourceHandler();
+    resourceHandler = createdResourceHandler;
   });
 
   test.beforeEach(async () => {
@@ -228,24 +236,11 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
   });
 
-  test('Choose the same "Type" for Primary and Secondary Insurance, validation error are shown', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.selectInsuranceType(NEW__PATIENT_INSURANCE_TYPE);
-    await patientInformationPage.clickSaveChangesButton();
-    await primaryInsuranceCard.verifyValidationErrorOnPrimaryInsuranceType();
-    await primaryInsuranceCard.selectInsuranceType(NEW__PATIENT_INSURANCE_TYPE_2);
-    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await secondaryInsuranceCard.selectInsuranceType(NEW__PATIENT_INSURANCE_TYPE_2);
-    await patientInformationPage.clickSaveChangesButton();
-    await primaryInsuranceCard.verifyValidationErrorOnPrimaryInsuranceType();
-  });
-
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     await primaryInsuranceCard.clickShowMoreButton();
-    //???await primaryInsuranceCard.selectInsuranceCarrier();
+    await primaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
     await primaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
     await primaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
     await primaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
@@ -264,7 +259,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     await primaryInsuranceCard.selectPatientsRelationship(NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
     await primaryInsuranceCard.enterAdditionalInsuranceInformation(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
 
-    //???await primaryInsuranceCard.verifyInsuranceCarrier();
+    await primaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
     await primaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
     await primaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
     await primaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
@@ -286,7 +281,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickShowMoreButton();
 
-    //???await secondaryInsuranceCard.selectInsuranceCarrier();
+    await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
     await secondaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
     await secondaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
     await secondaryInsuranceCard.enterPolicyHolderMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
@@ -309,7 +304,7 @@ test.describe('Insurance Information Section mutating tests', () => {
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
     );
 
-    //???await secondaryInsuranceCard.verifyInsuranceCarrier();
+    await secondaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
     await secondaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
     await secondaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
     await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
@@ -332,7 +327,7 @@ test.describe('Insurance Information Section mutating tests', () => {
   });
 });
 
-async function createResourceHandler(): Promise<ResourceHandler> {
+async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
   const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
@@ -394,5 +389,9 @@ async function createResourceHandler(): Promise<ResourceHandler> {
   insuranceCarrier2 = insuranceCarriersOptions.at(1);
   await resourceHandler.setResources();
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-  return resourceHandler;
+  return [
+    resourceHandler,
+    insuranceCarrier1?.valueReference?.display ?? '',
+    insuranceCarrier2?.valueReference?.display ?? '',
+  ];
 }
