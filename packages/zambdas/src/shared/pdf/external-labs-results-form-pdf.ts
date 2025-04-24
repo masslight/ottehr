@@ -689,7 +689,7 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `ExternalLabsResultsForm${!input.reviewed && '-unreviewed'}.pdf`;
+  const fileName = `ExternalLabsResultsForm${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
