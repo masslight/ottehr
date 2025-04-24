@@ -55,10 +55,10 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const { id: appointmentID } = useParams();
   const { getAccessTokenSilently } = useAuth0();
   // const currentUser = useEvolveUser();
-  const questionnaireData = labOrder.questionnaire[0];
+  const questionnaireData = labOrder?.questionnaire[0];
   const orderStatus = labOrder.orderStatus;
-  const aoe = questionnaireData.questionnaire.item || [];
-  const labQuestionnaireResponses = questionnaireData.questionnaireResponseItems;
+  const aoe = questionnaireData?.questionnaire.item || [];
+  const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<boolean>(false);
 
