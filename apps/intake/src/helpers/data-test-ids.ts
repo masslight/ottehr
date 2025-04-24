@@ -28,4 +28,5 @@ export const dataTestIds = {
   fileCardUploadingButton: 'file-card-uploading-button',
   wrInviteeName: 'wr-invitee-name',
   wrInviteeContact: 'wr-invitee-contact',
+  cardNumber: 'card-number',
 };
