@@ -8,6 +8,7 @@ import { LAB_ORDER_TASK } from 'utils';
 import { createOystehrClient } from '../../../shared/helpers';
 import { getAuth0Token, topLevelCatch } from '../../../shared';
 import { DateTime } from 'luxon';
+import { createLabResultPDF } from '../../../shared/pdf/external-labs-results-form-pdf';
 
 export interface ReviewLabResultSubscriptionInput {
   diagnosticReport: DiagnosticReport;
@@ -28,6 +29,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       zapehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
+    }
+
+    const serviceRequestID = diagnosticReport?.basedOn
+      ?.find((temp) => temp.reference?.startsWith('ServiceRequest/'))
+      ?.reference?.split('/')[1];
+    if (!serviceRequestID) {
+      throw new Error('ServiceRequest id is not found');
     }
 
     const oystehr = createOystehrClient(zapehrToken, secrets);
@@ -106,12 +114,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
+    await createLabResultPDF(oystehr, serviceRequestID, false, secrets, zapehrToken);
+
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('create-review-lab-results-task', error, input.secrets);
+    await topLevelCatch('handle-lab-result', error, input.secrets);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

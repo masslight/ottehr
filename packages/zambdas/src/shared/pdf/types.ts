@@ -131,8 +131,8 @@ export interface ExternalLabsData {
   primaryInsuranceSubNum?: string;
   insuredName?: string;
   insuredAddress?: string;
-  aoeAnswers: { question: string; answer: any }[];
-  orderName: string;
+  aoeAnswers?: { question: string; answer: any }[];
+  orderName?: string | undefined;
   assessmentCode: string;
   assessmentName: string;
   orderPriority: string;
@@ -140,34 +140,34 @@ export interface ExternalLabsData {
 
 export interface LabResultsData extends ExternalLabsData {
   accessionNumber: string;
-  requisitionNumber: string;
-  orderReceived: string;
-  specimenReceived: string;
-  reportDate: string;
-  specimenSource: string;
-  Dx: string;
-  labType: string;
-  specimenDescription: string;
-  specimenValue: string;
-  specimenReferenceRange: string;
+  requisitionNumber?: string;
+  // orderReceived: string;
+  // specimenReceived: string;
+  // reportDate: string;
+  // specimenSource: string;
+  testName: string;
+  // specimenDescription: string;
+  specimenValue?: string;
+  specimenReferenceRange?: string;
   resultBody: string;
   resultPhase: string;
+  reviewed: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
   reviewDate: string;
-  performingLabCode: string;
+  testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
   performingLabCity: string;
   performingLabState: string;
   performingLabZip: string;
-  performingLabDirector: string;
+  performingLabDirector?: string;
   performingLabPhone: string;
-  performingLabProviderFirstName: string;
-  performingLabProviderLastName: string;
-  performingLabProviderTitle: string;
-  abnormalResult: boolean;
+  performingLabDirectorFirstName: string;
+  performingLabDirectorLastName: string;
+  performingLabDirectorTitle: string;
+  abnormalResult?: boolean;
 } // TODO: change this based on the actual data brought in by the DORN webhook
 
 export interface VisitNoteData extends ExaminationBlockData {
