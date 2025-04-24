@@ -54,17 +54,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     console.log('encounter id', encounter.id);
-    const { labOrganization, coverage, location, patientId, existingActivityDefinition } = await getAdditionalResources(
+    const { labOrganization, coverage, location, patientId } = await getAdditionalResources(
       orderableItem,
       encounter,
       oystehr
     );
 
-    const { activityDefinitionId, activityDefinitionToContain } = await handleActivityDefinition(
-      existingActivityDefinition,
-      orderableItem,
-      oystehr
-    );
+    const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
 
     const requests: BatchInputRequest<FhirResource>[] = [];
 
@@ -108,7 +104,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       priority: 'routine',
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,
-      instantiatesCanonical: [`#${activityDefinitionId}`],
+      instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
       contained: [activityDefinitionToContain],
     };
     if (coverage) {
@@ -250,62 +246,29 @@ const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest[
   };
 };
 
-const handleActivityDefinition = async (
-  activityDefinition: ActivityDefinition | undefined,
-  orderableItem: OrderableItemSearchResult,
-  oystehr: Oystehr
-): Promise<{ activityDefinitionId: string; activityDefinitionToContain: any }> => {
-  let activityDefinitionId: string | undefined;
-  let activityDefinitionToContain: any;
+const formatActivityDefinitionToContain = (orderableItem: OrderableItemSearchResult): ActivityDefinition => {
+  const activityDefinitionConfig: ActivityDefinition = {
+    resourceType: 'ActivityDefinition',
+    id: 'activityDefinitionId',
+    status: 'unknown',
+    code: {
+      coding: [
+        {
+          system: OYSTEHR_LAB_OI_CODE_SYSTEM,
+          code: orderableItem.item.itemCode,
+          display: orderableItem.item.itemName,
+        },
+      ],
+    },
+    publisher: orderableItem.lab.labName,
+    kind: 'ServiceRequest',
+    title: orderableItem.item.itemName,
+    name: orderableItem.item.uniqueName,
+    url: `https://labs-api.zapehr.com/v1/orderableItem?labIds=${orderableItem.lab.labGuid}&itemCodes=${orderableItem.item.itemCode}`,
+    version: orderableItem.lab.compendiumVersion,
+  };
 
-  if (!activityDefinition) {
-    const activityDefinitionConfig: ActivityDefinition = {
-      resourceType: 'ActivityDefinition',
-      status: 'unknown',
-      code: {
-        coding: [
-          {
-            system: OYSTEHR_LAB_OI_CODE_SYSTEM,
-            code: orderableItem.item.itemCode,
-            display: orderableItem.item.itemName,
-          },
-        ],
-      },
-      publisher: orderableItem.lab.labName,
-      kind: 'ServiceRequest',
-      title: orderableItem.item.itemName,
-      name: orderableItem.item.uniqueName,
-      url: `https://labs-api.zapehr.com/v1/orderableItem?labIds=${orderableItem.lab.labGuid}&itemCodes=${orderableItem.item.itemCode}`,
-      version: orderableItem.lab.compendiumVersion,
-    };
-    console.log(
-      'creating a new activityDefinition for orderable item',
-      orderableItem.item.itemCode,
-      orderableItem.item.itemName,
-      orderableItem.lab.labName,
-      orderableItem.lab.compendiumVersion
-    );
-    activityDefinitionToContain = activityDefinitionConfig;
-    const newActivityDef = await oystehr.fhir.create<ActivityDefinition>(activityDefinitionConfig);
-    activityDefinitionId = newActivityDef.id;
-  } else if (activityDefinition) {
-    console.log(
-      'activityDefinition found for orderable item',
-      orderableItem.item.itemCode,
-      orderableItem.item.itemName,
-      orderableItem.lab.labName,
-      orderableItem.lab.compendiumVersion
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { meta, ...activityDefToContain } = activityDefinition;
-    activityDefinitionToContain = activityDefToContain;
-    activityDefinitionId = activityDefinition.id;
-  }
-
-  if (!activityDefinitionId)
-    throw new Error(`issue finding or creating activity definition for this lab orderable item`);
-
-  return { activityDefinitionId, activityDefinitionToContain };
+  return activityDefinitionConfig;
 };
 
 const getAdditionalResources = async (
@@ -317,42 +280,32 @@ const getAdditionalResources = async (
   coverage?: Coverage;
   location: Location;
   patientId: string;
-  existingActivityDefinition: ActivityDefinition | undefined;
 }> => {
   const labGuid = orderableItem.lab.labGuid;
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
     method: 'GET',
     url: `/Organization?identifier=${labGuid}`,
   };
-  const activityDefinitionSearchRequest: BatchInputRequest<ActivityDefinition> = {
-    method: 'GET',
-    url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
-  };
   const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage | Account> = {
     method: 'GET',
     url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient`,
   };
 
-  console.log('searching for lab org, activity definition, and encounter resources');
+  console.log('searching for lab org and encounter resources');
   const searchResults: Bundle<FhirResource> = await oystehr.fhir.batch({
-    requests: [labOrganizationSearchRequest, activityDefinitionSearchRequest, encounterResourceSearch],
+    requests: [labOrganizationSearchRequest, encounterResourceSearch],
   });
 
   const labOrganizationSearchResults: Organization[] = [];
-  const activityDefinitionSearchResults: ActivityDefinition[] = [];
   const coverageSearchResults: Coverage[] = [];
   const accountSearchResults: Account[] = [];
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenBundleResources<Organization | ActivityDefinition | Coverage | Patient | Location | Account>(
-    searchResults
-  );
+  const resources = flattenBundleResources<Organization | Coverage | Patient | Location | Account>(searchResults);
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
-    if (resource.resourceType === 'ActivityDefinition')
-      activityDefinitionSearchResults.push(resource as ActivityDefinition);
     if (resource.resourceType === 'Coverage' && resource.status === 'active')
       coverageSearchResults.push(resource as Coverage);
     if (resource.resourceType === 'Patient') patientId = resource.id;
@@ -387,6 +340,5 @@ const getAdditionalResources = async (
     coverage: patientPrimaryInsurance,
     location,
     patientId,
-    existingActivityDefinition: activityDefinitionSearchResults?.[0],
   };
 };
