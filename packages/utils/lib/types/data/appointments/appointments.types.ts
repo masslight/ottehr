@@ -152,7 +152,7 @@ export const PARTICIPANT_TYPE = {
   ATTENDER: 'ATND',
 };
 
-export const PRACTITIONER_CONDINGS = {
+export const PRACTITIONER_CODINGS = {
   Admitter: [
     {
       system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',

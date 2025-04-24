@@ -7,7 +7,7 @@ import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { CompleteIntakeButton } from './CompleteIntakeButton';
 import { useAppointment } from '../hooks/useAppointment';
 import { usePractitionerActions } from '../hooks/usePractitioner';
-import { getSelectors, getVisitStatus, PRACTITIONER_CONDINGS } from 'utils';
+import { getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import ottehrAiIcon from '../../../assets/ottehr-ai-icon.svg';
@@ -242,7 +242,7 @@ export const Sidebar = (): JSX.Element => {
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
-    PRACTITIONER_CONDINGS.Admitter
+    PRACTITIONER_CODINGS.Admitter
   );
 
   const handleCompleteIntake = async (): Promise<void> => {

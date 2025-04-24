@@ -27,7 +27,7 @@ import {
   useSaveChartData,
 } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CONDINGS } from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
@@ -67,7 +67,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   const attendingPractitioner = encounter.participant?.find(
     (participant) =>
-      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CONDINGS.Attender[0].system))
+      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
   );
   console.log('attendingPractitioner', attendingPractitioner);
 

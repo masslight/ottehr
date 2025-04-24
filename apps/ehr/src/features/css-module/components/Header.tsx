@@ -5,7 +5,7 @@ import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { VisitStatusLabel, PRACTITIONER_CONDINGS } from 'utils';
+import { VisitStatusLabel, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
@@ -85,7 +85,7 @@ export const Header = (): JSX.Element => {
   const { interactionMode, setInteractionMode } = useNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
   const practitionerTypeFromMode =
-    interactionMode === 'intake' ? PRACTITIONER_CONDINGS.Attender : PRACTITIONER_CONDINGS.Admitter;
+    interactionMode === 'intake' ? PRACTITIONER_CODINGS.Attender : PRACTITIONER_CODINGS.Admitter;
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'start',

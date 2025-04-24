@@ -1,6 +1,6 @@
 import { Box, Tooltip, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
-import { getVisitStatus, TelemedAppointmentStatusEnum, PRACTITIONER_CONDINGS } from 'utils';
+import { getVisitStatus, TelemedAppointmentStatusEnum, PRACTITIONER_CODINGS } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
@@ -50,7 +50,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
-    PRACTITIONER_CONDINGS.Attender
+    PRACTITIONER_CODINGS.Attender
   );
 
   const handleCompleteProvider = async (): Promise<void> => {

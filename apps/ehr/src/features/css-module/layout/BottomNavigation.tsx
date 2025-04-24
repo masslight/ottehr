@@ -8,7 +8,7 @@ import { usePractitionerActions } from '../hooks/usePractitioner';
 import { LoadingButton } from '@mui/lab';
 import { enqueueSnackbar } from 'notistack';
 import { useAppointment } from '../hooks/useAppointment';
-import { PRACTITIONER_CONDINGS } from 'utils';
+import { PRACTITIONER_CODINGS } from 'utils';
 
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();
@@ -26,7 +26,7 @@ export const BottomNavigation = (): JSX.Element => {
     nextButtonText,
   } = useNavigationContext();
   const practitionerTypeFromMode =
-    interactionMode === 'intake' ? PRACTITIONER_CONDINGS.Admitter : PRACTITIONER_CONDINGS.Attender;
+    interactionMode === 'intake' ? PRACTITIONER_CODINGS.Admitter : PRACTITIONER_CODINGS.Attender;
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',

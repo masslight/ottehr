@@ -67,11 +67,13 @@ export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'https://identifiers.fhir.oystehr
 export const PROVENANCE_ACTIVITY_CODES = {
   review: 'REVIEW',
   submit: 'SUBMIT',
+  createOrder: 'CREATE ORDER',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
+  createOrder: 'CREATE ORDER',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -83,6 +85,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   review: {
     code: PROVENANCE_ACTIVITY_CODES.review,
     display: PROVENANCE_ACTIVITY_DISPLAY.review,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  createOrder: {
+    code: PROVENANCE_ACTIVITY_CODES.createOrder,
+    display: PROVENANCE_ACTIVITY_CODES.createOrder,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;

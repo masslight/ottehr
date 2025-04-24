@@ -6,7 +6,8 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
-  PRACTITIONER_CONDINGS,
+  PRACTITIONER_CODINGS,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -58,7 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ?.find(
         (participant) =>
           participant.type?.find(
-            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CONDINGS.Attender[0].system)
+            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
           )
       )
       ?.individual?.reference?.replace('Practitioner/', '');
@@ -311,14 +312,8 @@ const getProvenanceConfig = (
 ): Provenance => {
   return {
     resourceType: 'Provenance',
-    // todo should this be a custom code? see PROVENANCE_ACTIVITY_CODING_ENTITY
-    // maybe something more specific like CREATE ORDER
     activity: {
-      coding: [
-        {
-          code: 'CREATE',
-        },
-      ],
+      coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
     },
     target: [
       {
