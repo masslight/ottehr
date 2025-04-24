@@ -167,12 +167,6 @@ const PatientInformationPage: FC = () => {
     }
   }, [defaultFormVals, methods, formState.isSubmitSuccessful, submitQR.isSuccess]);
 
-  useEffect(() => {
-    if (formState.isSubmitting && !formState.isValid) {
-      enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
-    }
-  }, [formState.isSubmitting, formState.isValid]);
-
   const handleDiscardChanges = (): void => {
     methods.reset();
     setOpenConfirmationDialog(false);
@@ -325,7 +319,9 @@ const PatientInformationPage: FC = () => {
           </Box>
           <ActionBar
             handleDiscard={handleBackClickWithConfirmation}
-            handleSave={handleSubmit(handleSaveForm)}
+            handleSave={handleSubmit(handleSaveForm, () => {
+              enqueueSnackbar('Please fix all field validation errors and try again', { variant: 'error' });
+            })}
             loading={submitQR.isLoading}
             hidden={false}
             submitDisabled={Object.keys(dirtyFields).length === 0}

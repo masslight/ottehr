@@ -23,10 +23,7 @@ export const DetailsWithResults: React.FC<{
         <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
         <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-          {labOrder.diagnosesDTO.map((dx) => {
-            const diagnosis = `${dx.code} - ${dx.display}`;
-            return <div key={diagnosis}>{diagnosis}</div>;
-          })}
+          {labOrder.diagnoses}
         </Typography>
 
         {labOrder.resultsDetails.map((result) => (

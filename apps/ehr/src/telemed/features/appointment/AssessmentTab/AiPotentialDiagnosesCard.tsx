@@ -45,7 +45,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
         >
           <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
           <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-            OTTEHR AI
+            OYSTEHR AI
           </Typography>
         </Box>
         <IconButton onClick={handleClose} aria-label="Close">

@@ -1198,7 +1198,6 @@ export function createMasterRecordPatchOperations(
     // Change index if path is changeable
     if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
       const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
-
       fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
     }
 
@@ -1280,6 +1279,11 @@ export function createMasterRecordPatchOperations(
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
             const operation = createBasicPatchOperation([value], parentPath, currentParentValue);
+            // looks like there is a bug here when there is a patient name but not patient name contains the 'use: official' desgination
+            // todo: a better fix here is needed, along with some kind of unit/integration tests
+            if (fullPath.includes('name/-1/')) {
+              return;
+            }
             if (operation) tempOperations.patient.push(operation);
             return;
           }
@@ -1322,7 +1326,7 @@ export function createMasterRecordPatchOperations(
 
         // Handle regular fields
         const currentValue = getCurrentValue(patient, path);
-        if (value !== currentValue) {
+        if (value !== currentValue && !fullPath.includes('name/-1/')) {
           const operation = createBasicPatchOperation(value, path, currentValue);
           if (operation) tempOperations.patient.push(operation);
         }
@@ -2697,23 +2701,28 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
     timestamp,
   } = input;
   console.log('guarantorFromQuestionnaire', JSON.stringify(guarantorFromQuestionnaire, null, 2));
-  if (guarantorFromQuestionnaire === undefined || guarantorFromQuestionnaire.relationship === 'Self') {
-    if (existingGuarantorResource?.resourceType === 'Patient' && existingGuarantorResource.id === patientId) {
+  if (guarantorFromQuestionnaire === undefined) {
+    return { guarantors: existingGuarantorReferences, contained: existingContained };
+  } else if (guarantorFromQuestionnaire.relationship === 'Self') {
+    const currentGuarantorIsPatient = existingGuarantorReferences.some((g) => {
+      return g.party.reference === `Patient/${patientId}` && g.period?.end === undefined;
+    });
+    if (currentGuarantorIsPatient) {
       return { guarantors: existingGuarantorReferences, contained: existingContained };
-    } else {
-      const newGuarantor = {
-        party: {
-          reference: `Patient/${patientId}`,
-          type: 'Patient',
-        },
-      };
-      return {
-        guarantors: replaceCurrentGuarantor(newGuarantor, existingGuarantorReferences, timestamp),
-        contained: existingContained,
-      };
     }
+    console.log('guarantorFromQuestionnaire is undefined or relationship is self 1');
+    const newGuarantor = {
+      party: {
+        reference: `Patient/${patientId}`,
+        type: 'Patient',
+      },
+    };
+    return {
+      guarantors: replaceCurrentGuarantor(newGuarantor, existingGuarantorReferences, timestamp),
+      contained: existingContained,
+    };
   }
-  // the new gurantor is not the patient...
+  // the new guarantor is not the patient...
   const existingResourceIsPersisted = existingGuarantorReferences.some((r) => {
     const ref = r.party.reference;
     if (r.period?.end !== undefined) return false;

@@ -1,13 +1,13 @@
-import React, { FC, useState } from 'react';
 import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useState } from 'react';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { ActionsList, DeleteIconButton } from '../../../../components';
+import { useDebounce, useGetAppointmentAccessibility } from '../../../../hooks';
+import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { CPTCodeOption, emCodeOptions } from './EMCodeField';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
-import { useDebounce, useGetAppointmentAccessibility } from '../../../../hooks';
-import { enqueueSnackbar } from 'notistack';
-import { ActionsList, DeleteIconButton } from '../../../../components';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const BillingCodesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -131,7 +131,7 @@ export const BillingCodesContainer: FC = () => {
               size="small"
               label="E&M code"
               placeholder="Search E&M code"
-              data-testid={dataTestIds.assessmentPage.emCodeDropdown}
+              data-testid={dataTestIds.assessmentCard.emCodeDropdown}
             />
           )}
         />
@@ -161,6 +161,7 @@ export const BillingCodesContainer: FC = () => {
               label="Additional CPT codes"
               placeholder="Search CPT code"
               onChange={(e) => debouncedHandleInputChange(e.target.value)}
+              data-testid={dataTestIds.assessmentCard.cptCodeField}
             />
           )}
         />
@@ -199,7 +200,7 @@ export const BillingCodesContainer: FC = () => {
             data={cptCodes}
             getKey={(value, index) => value.resourceId || index}
             renderItem={(value) => (
-              <Typography>
+              <Typography data-testid={dataTestIds.billingContainer.cptCodeEntry(value.code)}>
                 {value.code} {value.display}
               </Typography>
             )}
@@ -208,6 +209,7 @@ export const BillingCodesContainer: FC = () => {
                 ? undefined
                 : (value) => (
                     <DeleteIconButton
+                      dataTestId={dataTestIds.billingContainer.deleteCptCodeButton(value.code)}
                       disabled={!value.resourceId || disabledCPT}
                       onClick={() => onDelete(value.resourceId!)}
                     />

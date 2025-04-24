@@ -24,6 +24,7 @@ import {
   getUniquePhonesNumbers,
   PRIVATE_EXTENSION_BASE_URL,
 } from '.';
+import { removePrefix } from '../helpers';
 import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PatientInfo,
@@ -34,7 +35,6 @@ import {
   ProviderNotificationSettings,
   RelatedPersonMaps,
 } from '../types';
-import { removePrefix } from '../helpers';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(
@@ -67,62 +67,88 @@ export async function createUserResourcesForPatient(
   console.log(`For Patient ${patientID} created a RelatedPerson ${relatedPerson.id}`);
   console.log(`Searching for Person with phone number ${phoneNumber}`);
 
-  const personResults = (
-    await oystehr.fhir.search<Person>({
-      resourceType: 'Person',
-      params: [
-        {
-          name: 'telecom',
-          value: phoneNumber,
-        },
-      ],
-    })
-  ).unbundle();
-
   let person: Person | undefined = undefined;
   let newUser = false;
 
-  if (personResults.length === 0) {
-    newUser = true;
-    console.log(`Did not find a Person for user with phone number ${phoneNumber}, creating one`);
-    person = (await oystehr.fhir.create({
-      resourceType: 'Person',
-      telecom: [{ system: 'phone', value: phoneNumber }],
-      link: [
-        {
-          target: { reference: `RelatedPerson/${relatedPerson.id}` },
-        },
-      ],
-    })) as Person;
-    console.log(`For user with phone number ${phoneNumber} created a Person ${person.id}`);
-  } else {
-    console.log(
-      `Did find a Person with phone number ${phoneNumber} with ID ${personResults[0].id}, adding RelatedPerson ${relatedPerson.id} to link`
-    );
-    person = personResults[0];
-    const hasLink = person.link;
-    if (!hasLink) {
+  let retries = 0;
+  let personPatchResult = undefined;
+
+  while (retries < 10) {
+    const personResults = (
+      await oystehr.fhir.search<Person>({
+        resourceType: 'Person',
+        params: [
+          {
+            name: 'telecom',
+            value: phoneNumber,
+          },
+        ],
+      })
+    ).unbundle();
+
+    if (personResults.length === 0) {
+      newUser = true;
+      console.log(`Did not find a Person for user with phone number ${phoneNumber}, creating one`);
+      person = (await oystehr.fhir.create({
+        resourceType: 'Person',
+        telecom: [{ system: 'phone', value: phoneNumber }],
+        link: [
+          {
+            target: { reference: `RelatedPerson/${relatedPerson.id}` },
+          },
+        ],
+      })) as Person;
+      console.log(`For user with phone number ${phoneNumber} created a Person ${person.id}`);
+    } else {
       console.log(
-        "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients"
+        `Did find a Person with phone number ${phoneNumber} with ID ${personResults[0].id}, adding RelatedPerson ${relatedPerson.id} to link`
       );
-    }
-    const link = {
-      target: {
-        reference: `RelatedPerson/${relatedPerson.id}`,
-      },
-    };
-    await oystehr.fhir.patch({
-      resourceType: 'Person',
-      id: person.id || '',
-      operations: [
-        {
-          op: 'add',
-          path: hasLink ? '/link/0' : '/link',
-          value: hasLink ? link : [link],
+
+      person = personResults[0];
+      const hasLink = person.link;
+      if (!hasLink) {
+        console.log(
+          "Person does not have link, this shouldn't happen outside of test cases but is still possible - The account may not have patients"
+        );
+      }
+      const link = {
+        target: {
+          reference: `RelatedPerson/${relatedPerson.id}`,
         },
-      ],
-    });
+      };
+      try {
+        personPatchResult = await oystehr.fhir.patch(
+          {
+            resourceType: 'Person',
+            id: person.id || '',
+            operations: [
+              {
+                op: 'add',
+                path: hasLink ? '/link/-' : '/link',
+                value: hasLink ? link : [link],
+              },
+            ],
+          },
+          { optimisticLockingVersionId: person.meta!.versionId }
+        );
+        console.log(`Updated Person with ID ${person.id}`);
+        break;
+      } catch (e) {
+        console.log(`Error patching Person ${person.id}: ${e}. Retrying...`, JSON.stringify(e));
+        retries++;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+
     console.log(`Updated Person with ID ${person.id}`);
+  }
+
+  if (!personPatchResult) {
+    throw new Error(`Failed to patch Person for user with phone number ${phoneNumber} after 10 retries`);
+  }
+
+  if (!person) {
+    throw new Error(`Failed to create or update Person for user with phone number ${phoneNumber} after 10 retries`);
   }
 
   return { relatedPerson, person, newUser };
