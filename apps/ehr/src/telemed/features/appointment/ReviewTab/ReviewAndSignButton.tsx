@@ -1,6 +1,6 @@
 import { Box, Tooltip, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
-import { getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
+import { getVisitStatus, TelemedAppointmentStatusEnum, PRACTITIONER_CONDINGS } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
@@ -14,7 +14,6 @@ import {
 import { getPatientName } from '../../../utils';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
 import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
-import { practitionerType } from '../../../../helpers/practitionerUtils';
 import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../../constants/data-test-ids';
@@ -51,7 +50,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
-    practitionerType.Attender
+    PRACTITIONER_CONDINGS.Attender
   );
 
   const handleCompleteProvider = async (): Promise<void> => {

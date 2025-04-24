@@ -6,6 +6,7 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  PRACTITIONER_CONDINGS,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -21,6 +22,7 @@ import {
   ActivityDefinition,
   Patient,
   Account,
+  Provenance,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
@@ -46,11 +48,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    let practitionerId: string | undefined;
+    let curUserPractitionerId: string | undefined;
     try {
-      practitionerId = await getMyPractitionerId(oystehrCurrentUser);
+      curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     } catch (e) {
       throw new Error('User creating this lab order must have a Practitioner resource linked');
+    }
+    const attendingPractitionerId = encounter.participant
+      ?.find(
+        (participant) =>
+          participant.type?.find(
+            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CONDINGS.Attender[0].system)
+          )
+      )
+      ?.individual?.reference?.replace('Practitioner/', '');
+    if (!attendingPractitionerId) {
+      // this should never happen since theres also a validation on the front end that you cannot submit without one
+      throw new Error('This encounter does not have an attending practitioner linked');
     }
 
     console.log('encounter id', encounter.id);
@@ -88,7 +102,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         reference: `Encounter/${encounter.id}`,
       },
       requester: {
-        reference: `Practitioner/${practitionerId}`,
+        reference: `Practitioner/${attendingPractitionerId}`,
       },
       performer: [
         {
@@ -175,12 +189,30 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ];
     }
 
+    const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
+    const provenanceConfig = getProvenanceConfig(
+      serviceRequestFullUrl,
+      location.id || '',
+      curUserPractitionerId,
+      attendingPractitionerId
+    );
+    serviceRequestConfig.relevantHistory = [
+      {
+        reference: provenanceFullUrl,
+      },
+    ];
+
+    requests.push({
+      method: 'POST',
+      url: '/Provenance',
+      resource: provenanceConfig,
+      fullUrl: provenanceFullUrl,
+    });
     requests.push({
       method: 'POST',
       url: '/Task',
       resource: preSubmissionTaskConfig,
     });
-
     requests.push({
       method: 'POST',
       url: '/ServiceRequest',
@@ -269,6 +301,39 @@ const formatActivityDefinitionToContain = (orderableItem: OrderableItemSearchRes
   };
 
   return activityDefinitionConfig;
+};
+
+const getProvenanceConfig = (
+  serviceRequestFullUrl: string,
+  locationId: string,
+  currentUserId: string,
+  attendingPractitionerId: string
+): Provenance => {
+  return {
+    resourceType: 'Provenance',
+    // todo should this be a custom code? see PROVENANCE_ACTIVITY_CODING_ENTITY
+    // maybe something more specific like CREATE ORDER
+    activity: {
+      coding: [
+        {
+          code: 'CREATE',
+        },
+      ],
+    },
+    target: [
+      {
+        reference: serviceRequestFullUrl,
+      },
+    ],
+    location: { reference: `Location/${locationId}` },
+    recorded: DateTime.now().toISO(),
+    agent: [
+      {
+        who: { reference: `Practitioner/${currentUserId}` },
+        onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
+      },
+    ],
+  };
 };
 
 const getAdditionalResources = async (

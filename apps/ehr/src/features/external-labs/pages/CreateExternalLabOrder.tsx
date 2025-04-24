@@ -27,7 +27,7 @@ import {
   useSaveChartData,
 } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CONDINGS } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
@@ -64,6 +64,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
+
+  const attendingPractitioner = encounter.participant?.find(
+    (participant) =>
+      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CONDINGS.Attender[0].system))
+  );
+  console.log('attendingPractitioner', attendingPractitioner);
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
@@ -133,6 +139,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
+      if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
       setError(errorMessage);
     }

@@ -8,6 +8,7 @@ import {
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
+  Coding,
 } from 'fhir/r4b';
 
 import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
@@ -149,6 +150,23 @@ export interface GetTelemedAppointmentsInput {
 export const PARTICIPANT_TYPE = {
   ADMITTER: 'ADM',
   ATTENDER: 'ATND',
+};
+
+export const PRACTITIONER_CONDINGS = {
+  Admitter: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      code: 'ADM',
+      display: 'admitter',
+    },
+  ] as Coding[],
+  Attender: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      code: 'ATND',
+      display: 'attender',
+    },
+  ] as Coding[],
 };
 
 export type AppointmentRelatedResources =

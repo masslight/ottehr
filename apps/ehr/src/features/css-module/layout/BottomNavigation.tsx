@@ -3,12 +3,12 @@ import { alpha, Box, Button, useTheme } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ChevronLeft';
 import ArrowForwardIcon from '@mui/icons-material/ChevronRight';
 import { useNavigationContext } from '../context/NavigationContext';
-import { practitionerType } from '../../../helpers/practitionerUtils';
 import { useParams } from 'react-router-dom';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { LoadingButton } from '@mui/lab';
 import { enqueueSnackbar } from 'notistack';
 import { useAppointment } from '../hooks/useAppointment';
+import { PRACTITIONER_CONDINGS } from 'utils';
 
 export const BottomNavigation = (): JSX.Element => {
   const { id: appointmentID } = useParams();
@@ -25,7 +25,8 @@ export const BottomNavigation = (): JSX.Element => {
     isNavigationDisabled,
     nextButtonText,
   } = useNavigationContext();
-  const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Admitter : practitionerType.Attender;
+  const practitionerTypeFromMode =
+    interactionMode === 'intake' ? PRACTITIONER_CONDINGS.Admitter : PRACTITIONER_CONDINGS.Attender;
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',

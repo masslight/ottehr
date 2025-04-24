@@ -30,6 +30,7 @@ import {
   formatMinutes,
   getDurationOfStatus,
   getVisitTotalTime,
+  PRACTITIONER_CONDINGS,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -42,7 +43,6 @@ import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
-import { practitionerType } from '../helpers/practitionerUtils';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import AppointmentNote from './AppointmentNote';
@@ -238,7 +238,7 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
   const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
-  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', practitionerType.Admitter);
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CONDINGS.Admitter);
 
   const handleCSSButton = async (): Promise<void> => {
     setCSSButtonIsLoading(true);
