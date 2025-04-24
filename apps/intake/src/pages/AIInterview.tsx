@@ -1,7 +1,5 @@
-import { Send } from '@mui/icons-material';
-import { Avatar, Button, TextField, Typography } from '@mui/material';
-import { Box } from '@mui/system';
-import { ottehrDarkBlue } from '@theme/icons';
+import { useUCZambdaClient } from 'ui-components';
+import { PageContainer } from '../components';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import api from '../api/zapehrApi';
