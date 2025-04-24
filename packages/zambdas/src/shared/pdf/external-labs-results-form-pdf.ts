@@ -717,7 +717,7 @@ export async function makeLabPdfDocumentReference({
   reviewed,
 }: {
   oystehr: Oystehr;
-  type: string;
+  type: 'order' | 'results';
   pdfInfo: PdfInfo;
   patientID: string;
   encounterID: string;
