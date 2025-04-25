@@ -72,6 +72,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('patient.id is undefined');
     }
 
+    if (!questionnaireResponse.id) {
+      throw Error('questionnaire response id is undefined');
+    }
+
     const location: Location = await oystehr.fhir.get({
       resourceType: 'Location',
       id: locationID,
@@ -224,10 +228,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         answer: answer,
       };
     });
-
-    if (!questionnaireResponse.id) {
-      throw Error('questionnaire response id is undefined');
-    }
 
     const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
