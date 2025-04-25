@@ -1,6 +1,7 @@
 import { Page, test } from '@playwright/test';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { Field } from '../../page/EditMedicationCard';
+import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
 import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
 import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
@@ -114,63 +115,78 @@ test('Order medication, order is submitted successfully and entered data are dis
 
 test('Edit order page is opened after clicking on pencil icon for order in "pending" status', async ({ page }) => {
   const createOrderPage = await prepareAndOpenOrderMedicationPage(page);
-  await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
-  await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
-  await createOrderPage.editMedicationCard.enterDose(DOSE);
-  await createOrderPage.editMedicationCard.selectUnits(UNITS);
-  await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
-  await createOrderPage.editMedicationCard.selectRoute(ROUTE);
-  await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
-  await createOrderPage.clickOrderMedicationButton();
+  let editOrderPage: OrderMedicationPage;
+  let medicationsPage: InHouseMedicationsPage;
 
-  //click on pencil icon opens Edit order page
-  const editOrderPage = await expectEditOrderPage(page);
-  let medicationsPage = await editOrderPage.clickBackButton();
-  await medicationsPage.clickPencilIcon();
-  await expectEditOrderPage(page);
+  await test.step('Create order', async () => {
+    await createOrderPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+    await createOrderPage.editMedicationCard.selectMedication(MEDICATION);
+    await createOrderPage.editMedicationCard.enterDose(DOSE);
+    await createOrderPage.editMedicationCard.selectUnits(UNITS);
+    await createOrderPage.editMedicationCard.enterManufacturer(MANUFACTURER);
+    await createOrderPage.editMedicationCard.selectRoute(ROUTE);
+    await createOrderPage.editMedicationCard.enterInstructions(INSTRUCTIONS);
+    await createOrderPage.clickOrderMedicationButton();
+    editOrderPage = await expectEditOrderPage(page);
+  });
 
-  //Update fields to empty values and click on [Save] - Validation errors appears
-  await editOrderPage.editMedicationCard.selectMedication('Select Medication');
-  await editOrderPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
-  await editOrderPage.editMedicationCard.clearDose();
-  await editOrderPage.editMedicationCard.selectUnits('Select units');
-  await editOrderPage.editMedicationCard.clearManufacturer();
-  await editOrderPage.editMedicationCard.selectRoute('Select route');
-  await editOrderPage.editMedicationCard.clearInstructions();
-  await editOrderPage.clickOrderMedicationButton();
+  await test.step('Click on pencil icon opens Edit order page', async () => {
+    const medicationsPage = await editOrderPage.clickBackButton();
+    await medicationsPage.clickPencilIcon();
+    editOrderPage = await expectEditOrderPage(page);
+  });
 
-  await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
-  await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX, false);
-  await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE, false);
-  await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS, false);
-  await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MANUFACTURER, false);
-  await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE, false);
-  await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS, false);
+  await test.step('Update fields to empty values and click on [Save] - Validation errors appears', async () => {
+    await editOrderPage.editMedicationCard.selectMedication('Select Medication');
+    await editOrderPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
+    await editOrderPage.editMedicationCard.clearDose();
+    await editOrderPage.editMedicationCard.selectUnits('Select units');
+    await editOrderPage.editMedicationCard.clearManufacturer();
+    await editOrderPage.editMedicationCard.selectRoute('Select route');
+    await editOrderPage.editMedicationCard.clearInstructions();
+    await editOrderPage.clickOrderMedicationButton();
 
-  //Updated values are saved successfully and Order is updated on the "MAR" tab
-  await editOrderPage.editMedicationCard.selectAssociatedDx(NEW_DIAGNOSIS);
-  await editOrderPage.editMedicationCard.selectMedication(NEW_MEDICATION);
-  await editOrderPage.editMedicationCard.enterDose(NEW_DOSE);
-  await editOrderPage.editMedicationCard.selectUnits(NEW_UNITS);
-  await editOrderPage.editMedicationCard.enterManufacturer(NEW_MANUFACTURER);
-  await editOrderPage.editMedicationCard.selectRoute(NEW_ROUTE);
-  await editOrderPage.editMedicationCard.enterInstructions(NEW_INSTRUCTIONS);
-  await editOrderPage.clickOrderMedicationButton();
+    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
+    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MANUFACTURER, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS, false);
+  });
 
-  await editOrderPage.editMedicationCard.verifyMedication(NEW_MEDICATION);
-  await editOrderPage.editMedicationCard.verifyDose(NEW_DOSE);
-  await editOrderPage.editMedicationCard.verifyUnits(NEW_UNITS);
-  await editOrderPage.editMedicationCard.verifyManufacturer(NEW_MANUFACTURER);
-  await editOrderPage.editMedicationCard.verifyRoute(NEW_ROUTE);
-  await editOrderPage.editMedicationCard.verifyInstructions(NEW_INSTRUCTIONS);
+  await test.step('Edit order page is opened after clicking on pencil icon for order in "pending" status', async () => {
+    medicationsPage = await editOrderPage.clickBackButton();
+    await medicationsPage.clickPencilIcon();
 
-  medicationsPage = await editOrderPage.clickBackButton();
-  await medicationsPage.verifyMedicationPresent({
-    medicationName: NEW_MEDICATION,
-    dose: NEW_DOSE,
-    route: NEW_ROUTE,
-    instructions: NEW_INSTRUCTIONS,
-    status: STATUS,
+    //click on pencil icon opens Edit order page
+    editOrderPage = await expectEditOrderPage(page);
+    //Updated values are saved successfully and Order is updated on the "MAR" tab
+    await editOrderPage.editMedicationCard.selectMedication(NEW_MEDICATION);
+    await editOrderPage.editMedicationCard.enterDose(NEW_DOSE);
+    // TODO: investigate why this is not working in playwright
+    // await editOrderPage.editMedicationCard.selectAssociatedDx(NEW_DIAGNOSIS);
+    await editOrderPage.editMedicationCard.selectUnits(NEW_UNITS);
+    await editOrderPage.editMedicationCard.enterManufacturer(NEW_MANUFACTURER);
+    await editOrderPage.editMedicationCard.selectRoute(NEW_ROUTE);
+    await editOrderPage.editMedicationCard.enterInstructions(NEW_INSTRUCTIONS);
+    await editOrderPage.clickOrderMedicationButton();
+
+    await editOrderPage.editMedicationCard.verifyMedication(NEW_MEDICATION);
+    await editOrderPage.editMedicationCard.verifyDose(NEW_DOSE);
+    await editOrderPage.editMedicationCard.verifyUnits(NEW_UNITS);
+    await editOrderPage.editMedicationCard.verifyManufacturer(NEW_MANUFACTURER);
+    await editOrderPage.editMedicationCard.verifyRoute(NEW_ROUTE);
+    await editOrderPage.editMedicationCard.verifyInstructions(NEW_INSTRUCTIONS);
+
+    medicationsPage = await editOrderPage.clickBackButton();
+    await medicationsPage.verifyMedicationPresent({
+      medicationName: NEW_MEDICATION,
+      dose: NEW_DOSE,
+      route: NEW_ROUTE,
+      instructions: NEW_INSTRUCTIONS,
+      status: STATUS,
+    });
   });
 });
 
@@ -181,8 +197,8 @@ async function prepareAndOpenOrderMedicationPage(page: Page): Promise<OrderMedic
   const progressNotePage = await expectInPersonProgressNotePage(page);
   await patientInfoPage.sideMenu().clickAssessment();
   const assessmentPage = await expectAssessmentPage(page);
-  await assessmentPage.selectDiagnosis(DIAGNOSIS);
-  await assessmentPage.selectDiagnosis(NEW_DIAGNOSIS);
+  await assessmentPage.selectDiagnosis({ diagnosisNamePart: DIAGNOSIS });
+  await assessmentPage.selectDiagnosis({ diagnosisNamePart: NEW_DIAGNOSIS });
   const inHouseMedicationsPage = await progressNotePage.sideMenu().clickInHouseMedications();
   return await inHouseMedicationsPage.clickOrderButton();
 }

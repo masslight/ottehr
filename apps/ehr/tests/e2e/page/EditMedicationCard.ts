@@ -40,7 +40,8 @@ export class EditMedicationCard {
 
   async selectAssociatedDx(diagnosis: string): Promise<void> {
     await this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.ASSOCIATED_DX)!).click();
-    await this.#page.getByText(diagnosis).click();
+    await this.#page.getByRole('option', { name: diagnosis }).waitFor({ state: 'visible' });
+    await this.#page.getByRole('option', { name: diagnosis }).click();
   }
 
   async verifyAssociatedDx(diagnosis: string): Promise<void> {
@@ -55,6 +56,8 @@ export class EditMedicationCard {
   }
 
   async enterDose(dose: string): Promise<void> {
+    const locator = this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.DOSE)!).locator('input');
+    await locator.fill('');
     await this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.DOSE)!).locator('input').pressSequentially(dose);
   }
   async clearDose(): Promise<void> {

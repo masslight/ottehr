@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { enqueueSnackbar } from 'notistack';
 import WarningIcon from '@mui/icons-material/Warning';
 import { Box, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import React, { useState } from 'react';
 import { CustomDialog, CustomDialogProps } from '../../../components/dialogs/CustomDialog';
+import { dataTestIds } from '../../../constants/data-test-ids';
 
 type CSSModalProps<Entity = undefined> = {
   handleConfirm: (entity: Entity) => any;
@@ -54,7 +55,7 @@ export function CSSModal<T = undefined>({
   };
 
   const dialogTitle = (
-    <Box display="flex" alignItems="center" color={color}>
+    <Box display="flex" alignItems="center" color={color} data-testid={dataTestIds.cssModal.confirmationDialogue}>
       {icon}
       <Typography variant="h4">{title}</Typography>
     </Box>

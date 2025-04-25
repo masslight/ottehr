@@ -2,7 +2,6 @@ import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
 import { FC, useCallback } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { HospitalizationDTO } from 'utils';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import {
   ActionsList,
@@ -12,6 +11,7 @@ import {
   useGetAppointmentAccessibility,
 } from '../../../../telemed';
 import { ProviderSideListSkeleton } from '../../../../telemed/features/appointment';
+import { otherColors } from '@theme/colors';
 
 const HospitalizationOptions: HospitalizationDTO[] = [
   {

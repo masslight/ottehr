@@ -23,6 +23,7 @@ import {
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { DateTime } from 'luxon';
+import { createLabResultPDF } from '../../shared/pdf/external-labs-results-form-pdf';
 
 let m2mtoken: string;
 
@@ -53,6 +54,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         taskId,
         serviceRequestId,
         diagnosticReportId,
+        secrets,
       });
 
       return {
@@ -93,12 +95,14 @@ const handleReviewedEvent = async ({
   taskId,
   serviceRequestId,
   diagnosticReportId,
+  secrets,
 }: {
   oystehr: Oystehr;
   practitionerIdFromCurrentUser: string;
   taskId: string;
   serviceRequestId: string;
   diagnosticReportId: string;
+  secrets: Secrets | null;
 }): Promise<Bundle<FhirResource>> => {
   const resources = (
     await oystehr.fhir.search<Task | Encounter | DiagnosticReport | Observation | Provenance | ServiceRequest>({
@@ -212,6 +216,8 @@ const handleReviewedEvent = async ({
   const updateTransactionRequest = await oystehr.fhir.transaction({
     requests,
   });
+
+  await createLabResultPDF(oystehr, serviceRequestId, true, secrets, m2mtoken);
 
   return updateTransactionRequest;
 };

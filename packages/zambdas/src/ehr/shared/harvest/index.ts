@@ -60,7 +60,7 @@ import {
   INSURANCE_COVERAGE_CODING,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
-  OTTEHR_BASE_URL,
+  FHIR_BASE_URL,
   OTTEHR_MODULE,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
@@ -716,7 +716,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   const facilityName = isVirtualLocation
     ? 'Ottehr Telemedicine'
     : locationResource?.identifier?.find(
-        (identifierTemp) => identifierTemp.system === `${OTTEHR_BASE_URL}/r4/facility-name`
+        (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
       )?.value;
 
   const ipAddress = questionnaireResponse.extension?.find((ext) => {

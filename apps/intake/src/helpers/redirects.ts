@@ -1,5 +1,5 @@
 import { generatePath } from 'react-router-dom';
-import { ServiceMode, VisitType } from 'utils';
+import { ServiceMode, VisitType, PROJECT_WEBSITE } from 'utils';
 import { AvailableLocationInformation } from '../api/zapehrApi';
 import { bookingBasePath } from '../App';
 
@@ -11,7 +11,7 @@ interface RedirectResult {
 export const getRedirectPath = (params: Record<string, string | undefined>, path: string): RedirectResult => {
   if (path === '/') {
     // console.log('handling base path');
-    return { absolute: 'https://ottehr.com' };
+    return { absolute: PROJECT_WEBSITE };
   }
   const { slug: slugParam, visit_type: visitTypeParam, schedule_type: scheduleTypeParam } = params;
   if (!slugParam || !visitTypeParam) {

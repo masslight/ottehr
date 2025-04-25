@@ -3,7 +3,7 @@ import { ApptTab } from './AppointmentTabs';
 import { FLAGGED_REASONS_FOR_VISIT, MOBILE_MODAL_STYLE } from '../constants';
 import { Typography, Modal, Box } from '@mui/material';
 import { GenericToolTip } from './GenericToolTip';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 
 interface ReasonsForVisitProps {
   reasonsForVisit: string;

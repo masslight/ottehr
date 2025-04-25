@@ -8,6 +8,13 @@ import { Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 
 async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Promise<Uint8Array> {
+  if (!data.orderName) {
+    throw new Error('Order name is required');
+  }
+  if (!data.aoeAnswers) {
+    throw new Error('AOE answers are required');
+  }
+
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage();

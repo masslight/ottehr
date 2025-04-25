@@ -34,7 +34,7 @@ export const EditModal: FC<EditModalProps> = (props) => {
             loading={isSaveLoading}
             variant="contained"
             sx={{
-              fontWeight: '700',
+              fontWeight: 500,
               borderRadius: '100px',
               mr: '8px',
               textTransform: 'none',

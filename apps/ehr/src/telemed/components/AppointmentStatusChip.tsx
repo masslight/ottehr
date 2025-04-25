@@ -22,7 +22,7 @@ export function AppointmentStatusChip({ status }: AppointmentStatusChip): ReactE
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: '12px',
         textTransform: 'uppercase',
         background: TelemedAppointmentStatusToPalette[status].background.primary,

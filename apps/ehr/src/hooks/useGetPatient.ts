@@ -19,10 +19,10 @@ import { useMutation, useQuery } from 'react-query';
 import {
   getFirstName,
   getLastName,
+  OTTEHR_MODULE,
   getVisitStatusHistory,
   getVisitTotalTime,
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
-  OTTEHR_MODULE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
 } from 'utils';
