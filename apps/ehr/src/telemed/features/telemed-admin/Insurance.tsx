@@ -22,6 +22,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { otherColors } from '@theme/colors';
 import { InsurancePlan } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
@@ -29,7 +30,6 @@ import { BooleanStateChip } from '../..';
 import { INSURANCES_URL } from '../../../App';
 import { INSURANCE_ROWS_PER_PAGE } from '../../../constants';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { otherColors } from '@theme/colors';
 import { useInsurancesQuery } from './telemed-admin.queries';
 
 enum IsActiveStatus {
@@ -49,11 +49,13 @@ export default function Insurances(): ReactElement {
 
   // Filter insurances based on filters and search
   const filteredInsurances = React.useMemo(() => {
-    const newData: InsurancePlan[] | undefined = data?.filter(
-      (insurance: InsurancePlan) =>
-        (searchText ? insurance.name?.toLowerCase().includes(searchText.toLowerCase()) : true) &&
-        insuranceStatusCheck(statusFilter, insurance)
-    );
+    const newData: InsurancePlan[] | undefined = data
+      ?.sort((a, b) => a.name?.localeCompare(b.name ?? '') ?? 0)
+      .filter(
+        (insurance: InsurancePlan) =>
+          (searchText ? insurance.name?.toLowerCase().includes(searchText.toLowerCase()) : true) &&
+          insuranceStatusCheck(statusFilter, insurance)
+      );
 
     return newData || [];
   }, [data, searchText, statusFilter]);
