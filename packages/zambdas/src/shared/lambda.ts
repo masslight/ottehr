@@ -14,14 +14,7 @@ export const lambdaResponse = (statusCode: number, body: any): APIGatewayProxyRe
 const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
   if (isApiError(errorResult)) {
     const { code, message } = errorResult as APIError;
-    console.log('errorResult', errorResult);
 
-    console.log('message', message);
-    console.log('code', code);
-
-    const body = JSON.stringify({ message, code });
-
-    console.log('body', body);
     return {
       statusCode: 444, // we have 1 case currently so this is good enough for now
       body: JSON.stringify({ message, code }),
