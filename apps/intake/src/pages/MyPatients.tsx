@@ -1,13 +1,11 @@
-import { Typography } from '@mui/material';
 import { FieldValues } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { generatePath, useNavigate } from 'react-router-dom';
 import PatientList from '../features/patients/components/selectable-list';
 import { PageContainer } from '../components';
+import { intakeFlowPageRoute } from '../App';
 
 const MyPatients = (): JSX.Element => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
 
   // todo
   /*
@@ -25,16 +23,15 @@ const MyPatients = (): JSX.Element => {
 
   const onSubmit = async (data: FieldValues): Promise<void> => {
     console.log('onSubmit data', data);
+
+    const destination = generatePath(intakeFlowPageRoute.PastVisits.path, {
+      patientId: 'todo',
+    });
+    navigate(destination);
   };
 
   return (
-    <PageContainer title={t('welcomeBack.title')}>
-      <Typography variant="body1" marginTop={2}>
-        {t('welcomeBack.body1')}
-      </Typography>
-      <Typography variant="body1" marginTop={1} marginBottom={2}>
-        {t('welcomeBack.body2')}
-      </Typography>
+    <PageContainer title={'Select patient'}>
       <PatientList patients={[]} onSubmit={onSubmit} onBack={onBack} />
     </PageContainer>
   );

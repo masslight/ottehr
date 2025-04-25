@@ -113,7 +113,7 @@ export const intakeFlowPageRoute = {
     getPage: () => <Appointments />,
   }, // IP
   PastVisits: {
-    path: '/past-visits',
+    path: '/past-visits/:patientId',
     getPage: () => <PastVisits />,
   }, // ET, IP
   VisitDetails: {
