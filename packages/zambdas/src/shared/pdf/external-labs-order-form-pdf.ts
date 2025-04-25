@@ -11,9 +11,6 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   if (!data.orderName) {
     throw new Error('Order name is required');
   }
-  if (!data.aoeAnswers) {
-    throw new Error('AOE answers are required');
-  }
 
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -325,15 +322,17 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     addNewLine();
   }
 
-  // AOE Answers section
   drawSubHeader('AOE Answers');
   addNewLine();
-
-  data.aoeAnswers.forEach((item) => {
-    drawFieldLineLeft(`${item.question}:`, item.answer.toString());
-    addNewLine();
-  });
-
+  if (data.aoeAnswers?.length) {
+    // AOE Answers section
+    data.aoeAnswers.forEach((item) => {
+      drawFieldLineLeft(`${item.question}:`, item.answer.toString());
+      addNewLine();
+    });
+  } else {
+    drawRegularTextLeft('No AOE questions');
+  }
   addNewLine();
 
   // Additional fields
