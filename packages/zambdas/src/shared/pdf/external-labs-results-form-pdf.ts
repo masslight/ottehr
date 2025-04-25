@@ -8,6 +8,7 @@ import {
   createFilesDocumentReferences,
   isValidUUID,
   LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
@@ -111,6 +112,10 @@ export async function createLabResultPDF(
         {
           name: 'status',
           value: 'completed',
+        },
+        {
+          name: 'code',
+          value: LAB_ORDER_TASK.code.reviewFinalResult,
         },
       ],
     })
