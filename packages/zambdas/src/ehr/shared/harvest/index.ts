@@ -1912,11 +1912,11 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
 
 // EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this
 const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
-  const priorityAnswer = items.find((item) => item.linkId === 'insurance-priority')?.answer?.[0]?.valueString;
-  if (priorityAnswer && priorityAnswer !== 'Primary') {
-    return true;
-  }
-  return false;
+  const priorities = items.filter(
+    (item) => item.linkId === 'insurance-priority' || item.linkId === 'insurance-priority-2'
+  );
+
+  return !priorities.some((item) => item.answer?.[0]?.valueString === 'Primary');
 };
 
 // note: this function assumes items have been flattened before being passed in
@@ -2243,7 +2243,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     questionnaireResponse: {
       item: flattenedItems,
     } as QuestionnaireResponse,
-    patientId: patient.id!,
+    patientId: patient.id,
     insurancePlanResources,
     organizationResources,
   });
