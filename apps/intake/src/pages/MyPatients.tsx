@@ -11,7 +11,7 @@ const MyPatients = (): JSX.Element => {
   /*
   if (false) {
     return (
-      <PageContainer title={t('welcomeBack.loading')}>
+      <PageContainer title="Loading patients...">
         <CircularProgress />
       </PageContainer>
     );
