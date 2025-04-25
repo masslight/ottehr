@@ -16,6 +16,7 @@ import {
   QuestionnaireResponse,
   Questionnaire,
   QuestionnaireResponseItem,
+  DocumentReference,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
@@ -32,6 +33,7 @@ import {
   QuestionnaireData,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  getPresignedURL,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -41,6 +43,11 @@ import { DateTime } from 'luxon';
 type Cache = {
   parsedResults?: ReturnType<typeof parseResults>;
   parsedTasks?: ReturnType<typeof parseTasks>;
+};
+
+type LabOrderPDF = {
+  url: string;
+  diagnosticReportId: string;
 };
 
 export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
@@ -53,7 +60,8 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   appointments: Appointment[],
   provenances: Provenance[],
   organizations: Organization[],
-  questionnaires: QuestionnaireData[]
+  questionnaires: QuestionnaireData[],
+  labPDFs: LabOrderPDF[]
 ): LabOrderDTO<SearchBy>[] => {
   return serviceRequests.map((serviceRequest) => {
     const parsedResults = parseResults(serviceRequest, results);
@@ -76,6 +84,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       provenances,
       organizations,
       questionnaires,
+      labPDFs,
       cache,
     });
   });
@@ -92,6 +101,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   provenances,
   organizations,
   questionnaires,
+  labPDFs,
   cache,
 }: {
   searchBy: SearchBy;
@@ -104,6 +114,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
+  labPDFs: LabOrderPDF[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   if (!serviceRequest.id) {
@@ -137,7 +148,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
       orderSource: parsePerformed(serviceRequest),
       history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
       accountNumber: parseAccountNumber(serviceRequest, organizations),
-      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, cache),
+      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
     };
 
@@ -302,6 +313,7 @@ export const getLabResources = async (
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
+  labPDFs: LabOrderPDF[];
 }> => {
   const labOrdersSearchParams = createLabOrdersSearchParams(params);
 
@@ -337,14 +349,21 @@ export const getLabResources = async (
     questionnaireResponses,
   } = extractLabResources(labResources);
 
-  const [practitioners, appointments, finalAndPrelimTasks, questionnaires] = await Promise.all([
+  const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
+
+  const [practitioners, appointments, finalAndPrelimTasks, questionnaires, documentReferences] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
     fetchFinalAndPrelimTasks(oystehr, diagnosticReports),
-    ...(searchBy.searchBy.field === 'serviceRequestId'
-      ? [fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)]
-      : [Promise.resolve([] as QuestionnaireData[])]),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
+    ),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports)
+    ),
   ]);
+
+  const labPDFs = await executeByCondition(isDetailPageRequest, () => fetchLabOrderPDFs(documentReferences, m2mtoken));
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
@@ -359,6 +378,7 @@ export const getLabResources = async (
     provenances,
     organizations,
     questionnaires,
+    labPDFs,
     pagination,
   };
 };
@@ -620,6 +640,77 @@ export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: Diagno
   return tasksResponse.unbundle();
 };
 
+export const fetchDocumentReferencesForDiagnosticReports = async (
+  oystehr: Oystehr,
+  diagnosticReports: DiagnosticReport[]
+): Promise<DocumentReference[]> => {
+  const reportIds = diagnosticReports.map((report) => report.id).filter(Boolean);
+
+  if (!reportIds.length) {
+    return [];
+  }
+
+  const documentReferencesResponse = await oystehr.fhir.search<DocumentReference>({
+    resourceType: 'DocumentReference',
+    params: [
+      {
+        name: 'related',
+        value: reportIds.map((id) => `DiagnosticReport/${id}`).join(','),
+      },
+    ],
+  });
+
+  return documentReferencesResponse.unbundle();
+};
+
+export const fetchLabOrderPDFs = async (
+  documentReferences: DocumentReference[],
+  m2mtoken: string
+): Promise<LabOrderPDF[]> => {
+  if (!documentReferences.length) {
+    return [];
+  }
+
+  const pdfPromises: Promise<LabOrderPDF | null>[] = [];
+
+  for (const docRef of documentReferences) {
+    const diagnosticReportReference = docRef.context?.related?.find(
+      (rel) => rel.reference?.startsWith('DiagnosticReport/')
+    )?.reference;
+
+    const diagnosticReportId = diagnosticReportReference?.split('/')[1];
+
+    if (!diagnosticReportId) {
+      continue;
+    }
+
+    for (const content of docRef.content) {
+      const z3Url = content.attachment?.url;
+      if (z3Url) {
+        pdfPromises.push(
+          getPresignedURL(z3Url, m2mtoken)
+            .then((url) => ({
+              url,
+              diagnosticReportId,
+            }))
+            .catch((error) => {
+              console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
+              return null;
+            })
+        );
+      }
+    }
+  }
+
+  const results = await Promise.allSettled(pdfPromises);
+
+  return results
+    .filter(
+      (result): result is PromiseFulfilledResult<LabOrderPDF> => result.status === 'fulfilled' && result.value !== null
+    )
+    .map((result) => result.value as LabOrderPDF);
+};
+
 export const fetchQuestionnaireForServiceRequests = async (
   m2mtoken: string,
   serviceRequests: ServiceRequest[],
@@ -669,6 +760,14 @@ export const fetchQuestionnaireForServiceRequests = async (
     })
   );
 };
+
+export function executeByCondition<T>(
+  condition: boolean,
+  fetchFunction: () => Promise<T[]>,
+  emptyResultType: T[] = [] as T[]
+): Promise<T[]> {
+  return condition ? fetchFunction() : Promise.resolve(emptyResultType);
+}
 
 export const parseLabOrderStatus = (
   serviceRequest: ServiceRequest,
@@ -1225,6 +1324,7 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
+  labPDFs: LabOrderPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
   if (!serviceRequest.id) {
@@ -1274,7 +1374,8 @@ export const parseLResultsDetails = (
       const details = parseResultDetails(result, tasks, serviceRequest);
       const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
-      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate });
+      const resultPdfUrl = labPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.url || null;
+      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
     });
   });
 
@@ -1285,7 +1386,7 @@ export const parseResultDetails = (
   result: DiagnosticReport,
   tasks: Task[],
   serviceRequest: ServiceRequest
-): Omit<LabOrderResultDetails, 'testType' | 'resultType' | 'reviewedDate'> | null => {
+): Omit<LabOrderResultDetails, 'testType' | 'resultType' | 'reviewedDate' | 'resultPdfUrl'> | null => {
   const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
 
   if (!task?.id || !result?.id || !serviceRequest.id) {

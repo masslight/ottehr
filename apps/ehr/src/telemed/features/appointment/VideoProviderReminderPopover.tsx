@@ -23,7 +23,7 @@ export const VideoProviderReminderPopover: FC = () => {
     <InnerStatePopover
       popoverChildren={
         <Box sx={{ p: 2, maxWidth: '330px' }}>
-          <Typography fontWeight={700}>Provider reminder</Typography>
+          <Typography fontWeight={500}>Provider reminder</Typography>
           <Typography>
             Please confirm the patient's name, DOB, and introduce yourself with your licensure and credentials (e.g. My
             name is Dr. {providerName} and I am licensed in {states} and board certified in pediatrics). For patients
@@ -36,7 +36,7 @@ export const VideoProviderReminderPopover: FC = () => {
       {({ handlePopoverOpen }) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }} onClick={handlePopoverOpen}>
           <ReminderIcon fontSize="small" />
-          <Typography variant="body2" fontWeight={700}>
+          <Typography variant="body2" fontWeight={500}>
             Reminder
           </Typography>
         </Box>

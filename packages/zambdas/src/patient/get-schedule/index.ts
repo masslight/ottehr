@@ -7,7 +7,7 @@ import {
   AvailableLocationInformation,
   FHIR_RESOURCE_NOT_FOUND,
   GetScheduleResponse,
-  OTTEHR_SLUG_ID_SYSTEM,
+  SLUG_SYSTEM,
   ScheduleOwnerFhirResource,
   SecretsKeys,
   SlotListItem,
@@ -84,7 +84,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       const ownerSearchResults = (
         await oystehr.fhir.search<ScheduleOwnerFhirResource>({
           resourceType: `${fhirTypeForScheduleType(scheduleType)}`,
-          params: [{ name: 'identifier', value: `${OTTEHR_SLUG_ID_SYSTEM}|${slug}` }],
+          params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` }],
         })
       ).unbundle();
       console.log('ownerSearch', slug, JSON.stringify(ownerSearchResults, null, 2));

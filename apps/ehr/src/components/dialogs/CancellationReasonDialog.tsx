@@ -40,7 +40,7 @@ export default function CancellationReasonDialog({
   const [cancelLoading, setCancelLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

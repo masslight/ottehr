@@ -91,7 +91,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
             variant="contained"
             onClick={handleConfirm}
             sx={{
-              fontWeight: '700',
+              fontWeight: 500,
               borderRadius: '100px',
               mr: '8px',
               textTransform: 'none',
@@ -104,7 +104,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
           variant={handleConfirm ? 'text' : 'contained'}
           onClick={handleClose}
           sx={{
-            fontWeight: '700',
+            fontWeight: 500,
             borderRadius: '100px',
             textTransform: 'none',
           }}

@@ -21,6 +21,7 @@ import {
   SEEN_IN_LAST_THREE_YEARS_LABEL,
 } from 'utils';
 import { AssessmentTitle } from '../../AssessmentTab';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 type AdditionalQuestionsContainerProps = {
   notes?: NoteDTO[];
@@ -53,7 +54,11 @@ export const AdditionalQuestionsContainer: FC<AdditionalQuestionsContainerProps>
           )?.value
         );
 
-        return value && value.length > 0 ? <Typography key={index}>{`${question.label} - ${value}`}</Typography> : null;
+        return value && value.length > 0 ? (
+          <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabAdditionalQuestion(question.field)}>
+            <Typography key={index}>{`${question.label} - ${value}`}</Typography>
+          </Box>
+        ) : null;
       })}
 
       {seenInLastThreeYearsObs && (

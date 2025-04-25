@@ -34,7 +34,7 @@ import {
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { enqueueSnackbar } from 'notistack';
@@ -264,7 +264,7 @@ const PatientInformationPage: FC = () => {
                   <Typography
                     variant="body2"
                     color={otherColors.closeCross}
-                    sx={{ m: 1.25, maxWidth: 850, fontWeight: 700 }}
+                    sx={{ m: 1.25, maxWidth: 850, fontWeight: 500 }}
                   >
                     There are another patients with this name in our database. Please confirm by the DOB that you are
                     viewing the right patient.

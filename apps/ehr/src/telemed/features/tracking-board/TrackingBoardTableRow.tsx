@@ -18,7 +18,7 @@ import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, calculatePatientAge, getTimezone } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import ChatModal from '../../../features/chat/ChatModal';
 import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
@@ -392,7 +392,7 @@ export const TrackingBoardTableRowSkeleton: FC<{
                 variant="contained"
                 sx={{
                   fontSize: '15px',
-                  fontWeight: '700',
+                  fontWeight: 500,
                 }}
               >
                 text

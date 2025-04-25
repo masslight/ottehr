@@ -26,7 +26,10 @@ export const ReviewTab: FC = () => {
     requestedFields: telemedProgressNoteChartDataRequestedFields,
     onSuccess: (data) => {
       isInitialLoad.current = false;
-      setPartialChartData({ prescribedMedications: data.prescribedMedications });
+      setPartialChartData({
+        prescribedMedications: data.prescribedMedications,
+        disposition: data.disposition,
+      });
     },
     onError: () => {
       isInitialLoad.current = false;

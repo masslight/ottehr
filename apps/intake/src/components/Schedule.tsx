@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ControlButtons, ErrorDialog, ErrorDialogConfig, breakpoints } from 'ui-components';
-import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, createLocalDateTime, nextAvailableFrom } from 'utils';
+import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, PROJECT_NAME, createLocalDateTime, nextAvailableFrom } from 'utils';
 import { SelectSlot } from '.';
 import { otherColors } from '../IntakeThemeProvider';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -230,7 +230,8 @@ const Schedule = ({
   }, [currentTab, secondAvailableDaySlots.length, slotsExist]);
 
   if (slotsList.length === 0) {
-    if (!slotsLoading) return <Alert severity="error">{t('schedule.officeClosed.todayOrTomorrow')}</Alert>;
+    if (!slotsLoading)
+      return <Alert severity="error">{t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME })}</Alert>;
     return <></>;
   }
 
@@ -344,7 +345,9 @@ const Schedule = ({
                   currentSelectedSlot={locallySelectedSlot}
                   handleSlotSelected={setLocallySelectedSlot}
                   noSlotsMessage={
-                    slotsExist ? t('schedule.officeClosed.today') : t('schedule.officeClosed.todayOrTomorrow')
+                    slotsExist
+                      ? t('schedule.officeClosed.today', { PROJECT_NAME })
+                      : t('schedule.officeClosed.todayOrTomorrow', { PROJECT_NAME })
                   }
                 />
               </TabPanel>

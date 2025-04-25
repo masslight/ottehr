@@ -11,7 +11,6 @@ import {
   Coding,
 } from 'fhir/r4b';
 
-import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import {
   AppointmentMessaging,
   AppointmentType,
@@ -19,7 +18,8 @@ import {
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
-import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../telemed';
+import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
+import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
