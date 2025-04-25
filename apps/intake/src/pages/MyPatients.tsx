@@ -6,9 +6,9 @@ import { intakeFlowPageRoute } from '../App';
 import { ErrorDialog, useUCZambdaClient } from 'ui-components';
 import { APIError, getPatientInfoFullName, isApiError, PatientInfo } from 'utils';
 import { useQuery } from 'react-query';
-import { ottehrApi } from 'src/api';
 import { CircularProgress } from '@mui/material';
 import { useMemo, useState } from 'react';
+import ottehrApi from '../api/ottehrApi';
 
 const MyPatients = (): JSX.Element => {
   const navigate = useNavigate();
