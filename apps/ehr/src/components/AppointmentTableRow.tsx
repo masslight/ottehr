@@ -31,7 +31,7 @@ import {
   getDurationOfStatus,
   PROJECT_NAME,
   getVisitTotalTime,
-  PRACTITIONER_CONDINGS,
+  PRACTITIONER_CODINGS,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -239,7 +239,7 @@ export default function AppointmentTableRow({
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
   const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
-  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CONDINGS.Admitter);
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
 
   const handleCSSButton = async (): Promise<void> => {
     setCSSButtonIsLoading(true);
