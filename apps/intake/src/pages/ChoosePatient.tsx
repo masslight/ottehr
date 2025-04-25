@@ -6,21 +6,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  CustomLoadingButton,
-  ErrorDialog,
-  ErrorDialogConfig,
-  FormInputType,
-  PageForm,
-  useUCZambdaClient,
-  ZambdaClient,
-} from 'ui-components';
-import {
-  CancellationReasonOptionsInPerson,
-  getDateComponentsFromISOString,
-  getPatientInfoFullName,
-  VisitType,
-} from 'utils';
+import { CustomLoadingButton, ErrorDialog, ErrorDialogConfig, useUCZambdaClient, ZambdaClient } from 'ui-components';
+import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, VisitType } from 'utils';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { ottehrApi } from '../api';
@@ -31,8 +18,9 @@ import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { Appointment } from '../types';
 import { useBookingContext } from './BookingHome';
+import PatientList from '../features/patients/components/selectable-list';
 
-const WelcomeBack = (): JSX.Element => {
+const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
   const zambdaClient = useUCZambdaClient({ tokenless: false });
   const { isAuthenticated, isLoading: authIsLoading, loginWithRedirect } = useAuth0();
@@ -61,39 +49,6 @@ const WelcomeBack = (): JSX.Element => {
     }
   }, [selectedLocation, visitType, serviceType, selectedSlot, walkinOpen, navigate]);
   */
-
-  const formElements: FormInputType[] = useMemo(() => {
-    return [
-      {
-        type: 'Radio',
-        name: 'patientID',
-        label: t('welcomeBack.subtitle'),
-        defaultValue: patientInfo?.id,
-        required: true,
-        radioOptions: (patients || [])
-          .sort((a, b) => {
-            if (!a.firstName) return 1;
-            if (!b.firstName) return -1;
-            return a.firstName.localeCompare(b.firstName);
-          })
-          .map((patient) => {
-            if (!patient.id) {
-              throw new Error('Patient id is not defined');
-            }
-            return {
-              label: getPatientInfoFullName(patient),
-              value: patient.id,
-              color: otherColors.lightBlue,
-            };
-          })
-          .concat({
-            label: 'Different family member',
-            value: 'new-patient',
-            color: otherColors.lightBlue,
-          }),
-      },
-    ];
-  }, [patientInfo?.id, patients, t]);
 
   // todo: consider whether this is better handled in BookingHome
   useEffect(() => {
@@ -433,10 +388,12 @@ const WelcomeBack = (): JSX.Element => {
       <Typography variant="body1" marginTop={1} marginBottom={2}>
         {t('welcomeBack.body2')}
       </Typography>
-      <PageForm
-        formElements={formElements}
+      <PatientList
+        patients={patients}
+        selectedPatient={patientInfo}
+        buttonLoading={cancellingAppointment}
         onSubmit={onSubmit}
-        controlButtons={{ onBack, loading: cancellingAppointment }}
+        onBack={onBack}
       />
       <Dialog open={checkInModalOpen} onClose={() => setCheckInModalOpen(false)}>
         <Paper>
@@ -488,4 +445,4 @@ const WelcomeBack = (): JSX.Element => {
   );
 };
 
-export default WelcomeBack;
+export default ChoosePatient;

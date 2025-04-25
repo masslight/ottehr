@@ -87,6 +87,7 @@ interface BookAppointmentContext
     Omit<BookingStoreActions, 'setLocationPath' | 'handleLogout'> {
   slotId: string;
   scheduleOwnerName: string;
+  scheduleOwnerType: string;
   patients: PatientInfo[];
   timezone: Timezone;
   serviceMode: ServiceMode;
@@ -207,9 +208,23 @@ const BookingHome: FC = () => {
 
     const waitingMinutesTemp: number | undefined = undefined;
 
-    // todo: get this from slot details response
     const visitType = slotDetailsData.isWalkin ? VisitType.WalkIn : VisitType.PreBook;
-    const { slotId, serviceMode, timezoneForDisplay: timezone, startISO, endISO, ownerName } = slotDetailsData;
+    const {
+      slotId,
+      serviceMode,
+      timezoneForDisplay: timezone,
+      startISO,
+      endISO,
+      ownerName,
+      ownerType,
+    } = slotDetailsData;
+    let scheduleOwnerType = 'Location';
+    if (ownerType === 'Practitioner') {
+      scheduleOwnerType = 'Provider';
+    }
+    if (ownerType === 'HealthcareService') {
+      scheduleOwnerType = 'Group';
+    }
 
     return {
       slotId,
@@ -226,6 +241,7 @@ const BookingHome: FC = () => {
       walkinOpen: true, // todo
       officeOpen: true, // todo
       scheduleOwnerName: ownerName,
+      scheduleOwnerType,
       setPatientInfo,
       setUnconfirmedDateOfBirth,
       completeBooking,

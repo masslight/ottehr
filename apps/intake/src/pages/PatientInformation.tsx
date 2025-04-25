@@ -351,6 +351,7 @@ const PatientInformation = (): JSX.Element => {
       let foundDuplicate: PatientInfo | undefined;
       // check if a patient with the same data already exists for this user
       let idx = patients.length - 1;
+      console.log('patient information onSubmit');
       if (patientInfo?.newPatient && data.firstName && data.lastName && data.dobYear && data.dobMonth && data.dobYear) {
         while (!foundDuplicate && idx >= 0) {
           const firstNameMatch = patients[idx].firstName?.toLocaleLowerCase() === data.firstName.toLocaleLowerCase();

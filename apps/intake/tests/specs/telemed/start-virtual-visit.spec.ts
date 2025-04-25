@@ -111,15 +111,11 @@ test.describe('Start virtual visit with required information only', async () => 
     await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
       timeout: 10000,
     });
-    /*
-    // telemed patient list included bithday but in person version does not
-    // if product wants to add birthday to the patient list we can uncomment this code
     await expect(
       locator.getByText(
         `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
       )
     ).toBeVisible();
-    */
   });
 
   // TODO: Fix the test, it should not be dependent on some resources that are pre-created at some moment
@@ -190,12 +186,6 @@ test.describe('Start virtual visit with required information only', async () => 
         )}`
       )
     ).toBeVisible();
-    /*
-    todo: check if this is needed because it is not included on the in-person version of this component
-    await expect(
-      page.getByText(`Birth sex: ${PersonSex[patientInfo?.birthSex as keyof typeof PersonSex]}`)
-    ).toBeVisible();
-    */
     await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
   });
 
@@ -394,14 +384,11 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
       timeout: 10000,
     });
 
-    /*
-    todo: see if this is needed
     await expect(
       locator.getByText(
         `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
       )
     ).toBeVisible();
-    */
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
     await patientName.scrollIntoViewIfNeeded();
@@ -428,12 +415,6 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
         )}`
       )
     ).toBeVisible();
-    /*
-    todo: check if this is needed because it is not included on the in-person version of this component
-    await expect(
-      page.getByText(`Birth sex: ${PersonSex[patientInfo?.birthSex as keyof typeof PersonSex]}`)
-    ).toBeVisible();
-    */
     await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
   });
 

@@ -34,7 +34,9 @@ const Review = (): JSX.Element => {
     visitType,
     slotId,
     scheduleOwnerName,
+    scheduleOwnerType,
     timezone,
+    startISO,
     serviceMode,
     setPatientInfo,
     completeBooking,
@@ -55,22 +57,6 @@ const Review = (): JSX.Element => {
   };
 
   const zambdaClient = useUCZambdaClient({ tokenless: false });
-  /*const { selectedSlotTimezoneAdjusted, selectedSlot } = useMemo(() => {
-    if (selectedAppointmentId && selectedLocation?.timezone) {
-      const slotItem = getSlotListItemWithId(selectedAppointmentId);
-      const selectedAppointmentStart = slotItem?.slot.start;
-      if (selectedAppointmentStart) {
-        return {
-          selectedSlotTimezoneAdjusted: DateTime.fromISO(selectedAppointmentStart)
-            .setZone(selectedLocation?.timezone)
-            .setLocale('en-us'),
-          selectedSlot: slotItem,
-        };
-      }
-    }
-
-    return { selectedAppointmentStart: undefined, selectedSlotTimezoneAdjusted: undefined };
-  }, [selectedLocation?.timezone]);*/
 
   const onSubmit = async (): Promise<void> => {
     console.log('submit reached!!!', unconfirmedDateOfBirth, patientInfo);
@@ -120,7 +106,7 @@ const Review = (): JSX.Element => {
       valueTestId: dataTestIds.patientNameReviewScreen,
     },
     {
-      name: t('reviewAndSubmit.office'),
+      name: scheduleOwnerType,
       valueString: scheduleOwnerName,
       testId: 'r&s_ProviderType',
       valueTestId: dataTestIds.locationNameReviewScreen,
@@ -131,8 +117,7 @@ const Review = (): JSX.Element => {
     const path = generatePath(pathname, {
       slotId,
     });
-    // todo: get tz adjusted date time
-    const selectedSlotTimezoneAdjusted = DateTime.now().setLocale('en-us');
+    const selectedSlotTimezoneAdjusted = DateTime.fromISO(startISO).setZone(timezone).setLocale('en-us');
     reviewItems.push({
       name: t('reviewAndSubmit.checkInTime'),
       valueString: getLocaleDateTimeString(selectedSlotTimezoneAdjusted, 'medium', i18n.language),

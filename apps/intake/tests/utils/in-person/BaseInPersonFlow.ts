@@ -2,6 +2,7 @@ import { BrowserContext, expect, Locator, Page } from '@playwright/test';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { Locators } from '../locators';
 import { FillingInfo } from './FillingInfo';
+import { chooseJson, GetSlotDetailsResponse } from 'utils';
 
 export abstract class BaseInPersonFlow {
   protected page: Page;
@@ -9,6 +10,7 @@ export abstract class BaseInPersonFlow {
   protected fillingInfo: FillingInfo;
   protected context: BrowserContext;
   protected commonLocatorsHelper: CommonLocatorsHelper;
+  slotDetails: GetSlotDetailsResponse | null = null;
 
   constructor(page: Page) {
     this.page = page;
@@ -16,6 +18,13 @@ export abstract class BaseInPersonFlow {
     this.fillingInfo = new FillingInfo(page);
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
     this.context = page.context();
+
+    this.page.on('response', async (response) => {
+      if (response.url().includes('/get-slot-details/')) {
+        const details = chooseJson(await response.json()) as GetSlotDetailsResponse;
+        this.slotDetails = details;
+      }
+    });
   }
 
   async goToReviewPage(): Promise<{
@@ -26,6 +35,7 @@ export abstract class BaseInPersonFlow {
     dobMonth: string;
     dobYear: string;
     dobDay: string;
+    slotDetails: GetSlotDetailsResponse | null;
     selectedSlot?: { buttonName: string | null; selectedSlot: string | undefined };
     location?: string | null;
   }> {
@@ -36,6 +46,7 @@ export abstract class BaseInPersonFlow {
     return {
       ...bookingData, // Includes firstName, lastName, email
       ...additionalData, // Includes selectedSlot & location (for prebook)
+      slotDetails: this.slotDetails,
     };
   }
   private async fillPatientDetailsAndContinue(): Promise<{
@@ -82,6 +93,7 @@ export abstract class BaseInPersonFlow {
     dobMonth: string;
     dobYear: string;
     dobDay: string;
+    slotDetails: GetSlotDetailsResponse | null;
     location?: string | null;
     selectedSlot?: string | null;
   }> {
@@ -103,6 +115,7 @@ export abstract class BaseInPersonFlow {
       dobDay: bookingData.dobDay,
       location: bookingData.location,
       selectedSlot: bookingData.selectedSlot?.selectedSlot,
+      slotDetails: bookingData.slotDetails,
     };
   }
   async checkValueIsNotEmpty(value: Locator): Promise<void> {

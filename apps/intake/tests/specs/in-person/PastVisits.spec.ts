@@ -10,7 +10,7 @@ const appointmentIds: string[] = [];
 
 test.beforeEach(async ({ page }) => {
   page.on('response', async (response) => {
-    if (response.url().includes('/telemed-create-appointment')) {
+    if (response.url().includes('/create-appointment')) {
       const { resources, appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
       const id = appointmentId || resources?.appointment.id;
 
@@ -36,12 +36,9 @@ test.describe.serial('Past Visits - Empty State', () => {
     await homepage.navigate();
 
     await homepage.clickStartVirtualVisitButton();
-
-    await page.getByTestId('Different family member').click();
-    await homepage.clickContinue();
-
     await homepage.selectState();
 
+    await page.getByTestId('Different family member').click();
     await homepage.clickContinue();
 
     const fillingInfo = new FillingInfo(page);
@@ -49,8 +46,9 @@ test.describe.serial('Past Visits - Empty State', () => {
     patientInfo = await fillingInfo.fillNewPatientInfo();
     await fillingInfo.fillDOBless18();
 
-    await page.getByRole('button', { name: 'Continue' }).click();
-    await waitForResponseWithData(page, '/telemed-create-appointment/');
+    await homepage.clickContinue();
+    await homepage.clickContinue();
+    await waitForResponseWithData(page, '/create-appointment/');
   });
 
   test('should show empty state when no past visits exist', async ({ page }) => {
