@@ -81,6 +81,7 @@ const NEW_PROVIDER_LAST_NAME = 'Doe';
 const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
+const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
@@ -413,6 +414,29 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
     await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
     await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
+  });
+
+  test('If "Other" gender is selected from Patient details  block, additional field appears and it is required', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.selectGenderIdentity('Other');
+    await patientInformationPage.verifyOtherGenderFieldIsVisible();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorShown(Field.GENDER_IDENTITY_ADDITIONAL_FIELD);
+    await patientInformationPage.enterOtherGenderField(NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD);
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+    await patientInformationPage.verifyGenderIdentity('Other');
+    await patientInformationPage.verifyOtherGenderInput(NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD);
+    await patientInformationPage.selectGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.verifyOtherGenderFieldIsNotVisible();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+    await patientInformationPage.verifyGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.verifyOtherGenderFieldIsNotVisible();
   });
 
   /* test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
