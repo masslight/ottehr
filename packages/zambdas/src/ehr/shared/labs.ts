@@ -121,7 +121,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   );
   const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is DiagnosticReport =>
-      resourceTemp.resourceType === 'DiagnosticReport' && isLabsDiagnosicReport(resourceTemp)
+      resourceTemp.resourceType === 'DiagnosticReport' && isLabsDiagnosticReport(resourceTemp)
   );
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
@@ -244,7 +244,7 @@ export const makeEncounterLabResult = async (
       }
     }
     if (resource.resourceType === 'DiagnosticReport') {
-      const isLabsDR = isLabsDiagnosicReport(resource);
+      const isLabsDR = isLabsDiagnosticReport(resource);
       if (isLabsDR) {
         diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;
       }
@@ -363,7 +363,7 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
   return [docRefSearch, activeLabServiceRequestSearch];
 };
 
-const isLabsDiagnosicReport = (diagnosicReport: DiagnosticReport): boolean => {
+const isLabsDiagnosticReport = (diagnosicReport: DiagnosticReport): boolean => {
   return !!diagnosicReport.category?.find(
     (cat) =>
       cat?.coding?.find(
