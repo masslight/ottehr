@@ -4,6 +4,7 @@ import { CommonLocatorsHelper } from './CommonLocatorsHelper';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
 import { UploadDocs } from './UploadDocs';
+import { PaperworkTelemed } from './telemed/Paperwork';
 
 interface InsuranceRequiredData {
   firstName: string;
@@ -52,6 +53,17 @@ interface ResponsibleParty {
   zip: string;
 }
 
+interface TelemedPaperworkData {
+  filledValue: string;
+  selectedValue: string;
+}
+
+interface Flags {
+  covid: string;
+  test: string;
+  travel: string;
+}
+
 export const PATIENT_ZIP = '12345';
 export const PATIENT_ADDRESS = 'Patient address';
 export const PATIENT_ADDRESS_LINE_2 = 'Patient address line 2';
@@ -69,6 +81,7 @@ export class Paperwork {
   CommonLocatorsHelper: CommonLocatorsHelper;
   context: BrowserContext;
   uploadPhoto: UploadDocs;
+  paperworkTelemed: PaperworkTelemed;
 
   constructor(page: Page) {
     this.page = page;
@@ -76,6 +89,7 @@ export class Paperwork {
     this.fillingInfo = new FillingInfo(page);
     this.CommonLocatorsHelper = new CommonLocatorsHelper(page);
     this.uploadPhoto = new UploadDocs(page);
+    this.paperworkTelemed = new PaperworkTelemed(page);
     this.context = page.context();
   }
   private language = ['English', 'Spanish'];
@@ -208,6 +222,163 @@ export class Paperwork {
       insuranceData,
       secondaryInsuranceData,
     };
+  }
+  async fillPaperworkAllFieldsTelemed(
+    payment: string,
+    responsibleParty: string
+  ): Promise<{
+    stateValue: string;
+    patientDetailsData: PatientDetailsData;
+    pcpData: PrimaryCarePhysicianData;
+    medicationData: TelemedPaperworkData;
+    allergiesData: TelemedPaperworkData;
+    medicalHistoryData: TelemedPaperworkData;
+    surgicalHistoryData: TelemedPaperworkData;
+    flags: Flags;
+    insuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null;
+    secondaryInsuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null;
+    responsiblePartyData: ResponsibleParty | null;
+    uploadedPhotoCondition: Locator;
+  }> {
+    const { stateValue } = await this.fillContactInformationAllFields();
+    await this.locator.clickContinueButton();
+    const patientDetailsData = await this.fillPatientDetailsTelemedAllFields();
+    await this.locator.clickContinueButton();
+    const pcpData = await this.fillPrimaryCarePhysician();
+    await this.locator.clickContinueButton();
+    const medicationData = await this.paperworkTelemed.fillAndCheckFilledCurrentMedications();
+    await this.locator.clickContinueButton();
+    const allergiesData = await this.paperworkTelemed.fillAndCheckFilledCurrentAllergies();
+    await this.locator.clickContinueButton();
+    const medicalHistoryData = await this.paperworkTelemed.fillAndCheckFilledMedicalHistory();
+    await this.locator.clickContinueButton();
+    const surgicalHistoryData = await this.paperworkTelemed.fillAndCheckFilledSurgicalHistory();
+    await this.locator.clickContinueButton();
+    const flags = await this.paperworkTelemed.fillAndCheckAdditionalQuestions();
+    await this.locator.clickContinueButton();
+    let insuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null = null;
+    let secondaryInsuranceData: {
+      insuranceRequiredData: InsuranceRequiredData;
+      insuranceOptionalData: InsuranceOptionalData;
+    } | null = null;
+    if (payment === 'insurance') {
+      await this.selectInsurancePayment();
+      insuranceData = await this.fillInsuranceAllFieldsWithoutCards();
+      await this.uploadPhoto.fillInsuranceFront();
+      await this.uploadPhoto.fillInsuranceBack();
+      await this.locator.addSecondaryInsurance.click();
+      secondaryInsuranceData = await this.fillSecondaryInsuranceAllFieldsWithoutCards();
+      await this.uploadPhoto.fillSecondaryInsuranceFront();
+      await this.uploadPhoto.fillSecondaryInsuranceBack();
+      await this.locator.clickContinueButton();
+    } else {
+      await this.selectSelfPayPayment();
+      await this.locator.clickContinueButton();
+      // Need to uncomment when https://github.com/masslight/ottehr/issues/2043 is fixed
+      //  await this.fillAndAddCreditCard();
+    }
+    await this.locator.clickContinueButton();
+    let responsiblePartyData: ResponsibleParty | null = null;
+    if (responsibleParty === 'self') {
+      await this.fillResponsiblePartyDataSelf();
+    } else {
+      responsiblePartyData = await this.fillResponsiblePartyDataNotSelf();
+    }
+    await this.locator.clickContinueButton();
+    await this.checkCorrectPageOpens('Photo ID');
+    await this.uploadPhoto.fillPhotoFrontID();
+    await this.uploadPhoto.fillPhotoBackID();
+    await this.locator.clickContinueButton();
+    const uploadedPhotoCondition = await this.uploadPhoto.fillPatientConditionPhotoPaperwork();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
+    await this.locator.clickContinueButton();
+    await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckNoInviteParticipant();
+    await this.locator.clickContinueButton();
+    return {
+      stateValue,
+      patientDetailsData: {
+        randomEthnicity: patientDetailsData.patientDetailsData.randomEthnicity,
+        randomRace: patientDetailsData.patientDetailsData.randomRace,
+        randomPronoun: patientDetailsData.patientDetailsData.randomPronoun,
+        randomLanguage: patientDetailsData.patientDetailsData.randomLanguage,
+        randomPoint: patientDetailsData.patientDetailsData.randomPoint,
+      },
+      pcpData: {
+        firstName: pcpData.firstName,
+        lastName: pcpData.lastName,
+        pcpAddress: pcpData.pcpAddress,
+        pcpName: pcpData.pcpName,
+        formattedPhoneNumber: pcpData.formattedPhoneNumber,
+      },
+      medicationData: {
+        filledValue: medicationData.filledValue,
+        selectedValue: medicationData.selectedValue,
+      },
+      allergiesData: {
+        filledValue: allergiesData.filledValue,
+        selectedValue: allergiesData.selectedValue,
+      },
+      medicalHistoryData: {
+        filledValue: medicalHistoryData.filledValue,
+        selectedValue: medicalHistoryData.selectedValue,
+      },
+      surgicalHistoryData: {
+        filledValue: surgicalHistoryData.filledValue,
+        selectedValue: surgicalHistoryData.selectedValue,
+      },
+      flags: {
+        covid: flags.covid,
+        test: flags.test,
+        travel: flags.travel,
+      },
+      responsiblePartyData,
+      insuranceData,
+      secondaryInsuranceData,
+      uploadedPhotoCondition,
+    };
+  }
+  async fillPaperworkOnlyRequiredFieldsTelemed(): Promise<void> {
+    await this.fillContactInformationRequiredFields();
+    await this.locator.clickContinueButton();
+    await this.fillPatientDetailsTelemedAllFields();
+    await this.locator.clickContinueButton();
+    await this.skipPrimaryCarePhysician();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckEmptyCurrentMedications();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckEmptyCurrentAllergies();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckEmptyMedicalHistory();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckEmptySurgicalHistory();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckAdditionalQuestions();
+    await this.locator.clickContinueButton();
+    await this.selectSelfPayPayment();
+    await this.locator.clickContinueButton();
+    await this.fillResponsiblePartyDataSelf();
+    await this.locator.clickContinueButton();
+    await this.skipPhotoID();
+    await this.locator.clickContinueButton();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckSchoolWorkNoteAsNone();
+    await this.locator.clickContinueButton();
+    await this.fillConsentForms();
+    await this.locator.clickContinueButton();
+    await this.paperworkTelemed.fillAndCheckNoInviteParticipant();
+    await this.locator.clickContinueButton();
   }
   async fillPaperworkOnlyRequiredFieldsInPerson(): Promise<void> {
     await this.fillContactInformationRequiredFields();
@@ -353,9 +524,10 @@ export class Paperwork {
     const { randomLanguage } = await this.fillPreferredLanguage();
     return { randomEthnicity, randomRace, randomPronoun, randomPoint, randomLanguage };
   }
-  async fillPatientDetailsTelemedAllFields(): Promise<void> {
-    await this.fillPatientDetailsAllFields();
+  async fillPatientDetailsTelemedAllFields(): Promise<{ patientDetailsData: PatientDetailsData }> {
+    const patientDetailsData = await this.fillPatientDetailsAllFields();
     await this.fillRelayServiceNo();
+    return { patientDetailsData };
   }
   async fillRelayServiceNo(): Promise<void> {
     await this.locator.relayServiceNo.check();
