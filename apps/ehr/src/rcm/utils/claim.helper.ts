@@ -158,8 +158,8 @@ export const getClaimData = (
       item.productOrService?.coding?.find((coding) => coding.system === 'http://www.ama-assn.org/go/cpt')?.code || '',
     modifiers:
       item.modifier
-        ?.filter((modifier) =>
-          modifier?.coding?.find((coding) => coding.system === FHIR_EXTENSION.Claim.procedureModifier.url)
+        ?.filter(
+          (modifier) => modifier?.coding?.find((coding) => coding.system === FHIR_EXTENSION.Claim.procedureModifier.url)
         )
         .map(
           (modifier) =>

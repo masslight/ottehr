@@ -85,7 +85,10 @@ export const CurrentMedicationsProviderColumn: FC = () => {
         id: data.medication?.id,
         type: data.type,
         intakeInfo: {
-          date: data.date!.set({ hour: data.time?.hour, minute: data.time?.minute }).toUTC().toString(),
+          date: data
+            .date!.set({ hour: data.time?.hour, minute: data.time?.minute })
+            .toUTC()
+            .toString(),
           dose: data.dose!,
         },
         status: 'active',

@@ -117,14 +117,14 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
             return prev;
           }, {} as ExamRecord)
         : Object.prototype.hasOwnProperty.call(param, 'field')
-          ? {
-              [(param as ExamObservationDTO).field]:
-                prevState[(param as ExamObservationDTO).field as ExamNames & InPersonExamNames],
-            }
-          : (Object.keys(param as ExamRecord) as AllExamNames[]).reduce((prev, curr) => {
-              prev[curr] = prevState[curr as ExamNames & InPersonExamNames];
-              return prev;
-            }, {} as ExamRecord);
+        ? {
+            [(param as ExamObservationDTO).field]:
+              prevState[(param as ExamObservationDTO).field as ExamNames & InPersonExamNames],
+          }
+        : (Object.keys(param as ExamRecord) as AllExamNames[]).reduce((prev, curr) => {
+            prev[curr] = prevState[curr as ExamNames & InPersonExamNames];
+            return prev;
+          }, {} as ExamRecord);
 
       return { prevState, prevValues };
     },
@@ -142,8 +142,8 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
       Array.isArray(param)
         ? arrayToObject(param)
         : Object.prototype.hasOwnProperty.call(param, 'field')
-          ? { [(param as ExamObservationDTO).field]: param }
-          : (param as ExamRecord)
+        ? { [(param as ExamObservationDTO).field]: param }
+        : (param as ExamRecord)
     );
 
     if (noFetch) {
@@ -155,8 +155,8 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
         examObservations: Array.isArray(param)
           ? param
           : Object.prototype.hasOwnProperty.call(param, 'field')
-            ? [param as ExamObservationDTO]
-            : objectToArray(param as ExamRecord),
+          ? [param as ExamObservationDTO]
+          : objectToArray(param as ExamRecord),
       },
       {
         onSuccess: (data) => {
@@ -217,8 +217,8 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
         examObservations: Array.isArray(param)
           ? param
           : Object.prototype.hasOwnProperty.call(param, 'field')
-            ? [param as ExamObservationDTO]
-            : objectToArray(param as ExamRecord),
+          ? [param as ExamObservationDTO]
+          : objectToArray(param as ExamRecord),
       },
       {
         onError: () => {

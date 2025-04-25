@@ -27,16 +27,18 @@ export const getCoverageData = (
 
   const subscriberData = getPatientData(subscriber);
 
-  const policyGroup = coverage?.class?.find((item) =>
-    item.type.coding?.find(
-      (coding) => coding.system === FHIR_EXTENSION.Coverage.coverageClass.url && coding.code === 'group'
-    )
+  const policyGroup = coverage?.class?.find(
+    (item) =>
+      item.type.coding?.find(
+        (coding) => coding.system === FHIR_EXTENSION.Coverage.coverageClass.url && coding.code === 'group'
+      )
   )?.value;
 
-  const planName = coverage?.class?.find((item) =>
-    item.type.coding?.find(
-      (coding) => coding.system === FHIR_EXTENSION.Coverage.coverageClass.url && coding.code === 'plan'
-    )
+  const planName = coverage?.class?.find(
+    (item) =>
+      item.type.coding?.find(
+        (coding) => coding.system === FHIR_EXTENSION.Coverage.coverageClass.url && coding.code === 'plan'
+      )
   )?.name;
 
   const organizationId = coverage?.payor?.[0]?.reference?.split('/')[1];

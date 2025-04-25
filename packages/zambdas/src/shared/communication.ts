@@ -80,9 +80,8 @@ export const sendInPersonCancellationEmail = async (input: InPersonCancellationE
   if (scheduleResource.resourceType === 'Location') {
     address = `${scheduleResource?.address?.line?.[0]}${
       scheduleResource?.address?.line?.[1] ? `, ${scheduleResource.address.line[1]}` : ''
-    }, ${scheduleResource?.address?.city}, ${scheduleResource?.address?.state} ${
-      scheduleResource?.address?.postalCode
-    }`;
+    }, ${scheduleResource?.address?.city}, ${scheduleResource?.address?.state} ${scheduleResource?.address
+      ?.postalCode}`;
   }
 
   // In case of e.g. en-US or en-GB, ignore local dialect
@@ -229,9 +228,8 @@ export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationE
   if (scheduleResource.resourceType === 'Location') {
     address = `${scheduleResource?.address?.line?.[0]}${
       scheduleResource?.address?.line?.[1] ? `, ${scheduleResource.address.line[1]}` : ''
-    }, ${scheduleResource?.address?.city}, ${scheduleResource?.address?.state} ${
-      scheduleResource?.address?.postalCode
-    }`;
+    }, ${scheduleResource?.address?.city}, ${scheduleResource?.address?.state} ${scheduleResource?.address
+      ?.postalCode}`;
     phone = formatPhoneNumberDisplay(scheduleResource?.telecom?.find((el) => el.system === 'phone')?.value || '');
     state = scheduleResource.address?.state;
   }

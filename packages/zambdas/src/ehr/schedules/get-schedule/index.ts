@@ -289,6 +289,6 @@ const getEffectInputFromOwner = async (
     scheduleExtension,
     timezone: schedule ? getTimezone(schedule) : TIMEZONES[0],
     owner,
-    scheduleActive: schedule ? (schedule.active ?? true) : true,
+    scheduleActive: schedule ? schedule.active ?? true : true,
   };
 };

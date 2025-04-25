@@ -10,11 +10,9 @@ export const ResponsibleInformationContainer: FC = () => {
   const relationship = getQuestionnaireResponseByLinkId('responsible-party-relationship', questionnaireResponse)
     ?.answer?.[0]?.valueString;
   const firstAndLastName = `
-    ${
-      getQuestionnaireResponseByLinkId('responsible-party-first-name', questionnaireResponse)?.answer?.[0]?.valueString
-    }, ${
-      getQuestionnaireResponseByLinkId('responsible-party-last-name', questionnaireResponse)?.answer?.[0]?.valueString
-    }`;
+    ${getQuestionnaireResponseByLinkId('responsible-party-first-name', questionnaireResponse)?.answer?.[0]
+      ?.valueString}, ${getQuestionnaireResponseByLinkId('responsible-party-last-name', questionnaireResponse)
+      ?.answer?.[0]?.valueString}`;
   const dateOfBirth = getQuestionnaireResponseByLinkId('responsible-party-date-of-birth', questionnaireResponse)
     ?.answer?.[0]?.valueDate;
   const birthSex = getQuestionnaireResponseByLinkId('responsible-party-birth-sex', questionnaireResponse)?.answer?.[0]

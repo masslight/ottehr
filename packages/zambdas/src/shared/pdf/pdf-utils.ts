@@ -89,7 +89,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     // Start at the top of the page then move down as elements are added to the PDF.
     currYPos = height - (styles.pageMargins.top ?? 0); // top of page. Content starts after this point
     currYPos -= 30; //by default, we have some kind of gap without this subtraction
-    pageLeftBound = newLeftBound ? newLeftBound : (styles.pageMargins.left ?? 0);
+    pageLeftBound = newLeftBound ? newLeftBound : styles.pageMargins.left ?? 0;
     pageRightBound = newRightBound ? newRightBound : width - (styles.pageMargins.right ?? 0);
     currXPos = pageLeftBound;
     pageStyles = styles;

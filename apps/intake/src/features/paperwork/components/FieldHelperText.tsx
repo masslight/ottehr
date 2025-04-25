@@ -22,7 +22,7 @@ export const FieldHelperText: FC<FieldHelperTextProps> = ({
   return (
     <Box>
       <FormHelperText id={`${name}-helper-text`} sx={{ color: textColor, gap: 0, mt: 1 }}>
-        {hasError ? (errorMessage ?? '') : ''}
+        {hasError ? errorMessage ?? '' : ''}
       </FormHelperText>
       {helperText && (
         <Box display="flex">

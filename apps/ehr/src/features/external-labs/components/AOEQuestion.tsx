@@ -28,8 +28,8 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
     type === 'choice' && answerOption && extension === undefined
       ? ''
       : type === 'choice' && answerOption && extension?.some((ext) => ext.valueString === 'multi-select list')
-        ? []
-        : undefined;
+      ? []
+      : undefined;
 
   if (!text) {
     throw new Error('question text is not defined');

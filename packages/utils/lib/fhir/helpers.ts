@@ -152,15 +152,16 @@ export const findEncounterForAppointment = (
   encounters: Encounter[]
 ): Encounter | undefined => {
   // Go through encounters and find the one with appointment
-  return encounters.find((encounter) =>
-    encounter.appointment?.find((appRef) => {
-      const { reference } = appRef;
-      if (!reference) {
-        return false;
-      }
-      const [_, refId] = reference.split('/');
-      return refId && refId === appointment.id;
-    })
+  return encounters.find(
+    (encounter) =>
+      encounter.appointment?.find((appRef) => {
+        const { reference } = appRef;
+        if (!reference) {
+          return false;
+        }
+        const [_, refId] = reference.split('/');
+        return refId && refId === appointment.id;
+      })
   );
 };
 
@@ -584,8 +585,8 @@ export async function getRecentQrsQuestionnaireResponse(
     })
   ).unbundle();
 
-  const qrsQuestionnaireResponse = questionnaireResponse.filter((response) =>
-    response.questionnaire?.includes('qrs-paperwork-ip')
+  const qrsQuestionnaireResponse = questionnaireResponse.filter(
+    (response) => response.questionnaire?.includes('qrs-paperwork-ip')
   );
 
   console.log('qrsQuestionnaireResponse found', qrsQuestionnaireResponse);

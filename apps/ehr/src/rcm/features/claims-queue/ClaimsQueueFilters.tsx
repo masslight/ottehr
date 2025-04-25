@@ -101,12 +101,14 @@ export const ClaimsQueueFilters: FC = () => {
 
   const allFacilityGroups = useMemo(
     () =>
-      organizations.filter((organization) =>
-        organization.type?.find((type) =>
-          type.coding?.find(
-            (coding) => coding.system === FHIR_EXTENSION.Organization.organizationType.url && coding.code === 'prov'
+      organizations.filter(
+        (organization) =>
+          organization.type?.find(
+            (type) =>
+              type.coding?.find(
+                (coding) => coding.system === FHIR_EXTENSION.Organization.organizationType.url && coding.code === 'prov'
+              )
           )
-        )
       ),
     [organizations]
   );

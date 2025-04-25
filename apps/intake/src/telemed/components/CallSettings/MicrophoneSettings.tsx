@@ -186,8 +186,8 @@ export const MicrophoneSettings: FC<MicrophoneSettingsProps> = (props) => {
           {recordingStatus === 'inactive'
             ? 'Record your voice (5 sec)'
             : recordingStatus === 'recording'
-              ? 'Recording...'
-              : 'Play it back'}
+            ? 'Recording...'
+            : 'Play it back'}
         </Typography>
 
         {recordingStatus === 'done' && (

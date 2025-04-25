@@ -170,8 +170,8 @@ export async function updateAppointment(
     const location = await getTelemedLocation(oystehr, locationState);
     const locationId = location?.id;
 
-    const locationParticipantIndex = fhirAppointment.participant?.findIndex((p) =>
-      p.actor?.reference?.startsWith('Location/')
+    const locationParticipantIndex = fhirAppointment.participant?.findIndex(
+      (p) => p.actor?.reference?.startsWith('Location/')
     );
 
     if (locationParticipantIndex !== undefined && locationParticipantIndex !== -1) {

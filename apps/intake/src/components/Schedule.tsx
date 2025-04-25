@@ -427,7 +427,7 @@ const Schedule = ({
         title={errorDialog?.title || ''}
         description={errorDialog?.description || ''}
         closeButtonText={
-          (errorDialog?.closeButtonText ?? hasChosenSlot) ? t('schedule.selectAnother') : t('schedule.selectATime')
+          errorDialog?.closeButtonText ?? hasChosenSlot ? t('schedule.selectAnother') : t('schedule.selectATime')
         }
         handleClose={() => {
           setErrorDialog(undefined);

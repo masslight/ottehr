@@ -84,8 +84,8 @@ const columns: GridColDef<Encounter>[] = [
     headerName: 'Type',
     flex: 1,
     renderCell: ({ row: { type } }) => {
-      const typeCoding = type?.find((t) =>
-        t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
+      const typeCoding = type?.find(
+        (t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.type.url && c.code === FOLLOWUP_SYSTEMS.type.code)
       );
       let typeText = '-';
       if (typeCoding?.text) {
@@ -113,8 +113,8 @@ const columns: GridColDef<Encounter>[] = [
     headerName: 'Answered',
     flex: 1,
     renderCell: ({ row: { participant } }) => {
-      const answered = participant?.find((p) =>
-        p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
+      const answered = participant?.find(
+        (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.answeredUrl))
       )?.type?.[0].coding?.[0].display;
       const answeredText = answered ? answered : '-';
       return <Typography variant="body2">{answeredText}</Typography>;
@@ -126,8 +126,8 @@ const columns: GridColDef<Encounter>[] = [
     headerName: 'Caller',
     flex: 1,
     renderCell: ({ row: { participant } }) => {
-      const caller = participant?.find((p) =>
-        p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.callerUrl))
+      const caller = participant?.find(
+        (p) => p.type?.find((t) => t.coding?.find((c) => c.system === FOLLOWUP_SYSTEMS.callerUrl))
       )?.type?.[0].coding?.[0].display;
       const callerText = caller ? caller : '-';
       return <Typography variant="body2">{callerText}</Typography>;

@@ -255,42 +255,42 @@ const processPrebookPaperwork = async (
     const paperworkPatches = paperworkAnswers
       ? await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })
       : serviceMode === ServiceMode.virtual
-        ? [
-            getContactInformationAnswers({
-              firstName: patientInfo.patient.firstName,
-              lastName: patientInfo.patient.lastName,
-              ...(birthDate ? { birthDate } : {}),
-              email: patientInfo.patient.email,
-              phoneNumber: patientInfo.patient.phoneNumber,
-              birthSex: patientInfo.patient.sex,
-            }),
-            getPatientDetailsStepAnswers({}),
-            getMedicationsStepAnswers(),
-            getAllergiesStepAnswers(),
-            getMedicalConditionsStepAnswers(),
-            getSurgicalHistoryStepAnswers(),
-            getAdditionalQuestionsAnswers(),
-            getPaymentOptionSelfPayAnswers(),
-            getResponsiblePartyStepAnswers({}),
-            getSchoolWorkNoteStepAnswers(),
-            getConsentStepAnswers({}),
-            getInviteParticipantStepAnswers(),
-          ]
-        : [
-            getContactInformationAnswers({
-              firstName: patientInfo.patient.firstName,
-              lastName: patientInfo.patient.lastName,
-              ...(birthDate ? { birthDate } : {}),
-              email: patientInfo.patient.email,
-              phoneNumber: patientInfo.patient.phoneNumber,
-              birthSex: patientInfo.patient.sex,
-            }),
-            getPatientDetailsStepAnswers({}),
-            getPaymentOptionSelfPayAnswers(),
-            getResponsiblePartyStepAnswers({}),
-            getPrimaryCarePhysicianStepAnswers({}),
-            getConsentStepAnswers({}),
-          ];
+      ? [
+          getContactInformationAnswers({
+            firstName: patientInfo.patient.firstName,
+            lastName: patientInfo.patient.lastName,
+            ...(birthDate ? { birthDate } : {}),
+            email: patientInfo.patient.email,
+            phoneNumber: patientInfo.patient.phoneNumber,
+            birthSex: patientInfo.patient.sex,
+          }),
+          getPatientDetailsStepAnswers({}),
+          getMedicationsStepAnswers(),
+          getAllergiesStepAnswers(),
+          getMedicalConditionsStepAnswers(),
+          getSurgicalHistoryStepAnswers(),
+          getAdditionalQuestionsAnswers(),
+          getPaymentOptionSelfPayAnswers(),
+          getResponsiblePartyStepAnswers({}),
+          getSchoolWorkNoteStepAnswers(),
+          getConsentStepAnswers({}),
+          getInviteParticipantStepAnswers(),
+        ]
+      : [
+          getContactInformationAnswers({
+            firstName: patientInfo.patient.firstName,
+            lastName: patientInfo.patient.lastName,
+            ...(birthDate ? { birthDate } : {}),
+            email: patientInfo.patient.email,
+            phoneNumber: patientInfo.patient.phoneNumber,
+            birthSex: patientInfo.patient.sex,
+          }),
+          getPatientDetailsStepAnswers({}),
+          getPaymentOptionSelfPayAnswers(),
+          getResponsiblePartyStepAnswers({}),
+          getPrimaryCarePhysicianStepAnswers({}),
+          getConsentStepAnswers({}),
+        ];
 
     // Execute the paperwork patches
     await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);

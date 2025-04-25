@@ -71,10 +71,11 @@ const getAssignPractitionerToEncounterOperation = async (
   const existingParticipantIndex = participants.findIndex((participant) => {
     const matchIndividualReference = participant.individual?.reference === individualReference;
     const matchUserRole = Array.isArray(userRole)
-      ? participant.type?.some((type) =>
-          type.coding?.some((coding) =>
-            userRole.some((role) => role.code === coding.code || role.display === coding.display)
-          )
+      ? participant.type?.some(
+          (type) =>
+            type.coding?.some((coding) =>
+              userRole.some((role) => role.code === coding.code || role.display === coding.display)
+            )
         )
       : participant.type?.some((type) => type.coding?.some((coding) => coding === userRole));
 

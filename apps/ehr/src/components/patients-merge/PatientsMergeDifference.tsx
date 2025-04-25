@@ -107,10 +107,11 @@ const mapPatientResourceToFormValues = (patient: Patient): PatientFormValues => 
       (telecom) => telecom.system === 'phone' && telecom.use === 'mobile'
     )?.value,
     responsiblePartyRelationship: responsibleParty?.relationship
-      ?.find((relationship) =>
-        relationship.coding?.find(
-          (coding) => coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && coding.code === 'BP'
-        )
+      ?.find(
+        (relationship) =>
+          relationship.coding?.find(
+            (coding) => coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && coding.code === 'BP'
+          )
       )
       ?.coding?.find(
         (coding) => coding.system === 'http://terminology.hl7.org/CodeSystem/v2-0131' && coding.code === 'BP'
@@ -118,12 +119,13 @@ const mapPatientResourceToFormValues = (patient: Patient): PatientFormValues => 
     parentGuardianEmail: responsibleParty?.telecom?.find((telecom) => telecom.system === 'email')?.value,
     parentGuardianPhone: responsibleParty?.telecom?.find((telecom) => telecom.system === 'phone')?.value,
     parentGuardianRelationship: responsibleParty?.relationship
-      ?.find((relationship) =>
-        relationship.coding?.find(
-          (coding) =>
-            coding.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship' &&
-            coding.code === 'Parent/Guardian'
-        )
+      ?.find(
+        (relationship) =>
+          relationship.coding?.find(
+            (coding) =>
+              coding.system === 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship' &&
+              coding.code === 'Parent/Guardian'
+          )
       )
       ?.coding?.find(
         (coding) =>

@@ -252,8 +252,8 @@ function createAccident(cms1500: Cms1500): ClaimAccident | undefined {
     type: cms1500.patientConditionRelatedTo.employment
       ? codeableConcept('WPA', CODE_SYSTEM_ACT_CODE_V3)
       : cms1500.patientConditionRelatedTo.autoAccident
-        ? codeableConcept('MVA', CODE_SYSTEM_ACT_CODE_V3)
-        : undefined,
+      ? codeableConcept('MVA', CODE_SYSTEM_ACT_CODE_V3)
+      : undefined,
     locationAddress: cms1500.patientConditionRelatedTo?.autoAccident?.autoAccidentState
       ? {
           state: cms1500.patientConditionRelatedTo.autoAccident.autoAccidentState,

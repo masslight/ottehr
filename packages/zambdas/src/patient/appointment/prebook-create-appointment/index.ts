@@ -186,7 +186,7 @@ export async function createAppointment(
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
     await generatePatientRelatedRequests(user, patient, oystehr);
 
-  let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : (slot?.start ?? '');
+  let startTime = visitType === VisitType.WalkIn ? DateTime.now().setZone('UTC').toISO() || '' : slot?.start ?? '';
   startTime = DateTime.fromISO(startTime).setZone('UTC').toISO() || '';
   const originalDate = DateTime.fromISO(startTime).setZone('UTC');
   const endTime = originalDate.plus({ minutes: 15 }).toISO() || ''; // todo: should this be scraped from the Appointment?

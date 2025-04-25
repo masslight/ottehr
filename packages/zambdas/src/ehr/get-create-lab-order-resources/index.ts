@@ -73,8 +73,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const isSelfPay = !patientAccount.coverage?.length ? true : false;
     const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverages);
-    const primaryInsuranceName = patientPrimaryInsurance?.class?.find((c) =>
-      c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
+    const primaryInsuranceName = patientPrimaryInsurance?.class?.find(
+      (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
     )?.name;
     if (!patientPrimaryInsurance && !isSelfPay)
       throw new Error('patient must have insurance or have designated self pay to order labs');

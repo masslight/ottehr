@@ -246,9 +246,8 @@ const useGetPatientDocsFolders = (
         );
 
         const docsFolders = patientFoldersResources.map((listRes) => {
-          const folderName = listRes.code?.coding?.find(
-            (folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE
-          )?.display;
+          const folderName = listRes.code?.coding?.find((folderCoding) => folderCoding.code === PATIENT_FOLDERS_CODE)
+            ?.display;
           const docRefs: DocRef[] = (listRes.entry ?? []).map(
             (entry) =>
               ({

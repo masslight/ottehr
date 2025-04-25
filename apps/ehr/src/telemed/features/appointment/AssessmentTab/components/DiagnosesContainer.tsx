@@ -1,7 +1,7 @@
 import { Box, Button, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
-import { DIAGNOSIS_MAKE_PRIMARY_BUTTON, IcdSearchResponse } from 'utils';
+import { APIErrorCode, DIAGNOSIS_MAKE_PRIMARY_BUTTON, IcdSearchResponse } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
@@ -20,7 +20,9 @@ export const DiagnosesContainer: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const { mutate: saveChartData, isLoading: isSaveLoading } = useSaveChartData();
   const { mutateAsync: deleteChartData, isLoading: isDeleteLoading } = useDeleteChartData();
-  const { isError: hasIcdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
+  const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
+
+  const nlmApiKeyMissing = icdSearchError?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const isLoading = isSaveLoading || isDeleteLoading;
 
@@ -157,7 +159,7 @@ export const DiagnosesContainer: FC = () => {
 
       {isReadOnly && diagnoses.length === 0 && <Typography color="secondary.light">Not provided</Typography>}
 
-      {hasIcdSearchError && <CompleteConfiguration handleSetup={handleSetup} />}
+      {nlmApiKeyMissing && <CompleteConfiguration handleSetup={handleSetup} />}
 
       {primaryDiagnosis && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

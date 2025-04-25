@@ -66,7 +66,7 @@ export const useTelemedLocation = (): HookReturnType => {
     }
 
     // get saved state code, if appointment was created use data from appointment, otherwise use data from store
-    const stateCode = appointmentID ? (appointment?.state?.code ?? '') : locationCodeFromStore;
+    const stateCode = appointmentID ? appointment?.state?.code ?? '' : locationCodeFromStore;
 
     // get telemed location with this sate code,
     // we need this step because admin may turn off location but user have the old one in the appointment

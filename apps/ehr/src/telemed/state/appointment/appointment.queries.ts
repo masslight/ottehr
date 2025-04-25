@@ -587,10 +587,7 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
   const apiClient = useZapEHRAPIClient();
-  const openError = (error: any): void => {
-    if (error?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
-      return;
-    }
+  const openError = (): void => {
     enqueueSnackbar('An error occurred during the search. Please try again in a moment.', {
       variant: 'error',
     });
@@ -603,8 +600,9 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
     },
     {
       onError: (error: any) => {
-        console.log('Error: ', JSON.stringify(error));
-        openError(error);
+        if (error?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
+          openError();
+        }
       },
       enabled: Boolean(apiClient && search),
       keepPreviousData: true,

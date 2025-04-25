@@ -59,9 +59,5 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
     return await topLevelCatch('ehr-icd-search', error, input.secrets);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
   }
 };

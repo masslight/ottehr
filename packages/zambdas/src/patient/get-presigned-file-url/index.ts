@@ -69,8 +69,8 @@ const makePresignedFileURL = async (
   if (!appointment) {
     throw APPOINTMENT_NOT_FOUND_ERROR;
   }
-  const patient = appointment?.participant.find((participantTemp) =>
-    participantTemp.actor?.reference?.startsWith('Patient/')
+  const patient = appointment?.participant.find(
+    (participantTemp) => participantTemp.actor?.reference?.startsWith('Patient/')
   )?.actor?.reference;
   if (!patient) {
     throw new Error('Patient is not found');

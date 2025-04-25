@@ -228,8 +228,8 @@ export default function AppointmentPage(): ReactElement {
       (resource: FhirResource) => resource.resourceType === 'RelatedPerson'
     ) as unknown as RelatedPerson;
     if (fhirRelatedPerson) {
-      const isUserRelatedPerson = fhirRelatedPerson.relationship?.find((relationship) =>
-        relationship.coding?.find((code) => code.code === 'user-relatedperson')
+      const isUserRelatedPerson = fhirRelatedPerson.relationship?.find(
+        (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
         relatedPerson = fhirRelatedPerson;
