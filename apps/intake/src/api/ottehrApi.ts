@@ -173,7 +173,7 @@ class API {
     }
   }
 
-  async getPatients(zambdaClient: ZambdaClient): Promise<any> {
+  async getPatients(zambdaClient: ZambdaClient): Promise<{ patients: PatientInfo[] }> {
     try {
       if (GET_PATIENTS_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('get patients environment variable could not be loaded');

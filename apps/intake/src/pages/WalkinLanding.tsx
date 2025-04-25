@@ -6,12 +6,12 @@ import { generatePath, Link, useNavigate, useParams } from 'react-router-dom';
 import { useUCZambdaClient, ErrorDialog, PageForm, ErrorDialogConfig } from 'ui-components';
 import { ottehrApi } from '../api';
 import { PageContainer } from '../components';
-import { ottehrLightBlue } from '../telemed/assets';
 import { t } from 'i18next';
 import { useQuery } from 'react-query';
 import { CreateSlotParams, ServiceMode } from 'utils';
 import { DateTime } from 'luxon';
 import { bookingBasePath } from '../App';
+import { ottehrLightBlue } from '@theme/icons';
 
 export const WalkinLanding: FC = () => {
   const navigate = useNavigate();

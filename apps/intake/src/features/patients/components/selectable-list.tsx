@@ -8,13 +8,21 @@ import { otherColors } from '../../../IntakeThemeProvider';
 
 interface PatientListProps {
   patients: PatientInfo[];
+  subtitle: string;
   selectedPatient?: PatientInfo;
   buttonLoading?: boolean;
   onSubmit: (data: FieldValues) => Promise<void>;
   onBack?: () => void;
 }
 
-const PatientList: React.FC<PatientListProps> = ({ patients, selectedPatient, buttonLoading, onSubmit, onBack }) => {
+const PatientList: React.FC<PatientListProps> = ({
+  patients,
+  selectedPatient,
+  subtitle,
+  buttonLoading,
+  onSubmit,
+  onBack,
+}) => {
   const { t } = useTranslation();
 
   const formElements: FormInputType[] = useMemo(() => {
@@ -22,7 +30,7 @@ const PatientList: React.FC<PatientListProps> = ({ patients, selectedPatient, bu
       {
         type: 'Radio',
         name: 'patientID',
-        label: t('welcomeBack.subtitle'),
+        label: subtitle,
         defaultValue: selectedPatient,
         required: true,
         radioOptions: (patients || [])

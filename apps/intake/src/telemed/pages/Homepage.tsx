@@ -70,7 +70,7 @@ const Homepage = (): JSX.Element => {
 
   const handlePastVisits = (): void => {
     // was telemedSelectPatient
-    navigate(`${intakeFlowPageRoute.ChoosePatient.path}?flow=pastVisits`);
+    navigate(intakeFlowPageRoute.MyPatients.path);
   };
 
   const handleContactSupport = (): void => {

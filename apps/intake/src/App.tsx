@@ -45,6 +45,7 @@ import Welcome from './telemed/pages/Welcome';
 import AIInterview from './pages/AIInterview';
 import { WalkinLanding } from './pages/WalkinLanding';
 import StartVirtualVisit from './pages/StartVirtualVisit';
+import MyPatients from './pages/MyPatients';
 
 const {
   MODE: environment,
@@ -112,12 +113,16 @@ export const intakeFlowPageRoute = {
     path: '/visits',
     getPage: () => <Appointments />,
   }, // IP
+  MyPatients: {
+    path: '/my-patients',
+    getPage: () => <MyPatients />,
+  },
   PastVisits: {
-    path: '/past-visits/:patientId',
+    path: '/my-patients/:patientId/past-visits',
     getPage: () => <PastVisits />,
   }, // ET, IP
   VisitDetails: {
-    path: '/visit-details',
+    path: '/my-patients/:patientId/past-visits/:visitId',
     getPage: () => <VisitDetails />,
   }, // ET, IP
 
@@ -325,11 +330,16 @@ function App(): JSX.Element {
               >
                 <Route path="/" element={<UserFlowRoot />} />
                 <Route path={intakeFlowPageRoute.Homepage.path} element={intakeFlowPageRoute.Homepage.getPage()} />
-                <Route path={intakeFlowPageRoute.PastVisits.path} element={intakeFlowPageRoute.PastVisits.getPage()} />
-                <Route
-                  path={intakeFlowPageRoute.VisitDetails.path}
-                  element={intakeFlowPageRoute.VisitDetails.getPage()}
-                />
+                <Route path={intakeFlowPageRoute.MyPatients.path} element={intakeFlowPageRoute.MyPatients.getPage()}>
+                  <Route
+                    path={intakeFlowPageRoute.PastVisits.path}
+                    element={intakeFlowPageRoute.PastVisits.getPage()}
+                  />
+                  <Route
+                    path={intakeFlowPageRoute.VisitDetails.path}
+                    element={intakeFlowPageRoute.VisitDetails.getPage()}
+                  />
+                </Route>
                 <Route
                   path={intakeFlowPageRoute.WaitingRoom.path}
                   element={intakeFlowPageRoute.WaitingRoom.getPage()}

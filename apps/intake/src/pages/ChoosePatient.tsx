@@ -390,6 +390,7 @@ const ChoosePatient = (): JSX.Element => {
       </Typography>
       <PatientList
         patients={patients}
+        subtitle={t('welcomeBack.subtitle')}
         selectedPatient={patientInfo}
         buttonLoading={cancellingAppointment}
         onSubmit={onSubmit}
