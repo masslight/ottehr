@@ -465,6 +465,14 @@ export class PatientInformationPage {
     ).toHaveValue(dateOfBirth);
   }
 
+  async verifyValidationErrorForDateOfBirth(): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
+        .locator('p:text("Responsible party should be older than 18 years")')
+    ).toBeVisible();
+  }
+
   async clearDateOfBirthFromResponsibleContainer(): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown)
