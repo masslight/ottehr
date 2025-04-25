@@ -40,6 +40,7 @@ import {
 } from '../../../utils';
 import { useDispositionMultipleNotes } from './useDispositionMultipleNotes';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 
 const ERROR_TEXT = 'Disposition data update was unsuccessful, please change some disposition field data to try again.';
 
@@ -99,6 +100,7 @@ export const DispositionCard: FC = () => {
   return (
     <AccordionCard
       label="Disposition"
+      data-testid={dataTestIds.telemedEhrFlow.planTabDispositionContainer}
       headerItem={
         isLoading ? (
           <CircularProgress size="20px" />
@@ -129,7 +131,7 @@ export const DispositionCard: FC = () => {
                 }}
               >
                 {tabs.map((tab) => (
-                  <ContainedPrimaryToggleButton key={tab} value={tab}>
+                  <ContainedPrimaryToggleButton key={tab} value={tab} data-testid={dataTestIds}>
                     {mapDispositionTypeToLabel[tab]}
                   </ContainedPrimaryToggleButton>
                 ))}
@@ -219,6 +221,7 @@ export const DispositionCard: FC = () => {
                   select
                   disabled={isReadOnly}
                   label="Follow up visit in"
+                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown}
                   size="small"
                   sx={{ minWidth: '200px', width: 'fit-content' }}
                   value={value}
@@ -281,6 +284,7 @@ export const DispositionCard: FC = () => {
                   multiline
                   fullWidth
                   size="small"
+                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionNote}
                   value={value}
                   onChange={(...args) => {
                     setNoteCache(args[0].target.value);

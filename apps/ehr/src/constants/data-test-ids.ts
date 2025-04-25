@@ -1,4 +1,10 @@
-import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
+import {
+  ApptTelemedTab,
+  DispositionType,
+  PractitionerQualificationCode,
+  RoleType,
+  TelemedAppointmentVisitTabs,
+} from 'utils';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -254,6 +260,11 @@ export const dataTestIds = {
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
+    planTabDispositionContainer: 'telemed-plan-tab-disposition-container',
+    planTabDispositionToggleButton: (buttonName: DispositionType) =>
+      `telemed-plan-tab-disposition-toggle-button-${buttonName}`,
+    planTabDispositionFollowUpDropdown: 'telemed-plan-tab-disposition-follow-up-dropdown',
+    planTabDispositionNote: 'telemed-plan-tab-disposition-note',
     reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',

@@ -3,17 +3,7 @@ import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
-
-async function checkDropdownHasOptionAndSelectIt(page: Page, dropdownTestId: string, pattern: string): Promise<void> {
-  await page.getByTestId(dropdownTestId).locator('input').fill(pattern);
-
-  const option = page
-    .locator('.MuiAutocomplete-popper li')
-    .filter({ hasText: new RegExp(pattern, 'i') })
-    .first();
-  await expect(option).toBeVisible();
-  await option.click();
-}
+import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
 
 async function checkDropdownNoOptions(
   page: Page,
