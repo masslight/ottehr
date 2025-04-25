@@ -217,7 +217,7 @@ const handleReviewedEvent = async ({
     requests,
   });
 
-  await createLabResultPDF(oystehr, serviceRequestId, true, secrets, m2mtoken);
+  await createLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mtoken);
 
   return updateTransactionRequest;
 };

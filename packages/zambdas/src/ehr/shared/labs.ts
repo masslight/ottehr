@@ -36,7 +36,7 @@ export type LabOrderResources = {
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
-  diagnosticReport: DiagnosticReport;
+  diagnosticReport: DiagnosticReport[];
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
@@ -120,7 +120,16 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
   );
   const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is DiagnosticReport => resourceTemp.resourceType === 'DiagnosticReport'
+    (resourceTemp): resourceTemp is DiagnosticReport =>
+      resourceTemp.resourceType === 'DiagnosticReport' &&
+      !!resourceTemp.category?.find(
+        (cat) =>
+          cat.coding?.find(
+            (coding) =>
+              coding.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system &&
+              coding.code === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
+          )
+      )
   );
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
@@ -171,7 +180,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
-  const diagnosticReport = diagnosticReportsTemp?.[0];
+  const diagnosticReport = diagnosticReportsTemp;
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
@@ -244,7 +253,12 @@ export const makeEncounterLabResult = async (
     }
     if (resource.resourceType === 'DiagnosticReport') {
       const isLabsDR = !!resource.category?.find(
-        (category) => category?.coding?.find((c) => c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system)
+        (category) =>
+          category?.coding?.find(
+            (c) =>
+              c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system &&
+              c.code === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
+          )
       );
       if (isLabsDR) {
         diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;

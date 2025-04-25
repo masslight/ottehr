@@ -17,12 +17,21 @@ import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
-import { ActivityDefinition, DocumentReference, List, Location, Practitioner, Provenance } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  DiagnosticReport,
+  DocumentReference,
+  List,
+  Location,
+  Practitioner,
+  Provenance,
+} from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
 
 export async function createLabResultPDF(
   oystehr: Oystehr,
   serviceRequestID: string,
+  diagnosticReport: DiagnosticReport,
   reviewed: boolean,
   secrets: Secrets | null,
   token: string
@@ -32,7 +41,6 @@ export async function createLabResultPDF(
     patient,
     practitioner: provider,
     task: taskPST,
-    diagnosticReport,
     appointment,
     encounter,
     organization,
@@ -40,10 +48,6 @@ export async function createLabResultPDF(
   } = await getLabOrderResources(oystehr, serviceRequestID);
   console.log(1, observations);
   const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
-
-  if (!diagnosticReport.id) {
-    throw new Error('diagnostic report id is undefined');
-  }
 
   if (!appointment.id) {
     throw new Error('appointment id is undefined');
@@ -59,10 +63,6 @@ export async function createLabResultPDF(
 
   if (!patient.id) {
     throw new Error('patient.id is undefined');
-  }
-
-  if (!diagnosticReport) {
-    throw new Error('diagnostic report is undefined');
   }
 
   const provenanceRequestTemp = (
