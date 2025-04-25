@@ -17,7 +17,7 @@ import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
-import { ActivityDefinition, DocumentReference, List, Location, Practitioner, Provenance } from 'fhir/r4b';
+import { ActivityDefinition, DocumentReference, List, Location, Practitioner, Provenance, Task } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
 
 export async function createLabResultPDF(
@@ -38,7 +38,7 @@ export async function createLabResultPDF(
     organization,
     observations,
   } = await getLabOrderResources(oystehr, serviceRequestID);
-  console.log(1, observations);
+
   const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
   if (!diagnosticReport.id) {
@@ -96,8 +96,41 @@ export async function createLabResultPDF(
     throw new Error('practitioner is not found');
   }
 
-  const taskProvenance = taskProvenanceTemp[0];
+  const taskProvenancePST = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
+
+  const taskRequestTemp = (
+    await oystehr.fhir.search<Task | Provenance>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: 'based-on',
+          value: `DiagnosticReport/${diagnosticReport.id}`,
+        },
+        {
+          name: 'status',
+          value: 'completed',
+        },
+      ],
+    })
+  )?.unbundle();
+
+  const taskRequestsRFRT: Task[] | undefined = taskRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
+  );
+
+  const taskRFRT = taskRequestsRFRT?.[0];
+  let provenanceRFRT = undefined;
+
+  if (taskRFRT) {
+    const provenanceRFRTID = taskRFRT.relevantHistory?.[0].reference?.replace('Provenance/', '');
+    if (provenanceRFRTID) {
+      provenanceRFRT = await oystehr.fhir.get<Provenance>({
+        resourceType: 'Provenance',
+        id: provenanceRFRTID,
+      });
+    }
+  }
 
   const location: Location = await oystehr.fhir.get({
     resourceType: 'Location',
@@ -108,7 +141,13 @@ export async function createLabResultPDF(
   const orderID = serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 
   const accessionNumber = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value;
-  const reviewDate = DateTime.fromISO(taskProvenance.recorded).toFormat('MM/dd/yyyy');
+  const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).toFormat('MM/dd/yyyy hh:mm a');
+  const orderCreateDate = serviceRequest.authoredOn
+    ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+    : undefined;
+  const reviewDate = provenanceRFRT
+    ? DateTime.fromISO(provenanceRFRT.recorded).toFormat('MM/dd/yyyy hh:mm a')
+    : undefined;
   const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
   const pdfDetail = await createExternalLabsResultsFormPDF(
@@ -137,9 +176,11 @@ export async function createLabResultPDF(
         : ORDER_RESULT_ITEM_UNKNOWN,
       patientId: patient.id,
       patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_RESULT_ITEM_UNKNOWN,
-      patientPhone: patient.telecom?.[0].value || ORDER_RESULT_ITEM_UNKNOWN,
+      patientPhone:
+        patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
       todayDate: now.toFormat('MM/dd/yy hh:mm a'),
-      orderDate: now.toFormat('MM/dd/yy hh:mm a'),
+      orderSubmitDate: orderSubmitDate,
+      orderCreateDate: orderCreateDate || ORDER_RESULT_ITEM_UNKNOWN,
       orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
       testName:
         serviceRequest.contained
@@ -157,14 +198,21 @@ export async function createLabResultPDF(
       // specimenDescription: 'Throat culture',
       specimenValue: undefined,
       specimenReferenceRange: undefined,
-      resultBody:
-        observations.map((observation) => observation.code.coding?.[0].display).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
       reviewed,
       reviewingProviderFirst: taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
       reviewDate: reviewDate,
+      results: observations.map((observation) => ({
+        resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+        resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
+        resultInterpretation: observation.interpretation?.[0].coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+        resultInterpretationDisplay: observation.interpretation?.[0].coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
+        resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
+          observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
+        }`,
+      })),
       testItemCode:
         diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
         diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
@@ -552,16 +600,14 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`);
   drawSubHeaderRight(`Ottehr${data.locationName}`);
   addNewLine();
-  drawRegularTextLeft(
-    `${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}, ID: ${data.patientId}`
-  );
+  drawRegularTextLeft(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`);
   drawRegularTextRight(
     `${data.locationStreetAddress.toUpperCase()}, ${data.locationCity.toUpperCase()}, ${data.locationState.toUpperCase()}, ${
       data.locationZip
     }`
   );
   addNewLine();
-  drawRegularTextLeft(data.patientPhone);
+  drawRegularTextLeft(`ID: ${data.patientId}`);
   currXPos =
     width -
     styles.margin.x -
@@ -588,16 +634,18 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   currXPos =
     width - styles.margin.x - styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
   drawRegularTextLeft(data.locationFax);
+  currXPos = styles.margin.x;
+  addNewLine();
+  drawRegularTextLeft(data.patientPhone);
   addNewLine(undefined, 2);
   drawHeader('FINAL RESULT');
-  currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
   addNewLine();
 
   // Order details
   drawFieldLineLeft('Accession ID:', data.accessionNumber);
-  drawFieldLineRight('Order Date:', data.orderDate);
+  drawFieldLineRight('Order Create Date:', data.orderCreateDate);
   addNewLine();
   drawFieldLineLeft('Requesting physician:', data.providerName);
   drawFieldLineRight('Collection Date:', data.todayDate);
@@ -606,7 +654,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   drawFieldLineRight('Order Printed:', data.todayDate);
   addNewLine();
   drawFieldLineLeft('Req ID:', data.reqId);
-  drawFieldLineRight('Order Sent:', data.orderDate);
+  drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
   addNewLine();
   drawFieldLineLeft('Order priority:', data.orderPriority.toUpperCase());
   // drawFieldLineRight('Order Received:', data.orderReceived);
@@ -642,10 +690,19 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     14,
     styles.colors.red
   );
-  addNewLine(undefined, 3);
-  drawFreeText(data.resultBody);
+  addNewLine(undefined, 1);
+  for (const labResult of data.results) {
+    addNewLine(undefined, 1.5);
+    drawSeparatorLine(styles.margin.x, width - styles.margin.x);
+    addNewLine();
+    drawFreeText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`);
+    addNewLine(undefined, 1.5);
+    drawFreeText(`Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`);
+    addNewLine(undefined, 1.5);
+    drawFreeText(`Value: ${labResult.resultValue}`);
+  }
   addNewLine(undefined, 1.5);
-  drawSeparatorLine();
+  drawSeparatorLine(styles.margin.x, width - styles.margin.x);
   addNewLine();
 
   // Performing lab details

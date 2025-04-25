@@ -41,10 +41,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
-
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
     const { taskId, serviceRequestId, diagnosticReportId, event } = validatedParameters;
 
     if (event === 'reviewed') {

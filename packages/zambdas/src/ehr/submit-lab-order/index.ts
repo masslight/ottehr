@@ -346,6 +346,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const orderID = serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
       ?.value;
 
+    const orderCreateDate = serviceRequest.authoredOn
+      ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+      : undefined;
+
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
@@ -372,9 +376,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           : ORDER_ITEM_UNKNOWN,
         patientId: patient.id,
         patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
-        patientPhone: patient.telecom?.[0].value || ORDER_ITEM_UNKNOWN,
+        patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
         todayDate: now.toFormat('MM/dd/yy hh:mm a'),
-        orderDate: now.toFormat('MM/dd/yy hh:mm a'),
+        orderSubmitDate: now.toFormat('MM/dd/yy hh:mm a'),
+        orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])
