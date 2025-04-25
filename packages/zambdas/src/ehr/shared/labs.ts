@@ -36,7 +36,7 @@ export type LabOrderResources = {
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
-  diagnosticReport: DiagnosticReport[];
+  diagnosticReports: DiagnosticReport[];
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
@@ -172,7 +172,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
-  const diagnosticReport = diagnosticReportsTemp;
+  const diagnosticReports = diagnosticReportsTemp;
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
@@ -184,7 +184,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     questionnaireResponse: questionnaireResponse,
     task,
     organization,
-    diagnosticReport,
+    diagnosticReports,
     appointment,
     encounter,
     observations,
