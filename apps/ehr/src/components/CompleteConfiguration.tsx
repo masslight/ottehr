@@ -1,7 +1,6 @@
 import { Box, Button, Typography } from '@mui/material';
-import { otherColors } from '../CustomThemeProvider';
 import { FC } from 'react';
-
+import { otherColors } from '@theme/colors';
 interface CompleteConfigurationProps {
   handleSetup: () => void;
 }
