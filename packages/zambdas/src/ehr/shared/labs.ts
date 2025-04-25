@@ -121,15 +121,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   );
   const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is DiagnosticReport =>
-      resourceTemp.resourceType === 'DiagnosticReport' &&
-      !!resourceTemp.category?.find(
-        (cat) =>
-          cat.coding?.find(
-            (coding) =>
-              coding.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system &&
-              coding.code === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
-          )
-      )
+      resourceTemp.resourceType === 'DiagnosticReport' && isLabsDiagnosicReport(resourceTemp)
   );
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
@@ -252,14 +244,7 @@ export const makeEncounterLabResult = async (
       }
     }
     if (resource.resourceType === 'DiagnosticReport') {
-      const isLabsDR = !!resource.category?.find(
-        (category) =>
-          category?.coding?.find(
-            (c) =>
-              c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system &&
-              c.code === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
-          )
-      );
+      const isLabsDR = isLabsDiagnosicReport(resource);
       if (isLabsDR) {
         diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;
       }
@@ -376,4 +361,15 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
     url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=active&code=${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
   };
   return [docRefSearch, activeLabServiceRequestSearch];
+};
+
+const isLabsDiagnosicReport = (diagnosicReport: DiagnosticReport): boolean => {
+  return !!diagnosicReport.category?.find(
+    (cat) =>
+      cat?.coding?.find(
+        (c) =>
+          c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system &&
+          c.code === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
+      )
+  );
 };
