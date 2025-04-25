@@ -4,6 +4,7 @@ import { Appointment, ContactPoint, Encounter, Patient, RelatedPerson } from 'fh
 import { SignJWT } from 'jose';
 import { JSONPath } from 'jsonpath-plus';
 import {
+  PROJECT_WEBSITE,
   SecretsKeys,
   VideoChatCreateInviteInput,
   VideoChatCreateInviteResponse,
@@ -119,7 +120,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const jwt = await new SignJWT()
       .setProtectedHeader({ alg })
       .setIssuedAt()
-      .setIssuer('https://ottehr.com')
+      .setIssuer(PROJECT_WEBSITE)
       .setSubject(emailAddress || phoneNumber)
       .setAudience(`${websiteUrl}/waiting-room/appointment/${appointmentId}`)
       .setExpirationTime('24h')

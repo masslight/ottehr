@@ -66,6 +66,7 @@ export const AdditionalQuestionEdit = ({
         display: 'flex',
         justifyContent: 'space-between',
       }}
+      data-testid={dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(field)}
     >
       <Typography sx={{ flex: '0 1 calc(100% - 98px)' }}>{label}</Typography>
       {isChartDataLoading ? (
@@ -77,7 +78,6 @@ export const AdditionalQuestionEdit = ({
             name={field}
             value={normalizedValue}
             onChange={(e) => onChange(e.target.value, field)}
-            data-testid={dataTestIds.telemedEhrFlow.hpiAdditionalQuestions(field)}
           >
             <FormControlLabel value="true" control={<Radio disabled={isLoading} sx={{ p: 0 }} />} label="Yes" />
             <FormControlLabel

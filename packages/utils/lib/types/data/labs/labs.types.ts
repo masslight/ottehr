@@ -79,6 +79,7 @@ export type LabOrderResultDetails = {
   taskId: string;
   receivedDate: string;
   reviewedDate: string | null;
+  resultPdfUrl: string | null;
 };
 
 export type QuestionnaireData = {

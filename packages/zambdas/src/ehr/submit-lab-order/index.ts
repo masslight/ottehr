@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  createFilesDocumentReferences,
   getPatchBinary,
   isValidUUID,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -12,7 +11,6 @@ import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Coverage,
-  DocumentReference,
   Location,
   Organization,
   Patient,
@@ -25,9 +23,7 @@ import {
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
-import Oystehr from '@oystehr/sdk';
-import { PdfInfo } from '../../shared/pdf/pdf-utils';
-import { randomUUID } from 'crypto';
+import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
 import { getLabOrderResources } from '../shared/labs';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -70,6 +66,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!locationID || !isValidUUID(locationID)) {
       throw new Error(`location id ${locationID} is not a uuid`);
+    }
+
+    if (!patient.id) {
+      throw new Error('patient.id is undefined');
     }
 
     const location: Location = await oystehr.fhir.get({
@@ -180,6 +180,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       if (multiSelect) {
         answer = data[questionResponse].map((item: string) => ({ valueString: item }));
       }
+
       if (question.type === 'boolean') {
         answer = [
           {
@@ -187,6 +188,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (question.type === 'date') {
         answer = [
           {
@@ -194,6 +196,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (question.type === 'decimal') {
         answer = [
           {
@@ -201,6 +204,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (question.type === 'integer') {
         answer = [
           {
@@ -208,10 +212,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (answer == undefined) {
         throw new Error('answer is undefined');
       }
+
       questionsAndAnswers.push({ question: question.text || 'UNKNOWN', answer: data[questionResponse] || 'UNKNOWN' });
+
       return {
         linkId: questionResponse,
         answer: answer,
@@ -276,6 +283,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     });
 
+    if (!submitLabRequest.ok) {
+      const submitLabRequestResponse = await submitLabRequest.json();
+      console.log(submitLabRequestResponse);
+      throw new Error('error submitting lab request');
+    }
+
     await oystehr?.fhir.transaction({
       requests: [
         getPatchBinary({
@@ -324,16 +337,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }),
       ],
     });
-
-    if (!submitLabRequest.ok) {
-      const submitLabRequestResponse = await submitLabRequest.json();
-      console.log(submitLabRequestResponse);
-      throw new Error('error submitting lab request');
-    }
-
-    if (!patient.id) {
-      throw new Error('patient.id is undefined');
-    }
 
     const serviceRequestTemp: ServiceRequest = await oystehr.fhir.get({
       resourceType: 'ServiceRequest',
@@ -397,7 +400,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       m2mtoken
     );
 
-    await makeLabOrderPdfDocumentReference(oystehr, pdfDetail, patient.id, appointment.id, encounter.id);
+    await makeLabPdfDocumentReference({
+      oystehr,
+      type: 'order',
+      pdfInfo: pdfDetail,
+      patientID: patient.id,
+      encounterID: encounter.id,
+      serviceRequestID: serviceRequest.id,
+    });
 
     const presignedURL = await getPresignedURL(pdfDetail.uploadURL, m2mtoken);
 
@@ -416,48 +426,3 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   }
 };
-
-export async function makeLabOrderPdfDocumentReference(
-  oystehr: Oystehr,
-  pdfInfo: PdfInfo,
-  patientId: string,
-  appointmentId: string,
-  encounterId: string
-): Promise<DocumentReference> {
-  const { docRefs } = await createFilesDocumentReferences({
-    files: [
-      {
-        url: pdfInfo.uploadURL,
-        title: pdfInfo.title,
-      },
-    ],
-    type: {
-      coding: [
-        {
-          system: 'http://loinc.org',
-          code: '51991-8',
-          display: 'Referral lab test panel',
-        },
-      ],
-      text: 'Lab order document',
-    },
-    references: {
-      subject: {
-        reference: `Patient/${patientId}`,
-      },
-      context: {
-        related: [
-          {
-            reference: `Appointment/${appointmentId}`,
-          },
-        ],
-        encounter: [{ reference: `Encounter/${encounterId}` }],
-      },
-    },
-    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
-    oystehr,
-    generateUUID: randomUUID,
-    searchParams: [],
-  });
-  return docRefs[0];
-}
