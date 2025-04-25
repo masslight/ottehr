@@ -222,7 +222,7 @@ export const AppointmentSidePanel: FC = () => {
             {calculatePatientAge(patient.birthDate!)}
           </Typography>
 
-          <Typography variant="body2" fontWeight={700}>
+          <Typography variant="body2" fontWeight={500}>
             Allergies:{' '}
             {isChartDataLoading
               ? 'Loading...'
@@ -288,7 +288,7 @@ export const AppointmentSidePanel: FC = () => {
             sx={{
               textTransform: 'none',
               fontSize: '14px',
-              fontWeight: 700,
+              fontWeight: 500,
               borderRadius: 10,
             }}
             startIcon={<DateRangeOutlinedIcon />}
@@ -327,7 +327,7 @@ export const AppointmentSidePanel: FC = () => {
                   sx={{
                     textTransform: 'none',
                     fontSize: '14px',
-                    fontWeight: 700,
+                    fontWeight: 500,
                     borderRadius: 10,
                   }}
                   startIcon={<MedicationOutlinedIcon />}
@@ -382,7 +382,7 @@ export const AppointmentSidePanel: FC = () => {
                 sx={{
                   textTransform: 'none',
                   fontSize: '14px',
-                  fontWeight: 700,
+                  fontWeight: 500,
                   borderRadius: 10,
                 }}
                 startIcon={<PersonAddAltOutlinedIcon />}
@@ -399,7 +399,7 @@ export const AppointmentSidePanel: FC = () => {
               sx={{
                 textTransform: 'none',
                 fontSize: '14px',
-                fontWeight: 700,
+                fontWeight: 500,
                 borderRadius: 10,
               }}
               startIcon={<CancelOutlinedIcon />}

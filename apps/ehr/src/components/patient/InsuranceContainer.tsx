@@ -17,6 +17,7 @@ import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
 import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
 import { LoadingButton } from '@mui/lab';
+import { dataTestIds } from '../../constants/data-test-ids';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -97,8 +98,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
   };
 
   return (
-    <Section title="Insurance information">
-      <Row label="Type" required>
+    <Section title="Insurance information" dataTestId="insuranceContainer">
+      <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
           control={control}
@@ -121,7 +122,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           }}
         />
       </Row>
-      <Row label="Insurance carrier" required>
+      <Row label="Insurance carrier" required dataTestId={dataTestIds.insuranceContainer.insuranceCarrier}>
         <Controller
           name={FormFields.insuranceCarrier.key}
           control={control}
@@ -164,7 +165,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           }}
         />
       </Row>
-      <Row label="Member ID" required inputId={FormFields.memberId.key}>
+      <Row
+        label="Member ID"
+        required
+        inputId={FormFields.memberId.key}
+        dataTestId={dataTestIds.insuranceContainer.memberId}
+      >
         <FormTextField
           id={FormFields.memberId.key}
           name={FormFields.memberId.key}
@@ -173,11 +179,20 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
         />
       </Row>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ShowMoreButton onClick={toggleMoreInfo} isOpen={showMoreInfo} />
+        <ShowMoreButton
+          onClick={toggleMoreInfo}
+          isOpen={showMoreInfo}
+          dataTestId={dataTestIds.insuranceContainer.showMoreButton}
+        />
       </Box>
       {showMoreInfo && (
         <>
-          <Row label="Policy holder's first name" required inputId={FormFields.firstName.key}>
+          <Row
+            label="Policy holder's first name"
+            required
+            inputId={FormFields.firstName.key}
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersFirstName}
+          >
             <FormTextField
               id={FormFields.firstName.key}
               name={FormFields.firstName.key}
@@ -186,7 +201,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Policy holder's middle name" inputId={FormFields.middleName.key}>
+          <Row
+            label="Policy holder's middle name"
+            inputId={FormFields.middleName.key}
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersMiddleName}
+          >
             <FormTextField
               id={FormFields.middleName.key}
               name={FormFields.middleName.key}
@@ -194,7 +213,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               disabled={selfSelected}
             />
           </Row>
-          <Row label="Policy holder's last name" required inputId={FormFields.lastName.key}>
+          <Row
+            label="Policy holder's last name"
+            required
+            inputId={FormFields.lastName.key}
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersLastName}
+          >
             <FormTextField
               id={FormFields.lastName.key}
               name={FormFields.lastName.key}
@@ -203,7 +227,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Policy holder's date of birth" required>
+          <Row
+            label="Policy holder's date of birth"
+            required
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersDateOfBirth}
+          >
             <DatePicker
               name={FormFields.birthDate.key}
               control={control}
@@ -211,7 +239,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               disabled={selfSelected}
             />
           </Row>
-          <Row label="Policy holder's sex" required>
+          <Row label="Policy holder's sex" required dataTestId={dataTestIds.insuranceContainer.policyHoldersSex}>
             <FormSelect
               name={FormFields.birthSex.key}
               control={control}
@@ -223,6 +251,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
               <Checkbox
+                data-testid={dataTestIds.insuranceContainer.policyHolderAdrressCheckbox}
                 checked={sameAsPatientAddress || selfSelected}
                 onChange={() => {
                   setSameAsPatientAddress((currentVal) => !currentVal);
@@ -232,7 +261,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               <Typography>Policy holder address is the same as patient's address</Typography>
             </Box>
           </Box>
-          <Row label="Street address" inputId={FormFields.streetAddress.key} required>
+          <Row
+            label="Street address"
+            inputId={FormFields.streetAddress.key}
+            required
+            dataTestId={dataTestIds.insuranceContainer.streetAddress}
+          >
             <FormTextField
               id={FormFields.streetAddress.key}
               name={FormFields.streetAddress.key}
@@ -241,7 +275,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Address line 2" inputId={FormFields.addressLine2.key}>
+          <Row
+            label="Address line 2"
+            inputId={FormFields.addressLine2.key}
+            dataTestId={dataTestIds.insuranceContainer.addressLine2}
+          >
             <FormTextField
               id={FormFields.addressLine2.key}
               name={FormFields.addressLine2.key}
@@ -252,6 +290,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           <Row label="City, State, ZIP" required>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormTextField
+                data-testid={dataTestIds.insuranceContainer.city}
                 name={FormFields.city.key}
                 disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[2])}
                 control={control}
@@ -280,6 +319,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
                       fullWidth
                       renderInput={(params) => (
                         <TextField
+                          data-testid={dataTestIds.insuranceContainer.state}
                           {...params}
                           variant="standard"
                           error={!!error}
@@ -292,6 +332,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
                 }}
               />
               <FormTextField
+                data-testid={dataTestIds.insuranceContainer.zip}
                 name={FormFields.zip.key}
                 control={control}
                 disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[4])}
@@ -302,7 +343,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               />
             </Box>
           </Row>
-          <Row label="Patient’s relationship to insured" required>
+          <Row
+            label="Patient’s relationship to insured"
+            required
+            dataTestId={dataTestIds.insuranceContainer.relationship}
+          >
             <FormSelect
               name={FormFields.relationship.key}
               control={control}
@@ -310,7 +355,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Additional insurance information" inputId={FormFields.additionalInformation.key}>
+          <Row
+            label="Additional insurance information"
+            inputId={FormFields.additionalInformation.key}
+            dataTestId={dataTestIds.insuranceContainer.additionalInformation}
+          >
             <FormTextField
               id={FormFields.additionalInformation.key}
               name={FormFields.additionalInformation.key}
@@ -318,6 +367,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             />
           </Row>
           <LoadingButton
+            data-testid={dataTestIds.insuranceContainer.removeButton}
             onClick={handleRemoveInsurance}
             variant="text"
             loading={removeInProgress}
@@ -325,7 +375,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               color: theme.palette.error.main,
               textTransform: 'none',
               fontSize: '13px',
-              fontWeight: 700,
+              fontWeight: 500,
               display: handleRemoveClick !== undefined ? 'flex' : 'none',
               alignItems: 'center',
               justifyContent: 'flex-start',

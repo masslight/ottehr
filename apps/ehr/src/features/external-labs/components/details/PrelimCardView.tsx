@@ -3,12 +3,13 @@ import { DateTime } from 'luxon';
 import { FC } from 'react';
 
 interface PrelimCardViewProps {
+  resultPdfUrl: string | null;
   receivedDate: string | null;
   reviewedDate: string | null;
   onPrelimView: () => void;
 }
 
-export const PrelimCardView: FC<PrelimCardViewProps> = ({ receivedDate, reviewedDate, onPrelimView }) => {
+export const PrelimCardView: FC<PrelimCardViewProps> = ({ resultPdfUrl, receivedDate, reviewedDate, onPrelimView }) => {
   const formatDate = (date: string | null): string => {
     if (!date) return '';
     const dateTime = DateTime.fromJSDate(new Date(date));
@@ -19,6 +20,15 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({ receivedDate, reviewed
     return receivedDate
       ? { event: 'received', date: formatDate(receivedDate) }
       : { event: 'reviewed', date: formatDate(reviewedDate) };
+  };
+
+  const openPdf = (): void => {
+    if (resultPdfUrl) {
+      // additional handling for prelim, prelim resources are marked as reviewed when pdf is viewed (resources are updated, but we didn't show it in the UI),
+      // the final results resources are marked as reviewed by clicking on "mark as reviewed" and we show it in the UI
+      onPrelimView();
+      window.open(resultPdfUrl, '_blank');
+    }
   };
 
   const { event, date } = getDateEvent();
@@ -42,7 +52,13 @@ export const PrelimCardView: FC<PrelimCardViewProps> = ({ receivedDate, reviewed
         </Typography>
       </Box>
 
-      <Button disabled variant="text" color="primary" onClick={onPrelimView} sx={{ fontWeight: 500 }}>
+      <Button
+        disabled={!resultPdfUrl}
+        onClick={openPdf}
+        variant="text"
+        color="primary"
+        sx={{ fontWeight: 700, textTransform: 'none' }}
+      >
         View
       </Button>
     </Paper>

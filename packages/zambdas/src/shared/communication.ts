@@ -6,6 +6,8 @@ import { DateTime } from 'luxon';
 import {
   formatPhoneNumberDisplay,
   isLocationVirtual,
+  PROJECT_DOMAIN,
+  PROJECT_NAME,
   SLUG_SYSTEM,
   ServiceMode,
   createOystehrClient,
@@ -149,7 +151,7 @@ export async function sendInPersonMessages(
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`
       : `You're confirmed! ${messageAll}, or modify/cancel your visit: ${WEBSITE_URL}/visit/${appointmentID}`;
-  const messageAllSpanish = `¡Gracias por elegir Ottehr In Person! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
+  const messageAllSpanish = `¡Gracias por elegir ${PROJECT_NAME} In Person! Su hora de registro para ${firstName} en ${scheduleResource.name} es el día ${startTime}. Nuestra nueva tecnología requiere que los pacientes nuevos Y los recurrentes completen los formularios y se aseguren de que los registros estén actualizados. Para expediar el proceso, antes de su llegada por favor llene el papeleo`;
   const messageSpanish =
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAllSpanish}: ${WEBSITE_URL}/paperwork/${appointmentID}`
@@ -202,21 +204,21 @@ export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationE
   );
 
   // Translation variables
-  let subject = 'Your visit confirmation at Ottehr';
+  let subject = `Your visit confirmation at ${PROJECT_NAME}`;
   let templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
 
   // In case of e.g. en-US or en-GB, ignore local dialect
   switch (language.split('-')[0]) {
     case 'es':
-      subject = 'Confirmación de su consulta en Ottehr';
+      subject = `Confirmación de su consulta en ${PROJECT_NAME}`;
       templateId = SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID;
       break;
     case 'en':
-      subject = 'Your visit confirmation at Ottehr';
+      subject = `Your visit confirmation at ${PROJECT_NAME}`;
       templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
       break;
     default:
-      subject = 'Your visit confirmation at Ottehr';
+      subject = `Your visit confirmation at ${PROJECT_NAME}`;
       templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
       break;
   }
@@ -279,11 +281,11 @@ export async function sendEmail(
   const emailConfiguration = {
     to: email,
     from: {
-      email: 'no-reply@ottehr.com',
-      name: 'Ottehr In Person',
+      email: 'no-reply@' + PROJECT_DOMAIN,
+      name: `${PROJECT_NAME} In Person`,
     },
     bcc: SENDGRID_EMAIL_BCC,
-    replyTo: 'no-reply@ottehr.com',
+    replyTo: 'no-reply@' + PROJECT_DOMAIN,
     templateId: templateID,
     dynamic_template_data: {
       subject,
@@ -315,7 +317,7 @@ export const sendVirtualConfirmationEmail = async (input: VirtualConfirmationEma
   );
 
   // Translation variables
-  const subject = 'Ottehr Telemedicine';
+  const subject = `${PROJECT_NAME} Telemedicine`;
   const templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
   const templateInformation = {
     url: `${WEBSITE_URL}/waiting-room?appointment_id=${appointmentID}`,
@@ -330,7 +332,7 @@ export const sendVirtualCancellationEmail = async (input: VirtualCancellationEma
     SecretsKeys.VIRTUAL_SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID,
     secrets
   );
-  const subject = 'Ottehr Telemedicine';
+  const subject = `${PROJECT_NAME} Telemedicine`;
   const templateId = SENDGRID_CANCELLATION_EMAIL_TEMPLATE_ID;
 
   const templateInformation = {
@@ -353,7 +355,7 @@ export const sendVideoChatInvititationEmail = async (input: VideoChatInvitationE
       SecretsKeys.VIRTUAL_SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID,
       secrets
     );
-    const subject = 'Invitation to Join a Visit - Ottehr Telemedicine';
+    const subject = `Invitation to Join a Visit - ${PROJECT_NAME} Telemedicine`;
     const templateId = SENDGRID_VIDEO_CHAT_INVITATION_EMAIL_TEMPLATE_ID;
     const templateInformation = {
       inviteUrl: inviteUrl,

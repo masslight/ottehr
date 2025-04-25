@@ -31,6 +31,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
   const previousNames = patient.name?.filter((name) => name.use === 'old').reverse() || [];
 
   const genderIdentityCurrentValue = watch(FormFields.genderIdentity.key);
+  const isNonBinaryGender = genderIdentityCurrentValue === 'Non-binary gender identity';
 
   return (
     <Section title="Patient details">
@@ -88,7 +89,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
       <Row label="Gender identity" dataTestId={dataTestIds.patientDetailsContainer.genderIdentity}>
         <FormSelect name={FormFields.genderIdentity.key} control={control} options={GENDER_IDENTITY_OPTIONS} />
       </Row>
-      {genderIdentityCurrentValue === 'Non-binary gender identity' && (
+      {isNonBinaryGender && (
         <Box
           sx={{
             display: 'flex',
@@ -97,7 +98,17 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', alignSelf: 'end', flex: '0 1 70%' }}>
-            <FormTextField name={FormFields.genderIdentityDetails.key} control={control} />
+            <FormTextField
+              name={FormFields.genderIdentityDetails.key}
+              data-testid={dataTestIds.patientDetailsContainer.pleaseSpecifyField}
+              control={control}
+              rules={{
+                validate: (value: string) => {
+                  if (!value && isNonBinaryGender) return REQUIRED_FIELD_ERROR_MESSAGE;
+                  return true;
+                },
+              }}
+            />
           </Box>
         </Box>
       )}

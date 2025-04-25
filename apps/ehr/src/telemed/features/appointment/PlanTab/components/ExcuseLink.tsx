@@ -2,7 +2,7 @@ import React, { FC } from 'react';
 import { Card, Typography, useTheme } from '@mui/material';
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
 import { Link } from 'react-router-dom';
-import { otherColors } from '../../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { DeleteIconButton } from '../../../../components';
 
 type ExcuseCardProps = {
@@ -35,7 +35,7 @@ export const ExcuseLink: FC<ExcuseCardProps> = (props) => {
       target="_blank"
     >
       <InsertDriveFileOutlinedIcon fontSize="small" />
-      <Typography sx={{ flexGrow: 1 }} fontWeight={700}>
+      <Typography sx={{ flexGrow: 1 }} fontWeight={500}>
         {label}
       </Typography>
       {onDelete && (

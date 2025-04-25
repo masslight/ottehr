@@ -95,6 +95,7 @@ export const dataTestIds = {
     sendMarketingMessages: 'send-marketing-messages',
     preferredLanguage: 'preffered-language',
     commonWellConsent: 'commonwell-consent',
+    pleaseSpecifyField: 'please-specify-field',
   },
   primaryCarePhysicianContainer: {
     pcpCheckbox: 'pcp-checkbox',
@@ -104,7 +105,27 @@ export const dataTestIds = {
     address: ' primaryCarePhysicianContainer-address',
     mobile: ' primaryCarePhysicianContainer-mobile',
   },
-
+  insuranceContainer: {
+    type: 'insurance-type',
+    insuranceCarrier: 'insurance-carrier',
+    memberId: 'insurance-member-id',
+    showMoreButton: 'insurance-show-more-button',
+    hideButton: 'insurance-hide-button',
+    policyHoldersFirstName: 'insurance-policy-holders-first-name',
+    policyHoldersLastName: 'insurance-policy-holders-larst-name',
+    policyHoldersMiddleName: 'insurance-policy-holders-middle-name',
+    policyHoldersDateOfBirth: 'insurance-policy-holders-date-of-birth',
+    policyHoldersSex: 'insurance-policy-holders-sex',
+    policyHolderAdrressCheckbox: 'insurance-policy-holder-adrress-checkbox',
+    streetAddress: 'insurance-street-address',
+    addressLine2: 'insurance-address-line2',
+    city: 'insurance-city',
+    state: 'insurance-state',
+    zip: 'insurance-zip',
+    relationship: 'insurance-relationship',
+    additionalInformation: 'insurance-additional-information',
+    removeButton: 'insurance-remove-button',
+  },
   responsiblePartyInformationContainer: {
     id: 'responsible-party-information-container',
     relationshipDropdown: 'responsible-party-information-container-relationship-dropdown',
@@ -146,7 +167,8 @@ export const dataTestIds = {
     stateNameField: 'state-name-field',
   },
   patients: {
-    searchByNameField: 'search-name-field',
+    searchByLastNameField: 'search-last-name-field',
+    searchByGivenNamesField: 'search-given-names-field',
     searchByDateOfBirthField: 'searchByDateOfBirthField',
     searchByPhoneField: 'search-phone-field',
     searchByAddressField: 'search-by-address',
@@ -257,6 +279,10 @@ export const dataTestIds = {
     reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
     reviewTabSurgicalHistoryContainer: 'telemed-review-tab-surgical-history-container',
+    reviewTabAdditionalQuestion: (questionSymptom: string) =>
+      `telemed-review-tab-additional-question-${questionSymptom}`,
+    reviewTabChiefComplaintContainer: 'telemed-review-tab-chief-complaint-container',
+    reviewTabRosContainer: 'telemed-review-tab-ros-container',
     cancelThisVisitButton: 'telemed-cancel-this-visit-button',
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
@@ -265,6 +291,9 @@ export const dataTestIds = {
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
     sideMenuItem: (item: string): string => `menu-item-${item}`,
+  },
+  cssModal: {
+    confirmationDialogue: 'confirmation-dialogue',
   },
   hospitalizationPage: {
     hospitalizationTitle: 'hospitalization-title',
@@ -279,12 +308,13 @@ export const dataTestIds = {
     emCodeLink: 'em-code-link',
     visitNoteCard: 'visit-note-card',
   },
-  assessmentPage: {
-    diagnosisDropdown: 'diagnosis-dropdown',
+  assessmentCard: {
     emCodeDropdown: 'em-code-dropdown',
     medicalDecisionField: 'medical-decision-field',
+    cptCodeField: 'cpt-code-field',
   },
   diagnosisContainer: {
+    diagnosisDropdown: 'diagnosis-dropdown',
     primaryDiagnosis: 'diagnosis-container-primary-diagnosis',
     secondaryDiagnosis: 'diagnosis-container-secondary-diagnosis',
     primaryDiagnosisDeleteButton: 'diagnosis-container-primary-diagnosis-delete-button',
@@ -293,6 +323,8 @@ export const dataTestIds = {
   },
   billingContainer: {
     deleteButton: 'billing-container-delete-button',
+    deleteCptCodeButton: (code: string) => `billing-container-delete-cpt-code-button-${code}`,
+    cptCodeEntry: (code: string) => `cpt-code-entry-${code}`,
   },
   patientInfoPage: {
     patientInfoVerifiedCheckbox: 'patient-info-verified-checkbox',
@@ -313,6 +345,7 @@ export const dataTestIds = {
     inputField: (field: string): string => `input-${field}`,
     fillOrderToSaveButton: 'fill-order-to-save-button',
     backButton: 'back-button',
+    confirmationDialogue: 'confirmation-dialogue',
   },
   visitDetailsPage: {
     cancelVisitButton: 'cancel-visit-button',

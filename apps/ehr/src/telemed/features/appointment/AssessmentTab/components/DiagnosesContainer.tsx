@@ -10,10 +10,10 @@ import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { AssessmentTitle } from './AssessmentTitle';
 import { DiagnosesField } from './DiagnosesField';
-import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
-import { otherColors } from '../../../../../CustomThemeProvider';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { GenericToolTip } from '../../../../../components/GenericToolTip';
+import { otherColors } from '@theme/colors';
+import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 
 export const DiagnosesContainer: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
@@ -209,7 +209,7 @@ export const DiagnosesContainer: FC = () => {
                           onClick={() => onMakePrimary(value.resourceId!)}
                           size="small"
                           data-testid={dataTestIds.diagnosisContainer.makePrimaryButton}
-                          sx={{ textTransform: 'none', fontWeight: 700 }}
+                          sx={{ textTransform: 'none', fontWeight: 500 }}
                         >
                           {DIAGNOSIS_MAKE_PRIMARY_BUTTON}
                         </Button>

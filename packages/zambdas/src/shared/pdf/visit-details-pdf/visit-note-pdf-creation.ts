@@ -204,7 +204,7 @@ function composeDataForPdf(
   // to be implemented
 
   // --- Discharge instructions ---
-  const disposition = chartData?.disposition;
+  const disposition = additionalChartData?.disposition;
   let dispositionHeader = 'Discharge instructions - ';
   let dispositionText = '';
   if (disposition?.type) {
@@ -405,12 +405,15 @@ function parseExamFieldsFromExamObservations(
     }
     if (details.card === 'back') backItems.push(details);
     if (details.card === 'skin' && ['normal', 'abnormal'].includes(details.group)) skinItems.push(details);
-    if (!skinItems.length) skinItems.push({ label: 'Rashes', abnormal: true } as ExamObservationFieldItem);
     if (details.card === 'musculoskeletal' && ['normal', 'abnormal'].includes(details.group))
       musculoskeletalItems.push(details);
     if (details.card === 'neurological') neurologicalItems.push(details);
     if (details.card === 'psych') psychItems.push(details);
     if (details.card === 'skin' && details.group === 'form') {
+      if (!skinItems.find((item) => item.label === 'Rashes')) {
+        skinItems.push({ label: 'Rashes', abnormal: true } as ExamObservationFieldItem);
+      }
+
       const resultArr: string[] = [];
 
       resultArr.push(rashesOptions[details.field as keyof typeof rashesOptions]);

@@ -47,14 +47,19 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
       </Box>
 
       {resultDetails.resultType === 'final' && (
-        <FinalCardView labStatus={resultDetails.labStatus} onMarkAsReviewed={onMarkAsReviewed} />
+        <FinalCardView
+          resultPdfUrl={resultDetails.resultPdfUrl}
+          labStatus={resultDetails.labStatus}
+          onMarkAsReviewed={onMarkAsReviewed}
+        />
       )}
 
       {resultDetails.resultType === 'preliminary' && (
         <PrelimCardView
+          resultPdfUrl={resultDetails.resultPdfUrl}
           receivedDate={resultDetails.receivedDate}
           reviewedDate={resultDetails.reviewedDate}
-          onPrelimView={() => null}
+          onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
         />
       )}
     </div>

@@ -18,7 +18,7 @@ import Snackbar from '@mui/material/Snackbar';
 import React, { ReactElement, useMemo } from 'react';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { ScheduleOverridesComponent, UpdateOverridesInput } from './ScheduleOverridesComponent';
-import { otherColors } from '../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { DateTime } from 'luxon';
 import { Day, Weekday } from '../../types/types';
 import { DailySchedule, DOW, HourOfDay, ScheduleDTO, UpdateScheduleParams } from 'utils';
@@ -355,7 +355,7 @@ export default function ScheduleComponent({
                       width: 'fit-content',
                       height: '36px',
                       minHeight: '36px',
-                      fontWeight: 700,
+                      fontWeight: 500,
                       '&.Mui-selected': {
                         color: '#FFFFFF',
                         background: '#2169F5',

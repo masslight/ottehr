@@ -15,6 +15,25 @@ export const LAB_ORDER_TASK = {
   },
 } as const;
 
+export const LAB_ORDER_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '51991-8',
+  display: 'Referral lab test panel',
+};
+
+export const LAB_RESULT_DOC_REF_CODING_CODE = {
+  system: 'http://loinc.org',
+  code: '11502-2',
+  display: 'Laboratory report',
+};
+
+export const LAB_DR_TYPE_TAG = {
+  system: 'result-type',
+  display: {
+    reflex: 'reflex',
+  },
+};
+
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';
@@ -24,10 +43,17 @@ export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefin
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we dont like any of them, we have to change there too
-export const OYSTEHR_LAB_OI_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/oystehr-oi-codes';
+export const OYSTEHR_LAB_OI_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/oystehr-lab-local-codes';
 export const FHIR_IDC10_VALUESET_SYSTEM = 'http://hl7.org/fhir/valueset-icd-10.html';
 ('http://snomed.info/sct');
 export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-guid';
+export const OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-order-placer-id';
+
+export const OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY = {
+  system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
+  code: 'OSL',
+  display: 'Outside Lab',
+};
 
 // Oystehr Labs APIs
 export const OYSTEHR_LAB_API_BASE = 'https://labs-api.zapehr.com/v1';
@@ -47,11 +73,13 @@ export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'https://identifiers.fhir.oystehr
 export const PROVENANCE_ACTIVITY_CODES = {
   review: 'REVIEW',
   submit: 'SUBMIT',
+  createOrder: 'CREATE ORDER',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
+  createOrder: 'CREATE ORDER',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -63,6 +91,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   review: {
     code: PROVENANCE_ACTIVITY_CODES.review,
     display: PROVENANCE_ACTIVITY_DISPLAY.review,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  createOrder: {
+    code: PROVENANCE_ACTIVITY_CODES.createOrder,
+    display: PROVENANCE_ACTIVITY_CODES.createOrder,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;

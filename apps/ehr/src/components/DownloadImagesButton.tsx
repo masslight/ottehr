@@ -63,7 +63,7 @@ const DownloadImagesButton = ({
         variant="outlined"
         sx={{
           borderRadius: '100px',
-          fontWeight: 700,
+          fontWeight: 500,
           textTransform: 'none',
         }}
         size="medium"
@@ -76,7 +76,7 @@ const DownloadImagesButton = ({
       variant="outlined"
       sx={{
         borderRadius: '100px',
-        fontWeight: 700,
+        fontWeight: 500,
         textTransform: 'none',
       }}
       size="medium"

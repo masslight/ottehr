@@ -19,4 +19,6 @@ export abstract class BaseProgressNotePage {
   async clickSignButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dialog.proceedButton).click();
   }
+
+  abstract expectLoaded(): Promise<void>;
 }

@@ -8,7 +8,7 @@ export class PrebookInPersonFlow extends BaseInPersonFlow {
   protected async completeBooking(): Promise<void> {
     await this.locator.clickReserveButton();
   }
-  protected async additionalStepsForPrebook(): Promise<{
+  async additionalStepsForPrebook(): Promise<{
     selectedSlot: { buttonName: string | null; selectedSlot: string | undefined };
     location: string | null;
   }> {

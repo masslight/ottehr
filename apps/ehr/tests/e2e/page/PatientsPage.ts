@@ -1,5 +1,4 @@
 import { expect, Page } from '@playwright/test';
-import { waitForResponseWithData } from 'test-utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PageWithTablePagination } from './PageWithTablePagination';
 
@@ -11,8 +10,12 @@ export class PatientsPage extends PageWithTablePagination {
     this.#page = page;
   }
 
-  async searchByName(name: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patients.searchByNameField).locator('input').fill(name);
+  async searchByLastName(name: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patients.searchByLastNameField).locator('input').fill(name);
+  }
+
+  async searchByGivenNames(names: string): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patients.searchByGivenNamesField).locator('input').fill(names);
   }
 
   async searchByDateOfBirth(dateOfBirth: string): Promise<void> {
@@ -52,7 +55,8 @@ export class PatientsPage extends PageWithTablePagination {
   }
 
   async verifyFilterReset(): Promise<void> {
-    await expect(this.#page.getByTestId(dataTestIds.patients.searchByNameField).locator('input')).toBeEmpty();
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByLastNameField).locator('input')).toBeEmpty();
+    await expect(this.#page.getByTestId(dataTestIds.patients.searchByGivenNamesField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByDateOfBirthField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByPhoneField).locator('input')).toBeEmpty();
     await expect(this.#page.getByTestId(dataTestIds.patients.searchByAddressField).locator('input')).toBeEmpty();

@@ -18,7 +18,7 @@ import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { MedicationDTO } from 'utils';
-import { otherColors } from '../../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useChartDataArrayValue, useGetAppointmentAccessibility } from '../../../../hooks';
 import { MedicationSearchResponse, useAppointmentStore, useGetMedicationsSearch } from '../../../../state';
@@ -314,7 +314,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 borderColor: otherColors.consentBorder,
                 borderRadius: 100,
                 textTransform: 'none',
-                fontWeight: 700,
+                fontWeight: 500,
                 fontSize: 14,
                 maxWidth: '100px',
               }}
