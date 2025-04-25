@@ -1,4 +1,4 @@
-import { BrowserContext, expect, Page, test } from '@playwright/test';
+import { BrowserContext, Page, test } from '@playwright/test';
 import {
   PATIENT_BIRTH_DATE_SHORT,
   PATIENT_EMAIL,
