@@ -363,10 +363,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorForDateOfBirth();
   });
 
-  test('fail', async () => {
-    expect(true).toBe(false);
-  });
-
   test('Updated values from Responsible party information block  are saved and displayed correctly', async ({
     page,
   }) => {
