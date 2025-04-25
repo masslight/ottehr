@@ -8,8 +8,18 @@ export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInp
 
   const { serviceRequestID, accountNumber, data } = JSON.parse(input.body);
 
-  if (serviceRequestID === undefined || accountNumber === undefined || data === undefined) {
-    throw new Error('These fields are required: "serviceRequestID", "accountNumber", "data"');
+  if (!serviceRequestID || !accountNumber || !data) {
+    throw new Error(
+      `These fields are required: "serviceRequestID", "accountNumber", "data". Received: ${JSON.stringify(
+        {
+          serviceRequestID,
+          accountNumber,
+          data,
+        },
+        null,
+        2
+      )}`
+    );
   }
 
   return {

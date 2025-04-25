@@ -64,7 +64,7 @@ export default function PaperworkFlagIndicator({
         <Typography
           variant="body1"
           sx={{
-            fontWeight: 700,
+            fontWeight: 500,
             background: color,
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',

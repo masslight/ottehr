@@ -13,7 +13,6 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
-  OrderDetails,
   PaginatedLabOrderResponse,
   CreateLabOrderParameters,
   GetCreateLabOrderResources,
@@ -24,6 +23,7 @@ import {
   UpdateScheduleParams,
   GetLabOrdersParameters,
   DeleteLabOrderParams,
+  SubmitLabOrderDTO,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -85,7 +85,7 @@ if (!VITE_APP_IS_LOCAL) {
   throw new Error('VITE_APP_IS_LOCAL is not defined');
 }
 
-export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<OrderDetails> => {
+export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<SubmitLabOrderDTO> => {
   try {
     if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('submit lab order zambda environment variable could not be loaded');

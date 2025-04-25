@@ -36,7 +36,7 @@ export function BooleanStateChip({ state, label, dataTestId }: BooleanStateChip)
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: '12px',
         textTransform: 'uppercase',
         background: colors.background.primary,

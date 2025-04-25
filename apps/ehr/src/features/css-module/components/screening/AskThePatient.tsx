@@ -11,6 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
+import { otherColors } from '@theme/colors';
 import React, { useEffect, useState } from 'react';
 
 import { enqueueSnackbar } from 'notistack';
@@ -26,7 +27,6 @@ import {
   recentVisitLabels,
   SEEN_IN_LAST_THREE_YEARS_FIELD,
 } from 'utils';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useDebounce, useDeleteChartData } from '../../../../telemed';
 import { useZapEHRAPIClient } from '../../../../telemed/hooks/useOystehrAPIClient';

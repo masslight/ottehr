@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState, useRef } from 'react';
 import {
   Autocomplete,
   Box,
@@ -7,6 +7,7 @@ import {
   Divider,
   FormControlLabel,
   MenuItem,
+  Skeleton,
   TextField,
   ToggleButtonGroup,
   Tooltip,
@@ -41,17 +42,30 @@ import {
 import { useDispositionMultipleNotes } from './useDispositionMultipleNotes';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
+import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 
 const ERROR_TEXT = 'Disposition data update was unsuccessful, please change some disposition field data to try again.';
 
 export const DispositionCard: FC = () => {
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const { encounter, setPartialChartData } = getSelectors(useAppointmentStore, ['encounter', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const isResetting = useRef(false);
 
   const methods = useForm<DispositionFormValues>({
-    defaultValues: chartData?.disposition
-      ? mapDispositionToForm(chartData.disposition)
-      : { ...DEFAULT_DISPOSITION_VALUES },
+    defaultValues: DEFAULT_DISPOSITION_VALUES,
+  });
+  const { control, handleSubmit, watch, getValues, setValue, reset } = methods;
+
+  const { chartData, isFetching: isChartDataLoading } = useChartData({
+    encounterId: encounter.id || '',
+    requestedFields: { disposition: {} },
+    onSuccess: (data) => {
+      setPartialChartData({ disposition: data?.disposition });
+      isResetting.current = true;
+      reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
+      setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
+      isResetting.current = false;
+    },
   });
 
   const { setNoteCache, withNote } = useDispositionMultipleNotes({ methods, savedDisposition: chartData?.disposition });
@@ -59,7 +73,6 @@ export const DispositionCard: FC = () => {
   const showVirusTest = labServiceValue?.includes?.(SEND_OUT_VIRUS_TEST_LABEL);
   const { debounce } = useDebounce(1500);
   const { mutate, isLoading } = useSaveChartData();
-  const { control, handleSubmit, watch, getValues, setValue } = methods;
   const [currentType, setCurrentType] = useState(getValues('type'));
   const [isError, setIsError] = useState(false);
 
@@ -74,6 +87,9 @@ export const DispositionCard: FC = () => {
               const disposition = data.chartData?.disposition;
               if (disposition) {
                 setPartialChartData({ disposition });
+                isResetting.current = true;
+                reset(mapDispositionToForm(disposition));
+                isResetting.current = false;
               }
             },
             onError: () => {
@@ -86,16 +102,32 @@ export const DispositionCard: FC = () => {
         );
       });
     },
-    [debounce, mutate, setPartialChartData, withNote]
+    [debounce, mutate, setPartialChartData, withNote, reset]
   );
 
   useEffect(() => {
-    const subscription = watch(() => handleSubmit(onSubmit)());
+    const subscription = watch(() => {
+      if (!isResetting.current) {
+        void handleSubmit(onSubmit)();
+      }
+    });
     return () => subscription.unsubscribe();
   }, [handleSubmit, onSubmit, watch]);
 
   const fields = dispositionFieldsPerType[currentType];
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'speciality'];
+
+  if (isChartDataLoading || !chartData?.disposition) {
+    return (
+      <AccordionCard label="Disposition">
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+        </Box>
+      </AccordionCard>
+    );
+  }
 
   return (
     <AccordionCard
