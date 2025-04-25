@@ -46,7 +46,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const {
       serviceRequest,
       patient,
-      diagnosticReport,
       practitioner: provider,
       questionnaireResponse,
       task,
@@ -62,10 +61,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!encounter.id) {
       throw new Error('encounter id is undefined');
-    }
-
-    if (!diagnosticReport.id) {
-      throw new Error('diagnostic report id is undefined');
     }
 
     if (!locationID || !isValidUUID(locationID)) {
