@@ -311,10 +311,17 @@ async function processCsv(
         existingPlansMap.set(newInsPlan.name!, newInsPlan);
       } catch (error) {
         console.error(`Error processing row: ${JSON.stringify(error)}`, data);
+        throw error;
       }
     });
 
-    await Promise.allSettled(promises);
+    await Promise.allSettled(promises).then((results) => {
+      results.forEach((result) => {
+        if (result.status === 'rejected') {
+          console.error(`Error processing row: ${JSON.stringify(result)}`);
+        }
+      });
+    });
   }
   console.log('CSV file successfully processed');
 }
