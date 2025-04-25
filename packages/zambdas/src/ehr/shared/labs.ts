@@ -32,7 +32,7 @@ import {
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
   patient: Patient;
-  questionnaireResponse: QuestionnaireResponse;
+  questionnaireResponse?: QuestionnaireResponse;
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
@@ -143,10 +143,6 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
 
   if (practitionersTemp?.length !== 1) {
     throw new Error('practitioner is not found');
-  }
-
-  if (questionnaireResponsesTemp?.length !== 1) {
-    throw new Error('questionnaire response is not found');
   }
 
   if (tasksTemp?.length !== 1) {
