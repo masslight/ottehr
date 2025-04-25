@@ -43,7 +43,6 @@ import { openAddPatientPage } from '../page/AddPatientPage';
 import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
 
-const resourceHandler = new ResourceHandler();
 const NEW_PATIENT_LAST_NAME = 'Test_lastname';
 const NEW_PATIENT_FIRST_NAME = 'Test_firstname';
 const NEW_PATIENT_MIDDLE_NAME = 'Test_middle';
@@ -87,6 +86,8 @@ const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
 test.describe('Patient Record Page non-mutating tests', () => {
+  const resourceHandler = new ResourceHandler();
+
   test.beforeAll(async () => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
@@ -102,9 +103,74 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientRecordPage.clickSeeAllPatientInfoButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
   });
+
+  test('Verify required data from Patient info block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
+    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
+  });
+
+  test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
+    await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
+    await patientInformationPage.verifyCity(DEMO_VISIT_CITY);
+    await patientInformationPage.verifyState(DEMO_VISIT_STATE);
+    await patientInformationPage.verifyZip(DEMO_VISIT_ZIP);
+    await patientInformationPage.verifyPatientEmail(PATIENT_EMAIL);
+    await patientInformationPage.verifyPatientMobile(PATIENT_PHONE_NUMBER);
+  });
+
+  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
+    await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
+    await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(
+      DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH +
+        '/' +
+        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY +
+        '/' +
+        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR
+    );
+    await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
+    await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
+  });
+
+  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
+    await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
+    await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
+    await patientInformationPage.verifyMarketingMessaging(DEMO_VISIT_MARKETING_MESSAGING ? 'Yes' : 'No');
+    await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
+  });
+
+  test('Verify data from Primary Care Physician block is displayed correctly', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
+    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
+    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
+    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
+    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
+  });
+
+  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.setCheckboxOn();
+    await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
+    await patientInformationPage.verifyAddressFromPcpIsNotVisible();
+    await patientInformationPage.verifyMobileFromPcpIsNotVisible();
+  });
 });
 
 test.describe('Patient Record Page mutating tests', () => {
+  const resourceHandler = new ResourceHandler();
+
   test.beforeEach(async () => {
     await resourceHandler.setResources();
     await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
@@ -176,14 +242,6 @@ test.describe('Patient Record Page mutating tests', () => {
     */
   });
 
-  test('Verify required data from Patient info block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
-    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
-    await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
-    await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
-  });
-
   test('Check validation error is displayed if any required field in Patient info block is missing', async ({
     page,
   }) => {
@@ -196,6 +254,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_FIRST_NAME);
     await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
   });
+
   test('Updated values from Patient info block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientLastName(NEW_PATIENT_LAST_NAME);
@@ -219,17 +278,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientDateOfBirth(NEW_PATIENT_DATE_OF_BIRTH);
     await patientInformationPage.verifyPatientPreferredPronouns(NEW_PATIENT_PREFERRED_PRONOUNS);
     await patientInformationPage.verifyPatientBirthSex(NEW_PATIENT_BIRTH_SEX);
-  });
-
-  test('Verify required data from Contact info block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyStreetAddress(DEMO_VISIT_STREET_ADDRESS);
-    await patientInformationPage.verifyAddressLineOptional(DEMO_VISIT_STREET_ADDRESS_OPTIONAL);
-    await patientInformationPage.verifyCity(DEMO_VISIT_CITY);
-    await patientInformationPage.verifyState(DEMO_VISIT_STATE);
-    await patientInformationPage.verifyZip(DEMO_VISIT_ZIP);
-    await patientInformationPage.verifyPatientEmail(PATIENT_EMAIL);
-    await patientInformationPage.verifyPatientMobile(PATIENT_PHONE_NUMBER);
   });
 
   test('Check validation error is displayed if any required field in Contact info block is missing', async ({
@@ -295,22 +343,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPatientMobile(NEW_PATIENT_MOBILE);
   });
 
-  test('Verify data from Responsible party information block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyRelationshipFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_RELATIONSHIP);
-    await patientInformationPage.verifyFirstNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_LAST_NAME);
-    await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(
-      DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH +
-        '/' +
-        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY +
-        '/' +
-        DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR
-    );
-    await patientInformationPage.verifyBirthSexFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_BIRTH_SEX);
-    await patientInformationPage.verifyPhoneFromResponsibleContainer(DEMO_VISIT_RESPONSIBLE_PHONE);
-  });
-
   test('Check validation error is displayed if any required field in Responsible party information block is missing or phone number is invalid', async ({
     page,
   }) => {
@@ -356,15 +388,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 
-  test('Verify entered by patient data from Patient details block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyPatientEthnicity(DEMO_VISIT_PATIENT_ETHNICITY);
-    await patientInformationPage.verifyPatientRace(DEMO_VISIT_PATIENT_RACE);
-    await patientInformationPage.verifyHowDidYouHear(DEMO_VISIT_POINT_OF_DISCOVERY);
-    await patientInformationPage.verifyMarketingMessaging(DEMO_VISIT_MARKETING_MESSAGING ? 'Yes' : 'No');
-    await patientInformationPage.verifyPreferredLanguage(DEMO_VISIT_PREFERRED_LANGUAGE);
-  });
-
   test('Updated values from Patient details  block  are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.selectPatientEthnicity(NEW_PATIENT_ETHNICITY);
@@ -388,15 +411,6 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
     await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
     await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
-  });
-
-  test('Verify data from Primary Care Physician block is displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.verifyFirstNameFromPcp(DEMO_VISIT_PROVIDER_FIRST_NAME);
-    await patientInformationPage.verifyLastNameFromPcp(DEMO_VISIT_PROVIDER_LAST_NAME);
-    await patientInformationPage.verifyPracticeNameFromPcp(DEMO_VISIT_PRACTICE_NAME);
-    await patientInformationPage.verifyAddressFromPcp(DEMO_VISIT_PHYSICIAN_ADDRESS);
-    await patientInformationPage.verifyMobileFromPcp(DEMO_VISIT_PHYSICIAN_MOBILE);
   });
 
   /* test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
@@ -425,16 +439,6 @@ test.describe('Patient Record Page mutating tests', () => {
   });*/
   // todo: uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
 
-  test('Check all fields from Primary Care Physician block are hidden when checkbox is checked', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.setCheckboxOn();
-    await patientInformationPage.verifyFirstNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyLastNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyPracticeNameFromPcpIsNotVisible();
-    await patientInformationPage.verifyAddressFromPcpIsNotVisible();
-    await patientInformationPage.verifyMobileFromPcpIsNotVisible();
-  });
-
   test('Updated values from Primary Care Physician block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
@@ -456,6 +460,7 @@ test.describe('Patient Record Page mutating tests', () => {
 });
 
 test.describe('Patient Record Page tests with zero patient data filled in', () => {
+  const resourceHandler = new ResourceHandler();
   let appointmentIds: string[] = [];
   let context: BrowserContext;
   let page: Page;
@@ -472,6 +477,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', () =
         }
       }
     });
+    await resourceHandler.setResources();
   });
 
   test.afterEach(async () => {
