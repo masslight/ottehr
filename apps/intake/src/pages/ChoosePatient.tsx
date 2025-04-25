@@ -11,7 +11,6 @@ import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, Visi
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { ottehrApi } from '../api';
-import { ottehrLightBlue } from '../assets/icons';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { safelyCaptureException } from '../helpers/sentry';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
@@ -19,6 +18,7 @@ import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { Appointment } from '../types';
 import { useBookingContext } from './BookingHome';
 import PatientList from '../features/patients/components/selectable-list';
+import { ottehrLightBlue } from '@theme/icons';
 
 const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
@@ -374,7 +374,7 @@ const ChoosePatient = (): JSX.Element => {
             descText={t('welcomeBack.checkIn')}
             link={intakeFlowPageRoute.Appointments.path}
             linkText={t('appointments.checkIn')}
-            bgColor={otherColors.brightPurple}
+            bgColor={otherColors.purple}
             marginTop={0}
             marginBottom={2}
             paddingY={6}

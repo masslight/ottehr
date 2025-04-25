@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { generatePath, useNavigate } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { intakeFlowPageRoute, BOOKING_SLOT_ID_PARAM } from '../App';
-import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer } from '../components';
 import { useBookingContext } from './BookingHome';
-
+import { PROJECT_NAME } from 'utils';
+import { ottehrLightBlue } from '@theme/icons';
 const NewUser = (): JSX.Element => {
   const navigate = useNavigate();
   const { slotId, patientInfo, setPatientInfo } = useBookingContext();
@@ -37,7 +37,12 @@ const NewUser = (): JSX.Element => {
   };
 
   return (
-    <PageContainer title={t('newUser.title')} img={ottehrLightBlue} imgAlt="ottehr icon" imgWidth={100}>
+    <PageContainer
+      title={t('newUser.title', { PROJECT_NAME })}
+      img={ottehrLightBlue}
+      imgAlt="ottehr icon"
+      imgWidth={100}
+    >
       <Typography variant="body1" className="user-description">
         {t('newUser.body')}
       </Typography>

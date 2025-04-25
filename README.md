@@ -144,7 +144,7 @@ npm run ehr:e2e:local:ui
 
 Ottehr uses UMLS Terminology Services for searching for ICD-10 and CPT codes.
 
-To set up the terminology search service, please follow these instructions in the [Oystehr docs](https://docs.oystehr.com/services/zambda/examples/terminology-search/#1-get-a-national-library-of-medicine-api-key), and then save the API key as `NLM_API_KEY` in the Zambdas secrets.
+To set up the terminology search service, please follow these instructions in the [Oystehr docs](https://docs.oystehr.com/oystehr/services/zambda/examples/terminology-search/#1-get-a-national-library-of-medicine-api-key), and then save the API key as `NLM_API_KEY` in the Zambdas secrets.
 
 ## Repository Structure
 
@@ -153,7 +153,7 @@ This repository uses a monorepo structure.
 - `apps` &mdash; Frontend web apps
   - intake &mdash; The patient's side
   - ehr &mdash; The provider's side
-- `packages/{ehr|intake}/zambdas` &mdash; The application's backend endpoints, deployed on [Oystehr Zambda](https://docs.oystehr.com/services/zambda/).
+- `packages/{ehr|intake}/zambdas` &mdash; The application's backend endpoints, deployed on [Oystehr Zambda](https://docs.oystehr.com/oystehr/services/zambda/).
 - `packages/{other folders}` &mdash; Other modules that are imported by apps like `utils`, `ui-components`
 
 ## Apps
@@ -167,6 +167,33 @@ This repository uses a monorepo structure.
 
 - [Frontend Documentation](./apps/intake/README.md)
 - [E2E Testing Guide](./apps/intake/tests/e2e-readme/README.md)
+
+### Customization
+
+#### To customize your Ottehr app:
+
+- Update the "VITE_APP_NAME" environment variable from both ehr and intake env folders
+- Modify the project name, website and support email from `packages/utils/lib/types/constants.ts`
+
+#### To theme your Ottehr Intake app:
+
+- Copy the files in `apps/intake/src/theme` into a new folder, for example `apps/intake/src/myTheme`
+- Update the theme environment variables to point to your new folders:
+  ```bash
+  THEME_PATH='/src/themes/myTheme'
+  ```
+- Modify the images, svgs and colors as needed
+- Restart the app
+
+#### To theme your Ottehr Ehr app:
+
+- Copy the files in `apps/ehr/src/theme` into a new folder, for example `apps/ehr/src/myTheme`
+- Update the theme environment variables to point to your new folders:
+  ```bash
+  THEME_PATH='/src/themes/myTheme'
+  ```
+- Modify the images, svgs and colors as needed
+- Restart the app
 
 ## Zambdas
 

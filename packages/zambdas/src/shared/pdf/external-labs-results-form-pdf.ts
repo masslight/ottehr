@@ -1,12 +1,211 @@
 import fontkit from '@pdf-lib/fontkit';
-import { Patient } from 'fhir/r4';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo, rgbNormalized } from './pdf-utils';
 import { LabResultsData } from './types';
-import { Secrets } from 'utils';
+import {
+  createFilesDocumentReferences,
+  isValidUUID,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  Secrets,
+} from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
+import { DateTime } from 'luxon';
+import { randomUUID } from 'crypto';
+import Oystehr from '@oystehr/sdk';
+import { ActivityDefinition, DocumentReference, List, Location, Practitioner, Provenance } from 'fhir/r4b';
+import { getLabOrderResources } from '../../ehr/shared/labs';
+
+export async function createLabResultPDF(
+  oystehr: Oystehr,
+  serviceRequestID: string,
+  reviewed: boolean,
+  secrets: Secrets | null,
+  token: string
+): Promise<void> {
+  const {
+    serviceRequest,
+    patient,
+    practitioner: provider,
+    task: taskPST,
+    diagnosticReport,
+    appointment,
+    encounter,
+    organization,
+    observations,
+  } = await getLabOrderResources(oystehr, serviceRequestID);
+  console.log(1, observations);
+  const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
+
+  if (!diagnosticReport.id) {
+    throw new Error('diagnostic report id is undefined');
+  }
+
+  if (!appointment.id) {
+    throw new Error('appointment id is undefined');
+  }
+
+  if (!encounter.id) {
+    throw new Error('encounter id is undefined');
+  }
+
+  if (!locationID || !isValidUUID(locationID)) {
+    throw new Error(`location id ${locationID} is not a uuid`);
+  }
+
+  if (!patient.id) {
+    throw new Error('patient.id is undefined');
+  }
+
+  if (!diagnosticReport) {
+    throw new Error('diagnostic report is undefined');
+  }
+
+  const provenanceRequestTemp = (
+    await oystehr.fhir.search<Provenance | Practitioner>({
+      resourceType: 'Provenance',
+      params: [
+        {
+          name: '_id',
+          value: taskPST.relevantHistory?.[0].reference?.replace('Provenance/', '') || '',
+        },
+        {
+          name: '_include',
+          value: 'Provenance:agent',
+        },
+      ],
+    })
+  )?.unbundle();
+
+  const taskProvenanceTemp: Provenance[] | undefined = provenanceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Provenance => resourceTemp.resourceType === 'Provenance'
+  );
+  const taskPractitionersTemp: Practitioner[] | undefined = provenanceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Practitioner => resourceTemp.resourceType === 'Practitioner'
+  );
+
+  if (taskProvenanceTemp.length !== 1) {
+    throw new Error('provenance is not found');
+  }
+
+  if (taskPractitionersTemp.length !== 1) {
+    throw new Error('practitioner is not found');
+  }
+
+  const taskProvenance = taskProvenanceTemp[0];
+  const taskPractitioner = taskPractitionersTemp[0];
+
+  const location: Location = await oystehr.fhir.get({
+    resourceType: 'Location',
+    id: locationID,
+  });
+
+  const now = DateTime.now();
+  const orderID = serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+
+  const accessionNumber = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value;
+  const reviewDate = DateTime.fromISO(taskProvenance.recorded).toFormat('MM/dd/yyyy');
+  const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
+
+  const pdfDetail = await createExternalLabsResultsFormPDF(
+    {
+      locationName: location.name || ORDER_RESULT_ITEM_UNKNOWN,
+      locationStreetAddress: location.address?.line?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+      locationCity: location.address?.city || ORDER_RESULT_ITEM_UNKNOWN,
+      locationState: location.address?.state || ORDER_RESULT_ITEM_UNKNOWN,
+      locationZip: location.address?.postalCode || ORDER_RESULT_ITEM_UNKNOWN,
+      locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      reqId: orderID || ORDER_RESULT_ITEM_UNKNOWN,
+      providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_RESULT_ITEM_UNKNOWN,
+      providerTitle:
+        provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') ||
+        ORDER_RESULT_ITEM_UNKNOWN,
+      providerNPI:
+        provider.identifier?.find((id) => id.system === 'http://hl7.org/fhir/sid/us-npi')?.value ||
+        ORDER_RESULT_ITEM_UNKNOWN,
+      patientFirstName: patient.name?.[0].given?.[0] || ORDER_RESULT_ITEM_UNKNOWN,
+      patientMiddleName: patient.name?.[0].given?.[1] || '',
+      patientLastName: patient.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
+      patientSex: patient.gender || ORDER_RESULT_ITEM_UNKNOWN,
+      patientDOB: patient.birthDate
+        ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
+        : ORDER_RESULT_ITEM_UNKNOWN,
+      patientId: patient.id,
+      patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_RESULT_ITEM_UNKNOWN,
+      patientPhone: patient.telecom?.[0].value || ORDER_RESULT_ITEM_UNKNOWN,
+      todayDate: now.toFormat('MM/dd/yy hh:mm a'),
+      orderDate: now.toFormat('MM/dd/yy hh:mm a'),
+      orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
+      testName:
+        serviceRequest.contained
+          ?.filter((item): item is ActivityDefinition => item.resourceType === 'ActivityDefinition')
+          .map((resource) => resource.title)
+          .join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
+      assessmentCode:
+        serviceRequest.reasonCode?.map((code) => code.coding?.[0].code).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
+      assessmentName: serviceRequest.reasonCode?.map((code) => code.text).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
+      accessionNumber: accessionNumber || ORDER_RESULT_ITEM_UNKNOWN,
+      // orderReceived: '10/10/2024',
+      // specimenReceived: '10/10/2024',
+      // reportDate: '10/10/2024',
+      // specimenSource: 'Throat',
+      // specimenDescription: 'Throat culture',
+      specimenValue: undefined,
+      specimenReferenceRange: undefined,
+      resultBody:
+        observations.map((observation) => observation.code.coding?.[0].display).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
+      resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
+      reviewed,
+      reviewingProviderFirst: taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+      reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
+      reviewingProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
+      reviewDate: reviewDate,
+      testItemCode:
+        diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+        diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
+        ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabName: organization.name || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabStreetAddress: organization.address?.[0].line?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabCity: organization.address?.[0].city || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabState: organization.address?.[0].state || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabZip: organization.address?.[0].postalCode || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabPhone:
+        organization.contact
+          ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
+          ?.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      // abnormalResult: true,
+      performingLabDirectorFirstName:
+        organization.contact
+          ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
+          ?.name?.given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabDirectorLastName:
+        organization.contact?.find(
+          (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
+        )?.name?.family || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabDirectorTitle: ORDER_RESULT_ITEM_UNKNOWN,
+      // performingLabDirector: organization.contact?.[0].name
+      //   ? oystehr.fhir.formatHumanName(organization.contact?.[0].name)
+      //   : ORDER_RESULT_ITEM_UNKNOWN,
+    },
+    patient.id,
+    secrets,
+    token
+  );
+
+  await makeLabPdfDocumentReference({
+    oystehr,
+    type: 'results',
+    pdfInfo: pdfDetail,
+    patientID: patient.id,
+    encounterID: encounter.id,
+    diagnosticReportID: diagnosticReport.id,
+  });
+}
 
 async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -397,7 +596,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
 
   // Order details
-  drawFieldLineLeft('Assession ID:', data.accessionNumber);
+  drawFieldLineLeft('Accession ID:', data.accessionNumber);
   drawFieldLineRight('Order Date:', data.orderDate);
   addNewLine();
   drawFieldLineLeft('Requesting physician:', data.providerName);
@@ -410,22 +609,22 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   drawFieldLineRight('Order Sent:', data.orderDate);
   addNewLine();
   drawFieldLineLeft('Order priority:', data.orderPriority.toUpperCase());
-  drawFieldLineRight('Order Received:', data.orderReceived);
+  // drawFieldLineRight('Order Received:', data.orderReceived);
   addNewLine();
-  drawFieldLineRight('Specimen Received', data.specimenReceived);
+  // drawFieldLineRight('Specimen Received', data.specimenReceived);
   addNewLine();
-  drawFieldLineRight('Reported:', data.reportDate);
+  // drawFieldLineRight('Reported:', data.reportDate);
   addNewLine();
   drawSeparatorLine();
   addNewLine();
 
   // Specimen details block
-  drawFieldLineLeft('Specimen source:', data.specimenSource.toUpperCase());
-  drawFieldLineRight('Specimen description:', data.specimenDescription);
+  // drawFieldLineLeft('Specimen source:', data.specimenSource.toUpperCase());
+  // drawFieldLineRight('Specimen description:', data.specimenDescription);
   addNewLine();
   drawFieldLineLeft('Dx:', `${data.assessmentCode} ${`(${data.assessmentName})`}`);
   addNewLine(undefined, 3);
-  drawLargeHeader(data.labType.toUpperCase());
+  drawLargeHeader(data.testName.toUpperCase());
   addNewLine(undefined, 2);
   drawSeparatorLine(styles.margin.x, width - styles.margin.x);
   addNewLine();
@@ -435,10 +634,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
   drawFiveColumnText(
     data.resultPhase,
-    data.labType.toUpperCase(),
-    data.specimenValue.toUpperCase(),
+    data.testName.toUpperCase(),
+    data.specimenValue?.toUpperCase() || '',
     referenceRangeText(),
-    data.performingLabCode,
+    data.testItemCode,
     styles.regularTextBold.font,
     14,
     styles.colors.red
@@ -450,21 +649,26 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
 
   // Performing lab details
-  drawRegularTextRight(`PERFORMING LAB: ${data.performingLabCode}, ${data.performingLabName}`);
+  drawRegularTextRight(`PERFORMING LAB: ${data.performingLabName}`);
   addNewLine();
   drawRegularTextRight(
-    `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip} Director: ${data.performingLabDirector}`
+    `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip}`
   );
   addNewLine();
   drawRegularTextRight(
-    `${data.performingLabProviderFirstName} ${data.performingLabProviderLastName}, ${data.performingLabProviderTitle}, ${data.performingLabPhone}`
+    `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`
   );
   addNewLine();
 
   // Reviewed by
-  drawSeparatorLine();
-  addNewLine();
-  drawFieldLineLeft(`Reviewed: ${data.reviewDate} by`, `${data.reviewingProviderTitle} ${data.reviewingProviderLast}`);
+  if (data.reviewed) {
+    drawSeparatorLine();
+    addNewLine();
+    drawFieldLineLeft(
+      `Reviewed: ${data.reviewDate} by`,
+      `${data.reviewingProviderTitle} ${data.reviewingProviderFirst} ${data.reviewingProviderLast}`
+    );
+  }
 
   return await pdfDoc.save();
 }
@@ -476,14 +680,10 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsResultsFormPDF(
   input: LabResultsData,
-  patient: Patient,
+  patientID: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  if (!patient.id) {
-    throw new Error('No patient id found for external lab order');
-  }
-
   console.log('Creating labs order form pdf bytes');
   const pdfBytes = await createExternalLabsResultsFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
@@ -491,9 +691,9 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = 'ExternalLabsResultsForm.pdf';
+  const fileName = `ExternalLabsResultsForm${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
+  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
@@ -503,4 +703,71 @@ export async function createExternalLabsResultsFormPDF(
   // savePdfLocally(pdfBytes);
 
   return { title: fileName, uploadURL: baseFileUrl };
+}
+
+export async function makeLabPdfDocumentReference({
+  oystehr,
+  type,
+  pdfInfo,
+  patientID,
+  encounterID,
+  listResources,
+  serviceRequestID,
+  diagnosticReportID,
+  reviewed,
+}: {
+  oystehr: Oystehr;
+  type: 'order' | 'results';
+  pdfInfo: PdfInfo;
+  patientID: string;
+  encounterID: string;
+  listResources?: List[] | undefined;
+  serviceRequestID?: string;
+  diagnosticReportID?: string;
+  reviewed?: boolean;
+}): Promise<DocumentReference> {
+  let docType;
+  if (type === 'results') {
+    docType = {
+      coding: [LAB_RESULT_DOC_REF_CODING_CODE],
+      text: 'Lab result document',
+    };
+  } else if (type === 'order') {
+    docType = {
+      coding: [LAB_ORDER_DOC_REF_CODING_CODE],
+      text: 'Lab order document',
+    };
+  } else {
+    throw new Error('Invalid type of lab document');
+  }
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+      },
+    ],
+    type: docType,
+    references: {
+      subject: {
+        reference: `Patient/${patientID}`,
+      },
+      context: {
+        related: [
+          {
+            reference:
+              type === 'order' ? `ServiceRequest/${serviceRequestID}` : `DiagnosticReport/${diagnosticReportID}`,
+          },
+        ],
+        encounter: [{ reference: `Encounter/${encounterID}` }],
+      },
+    },
+    docStatus: !reviewed ? 'preliminary' : 'final',
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    searchParams: [],
+    listResources,
+  });
+  return docRefs[0];
 }

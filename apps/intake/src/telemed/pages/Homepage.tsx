@@ -5,10 +5,9 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { ServiceMode } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../../App';
+import { ServiceMode, PROJECT_NAME } from 'utils';
 import { otherColors } from '../../IntakeThemeProvider';
-import { pastVisits } from '../assets/icons';
 import { CancelVisitDialog } from '../components';
 import {
   findActiveAppointment,
@@ -20,6 +19,7 @@ import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import HomepageOption from '../features/homepage/HomepageOption';
 import { useZapEHRAPIClient } from '../utils';
 import { dataTestIds } from '../../helpers/data-test-ids';
+import { pastVisits } from '@theme/icons';
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
@@ -92,7 +92,7 @@ const Homepage = (): JSX.Element => {
   };
 
   return (
-    <CustomContainer title="Welcome to Ottehr" description="" isFirstPage={true}>
+    <CustomContainer title={`Welcome to ${PROJECT_NAME}`} description="" isFirstPage={true}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {isAppointmentsFetching ? (
           <Skeleton

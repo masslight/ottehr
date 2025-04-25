@@ -7,7 +7,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ui-components';
 import { getSelectors } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
-import { ottehrLightBlue } from '../assets';
+import { ottehrLightBlue } from '@theme/icons';
 import { CallSettings, CancelVisitDialog } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';

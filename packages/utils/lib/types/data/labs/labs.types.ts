@@ -79,6 +79,7 @@ export type LabOrderResultDetails = {
   taskId: string;
   receivedDate: string;
   reviewedDate: string | null;
+  resultPdfUrl: string | null;
 };
 
 export type QuestionnaireData = {
@@ -148,6 +149,20 @@ export type LabOrdersPaginationOptions = {
 };
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
+
+export interface DynamicAOEInput {
+  [key: string]: any;
+}
+
+export type SubmitLabOrderInput = {
+  serviceRequestID: string;
+  accountNumber: string;
+  data: DynamicAOEInput;
+};
+
+export type SubmitLabOrderDTO = {
+  pdfUrl: string;
+};
 
 export type CreateLabOrderParameters = {
   dx: DiagnosisDTO[];

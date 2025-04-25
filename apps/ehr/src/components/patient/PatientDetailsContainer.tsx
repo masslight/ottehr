@@ -100,6 +100,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
           <Box sx={{ display: 'flex', alignItems: 'center', alignSelf: 'end', flex: '0 1 70%' }}>
             <FormTextField
               name={FormFields.genderIdentityDetails.key}
+              data-testid={dataTestIds.patientDetailsContainer.pleaseSpecifyField}
               control={control}
               rules={{
                 validate: (value: string) => {

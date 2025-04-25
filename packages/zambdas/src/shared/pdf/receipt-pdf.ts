@@ -22,26 +22,26 @@ async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
   };
   const pdfClient = await createPdfClient(pdfClientStyles);
 
-  const RobotoFont = await pdfClient.embedFont(fs.readFileSync('./assets/Roboto-Regular.otf'));
-  const RobotoFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Roboto-Bold.otf'));
-  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./assets/ottehrLogo.png'));
+  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
+  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assetsRubik-Bold.otf'));
+  const ottehrLogo = await pdfClient.embedImage(fs.readFileSync('./ottehrLogo.png'));
 
   const textStyles: Record<string, TextStyle> = {
     blockHeader: {
       fontSize: 12,
       spacing: 12,
-      font: RobotoFontBold,
+      font: RubikFontBold,
       newLineAfter: true,
     },
     fieldHeader: {
       fontSize: 12,
-      font: RobotoFont,
+      font: RubikFont,
       spacing: 1,
     },
     fieldText: {
       fontSize: 12,
       spacing: 6,
-      font: RobotoFont,
+      font: RubikFont,
       side: 'right',
       newLineAfter: true,
     },

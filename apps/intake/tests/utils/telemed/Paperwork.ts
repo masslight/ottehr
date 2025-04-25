@@ -1,7 +1,6 @@
 import { Page, expect, Locator } from '@playwright/test';
 import { waitForResponseWithData } from 'test-utils';
 import { FillingInfo } from './FillingInfo';
-import { Paperwork } from '../Paperwork';
 import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { UIDesign } from './UIdesign';
 import {
@@ -26,7 +25,6 @@ export class PaperworkTelemed {
   fillingInfo: FillingInfo;
   uiDesign: UIDesign;
   locators: Locators;
-  paperwork: Paperwork;
   commonLocatorsHelper: CommonLocatorsHelper;
 
   constructor(page: Page) {
@@ -34,7 +32,6 @@ export class PaperworkTelemed {
     this.fillingInfo = new FillingInfo(page);
     this.uiDesign = new UIDesign(page);
     this.locators = new Locators(page);
-    this.paperwork = new Paperwork(page);
     this.commonLocatorsHelper = new CommonLocatorsHelper(page);
   }
   private async clickContinueButton(awaitRedirect = true): Promise<void> {
@@ -420,7 +417,7 @@ export class PaperworkTelemed {
     phone: string;
     formattedPhoneNumber: string;
   }> {
-    const formattedPhoneNumber = await this.paperwork.formatPhoneNumber(phone);
+    const formattedPhoneNumber = await this.formatPhoneNumber(phone);
     await this.locators.inviteeContactPhone.check();
     const emailLocator = place === 'paperwork' ? this.locators.inviteeEmail : this.locators.wrInviteeEmail;
     const phoneLocator = place === 'paperwork' ? this.locators.inviteePhone : this.locators.wrInviteePhoneNumber;
@@ -454,35 +451,8 @@ export class PaperworkTelemed {
     const email = choice === 'email' ? (await this.fillInviteParticipantEmail(place)).email : null;
     return { inviteeName, phone, email };
   }
-  async fillPaperworkOnlyRequiredFieldsTelemed(): Promise<void> {
-    await this.paperwork.fillContactInformationRequiredFields();
-    await this.locators.clickContinueButton();
-    await this.paperwork.fillPatientDetailsTelemedAllFields();
-    await this.locators.clickContinueButton();
-    await this.paperwork.skipPrimaryCarePhysician();
-    await this.locators.clickContinueButton();
-    await this.fillAndCheckEmptyCurrentMedications();
-    await this.locators.clickContinueButton();
-    await this.fillAndCheckEmptyCurrentAllergies();
-    await this.locators.clickContinueButton();
-    await this.fillAndCheckEmptyMedicalHistory();
-    await this.locators.clickContinueButton();
-    await this.fillAndCheckEmptySurgicalHistory();
-    await this.locators.clickContinueButton();
-    await this.fillAndCheckAdditionalQuestions();
-    await this.locators.clickContinueButton();
-    await this.paperwork.selectSelfPayPayment();
-    await this.locators.clickContinueButton();
-    await this.paperwork.fillResponsiblePartyDataSelf();
-    await this.locators.clickContinueButton();
-    await this.paperwork.skipPhotoID();
-    await this.locators.clickContinueButton();
-    await this.locators.clickContinueButton();
-    await this.fillAndCheckSchoolWorkNoteAsNone();
-    await this.locators.clickContinueButton();
-    await this.paperwork.fillConsentForms();
-    await this.locators.clickContinueButton();
-    await this.fillAndCheckNoInviteParticipant();
-    await this.locators.clickContinueButton();
+  formatPhoneNumber(phoneNumber: string): string {
+    const digits = phoneNumber.replace(/\D/g, '');
+    return digits.replace(/^1?(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3') || phoneNumber;
   }
 }

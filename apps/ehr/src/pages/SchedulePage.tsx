@@ -15,7 +15,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
