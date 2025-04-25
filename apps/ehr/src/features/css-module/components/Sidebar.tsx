@@ -5,10 +5,9 @@ import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
 import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { CompleteIntakeButton } from './CompleteIntakeButton';
-import { practitionerType } from '../../../helpers/practitionerUtils';
 import { useAppointment } from '../hooks/useAppointment';
 import { usePractitionerActions } from '../hooks/usePractitioner';
-import { getSelectors, getVisitStatus } from 'utils';
+import { getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useAppointmentStore } from '../../../telemed';
@@ -243,7 +242,7 @@ export const Sidebar = (): JSX.Element => {
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
-    practitionerType.Admitter
+    PRACTITIONER_CODINGS.Admitter
   );
 
   const handleCompleteIntake = async (): Promise<void> => {
