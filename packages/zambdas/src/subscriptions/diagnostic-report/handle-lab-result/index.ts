@@ -114,7 +114,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
-    await createLabResultPDF(oystehr, serviceRequestID, false, secrets, zapehrToken);
+    await createLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, zapehrToken);
 
     return {
       statusCode: 200,

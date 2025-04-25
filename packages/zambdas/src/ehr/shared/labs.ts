@@ -36,7 +36,7 @@ export type LabOrderResources = {
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
-  diagnosticReport: DiagnosticReport;
+  diagnosticReports: DiagnosticReport[];
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
@@ -120,7 +120,8 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
   );
   const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is DiagnosticReport => resourceTemp.resourceType === 'DiagnosticReport'
+    (resourceTemp): resourceTemp is DiagnosticReport =>
+      resourceTemp.resourceType === 'DiagnosticReport' && isLabsDiagnosticReport(resourceTemp)
   );
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
@@ -167,7 +168,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
-  const diagnosticReport = diagnosticReportsTemp?.[0];
+  const diagnosticReports = diagnosticReportsTemp;
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
@@ -179,7 +180,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     questionnaireResponse: questionnaireResponse,
     task,
     organization,
-    diagnosticReport,
+    diagnosticReports,
     appointment,
     encounter,
     observations,
@@ -239,9 +240,7 @@ export const makeEncounterLabResult = async (
       }
     }
     if (resource.resourceType === 'DiagnosticReport') {
-      const isLabsDR = !!resource.category?.find(
-        (category) => category?.coding?.find((c) => c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system)
-      );
+      const isLabsDR = isLabsDiagnosticReport(resource);
       if (isLabsDR) {
         diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;
       }
@@ -358,4 +357,15 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
     url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=active&code=${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
   };
   return [docRefSearch, activeLabServiceRequestSearch];
+};
+
+const isLabsDiagnosticReport = (diagnosicReport: DiagnosticReport): boolean => {
+  return !!diagnosicReport.category?.find(
+    (cat) =>
+      cat?.coding?.find(
+        (c) =>
+          c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system &&
+          c.code === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
+      )
+  );
 };
