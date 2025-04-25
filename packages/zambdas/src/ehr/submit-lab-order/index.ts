@@ -4,6 +4,7 @@ import {
   isValidUUID,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  getPresignedURL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -46,7 +47,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const {
       serviceRequest,
       patient,
-      diagnosticReport,
       practitioner: provider,
       questionnaireResponse,
       task,
@@ -64,21 +64,27 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('encounter id is undefined');
     }
 
-    if (!diagnosticReport.id) {
-      throw new Error('diagnostic report id is undefined');
-    }
-
     if (!locationID || !isValidUUID(locationID)) {
       throw new Error(`location id ${locationID} is not a uuid`);
+    }
+
+    if (!patient.id) {
+      throw new Error('patient.id is undefined');
+    }
+
+    if (!questionnaireResponse.id) {
+      throw Error('questionnaire response id is undefined');
     }
 
     const location: Location = await oystehr.fhir.get({
       resourceType: 'Location',
       id: locationID,
     });
+
     let coverage: Coverage | undefined = undefined;
     let organization: Organization | undefined = undefined;
     let coveragePatient: Patient | undefined = undefined;
+
     if (serviceRequest.insurance && serviceRequest.insurance?.length > 0) {
       const insuranceRequestTemp = (
         await oystehr.fhir.search<Patient | Coverage | Organization>({
@@ -103,46 +109,60 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       const coveragesRequestsTemp: Coverage[] | undefined = insuranceRequestTemp?.filter(
         (resourceTemp): resourceTemp is Coverage => resourceTemp.resourceType === 'Coverage'
       );
+
       const organizationsRequestsTemp: Organization[] | undefined = insuranceRequestTemp?.filter(
         (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
       );
+
       const patientsRequestsTemp: Patient[] | undefined = insuranceRequestTemp?.filter(
         (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
       );
+
       if (coveragesRequestsTemp?.length !== 1) {
         throw new Error('coverage is not found');
       }
+
       if (organizationsRequestsTemp?.length !== 1) {
         throw new Error('organization is not found');
       }
+
       if (patientsRequestsTemp?.length !== 1) {
         throw new Error('patient is not found');
       }
+
       coverage = coveragesRequestsTemp[0];
       organization = organizationsRequestsTemp[0];
       coveragePatient = patientsRequestsTemp[0];
+
       if (coveragePatient.id !== patient.id) {
         throw new Error(
           `the patient check with coverage isn't the same as the patient the order is being requested on behalf of, coverage patient ${coveragePatient.id}, patient ${patient.id}`
         );
       }
     }
+
     const questionnaireUrl = questionnaireResponse.questionnaire;
 
     if (!questionnaireUrl) {
       throw new Error('questionnaire is not found');
     }
+
     console.log(questionnaireUrl);
+
     const questionnaireRequest = await fetch(questionnaireUrl, {
       headers: {
         Authorization: `Bearer ${m2mtoken}`,
       },
     });
+
     const questionnaire: Questionnaire = await questionnaireRequest.json();
+
     if (!questionnaire.item) {
       throw new Error('questionnaire item is not found');
     }
+
     const questionsAndAnswers: { question: string; answer: any }[] = [];
+
     const questionnaireItems: QuestionnaireResponseItem[] = Object.keys(data).map((questionResponse) => {
       const question = questionnaire.item?.find((item) => item.linkId === questionResponse);
       if (!question) {
@@ -164,6 +184,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       if (multiSelect) {
         answer = data[questionResponse].map((item: string) => ({ valueString: item }));
       }
+
       if (question.type === 'boolean') {
         answer = [
           {
@@ -171,6 +192,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (question.type === 'date') {
         answer = [
           {
@@ -178,6 +200,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (question.type === 'decimal') {
         answer = [
           {
@@ -185,6 +208,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (question.type === 'integer') {
         answer = [
           {
@@ -192,10 +216,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ];
       }
+
       if (answer == undefined) {
         throw new Error('answer is undefined');
       }
+
       questionsAndAnswers.push({ question: question.text || 'UNKNOWN', answer: data[questionResponse] || 'UNKNOWN' });
+
       return {
         linkId: questionResponse,
         answer: answer,
@@ -204,6 +231,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
+
     const provenanceFhir: Provenance = {
       resourceType: 'Provenance',
       target: [
@@ -222,11 +250,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.submit],
       },
     };
-    const request = await oystehr?.fhir.transaction({
+
+    await oystehr?.fhir.transaction({
       requests: [
         getPatchBinary({
           resourceType: 'QuestionnaireResponse',
-          resourceId: questionnaireResponse.id || 'unknown',
+          resourceId: questionnaireResponse.id,
           patchOperations: [
             {
               op: 'add',
@@ -240,6 +269,28 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             },
           ],
         }),
+      ],
+    });
+
+    const submitLabRequest = await fetch('https://labs-api.zapehr.com/v1/submit', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${m2mtoken}`,
+      },
+      body: JSON.stringify({
+        serviceRequest: `ServiceRequest/${serviceRequest.id}`,
+        accountNumber: accountNumber,
+      }),
+    });
+
+    if (!submitLabRequest.ok) {
+      const submitLabRequestResponse = await submitLabRequest.json();
+      console.log(submitLabRequestResponse);
+      throw new Error('error submitting lab request');
+    }
+
+    await oystehr?.fhir.transaction({
+      requests: [
         getPatchBinary({
           resourceType: 'ServiceRequest',
           resourceId: serviceRequest.id || 'unknown',
@@ -287,32 +338,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ],
     });
 
-    const submitLabRequest = await fetch('https://labs-api.zapehr.com/v1/submit', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${m2mtoken}`,
-      },
-      body: JSON.stringify({
-        serviceRequest: `ServiceRequest/${serviceRequest.id}`,
-        accountNumber: accountNumber,
-      }),
-    });
-    if (!submitLabRequest.ok) {
-      const submitLabRequestResponse = await submitLabRequest.json();
-      console.log(submitLabRequestResponse);
-      throw new Error('error submitting lab request');
-    }
-
-    if (!patient.id) {
-      throw new Error('patient.id is undefined');
-    }
-
     const serviceRequestTemp: ServiceRequest = await oystehr.fhir.get({
       resourceType: 'ServiceRequest',
       id: serviceRequestID,
     });
+
     const orderID = serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
       ?.value;
+
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
@@ -376,11 +409,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       serviceRequestID: serviceRequest.id,
     });
 
+    const presignedURL = await getPresignedURL(pdfDetail.uploadURL, m2mtoken);
+
     return {
       body: JSON.stringify({
-        message: 'success',
-        example: request,
-        url: pdfDetail.uploadURL,
+        pdfUrl: presignedURL,
       }),
       statusCode: 200,
     };
