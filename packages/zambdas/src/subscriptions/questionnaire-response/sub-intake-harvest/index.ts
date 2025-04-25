@@ -255,31 +255,13 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
   if (erxContactOperation) patientPatches.push(erxContactOperation);
   //TODO: remove addDefaultCountryOperation after country selection is supported in paperwork
-  let addDefaultCountryOperation: Operation | undefined;
-  if (patientResource.address && patientResource.address?.length && !patientResource.address[0].country) {
-    addDefaultCountryOperation = {
-      op: 'add',
-      path: '/address/0/country',
-      value: 'US',
-    };
-  } else if (patientResource.address && patientResource.address?.length === 0) {
-    addDefaultCountryOperation = {
-      op: 'add',
-      path: '/address/-',
-      value: { country: 'US' },
-    };
-  } else if (!patientResource.address) {
-    addDefaultCountryOperation = {
-      op: 'add',
-      path: '/address',
-      value: [{ country: 'US' }],
-    };
-  }
-
-  if (addDefaultCountryOperation) {
-    patientPatches.push(addDefaultCountryOperation);
-  }
-
+  // to improve: this operation will fail if earlier patch operation necessary to insert an address fails
+  const addDefaultCountryOperation: Operation = {
+    op: 'add',
+    path: '/address/0/country',
+    value: 'US',
+  };
+  patientPatches.push(addDefaultCountryOperation);
   if (patientPatches.length > 0) {
     try {
       console.time('patching patient resource');
