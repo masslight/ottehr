@@ -16,7 +16,7 @@ const handleErrorResult = (errorResult: unknown): APIGatewayProxyResult => {
     const { code, message } = errorResult as APIError;
 
     return {
-      statusCode: 444, // we have 1 case currently so this is good enough for now
+      statusCode: 400, // we have 1 case currently so this is good enough for now
       body: JSON.stringify({ message, code }),
     };
   } else {
