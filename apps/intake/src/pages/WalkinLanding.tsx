@@ -108,7 +108,7 @@ export const WalkinLanding: FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
               <Link to="https://ottehr.com" aria-label="Ottehr website" target="_blank">
-                <Button variant="contained" color="primary">
+                <Button variant="contained" color="primary" data-testid="loadin-button">
                   {t('welcome.goToWebsite')}
                 </Button>
               </Link>

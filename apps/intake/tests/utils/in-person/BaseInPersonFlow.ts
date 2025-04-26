@@ -120,8 +120,8 @@ export abstract class BaseInPersonFlow {
   }
   async checkValueIsNotEmpty(value: Locator): Promise<void> {
     const textContent = await value.textContent();
-    await expect(textContent).not.toBeNull();
-    await expect(textContent?.trim()).not.toBe('');
-    await expect(textContent?.trim().toLowerCase()).not.toBe('unknown');
+    expect(textContent).not.toBeNull();
+    expect(textContent?.trim()).not.toBe('');
+    expect(textContent?.trim().toLowerCase()).not.toBe('unknown');
   }
 }
