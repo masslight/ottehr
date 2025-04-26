@@ -42,7 +42,7 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     const relatedPersons = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'RelatedPerson');
 
     let retries = 0;
-    while (retries < 10) {
+    while (retries < 20) {
       const operations: Operation[] = [];
       for (const relatedPerson of relatedPersons) {
         const linkIndex =
@@ -54,13 +54,21 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
           } else {
             operations.push({ op: 'remove', path: `/link/${linkIndex}` });
           }
+        } else {
+          console.log(`RelatedPerson/${relatedPerson.id} link not found in Person ${person?.id}`);
         }
       }
       try {
-        patchResult = await oystehr.fhir.patch<Person>(
-          { resourceType: 'Person', id: person.id!, operations },
-          { optimisticLockingVersionId: person.meta!.versionId! }
-        );
+        if (operations.length > 0) {
+          patchResult = await oystehr.fhir.patch<Person>(
+            { resourceType: 'Person', id: person.id!, operations },
+            { optimisticLockingVersionId: person.meta!.versionId! }
+          );
+        } else {
+          console.log(`No operations to patch Person/${person.id}`);
+          break;
+        }
+        console.log(`Patching Person complete`);
 
         break;
       } catch (e) {
@@ -82,8 +90,6 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     }
   } catch (e) {
     console.error(`Error patching resources: ${e}`, JSON.stringify(e));
-  } finally {
-    console.log(`Patching Person complete`);
   }
 
   if (!patchResult) {
@@ -93,10 +99,14 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
   console.log('Appointment data batch removed and person patched');
 };
 
-const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchInputDeleteRequest[], Person | undefined] => {
+const generateDeleteRequestsAndPerson = (
+  allResources: FhirResource[]
+): [BatchInputDeleteRequest[], Person | undefined] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
-  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as Person | undefined;
+  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as
+    | Person
+    | undefined;
 
   allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
