@@ -30,6 +30,10 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     console.log(`Deleting resources complete`);
   }
 
+  if (!person) {
+    return;
+  }
+
   let patchResult: Person | undefined;
 
   try {
@@ -89,10 +93,10 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
   console.log('Appointment data batch removed and person patched');
 };
 
-const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchInputDeleteRequest[], Person] => {
+const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchInputDeleteRequest[], Person | undefined] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
-  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as Person;
+  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as Person | undefined;
 
   allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
@@ -149,7 +153,11 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
     console.log(`${resourceType}: ${id}`);
   });
 
-  console.log(`Person to be patched: ${person.resourceType}: ${person.id}`);
+  if (person) {
+    console.log(`Person to be patched: ${person.resourceType}: ${person.id}`);
+  } else {
+    console.log('No Person resource found');
+  }
 
   return [deleteRequests, person];
 };
