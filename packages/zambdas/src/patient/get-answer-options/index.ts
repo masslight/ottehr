@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { BundleLink, FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
   APIError,
@@ -63,18 +63,49 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
   if (type === 'query') {
     const { resourceType, query } = input.answerSource;
     const paramsObject = new URLSearchParams(query);
-    const params: { name: string; value: string }[] = [];
+    let offset = 0;
+    const params = [
+      {
+        name: '_count',
+        value: '1000',
+      },
+      {
+        name: '_offset',
+        value: offset,
+      },
+    ];
     for (const [key, value] of paramsObject) {
       params.push({ name: key, value });
     }
     console.group('searchResources');
-    const results = (
-      await oystehr.fhir.search({
+    let results: any[] = [];
+
+    console.group(params);
+
+    let resources = await oystehr.fhir.search({
+      resourceType,
+      params,
+    });
+
+    results = results.concat(resources.unbundle());
+    while ((resources.link as BundleLink[] | undefined)?.find((link) => link.relation === 'next')) {
+      resources = await oystehr!.fhir.search({
         resourceType,
-        params,
-      })
-    ).unbundle();
+        params: params.map((param) => {
+          if (param.name === '_offset') {
+            return {
+              ...param,
+              value: (offset += 1000),
+            };
+          }
+          return param;
+        }),
+      });
+      results = results.concat(resources.unbundle());
+    }
+
     console.groupEnd();
+
     let error: APIError | undefined;
     const mappedResults = results
       .map((result) => {
