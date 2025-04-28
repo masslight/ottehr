@@ -167,6 +167,16 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyAddressFromPcpIsNotVisible();
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
   });
+
+  test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.clearMobileFromPcp();
+    await patientInformationPage.enterMobileFromPcp('2222245');
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
+  });
 });
 
 test.describe('Patient Record Page mutating tests', () => {
