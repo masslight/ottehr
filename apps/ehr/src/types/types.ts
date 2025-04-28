@@ -125,6 +125,12 @@ export const VisitTypeToLabel: { [visittype in VisitType]: string } = {
   'post-telemed': 'Post Telemed Lab Only',
 };
 
+export const VisitTypeToLabelTelemed: { [visittype in VisitType]: string } = {
+  'walk-in': 'On Demand Telemed',
+  'pre-booked': 'Pre-Booked Telemed',
+  'post-telemed': 'Post Telemed Lab Only',
+};
+
 export enum PersonSex {
   Male = 'male',
   Female = 'female',

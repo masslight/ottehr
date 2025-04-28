@@ -13,12 +13,12 @@ import {
   capitalize,
   useTheme,
 } from '@mui/material';
+import { otherColors } from '@theme/colors';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TelemedAppointmentInformation, TelemedAppointmentStatusEnum, calculatePatientAge, getTimezone } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { otherColors } from '@theme/colors';
 import ChatModal from '../../../features/chat/ChatModal';
 import { formatDateUsingSlashes } from '../../../helpers/formatDateTime';
 import { AppointmentStatusChip, StatusHistory } from '../../components';
@@ -159,7 +159,11 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
             </Typography>
           </Box>
         )}
-        <Typography variant="body1">{capitalize?.((appointment.appointmentType || '').toString())}</Typography>
+        <Typography variant="body1">
+          {capitalize?.(
+            appointment.appointmentType === 'walk-in' ? 'On Demand' : (appointment.appointmentType || '').toString()
+          )}
+        </Typography>
         <Typography variant="body1">
           <strong>{start}</strong>
         </Typography>

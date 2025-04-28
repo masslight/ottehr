@@ -1,12 +1,12 @@
 import { Autocomplete, TextField } from '@mui/material';
 import { ReactElement } from 'react';
 import { getSelectors } from 'utils';
-import { VisitType, VisitTypeToLabel } from '../../../types/types';
+import { VisitType, VisitTypeToLabelTelemed } from '../../../types/types';
 import { useTrackingBoardStore } from '../../state/tracking-board/tracking-board.store';
 
 export function VisitTypeSelect(): ReactElement {
   const { visitTypes } = getSelectors(useTrackingBoardStore, ['visitTypes']);
-  const visitTypesOptions = Object.keys(VisitTypeToLabel).filter(
+  const visitTypesOptions = Object.keys(VisitTypeToLabelTelemed).filter(
     (key) => key === VisitType.PreBook || key === VisitType.WalkIn
   );
 
@@ -22,7 +22,7 @@ export function VisitTypeSelect(): ReactElement {
       value={visitTypes?.length > 0 ? [...visitTypes] : visitTypesOptions}
       options={visitTypesOptions}
       getOptionLabel={(option) => {
-        return VisitTypeToLabel[option as VisitType];
+        return VisitTypeToLabelTelemed[option as VisitType];
       }}
       onChange={(_, value) => {
         useTrackingBoardStore.setState({ visitTypes: value as VisitType[] });
