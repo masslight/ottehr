@@ -161,7 +161,7 @@ export function TrackingBoardTableRow({ appointment, showProvider, next }: Appoi
         )}
         <Typography variant="body1">
           {capitalize?.(
-            appointment.appointmentType === 'walk-in' ? 'On Demand' : (appointment.appointmentType || '').toString()
+            appointment.appointmentType === 'walk-in' ? 'On-demand' : (appointment.appointmentType || '').toString()
           )}
         </Typography>
         <Typography variant="body1">
