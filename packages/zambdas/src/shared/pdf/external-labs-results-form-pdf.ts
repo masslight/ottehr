@@ -687,7 +687,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
   drawFieldLineLeft(
     'Dx:',
-    data.orderAssessments?.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
   );
   addNewLine(undefined, 3);
   drawLargeHeader(data.testName.toUpperCase());

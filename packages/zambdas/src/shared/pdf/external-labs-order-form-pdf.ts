@@ -356,7 +356,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     data.orderName.toUpperCase(),
     styles.subHeader.font,
     styles.subHeader.fontSize,
-    data.orderAssessments?.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '),
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '),
     styles.regularText.font,
     styles.regularText.fontSize
   );
