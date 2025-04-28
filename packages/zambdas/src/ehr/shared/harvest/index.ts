@@ -1180,6 +1180,7 @@ export function createMasterRecordPatchOperations(
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
+  let isUseMissedInPatientName = false;
 
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
@@ -1197,7 +1198,13 @@ export function createMasterRecordPatchOperations(
 
     // Change index if path is changeable
     if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
-      const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+      let nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+      isUseMissedInPatientName = nameIndex === -1;
+
+      if (isUseMissedInPatientName) {
+        nameIndex = 0;
+      }
+
       fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
     }
 
@@ -1279,11 +1286,6 @@ export function createMasterRecordPatchOperations(
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
             const operation = createBasicPatchOperation([value], parentPath, currentParentValue);
-            // looks like there is a bug here when there is a patient name but not patient name contains the 'use: official' desgination
-            // todo: a better fix here is needed, along with some kind of unit/integration tests
-            if (fullPath.includes('name/-1/')) {
-              return;
-            }
             if (operation) tempOperations.patient.push(operation);
             return;
           }
@@ -1326,7 +1328,7 @@ export function createMasterRecordPatchOperations(
 
         // Handle regular fields
         const currentValue = getCurrentValue(patient, path);
-        if (value !== currentValue && !fullPath.includes('name/-1/')) {
+        if (value !== currentValue) {
           const operation = createBasicPatchOperation(value, path, currentValue);
           if (operation) tempOperations.patient.push(operation);
         }
@@ -1334,6 +1336,14 @@ export function createMasterRecordPatchOperations(
       }
     }
   });
+
+  if (isUseMissedInPatientName) {
+    tempOperations.patient.push({
+      op: 'add',
+      path: '/name/0/use',
+      value: 'official',
+    });
+  }
 
   // Separate operations for each resource
   // Separate Patient operations
