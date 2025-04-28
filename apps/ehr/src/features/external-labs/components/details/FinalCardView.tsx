@@ -1,4 +1,4 @@
-import { Box, Button, Divider, Switch, Typography } from '@mui/material';
+import { Box, Button, Divider } from '@mui/material';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { FC } from 'react';
 import { ExternalLabsStatus } from 'utils';
@@ -34,14 +34,14 @@ export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus,
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Switch
+          {/* <Switch
             disabled={true} // todo: will be released in the future
             checked={false} // todo: will be released in the future
             onChange={() => null} // todo: will be released in the future
             color="primary"
             sx={{ mr: 1 }}
           />
-          <Typography variant="body2">Show Results on the Patient Portal</Typography>
+          <Typography variant="body2">Show Results on the Patient Portal</Typography> */}
         </Box>
 
         {labStatus === ExternalLabsStatus.received ? (
