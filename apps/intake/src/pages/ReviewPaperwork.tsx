@@ -33,7 +33,7 @@ import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
-import { intakeFlowPageRoute } from 'src/App';
+import { intakeFlowPageRoute } from '../App';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();
@@ -203,7 +203,7 @@ const ReviewPaperwork = (): JSX.Element => {
 
   const serviceMode = appointmentData?.serviceMode ?? ServiceMode['in-person'];
   const submitButtonLabel: string = (() => {
-    if (serviceMode === ServiceMode['in-person']) {
+    if (serviceMode === ServiceMode['in-person'] || visitType === VisitType.PreBook) {
       return allComplete ? t('reviewAndSubmit.finish') : t('reviewAndSubmit.saveAndFinish');
     } else {
       return 'Go to the Waiting Room';
