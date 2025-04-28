@@ -173,7 +173,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
   const possibleUsStates = Object.keys(AllStatesToVirtualLocationsData);
   const statesDropdownOptions: string[] = [...possibleUsStates.map((usState) => usState)];
 
-  const phoneNumberErrorMessage = 'Phone number must be 10 digits';
+  const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
   const emailErrorMessage = 'Email is not valid';
   const zipCodeErrorMessage = 'ZIP Code must be 5 numbers';
 

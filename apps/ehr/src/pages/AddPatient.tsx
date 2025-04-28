@@ -115,7 +115,7 @@ export default function AddPatient(): JSX.Element {
   const navigate = useNavigate();
   const { oystehr, oystehrZambda } = useApiClients();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
-  const phoneNumberErrorMessage = 'Phone number must be 10 digits';
+  const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
