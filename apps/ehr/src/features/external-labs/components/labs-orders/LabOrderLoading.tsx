@@ -10,7 +10,7 @@ export const LabOrderLoading: React.FC = () => {
         top: 'calc(50% + 60px)',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+        backgroundColor: 'transparent',
         zIndex: 10,
         display: 'flex',
         alignItems: 'center',
