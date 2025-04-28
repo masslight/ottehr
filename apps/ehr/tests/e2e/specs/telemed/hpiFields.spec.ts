@@ -19,7 +19,7 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
-import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
+import { checkDropdownHasOptionAndSelectIt, waitUntilRequestReturns } from '../../../e2e-utils/helpers/tests-utils';
 
 async function checkDropdownNoOptions(
   page: Page,
@@ -729,23 +729,15 @@ test.describe('Chief complaint', () => {
 
   test.describe.configure({ mode: 'serial' });
 
-  const waitUntilRequestReturns = async (request: string): Promise<void> => {
-    await page.waitForResponse((response) => {
-      return (
-        response.request().method() === 'POST' && response.url().includes(`${request}`) && response.status() === 200
-      );
-    });
-  };
-
   test('Should add HPI provider notes and ROS', async () => {
     await page
       .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
       .locator('textarea')
       .first()
       .fill(providerNote);
-    await waitUntilRequestReturns('save-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
-    await waitUntilRequestReturns('save-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
   });
 
   test('Should check HPI provider notes and ROS are saved on Review&Sign page', async () => {
@@ -765,10 +757,10 @@ test.describe('Chief complaint', () => {
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
-    await waitUntilRequestReturns('delete-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
-    await waitUntilRequestReturns('delete-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should check HPI provider notes and ROS are removed from "Review and sign\' tab', async () => {

@@ -132,7 +132,6 @@ export const DispositionCard: FC = () => {
   return (
     <AccordionCard
       label="Disposition"
-      data-testid={dataTestIds.telemedEhrFlow.planTabDispositionContainer}
       headerItem={
         isLoading ? (
           <CircularProgress size="20px" />
@@ -144,7 +143,10 @@ export const DispositionCard: FC = () => {
       }
     >
       <FormProvider {...methods}>
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box
+          sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}
+          data-testid={dataTestIds.telemedEhrFlow.planTabDispositionContainer}
+        >
           <Controller
             name="type"
             control={control}
@@ -163,7 +165,11 @@ export const DispositionCard: FC = () => {
                 }}
               >
                 {tabs.map((tab) => (
-                  <ContainedPrimaryToggleButton key={tab} value={tab} data-testid={dataTestIds}>
+                  <ContainedPrimaryToggleButton
+                    key={tab}
+                    value={tab}
+                    data-testid={dataTestIds.telemedEhrFlow.planTabDispositionToggleButton(tab)}
+                  >
                     {mapDispositionTypeToLabel[tab]}
                   </ContainedPrimaryToggleButton>
                 ))}
@@ -282,6 +288,7 @@ export const DispositionCard: FC = () => {
                   disabled={isReadOnly}
                   label="Reason for transfer"
                   placeholder="Select"
+                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionReasonForTransferDropdown}
                   size="small"
                   sx={{ minWidth: '200px', width: '50%' }}
                   value={value}

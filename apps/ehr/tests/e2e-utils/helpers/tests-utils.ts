@@ -60,8 +60,10 @@ export async function checkDropdownHasOptionAndSelectIt(
   await page.getByTestId(dropdownTestId).locator('input').fill(pattern);
 
   const option = await getDropdownOption(page, pattern);
-  await expect(option).toBeVisible();
-  await option.click();
+  if (option) {
+    await expect(option).toBeVisible();
+    await option.click();
+  }
 }
 
 export async function getDropdownOption(page: Page, pattern: string): Promise<Locator | undefined> {
@@ -69,4 +71,14 @@ export async function getDropdownOption(page: Page, pattern: string): Promise<Lo
     .locator('.MuiAutocomplete-popper li')
     .filter({ hasText: new RegExp(pattern, 'i') })
     .first();
+}
+
+export async function waitUntilRequestReturns(
+  page: Page,
+  method: 'POST' | 'GET' | 'PUT' | 'PATCH',
+  request: string
+): Promise<void> {
+  await page.waitForResponse((response) => {
+    return response.request().method() === method && response.url().includes(`${request}`) && response.status() === 200;
+  });
 }
