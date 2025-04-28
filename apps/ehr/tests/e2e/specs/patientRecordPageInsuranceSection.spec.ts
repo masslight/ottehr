@@ -31,14 +31,14 @@ import {
 
 import {
   chooseJson,
-  INSURANCE_PLAN_PAYER_META_TAG_CODE,
+  getConsentStepAnswers,
   getContactInformationAnswers,
-  isoToDateObject,
   getPatientDetailsStepAnswers,
   getPaymentOptionInsuranceAnswers,
-  getResponsiblePartyStepAnswers,
-  getConsentStepAnswers,
   getPrimaryCarePhysicianStepAnswers,
+  getResponsiblePartyStepAnswers,
+  INSURANCE_PLAN_PAYER_META_TAG_CODE,
+  isoToDateObject,
 } from 'utils';
 
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
@@ -388,7 +388,10 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   insuranceCarrier1 = insuranceCarriersOptions.at(0);
   insuranceCarrier2 = insuranceCarriersOptions.at(1);
   await resourceHandler.setResources();
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  await Promise.all([
+    resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+    resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+  ]);
   return [
     resourceHandler,
     insuranceCarrier1?.valueReference?.display ?? '',
