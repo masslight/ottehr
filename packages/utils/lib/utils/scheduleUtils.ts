@@ -239,7 +239,7 @@ export function getScheduleDetails(
 
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
-): string {
+): Timezone {
   const timezone = schedule.extension?.find(
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;
@@ -877,10 +877,10 @@ interface MakeSlotListItemsInput {
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
   const { startTimes, owner: ownerResource, scheduleId, appointmentLengthInMinutes = 15 } = input;
   return startTimes.map((startTime) => {
-    const end = DateTime.fromISO(startTimes[0]).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
+    const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
     const slot: Slot = {
       resourceType: 'Slot',
-      id: `${scheduleId}-${startTime}`,
+      id: `${scheduleId}|${startTime}`,
       start: startTime,
       serviceCategory: getSlotServiceCategoryCodingFromScheduleOwner(ownerResource),
       end,

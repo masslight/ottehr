@@ -227,7 +227,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         completed,
         cancelled,
       };
-      console.timeEnd('structure_appointment_data');
 
       return {
         statusCode: 200,
