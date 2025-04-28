@@ -1916,6 +1916,10 @@ const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
     (item) => item.linkId === 'insurance-priority' || item.linkId === 'insurance-priority-2'
   );
 
+  if (priorities.length === 0) {
+    return false;
+  }
+
   return !priorities.some((item) => item.answer?.[0]?.valueString === 'Primary');
 };
 
