@@ -277,7 +277,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           ORDER_ITEM_UNKNOWN,
         providerNPI: 'test',
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
-        patientMiddleName: patient.name?.[0].given?.[1] || '',
+        patientMiddleName: patient.name?.[0].given?.[1],
         patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,
         patientSex: patient.gender || ORDER_ITEM_UNKNOWN,
         patientDOB: patient.birthDate
