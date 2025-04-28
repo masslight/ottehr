@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { BundleLink, FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
   APIError,
@@ -88,7 +88,7 @@ const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Ques
     });
 
     results = results.concat(resources.unbundle());
-    while (resources.link?.find((link) => link.relation === 'next')) {
+    while ((resources.link as BundleLink[] | undefined)?.find((link) => link.relation === 'next')) {
       resources = await oystehr!.fhir.search({
         resourceType,
         params: params.map((param) => {
