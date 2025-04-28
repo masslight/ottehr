@@ -25,6 +25,7 @@ import {
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
+  checkEncounterIsVirtual,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
@@ -128,6 +129,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           {
             name: '_revinclude',
             value: 'QuestionnaireResponse:encounter',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Appointment:slot',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Slot:schedule',
           },
         ],
       })
@@ -254,6 +263,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         location,
         hsResources,
         practitioner,
+        encounter,
       });
 
       console.log('building get paperwork response');
@@ -295,6 +305,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         location,
         hsResources,
         practitioner,
+        encounter,
       });
       const response = {
         appointment: app,
@@ -315,6 +326,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
 interface GetPaperworkSupportingInfoInput {
   appointment: Appointment;
+  encounter: Encounter;
   patient: Patient;
   location: Location | undefined;
   hsResources: { hs: HealthcareService; locations?: Location[]; serviceArea?: Location } | undefined;
@@ -322,7 +334,11 @@ interface GetPaperworkSupportingInfoInput {
 }
 
 function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupportingInfoInput): PaperworkSupportingInfo {
-  const { appointment, patient, location, hsResources, practitioner } = input;
+  const { appointment, patient, location, hsResources, practitioner, encounter } = input;
+  const serviceMode: ServiceMode = checkEncounterIsVirtual(encounter)
+    ? ServiceMode['virtual']
+    : ServiceMode['in-person'];
+
   return {
     appointment: {
       id: appointment?.id ?? 'Unknown', // i hate this
@@ -331,6 +347,7 @@ function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupporti
       visitType: appointment?.appointmentType?.text as VisitType,
       status: appointment?.status,
       unconfirmedDateOfBirth: appointment ? getUnconfirmedDOBForAppointment(appointment) : undefined,
+      serviceMode: serviceMode,
     },
     patient: {
       id: patient.id,
