@@ -18,7 +18,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import {
-  APIErrorCode,
+  APIError,
   ChartDataFields,
   ChartDataRequestedFields,
   GetMedicationOrdersResponse,
@@ -599,10 +599,9 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
       return apiClient?.icdSearch({ search, sabs });
     },
     {
-      onError: (error: any) => {
-        if (error?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR) {
-          openError();
-        }
+      onError: (error: APIError) => {
+        openError();
+        return error;
       },
       enabled: Boolean(apiClient && search),
       keepPreviousData: true,

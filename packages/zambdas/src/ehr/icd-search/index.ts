@@ -13,13 +13,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
 
-    const output = {
-      code: MISSING_NLM_API_KEY_ERROR.code,
-      message: MISSING_NLM_API_KEY_ERROR.message,
-    };
-
-    console.log('output', output);
-
     if (!apiKey) {
       throw MISSING_NLM_API_KEY_ERROR;
     }
