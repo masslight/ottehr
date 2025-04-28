@@ -1104,6 +1104,10 @@ export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
   return NOT_FOUND;
 };
 
+const formatDateForFrontEnd = (date: string): string => {
+  return DateTime.fromISO(date).toFormat('MM/dd/yyyy hh:mm a');
+};
+
 export const parseLabOrderAddedDate = (
   serviceRequest: ServiceRequest,
   tasks: Task[],
@@ -1118,7 +1122,7 @@ export const parseLabOrderAddedDate = (
       results,
     });
 
-  return taskPST?.authoredOn || '';
+  return formatDateForFrontEnd(taskPST?.authoredOn || '');
 };
 
 export const parseLabOrderLastResultReceivedDate = (
@@ -1145,7 +1149,7 @@ export const parseLabOrderLastResultReceivedDate = (
       .filter(Boolean)
       .sort((a, b) => compareDates(a, b))[0] || '';
 
-  return lastResultReceivedDate;
+  return formatDateForFrontEnd(lastResultReceivedDate);
 };
 
 export const parseLabOrdersHistory = (
@@ -1257,7 +1261,7 @@ export const parseTaskReceivedInfo = (
   return {
     action: 'received',
     performer: parsePractitionerNameFromTask(task, practitioners),
-    date: task.authoredOn || '',
+    date: formatDateForFrontEnd(task.authoredOn || ''),
   };
 };
 
@@ -1275,7 +1279,7 @@ export const parseTaskReviewedInfo = (
   return {
     action: 'reviewed',
     performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
-    date: reviewProvenance.recorded || '',
+    date: formatDateForFrontEnd(reviewProvenance.recorded || ''),
   };
 };
 
