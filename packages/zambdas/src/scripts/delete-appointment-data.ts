@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputDeleteRequest, FhirPatchParams } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -19,67 +19,94 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
   const appointmentId = process.argv[3];
 
   const allResources = await getAppointmentById(oystehr, appointmentId);
-  const [deleteRequests, updateRequests] = generateDeleteRequestsAndUpdateOps(allResources);
+  const [deleteRequests, person] = generateDeleteRequestsAndPerson(allResources);
 
   try {
-    
-  console.log(`Deleting resources...`);
-  await oystehr.fhir.batch({ requests: [...deleteRequests] });
+    console.log(`Deleting resources...`);
+    await oystehr.fhir.batch({ requests: [...deleteRequests] });
   } catch (e) {
     console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
-  }
-  finally {
+  } finally {
     console.log(`Deleting resources complete`);
   }
 
-  const patchResults: any[] = [];
+  if (!person) {
+    return;
+  }
+
+  let patchResult: Person | undefined;
 
   try {
-    console.log(`Patching resources...`);
-    for (const patchParam of updateRequests) {
-      let retries = 0;
-      while (retries < 10) {
-        try {
-          const patchResult = await oystehr.fhir.patch(patchParam, { optimisticLockingVersionId: patchParam.optimisticLockingVersionId });
-          if (patchResult) {
-            patchResults.push(patchResult);
-          }
-          break;
-        } catch (e) {
-          console.error(`Error patching resource: ${e}`, JSON.stringify(e));
-          retries++;
-          await new Promise((resolve) => setTimeout(resolve, 200));
-          const patchResource = (await oystehr.fhir.search({
-            resourceType: patchParam.resourceType,
-            params: [{ name: '_id', value: patchParam.id }],
-          })).unbundle()[0];
+    console.log(`Patching Person...`);
 
-          if (patchResource) {
-            patchParam.id = patchResource.id!;
-            patchParam.optimisticLockingVersionId = patchResource.meta!.versionId!;
+    const relatedPersons = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'RelatedPerson');
+
+    let retries = 0;
+    while (retries < 20) {
+      const operations: Operation[] = [];
+      for (const relatedPerson of relatedPersons) {
+        const linkIndex =
+          person?.link?.findIndex((linkTemp) => linkTemp.target?.reference === `RelatedPerson/${relatedPerson.id}`) ||
+          -1;
+        if (linkIndex >= 0) {
+          if (person?.link?.length === 1) {
+            operations.push({ op: 'remove', path: '/link' });
+          } else {
+            operations.push({ op: 'remove', path: `/link/${linkIndex}` });
           }
+        } else {
+          console.log(`RelatedPerson/${relatedPerson.id} link not found in Person ${person?.id}`);
+        }
+      }
+      try {
+        if (operations.length > 0) {
+          patchResult = await oystehr.fhir.patch<Person>(
+            { resourceType: 'Person', id: person.id!, operations },
+            { optimisticLockingVersionId: person.meta!.versionId! }
+          );
+        } else {
+          console.log(`No operations to patch Person/${person.id}`);
+          break;
+        }
+        console.log(`Patching Person complete`);
+
+        break;
+      } catch (e) {
+        console.error(`Error patching resource: ${e}`, JSON.stringify(e));
+        retries++;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        const personRefetched = (
+          await oystehr.fhir.search<Person>({
+            resourceType: 'Person',
+            params: [{ name: '_id', value: person.id! }],
+          })
+        ).unbundle()[0];
+
+        if (personRefetched) {
+          person.meta!.versionId = personRefetched.meta!.versionId!;
+          person.link = personRefetched.link;
         }
       }
     }
   } catch (e) {
     console.error(`Error patching resources: ${e}`, JSON.stringify(e));
   }
-  finally {
-    console.log(`Patching resources complete`);
-  }
 
-  if (patchResults.length !== updateRequests.length) {
-    throw new Error(`Patching resources failed. Patch results: ${JSON.stringify(patchResults)}`);
+  if (!patchResult) {
+    throw new Error(`Patching Person failed. Patch result: ${JSON.stringify(patchResult)}`);
   }
 
   console.log('Appointment data batch removed and person patched');
 };
 
-const generateDeleteRequestsAndUpdateOps = (allResources: FhirResource[]): [BatchInputDeleteRequest[], (FhirPatchParams & { optimisticLockingVersionId: string })[]] => {
+const generateDeleteRequestsAndPerson = (
+  allResources: FhirResource[]
+): [BatchInputDeleteRequest[], Person | undefined] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
-  const patchParams: (FhirPatchParams & { optimisticLockingVersionId: string })[] = [];
 
-  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as Person;
+  const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as
+    | Person
+    | undefined;
 
   allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
@@ -108,23 +135,11 @@ const generateDeleteRequestsAndUpdateOps = (allResources: FhirResource[]): [Batc
 
         (allResources.filter((resourceTemp) => resourceTemp.resourceType === 'RelatedPerson') as RelatedPerson[])
           .filter((relatedPersonTemp) => relatedPersonTemp.patient.reference === `Patient/${patient.id}`)
-          .forEach(
-            (relatedPersonTemp) => {
-              if (relatedPersonTemp.id) {
-                deleteRequests.push({ method: 'DELETE', url: `/RelatedPerson/${relatedPersonTemp.id}` });
-                const linkIndex = person?.link?.findIndex((linkTemp) => linkTemp.target?.reference === `RelatedPerson/${relatedPersonTemp.id}`) || -1;
-                if (linkIndex >= 0) {
-                  const operations: Operation[] = [];
-                  if (person?.link?.length === 1) {
-                    operations.push({ op: 'remove', path: '/link' });
-                  } else {
-                    operations.push({ op: 'remove', path: `/link/${linkIndex}` });
-                  }
-                  patchParams.push({resourceType: 'Person', id: person?.id!, operations, optimisticLockingVersionId: person?.meta?.versionId!});
-                }
-              }
+          .forEach((relatedPersonTemp) => {
+            if (relatedPersonTemp.id) {
+              deleteRequests.push({ method: 'DELETE', url: `/RelatedPerson/${relatedPersonTemp.id}` });
             }
-          );
+          });
 
         (
           allResources.filter(
@@ -148,12 +163,13 @@ const generateDeleteRequestsAndUpdateOps = (allResources: FhirResource[]): [Batc
     console.log(`${resourceType}: ${id}`);
   });
 
-  console.log('Resources to be patched:');
-  patchParams.forEach((patchParam) => {
-    console.log(`${patchParam.resourceType}: ${patchParam.id}`);
-  });
+  if (person) {
+    console.log(`Person to be patched: ${person.resourceType}: ${person.id}`);
+  } else {
+    console.log('No Person resource found');
+  }
 
-  return [deleteRequests, patchParams];
+  return [deleteRequests, person];
 };
 
 const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Promise<FhirResource[]> => {
