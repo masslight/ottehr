@@ -9,22 +9,13 @@ import {
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import {
-  Coverage,
-  Location,
-  Organization,
-  Patient,
-  Provenance,
-  Questionnaire,
-  QuestionnaireResponseItem,
-  QuestionnaireResponseItemAnswer,
-  ServiceRequest,
-} from 'fhir/r4b';
+import { Coverage, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
 import { getLabOrderResources } from '../shared/labs';
+import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -70,10 +61,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!patient.id) {
       throw new Error('patient.id is undefined');
-    }
-
-    if (!questionnaireResponse.id) {
-      throw Error('questionnaire response id is undefined');
     }
 
     const location: Location = await oystehr.fhir.get({
@@ -141,94 +128,54 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
     }
 
-    const questionnaireUrl = questionnaireResponse.questionnaire;
+    // not every order will have an AOE
+    let questionsAndAnswers: AOEDisplayForOrderForm[] = [];
+    if (questionnaireResponse !== undefined && questionnaireResponse.id) {
+      const { questionnaireResponseItems, questionsAndAnswersForFormDisplay } =
+        await populateQuestionnaireResponseItems(questionnaireResponse, data, m2mtoken);
 
-    if (!questionnaireUrl) {
-      throw new Error('questionnaire is not found');
+      questionsAndAnswers = questionsAndAnswersForFormDisplay;
+
+      await oystehr?.fhir.transaction({
+        requests: [
+          getPatchBinary({
+            resourceType: 'QuestionnaireResponse',
+            resourceId: questionnaireResponse.id,
+            patchOperations: [
+              {
+                op: 'add',
+                path: '/item',
+                value: questionnaireResponseItems,
+              },
+              {
+                op: 'replace',
+                path: '/status',
+                value: 'completed',
+              },
+            ],
+          }),
+        ],
+      });
     }
 
-    console.log(questionnaireUrl);
-
-    const questionnaireRequest = await fetch(questionnaireUrl, {
+    const submitLabRequest = await fetch('https://labs-api.zapehr.com/v1/submit', {
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${m2mtoken}`,
       },
+      body: JSON.stringify({
+        serviceRequest: `ServiceRequest/${serviceRequest.id}`,
+        accountNumber: accountNumber,
+      }),
     });
 
-    const questionnaire: Questionnaire = await questionnaireRequest.json();
-
-    if (!questionnaire.item) {
-      throw new Error('questionnaire item is not found');
+    if (!submitLabRequest.ok) {
+      const submitLabRequestResponse = await submitLabRequest.json();
+      console.log(submitLabRequestResponse);
+      throw new Error('error submitting lab request');
     }
 
-    const questionsAndAnswers: { question: string; answer: any }[] = [];
-
-    const questionnaireItems: QuestionnaireResponseItem[] = Object.keys(data).map((questionResponse) => {
-      const question = questionnaire.item?.find((item) => item.linkId === questionResponse);
-      if (!question) {
-        throw new Error('question is not found');
-      }
-      let answer: QuestionnaireResponseItemAnswer[] | undefined = undefined;
-      const multiSelect = question.extension?.find(
-        (currentExtension) =>
-          currentExtension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type' &&
-          currentExtension.valueString === 'multi-select list'
-      );
-      if (question.type === 'text' || (question.type === 'choice' && !multiSelect)) {
-        answer = [
-          {
-            valueString: data[questionResponse],
-          },
-        ];
-      }
-      if (multiSelect) {
-        answer = data[questionResponse].map((item: string) => ({ valueString: item }));
-      }
-
-      if (question.type === 'boolean') {
-        answer = [
-          {
-            valueBoolean: data[questionResponse],
-          },
-        ];
-      }
-
-      if (question.type === 'date') {
-        answer = [
-          {
-            valueDate: data[questionResponse],
-          },
-        ];
-      }
-
-      if (question.type === 'decimal') {
-        answer = [
-          {
-            valueDecimal: data[questionResponse],
-          },
-        ];
-      }
-
-      if (question.type === 'integer') {
-        answer = [
-          {
-            valueInteger: data[questionResponse],
-          },
-        ];
-      }
-
-      if (answer == undefined) {
-        throw new Error('answer is undefined');
-      }
-
-      questionsAndAnswers.push({ question: question.text || 'UNKNOWN', answer: data[questionResponse] || 'UNKNOWN' });
-
-      return {
-        linkId: questionResponse,
-        answer: answer,
-      };
-    });
-
+    // submitted successful, so do the fhir provenance writes and update SR
     const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
 
@@ -250,44 +197,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.submit],
       },
     };
-
-    await oystehr?.fhir.transaction({
-      requests: [
-        getPatchBinary({
-          resourceType: 'QuestionnaireResponse',
-          resourceId: questionnaireResponse.id,
-          patchOperations: [
-            {
-              op: 'add',
-              path: '/item',
-              value: questionnaireItems,
-            },
-            {
-              op: 'replace',
-              path: '/status',
-              value: 'completed',
-            },
-          ],
-        }),
-      ],
-    });
-
-    const submitLabRequest = await fetch('https://labs-api.zapehr.com/v1/submit', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${m2mtoken}`,
-      },
-      body: JSON.stringify({
-        serviceRequest: `ServiceRequest/${serviceRequest.id}`,
-        accountNumber: accountNumber,
-      }),
-    });
-
-    if (!submitLabRequest.ok) {
-      const submitLabRequestResponse = await submitLabRequest.json();
-      console.log(submitLabRequestResponse);
-      throw new Error('error submitting lab request');
-    }
 
     await oystehr?.fhir.transaction({
       requests: [
@@ -346,6 +255,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const orderID = serviceRequestTemp.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)
       ?.value;
 
+    const orderCreateDate = serviceRequest.authoredOn
+      ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+      : undefined;
+
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
@@ -372,9 +285,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           : ORDER_ITEM_UNKNOWN,
         patientId: patient.id,
         patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
-        patientPhone: patient.telecom?.[0].value || ORDER_ITEM_UNKNOWN,
+        patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
         todayDate: now.toFormat('MM/dd/yy hh:mm a'),
-        orderDate: now.toFormat('MM/dd/yy hh:mm a'),
+        orderSubmitDate: now.toFormat('MM/dd/yy hh:mm a'),
+        orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])

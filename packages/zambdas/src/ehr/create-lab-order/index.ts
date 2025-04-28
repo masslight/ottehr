@@ -116,6 +116,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `Location/${location.id}`,
         },
       ],
+      authoredOn: DateTime.now().toISO() || undefined,
       priority: 'routine',
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,

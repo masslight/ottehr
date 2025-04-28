@@ -790,6 +790,14 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').isHidden();
   }
 
+  async verifyValidationErrorInvalidPhoneFromPcp(): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile)
+        .locator('p:text("Phone number must be 10 digits in the format (xxx) xxx-xxxx")')
+    ).toBeVisible();
+  }
+
   async clearMobileFromPcp(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').clear();
   }
