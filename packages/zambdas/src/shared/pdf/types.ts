@@ -117,7 +117,7 @@ export interface ExternalLabsData {
   providerTitle: string;
   providerNPI: string;
   patientFirstName: string;
-  patientMiddleName: string;
+  patientMiddleName: string | undefined;
   patientLastName: string;
   patientSex: string;
   patientDOB: string;
@@ -134,8 +134,7 @@ export interface ExternalLabsData {
   insuredAddress?: string;
   aoeAnswers?: { question: string; answer: any }[];
   orderName?: string | undefined;
-  assessmentCode: string;
-  assessmentName: string;
+  orderAssessments: { code: string; name: string }[];
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
