@@ -1,7 +1,6 @@
 import { Extension, InsurancePlan, Location, Organization } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
-import { INSURANCE_PLAN_PAYER_META_TAG_CODE, INSURANCE_SETTINGS_MAP, isLocationVirtual } from 'utils';
-import { FHIR_EXTENSION } from 'utils';
+import { FHIR_EXTENSION, INSURANCE_PLAN_PAYER_META_TAG_CODE, INSURANCE_SETTINGS_MAP, isLocationVirtual } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { InsuranceData } from './EditInsurance';
 
@@ -38,18 +37,46 @@ export const useInsurancesQuery = (id?: string, enabled?: boolean) => {
     ['insurances', { oystehr, id }],
     async () => {
       const searchParams = [];
+      let offset = 0;
       if (id) {
         searchParams.push({
           name: '_id',
           value: id,
         });
       }
-      const resources = await oystehr!.fhir.search<InsurancePlan>({
+      searchParams.push(
+        {
+          name: '_count',
+          value: '1000',
+        },
+        {
+          name: '_offset',
+          value: offset,
+        }
+      );
+      let plans: InsurancePlan[] = [];
+      let resources = await oystehr!.fhir.search<InsurancePlan>({
         resourceType: 'InsurancePlan',
         params: searchParams,
       });
+      plans = plans.concat(resources.unbundle());
+      while (resources.link?.find((link) => link.relation === 'next')) {
+        resources = await oystehr!.fhir.search<InsurancePlan>({
+          resourceType: 'InsurancePlan',
+          params: searchParams.map((param) => {
+            if (param.name === '_offset') {
+              return {
+                ...param,
+                value: (offset += 1000),
+              };
+            }
+            return param;
+          }),
+        });
+        plans = plans.concat(resources.unbundle());
+      }
 
-      return resources.unbundle();
+      return plans;
     },
     {
       enabled: (enabled !== undefined ? enabled : true) && !!oystehr,
@@ -70,6 +97,9 @@ export const useInsuranceMutation = (insurancePlan?: InsurancePlan) => {
     const requirementSettingsNewExtensions = requirementSettingsExistingExtensions || [];
 
     Object.keys(INSURANCE_SETTINGS_MAP).map((setting) => {
+      if (data[setting as keyof typeof INSURANCE_SETTINGS_MAP] === undefined) {
+        return;
+      }
       const currentSettingExt: Extension = {
         url: setting,
         valueBoolean: data[setting as keyof typeof INSURANCE_SETTINGS_MAP],

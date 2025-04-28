@@ -29,6 +29,7 @@ export enum Field {
   DEMO_VISIT_PHYSICIAN_MOBILE,
   DEMO_VISIT_POINT_OF_DISCOVERY,
   DEMO_VISIT_PREFERRED_LANGUAGE,
+  GENDER_IDENTITY_ADDITIONAL_FIELD,
 }
 
 const FIELD_TO_TEST_ID = new Map<Field, string>()
@@ -55,7 +56,8 @@ const FIELD_TO_TEST_ID = new Map<Field, string>()
   .set(Field.DEMO_VISIT_PROVIDER_LAST_NAME, dataTestIds.primaryCarePhysicianContainer.lastName)
   .set(Field.DEMO_VISIT_PRACTICE_NAME, dataTestIds.primaryCarePhysicianContainer.practiceName)
   .set(Field.DEMO_VISIT_PHYSICIAN_ADDRESS, dataTestIds.primaryCarePhysicianContainer.address)
-  .set(Field.DEMO_VISIT_PHYSICIAN_MOBILE, dataTestIds.primaryCarePhysicianContainer.mobile);
+  .set(Field.DEMO_VISIT_PHYSICIAN_MOBILE, dataTestIds.primaryCarePhysicianContainer.mobile)
+  .set(Field.GENDER_IDENTITY_ADDITIONAL_FIELD, dataTestIds.patientDetailsContainer.pleaseSpecifyField);
 
 export class PatientInformationPage {
   #page: Page;
@@ -395,6 +397,28 @@ export class PatientInformationPage {
   async verifyGenderIdentity(genderIdentity: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.genderIdentity)).toHaveText(genderIdentity);
   }
+
+  async verifyOtherGenderFieldIsVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField).locator('input').isVisible();
+  }
+
+  async verifyOtherGenderFieldIsNotVisible(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField).locator('input').isHidden();
+  }
+
+  async enterOtherGenderField(specifyInput: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField)
+      .locator('input')
+      .fill(specifyInput);
+  }
+
+  async verifyOtherGenderInput(specifyInput: string): Promise<void> {
+    await expect(
+      this.#page.getByTestId(dataTestIds.patientDetailsContainer.pleaseSpecifyField).locator('input')
+    ).toHaveValue(specifyInput);
+  }
+
   async selectCommonwellConsent(commonwellConsent: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent).click();
     await this.#page.getByText(commonwellConsent, { exact: true }).click();

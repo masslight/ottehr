@@ -4,7 +4,6 @@ import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
-import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 import { UploadDocs } from '../../utils/UploadDocs';
 
@@ -13,7 +12,6 @@ let context: BrowserContext;
 let flowClass: PrebookTelemedFlow;
 let bookingData: Awaited<ReturnType<PrebookTelemedFlow['startVisitFullFlow']>>;
 let paperwork: Paperwork;
-let paperworkTelemed: PaperworkTelemed;
 let locator: Locators;
 let uploadDocs: UploadDocs;
 let commonLocatorsHelper: CommonLocatorsHelper;
@@ -32,7 +30,6 @@ test.beforeAll(async ({ browser }) => {
   });
   flowClass = new PrebookTelemedFlow(page);
   paperwork = new Paperwork(page);
-  paperworkTelemed = new PaperworkTelemed(page);
   locator = new Locators(page);
   uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
@@ -54,7 +51,7 @@ test.describe('Paperwork.Review and Submit - Check Complete/Missing chips', () =
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
     await paperwork.checkCorrectPageOpens('Contact information');
-    await paperworkTelemed.fillPaperworkOnlyRequiredFieldsTelemed();
+    await paperwork.fillPaperworkOnlyRequiredFieldsTelemed();
     await paperwork.checkCorrectPageOpens('Review and submit');
     await expect(locator.contactInformationChipStatus).toHaveAttribute('data-testid', 'completed');
     await expect(locator.patientDetailsChipStatus).toHaveAttribute('data-testid', 'completed');

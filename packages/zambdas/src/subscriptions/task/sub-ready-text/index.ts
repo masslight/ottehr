@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail, PROJECT_WEBSITE } from 'utils';
-import '../../../../shared/instrument.mjs';
+import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,

@@ -23,7 +23,7 @@ interface SampleInfoProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDateTime, orderingPhysician }) => {
   const { oystehr } = useApiClients();
-  const { id: appointmentID } = useParams();
+  const { serviceRequestID } = useParams();
   const [collapsed, setCollapsed] = useState(false);
   const { getAccessTokenSilently } = useAuth0();
 
@@ -33,7 +33,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDat
       params: [
         {
           name: 'related',
-          value: `Appointment/${appointmentID}`,
+          value: `ServiceRequest/${serviceRequestID}`,
         },
         {
           name: 'type',

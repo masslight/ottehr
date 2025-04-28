@@ -43,7 +43,7 @@ export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefin
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we dont like any of them, we have to change there too
-export const OYSTEHR_LAB_OI_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/oystehr-oi-codes';
+export const OYSTEHR_LAB_OI_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/oystehr-lab-local-codes';
 export const FHIR_IDC10_VALUESET_SYSTEM = 'http://hl7.org/fhir/valueset-icd-10.html';
 ('http://snomed.info/sct');
 export const OYSTEHR_LAB_GUID_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-guid';
@@ -73,11 +73,13 @@ export const PROVENANCE_ACTIVITY_TYPE_SYSTEM = 'https://identifiers.fhir.oystehr
 export const PROVENANCE_ACTIVITY_CODES = {
   review: 'REVIEW',
   submit: 'SUBMIT',
+  createOrder: 'CREATE ORDER',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
+  createOrder: 'CREATE ORDER',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -89,6 +91,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   review: {
     code: PROVENANCE_ACTIVITY_CODES.review,
     display: PROVENANCE_ACTIVITY_DISPLAY.review,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  createOrder: {
+    code: PROVENANCE_ACTIVITY_CODES.createOrder,
+    display: PROVENANCE_ACTIVITY_CODES.createOrder,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;
