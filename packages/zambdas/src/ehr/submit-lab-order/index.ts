@@ -54,6 +54,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!encounter.id) {
       throw new Error('encounter id is undefined');
     }
+    if (!serviceRequest.reasonCode) {
+      throw new Error('service request reasonCode is undefined');
+    }
 
     if (!locationID || !isValidUUID(locationID)) {
       throw new Error(`location id ${locationID} is not a uuid`);
@@ -299,14 +302,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         aoeAnswers: questionsAndAnswers,
         orderName:
           serviceRequest.code?.coding?.map((codingTemp) => codingTemp.display).join(', ') || ORDER_ITEM_UNKNOWN,
-        assessmentCode:
-          serviceRequest.reasonCode
-            ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.code).join(', '))
-            .join(', ') || ORDER_ITEM_UNKNOWN,
-        assessmentName:
-          serviceRequest.reasonCode
-            ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.display).join(', '))
-            .join(', ') || ORDER_ITEM_UNKNOWN,
+        orderAssessments: serviceRequest.reasonCode?.map((code) => ({
+          code: code.coding?.[0].code || ORDER_ITEM_UNKNOWN,
+          name: code.text || ORDER_ITEM_UNKNOWN,
+        })),
         orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
       },
       patient.id,

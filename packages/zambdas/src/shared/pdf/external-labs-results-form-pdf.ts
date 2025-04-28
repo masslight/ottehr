@@ -196,7 +196,7 @@ export async function createLabResultPDF(
           ?.filter((item): item is ActivityDefinition => item.resourceType === 'ActivityDefinition')
           .map((resource) => resource.title)
           .join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
-      orderAssessments: serviceRequest.reasonCode?.map((code) => ({
+      orderAssessments: serviceRequest.reasonCode.map((code) => ({
         code: code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
         name: code.text || ORDER_RESULT_ITEM_UNKNOWN,
       })),
