@@ -19,6 +19,7 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
+import { waitUntilRequestReturns } from '../../../e2e-utils/helpers/tests-utils';
 
 async function checkDropdownHasOptionAndSelectIt(page: Page, dropdownTestId: string, pattern: string): Promise<void> {
   await page.getByTestId(dropdownTestId).locator('input').fill(pattern);
@@ -190,13 +191,7 @@ test.describe('Medical conditions', async () => {
       .filter({ hasText: new RegExp(conditionName, 'i') })
       .first();
     await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(medicalConditionListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should confirm medical condition deleted, in HPI and in Review&Sign tabs', async () => {
@@ -351,13 +346,7 @@ test.describe('Current medications', () => {
       .first();
 
     await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(scheduledMedicationListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should delete as needed medication', async () => {
@@ -373,13 +362,7 @@ test.describe('Current medications', () => {
       .first();
 
     await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(asNeededMedicationListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should confirm medications are deleted on Review&Sign tab', async () => {
@@ -448,13 +431,7 @@ test.describe('Known allergies', () => {
       .filter({ hasText: new RegExp(knownAllergyName, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(knownAllergyListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should confirm known allergy deleted', async () => {
@@ -509,6 +486,7 @@ test.describe('Surgical history', () => {
       .locator('textarea')
       .first()
       .fill(providerNote);
+    await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
   });
 
   test('Should search surgery and select it', async () => {
@@ -554,6 +532,7 @@ test.describe('Surgical history', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible();
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first().fill('');
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should delete surgery record', async () => {
@@ -562,9 +541,7 @@ test.describe('Surgical history', () => {
       .filter({ hasText: new RegExp(surgery, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(knownAllergyListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn)).toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should check surgical history record deleted from HPI and Review&Sign tab', async () => {
@@ -739,23 +716,15 @@ test.describe('Chief complaint', () => {
 
   test.describe.configure({ mode: 'serial' });
 
-  const waitUntilRequestReturns = async (request: string): Promise<void> => {
-    await page.waitForResponse((response) => {
-      return (
-        response.request().method() === 'POST' && response.url().includes(`${request}`) && response.status() === 200
-      );
-    });
-  };
-
   test('Should add HPI provider notes and ROS', async () => {
     await page
       .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
       .locator('textarea')
       .first()
       .fill(providerNote);
-    await waitUntilRequestReturns('save-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
-    await waitUntilRequestReturns('save-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
   });
 
   test('Should check HPI provider notes and ROS are saved on Review&Sign page', async () => {
@@ -775,10 +744,10 @@ test.describe('Chief complaint', () => {
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
-    await waitUntilRequestReturns('delete-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
-    await waitUntilRequestReturns('delete-chart-data');
+    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
   });
 
   test('Should check HPI provider notes and ROS are removed from "Review and sign\' tab', async () => {
