@@ -51,18 +51,20 @@ export const LabsTableRow = ({
         return labOrderData.orderingPhysician || '';
       case 'dx': {
         const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
-        const fullDxText = labOrderData.diagnosesDTO.map((dx) => dx.display).join('; ');
+        const firstDxCode = labOrderData.diagnosesDTO[0]?.code || '';
+        const firstDxText = `${firstDxCode} ${firstDx}`;
+        const fullDxText = labOrderData.diagnosesDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
         const dxCount = labOrderData.diagnosesDTO.length;
         if (dxCount > 1) {
           return (
             <Tooltip title={fullDxText} arrow placement="top">
               <Typography variant="body2">
-                {firstDx}; <span style={{ color: theme.palette.text.secondary }}>+ {dxCount - 1} more</span>
+                {firstDxText}; <span style={{ color: theme.palette.text.secondary }}>+ {dxCount - 1} more</span>
               </Typography>
             </Tooltip>
           );
         }
-        return <Typography variant="body2">{firstDx}</Typography>;
+        return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
         return <DateTimeDisplay dateTimeString={labOrderData.lastResultReceivedDate} />;

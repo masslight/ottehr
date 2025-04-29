@@ -89,7 +89,6 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         });
       },
       enabled: !!oystehrZambda,
-      staleTime: 1800000, // half hour
     }
   );
 

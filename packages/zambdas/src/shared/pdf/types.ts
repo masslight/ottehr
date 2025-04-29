@@ -125,7 +125,8 @@ export interface ExternalLabsData {
   patientAddress: string;
   patientPhone: string;
   todayDate: string;
-  orderDate: string;
+  orderSubmitDate: string;
+  orderCreateDate: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;
@@ -138,6 +139,14 @@ export interface ExternalLabsData {
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
+interface LabResult {
+  resultCode: string;
+  resultCodeDisplay: string;
+  resultInterpretation: string;
+  resultInterpretationDisplay: string;
+  resultValue: string;
+}
+
 export interface LabResultsData extends ExternalLabsData {
   accessionNumber: string;
   requisitionNumber?: string;
@@ -149,13 +158,13 @@ export interface LabResultsData extends ExternalLabsData {
   // specimenDescription: string;
   specimenValue?: string;
   specimenReferenceRange?: string;
-  resultBody: string;
   resultPhase: string;
   reviewed: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
-  reviewDate: string;
+  reviewDate: string | undefined;
+  results: LabResult[];
   testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
