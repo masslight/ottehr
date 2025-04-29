@@ -72,13 +72,3 @@ export async function getDropdownOption(page: Page, pattern: string): Promise<Lo
     .filter({ hasText: new RegExp(pattern, 'i') })
     .first();
 }
-
-export async function waitUntilRequestReturns(
-  page: Page,
-  method: 'POST' | 'GET' | 'PUT' | 'PATCH',
-  request: string
-): Promise<void> {
-  await page.waitForResponse((response) => {
-    return response.request().method() === method && response.url().includes(`${request}`) && response.status() === 200;
-  });
-}

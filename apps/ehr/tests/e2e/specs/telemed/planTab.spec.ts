@@ -3,7 +3,7 @@ import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
-import { waitUntilRequestReturns } from '../../../e2e-utils/helpers/tests-utils';
+import { waitForSaveChartDataResponse } from 'test-utils';
 
 test.describe('Disposition', async () => {
   test.describe('Primary Care Physician', async () => {
@@ -58,7 +58,7 @@ test.describe('Disposition', async () => {
         .locator('textarea')
         .first()
         .fill(updatedNote);
-      await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
+      await waitForSaveChartDataResponse(page);
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer)).toHaveText(
         new RegExp(updatedNote)
@@ -114,7 +114,7 @@ test.describe('Disposition', async () => {
         .locator('textarea')
         .first()
         .fill(updatedNote);
-      await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
+      await waitForSaveChartDataResponse(page);
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer)).toHaveText(
         new RegExp(updatedNote)
@@ -158,7 +158,7 @@ test.describe('Disposition', async () => {
         .locator('textarea')
         .first()
         .fill(updatedNote);
-      await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
+      await waitForSaveChartDataResponse(page);
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer)).toHaveText(
         new RegExp(updatedNote)
