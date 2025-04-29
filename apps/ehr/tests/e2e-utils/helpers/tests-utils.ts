@@ -51,13 +51,3 @@ export async function telemedDialogConfirm(page: Page): Promise<void> {
   await expect(dialogButtonConfirm).toBeVisible();
   await dialogButtonConfirm.click();
 }
-
-export async function waitUntilRequestReturns(
-  page: Page,
-  method: 'POST' | 'GET' | 'PUT' | 'PATCH',
-  request: string
-): Promise<void> {
-  await page.waitForResponse((response) => {
-    return response.request().method() === method && response.url().includes(`${request}`) && response.status() === 200;
-  });
-}
