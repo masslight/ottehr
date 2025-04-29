@@ -17,6 +17,7 @@ import {
   Questionnaire,
   QuestionnaireResponseItem,
   DocumentReference,
+  Location,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
@@ -34,6 +35,7 @@ import {
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   getPresignedURL,
+  getTimezone,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -57,6 +59,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   results: DiagnosticReport[],
   practitioners: Practitioner[],
   encounters: Encounter[],
+  locations: Location[],
   appointments: Appointment[],
   provenances: Provenance[],
   organizations: Organization[],
@@ -80,6 +83,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       results,
       appointments,
       encounters,
+      locations,
       practitioners,
       provenances,
       organizations,
@@ -97,6 +101,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   results,
   appointments,
   encounters,
+  locations,
   practitioners,
   provenances,
   organizations,
@@ -110,6 +115,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   results: DiagnosticReport[];
   appointments: Appointment[];
   encounters: Encounter[];
+  locations: Location[];
   practitioners: Practitioner[];
   provenances: Provenance[];
   organizations: Organization[];
@@ -124,6 +130,12 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
+  const location = locations.find((location) => {
+    const locationRef = `Location/${location.id}`;
+    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
+  });
+
+  const timezone = location ? getTimezone(location) : undefined;
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -131,10 +143,10 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
     fillerLab,
     serviceRequestId: serviceRequest.id,
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
-    lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, results, tasks, cache),
-    orderAddedDate: parseLabOrderAddedDate(serviceRequest, tasks, results, cache),
+    lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, timezone, results, tasks, cache),
+    orderAddedDate: parseLabOrderAddedDate(serviceRequest, timezone, tasks, results, cache),
     orderStatus: parseLabOrderStatus(serviceRequest, tasks, results, cache),
-    visitDate: parseVisitDate(appointment),
+    visitDate: formatDateForFrontEnd(parseVisitDate(appointment) || '', timezone),
     isPSC: parseIsPSC(serviceRequest),
     reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
     diagnosesDTO: parseDiagnoses(serviceRequest),
@@ -146,9 +158,18 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
     const detailedPageDTO: LabOrderDetailedPageDTO = {
       ...listPageDTO,
       orderSource: parsePerformed(serviceRequest),
-      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
+      history: parseLabOrdersHistory(serviceRequest, timezone, tasks, results, practitioners, provenances, cache),
       accountNumber: parseAccountNumber(serviceRequest, organizations),
-      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
+      resultsDetails: parseLResultsDetails(
+        serviceRequest,
+        timezone,
+        results,
+        tasks,
+        practitioners,
+        provenances,
+        labPDFs,
+        cache
+      ),
       questionnaire: questionnaires,
     };
 
@@ -308,6 +329,7 @@ export const getLabResources = async (
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   appointments: Appointment[];
   provenances: Provenance[];
@@ -335,6 +357,7 @@ export const getLabResources = async (
           | DiagnosticReport
           | Provenance
           | Organization
+          | Location
           | QuestionnaireResponse => Boolean(res)
       ) || [];
 
@@ -342,6 +365,7 @@ export const getLabResources = async (
     serviceRequests,
     tasks: preSubmissionTasks,
     encounters,
+    locations,
     diagnosticReports,
     observations,
     provenances,
@@ -373,6 +397,7 @@ export const getLabResources = async (
     diagnosticReports,
     practitioners,
     encounters,
+    locations,
     observations,
     appointments,
     provenances,
@@ -438,6 +463,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude',
       value: 'Provenance:target',
     },
+
+    // include encounter location
+    {
+      name: '_include:iterate',
+      value: 'Encounter:location',
+    },
   ];
 
   // chart data case
@@ -495,12 +526,14 @@ export const extractLabResources = (
     | Provenance
     | Organization
     | QuestionnaireResponse
+    | Location
   )[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   provenances: Provenance[];
   organizations: Organization[];
@@ -510,6 +543,7 @@ export const extractLabResources = (
   const tasks: Task[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
+  const locations: Location[] = [];
   const observations: Observation[] = [];
   const provenances: Provenance[] = [];
   const organizations: Organization[] = [];
@@ -538,6 +572,8 @@ export const extractLabResources = (
       organizations.push(resource as Organization);
     } else if (resource.resourceType === 'QuestionnaireResponse') {
       questionnaireResponses.push(resource as QuestionnaireResponse);
+    } else if (resource.resourceType === 'Location') {
+      locations.push(resource as Location);
     }
   }
 
@@ -546,6 +582,7 @@ export const extractLabResources = (
     tasks,
     diagnosticReports,
     encounters,
+    locations,
     observations,
     provenances,
     organizations,
@@ -1108,12 +1145,14 @@ export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
   return NOT_FOUND;
 };
 
-const formatDateForFrontEnd = (date: string): string => {
-  return DateTime.fromISO(date).toFormat('MM/dd/yyyy hh:mm a');
+const formatDateForFrontEnd = (date: string, timezone: string | undefined): string => {
+  if (!date) return '';
+  return DateTime.fromISO(date).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
 };
 
 export const parseLabOrderAddedDate = (
   serviceRequest: ServiceRequest,
+  timezone: string | undefined,
   tasks: Task[],
   results: DiagnosticReport[],
   cache?: Cache
@@ -1126,11 +1165,12 @@ export const parseLabOrderAddedDate = (
       results,
     });
 
-  return formatDateForFrontEnd(taskPST?.authoredOn || '');
+  return formatDateForFrontEnd(taskPST?.authoredOn || '', timezone);
 };
 
 export const parseLabOrderLastResultReceivedDate = (
   serviceRequest: ServiceRequest,
+  timezone: string | undefined,
   results: DiagnosticReport[],
   tasks: Task[],
   cache?: Cache
@@ -1153,11 +1193,12 @@ export const parseLabOrderLastResultReceivedDate = (
       .filter(Boolean)
       .sort((a, b) => compareDates(a, b))[0] || '';
 
-  return formatDateForFrontEnd(lastResultReceivedDate);
+  return formatDateForFrontEnd(lastResultReceivedDate, timezone);
 };
 
 export const parseLabOrdersHistory = (
   serviceRequest: ServiceRequest,
+  timezone: string | undefined,
   tasks: Task[],
   results: DiagnosticReport[],
   practitioners: Practitioner[],
@@ -1173,7 +1214,7 @@ export const parseLabOrdersHistory = (
     });
 
   const orderedBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
-  const orderAddedDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
+  const orderAddedDate = parseLabOrderAddedDate(serviceRequest, timezone, tasks, results, cache);
   const performedBy = parsePerformed(serviceRequest);
 
   const history: LabOrderHistoryRow[] = [
@@ -1200,7 +1241,7 @@ export const parseLabOrdersHistory = (
   );
 
   finalTasks.forEach((task) => {
-    history.push(...parseTaskReceivedAndReviewedHistory(task, practitioners, provenances));
+    history.push(...parseTaskReceivedAndReviewedHistory(task, timezone, practitioners, provenances));
   });
 
   return history;
@@ -1233,11 +1274,12 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
 
 export const parseTaskReceivedAndReviewedHistory = (
   task: Task & { testType: 'reflex' | 'ordered' },
+  timezone: string | undefined,
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
   const result: LabOrderHistoryRow[] = [];
-  const receivedDate = parseTaskReceivedInfo(task, practitioners);
+  const receivedDate = parseTaskReceivedInfo(task, timezone, practitioners);
 
   if (receivedDate) {
     result.push({ ...receivedDate, testType: task.testType });
@@ -1249,7 +1291,7 @@ export const parseTaskReceivedAndReviewedHistory = (
     return result;
   }
 
-  const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances);
+  const reviewedDate = parseTaskReviewedInfo(task, timezone, practitioners, provenances);
 
   if (reviewedDate) {
     result.push({ ...reviewedDate, testType: task.testType });
@@ -1260,17 +1302,19 @@ export const parseTaskReceivedAndReviewedHistory = (
 
 export const parseTaskReceivedInfo = (
   task: Task,
+  timezone: string | undefined,
   practitioners: Practitioner[]
 ): Omit<LabOrderHistoryRow, 'resultType'> | null => {
   return {
     action: 'received',
     performer: parsePractitionerNameFromTask(task, practitioners),
-    date: formatDateForFrontEnd(task.authoredOn || ''),
+    date: formatDateForFrontEnd(task.authoredOn || '', timezone),
   };
 };
 
 export const parseTaskReviewedInfo = (
   task: Task,
+  timezone: string | undefined,
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): Omit<LabOrderHistoryRow, 'resultType'> | null => {
@@ -1283,7 +1327,7 @@ export const parseTaskReviewedInfo = (
   return {
     action: 'reviewed',
     performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
-    date: formatDateForFrontEnd(reviewProvenance.recorded || ''),
+    date: formatDateForFrontEnd(reviewProvenance.recorded || '', timezone),
   };
 };
 
@@ -1328,6 +1372,7 @@ export const extractPerformerFromProvenance = (provenance: Provenance, practitio
  */
 export const parseLResultsDetails = (
   serviceRequest: ServiceRequest,
+  timezone: string | undefined,
   results: DiagnosticReport[],
   tasks: Task[],
   practitioners: Practitioner[],
@@ -1381,7 +1426,7 @@ export const parseLResultsDetails = (
     results.forEach((result) => {
       const details = parseResultDetails(result, tasks, serviceRequest);
       const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
-      const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
+      const reviewedDate = parseTaskReviewedInfo(task, timezone, practitioners, provenances)?.date || null;
       const resultPdfUrl = labPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.url || null;
       if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
     });
