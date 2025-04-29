@@ -2,10 +2,13 @@ import fs from 'fs';
 import { getAuth0Token, createOystehrClient } from '../shared';
 import { BatchInputPostRequest } from '@oystehr/sdk';
 import { LAB_DR_TYPE_TAG } from 'utils';
-import { DiagnosticReport, CodeableConcept, Observation } from 'fhir/r4b';
+import { DiagnosticReport, CodeableConcept, Observation, ServiceRequest } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
 
-const VALID_ENVS = ['local', 'testing', 'development', 'dev', 'staging'];
+// Creates a DiagnosticReport and Observation(s) to mock a relfex test
+// npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
+
+const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging'];
 const REFLEX_TEST_CODE: CodeableConcept = {
   "coding": [
     {
@@ -22,11 +25,17 @@ const checkEnvPassedIsValid = (env: string | undefined): boolean => {
 };
 
 const main = async (): Promise<void> => {
+  if (process.argv.length !== 4) {
+    console.log(`exiting, incorrect number of arguemnts passed\n`);
+    console.log(`Usage: npm run mock-reflex-test [${VALID_ENVS.join(' | ')}] [serviceRequest Id]\n`)
+    process.exit(1);
+  }
+
   const ENV = process.argv[2];
   const serviceRequestId = process.argv[3];
 
   if (!checkEnvPassedIsValid(ENV)) {
-    console.log(`exiting, ENV variable passed is not valid\nUsage: npm run create-sr-resources [${VALID_ENVS.join(' | ')}]\n`);
+    console.log(`exiting, ENV variable passed is not valid\nUsage: npm run mock-reflex-test [${VALID_ENVS.join(' | ')}] [serviceRequest Id]\n`);
     process.exit(1);
   }
   const envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
@@ -36,10 +45,16 @@ const main = async (): Promise<void> => {
   }
   const oystehr = createOystehrClient(token, envConfig);
 
-  const serviceRequest = await oystehr.fhir.get({
-    resourceType: 'ServiceRequest',
-    id: serviceRequestId,
-  })
+  let serviceRequest: ServiceRequest | undefined;
+  try {
+    serviceRequest = await oystehr.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    })
+  } catch (e) {
+    console.log(`exiting, no service request found with that ID in this env\n`);
+    process.exit(1);
+  }
   if (!serviceRequest) {
     console.log(`exiting, no service request found with that ID in this env\n`);
     process.exit(1);
@@ -94,6 +109,16 @@ const main = async (): Promise<void> => {
   reflexDR.meta = {}
   reflexDR.meta.tag = [{ system: LAB_DR_TYPE_TAG.system, display: LAB_DR_TYPE_TAG.display.reflex }]
   reflexDR.result = resultRefsForReflexTest;
+  reflexDR.result = resultRefsForReflexTest;
+  
+  // override existing filler id value
+  const randomString = Math.random().toString(36).substring(2, 14).toUpperCase();
+  const fillerIdIdx = reflexDR.identifier?.findIndex((item) => item.type?.coding?.[0].code === 'FILL')
+  if (fillerIdIdx !== undefined && fillerIdIdx >= 0 && reflexDR.identifier?.[fillerIdIdx]) {
+    reflexDR.identifier[fillerIdIdx].value = randomString
+  }
+  
+  // remove existing id and hl7 extension
   delete reflexDR.extension
   delete reflexDR.id
 
@@ -103,7 +128,7 @@ const main = async (): Promise<void> => {
     resource: reflexDR
   })
 
-  console.log('making transaction request\n');
+  console.log('making transaction request');
   const bundle = await oystehr.fhir.transaction({ requests });
 
   console.log('Successfully created all resources:');
