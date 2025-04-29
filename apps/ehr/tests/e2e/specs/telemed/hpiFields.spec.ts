@@ -19,7 +19,8 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
-import { checkDropdownHasOptionAndSelectIt, waitUntilRequestReturns } from '../../../e2e-utils/helpers/tests-utils';
+import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
+import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 
 async function checkDropdownNoOptions(
   page: Page,
@@ -735,9 +736,9 @@ test.describe('Chief complaint', () => {
       .locator('textarea')
       .first()
       .fill(providerNote);
-    await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
+    await waitForSaveChartDataResponse(page);
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill(ROS);
-    await waitUntilRequestReturns(page, 'POST', 'save-chart-data');
+    await waitForSaveChartDataResponse(page);
   });
 
   test('Should check HPI provider notes and ROS are saved on Review&Sign page', async () => {
@@ -757,10 +758,10 @@ test.describe('Chief complaint', () => {
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).click(); // Click empty space to blur the focused input
-    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
+    await waitForChartDataDeletion(page);
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintRos).locator('textarea').first().fill('');
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes).click();
-    await waitUntilRequestReturns(page, 'POST', 'delete-chart-data');
+    await waitForChartDataDeletion(page);
   });
 
   test('Should check HPI provider notes and ROS are removed from "Review and sign\' tab', async () => {
