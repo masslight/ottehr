@@ -169,6 +169,8 @@ export class ResourceHandler {
   ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
     await this.#initPromise;
 
+    console.log('create appointment params', JSON.stringify(inputParams, null, 2));
+
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -206,6 +208,8 @@ export class ResourceHandler {
       if (!process.env.PROJECT_ID) {
         throw new Error('PROJECT_ID is not set');
       }
+
+      console.log('resource handler flow', this.#flow);
 
       // Create appointment and related resources using zambda
       const appointmentData =
@@ -375,13 +379,13 @@ export class ResourceHandler {
   }
 
   private findResourceByType<T>(resourceType: string): T {
-    const resourse = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
+    const resource = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
 
-    if (!resourse) {
+    if (!resource) {
       throw new Error(`Resource ${resourceType} not found in the resources`);
     }
 
-    return resourse;
+    return resource;
   }
 
   async cleanupAppointmentsForPatient(patientId: string): Promise<void> {

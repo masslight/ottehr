@@ -366,19 +366,16 @@ const generateRandomPatientInfo = async (
 
   const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
   const activeOffices = allOffices.filter((item) => item.status === 'active');
-  /*const practitionersTemp = (
-    await oystehr.fhir.search<Practitioner>({
-      resourceType: 'Practitioner',
-      params: [
-        { name: '_count', value: '1000' },
-        { name: 'active', value: 'true' },
-      ],
-    })
-  ).unbundle();
-  */
 
-  const randomLocationIndex = Math.floor(Math.random() * activeOffices.length);
-  const randomLocationId = activeOffices[randomLocationIndex].id;
+  const notSoRandomLocation = activeOffices.find((loc) => loc.name === process.env.LOCATION);
+
+  let randomLocationId = '';
+  if (serviceMode === ServiceMode['in-person']) {
+    if (!notSoRandomLocation?.id) {
+      throw new Error(`Location ${process.env.LOCATION} not found in search results`);
+    }
+    randomLocationId = notSoRandomLocation.id;
+  }
   const randomTelemedLocationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id;
   // const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
@@ -399,13 +396,16 @@ const generateRandomPatientInfo = async (
     throw new Error(`No matching schedule found for location ID: ${randomLocationId}`);
   }
   const now = DateTime.now();
+  // note this whole setup is fragile because it is assuming that slots are available.
+  // the busy slot logic looks like it was broken at some point, which makes this slightly safer to do right now;
+  // only the schedule not offering any slots at the chosen time (which is also a possibility) will cause it to fail
   // create slot
   const createSlotInput: CreateSlotParams = {
     scheduleId: matchingRandomSchedule.id,
-    startISO: now.plus({ hours: 2 }).toISO(),
+    startISO: now.startOf('hour').plus({ hours: 2 }).toISO(),
     lengthInMinutes: 15,
     serviceModality: serviceMode,
-    walkin: true,
+    walkin: false,
   };
   console.log('slot input: ', createSlotInput);
   const persistedSlotResult = await oystehr.zambda.executePublic({
