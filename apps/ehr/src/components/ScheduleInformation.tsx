@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 
 import { Add } from '@mui/icons-material';
 import Oystehr from '@oystehr/sdk';
@@ -89,7 +89,6 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         });
       },
       enabled: !!oystehrZambda,
-      staleTime: 1800000, // half hour
     }
   );
 
@@ -207,13 +206,15 @@ const getHoursOfOperationText = (item: SchedulesAndOwnerListItem): string => {
   if (!item.schedules.length) {
     return 'No scheduled hours';
   }
-  const hoursOfOperation = item.schedules[0].todayHoursISO;
+  const schedule = item.schedules[0];
+  const hoursOfOperation = schedule.todayHoursISO;
+  const timezone = schedule.timezone;
   if (!hoursOfOperation) {
     return 'No scheduled hours';
   }
   const { open, close } = hoursOfOperation;
-  const openTime = DateTime.fromISO(open);
-  const closeTime = DateTime.fromISO(close);
+  const openTime = DateTime.fromISO(open).setZone(timezone);
+  const closeTime = DateTime.fromISO(close).setZone(timezone);
   if (openTime.isValid && closeTime.isValid) {
     return openTime.toFormat('h:mm a') + ' - ' + closeTime.toFormat('h:mm a');
   }

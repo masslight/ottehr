@@ -1,7 +1,8 @@
-import { Page } from '@playwright/test';
+import { Page, expect } from '@playwright/test';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { BaseProgressNotePage } from '../abstract/BaseProgressNotePage';
 import { CssHeader } from '../CssHeader';
 import { SideMenu } from '../SideMenu';
-import { BaseProgressNotePage } from '../abstract/BaseProgressNotePage';
 
 export class InPersonProgressNotePage extends BaseProgressNotePage {
   #page: Page;
@@ -17,6 +18,11 @@ export class InPersonProgressNotePage extends BaseProgressNotePage {
 
   sideMenu(): SideMenu {
     return new SideMenu(this.#page);
+  }
+
+  async expectLoaded(): Promise<void> {
+    await this.#page.waitForURL(new RegExp('/in-person/.*/progress-note'));
+    await expect(this.#page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
   }
 }
 

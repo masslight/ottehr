@@ -392,12 +392,12 @@
       "src": "src/ehr/get-create-lab-order-resources/index",
       "zip": ".dist/zips/get-create-lab-order-resources.zip"
     },
-    "CREATE_REVIEW_LAB_RESULTS_TASK": {
-      "name": "CREATE_REVIEW_LAB_RESULTS_TASK",
+    "HANDLE-LAB-RESULT": {
+      "name": "HANDLE-LAB-RESULT",
       "type": "subscription",
       "runtime": "nodejs20.x",
-      "src": "src/subscriptions/diagnostic-report/create-review-lab-results-task/index",
-      "zip": ".dist/zips/create-review-lab-results-task.zip",
+      "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
+      "zip": ".dist/zips/handle-lab-result.zip",
       "subscription": {
         "criteria": "DiagnosticReport?category=OSL",
         "reason": "Received new preliminary or final lab result",
@@ -786,7 +786,7 @@
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
       "zip": ".dist/zips/sub-intake-harvest.zip",
       "subscription": {
-        "criteria": "QuestionnaireResponse?status=completed,amended",
+        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
         "reason": "paperwork harvest",
         "event": "update"
       }
@@ -825,13 +825,6 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/delete-lab-order/index",
       "zip": ".dist/zips/delete-lab-order.zip"
-    },
-    "GET-LAB-ORDER-DETAILS": {
-      "name": "GET-LAB-ORDER-DETAILS",
-      "type": "http_auth",
-      "runtime": "nodejs20.x",
-      "src": "src/ehr/get-lab-order-details/index",
-      "zip": ".dist/zips/get-lab-order-details.zip"
     },
     "SUBMIT-LAB-ORDER": {
       "name": "SUBMIT-LAB-ORDER",

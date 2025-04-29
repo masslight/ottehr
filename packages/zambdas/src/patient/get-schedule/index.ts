@@ -7,7 +7,7 @@ import {
   AvailableLocationInformation,
   FHIR_RESOURCE_NOT_FOUND,
   GetScheduleResponse,
-  OTTEHR_SLUG_ID_SYSTEM,
+  SLUG_SYSTEM,
   ScheduleOwnerFhirResource,
   SecretsKeys,
   SlotListItem,
@@ -18,7 +18,6 @@ import {
   getSecret,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
-  isWalkinOpen,
 } from 'utils';
 import {
   captureSentryException,
@@ -85,7 +84,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       const ownerSearchResults = (
         await oystehr.fhir.search<ScheduleOwnerFhirResource>({
           resourceType: `${fhirTypeForScheduleType(scheduleType)}`,
-          params: [{ name: 'identifier', value: `${OTTEHR_SLUG_ID_SYSTEM}|${slug}` }],
+          params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` }],
         })
       ).unbundle();
       console.log('ownerSearch', slug, JSON.stringify(ownerSearchResults, null, 2));
@@ -132,8 +131,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
     console.timeEnd('get_waiting_minutes');
 
-    const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
-    const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, scheduleOwner);
+    // const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
+    // const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, scheduleOwner);
 
     const response: GetScheduleResponse = {
       message: 'Successfully retrieved all available slot times',
@@ -142,8 +141,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       location: locationInformationWithClosures,
       displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
       waitingMinutes,
-      walkinOpen,
-      openTime,
+      walkinOpen: true,
+      openTime: undefined,
     };
 
     console.log('response to return: ', response);

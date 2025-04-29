@@ -36,6 +36,11 @@ export class OrderMedicationPage {
 
   async clickBackButton(): Promise<InHouseMedicationsPage> {
     await this.#page.getByTestId(dataTestIds.orderMedicationPage.backButton).click();
+    const dialog = await this.#page.getByTestId(dataTestIds.cssModal.confirmationDialogue);
+    await dialog.waitFor({ state: 'visible', timeout: 500 }).catch(() => null);
+    if (await dialog.isVisible()) {
+      await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+    }
     return expectInHouseMedicationsPage(this.#page);
   }
 }

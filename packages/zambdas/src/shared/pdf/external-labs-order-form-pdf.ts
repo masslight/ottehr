@@ -8,6 +8,10 @@ import { Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 
 async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Promise<Uint8Array> {
+  if (!data.orderName) {
+    throw new Error('Order name is required');
+  }
+
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage();
@@ -277,11 +281,12 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   drawRegularTextLeft(`${data.patientSex},`);
   currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientSex, styles.regularText.fontSize) + regularTextWidth;
   drawRegularTextLeft(`${data.patientDOB},`);
-  currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientDOB, styles.regularText.fontSize) + regularTextWidth;
-  drawFieldLineLeft('ID:', data.patientId);
   drawFieldLineRight(`Today's date:`, data.todayDate);
   addNewLine();
   currXPos = styles.margin.x;
+  drawFieldLineLeft('ID:', data.patientId);
+  drawFieldLineRight('Order Create Date:', data.orderCreateDate);
+  addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientAddress);
@@ -290,7 +295,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   await drawImage(callIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientPhone);
-  drawFieldLineRight('Order date:', data.orderDate);
+  drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
@@ -318,15 +323,17 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     addNewLine();
   }
 
-  // AOE Answers section
   drawSubHeader('AOE Answers');
   addNewLine();
-
-  data.aoeAnswers.forEach((item) => {
-    drawFieldLineLeft(`${item.question}:`, item.answer.toString());
-    addNewLine();
-  });
-
+  if (data.aoeAnswers?.length) {
+    // AOE Answers section
+    data.aoeAnswers.forEach((item) => {
+      drawFieldLineLeft(`${item.question}:`, item.answer.toString());
+      addNewLine();
+    });
+  } else {
+    drawRegularTextLeft('No AOE questions');
+  }
   addNewLine();
 
   // Additional fields

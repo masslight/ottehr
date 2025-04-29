@@ -335,7 +335,7 @@ const ChatModal = memo(
 
             <Grid item xs={3} sx={{ alignSelf: 'center', textAlign: 'center', display: 'flex' }}>
               <LoadingButton
-                sx={{ marginX: 1, borderRadius: '100px', textTransform: 'none', fontWeight: 700 }}
+                sx={{ marginX: 1, borderRadius: '100px', textTransform: 'none', fontWeight: 500 }}
                 variant="outlined"
                 onClick={() => setQuickTextsOpen(true)}
                 disabled={pendingMessageSend !== undefined}
@@ -381,7 +381,7 @@ const ChatModal = memo(
                           textTransform: 'none',
                           color: theme.palette.primary.main,
                           fontSize: '13px',
-                          fontWeight: '700',
+                          fontWeight: 500,
                         },
                         '& .MuiToggleButton-sizeSmall:hover': {
                           color: theme.palette.primary.contrastText,

@@ -1,12 +1,12 @@
 import { ReactElement } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
-import { LabOrderDTO, LabOrderResultDetails } from 'utils';
-import { LabTableStatusChip } from '../labs-orders/LabTableStatusChip';
+import { LabOrderDetailedPageDTO, LabOrderResultDetails } from 'utils';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface ResultItemProps {
-  labOrder: LabOrderDTO;
+  labOrder: LabOrderDetailedPageDTO;
   onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
 }
@@ -37,7 +37,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
           <span>{resultDetails.testItem}</span>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
-          <LabTableStatusChip status={resultDetails.labStatus} />
+          <LabsOrderStatusChip status={resultDetails.labStatus} />
           {labOrder.isPSC && (
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
               PSC
@@ -47,14 +47,19 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
       </Box>
 
       {resultDetails.resultType === 'final' && (
-        <FinalCardView labStatus={resultDetails.labStatus} onMarkAsReviewed={onMarkAsReviewed} />
+        <FinalCardView
+          resultPdfUrl={resultDetails.resultPdfUrl}
+          labStatus={resultDetails.labStatus}
+          onMarkAsReviewed={onMarkAsReviewed}
+        />
       )}
 
       {resultDetails.resultType === 'preliminary' && (
         <PrelimCardView
+          resultPdfUrl={resultDetails.resultPdfUrl}
           receivedDate={resultDetails.receivedDate}
           reviewedDate={resultDetails.reviewedDate}
-          onPrelimView={() => null}
+          onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
         />
       )}
     </div>

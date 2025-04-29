@@ -2,6 +2,7 @@ import { FC } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const SurgicalHistoryContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -11,7 +12,10 @@ export const SurgicalHistoryContainer: FC = () => {
   const proceduresNote = chartData?.proceduresNote?.text;
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+      data-testid={dataTestIds.telemedEhrFlow.reviewTabSurgicalHistoryContainer}
+    >
       <Typography variant="h5" color="primary.dark">
         Surgical history
       </Typography>

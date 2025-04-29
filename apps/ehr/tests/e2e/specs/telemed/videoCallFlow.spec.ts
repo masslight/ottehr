@@ -3,6 +3,7 @@ import { ApptTelemedTab, TelemedAppointmentStatusEnum, TelemedAppointmentVisitTa
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { waitForGetChartDataResponse } from 'test-utils';
 
 const resourceHandler = new ResourceHandler('telemed');
 let page: Page;
@@ -71,7 +72,7 @@ test('Should fill all required fields', async () => {
     .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
     .click();
 
-  const diagnosisAutocomplete = page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown);
+  const diagnosisAutocomplete = page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown);
   await expect(diagnosisAutocomplete).toBeVisible();
   await diagnosisAutocomplete.click();
   await diagnosisAutocomplete.locator('input').fill('fever');
@@ -82,7 +83,7 @@ test('Should fill all required fields', async () => {
   await page.keyboard.press('Enter');
   await expect(diagnosisAutocomplete.locator('input')).toBeEnabled();
 
-  const emAutocomplete = page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown);
+  const emAutocomplete = page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown);
   await expect(emAutocomplete).toBeVisible();
   await emAutocomplete.click();
   await emAutocomplete.locator('input').fill('1');
@@ -93,7 +94,9 @@ test('Should fill all required fields', async () => {
   await expect(emAutocomplete.locator('input')).toBeEnabled();
 
   await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-  await page.waitForTimeout(5000);
+
+  await waitForGetChartDataResponse(page, (json) => !!json.prescribedMedications);
+
   const patientInfoConfirmationCheckbox = page.getByTestId(dataTestIds.telemedEhrFlow.patientInfoConfirmationCheckbox);
   const confirmationChecked = await patientInfoConfirmationCheckbox.isChecked();
   if (!confirmationChecked) {

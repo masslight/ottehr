@@ -2,9 +2,9 @@ import React, { FC, useState } from 'react';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
-import { otherColors } from '../../../../CustomThemeProvider';
-import ottehrAiIcon from '../../../../assets/ottehr-ai-icon.svg';
+import { otherColors } from '@theme/colors';
 import CloseIcon from '@mui/icons-material/Close';
+import { ottehrAiIcon } from '@theme/icons';
 
 export const AiPotentialDiagnosesCard: FC = () => {
   const theme = useTheme();
@@ -45,7 +45,7 @@ export const AiPotentialDiagnosesCard: FC = () => {
         >
           <img src={ottehrAiIcon} style={{ width: '30px', marginRight: '8px' }} />
           <Typography variant="subtitle2" style={{ fontWeight: 700, fontSize: '14px' }}>
-            OTTEHR AI
+            OYSTEHR AI
           </Typography>
         </Box>
         <IconButton onClick={handleClose} aria-label="Close">

@@ -255,6 +255,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
   if (erxContactOperation) patientPatches.push(erxContactOperation);
   //TODO: remove addDefaultCountryOperation after country selection is supported in paperwork
+  // to improve: this operation will fail if earlier patch operation necessary to insert an address fails
   const addDefaultCountryOperation: Operation = {
     op: 'add',
     path: '/address/0/country',

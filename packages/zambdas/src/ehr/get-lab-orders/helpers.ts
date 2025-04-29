@@ -12,17 +12,28 @@ import {
   Task,
   Reference,
   Provenance,
+  Organization,
+  QuestionnaireResponse,
+  Questionnaire,
+  QuestionnaireResponseItem,
+  DocumentReference,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
+  LAB_ACCOUNT_NUMBER_SYSTEM,
+  LabOrderDetailedPageDTO,
   LabOrderHistoryRow,
+  LabOrderListPageDTO,
   LabOrderResultDetails,
+  LabOrdersSearchBy,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
+  QuestionnaireData,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  getPresignedURL,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -34,15 +45,24 @@ type Cache = {
   parsedTasks?: ReturnType<typeof parseTasks>;
 };
 
-export const mapResourcesToLabOrderDTOs = (
+type LabOrderPDF = {
+  url: string;
+  diagnosticReportId: string;
+};
+
+export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
+  searchBy: SearchBy,
   serviceRequests: ServiceRequest[],
   tasks: Task[],
   results: DiagnosticReport[],
   practitioners: Practitioner[],
   encounters: Encounter[],
   appointments: Appointment[],
-  provenances: Provenance[]
-): LabOrderDTO[] => {
+  provenances: Provenance[],
+  organizations: Organization[],
+  questionnaires: QuestionnaireData[],
+  labPDFs: LabOrderPDF[]
+): LabOrderDTO<SearchBy>[] => {
   return serviceRequests.map((serviceRequest) => {
     const parsedResults = parseResults(serviceRequest, results);
     const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
@@ -53,7 +73,8 @@ export const mapResourcesToLabOrderDTOs = (
       parsedTasks,
     };
 
-    const details = parseOrderDetails({
+    return parseOrderDetails({
+      searchBy,
       tasks,
       serviceRequest,
       results,
@@ -61,32 +82,16 @@ export const mapResourcesToLabOrderDTOs = (
       encounters,
       practitioners,
       provenances,
+      organizations,
+      questionnaires,
+      labPDFs,
       cache,
     });
-
-    return {
-      serviceRequestId: details.serviceRequestId,
-      appointmentId: details.appointmentId,
-      providerName: details.providerName, // ordered by
-      diagnoses: details.diagnoses,
-      orderStatus: details.orderStatus,
-      reflexResultsCount: details.reflexResultsCount,
-      isPSC: details.isPSC,
-      dx: details.dx,
-      testItem: details.testItem,
-      fillerLab: details.fillerLab,
-      visitDate: details.visitDate,
-      orderAddedDate: details.orderAddedDate, // order date
-      performedBy: details.performedBy, // order performed
-      lastResultReceivedDate: details.lastResultReceivedDate,
-      accessionNumbers: details.accessionNumbers,
-      history: details.history,
-      resultsDetails: details.resultsDetails,
-    };
   });
 };
 
-export const parseOrderDetails = ({
+export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
+  searchBy,
   serviceRequest,
   tasks,
   results,
@@ -94,8 +99,12 @@ export const parseOrderDetails = ({
   encounters,
   practitioners,
   provenances,
+  organizations,
+  questionnaires,
+  labPDFs,
   cache,
 }: {
+  searchBy: SearchBy;
   serviceRequest: ServiceRequest;
   tasks: Task[];
   results: DiagnosticReport[];
@@ -103,26 +112,11 @@ export const parseOrderDetails = ({
   encounters: Encounter[];
   practitioners: Practitioner[];
   provenances: Provenance[];
+  organizations: Organization[];
+  questionnaires: QuestionnaireData[];
+  labPDFs: LabOrderPDF[];
   cache?: Cache;
-}): {
-  serviceRequestId: string;
-  orderStatus: ExternalLabsStatus;
-  accessionNumbers: string[];
-  orderAddedDate: string;
-  lastResultReceivedDate: string;
-  visitDate: string;
-  testItem: string;
-  fillerLab: string;
-  isPSC: boolean;
-  reflexResultsCount: number;
-  diagnoses: DiagnosisDTO[];
-  providerName: string;
-  dx: string;
-  performedBy: string;
-  appointmentId: string;
-  history: LabOrderHistoryRow[];
-  resultsDetails: LabOrderResultDetails[];
-} => {
+}): LabOrderDTO<SearchBy> => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -131,7 +125,7 @@ export const parseOrderDetails = ({
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
 
-  return {
+  const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem,
     fillerLab,
@@ -143,13 +137,25 @@ export const parseOrderDetails = ({
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
     reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
-    diagnoses: parseDiagnoses(serviceRequest),
-    providerName: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
-    dx: parseDx(serviceRequest),
-    performedBy: parsePerformed(serviceRequest),
-    history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
-    resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, cache),
+    diagnosesDTO: parseDiagnoses(serviceRequest),
+    orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
+    diagnoses: parseDx(serviceRequest),
   };
+
+  if (searchBy.searchBy.field === 'serviceRequestId') {
+    const detailedPageDTO: LabOrderDetailedPageDTO = {
+      ...listPageDTO,
+      orderSource: parsePerformed(serviceRequest),
+      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
+      accountNumber: parseAccountNumber(serviceRequest, organizations),
+      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
+      questionnaire: questionnaires,
+    };
+
+    return detailedPageDTO as LabOrderDTO<SearchBy>;
+  }
+
+  return listPageDTO as LabOrderDTO<SearchBy>;
 };
 
 /**
@@ -292,7 +298,9 @@ export const parseResults = (
 
 export const getLabResources = async (
   oystehr: Oystehr,
-  params: GetZambdaLabOrdersParams
+  params: GetZambdaLabOrdersParams,
+  m2mtoken: string,
+  searchBy: LabOrdersSearchBy
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -303,18 +311,32 @@ export const getLabResources = async (
   observations: Observation[];
   appointments: Appointment[];
   provenances: Provenance[];
+  organizations: Organization[];
+  questionnaires: QuestionnaireData[];
+  labPDFs: LabOrderPDF[];
 }> => {
-  const labOrdersSearchParams = createLabOrdersSearchParams(params);
+  const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
 
   const labOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
-    params: labOrdersSearchParams,
+    params: labServiceRequestSearchParams,
   });
 
   const labResources =
     labOrdersResponse.entry
       ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task | Encounter | DiagnosticReport | Provenance => Boolean(res)) || [];
+      .filter(
+        (
+          res
+        ): res is
+          | ServiceRequest
+          | Task
+          | Encounter
+          | DiagnosticReport
+          | Provenance
+          | Organization
+          | QuestionnaireResponse => Boolean(res)
+      ) || [];
 
   const {
     serviceRequests,
@@ -323,13 +345,25 @@ export const getLabResources = async (
     diagnosticReports,
     observations,
     provenances,
+    organizations,
+    questionnaireResponses,
   } = extractLabResources(labResources);
 
-  const [practitioners, appointments, finalAndPrelimTasks] = await Promise.all([
+  const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
+
+  const [practitioners, appointments, finalAndPrelimTasks, questionnaires, documentReferences] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
     fetchFinalAndPrelimTasks(oystehr, diagnosticReports),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
+    ),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports)
+    ),
   ]);
+
+  const labPDFs = await executeByCondition(isDetailPageRequest, () => fetchLabOrderPDFs(documentReferences, m2mtoken));
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
@@ -342,20 +376,15 @@ export const getLabResources = async (
     observations,
     appointments,
     provenances,
+    organizations,
+    questionnaires,
+    labPDFs,
     pagination,
   };
 };
 
-export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
-  const {
-    encounterId,
-    patientId,
-    serviceRequestId,
-    visitDate,
-    itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
-    pageIndex = 0,
-    orderableItemCode,
-  } = params;
+export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
+  const { searchBy, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0, orderableItemCode } = params;
 
   const searchParams: SearchParam[] = [
     {
@@ -411,24 +440,38 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
     },
   ];
 
-  if (encounterId) {
+  // chart data case
+  if (searchBy.field === 'encounterId') {
     searchParams.push({
       name: 'encounter',
-      value: `Encounter/${encounterId}`,
+      value: `Encounter/${searchBy.value}`,
     });
   }
 
-  if (patientId) {
+  // patient page case
+  if (searchBy.field === 'patientId') {
     searchParams.push({
       name: 'subject',
-      value: `Patient/${patientId}`,
+      value: `Patient/${searchBy.value}`,
     });
   }
 
-  if (serviceRequestId) {
+  // detailed page case
+  if (searchBy.field === 'serviceRequestId') {
     searchParams.push({
       name: '_id',
-      value: serviceRequestId,
+      value: searchBy.value,
+    });
+
+    // for retrieving accountNumber (from Organization); used on Detailed Page
+    searchParams.push({
+      name: '_include',
+      value: 'ServiceRequest:performer',
+    });
+
+    searchParams.push({
+      name: '_revinclude',
+      value: 'QuestionnaireResponse:based-on',
     });
   }
 
@@ -443,7 +486,16 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
 };
 
 export const extractLabResources = (
-  resources: (ServiceRequest | Task | DiagnosticReport | Encounter | Observation | Provenance)[]
+  resources: (
+    | ServiceRequest
+    | Task
+    | DiagnosticReport
+    | Encounter
+    | Observation
+    | Provenance
+    | Organization
+    | QuestionnaireResponse
+  )[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -451,13 +503,17 @@ export const extractLabResources = (
   encounters: Encounter[];
   observations: Observation[];
   provenances: Provenance[];
+  organizations: Organization[];
+  questionnaireResponses: QuestionnaireResponse[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
-  const results: DiagnosticReport[] = [];
+  const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
   const observations: Observation[] = [];
   const provenances: Provenance[] = [];
+  const organizations: Organization[] = [];
+  const questionnaireResponses: QuestionnaireResponse[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -469,20 +525,32 @@ export const extractLabResources = (
         serviceRequests.push(serviceRequest);
       }
     } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
-      // todo: filtering out cancelled tasks looks valid, but better to confirm this
       tasks.push(resource as Task);
     } else if (resource.resourceType === 'DiagnosticReport') {
-      results.push(resource as DiagnosticReport);
+      diagnosticReports.push(resource as DiagnosticReport);
     } else if (resource.resourceType === 'Encounter') {
       encounters.push(resource as Encounter);
     } else if (resource.resourceType === 'Observation') {
       observations.push(resource as Observation);
     } else if (resource.resourceType === 'Provenance') {
       provenances.push(resource as Provenance);
+    } else if (resource.resourceType === 'Organization') {
+      organizations.push(resource as Organization);
+    } else if (resource.resourceType === 'QuestionnaireResponse') {
+      questionnaireResponses.push(resource as QuestionnaireResponse);
     }
   }
 
-  return { serviceRequests, tasks, diagnosticReports: results, encounters, observations, provenances };
+  return {
+    serviceRequests,
+    tasks,
+    diagnosticReports,
+    encounters,
+    observations,
+    provenances,
+    organizations,
+    questionnaireResponses,
+  };
 };
 
 export const fetchPractitionersForServiceRequests = async (
@@ -566,11 +634,144 @@ export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: Diagno
         name: 'based-on',
         value: resultsIds.join(','),
       },
+      {
+        name: 'status:not',
+        value: 'cancelled',
+      },
     ],
   });
 
   return tasksResponse.unbundle();
 };
+
+export const fetchDocumentReferencesForDiagnosticReports = async (
+  oystehr: Oystehr,
+  diagnosticReports: DiagnosticReport[]
+): Promise<DocumentReference[]> => {
+  const reportIds = diagnosticReports.map((report) => report.id).filter(Boolean);
+
+  if (!reportIds.length) {
+    return [];
+  }
+
+  const documentReferencesResponse = await oystehr.fhir.search<DocumentReference>({
+    resourceType: 'DocumentReference',
+    params: [
+      {
+        name: 'related',
+        value: reportIds.map((id) => `DiagnosticReport/${id}`).join(','),
+      },
+    ],
+  });
+
+  return documentReferencesResponse.unbundle();
+};
+
+export const fetchLabOrderPDFs = async (
+  documentReferences: DocumentReference[],
+  m2mtoken: string
+): Promise<LabOrderPDF[]> => {
+  if (!documentReferences.length) {
+    return [];
+  }
+
+  const pdfPromises: Promise<LabOrderPDF | null>[] = [];
+
+  for (const docRef of documentReferences) {
+    const diagnosticReportReference = docRef.context?.related?.find(
+      (rel) => rel.reference?.startsWith('DiagnosticReport/')
+    )?.reference;
+
+    const diagnosticReportId = diagnosticReportReference?.split('/')[1];
+
+    if (!diagnosticReportId) {
+      continue;
+    }
+
+    for (const content of docRef.content) {
+      const z3Url = content.attachment?.url;
+      if (z3Url) {
+        pdfPromises.push(
+          getPresignedURL(z3Url, m2mtoken)
+            .then((url) => ({
+              url,
+              diagnosticReportId,
+            }))
+            .catch((error) => {
+              console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
+              return null;
+            })
+        );
+      }
+    }
+  }
+
+  const results = await Promise.allSettled(pdfPromises);
+
+  return results
+    .filter(
+      (result): result is PromiseFulfilledResult<LabOrderPDF> => result.status === 'fulfilled' && result.value !== null
+    )
+    .map((result) => result.value as LabOrderPDF);
+};
+
+export const fetchQuestionnaireForServiceRequests = async (
+  m2mtoken: string,
+  serviceRequests: ServiceRequest[],
+  questionnaireResponses: QuestionnaireResponse[]
+): Promise<QuestionnaireData[]> => {
+  const results: {
+    questionnaireUrl: string;
+    serviceRequestId: string;
+    questionnaireResponse: QuestionnaireResponse;
+  }[] = [];
+
+  for (const serviceRequest of serviceRequests) {
+    for (const questionnaireResponse of questionnaireResponses) {
+      if (
+        questionnaireResponse.basedOn?.some((b) => b.reference === `ServiceRequest/${serviceRequest.id}`) &&
+        !results.some((q) => q.serviceRequestId === serviceRequest.id) &&
+        questionnaireResponse.questionnaire &&
+        serviceRequest.id
+      ) {
+        results.push({
+          questionnaireUrl: questionnaireResponse.questionnaire,
+          serviceRequestId: serviceRequest.id,
+          questionnaireResponse,
+        });
+      }
+    }
+  }
+
+  return Promise.all(
+    results.map(async (result) => {
+      const questionnaireRequest = await fetch(result.questionnaireUrl, {
+        headers: {
+          Authorization: `Bearer ${m2mtoken}`,
+        },
+      });
+
+      const { questionnaireResponse, serviceRequestId } = result;
+
+      const questionnaire = (await questionnaireRequest.json()) as Questionnaire;
+
+      return {
+        questionnaire,
+        questionnaireResponse,
+        questionnaireResponseItems: parseQuestionnaireResponseItems(questionnaireResponse, questionnaire),
+        serviceRequestId,
+      };
+    })
+  );
+};
+
+export function executeByCondition<T>(
+  condition: boolean,
+  fetchFunction: () => Promise<T[]>,
+  emptyResultType: T[] = [] as T[]
+): Promise<T[]> {
+  return condition ? fetchFunction() : Promise.resolve(emptyResultType);
+}
 
 export const parseLabOrderStatus = (
   serviceRequest: ServiceRequest,
@@ -1001,6 +1202,31 @@ export const parseLabOrdersHistory = (
   return history;
 };
 
+export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations: Organization[]): string => {
+  const NOT_FOUND = '';
+
+  if (!serviceRequest.performer || !serviceRequest.performer.length) {
+    return NOT_FOUND;
+  }
+
+  for (const performer of serviceRequest.performer) {
+    if (performer.reference && performer.reference.includes('Organization/')) {
+      const organizationId = performer.reference.split('Organization/')[1];
+      const matchingOrg = organizations.find((org) => org.id === organizationId);
+
+      if (matchingOrg) {
+        const accountNumber = matchingOrg.identifier?.find(
+          (identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM
+        )?.value;
+
+        return accountNumber || NOT_FOUND;
+      }
+    }
+  }
+
+  return NOT_FOUND;
+};
+
 export const parseTaskReceivedAndReviewedHistory = (
   task: Task & { testType: 'reflex' | 'ordered' },
   practitioners: Practitioner[],
@@ -1102,6 +1328,7 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
+  labPDFs: LabOrderPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
   if (!serviceRequest.id) {
@@ -1151,7 +1378,8 @@ export const parseLResultsDetails = (
       const details = parseResultDetails(result, tasks, serviceRequest);
       const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
-      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate });
+      const resultPdfUrl = labPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.url || null;
+      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
     });
   });
 
@@ -1162,7 +1390,7 @@ export const parseResultDetails = (
   result: DiagnosticReport,
   tasks: Task[],
   serviceRequest: ServiceRequest
-): Omit<LabOrderResultDetails, 'testType' | 'resultType' | 'reviewedDate'> | null => {
+): Omit<LabOrderResultDetails, 'testType' | 'resultType' | 'reviewedDate' | 'resultPdfUrl'> | null => {
   const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
 
   if (!task?.id || !result?.id || !serviceRequest.id) {
@@ -1307,13 +1535,13 @@ export const parseDx = (serviceRequest: ServiceRequest): string => {
         (reasonCode) =>
           reasonCode?.text ||
           reasonCode.coding
-            ?.map((coding) => coding.display)
+            ?.map((coding) => `${coding.code} ${coding.display}`.trim())
             .filter(Boolean)
-            .join(',') ||
+            .join('; ') ||
           ''
       )
       .filter(Boolean)
-      .join(',') || ''
+      .join('; ') || ''
   );
 };
 
@@ -1325,4 +1553,41 @@ export const parseResultByTask = (task: Task, results: DiagnosticReport[]): Diag
     const resultId = result.id;
     return taskBasedOn.includes(`DiagnosticReport/${resultId}`);
   });
+};
+
+export const parseQuestionnaireResponseItems = (
+  questionnaireResponse: QuestionnaireResponse,
+  questionnaire: Questionnaire
+): QuestionnaireResponseItem[] => {
+  const questionnaireResponseItems = questionnaireResponse.item?.map((item) => {
+    const question = questionnaire.item?.find((q) => q.linkId === item.linkId);
+
+    if (!question) {
+      throw new Error(`question ${item.linkId} is not found`);
+    }
+
+    return {
+      linkId: item.linkId,
+      type: question.type,
+      response: item.answer?.map((answer) => {
+        if (question.type === 'text') {
+          return answer.valueString;
+        } else if (question.type === 'boolean') {
+          return answer.valueBoolean;
+        } else if (question.type === 'date') {
+          return answer.valueDate;
+        } else if (question.type === 'decimal') {
+          return answer.valueDecimal;
+        } else if (question.type === 'integer') {
+          return answer.valueInteger;
+        } else if (question.type === 'choice') {
+          return answer.valueString;
+        } else {
+          throw new Error(`Unknown question type: ${question.type}`);
+        }
+      }),
+    };
+  });
+
+  return questionnaireResponseItems || [];
 };

@@ -48,6 +48,7 @@ import {
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
+  PROJECT_WEBSITE,
   ServiceMode,
   VisitType,
 } from '../types';
@@ -435,10 +436,10 @@ export async function createConsentResource(
       ],
       policy: [
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
       ],
       sourceReference: {
@@ -651,7 +652,7 @@ export function getTaskResource(coding: TaskCoding, appointmentID: string): Task
     intent: 'plan',
     focus: {
       type: 'Appointment',
-      reference: `Appointment/${appointmentID}`,
+      reference: appointmentID.startsWith('urn:uuid:') ? appointmentID : `Appointment/${appointmentID}`,
     },
     code: {
       coding: [coding],
@@ -683,6 +684,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
         const qualificationState = stateExtension?.valueCodeableConcept?.coding?.find(
           (coding) => coding.system === PRACTITIONER_QUALIFICATION_STATE_SYSTEM
         )?.code;
+        const licenseNumber = qualificationExt.extension?.find((ext) => ext.url === 'number')?.valueString;
+        const licenseExpDate = qualificationExt.extension?.find((ext) => ext.url === 'expDate')?.valueDate;
 
         const statusExtension = qualificationExt.extension?.find((ext) => ext.url === 'status')?.valueCode;
 
@@ -690,6 +693,8 @@ export function allLicensesForPractitioner(practitioner: Practitioner): Practiti
           allLicenses.push({
             state: qualificationState,
             code: qualificationCode,
+            number: licenseNumber,
+            date: licenseExpDate,
             active: statusExtension === 'active',
           });
       }
