@@ -160,7 +160,7 @@ export class ResourceHandler {
     this.#apiClient = new Oystehr({
       accessToken: this.#authToken,
       fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.AUTH0_AUDIENCE,
+      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
     });
   }
 
@@ -188,6 +188,8 @@ export class ResourceHandler {
         birthDate: inputParams?.birthDate ?? PATIENT_BIRTHDAY,
         address: [address],
       };
+
+      console.log('patientData', patientData);
 
       if (!process.env.PROJECT_API_ZAMBDA_URL) {
         throw new Error('PROJECT_API_ZAMBDA_URL is not set');

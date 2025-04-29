@@ -58,7 +58,7 @@ export default function LocationSelect({
       setLoadingState(LoadingState.loading);
 
       try {
-        let locationsResults = (
+        const searchResults = (
           await oystehr.fhir.search<Location | Schedule>({
             resourceType: 'Location',
             params: [
@@ -67,10 +67,12 @@ export default function LocationSelect({
             ],
           })
         ).unbundle();
-        locationsResults = locationsResults.filter((loc) => loc.resourceType === 'Location' && !isLocationVirtual(loc));
+        const locationsResults = searchResults.filter(
+          (loc) => loc.resourceType === 'Location' && !isLocationVirtual(loc)
+        );
         const mappedLocations: LocationWithWalkinSchedule[] = locationsResults.map((locationTemp) => {
           const location = locationTemp as LocationWithWalkinSchedule;
-          const schedule = locationsResults.find((scheduleTemp) => {
+          const schedule = searchResults.find((scheduleTemp) => {
             return (
               scheduleTemp.resourceType === 'Schedule' &&
               scheduleTemp.actor?.some((actor) => actor.reference === `Location/${location.id}`)

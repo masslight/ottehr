@@ -34,6 +34,7 @@ export interface CreateSlotParams {
   lengthInHours?: number;
   status?: Slot['status'];
   walkin?: boolean;
+  postTelemedLabOnly?: boolean;
 }
 
 export interface GetSlotDetailsParams {

@@ -47,13 +47,7 @@ import { MAXIMUM_CHARACTER_LIMIT, REASON_FOR_VISIT_OPTIONS } from '../constants'
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import {
-  CreateAppointmentParameters,
-  EmailUserValue,
-  getFhirAppointmentTypeForVisitType,
-  PersonSex,
-  VisitType,
-} from '../types/types';
+import { EmailUserValue, PersonSex, VisitType } from '../types/types';
 import { enqueueSnackbar } from 'notistack';
 
 const mapSelectedPatientEmailUser = (selectedPatientEmailUser: string | undefined): EmailUserValue | undefined => {
@@ -240,6 +234,7 @@ export default function AddPatient(): JSX.Element {
           lengthInMinutes: getAppointmentDurationFromSlot(slot),
           serviceModality: ServiceMode['in-person'],
           walkin: false,
+          postTelemedLabOnly: visitType === VisitType.PostTelemed,
         };
       }
       console.log('slot input: ', createSlotInput);

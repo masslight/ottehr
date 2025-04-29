@@ -10,6 +10,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
   ServiceMode,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
@@ -63,9 +64,8 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { scheduleId, startISO, lengthInMinutes, lengthInHours, status, walkin, serviceModality } = JSON.parse(
-    input.body
-  );
+  const { scheduleId, startISO, lengthInMinutes, lengthInHours, status, walkin, serviceModality, postTelemedLabOnly } =
+    JSON.parse(input.body);
 
   // required param checks
   if (!scheduleId) {
@@ -121,6 +121,9 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (walkin !== undefined && typeof walkin !== 'boolean') {
     throw INVALID_INPUT_ERROR('"walkin" must be a boolean');
   }
+  if (postTelemedLabOnly !== undefined && typeof postTelemedLabOnly !== 'boolean') {
+    throw INVALID_INPUT_ERROR('"postTelemedLabOnly" must be a boolean');
+  }
   if (typeof serviceModality !== 'string') {
     throw INVALID_INPUT_ERROR('"serviceModality" must be a string');
   }
@@ -142,6 +145,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     status,
     apptLength,
     walkin: walkin ?? false,
+    postTelemedLabOnly: postTelemedLabOnly ?? false,
     serviceModality: serviceModality as ServiceMode,
   };
 };
@@ -151,7 +155,7 @@ interface EffectInput {
 }
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId, startISO, apptLength, status, walkin, serviceModality } = input;
+  const { scheduleId, startISO, apptLength, status, walkin, serviceModality, postTelemedLabOnly } = input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
   if (!schedule) {
@@ -184,6 +188,9 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   };
   if (walkin) {
     slot.appointmentType = { ...SLOT_WALKIN_APPOINTMENT_TYPE_CODING };
+  } else if (postTelemedLabOnly) {
+    slot.appointmentType = { ...SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING };
+    // todo: check if post-telemed lab only slot is available
   } else {
     // check if slot is available
     const isAvailable = await checkSlotAvailable(

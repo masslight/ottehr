@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
+import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateSlotParams,
   PatchPaperworkParameters,
   PersonSex,
   ServiceMode,
@@ -27,6 +26,8 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
+import Oystehr from '@oystehr/sdk';
+import { chooseJson } from './zapEHRApi';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -149,6 +150,8 @@ export const createSamplePrebookAppointments = async ({
           },
           selectedLocationId
         );
+
+        console.log('randomPatientInfo', randomPatientInfo);
 
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',
@@ -392,22 +395,27 @@ const generateRandomPatientInfo = async (
     return false;
   });
 
-  if (!matchingRandomSchedule) {
+  if (!matchingRandomSchedule?.id) {
     throw new Error(`No matching schedule found for location ID: ${randomLocationId}`);
   }
   const now = DateTime.now();
-  const startTime = now.plus({ hours: 2 }).toISO();
-  const endTime = now.plus({ hours: 2, minutes: 15 }).toISO();
-  const slot: Slot = {
-    resourceType: 'Slot',
-    id: `${matchingRandomSchedule}-${startTime}`,
-    status: 'busy',
-    start: startTime,
-    end: endTime,
-    schedule: {
-      reference: `Schedule/${matchingRandomSchedule.id}`,
-    },
+  // create slot
+  const createSlotInput: CreateSlotParams = {
+    scheduleId: matchingRandomSchedule.id,
+    startISO: now.plus({ hours: 2 }).toISO(),
+    lengthInMinutes: 15,
+    serviceModality: serviceMode,
+    walkin: true,
   };
+  console.log('slot input: ', createSlotInput);
+  const persistedSlotResult = await oystehr.zambda.executePublic({
+    id: 'create-slot',
+    ...createSlotInput,
+  });
+
+  const persistedSlot = await chooseJson(persistedSlotResult);
+
+  console.log('persisted slot: ', persistedSlot);
 
   const patientData = {
     newPatient: true,
@@ -426,14 +434,14 @@ const generateRandomPatientInfo = async (
     return {
       patient: patientData,
       unconfirmedDateOfBirth: randomDateOfBirth,
-      slotId: slot.id!,
+      slotId: persistedSlot.id!,
       language: 'en',
     };
   }
 
   return {
     patient: patientData,
-    slotId: slot.id!,
+    slotId: persistedSlot.id!,
     language: 'en',
   };
 };
