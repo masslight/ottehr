@@ -219,7 +219,7 @@
         "address": "Address is required",
         "city": "City is required",
         "phone": {
-          "number": "Phone number must be 10 digits",
+          "number": "Phone number must be 10 digits in the format (xxx) xxx-xxxx",
           "required": "Phone number is required"
         },
         "state": "State is required"

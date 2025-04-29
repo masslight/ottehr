@@ -10,6 +10,7 @@ import {
   CreateAppointmentUCTelemedResponse,
   createSamplePrebookAppointments,
   createSampleTelemedAppointments,
+  FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
   GetPaperworkAnswers,
@@ -330,6 +331,41 @@ export class ResourceHandler {
       throw new Error("Appointment wasn't preprocessed");
     } catch (e) {
       console.error('Error during waitTillAppointmentPreprocessed', e);
+      throw e;
+    }
+  }
+
+  async waitTillHarvestingDone(appointmentId: string): Promise<void> {
+    try {
+      await this.initApi();
+
+      for (let i = 0; i < 10; i++) {
+        const appointment = (
+          await this.#apiClient.fhir.search({
+            resourceType: 'Appointment',
+            params: [
+              {
+                name: '_id',
+                value: appointmentId,
+              },
+            ],
+          })
+        ).unbundle()[0] as Appointment;
+
+        const tags = appointment.meta?.tag || [];
+        const isHarvestingDone = tags.some(
+          (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
+        );
+        if (isHarvestingDone) {
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+
+      throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
+    } catch (e) {
+      console.error('Error during waitTillHarvestingDone', e);
       throw e;
     }
   }

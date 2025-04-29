@@ -199,6 +199,11 @@ export const FHIR_APPOINTMENT_PREPROCESSED_TAG = {
   code: 'APPOINTMENT_PREPROCESSED',
 };
 
+export const FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG = {
+  system: 'appointment-harvesting-module-status',
+  code: 'SUB_INTAKE_HARVEST_TASK_COMPLETE',
+};
+
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
   walkin: 'walk-in',
   prebook: 'pre-booked',
