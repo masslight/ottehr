@@ -117,7 +117,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ],
       authoredOn: DateTime.now().toISO() || undefined,
-      priority: 'routine',
+      priority: 'stat',
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,
       instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
