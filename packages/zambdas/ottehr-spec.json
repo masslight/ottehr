@@ -621,13 +621,6 @@
       "src": "src/patient/appointment/telemed-cancel-appointment/index",
       "zip": ".dist/zips/telemed-cancel-appointment.zip"
     },
-    "TELEMED-CREATE-APPOINTMENT": {
-      "name": "TELEMED-CREATE-APPOINTMENT",
-      "type": "http_auth",
-      "runtime": "nodejs20.x",
-      "src": "src/patient/appointment/telemed-create-appointment/index",
-      "zip": ".dist/zips/telemed-create-appointment.zip"
-    },
     "TELEMED-GET-APPOINTMENTS": {
       "name": "TELEMED-GET-APPOINTMENTS",
       "type": "http_auth",

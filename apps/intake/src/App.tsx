@@ -31,10 +31,6 @@ import { IOSCallEndedPage } from './telemed/pages/IOS/IOSCallEndedPage';
 import { IOSPatientManageParticipantsPage } from './telemed/pages/IOS/IOSManageParticipantsPage';
 import { IOSPatientPhotosEditPage } from './telemed/pages/IOS/IOSPatientPhotosEditPage';
 import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
-import {
-  PaperworkHome as TelemedPaperworkHome,
-  PaperworkPage as TelemedPaperworkPage,
-} from './telemed/pages/PaperworkPage';
 import PastVisits from './pages/PastVisits';
 import VisitDetails from './pages/VisitDetails';
 import UserFlowRoot from './telemed/pages/UserFlowRoot';
@@ -167,14 +163,6 @@ export const intakeFlowPageRoute = {
   TelemedGetReadyForVisit: {
     path: '/paperwork/get-ready-for-the-visit',
     getPage: () => <GetReadyForVisit />,
-  }, // ET
-  TelemedPaperworkHomeRoute: {
-    path: telemedPaperworkBasePath,
-    getPage: () => <TelemedPaperworkHome />,
-  }, // ET
-  TelemedPaperworkInformation: {
-    path: `${telemedPaperworkBasePath}/:slug`,
-    getPage: () => <TelemedPaperworkPage />,
   }, // ET
   WaitingRoom: {
     path: '/waiting-room',
@@ -343,15 +331,6 @@ function App(): JSX.Element {
                   path={intakeFlowPageRoute.TelemedGetReadyForVisit.path}
                   element={intakeFlowPageRoute.TelemedGetReadyForVisit.getPage()}
                 />
-                <Route
-                  path={intakeFlowPageRoute.TelemedPaperworkHomeRoute.path}
-                  element={intakeFlowPageRoute.TelemedPaperworkHomeRoute.getPage()}
-                >
-                  <Route
-                    path={intakeFlowPageRoute.TelemedPaperworkInformation.path}
-                    element={intakeFlowPageRoute.TelemedPaperworkInformation.getPage()}
-                  />
-                </Route>
                 <Route path={intakeFlowPageRoute.VideoCall.path} element={intakeFlowPageRoute.VideoCall.getPage()} />
                 <Route path={intakeFlowPageRoute.CallEnded.path} element={intakeFlowPageRoute.CallEnded.getPage()} />
               </Route>

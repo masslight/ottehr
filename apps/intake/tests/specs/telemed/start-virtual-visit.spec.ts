@@ -211,7 +211,7 @@ test.describe('Start virtual visit with required information only', async () => 
 
   test("Should fill in correct patient's DOB", async () => {
     await clickContinueButton();
-    await clickContinueButton();
+    await clickContinueButton(false);
 
     // todo use another way to get appointment id
     // await getAppointmentIdFromCreateAppointmentRequest(page);
