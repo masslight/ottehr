@@ -315,11 +315,11 @@ export const getLabResources = async (
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
 }> => {
-  const labOrdersSearchParams = createLabOrdersSearchParams(params);
+  const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
 
   const labOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
-    params: labOrdersSearchParams,
+    params: labServiceRequestSearchParams,
   });
 
   const labResources =
@@ -383,7 +383,7 @@ export const getLabResources = async (
   };
 };
 
-export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
+export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
   const { searchBy, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0, orderableItemCode } = params;
 
   const searchParams: SearchParam[] = [
@@ -633,6 +633,10 @@ export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: Diagno
       {
         name: 'based-on',
         value: resultsIds.join(','),
+      },
+      {
+        name: 'status:not',
+        value: 'cancelled',
       },
     ],
   });
