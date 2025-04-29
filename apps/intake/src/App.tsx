@@ -37,7 +37,6 @@ import {
 } from './telemed/pages/PaperworkPage';
 import PastVisits from './pages/PastVisits';
 import VisitDetails from './pages/VisitDetails';
-import TelemedReviewPaperwork from './telemed/pages/ReviewPaperwork';
 import UserFlowRoot from './telemed/pages/UserFlowRoot';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
@@ -184,10 +183,6 @@ export const intakeFlowPageRoute = {
   InvitedWaitingRoom: {
     path: '/invited-waiting-room',
     getPage: () => <WaitingRoom />,
-  }, // ET
-  TelemedReviewPaperwork: {
-    path: `${telemedPaperworkBasePath}/review`,
-    getPage: () => <TelemedReviewPaperwork />,
   }, // ET
   VideoCall: {
     path: '/video-call',
@@ -355,10 +350,6 @@ function App(): JSX.Element {
                   <Route
                     path={intakeFlowPageRoute.TelemedPaperworkInformation.path}
                     element={intakeFlowPageRoute.TelemedPaperworkInformation.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.TelemedReviewPaperwork.path}
-                    element={intakeFlowPageRoute.TelemedReviewPaperwork.getPage()}
                   />
                 </Route>
                 <Route path={intakeFlowPageRoute.VideoCall.path} element={intakeFlowPageRoute.VideoCall.getPage()} />
