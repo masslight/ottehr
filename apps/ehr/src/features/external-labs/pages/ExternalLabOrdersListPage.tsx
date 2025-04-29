@@ -7,7 +7,7 @@ import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
 import { AUTO_REDIRECTED_PARAM } from 'utils/lib/types/data/labs/labs.constants';
 
-const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
+const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'psc', 'actions'];
 
 export const ExternalLabOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
