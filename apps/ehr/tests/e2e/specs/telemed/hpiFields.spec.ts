@@ -191,6 +191,7 @@ test.describe('Medical conditions', async () => {
       .filter({ hasText: new RegExp(conditionName, 'i') })
       .first();
     await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await expect(medicalConditionListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
   });
 
@@ -346,6 +347,7 @@ test.describe('Current medications', () => {
       .first();
 
     await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await expect(scheduledMedicationListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
   });
 
@@ -362,6 +364,7 @@ test.describe('Current medications', () => {
       .first();
 
     await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await expect(asNeededMedicationListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
   });
 
@@ -431,6 +434,7 @@ test.describe('Known allergies', () => {
       .filter({ hasText: new RegExp(knownAllergyName, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await expect(knownAllergyListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
   });
 
@@ -541,6 +545,7 @@ test.describe('Surgical history', () => {
       .filter({ hasText: new RegExp(surgery, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await expect(knownAllergyListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
   });
 
