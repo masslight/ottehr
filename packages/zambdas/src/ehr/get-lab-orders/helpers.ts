@@ -130,12 +130,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
-  const location = locations.find((location) => {
-    const locationRef = `Location/${location.id}`;
-    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
-  });
-
-  const timezone = location ? getTimezone(location) : undefined;
+  const timezone = parseLocationTimezoneForSR(serviceRequest, locations);
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -146,7 +141,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
     lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, timezone, results, tasks, cache),
     orderAddedDate: parseLabOrderAddedDate(serviceRequest, timezone, tasks, results, cache),
     orderStatus: parseLabOrderStatus(serviceRequest, tasks, results, cache),
-    visitDate: formatDateForFrontEnd(parseVisitDate(appointment) || '', timezone),
+    visitDate: parseVisitDate(appointment, timezone),
     isPSC: parseIsPSC(serviceRequest),
     reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
     diagnosesDTO: parseDiagnoses(serviceRequest),
@@ -1086,8 +1081,17 @@ export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: E
   return NOT_FOUND;
 };
 
-export const parseVisitDate = (appointment: Appointment | undefined): string => {
-  return appointment?.created || '';
+const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: Location[]): string | undefined => {
+  const location = locations.find((location) => {
+    const locationRef = `Location/${location.id}`;
+    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
+  });
+
+  return location ? getTimezone(location) : undefined;
+};
+
+export const parseVisitDate = (appointment: Appointment | undefined, timezone: string | undefined): string => {
+  return formatDateForFrontEnd(appointment?.created, timezone);
 };
 
 const parseEncounterId = (serviceRequest: ServiceRequest): string => {
@@ -1145,8 +1149,8 @@ export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
   return NOT_FOUND;
 };
 
-const formatDateForFrontEnd = (date: string, timezone: string | undefined): string => {
-  if (!date) return '';
+const formatDateForFrontEnd = (date: string | undefined, timezone: string | undefined): string => {
+  if (!date || !DateTime.fromISO(date).isValid) return '';
   return DateTime.fromISO(date).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
 };
 
@@ -1165,7 +1169,7 @@ export const parseLabOrderAddedDate = (
       results,
     });
 
-  return formatDateForFrontEnd(taskPST?.authoredOn || '', timezone);
+  return formatDateForFrontEnd(taskPST?.authoredOn, timezone);
 };
 
 export const parseLabOrderLastResultReceivedDate = (
@@ -1308,7 +1312,7 @@ export const parseTaskReceivedInfo = (
   return {
     action: 'received',
     performer: parsePractitionerNameFromTask(task, practitioners),
-    date: formatDateForFrontEnd(task.authoredOn || '', timezone),
+    date: formatDateForFrontEnd(task.authoredOn, timezone),
   };
 };
 
@@ -1327,7 +1331,7 @@ export const parseTaskReviewedInfo = (
   return {
     action: 'reviewed',
     performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
-    date: formatDateForFrontEnd(reviewProvenance.recorded || '', timezone),
+    date: formatDateForFrontEnd(reviewProvenance.recorded, timezone),
   };
 };
 
