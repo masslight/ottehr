@@ -191,8 +191,8 @@ test.describe('Medical conditions', async () => {
       .filter({ hasText: new RegExp(conditionName, 'i') })
       .first();
     await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(medicalConditionListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
+    await expect(medicalConditionListItem).not.toBeVisible();
   });
 
   test('Should confirm medical condition deleted, in HPI and in Review&Sign tabs', async () => {
@@ -347,8 +347,8 @@ test.describe('Current medications', () => {
       .first();
 
     await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(scheduledMedicationListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
+    await expect(scheduledMedicationListItem).not.toBeVisible();
   });
 
   test('Should delete as needed medication', async () => {
@@ -364,8 +364,8 @@ test.describe('Current medications', () => {
       .first();
 
     await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(asNeededMedicationListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
+    await expect(asNeededMedicationListItem).not.toBeVisible();
   });
 
   test('Should confirm medications are deleted on Review&Sign tab', async () => {
@@ -434,8 +434,8 @@ test.describe('Known allergies', () => {
       .filter({ hasText: new RegExp(knownAllergyName, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(knownAllergyListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
+    await expect(knownAllergyListItem).not.toBeVisible();
   });
 
   test('Should confirm known allergy deleted', async () => {
@@ -545,8 +545,8 @@ test.describe('Surgical history', () => {
       .filter({ hasText: new RegExp(surgery, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
-    await expect(knownAllergyListItem).not.toBeVisible();
     await waitForChartDataDeletion(page);
+    await expect(knownAllergyListItem).not.toBeVisible();
   });
 
   test('Should check surgical history record deleted from HPI and Review&Sign tab', async () => {
