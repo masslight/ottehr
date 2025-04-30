@@ -69,7 +69,6 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     (participant) =>
       participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
   );
-  console.log('attendingPractitioner', attendingPractitioner);
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
@@ -353,7 +352,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                 <Grid item xs={12}>
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
-                    control={<Switch checked={psc} onChange={() => setPsc(!psc)} />}
+                    control={<Switch checked={psc} onChange={() => setPsc((psc) => !psc)} />}
                     label={<Typography variant="body2">PSC</Typography>}
                   />
                 </Grid>
