@@ -17,6 +17,7 @@ import {
   Questionnaire,
   QuestionnaireResponseItem,
   DocumentReference,
+  Location,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
@@ -34,6 +35,7 @@ import {
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   getPresignedURL,
+  getTimezone,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -57,6 +59,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   results: DiagnosticReport[],
   practitioners: Practitioner[],
   encounters: Encounter[],
+  locations: Location[],
   appointments: Appointment[],
   provenances: Provenance[],
   organizations: Organization[],
@@ -80,6 +83,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       results,
       appointments,
       encounters,
+      locations,
       practitioners,
       provenances,
       organizations,
@@ -97,6 +101,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   results,
   appointments,
   encounters,
+  locations,
   practitioners,
   provenances,
   organizations,
@@ -110,6 +115,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   results: DiagnosticReport[];
   appointments: Appointment[];
   encounters: Encounter[];
+  locations: Location[];
   practitioners: Practitioner[];
   provenances: Provenance[];
   organizations: Organization[];
@@ -124,6 +130,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
+  const timezone = parseLocationTimezoneForSR(serviceRequest, locations);
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -140,6 +147,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
+    encounterTimezone: timezone,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -308,6 +316,7 @@ export const getLabResources = async (
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   appointments: Appointment[];
   provenances: Provenance[];
@@ -335,6 +344,7 @@ export const getLabResources = async (
           | DiagnosticReport
           | Provenance
           | Organization
+          | Location
           | QuestionnaireResponse => Boolean(res)
       ) || [];
 
@@ -342,6 +352,7 @@ export const getLabResources = async (
     serviceRequests,
     tasks: preSubmissionTasks,
     encounters,
+    locations,
     diagnosticReports,
     observations,
     provenances,
@@ -373,6 +384,7 @@ export const getLabResources = async (
     diagnosticReports,
     practitioners,
     encounters,
+    locations,
     observations,
     appointments,
     provenances,
@@ -438,6 +450,12 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude',
       value: 'Provenance:target',
     },
+
+    // include encounter location
+    {
+      name: '_include:iterate',
+      value: 'Encounter:location',
+    },
   ];
 
   // chart data case
@@ -495,12 +513,14 @@ export const extractLabResources = (
     | Provenance
     | Organization
     | QuestionnaireResponse
+    | Location
   )[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   provenances: Provenance[];
   organizations: Organization[];
@@ -510,6 +530,7 @@ export const extractLabResources = (
   const tasks: Task[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
+  const locations: Location[] = [];
   const observations: Observation[] = [];
   const provenances: Provenance[] = [];
   const organizations: Organization[] = [];
@@ -538,6 +559,8 @@ export const extractLabResources = (
       organizations.push(resource as Organization);
     } else if (resource.resourceType === 'QuestionnaireResponse') {
       questionnaireResponses.push(resource as QuestionnaireResponse);
+    } else if (resource.resourceType === 'Location') {
+      locations.push(resource as Location);
     }
   }
 
@@ -546,6 +569,7 @@ export const extractLabResources = (
     tasks,
     diagnosticReports,
     encounters,
+    locations,
     observations,
     provenances,
     organizations,
@@ -1047,6 +1071,15 @@ export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: E
   }
 
   return NOT_FOUND;
+};
+
+const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: Location[]): string | undefined => {
+  const location = locations.find((location) => {
+    const locationRef = `Location/${location.id}`;
+    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
+  });
+
+  return location ? getTimezone(location) : undefined;
 };
 
 export const parseVisitDate = (appointment: Appointment | undefined): string => {
