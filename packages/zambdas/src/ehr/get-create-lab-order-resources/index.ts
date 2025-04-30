@@ -65,7 +65,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       if (resource.resourceType === 'Coverage') coverages.push(resource as Coverage);
       if (resource.resourceType === 'Account') accounts.push(resource as Account);
     });
-
     if (accounts.length !== 1)
       // there should only be one active account
       throw new Error('patient must have one active account record to represent a guarantor to order labs');
@@ -108,7 +107,6 @@ const getLabs = async (labOrgsGuids: string[], m2mtoken: string): Promise<Ordera
   const labIds = labOrgsGuids.join(',');
   let cursor = '';
   const items: OrderableItemSearchResult[] = [];
-
   do {
     const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?labIds=${labIds}&limit=100&cursor=${cursor}`;
     const orderableItemsSearch = await fetch(url, {
@@ -122,6 +120,5 @@ const getLabs = async (labOrgsGuids: string[], m2mtoken: string): Promise<Ordera
     items.push(...orderableItemRes);
     cursor = response?.metadata?.nextCursor || '';
   } while (cursor);
-
   return items;
 };
