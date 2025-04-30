@@ -112,6 +112,7 @@ export interface ExternalLabsData {
   locationZip: string;
   locationPhone: string;
   locationFax: string;
+  labOrganizationName: string;
   reqId: string;
   providerName: string;
   providerTitle: string;

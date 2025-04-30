@@ -177,12 +177,14 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
       size: columnOneFontSize,
       x: currXPos,
       y: currYPos,
+      maxWidth: pageTextWidth / 2 - currXPos,
     });
     page.drawText(columnTwoName, {
       font: columnTwoFont,
       size: columnTwoFontSize,
       x: pageTextWidth / 2,
       y: currYPos,
+      maxWidth: pageTextWidth / 2,
     });
   };
 
@@ -235,7 +237,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   // --- add all sections to PDF ---
   // ===============================
   // Main header
-  drawHeader('Order Form');
+  drawHeader(`${data.labOrganizationName}: Order Form`);
   addNewLine();
   drawSeparatorLine();
   addNewLine();

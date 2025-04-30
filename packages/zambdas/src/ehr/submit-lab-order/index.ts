@@ -5,6 +5,7 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   getPresignedURL,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -43,6 +44,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       task,
       appointment,
       encounter,
+      organization: labOrganization,
     } = await getLabOrderResources(oystehr, serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
@@ -273,6 +275,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationZip: location.address?.postalCode || ORDER_ITEM_UNKNOWN,
         locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_ITEM_UNKNOWN,
+        labOrganizationName: labOrganization.name || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         providerTitle:
@@ -301,7 +304,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         insuredAddress: coveragePatient?.address ? oystehr.fhir.formatAddress(coveragePatient.address?.[0]) : undefined,
         aoeAnswers: questionsAndAnswers,
         orderName:
-          serviceRequest.code?.coding?.map((codingTemp) => codingTemp.display).join(', ') || ORDER_ITEM_UNKNOWN,
+          serviceRequest.code?.coding?.find((coding) => coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
+          ORDER_ITEM_UNKNOWN,
         orderAssessments: serviceRequest.reasonCode?.map((code) => ({
           code: code.coding?.[0].code || ORDER_ITEM_UNKNOWN,
           name: code.text || ORDER_ITEM_UNKNOWN,
