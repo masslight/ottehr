@@ -108,9 +108,9 @@ const getLabs = async (labOrgsGuids: string[], m2mtoken: string): Promise<Ordera
   const labIds = labOrgsGuids.join(',');
   let cursor = '';
   const items: OrderableItemSearchResult[] = [];
+
   do {
     const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?labIds=${labIds}&limit=100&cursor=${cursor}`;
-
     const orderableItemsSearch = await fetch(url, {
       method: 'GET',
       headers: {
