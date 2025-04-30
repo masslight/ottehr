@@ -49,7 +49,7 @@ const Homepage = (): JSX.Element => {
       their phone number, or maybe a link the user opens by scanning a QR code made available at the location. 
     */
 
-    // todo: put this id in some config
+    // todo 1.8: put this id in some config
     const basePath = generatePath(intakeFlowPageRoute.WalkinLanding.path, {
       id: '03945c47-c91d-40f2-87a0-264a46f6f3c1',
     });

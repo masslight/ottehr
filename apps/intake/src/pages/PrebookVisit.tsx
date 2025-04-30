@@ -7,6 +7,7 @@ import { BoldPurpleInputLabel, useUCZambdaClient } from 'ui-components';
 import {
   BookableItem,
   CreateSlotParams,
+  getAppointmentDurationFromSlot,
   //getAppointmentDurationFromSlot,
   GetScheduleResponse,
   getServiceModeFromSlot,
@@ -177,7 +178,7 @@ const PrebookVisit: FC = () => {
         scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
         startISO: slot.start,
         serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
-        lengthInMinutes: 15, // todo: test for this getAppointmentDurationFromSlot(slot),
+        lengthInMinutes: getAppointmentDurationFromSlot(slot),
         status: 'busy-tentative',
         walkin: false,
       };
@@ -191,7 +192,7 @@ const PrebookVisit: FC = () => {
         navigate(`${basePath}/patients`);
       } catch (error) {
         console.error('Error creating slot:', error);
-        // todo: handle error
+        // todo 1.8: handle error
       }
     }
   };

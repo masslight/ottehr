@@ -153,8 +153,6 @@ const ThankYou = (): JSX.Element => {
   }, [appointmentId, loading, pathname]);
 
   const { appointmentData, clear: clearAppointmentStore } = getSelectors(useVisitStore, ['appointmentData', 'clear']);
-  // todo: there's probably some cool and better zustand way to replace all these useMemos
-  // this perhaps: const appointmentID = useAppointmentStore((state) => state.appointmentData.appointmentId);
   const { location: selectedLocation } = useMemo(() => {
     const location = appointmentData?.appointment?.location;
     if (location) {

@@ -112,5 +112,7 @@ export interface WalkinAvailabilityCheckResult {
   officeHasClosureOverrideToday: boolean;
   officeHasClosureOverrideTomorrow: boolean;
   prebookStillOpenForToday: boolean;
+  scheduleOwnerName: string;
+  scheduleId: string;
   serviceMode?: ServiceMode;
 }

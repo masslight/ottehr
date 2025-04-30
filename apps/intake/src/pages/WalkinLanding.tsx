@@ -16,25 +16,25 @@ import { ottehrLightBlue } from '@theme/icons';
 export const WalkinLanding: FC = () => {
   const navigate = useNavigate();
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
-  const scheduleId = useParams().id;
+  const { id: scheduleId, name } = useParams();
   const getWalkinAvailability = ottehrApi.getWalkinAvailability;
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
+  const locationName = name ? name.replace('_', ' ') : undefined;
   const { data, error, isLoading, isFetching, isRefetching } = useQuery(
-    ['walkin-check-availability', { zambdaClient: tokenlessZambdaClient, scheduleId }],
-    () => (tokenlessZambdaClient && scheduleId ? getWalkinAvailability({ scheduleId }, tokenlessZambdaClient) : null),
+    ['walkin-check-availability', { zambdaClient: tokenlessZambdaClient, scheduleId, locationName }],
+    () =>
+      tokenlessZambdaClient && (scheduleId || locationName)
+        ? getWalkinAvailability({ scheduleId, locationName }, tokenlessZambdaClient)
+        : null,
     {
       onSuccess: (response) => {
         console.log('Walkin availability response:', response);
       },
-      enabled: Boolean(scheduleId) && Boolean(tokenlessZambdaClient),
+      enabled: Boolean(scheduleId || locationName) && Boolean(tokenlessZambdaClient),
     }
   );
   const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching;
-
-  if (!somethingIsLoadingInSomeWay) {
-    console.log('Walkin availability data:', data);
-  }
 
   // todo: actuallly check error type
   const pageNotFound = error && isRefetching === false && !isLoading && !isFetching;
@@ -51,9 +51,8 @@ export const WalkinLanding: FC = () => {
 
   return (
     <PageContainer
-      title={"Hi I'm Walkin Home"}
-      subtitle={somethingIsLoadingInSomeWay ? t('welcome.loading') : `SOME NAME TBD`}
-      subtext={somethingIsLoadingInSomeWay ? '' : 'SOME TEXT TBD'}
+      title={somethingIsLoadingInSomeWay ? 'Loading...' : 'Welcome to Ottehr'} // todo: get some copy for this
+      subtitle={somethingIsLoadingInSomeWay ? '' : data?.scheduleOwnerName ?? ''}
       isFirstPage
       img={ottehrLightBlue}
       imgAlt="ottehr icon"
@@ -67,9 +66,9 @@ export const WalkinLanding: FC = () => {
             </Typography>
             <PageForm
               onSubmit={async (_) => {
-                if (tokenlessZambdaClient && scheduleId) {
+                if (tokenlessZambdaClient && data.scheduleId) {
                   const createSlotInput: CreateSlotParams = {
-                    scheduleId,
+                    scheduleId: data.scheduleId,
                     startISO: DateTime.now().toISO(),
                     serviceModality: data.serviceMode as ServiceMode,
                     lengthInMinutes: 15,
@@ -78,14 +77,13 @@ export const WalkinLanding: FC = () => {
                   };
                   try {
                     const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
-                    console.log('createSlotResponse', slot);
                     const basePath = generatePath(bookingBasePath, {
                       slotId: slot.id!,
                     });
                     navigate(`${basePath}/patients`);
                   } catch (error) {
                     console.error('Error creating slot:', error);
-                    // todo: handle error
+                    // todo 1.8: handle error
                   }
                 }
               }}

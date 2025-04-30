@@ -62,7 +62,7 @@ const StartVirtualVisit = (): JSX.Element => {
         navigate(`${basePath}/patients`);
       } catch (error) {
         console.error('Error creating slot:', error);
-        // todo: handle error
+        // todo 1.8: handle error
       }
 
       setIsSubmitting(true);

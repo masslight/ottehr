@@ -207,7 +207,6 @@ export default function AddPatient(): JSX.Element {
       let createSlotInput: CreateSlotParams;
       if (visitType === VisitType.WalkIn) {
         if (!selectedLocation) {
-          // todo: show error toast
           enqueueSnackbar('Please select a location', { variant: 'error' });
           setLoading(false);
           return;
@@ -222,7 +221,6 @@ export default function AddPatient(): JSX.Element {
         };
       } else {
         if (!slot) {
-          // todo: show error toast
           enqueueSnackbar('Please select a time slot', { variant: 'error' });
           setLoading(false);
           return;

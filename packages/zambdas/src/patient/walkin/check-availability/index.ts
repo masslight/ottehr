@@ -27,6 +27,7 @@ import {
 } from 'utils';
 import { ZambdaInput, getAuth0Token, topLevelCatch } from '../../../shared';
 import { DateTime } from 'luxon';
+import { getNameForOwner } from '../../../ehr/schedules/shared';
 
 let zapehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -59,7 +60,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
-  const { scheduleExtension, serviceMode, timezone } = input;
+  const { scheduleExtension, serviceMode, timezone, scheduleOwnerName, scheduleId } = input;
   // grab everything that is needed to perform the walkin availability check
   const timeNow = DateTime.now().setZone(timezone);
   const tomorrow = timeNow.plus({ days: 1 });
@@ -111,6 +112,8 @@ const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
     officeHasClosureOverrideToday,
     prebookStillOpenForToday,
     serviceMode,
+    scheduleOwnerName,
+    scheduleId,
   };
 };
 
@@ -140,6 +143,8 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 interface EffectInput {
   scheduleExtension: ScheduleExtension;
   timezone: Timezone;
+  scheduleOwnerName: string;
+  scheduleId: string;
   serviceMode?: ServiceMode;
 }
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
@@ -215,7 +220,23 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
 
   const timezone = getTimezone(schedule) ?? TIMEZONES[0];
 
-  return { scheduleExtension, timezone, serviceMode };
+  let scheduleOwnerName = '';
+  if (locationName) {
+    scheduleOwnerName = locationName;
+  } else if (scheduleOwner) {
+    scheduleOwnerName = getNameForOwner(scheduleOwner);
+  }
+
+  let resolvedScheduleId = scheduleId;
+  if (!scheduleId) {
+    resolvedScheduleId = schedule.id;
+  }
+
+  if (!resolvedScheduleId) {
+    throw new Error('Shcedule ID could not be resolved');
+  }
+
+  return { scheduleExtension, timezone, serviceMode, scheduleOwnerName, scheduleId: resolvedScheduleId };
 };
 
 function getOpeningTime(

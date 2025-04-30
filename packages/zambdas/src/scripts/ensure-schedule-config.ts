@@ -34,57 +34,65 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     })).unbundle();
 
     const schedules = telemedLocationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
-    const telemedLocations = telemedLocationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
-    console.log('telemedLocations', telemedLocations.length);
+    const locations = telemedLocationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
+    console.log('telemedLocations', locations.length);
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
     const locationUpdateRequests: BatchInputPutRequest<Location>[] = [];
 
-    telemedLocations.forEach((location) => {
-       const existingSchedule = schedules.find((sched) => sched.actor?.some((act) => act.reference === `Location/${location.id}`));
-       const extension = location.extension ?? [];
+    locations.forEach((location) => {
+      const existingSchedule = schedules.find((sched) => sched.actor?.some((act) => act.reference === `Location/${location.id}`));
+      const extension = location.extension ?? [];
 
-       const scheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
-       const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+      const scheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
+      const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
 
-       const newExtension = extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL);
-       const modifiedLocation: Location = {
-         ...location,
-         extension: [
-           ...newExtension,
-         ],
-       };
-       if (scheduleExtension && timezoneExtension && existingSchedule === undefined) {
-        const locationSchedule: Schedule = {
-          resourceType: 'Schedule',
-          active: true,
-          extension: [
-            { ...scheduleExtension },
-            { ...timezoneExtension},
-          ],
-          actor: [{
-            reference: `Location/${location.id}`,
-          }],
-        };
-        schedulePostRequests.push({
-          method: 'POST',
-          url: '/Schedule',
-          resource: locationSchedule,
-        });
-        locationUpdateRequests.push({
-          method: 'PUT',
-          url: `/Location/${location.id}`,
-          resource: modifiedLocation,
-        });
-       }
-       if (existingSchedule && scheduleExtension) {
-        locationUpdateRequests.push({
-          method: 'PUT',
-          url: `/Location/${location.id}`,
-          resource: modifiedLocation,
-        });
+      const newExtension = extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL);
+      const modifiedLocation: Location = {
+        ...location,
+        extension: [
+          ...newExtension,
+        ],
+      };
+      // oystehr search bug prevents finding exact string match when there is a comma in the string
+      if ((modifiedLocation.name?.split(',') ?? []).length > 1) {
+        if (modifiedLocation.name === 'New York, NY') {
+          modifiedLocation.name = 'New York';
+        } else {
+          modifiedLocation.name = modifiedLocation.name = modifiedLocation.name?.replace(',', '-');
+        }
       }
-    });
+      if (scheduleExtension && timezoneExtension && existingSchedule === undefined) {
+      const locationSchedule: Schedule = {
+        resourceType: 'Schedule',
+        active: true,
+        extension: [
+          { ...scheduleExtension },
+          { ...timezoneExtension},
+        ],
+        actor: [{
+          reference: `Location/${location.id}`,
+        }],
+      };
+      schedulePostRequests.push({
+        method: 'POST',
+        url: '/Schedule',
+        resource: locationSchedule,
+      });
+      locationUpdateRequests.push({
+        method: 'PUT',
+        url: `/Location/${location.id}`,
+        resource: modifiedLocation,
+      });
+      }
+      if (existingSchedule && scheduleExtension) {
+      locationUpdateRequests.push({
+        method: 'PUT',
+        url: `/Location/${location.id}`,
+        resource: modifiedLocation,
+      });
+    }
+  });
     console.log('schedulePostRequests', schedulePostRequests.length);
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [
@@ -92,8 +100,6 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
         //...locationUpdateRequests, // uncomment to remove schedule json from locations
       ],
     });
-  
-    
   } catch (error) {
     console.error('Error setting up telemed locations:', error);
     if (error instanceof Error) { 
@@ -221,3 +227,14 @@ main().catch((error) => {
   console.log('error', error);
   throw error;
 });
+
+/*
+const isDefaultWalkinLocaiton = (location: Location): boolean => {
+  if (isLocationVirtual(location)) {
+    return false;
+  }
+  // todo: this could be more explicit somewhere, but probably makes sense to address as part of the larger
+  // effort to better orchestrate set up and deployment
+  return location?.address?.state === 'NY' && location?.address?.city === 'New York';
+}
+*/

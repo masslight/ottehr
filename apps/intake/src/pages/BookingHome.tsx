@@ -179,7 +179,7 @@ const BookingHome: FC = () => {
 
   const {
     data: patientsData,
-    error: getPatientsError,
+    error: _getPatientsError,
     isLoading: patientsLoading,
     isFetching: patientsFetching,
     isRefetching: patientsRefetching,
@@ -196,10 +196,12 @@ const BookingHome: FC = () => {
 
   const patientsLoadingInSomeWay = patientsLoading || patientsFetching || patientsRefetching;
 
-  console.log('patients data:', patientsData);
-  console.log('patients error:', getPatientsError);
-  console.log('patients loading:', patientsLoadingInSomeWay);
-  console.log('Slot details loading:', slotDetailsLoadingInSomeWay);
+  /*
+    console.log('patients data:', patientsData);
+    console.log('patients error:', getPatientsError);
+    console.log('patients loading:', patientsLoadingInSomeWay);
+    console.log('Slot details loading:', slotDetailsLoadingInSomeWay);
+  */
 
   const outletContext: BookAppointmentContext | null = useMemo(() => {
     if (!slotDetailsData) {
@@ -238,8 +240,8 @@ const BookingHome: FC = () => {
       timezone: timezone ?? TIMEZONES[0],
       patientsLoading: patientsLoadingInSomeWay,
       unconfirmedDateOfBirth,
-      walkinOpen: true, // todo
-      officeOpen: true, // todo
+      walkinOpen: true, // todo 1.8
+      officeOpen: true, // todo 1.8
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
       setPatientInfo,

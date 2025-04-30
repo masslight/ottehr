@@ -91,23 +91,27 @@ export const intakeFlowPageRoute = {
   Homepage: {
     path: '/home',
     getPage: () => <Homepage />,
-  }, // ET
+  },
   AuthPage: {
     path: '/auth',
     getPage: () => <AuthPage />,
-  }, // ET
+  },
   Welcome: {
     path: '/welcome',
     getPage: () => <Welcome />,
-  }, // ET
+  },
   WalkinLanding: {
     path: '/walkin/schedule/:id',
+    getPage: () => <WalkinLanding />,
+  },
+  WalkinLandingByLocationName: {
+    path: '/walkin/location/:name',
     getPage: () => <WalkinLanding />,
   },
   Appointments: {
     path: '/visits',
     getPage: () => <Appointments />,
-  }, // IP
+  },
   MyPatients: {
     path: '/my-patients',
     getPage: () => <MyPatients />,
@@ -115,96 +119,96 @@ export const intakeFlowPageRoute = {
   PastVisits: {
     path: '/my-patients/:patientId/past-visits',
     getPage: () => <PastVisits />,
-  }, // ET, IP
+  },
   VisitDetails: {
     path: '/my-patients/:patientId/past-visits/:visitId',
     getPage: () => <VisitDetails />,
-  }, // ET, IP
+  },
 
   // paperwork routers
   PaperworkHomeRoute: {
     path: paperworkBasePath,
     getPage: () => <PaperworkHome />,
-  }, // IP
+  },
   PaperworkInformation: {
     path: `${paperworkBasePath}/:slug`,
     getPage: () => <PaperworkPage />,
-  }, // IP
+  },
   ReviewPaperwork: {
     path: `${paperworkBasePath}/review`,
     getPage: () => <ReviewPaperwork />,
-  }, // IP
+  },
 
   // visit routes
   ThankYou: {
     path: visitBasePath,
     getPage: () => <ThankYou />,
-  }, // IP
+  },
   CheckIn: {
     path: `${visitBasePath}/check-in`,
     getPage: () => <CheckIn />,
-  }, // IP
+  },
   Reschedule: {
     path: `${visitBasePath}/reschedule`,
     getPage: () => <Reschedule />,
-  }, // IP
+  },
   CancellationConfirmation: {
     path: `${visitBasePath}/cancellation-confirmation`,
     getPage: () => <CancellationConfirmation />,
-  }, // IP
+  },
   CancellationReason: {
     path: `${visitBasePath}/cancel`,
     getPage: () => <CancellationReason />,
-  }, // IP
+  },
   AIInterview: {
     path: `${visitBasePath}/ai-interview`,
     getPage: () => <AIInterview />,
-  }, // IP
+  },
   TelemedGetReadyForVisit: {
     path: '/paperwork/get-ready-for-the-visit',
     getPage: () => <GetReadyForVisit />,
-  }, // ET
+  },
   WaitingRoom: {
     path: '/waiting-room',
     getPage: () => <WaitingRoom />,
-  }, // ET
+  },
   InvitedWaitingRoom: {
     path: '/invited-waiting-room',
     getPage: () => <WaitingRoom />,
-  }, // ET
+  },
   VideoCall: {
     path: '/video-call',
     getPage: () => <VideoChatPage />,
-  }, // ET
+  },
   InvitedVideoCall: {
     path: '/invited-video-call',
     getPage: () => <VideoChatPage />,
-  }, // ET
+  },
   CallEnded: {
     path: '/call-ended',
     getPage: () => <CallEndedPage />,
-  }, // ET
+  },
   InvitedCallEnded: {
     path: '/invited-call-ended',
     getPage: () => <CallEndedPage />,
-  }, // ET
+  },
 
   IOSPatientPhotosEdit: {
     path: '/ios-patient-photos',
     getPage: () => <IOSPatientPhotosEditPage />,
-  }, // ET
+  },
   IOSPatientManageParticipants: {
     path: '/ios-manage-participants',
     getPage: () => <IOSPatientManageParticipantsPage />,
-  }, // ET
+  },
   IOSVideoCallMenu: {
     path: '/ios-video-call-menu',
     getPage: () => <IOSVideoCallMenu />,
-  }, // ET
+  },
   IOSCallEnded: {
     path: '/ios-call-ended',
     getPage: () => <IOSCallEndedPage />,
-  }, // ET
+  },
 
   // booking routes
   PrebookVisit: {
@@ -222,31 +226,31 @@ export const intakeFlowPageRoute = {
   BookingHome: {
     path: bookingBasePath,
     getPage: () => <BookingHome />,
-  }, // IP
+  },
   ChoosePatient: {
     path: `${bookingBasePath}/patients`,
     getPage: () => <WelcomeBack />,
-  }, // IP
+  },
   GetReadyForVisit: {
     path: `${bookingBasePath}/get-ready`,
     getPage: () => <GetReadyForVisit />,
-  }, // IP
+  },
   ConfirmDateOfBirth: {
     path: `${bookingBasePath}/confirm-date-of-birth`,
     getPage: () => <ConfirmDateOfBirth />,
-  }, // IP
+  },
   PatientInformation: {
     path: `${bookingBasePath}/patient-information`,
     getPage: () => <PatientInformation />,
-  }, // IP
+  },
   Review: {
     path: `${bookingBasePath}/review`,
     getPage: () => <Review />,
-  }, // IP
+  },
   NewUser: {
     path: `${bookingBasePath}/new-user`,
     getPage: () => <NewUser />,
-  }, // IP
+  },
 } as const;
 
 function App(): JSX.Element {
@@ -341,6 +345,10 @@ function App(): JSX.Element {
               <Route
                 path={intakeFlowPageRoute.WalkinLanding.path}
                 element={intakeFlowPageRoute.WalkinLanding.getPage()}
+              />
+              <Route
+                path={intakeFlowPageRoute.WalkinLandingByLocationName.path}
+                element={intakeFlowPageRoute.WalkinLandingByLocationName.getPage()}
               />
               <Route
                 path={intakeFlowPageRoute.StartVirtualVisit.path}

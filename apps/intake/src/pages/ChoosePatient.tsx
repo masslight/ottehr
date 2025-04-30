@@ -39,17 +39,6 @@ const ChoosePatient = (): JSX.Element => {
 
   const navigateInFlow = useNavigateInFlow();
 
-  /*
-  useEffect(() => {
-    if (visitType === VisitType.WalkIn && !walkinOpen) {
-      navigate(getStartingPath(selectedLocation, visitType, serviceType, selectedSlot), {
-        state: { reschedule: true },
-        replace: true,
-      });
-    }
-  }, [selectedLocation, visitType, serviceType, selectedSlot, walkinOpen, navigate]);
-  */
-
   // todo: consider whether this is better handled in BookingHome
   useEffect(() => {
     const getAppointmentsTodayAndTomorrow = async (): Promise<void> => {
@@ -225,6 +214,7 @@ const ChoosePatient = (): JSX.Element => {
     }
   };
 
+  // todo 1.8
   const alreadyBooked = (patientID: string): string | undefined => {
     // todo: return the appointment id from the slot details if it matches with some already booked appointment for the patient
     console.log('already booked', patientID);
