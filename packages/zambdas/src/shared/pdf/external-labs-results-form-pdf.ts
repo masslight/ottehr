@@ -168,6 +168,7 @@ export async function createLabResultPDF(
       locationZip: location.address?.postalCode || ORDER_RESULT_ITEM_UNKNOWN,
       locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
       locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      labOrganizationName: organization.name || ORDER_RESULT_ITEM_UNKNOWN,
       reqId: orderID || ORDER_RESULT_ITEM_UNKNOWN,
       providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_RESULT_ITEM_UNKNOWN,
       providerTitle:
