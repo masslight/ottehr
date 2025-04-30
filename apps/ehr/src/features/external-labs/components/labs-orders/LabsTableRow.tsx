@@ -5,6 +5,7 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { otherColors } from '@theme/colors';
+import { DateTime } from 'luxon';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
@@ -22,12 +23,16 @@ export const LabsTableRow = ({
   onRowClick,
 }: LabsTableRowProps): ReactElement => {
   const theme = useTheme();
-
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
     if (onDeleteOrder) {
       onDeleteOrder();
     }
+  };
+
+  const formatDate = (datetime: string): string => {
+    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
+    return DateTime.fromISO(datetime).setZone(labOrderData.encounterTimezone).toFormat('MM/dd/yyyy hh:mm a');
   };
 
   const renderCellContent = (column: LabsTableColumn): React.ReactNode => {
@@ -44,9 +49,9 @@ export const LabsTableRow = ({
           </Box>
         );
       case 'visit':
-        return <Box>{labOrderData.visitDate}</Box>;
+        return <Box>{formatDate(labOrderData.visitDate)}</Box>;
       case 'orderAdded':
-        return <Box>{labOrderData.orderAddedDate}</Box>;
+        return <Box>{formatDate(labOrderData.orderAddedDate)}</Box>;
       case 'provider':
         return labOrderData.orderingPhysician || '';
       case 'dx': {
@@ -67,7 +72,7 @@ export const LabsTableRow = ({
         return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <Box>{labOrderData.lastResultReceivedDate}</Box>;
+        return <Box>{formatDate(labOrderData.lastResultReceivedDate)}</Box>;
       case 'accessionNumber':
         return labOrderData.accessionNumbers.join(', ');
       case 'status':

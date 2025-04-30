@@ -138,33 +138,25 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
     fillerLab,
     serviceRequestId: serviceRequest.id,
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
-    lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, timezone, results, tasks, cache),
-    orderAddedDate: parseLabOrderAddedDate(serviceRequest, timezone, tasks, results, cache),
+    lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, results, tasks, cache),
+    orderAddedDate: parseLabOrderAddedDate(serviceRequest, tasks, results, cache),
     orderStatus: parseLabOrderStatus(serviceRequest, tasks, results, cache),
-    visitDate: parseVisitDate(appointment, timezone),
+    visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
     reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
+    encounterTimezone: timezone,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
     const detailedPageDTO: LabOrderDetailedPageDTO = {
       ...listPageDTO,
       orderSource: parsePerformed(serviceRequest),
-      history: parseLabOrdersHistory(serviceRequest, timezone, tasks, results, practitioners, provenances, cache),
+      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
       accountNumber: parseAccountNumber(serviceRequest, organizations),
-      resultsDetails: parseLResultsDetails(
-        serviceRequest,
-        timezone,
-        results,
-        tasks,
-        practitioners,
-        provenances,
-        labPDFs,
-        cache
-      ),
+      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
     };
 
@@ -1090,8 +1082,8 @@ const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: L
   return location ? getTimezone(location) : undefined;
 };
 
-export const parseVisitDate = (appointment: Appointment | undefined, timezone: string | undefined): string => {
-  return formatDateForFrontEnd(appointment?.created, timezone);
+export const parseVisitDate = (appointment: Appointment | undefined): string => {
+  return appointment?.created || '';
 };
 
 const parseEncounterId = (serviceRequest: ServiceRequest): string => {
@@ -1149,14 +1141,8 @@ export const parseAccessionNumber = (results: DiagnosticReport[]): string => {
   return NOT_FOUND;
 };
 
-const formatDateForFrontEnd = (date: string | undefined, timezone: string | undefined): string => {
-  if (!date || !DateTime.fromISO(date).isValid) return '';
-  return DateTime.fromISO(date).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
-};
-
 export const parseLabOrderAddedDate = (
   serviceRequest: ServiceRequest,
-  timezone: string | undefined,
   tasks: Task[],
   results: DiagnosticReport[],
   cache?: Cache
@@ -1169,12 +1155,11 @@ export const parseLabOrderAddedDate = (
       results,
     });
 
-  return formatDateForFrontEnd(taskPST?.authoredOn, timezone);
+  return taskPST?.authoredOn || '';
 };
 
 export const parseLabOrderLastResultReceivedDate = (
   serviceRequest: ServiceRequest,
-  timezone: string | undefined,
   results: DiagnosticReport[],
   tasks: Task[],
   cache?: Cache
@@ -1197,12 +1182,11 @@ export const parseLabOrderLastResultReceivedDate = (
       .filter(Boolean)
       .sort((a, b) => compareDates(a, b))[0] || '';
 
-  return formatDateForFrontEnd(lastResultReceivedDate, timezone);
+  return lastResultReceivedDate;
 };
 
 export const parseLabOrdersHistory = (
   serviceRequest: ServiceRequest,
-  timezone: string | undefined,
   tasks: Task[],
   results: DiagnosticReport[],
   practitioners: Practitioner[],
@@ -1218,7 +1202,7 @@ export const parseLabOrdersHistory = (
     });
 
   const orderedBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
-  const orderAddedDate = parseLabOrderAddedDate(serviceRequest, timezone, tasks, results, cache);
+  const orderAddedDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
   const performedBy = parsePerformed(serviceRequest);
 
   const history: LabOrderHistoryRow[] = [
@@ -1245,7 +1229,7 @@ export const parseLabOrdersHistory = (
   );
 
   finalTasks.forEach((task) => {
-    history.push(...parseTaskReceivedAndReviewedHistory(task, timezone, practitioners, provenances));
+    history.push(...parseTaskReceivedAndReviewedHistory(task, practitioners, provenances));
   });
 
   return history;
@@ -1278,12 +1262,11 @@ export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations
 
 export const parseTaskReceivedAndReviewedHistory = (
   task: Task & { testType: 'reflex' | 'ordered' },
-  timezone: string | undefined,
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
   const result: LabOrderHistoryRow[] = [];
-  const receivedDate = parseTaskReceivedInfo(task, timezone, practitioners);
+  const receivedDate = parseTaskReceivedInfo(task, practitioners);
 
   if (receivedDate) {
     result.push({ ...receivedDate, testType: task.testType });
@@ -1295,7 +1278,7 @@ export const parseTaskReceivedAndReviewedHistory = (
     return result;
   }
 
-  const reviewedDate = parseTaskReviewedInfo(task, timezone, practitioners, provenances);
+  const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances);
 
   if (reviewedDate) {
     result.push({ ...reviewedDate, testType: task.testType });
@@ -1306,19 +1289,17 @@ export const parseTaskReceivedAndReviewedHistory = (
 
 export const parseTaskReceivedInfo = (
   task: Task,
-  timezone: string | undefined,
   practitioners: Practitioner[]
 ): Omit<LabOrderHistoryRow, 'resultType'> | null => {
   return {
     action: 'received',
     performer: parsePractitionerNameFromTask(task, practitioners),
-    date: formatDateForFrontEnd(task.authoredOn, timezone),
+    date: task.authoredOn || '',
   };
 };
 
 export const parseTaskReviewedInfo = (
   task: Task,
-  timezone: string | undefined,
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): Omit<LabOrderHistoryRow, 'resultType'> | null => {
@@ -1331,7 +1312,7 @@ export const parseTaskReviewedInfo = (
   return {
     action: 'reviewed',
     performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
-    date: formatDateForFrontEnd(reviewProvenance.recorded, timezone),
+    date: reviewProvenance.recorded || '',
   };
 };
 
@@ -1376,7 +1357,6 @@ export const extractPerformerFromProvenance = (provenance: Provenance, practitio
  */
 export const parseLResultsDetails = (
   serviceRequest: ServiceRequest,
-  timezone: string | undefined,
   results: DiagnosticReport[],
   tasks: Task[],
   practitioners: Practitioner[],
@@ -1430,7 +1410,7 @@ export const parseLResultsDetails = (
     results.forEach((result) => {
       const details = parseResultDetails(result, tasks, serviceRequest);
       const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
-      const reviewedDate = parseTaskReviewedInfo(task, timezone, practitioners, provenances)?.date || null;
+      const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
       const resultPdfUrl = labPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.url || null;
       if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
     });

@@ -36,7 +36,6 @@ export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
   const { questionText, linkId, answer, required, field } = props;
   const isReadOnly = answer !== undefined;
   const labelId = `boolean-${linkId}-label`;
-
   return (
     <>
       <FormLabel id={labelId}>{questionText}</FormLabel>
