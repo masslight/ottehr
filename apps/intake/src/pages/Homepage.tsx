@@ -5,21 +5,23 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../../App';
+import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
 import { ServiceMode, PROJECT_NAME } from 'utils';
-import { otherColors } from '../../IntakeThemeProvider';
-import { CancelVisitDialog } from '../components';
+import { otherColors } from '../IntakeThemeProvider';
+import { CancelVisitDialog } from '../telemed/components';
 import {
   findActiveAppointment,
   useAppointmentsData,
   useAppointmentStore,
   useGetAppointments,
-} from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import HomepageOption from '../features/homepage/HomepageOption';
-import { useZapEHRAPIClient } from '../utils';
-import { dataTestIds } from '../../helpers/data-test-ids';
+} from '../telemed/features/appointments';
+import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
+import HomepageOption from '../telemed/features/homepage/HomepageOption';
+import { useZapEHRAPIClient } from '../telemed/utils';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { pastVisits } from '@theme/icons';
+
+const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
@@ -50,8 +52,8 @@ const Homepage = (): JSX.Element => {
     */
 
     // todo 1.8: put this id in some config
-    const basePath = generatePath(intakeFlowPageRoute.WalkinLanding.path, {
-      id: '03945c47-c91d-40f2-87a0-264a46f6f3c1',
+    const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
+      name: DEFAULT_WALKIN_LOCATION_NAME,
     });
 
     navigate(basePath);

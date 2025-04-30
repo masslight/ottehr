@@ -26,7 +26,7 @@ import { IOSMessagesHandler } from './telemed/components/IOSMessagesHandler';
 import { ProtectedRoute } from './telemed/features/auth';
 import { ErrorFallbackScreen, LoadingScreen } from './telemed/features/common';
 import { useIOSAppSync } from './telemed/features/ios-communication/useIOSAppSync';
-import Homepage from './telemed/pages/Homepage';
+import Homepage from './pages/Homepage';
 import { IOSCallEndedPage } from './telemed/pages/IOS/IOSCallEndedPage';
 import { IOSPatientManageParticipantsPage } from './telemed/pages/IOS/IOSManageParticipantsPage';
 import { IOSPatientPhotosEditPage } from './telemed/pages/IOS/IOSPatientPhotosEditPage';
