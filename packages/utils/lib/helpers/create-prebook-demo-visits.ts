@@ -364,11 +364,10 @@ const generateRandomPatientInfo = async (
     })
   ).unbundle();
 
-  const allOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
+  const activeOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
   const allSchedules = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Schedule') as Schedule[];
 
-  const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
-  const activeOffices = allOffices.filter((item) => item.status === 'active');
+  const telemedOffices = activeOffices.filter((loc) => isLocationVirtual(loc));
 
   const notSoRandomLocation = activeOffices.find((loc) => loc.name === process.env.LOCATION);
 
@@ -410,15 +409,12 @@ const generateRandomPatientInfo = async (
     serviceModality: serviceMode,
     walkin: false,
   };
-  console.log('slot input: ', createSlotInput);
   const persistedSlotResult = await oystehr.zambda.executePublic({
     id: 'create-slot',
     ...createSlotInput,
   });
 
   const persistedSlot = await chooseJson(persistedSlotResult);
-
-  console.log('persisted slot: ', persistedSlot);
 
   const patientData = {
     newPatient: true,

@@ -7,7 +7,6 @@ import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
-  CreateAppointmentUCTelemedResponse,
   createSamplePrebookAppointments,
   createSampleTelemedAppointments,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
@@ -165,9 +164,7 @@ export class ResourceHandler {
     });
   }
 
-  private async createAppointment(
-    inputParams?: CreateTestAppointmentInput
-  ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
+  private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     await this.#initPromise;
 
     console.log('create appointment params', JSON.stringify(inputParams, null, 2));
