@@ -228,6 +228,8 @@ export interface VisitNoteData extends ExaminationBlockData {
     [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
     labService: string;
     virusTest: string;
+    followUpIn?: number;
+    reason?: string;
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];
