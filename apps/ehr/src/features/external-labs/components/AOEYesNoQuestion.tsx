@@ -1,4 +1,5 @@
 import { FormLabel, RadioGroup, FormControlLabel, Radio } from '@mui/material';
+import { otherColors } from '@theme/colors';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
 
 interface YesNoQuestionProps {
@@ -9,13 +10,31 @@ interface YesNoQuestionProps {
   field: ControllerRenderProps<FieldValues, string>;
 }
 
+const radioStyles = {
+  '&.Mui-disabled': {
+    color: 'primary.main',
+  },
+  '& .MuiSvgIcon-root': {
+    color: 'primary.main',
+  },
+};
+
+const labelStyles = {
+  '&.Mui-disabled .MuiTypography-root': {
+    color: otherColors.tableRow,
+  },
+  '&.MuiFormControlLabel-root.Mui-disabled .MuiTypography-root': {
+    color: otherColors.tableRow,
+  },
+};
+
 export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
   const {
     formState: { errors: _ },
   } = useFormContext();
 
   const { questionText, linkId, answer, required, field } = props;
-
+  const isReadOnly = answer !== undefined;
   const labelId = `boolean-${linkId}-label`;
   return (
     <>
@@ -29,13 +48,15 @@ export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
       >
         <FormControlLabel
           value="true"
-          control={<Radio inputProps={{ required: required, readOnly: answer !== undefined }} />}
+          control={<Radio disabled={isReadOnly} inputProps={{ required: required }} sx={radioStyles} />}
           label="Yes"
+          sx={labelStyles}
         />
         <FormControlLabel
           value="false"
-          control={<Radio inputProps={{ required: required, readOnly: answer !== undefined }} />}
+          control={<Radio disabled={isReadOnly} inputProps={{ required: required }} sx={radioStyles} />}
           label="No"
+          sx={labelStyles}
         />
       </RadioGroup>
     </>

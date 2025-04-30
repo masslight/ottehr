@@ -315,11 +315,11 @@ export const getLabResources = async (
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
 }> => {
-  const labOrdersSearchParams = createLabOrdersSearchParams(params);
+  const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
 
   const labOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
-    params: labOrdersSearchParams,
+    params: labServiceRequestSearchParams,
   });
 
   const labResources =
@@ -383,7 +383,7 @@ export const getLabResources = async (
   };
 };
 
-export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
+export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
   const { searchBy, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0, orderableItemCode } = params;
 
   const searchParams: SearchParam[] = [
@@ -634,6 +634,10 @@ export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: Diagno
         name: 'based-on',
         value: resultsIds.join(','),
       },
+      {
+        name: 'status:not',
+        value: 'cancelled',
+      },
     ],
   });
 
@@ -879,7 +883,7 @@ export const parsePractitionerNameFromServiceRequest = (
   return parsePractitionerName(practitionerIdFromServiceRequest, practitioners);
 };
 
-export const parsePractitionerNameFromTask = (task: Task, practitioners: Practitioner[]): string => {
+export const parseReviewerNameFromTask = (task: Task, practitioners: Practitioner[]): string => {
   const performerId = task.owner?.reference?.split('/').pop() || '';
   return parsePractitionerName(performerId, practitioners);
 };
@@ -1229,7 +1233,7 @@ export const parseTaskReceivedAndReviewedHistory = (
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
   const result: LabOrderHistoryRow[] = [];
-  const receivedDate = parseTaskReceivedInfo(task, practitioners);
+  const receivedDate = parseTaskReceivedInfo(task);
 
   if (receivedDate) {
     result.push({ ...receivedDate, testType: task.testType });
@@ -1250,13 +1254,10 @@ export const parseTaskReceivedAndReviewedHistory = (
   return result;
 };
 
-export const parseTaskReceivedInfo = (
-  task: Task,
-  practitioners: Practitioner[]
-): Omit<LabOrderHistoryRow, 'resultType'> | null => {
+export const parseTaskReceivedInfo = (task: Task): Omit<LabOrderHistoryRow, 'resultType'> | null => {
   return {
     action: 'received',
-    performer: parsePractitionerNameFromTask(task, practitioners),
+    performer: '-',
     date: task.authoredOn || '',
   };
 };
@@ -1274,7 +1275,7 @@ export const parseTaskReviewedInfo = (
 
   return {
     action: 'reviewed',
-    performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
+    performer: parseReviewerNameFromProvenance(reviewProvenance, practitioners), // also may be received with parseReviewerNameFromTask(task, practitioners);
     date: reviewProvenance.recorded || '',
   };
 };
@@ -1299,7 +1300,7 @@ export const isProvenanceReviewActivity = (provenance: Provenance): boolean => {
   );
 };
 
-export const extractPerformerFromProvenance = (provenance: Provenance, practitioners: Practitioner[]): string => {
+export const parseReviewerNameFromProvenance = (provenance: Provenance, practitioners: Practitioner[]): string => {
   if (!provenance.agent || provenance.agent.length === 0) {
     return '';
   }

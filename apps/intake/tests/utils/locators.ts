@@ -232,6 +232,7 @@ export class Locators {
   responsiblePartyAddress2: Locator;
   selectedCard: Locator;
   cardNumberFilled: Locator;
+  itemAddedValue: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -410,6 +411,9 @@ export class Locators {
       'Please fix the error in the "Select option" field to proceed'
     );
     this.paperworkErrorInFieldAboveMessage = page.getByText('Please fix the error in the field above to proceed');
+
+    // Paperwork Telemed locatots
+    this.itemAddedValue = page.getByTestId(dataTestIds.itemAddedValue);
 
     // Current medications locators
     this.currentMedicationsPresent = this.getInputByValue(CURRENT_MEDICATIONS_PRESENT_LABEL);

@@ -81,6 +81,7 @@ const NEW_PROVIDER_LAST_NAME = 'Doe';
 const NEW_PRACTICE_NAME = 'Dental';
 const NEW_PHYSICIAN_ADDRESS = '5th avenue';
 const NEW_PHYSICIAN_MOBILE = '(222) 222-2222';
+const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 
 //const RELEASE_OF_INFO = 'Yes, Release Allowed';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
@@ -90,7 +91,10 @@ test.describe('Patient Record Page non-mutating tests', () => {
 
   test.beforeAll(async () => {
     await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    await Promise.all([
+      resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+      resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+    ]);
   });
 
   test.afterAll(async () => {
@@ -166,6 +170,16 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyAddressFromPcpIsNotVisible();
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
   });
+
+  test('Check validation error is displayed for invalid phone number from Primary Care Physician block', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.clearMobileFromPcp();
+    await patientInformationPage.enterMobileFromPcp('2222245');
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
+  });
 });
 
 test.describe('Patient Record Page mutating tests', () => {
@@ -173,7 +187,10 @@ test.describe('Patient Record Page mutating tests', () => {
 
   test.beforeEach(async () => {
     await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    await Promise.all([
+      resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+      resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+    ]);
   });
 
   test.afterEach(async () => {
@@ -415,7 +432,30 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
   });
 
-  /* test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
+  test('If "Other" gender is selected from Patient details  block, additional field appears and it is required', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.selectGenderIdentity('Other');
+    await patientInformationPage.verifyOtherGenderFieldIsVisible();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorShown(Field.GENDER_IDENTITY_ADDITIONAL_FIELD);
+    await patientInformationPage.enterOtherGenderField(NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD);
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+    await patientInformationPage.verifyGenderIdentity('Other');
+    await patientInformationPage.verifyOtherGenderInput(NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD);
+    await patientInformationPage.selectGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.verifyOtherGenderFieldIsNotVisible();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+    await patientInformationPage.verifyGenderIdentity(NEW_PATIENT_GENDER_IDENTITY);
+    await patientInformationPage.verifyOtherGenderFieldIsNotVisible();
+  });
+
+  test('Check all fields from Primary Care Physician block are visible and required when checkbox is unchecked', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -427,19 +467,29 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcpIsVisible();
 
     await patientInformationPage.clearFirstNameFromPcp();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_FIRST_NAME);
+
+    await patientInformationPage.enterFirstNameFromPcp(NEW_PROVIDER_FIRST_NAME);
     await patientInformationPage.clearLastNameFromPcp();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_LAST_NAME);
+
+    await patientInformationPage.enterLastNameFromPcp(NEW_PROVIDER_LAST_NAME);
     await patientInformationPage.clearPracticeNameFromPcp();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PRACTICE_NAME);
+
+    await patientInformationPage.enterPracticeNameFromPcp(NEW_PRACTICE_NAME);
     await patientInformationPage.clearAddressFromPcp();
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_ADDRESS);
+
+    await patientInformationPage.enterAddressFromPcp(NEW_PHYSICIAN_ADDRESS);
     await patientInformationPage.clearMobileFromPcp();
     await patientInformationPage.clickSaveChangesButton();
-
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_FIRST_NAME);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PROVIDER_LAST_NAME);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PRACTICE_NAME);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_ADDRESS);
-    await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_PHYSICIAN_MOBILE);
-  });*/
-  // todo: uncomment when https://github.com/masslight/ottehr/issues/1820 will be fixed
+    await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
+  });
 
   test('Updated values from Primary Care Physician block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
