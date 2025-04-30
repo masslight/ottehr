@@ -130,6 +130,7 @@ export const createSamplePrebookAppointments = async ({
     console.log('oystehr client is not defined');
     throw new Error('oystehr client is not defined');
   }
+  console.log('create appointment zambda id', createAppointmentZambdaId);
 
   try {
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
@@ -192,6 +193,7 @@ export const createSamplePrebookAppointments = async ({
 
         // If it's a virtual appointment, mark it as 'arrived'
         if (serviceMode === ServiceMode.virtual) {
+          console.log('appointmentData', JSON.stringify(appointmentData));
           await oystehr.fhir.patch<Appointment>({
             id: appointmentData.appointment!,
             resourceType: 'Appointment',
@@ -201,7 +203,7 @@ export const createSamplePrebookAppointments = async ({
 
         return appointmentData;
       } catch (error) {
-        console.error(`Error processing appointment ${i + 1}:`, error);
+        console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
         throw error;
       }
     });
@@ -359,6 +361,8 @@ const generateRandomPatientInfo = async (
       params: [
         { name: '_count', value: '1000' },
         { name: 'address-state:missing', value: 'false' },
+        { name: 'status', value: 'active' },
+        { name: '_has:Schedule:actor:_id:missing', value: 'false' },
         { name: '_revinclude', value: 'Schedule:actor:Location' },
       ],
     })

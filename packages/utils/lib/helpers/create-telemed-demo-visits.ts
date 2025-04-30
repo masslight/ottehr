@@ -1,12 +1,11 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Location, Patient, QuestionnaireResponseItem, Schedule } from 'fhir/r4b';
+import { Address, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
-  PatientInfo,
   PersonSex,
   ServiceMode,
   SubmitPaperworkParameters,
@@ -58,7 +57,7 @@ export type GetPaperworkAnswers = ({
   projectId,
   appointmentId,
 }: {
-  patientInfo: PatientInfo;
+  patientInfo: CreateAppointmentInputParams;
   zambdaUrl: string;
   authToken: string;
   projectId: string;
@@ -132,6 +131,7 @@ const generateRandomPatientInfo = async (
     address,
     telecom,
   } = demoData || {};
+  console.log('generating random patient info...');
 
   const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
   const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
@@ -155,11 +155,13 @@ const generateRandomPatientInfo = async (
       params: [
         { name: '_count', value: '1000' },
         { name: 'address-state:missing', value: 'false' },
+        { name: 'status', value: 'active' },
+        { name: '_has:Schedule:actor:_id:missing', value: 'false' },
         { name: '_revinclude', value: 'Schedule:actor:Location' },
       ],
     })
   ).unbundle();
-
+  console.log('all offices and schedules: ', allOfficesAndSchedules.length);
   const activeOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
   const allSchedules = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Schedule') as Schedule[];
 
@@ -174,16 +176,17 @@ const generateRandomPatientInfo = async (
   if (notSoRandomLocation?.id) {
     scheduleId =
       allSchedules.find((schedule) => {
-        schedule.actor?.[0]?.reference === `Location/${notSoRandomLocation.id}`;
+        return schedule.actor?.[0]?.reference === `Location/${notSoRandomLocation.id}`;
       })?.id || '';
   }
   if (!scheduleId) {
-    const randomLocation = telemedOffices[Math.floor(Math.random() * allSchedules.length)];
+    const randomLocation = telemedOffices[Math.floor(Math.random() * telemedOffices.length)];
     scheduleId =
       allSchedules.find((schedule) => {
-        schedule.actor?.[0]?.reference === `Location/${randomLocation.id}`;
+        return schedule.actor?.[0]?.reference === `Location/${randomLocation.id}`;
       })?.id || '';
   }
+  console.log('scheduleId: ', scheduleId);
   if (!scheduleId) {
     throw new Error('No schedule ID found for the selected location');
   }
@@ -215,19 +218,24 @@ const generateRandomPatientInfo = async (
     walkin: true,
   };
   console.log('slot input: ', createSlotInput);
-  const persistedSlotResult = await oystehr.zambda.executePublic({
-    id: 'create-slot',
-    ...createSlotInput,
-  });
-
-  const persistedSlot = await chooseJson(persistedSlotResult);
+  let persistedSlot: Slot;
+  try {
+    const persistedSlotResult = await oystehr.zambda.executePublic({
+      id: 'create-slot',
+      ...createSlotInput,
+    });
+    persistedSlot = await chooseJson(persistedSlotResult);
+  } catch (error) {
+    console.error('Error creating slot:', error);
+    throw new Error('Failed to create slot');
+  }
 
   console.log('persisted slot: ', persistedSlot);
 
   return {
     patient: patientData,
     unconfirmedDateOfBirth: randomDateOfBirth,
-    slotId: persistedSlot.id,
+    slotId: persistedSlot.id!,
   };
 };
 
@@ -269,7 +277,7 @@ export const createSampleTelemedAppointments = async ({
     const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
       try {
         const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, locationState);
-
+        console.log('create appointment zambda id', createAppointmentZambdaId, JSON.stringify(patientInfo));
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',
           headers: {
@@ -301,7 +309,7 @@ export const createSampleTelemedAppointments = async ({
         await processPaperwork(appointmentData, patientInfo, zambdaUrl, authToken, projectId, paperworkAnswers);
         return appointmentData;
       } catch (error) {
-        console.error(`Error processing appointment ${i + 1}:`, error);
+        console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
         return null; // Return null for failed appointments
       }
     });

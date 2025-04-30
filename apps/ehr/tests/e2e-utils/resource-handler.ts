@@ -139,17 +139,11 @@ export class ResourceHandler {
 
     this.#initPromise = this.initApi();
 
-    if (flow === 'in-person') {
-      this.#createAppointmentZambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
-      return;
+    if (flow === 'telemed' || flow === 'in-person') {
+      this.#createAppointmentZambdaId = 'create-appointment';
+    } else {
+      throw new Error('❌ Invalid flow name');
     }
-
-    if (flow === 'telemed') {
-      this.#createAppointmentZambdaId = process.env.CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID!;
-      return;
-    }
-
-    throw new Error('❌ Invalid flow name');
   }
 
   private async initApi(): Promise<void> {
@@ -249,7 +243,7 @@ export class ResourceHandler {
         console.log(`✅ created relatedPerson: ${appointmentData.relatedPersonId}`);
       }
 
-      return appointmentData;
+      return appointmentData as CreateAppointmentResponse;
     } catch (error) {
       console.error('❌ Failed to create resources:', error);
       throw error;
