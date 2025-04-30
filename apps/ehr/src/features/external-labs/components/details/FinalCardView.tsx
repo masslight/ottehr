@@ -16,6 +16,8 @@ export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus,
     }
   };
 
+  const isMarkAsReviewedButtonVisible = labStatus === ExternalLabsStatus.received;
+
   return (
     <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>
       <Box sx={{ padding: 2 }}>
@@ -30,34 +32,39 @@ export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus,
         </Button>
       </Box>
 
-      <Divider />
+      {/* while toggle is hidden, the bottom panel is visible only when the button is visible */}
+      {isMarkAsReviewedButtonVisible ? (
+        <>
+          <Divider />
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {/* <Switch
-            disabled={true} // todo: will be released in the future
-            checked={false} // todo: will be released in the future
-            onChange={() => null} // todo: will be released in the future
-            color="primary"
-            sx={{ mr: 1 }}
-          />
-          <Typography variant="body2">Show Results on the Patient Portal</Typography> */}
-        </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {/* <Switch
+                    disabled={true} // todo: will be released in the future
+                    checked={false} // todo: will be released in the future
+                    onChange={() => null} // todo: will be released in the future
+                    color="primary"
+                    sx={{ mr: 1 }}
+                  />
+                  <Typography variant="body2">Show Results on the Patient Portal</Typography> */}
+            </Box>
 
-        {labStatus === ExternalLabsStatus.received ? (
-          <Button
-            variant="contained"
-            onClick={onMarkAsReviewed}
-            sx={{
-              borderRadius: '50px',
-              textTransform: 'none',
-            }}
-            color="primary"
-          >
-            Mark as Reviewed
-          </Button>
-        ) : null}
-      </Box>
+            {isMarkAsReviewedButtonVisible ? (
+              <Button
+                variant="contained"
+                onClick={onMarkAsReviewed}
+                sx={{
+                  borderRadius: '50px',
+                  textTransform: 'none',
+                }}
+                color="primary"
+              >
+                Mark as Reviewed
+              </Button>
+            ) : null}
+          </Box>
+        </>
+      ) : null}
     </Box>
   );
 };
