@@ -20,6 +20,7 @@ import {
 import { DateTime } from 'luxon';
 import { formatPhoneNumberDisplay } from '../helpers';
 import {
+  COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
   PATIENT_SEXUAL_ORIENTATION_URL,
@@ -686,6 +687,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     primarySubscriberLastName = getLastName(primarySubscriber) ?? '';
     primarySubscriberMiddleName = primarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
+
+  const primaryAdditionalInformation =
+    primary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ?? '';
+
   const secondarySubscriberDoB = secondarySubscriber?.birthDate;
   const secondarySubscriberBirthSex = secondarySubscriber?.gender
     ? genderMap[secondarySubscriber.gender as keyof typeof genderMap] || ''
@@ -705,6 +710,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     secondarySubscriberLastName = getLastName(secondarySubscriber) ?? '';
     secondarySubscriberMiddleName = secondarySubscriber.name?.[0]?.given?.[1] ?? '';
   }
+
+  const secondaryAdditionalInformation =
+    secondary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ??
+    '';
 
   return items.map((item) => {
     let answer: QuestionnaireResponseItemAnswer[] | undefined;
@@ -776,7 +785,12 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     if (linkId === 'policy-holder-address' && policyHolderAddressLine) {
       answer = makeAnswer(policyHolderAddressLine);
     }
-
+    if (linkId === 'insurance-additional-information' && primaryAdditionalInformation) {
+      answer = makeAnswer(primaryAdditionalInformation);
+    }
+    if (linkId === 'insurance-priority') {
+      answer = primary ? makeAnswer('Primary') : undefined;
+    }
     if (linkId === 'patient-relationship-to-insured-2' && secondaryRelationshipToInsured) {
       answer = makeAnswer(secondaryRelationshipToInsured);
     }
@@ -795,9 +809,8 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     if (linkId === 'policy-holder-address-2' && secondaryPolicyHolderAddressLine) {
       answer = makeAnswer(secondaryPolicyHolderAddressLine);
     }
-
-    if (linkId === 'insurance-priority') {
-      answer = primary ? makeAnswer('Primary') : undefined;
+    if (linkId === 'insurance-additional-information-2' && secondaryAdditionalInformation) {
+      answer = makeAnswer(secondaryAdditionalInformation);
     }
     if (linkId === 'insurance-priority-2') {
       answer = secondary ? makeAnswer('Secondary') : undefined;
