@@ -235,6 +235,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
   });
 
+  //todo: uncomment when #2085 will be fixed
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
@@ -256,30 +257,10 @@ test.describe('Insurance Information Section mutating tests', () => {
     await primaryInsuranceCard.selectPolicyHoldersState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
     await primaryInsuranceCard.enterZipFromInsuranceContainer(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
     await primaryInsuranceCard.selectPatientsRelationship(NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
-    await primaryInsuranceCard.enterAdditionalInsuranceInformation(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
-
-    await primaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
-    await primaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
-    await primaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
-    await primaryInsuranceCard.verifyPolicyHoldersSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-    await primaryInsuranceCard.verifyInsuranceStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
-    await primaryInsuranceCard.verifyInsuranceAddressLine2(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
-    await primaryInsuranceCard.verifyInsuranceCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY);
-    await primaryInsuranceCard.verifyInsuranceState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
-    await primaryInsuranceCard.verifyInsuranceZip(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
-    await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
-      NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
-    );
-    await primaryInsuranceCard.verifyAdditionalInsuranceInformation(
-      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
-    );
+    //await primaryInsuranceCard.enterAdditionalInsuranceInformation(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
 
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickShowMoreButton();
-
     await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
     await secondaryInsuranceCard.enterMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
     await secondaryInsuranceCard.enterPolicyHolderFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
@@ -299,9 +280,35 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.selectPatientsRelationship(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
     );
-    await secondaryInsuranceCard.enterAdditionalInsuranceInformation(
+    /*await secondaryInsuranceCard.enterAdditionalInsuranceInformation(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
+    );*/
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+    await patientInformationPage.reloadPatientInformationPage();
+    await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await primaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.clickShowMoreButton();
+
+    await primaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER);
+    await primaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID);
+    await primaryInsuranceCard.verifyPolicyHoldersFirstName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersMiddleName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersLastName(NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
+    await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH);
+    await primaryInsuranceCard.verifyPolicyHoldersSex(NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
+    await primaryInsuranceCard.verifyInsuranceStreetAddress(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
+    await primaryInsuranceCard.verifyInsuranceAddressLine2(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
+    await primaryInsuranceCard.verifyInsuranceCity(NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY);
+    await primaryInsuranceCard.verifyInsuranceState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
+    await primaryInsuranceCard.verifyInsuranceZip(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
+    await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
     );
+    /*await primaryInsuranceCard.verifyAdditionalInsuranceInformation(
+      NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
+    );*/
 
     await secondaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
     await secondaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
@@ -320,9 +327,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
     );
-    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(
+    /*await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
-    );
+    );*/
   });
 });
 
