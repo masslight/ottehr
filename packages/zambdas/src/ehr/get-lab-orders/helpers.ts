@@ -1633,7 +1633,7 @@ export const parseSpecimenInfoFromServiceRequest = (serviceRequest: ServiceReque
   }
 
   const activityDefinition = serviceRequest.contained.find(
-    (resource) => resource.resourceType === 'ActivityDefinition'
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
   );
 
   if (!activityDefinition || !activityDefinition.specimenRequirement) {
@@ -1641,12 +1641,18 @@ export const parseSpecimenInfoFromServiceRequest = (serviceRequest: ServiceReque
     return [];
   }
 
-  const specimenDefinitionRefs = activityDefinition.specimenRequirement.map((req: any) => req.reference);
+  const specimenDefinitionRefs = activityDefinition.specimenRequirement.map((req) => req.reference);
 
   const specimens: SampleCollectionDTO[] = [];
 
   for (let i = 0; i < specimenDefinitionRefs.length; i++) {
     const ref = specimenDefinitionRefs[i];
+
+    if (!ref) {
+      console.log('Error: No reference found in specimenDefinitionRefs');
+      continue;
+    }
+
     const specDefId = ref.startsWith('#') ? ref.substring(1) : ref;
 
     const specimenDefinition = serviceRequest.contained.find(
