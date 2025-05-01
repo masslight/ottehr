@@ -209,10 +209,12 @@ function composeDataForPdf(
   let dispositionText = '';
   if (disposition?.type) {
     dispositionHeader += mapDispositionTypeToLabel[disposition.type];
-    dispositionText = getDefaultNote(disposition.type);
+    dispositionText = disposition.note || getDefaultNote(disposition.type);
   }
   const labService = disposition?.labService?.join(', ');
   const virusTest = disposition?.virusTest?.join(', ');
+  const followUpIn = typeof disposition?.followUpIn === 'number' ? disposition.followUpIn : undefined;
+  const reason = disposition?.reason;
 
   // --- Subspecialty follow-up ---
   const subSpecialtyFollowUp =
@@ -278,6 +280,8 @@ function composeDataForPdf(
       [NOTHING_TO_EAT_OR_DRINK_FIELD]: disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD],
       labService: labService ?? '',
       virusTest: virusTest ?? '',
+      followUpIn: followUpIn,
+      reason: reason,
     },
     subSpecialtyFollowUp,
     workSchoolExcuse,
