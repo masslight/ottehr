@@ -331,6 +331,13 @@ test.describe('Insurance Information Section mutating tests', () => {
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
     );*/
   });
+
+  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present and id displayed is one of them is removed', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyAddInsuranceButtonIsHidden();
+  });
 });
 
 async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
