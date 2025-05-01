@@ -1,99 +1,65 @@
-import { Paper, FormControl, Stack, FormHelperText, Switch, FormControlLabel } from '@mui/material';
-import {
-  DatePicker,
-  TimePicker,
-  LocalizationProvider,
-  DateValidationError,
-  TimeValidationError,
-} from '@mui/x-date-pickers';
-import { LoadingButton } from '@mui/lab';
+import { Box, Button, Paper, Stack } from '@mui/material';
+// import { DatePicker, TimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
-import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DateTime } from 'luxon';
-import { BoldedTitleText } from './BoldedTitleText';
+// import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { useParams } from 'react-router';
+import { openLabOrder } from './OrderCollection';
+import { DocumentReference } from 'fhir/r4b';
+import { getPresignedFileUrl } from '../../../helpers/files.helper';
+import { useAuth0 } from '@auth0/auth0-react';
 
-const splitDate = (orignialDate: DateTime): { datePortion: DateTime; timePortion: DateTime } => {
-  return {
-    datePortion: DateTime.fromObject(
-      { day: orignialDate.day, month: orignialDate.month, year: orignialDate.year },
-      { zone: 'utc' }
-    ),
-    timePortion: DateTime.fromObject(
-      {
-        hour: orignialDate.hour,
-        minute: orignialDate.minute,
-        second: orignialDate.second,
-      },
-      {
-        zone: 'utc',
-      }
-    ),
-  };
-};
-
-const consolidateDate = (datePortion: DateTime, timePortion: DateTime): DateTime => {
-  return DateTime.fromObject(
-    {
-      day: datePortion.day,
-      month: datePortion.month,
-      year: datePortion.year,
-      hour: timePortion.hour,
-      minute: timePortion.minute,
-      second: timePortion.second,
-    },
-    {
-      zone: 'utc',
-    }
-  );
-};
-
-export interface CollectionDateTime {
-  value: DateTime;
-  isValidDate: boolean;
-  isValidTime: boolean;
-}
-
-export interface OptionalCollectionDateTimeChanges {
-  value?: DateTime;
-  isValidDate?: boolean;
-  isValidTime?: boolean;
-}
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 
 interface SampleInfoProps {
-  orderAddedDateTime: DateTime;
-  orderingPhysician: string;
-  individualCollectingSample: string;
-  collectionDateTime: CollectionDateTime;
-  showInPatientPortal: boolean;
-  showButtons?: boolean;
-  onDateTimeChange: ({ value, isValidDate, isValidTime }: OptionalCollectionDateTimeChanges) => void;
-  onShowInPatientPortalChange: (value: boolean) => void;
+  orderAddedDateTime?: string;
+  orderingPhysician?: string;
+  individualCollectingSample?: string;
+  collectionDateTime?: string;
+  showInPatientPortal?: boolean;
 }
 
-export const SampleInformationCard: React.FC<SampleInfoProps> = ({
-  orderAddedDateTime,
-  orderingPhysician,
-  individualCollectingSample,
-  collectionDateTime,
-  showInPatientPortal,
-  showButtons = false,
-  onDateTimeChange,
-  onShowInPatientPortalChange,
-}) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDateTime, orderingPhysician }) => {
+  const { oystehr } = useApiClients();
+  const { serviceRequestID } = useParams();
   const [collapsed, setCollapsed] = useState(false);
-  const [dateValidationError, setDateValidationError] = useState<DateValidationError | null | undefined>(undefined);
-  const [timeValidationError, setTimeValidationError] = useState<TimeValidationError | null | undefined>(undefined);
+  const { getAccessTokenSilently } = useAuth0();
 
-  const { datePortion, timePortion } = splitDate(collectionDateTime.value);
-
-  const isDateError = dateValidationError !== undefined || !collectionDateTime.isValidDate;
-  const isTimeError = timeValidationError !== undefined || !collectionDateTime.isValidTime;
+  async function printOrder(): Promise<void> {
+    const documentReferenceSearch = await oystehr?.fhir.search<DocumentReference>({
+      resourceType: 'DocumentReference',
+      params: [
+        {
+          name: 'related',
+          value: `ServiceRequest/${serviceRequestID}`,
+        },
+        {
+          name: 'type',
+          value: '51991-8', // lab order doc
+        },
+      ],
+    });
+    if (documentReferenceSearch?.entry?.length !== 1) {
+      throw new Error('document reference not found');
+    }
+    const url = documentReferenceSearch?.entry?.[0]?.resource?.content?.[0]?.attachment.url;
+    if (!url) {
+      throw new Error('document reference URL not found');
+    }
+    const token = await getAccessTokenSilently();
+    const urlTemp = await getPresignedFileUrl(url, token);
+    if (!urlTemp) {
+      throw new Error('error with a presigned url');
+    }
+    await openLabOrder(urlTemp);
+  }
 
   return (
-    <>
+    <Box sx={{ mt: 2, mb: 2 }}>
       <AccordionCard
-        label={'Sample Information'}
+        label={'Order information'}
         collapsed={collapsed}
         withBorder={false}
         onSwitch={() => {
@@ -102,119 +68,91 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({
       >
         <Paper sx={{ p: 3 }}>
           <Stack spacing={1} sx={{ justifyContent: 'space-between' }}>
-            <BoldedTitleText
-              title={'Order Added'}
-              description={orderAddedDateTime.toLocal().toFormat('MM/dd/yyyy hh:mm a') || ''}
-            />
-            <BoldedTitleText title={'Ordering Physician'} description={orderingPhysician} />
-            <BoldedTitleText title={'Individual Collecting Sample'} description={individualCollectingSample} />
-            <Stack direction={'row'} spacing={1} sx={{ justifyContent: 'space-between' }}>
-              <FormControl fullWidth error={isDateError}>
-                <LocalizationProvider dateAdapter={AdapterLuxon}>
-                  <DatePicker
-                    disabled={false}
-                    format={'MM/dd/yyyy'}
-                    label="Collection Date"
-                    onChange={(newDateValue) => {
-                      if (newDateValue) {
-                        onDateTimeChange({
-                          value: consolidateDate(newDateValue, timePortion),
-                          isValidDate: newDateValue.isValid,
-                        });
-                      } else {
-                        onDateTimeChange({
-                          isValidDate: false,
-                        });
-                      }
-                    }}
-                    onError={(error, value) => {
-                      if (value?.isValid) {
-                        setDateValidationError(undefined);
-                      } else {
-                        setDateValidationError(error);
-                        onDateTimeChange({
-                          isValidDate: false,
-                        });
-                      }
-                    }}
-                    slotProps={{
-                      textField: {
-                        id: 'sample-collection-date',
-                        error: isDateError,
-                        required: true,
-                        style: { width: '100%' },
-                      },
-                      actionBar: { actions: ['today'] },
-                    }}
-                    value={datePortion}
-                  />
-                </LocalizationProvider>
-                {isDateError && <FormHelperText>Valid date required</FormHelperText>}
-              </FormControl>
-              <FormControl fullWidth error={isTimeError}>
-                <LocalizationProvider dateAdapter={AdapterLuxon}>
-                  <TimePicker
-                    label="Collection Time"
-                    onChange={(newTimeValue) => {
-                      if (newTimeValue) {
-                        onDateTimeChange({
-                          value: consolidateDate(datePortion, newTimeValue),
-                          isValidTime: newTimeValue.isValid,
-                        });
-                      } else {
-                        onDateTimeChange({
-                          isValidTime: false,
-                        });
-                      }
-                    }}
-                    onError={(error, value) => {
-                      if (value?.isValid) {
-                        setTimeValidationError(undefined);
-                      } else {
-                        setTimeValidationError(error);
-                        onDateTimeChange({
-                          isValidTime: false,
-                        });
-                      }
-                    }}
-                    slotProps={{
-                      textField: {
-                        id: 'sample-collection-time',
-                        error: isTimeError,
-                        required: true,
-                        style: { width: '100%' },
-                      },
-                    }}
-                    value={timePortion}
-                  ></TimePicker>
-                </LocalizationProvider>
-                {isTimeError && <FormHelperText>Valid time required</FormHelperText>}
-              </FormControl>
-            </Stack>
-            <FormControlLabel
+            <Button
+              variant="outlined"
+              type="button"
+              sx={{ width: 170, borderRadius: '50px', textTransform: 'none' }}
+              onClick={printOrder}
+            >
+              Print order
+            </Button>
+            {/* <BoldedTitleText
+              title={'Order added'}
+              description={DateTime.fromISO(orderAddedDateTime).toLocal().toFormat('MM/dd/yyyy hh:mm a') || ''}
+            /> */}
+            {/* <BoldedTitleText title={'Ordering physician'} description={orderingPhysician} /> */}
+            {/* <BoldedTitleText title={'Individual Collecting Sample'} description={individualCollectingSample} /> */}
+            {/* <Stack direction={'row'} spacing={1} sx={{ justifyContent: 'space-between' }}>
+              <Controller
+                name={dateFormName}
+                control={control}
+                defaultValue={datePortion || DateTime.now()}
+                render={({ field }) => (
+                  <>
+                    <FormControl fullWidth error={!!errors[dateFormName]}>
+                      <LocalizationProvider dateAdapter={AdapterLuxon}>
+                        <DatePicker
+                          {...field}
+                          disabled={false}
+                          format={'MM/dd/yyyy'}
+                          label="Collection Date"
+                          slotProps={{
+                            textField: {
+                              id: 'sample-collection-date',
+                              error: !!errors[dateFormName],
+                              required: true,
+                              style: { width: '100%' },
+                            },
+                            actionBar: { actions: ['today'] },
+                          }}
+                          value={datePortion}
+                        />
+                      </LocalizationProvider>
+                      {!!errors[dateFormName] && <FormHelperText>Valid date required</FormHelperText>}
+                    </FormControl>
+                  </>
+                )}
+              /> */}
+            {/* <Controller
+                name={timeFormName}
+                control={control}
+                defaultValue={timePortion || DateTime.now()}
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors[timeFormName]}>
+                    <LocalizationProvider dateAdapter={AdapterLuxon}>
+                      <TimePicker
+                        {...field}
+                        label="Collection Time"
+                        slotProps={{
+                          textField: {
+                            id: 'sample-collection-time',
+                            error: !!errors[timeFormName],
+                            required: true,
+                            style: { width: '100%' },
+                          },
+                        }}
+                        value={timePortion}
+                      ></TimePicker>
+                    </LocalizationProvider>
+                    {!!errors[timeFormName] && <FormHelperText>Valid time required</FormHelperText>}
+                  </FormControl>
+                )}
+              />
+            </Stack> */}
+            {/* <FormControlLabel
               control={
-                <Switch
-                  checked={showInPatientPortal}
-                  onChange={(event) => {
-                    onShowInPatientPortalChange(event.target.checked);
-                  }}
+                <Controller
+                  name={'show-in-patient-portal'}
+                  control={control}
+                  defaultValue={showInPatientPortal || false}
+                  render={({ field }) => <Switch {...field} checked={field.value} />}
                 />
               }
-              label={'Show in Patient Portal'}
-            />
-            {showButtons && (
-              <Stack spacing={1} direction={'row'}>
-                <LoadingButton variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
-                  Print label
-                </LoadingButton>
-                <LoadingButton variant="outlined" sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}>
-                  Print order
-                </LoadingButton>
-              </Stack>
-            )}
+              label={'Show Results in Patient Portal'}
+            /> */}
           </Stack>
         </Paper>
       </AccordionCard>
-    </>
+    </Box>
   );
 };

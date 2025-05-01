@@ -173,7 +173,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
   const possibleUsStates = Object.keys(AllStatesToVirtualLocationsData);
   const statesDropdownOptions: string[] = [...possibleUsStates.map((usState) => usState)];
 
-  const phoneNumberErrorMessage = 'Phone number must be 10 digits';
+  const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
   const emailErrorMessage = 'Email is not valid';
   const zipCodeErrorMessage = 'ZIP Code must be 5 numbers';
 
@@ -592,7 +592,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
           <RoundedButton
-            sx={{ fontWeight: '700', textTransform: 'none', borderRadius: 6, ml: 1, mb: 1 }}
+            sx={{ fontWeight: 500, textTransform: 'none', borderRadius: 6, ml: 1, mb: 1 }}
             onClick={onClose}
             color="primary"
           >
@@ -604,7 +604,7 @@ const EditPatientDialog = ({ modalOpen, onClose }: EditPatientDialogProps): Reac
             variant="contained"
             color="primary"
             size="medium"
-            sx={{ fontWeight: '700', textTransform: 'none', borderRadius: 6, mr: 2, mb: 1, px: 4 }}
+            sx={{ fontWeight: 500, textTransform: 'none', borderRadius: 6, mr: 2, mb: 1, px: 4 }}
             disabled={!formState.isValid}
           >
             Save

@@ -30,6 +30,7 @@ import {
   Reference,
   RelatedPerson,
   Resource,
+  ServiceRequest,
   Task,
   TaskInput,
 } from 'fhir/r4b';
@@ -43,10 +44,12 @@ import {
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
 import {
+  BookableResource,
   EncounterVirtualServiceExtension,
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
   PractitionerQualificationCode,
+  PROJECT_WEBSITE,
   ServiceMode,
   VisitType,
 } from '../types';
@@ -66,6 +69,7 @@ import {
   ScheduleStrategy,
   SERVICE_MODE_SYSTEM,
   ServiceModeCoding,
+  SLUG_SYSTEM,
 } from './constants';
 
 export function isFHIRError(error: any): boolean {
@@ -434,10 +438,10 @@ export async function createConsentResource(
       ],
       policy: [
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
         {
-          uri: 'https://ottehr.com',
+          uri: PROJECT_WEBSITE,
         },
       ],
       sourceReference: {
@@ -1195,7 +1199,9 @@ export const checkForPatientDemographicMatch = (
 
   return true;
 };
-export function flattenBundleResources(searchResults: Bundle<FhirResource>): FhirResource[] {
+export function flattenBundleResources<T extends FhirResource = ServiceRequest | Task>(
+  searchResults: Bundle<FhirResource>
+): T[] {
   const flattenedResources: FhirResource[] = [];
 
   searchResults.entry?.forEach((resultEntry) => {
@@ -1210,7 +1216,7 @@ export function flattenBundleResources(searchResults: Bundle<FhirResource>): Fhi
     }
   });
 
-  return flattenedResources;
+  return flattenedResources as T[];
 }
 
 export function slashPathToLodashPath(slashPath: string): string {
@@ -1282,4 +1288,10 @@ export const getStripeCustomerIdFromAccount = (account: Account): string | undef
 export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
   const guarantor = account?.guarantor?.find((g) => g.period?.end === undefined)?.party;
   return guarantor?.reference;
+};
+
+export const getSlugForBookableResource = (resource: BookableResource): string | undefined => {
+  return resource.identifier?.find((id) => {
+    return id.system === SLUG_SYSTEM;
+  })?.value;
 };

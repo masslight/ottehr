@@ -1,9 +1,9 @@
 import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
-import { ExternalLabsStatus } from '../helpers/types';
+import { ExternalLabsStatus } from 'utils';
 
-interface ExternalLabsStatusChip {
-  status?: keyof typeof ExternalLabsStatus;
+interface LabsOrderStatusChipProps {
+  status: keyof typeof ExternalLabsStatus;
 }
 
 export const ExternalLabsStatusPalette: {
@@ -50,16 +50,33 @@ export const ExternalLabsStatusPalette: {
       primary: '#1B5E20',
     },
   },
+  cancelled: {
+    background: {
+      primary: '#FFCDD2',
+    },
+    color: {
+      primary: '#D32F2F',
+    },
+  },
+  prelim: {
+    background: {
+      primary: '#B3E5FC',
+    },
+    color: {
+      primary: '#01579B',
+    },
+  },
+  unparsed: {
+    background: {
+      primary: '#e3c254',
+    },
+    color: {
+      primary: '#50221a',
+    },
+  },
 };
 
-export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChip): ReactElement {
-  if (!status) {
-    return <span>todo1</span>;
-  }
-  if (!ExternalLabsStatusPalette[status]) {
-    return <span>todo2</span>;
-  }
-
+export function LabsOrderStatusChip({ status }: LabsOrderStatusChipProps): ReactElement {
   return (
     <Chip
       size="small"
@@ -67,7 +84,7 @@ export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChip): Reac
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: '12px',
         textTransform: 'uppercase',
         background: ExternalLabsStatusPalette[status].background.primary,

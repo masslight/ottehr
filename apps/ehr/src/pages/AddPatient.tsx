@@ -28,10 +28,10 @@ import {
   getFullName,
   GetScheduleRequestParams,
   GetScheduleResponse,
-  OTTEHR_SLUG_ID_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
   ScheduleType,
   ServiceMode,
+  SLUG_SYSTEM,
 } from 'utils';
 import { createAppointment, getLocations } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
@@ -115,7 +115,7 @@ export default function AddPatient(): JSX.Element {
   const navigate = useNavigate();
   const { oystehr, oystehrZambda } = useApiClients();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
-  const phoneNumberErrorMessage = 'Phone number must be 10 digits';
+  const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
@@ -134,9 +134,8 @@ export default function AddPatient(): JSX.Element {
         setLoadingSlotState({ status: 'loaded', input: `${params.slug}` });
       }
     };
-    const locationSlug = selectedLocation?.identifier?.find(
-      (identifierTemp) => identifierTemp.system === OTTEHR_SLUG_ID_SYSTEM
-    )?.value;
+    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
+      ?.value;
     if (!locationSlug) {
       console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
       return;

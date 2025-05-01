@@ -1,3 +1,4 @@
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Autocomplete,
@@ -13,15 +14,12 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { otherColors } from '@theme/colors';
+import { Location, Practitioner, Schedule } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { otherColors } from '../CustomThemeProvider';
-import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
-import { useApiClients } from '../hooks/useAppClients';
-import PageContainer from '../layout/PageContainer';
-import ScheduleComponent from '../components/schedule/ScheduleComponent';
-import Loading from '../components/Loading';
-import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import {
   APIError,
   CreateScheduleParams,
@@ -32,10 +30,12 @@ import {
   TIMEZONES,
   UpdateScheduleParams,
 } from 'utils';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { createSchedule, getSchedule, updateSchedule } from '../api/api';
-import { enqueueSnackbar } from 'notistack';
-import { Location, Practitioner, Schedule } from 'fhir/r4b';
+import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
+import Loading from '../components/Loading';
+import ScheduleComponent from '../components/schedule/ScheduleComponent';
+import { useApiClients } from '../hooks/useAppClients';
+import PageContainer from '../layout/PageContainer';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
@@ -214,7 +214,7 @@ export default function SchedulePage(): ReactElement {
         operations: [
           {
             path: item.owner.type === 'Location' ? '/status' : '/active',
-            op: 'replace',
+            op: 'add',
             value,
           },
         ],
@@ -225,6 +225,7 @@ export default function SchedulePage(): ReactElement {
       } else {
         newActiveStatus = patched.active === true;
       }
+      await saveGeneralFields();
       setItem({
         ...item,
         owner: {
@@ -239,7 +240,7 @@ export default function SchedulePage(): ReactElement {
     }
   };
 
-  const saveGeneralFields = async (_event: any): Promise<void> => {
+  const saveGeneralFields = async (_event?: any): Promise<void> => {
     if (!oystehr || !item?.id) {
       enqueueSnackbar('Oops. Something went wrong. Please reload the page and try again.', { variant: 'error' });
       return;

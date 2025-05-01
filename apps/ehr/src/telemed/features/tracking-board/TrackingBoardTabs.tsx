@@ -12,10 +12,17 @@ import { ApptTabToStatus } from '../../utils';
 import { TrackingBoardTable } from './TrackingBoardTable';
 
 export function TrackingBoardTabs(): ReactElement {
-  const { alignment, selectedStates, date, providers, groups, setAppointments, locationsIds } = getSelectors(
-    useTrackingBoardStore,
-    ['alignment', 'selectedStates', 'providers', 'groups', 'date', 'setAppointments', 'locationsIds']
-  );
+  const { alignment, selectedStates, date, providers, groups, setAppointments, locationsIds, visitTypes } =
+    getSelectors(useTrackingBoardStore, [
+      'alignment',
+      'selectedStates',
+      'providers',
+      'groups',
+      'date',
+      'setAppointments',
+      'locationsIds',
+      'visitTypes',
+    ]);
 
   const [value, setValue] = useState<ApptTelemedTab>(ApptTelemedTab.ready);
 
@@ -25,12 +32,7 @@ export function TrackingBoardTabs(): ReactElement {
 
   const apiClient = useZapEHRAPIClient();
 
-  // removing date filter from ready, provider and unsigned tabs
-  const dateFilter = [ApptTelemedTab.ready, ApptTelemedTab.provider, ApptTelemedTab['not-signed']].includes(value)
-    ? undefined
-    : date
-    ? date.toISODate()!
-    : undefined;
+  const dateFilter = date ? date.toISODate()! : undefined;
 
   const actualStatesFilter = selectedStates ? selectedStates : undefined;
   const { isFetching, isFetchedAfterMount } = useGetTelemedAppointments(
@@ -43,6 +45,7 @@ export function TrackingBoardTabs(): ReactElement {
       patientFilter: alignment,
       statusesFilter: ApptTabToStatus[value],
       dateFilter,
+      visitTypesFilter: visitTypes || undefined,
     },
     (data) => {
       setAppointments(data.appointments);
@@ -61,25 +64,25 @@ export function TrackingBoardTabs(): ReactElement {
             <Tab
               label="Ready for provider"
               value={ApptTelemedTab.ready}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.ready)}
             />
             <Tab
               label="Provider"
               value={ApptTelemedTab.provider}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.provider)}
             />
             <Tab
               label="Unsigned"
               value={ApptTelemedTab['not-signed']}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab['not-signed'])}
             />
             <Tab
               label="Complete"
               value={ApptTelemedTab.complete}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
+              sx={{ textTransform: 'none', fontWeight: 500 }}
               data-testid={dataTestIds.telemedEhrFlow.telemedAppointmentsTabs(ApptTelemedTab.complete)}
             />
             {isFetching && <Loading />}

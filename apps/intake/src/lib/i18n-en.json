@@ -218,7 +218,7 @@
         "address": "Address is required",
         "city": "City is required",
         "phone": {
-          "number": "Phone number must be 10 digits",
+          "number": "Phone number must be 10 digits in the format (xxx) xxx-xxxx",
           "required": "Phone number is required"
         },
         "state": "State is required"
@@ -238,7 +238,6 @@
       "label": "Phone number"
     },
     "s primary address": "'s primary address",
-    "Yes! I would like to receive helpful messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.": "Yes! I would like to receive helpful messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
     "select": "Select...",
     "State": "State",
     "Street address": "Street address",
@@ -250,7 +249,7 @@
       "bookAgainButton": "Book again",
       "bookAgainTitle": "Press \"Book again\" if you want to schedule another visit.",
       "canceled": "CANCELED",
-      "subject": "Ottehr In Person: Your Visit Has Been Canceled",
+      "subject": "{{PROJECT_NAME}} In Person: Your Visit Has Been Canceled",
       "subtitle": "The following reservation has been canceled.",
       "title": "Your visit has been canceled"
     },
@@ -259,15 +258,15 @@
       "modify": "Modify",
       "paperworkButton": "Fill in paperwork",
       "paperworkTitle": "Please complete the following paperwork prior to your check-in time. If this is not completed, you will be asked to do so on site.",
-      "subject": "Your visit confirmation at Ottehr",
-      "subtitle": "Thank you for choosing Ottehr!",
+      "subject": "Your visit confirmation at {{PROJECT_NAME}}",
+      "subtitle": "Thank you for choosing {{PROJECT_NAME}}!",
       "subtitle2": "We look forward to helping you soon!",
       "title": "You're confirmed!"
     },
     "sincerely": "Sincerely",
-    "team": "Ottehr Team",
-    "thankYou": "Thank you again for choosing Ottehr. We look forward to partnering with you and your family.",
-    "inPerson": "Ottehr In Person Manager",
+    "team": "{{PROJECT_NAME}} Team",
+    "thankYou": "Thank you again for choosing {{PROJECT_NAME}}. We look forward to partnering with you and your family.",
+    "inPerson": "{{PROJECT_NAME}} In Person Manager",
     "visitDetails": "Visit details: "
   },
   "general": {
@@ -361,7 +360,7 @@
         "title": "Sorry, the selected time is no longer available"
       },
       "notFound": {
-        "description": "You have navigated to a page that is not found. To find a Ottehr location,",
+        "description": "You have navigated to a page that is not found. To find a {{PROJECT_NAME}} location,",
         "link": "please visit our website",
         "title": "Not Found"
       },
@@ -378,7 +377,7 @@
   "newUser": {
     "body": "We're pleased to offer this new technology for accessing care. You will need to enter your information again just once. Next time you return, it will all be here for you!",
     "ok": "OK",
-    "title": "Thanks for choosing Ottehr!"
+    "title": "Thanks for choosing {{PROJECT_NAME}}!"
   },
   "pageFormsErrors": {
     "characterLimit1": "Input cannot be more than",
@@ -497,7 +496,6 @@
     "Please provide the best mobile phone number for your family.": "Please provide the best mobile phone number for your family.",
     "Phone number": "Phone number",
     "s primary address": "'s primary address",
-    "Yes! I would like to receive helpful messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.": "Yes! I would like to receive helpful messages from Ottehr regarding patient education, events, and general information about our offices. Message frequency varies, and data rates may apply.",
     "Select...": "Select...",
     "State": "State",
     "Street address": "Street address",
@@ -776,8 +774,8 @@
       "title": "Sorry, the selected time is no longer available"
     },
     "officeClosed": {
-      "today": "So sorry! Due to unforeseen circumstances, this office is closed today. Check out our convenient telemedicine option to connect with a Ottehr expert from the comfort of home OR click the 'tomorrow' button to view available slots for tomorrow.",
-      "todayOrTomorrow": "So sorry! This office does not have any available prebook times today or tomorrow, but we've got you covered! Check out our convenient telemedicine option to connect with a Ottehr expert from the comfort of home."
+      "today": "So sorry! Due to unforeseen circumstances, this office is closed today. Check out our convenient telemedicine option to connect with a {{PROJECT_NAME}} expert from the comfort of home OR click the 'tomorrow' button to view available slots for tomorrow.",
+      "todayOrTomorrow": "So sorry! This office does not have any available prebook times today or tomorrow, but we've got you covered! Check out our convenient telemedicine option to connect with a {{PROJECT_NAME}} expert from the comfort of home."
     },
     "selectAnother": "Select another time",
     "selectATime": "Select a time",
@@ -791,7 +789,7 @@
   "textComms": {
     "at": "at",
     "canceled1": "Your visit for",
-    "canceled2": "with Ottehr",
+    "canceled2": "with {{PROJECT_NAME}}",
     "canceled3": "has been canceled. Tap",
     "canceled4": "to book a new visit.",
     "checkedIn1": "Welcome, and thanks for checking in! Our care team will see",
@@ -804,9 +802,9 @@
     "isOn": "is on",
     "byVisiting": "by visiting",
     "newTech": "Our new technology requires both new AND returning patients to complete forms/ensure records are current. Please do so in advance to save time at check-in.",
-    "readyStatus": "Please set up access to your patient portal so you can view test results and discharge information: https://ottehr.com/patient-portal",
-    "thanks": "Thanks for choosing Ottehr! Your check-in time for",
-    "verificationCode": "Your Ottehr In Person verification code is: "
+    "readyStatus": "Please set up access to your patient portal so you can view test results and discharge information: {PROJECT_WEBSITE}/patient-portal",
+    "thanks": "Thanks for choosing {{PROJECT_NAME}}! Your check-in time for",
+    "verificationCode": "Your {{PROJECT_NAME}} In Person verification code is: "
   },
   "thanks": {
     "body1": "Your check-in time is booked for:",
@@ -824,7 +822,7 @@
     "proceedToPaperwork": "Proceed to paperwork",
     "registerAnother": "Register another patient",
     "subtitle": "We look forward to helping you soon!",
-    "title": "Thank you for choosing Ottehr!"
+    "title": "Thank you for choosing {{PROJECT_NAME}}!"
   },
   "waitingEstimate": {
     "description": "Wait time is currently ESTIMATED to be ",
@@ -843,12 +841,12 @@
         "description": "Sorry! We are closed at the moment. Please visit our website to see open offices."
       },
       "notFound": {
-        "description": "You have navigated to a page that is not found. To find a Ottehr location,",
+        "description": "You have navigated to a page that is not found. To find a {{PROJECT_NAME}} location,",
         "link": "please visit our website",
         "title": "Not found"
       }
     },
-    "goToWebsite": "Go to Ottehr website",
+    "goToWebsite": "Go to {{PROJECT_NAME}} website",
     "loading": "Loading...",
     "officeOpen": {
       "description": "Don't see an option you want? Come right in! Walk-ins are welcome, and we always prioritize severe injuries and illness.",
@@ -860,8 +858,8 @@
     "dontSeeTime": "Don’t see a time you need? Call (202) 555-1212",
     "subtitleBranded": "We look forward to helping you soon!",
     "title": "Select check-in time",
-    "titleClosed": "This Ottehr office is closed now",
-    "titleBranded": "Welcome to Ottehr"
+    "titleClosed": "This {{PROJECT_NAME}} office is closed now",
+    "titleBranded": "Welcome to {{PROJECT_NAME}}"
   },
   "welcomeBack": {
     "alreadyReserved": "Already reserved a check-in time?",

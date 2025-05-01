@@ -1,15 +1,14 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner, Encounter, Slot } from 'fhir/r4b';
+import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
 import {
-  PatientFollowupDetails,
   FhirAppointmentType,
-  PractitionerLicense,
-  VisitStatusWithoutUnknown,
-  DiagnosisDTO,
-  OrderableItemSearchResult,
   OTTEHR_MODULE,
+  PatientFollowupDetails,
+  PractitionerLicense,
+  ScheduleType,
+  ServiceMode,
+  VisitStatusWithoutUnknown,
 } from 'utils';
-import { ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: string;
@@ -111,7 +110,6 @@ export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = 
   prebook: 'Pre-booked',
   walkin: 'Walk-in',
   posttelemed: 'Post Telemed',
-  virtual: 'Telemed',
 };
 
 // this might be a bit redundant given the AppointmentType type. is "booked" still used somewhere?
@@ -124,6 +122,12 @@ export enum VisitType {
 export const VisitTypeToLabel: { [visittype in VisitType]: string } = {
   'walk-in': 'Walk-in In Person Visit',
   'pre-booked': 'Pre-booked In Person Visit',
+  'post-telemed': 'Post Telemed Lab Only',
+};
+
+export const VisitTypeToLabelTelemed: { [visittype in VisitType]: string } = {
+  'walk-in': 'On-demand Telemed',
+  'pre-booked': 'Pre-booked Telemed',
   'post-telemed': 'Post Telemed Lab Only',
 };
 
@@ -147,21 +151,25 @@ export const getFhirAppointmentTypeForVisitType = (
   }
 };
 
+export const fhirAppointmentTypeToVisitType: { [type in FhirAppointmentType]: VisitType } = {
+  prebook: VisitType.PreBook,
+  walkin: VisitType.WalkIn,
+  posttelemed: VisitType.PostTelemed,
+};
+
 export const getVisitTypeLabelForAppointment = (appointment: Appointment): string => {
   const fhirAppointmentType = appointment?.appointmentType?.text as FhirAppointmentType;
   const isFhirAppointmentMetaTagTelemed = appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
 
-  if (fhirAppointmentType === FhirAppointmentType.walkin) {
-    return 'Walk-in In Person Visit';
-  } else if (fhirAppointmentType === FhirAppointmentType.posttelemed) {
-    return 'Post Telemed Lab Only';
-  } else if (fhirAppointmentType === FhirAppointmentType.prebook) {
-    if (isFhirAppointmentMetaTagTelemed) return 'Pre-booked Telemed';
-    return 'Pre-booked In Person Visit';
-  } else if (fhirAppointmentType === FhirAppointmentType.virtual) {
-    return 'Telemed';
+  let visitTypeToLabelEnum = VisitTypeToLabel;
+  if (isFhirAppointmentMetaTagTelemed) {
+    visitTypeToLabelEnum = VisitTypeToLabelTelemed;
   }
-  return '-';
+
+  const visitType = fhirAppointmentTypeToVisitType[fhirAppointmentType];
+
+  const label = visitTypeToLabelEnum[visitType];
+  return label || '-';
 };
 
 export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
@@ -260,12 +268,4 @@ export interface DocumentInfo {
   type: DocumentType;
   z3Url: string;
   presignedUrl: string | undefined;
-}
-
-export interface SubmitLabOrderParameters {
-  dx: DiagnosisDTO[];
-  encounter: Encounter;
-  practitionerId: string;
-  orderableItem: OrderableItemSearchResult;
-  pscHold: boolean;
 }

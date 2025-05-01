@@ -1,6 +1,7 @@
 import { Controller } from 'react-hook-form';
 import { TextField, FormLabel } from '@mui/material';
 import { BasicInformationProps } from './types';
+import InputMask from '../InputMask';
 import { dataTestIds } from '../../constants/data-test-ids';
 
 export function BasicInformation({ control, existingUser, errors }: BasicInformationProps): JSX.Element {
@@ -72,7 +73,11 @@ export function BasicInformation({ control, existingUser, errors }: BasicInforma
             value={value || ''}
             onChange={onChange}
             error={errors.phoneNumber}
-            helperText={errors.phoneNumber ? 'Phone number must be 10 digits' : ''}
+            inputProps={{ mask: '(000) 000-0000' }}
+            InputProps={{
+              inputComponent: InputMask as any,
+            }}
+            helperText={errors.phoneNumber ? 'Phone number must be 10 digits in the format (xxx) xxx-xxxx' : ''}
             FormHelperTextProps={{
               sx: { ml: 0, mt: 1 },
             }}

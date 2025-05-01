@@ -1,16 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, CodeableConcept, Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
+  AppointmentType,
   diffInMinutes,
   EncounterVirtualServiceExtension,
+  FHIR_APPOINTMENT_TYPE_MAP,
+  OTTEHR_MODULE,
   PUBLIC_EXTENSION_BASE_URL,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
   TelemedStatusHistoryElement,
-  FHIR_APPOINTMENT_TYPE_MAP,
-  AppointmentType,
 } from 'utils';
-import { DateTime } from 'luxon';
 
 export async function cancelAppointmentResource(
   appointment: Appointment,
@@ -45,6 +46,10 @@ export async function cancelAppointmentResource(
     throw new Error(`Failed to cancel Appointment: ${JSON.stringify(error)}`);
   }
 }
+
+export const isAppointmentVirtual = (appointment: Appointment): boolean => {
+  return appointment.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM) || false;
+};
 
 export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement[]): number | undefined => {
   if (!statuses) {
@@ -119,5 +124,7 @@ export const getVirtualServiceResourceExtension = (
 export const appointmentTypeForAppointment = (appointment: Appointment): AppointmentType => {
   // might as well default to walkin here
   // console.log('FHIR_APPOINTMENT_TYPE_MAP', FHIR_APPOINTMENT_TYPE_MAP, appointment.appointmentType?.text);
-  return appointment.appointmentType?.text ? FHIR_APPOINTMENT_TYPE_MAP[appointment.appointmentType?.text] : 'walk-in';
+  return appointment.appointmentType?.text
+    ? FHIR_APPOINTMENT_TYPE_MAP[appointment.appointmentType?.text] || 'walk-in'
+    : 'walk-in';
 };

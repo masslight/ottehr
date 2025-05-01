@@ -32,6 +32,7 @@ import {
   getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
+  getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
@@ -287,6 +288,7 @@ const processPrebookPaperwork = async (
           getPatientDetailsStepAnswers({}),
           getPaymentOptionSelfPayAnswers(),
           getResponsiblePartyStepAnswers({}),
+          getPrimaryCarePhysicianStepAnswers({}),
           getConsentStepAnswers({}),
         ];
 
@@ -363,6 +365,8 @@ const generateRandomPatientInfo = async (
       params: [
         { name: '_count', value: '1000' },
         { name: 'address-state:missing', value: 'false' },
+        { name: 'status', value: 'active' },
+        { name: '_has:Schedule:actor:_id:missing', value: 'false' },
         { name: '_revinclude', value: 'Schedule:actor:Location' },
       ],
     })
@@ -462,7 +466,6 @@ export async function makeSequentialPaperworkPatches(
 ): Promise<void> {
   await stepAnswers.reduce(async (previousPromise, answer) => {
     await previousPromise;
-
     const response = await fetch(`${intakeZambdaUrl}/zambda/patch-paperwork/execute-public`, {
       method: 'POST',
       headers: {

@@ -26,13 +26,19 @@ export const MedicalDecisionField: FC<MedicalDecisionFieldProps> = ({ loading, s
     setIsUpdating(isLoading);
   }, [isLoading, setIsUpdating]);
 
+  useEffect(() => {
+    if (chartData?.medicalDecision?.text && !methods.getValues('medicalDecision')) {
+      methods.setValue('medicalDecision', chartData.medicalDecision.text);
+    }
+  }, [chartData?.medicalDecision?.text, methods]);
+
   return (
     <Controller
       name="medicalDecision"
       control={control}
       render={({ field: { value, onChange } }) => (
         <TextField
-          data-testid={dataTestIds.assessmentPage.medicalDecisionField}
+          data-testid={dataTestIds.assessmentCard.medicalDecisionField}
           value={value}
           onChange={(e) => {
             onChange(e);

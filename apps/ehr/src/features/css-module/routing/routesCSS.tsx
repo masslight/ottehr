@@ -1,5 +1,13 @@
+import { FEATURE_FLAGS } from '../../../constants/feature-flags';
+import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
+import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
+import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
+import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
 import { RouteCSS } from '../context/NavigationContext';
 import { Allergies } from '../pages/Allergies';
+import { ERX } from '../pages/ERX';
+import { Examination } from '../pages/Examination';
+import { Hospitalization } from '../pages/Hospitalization';
 import { InHouseMedication } from '../pages/InHouseMedication';
 import { InHouseOrderEdit } from '../pages/InHouseOrderEdit';
 import { InHouseOrderNew } from '../pages/InHouseOrderNew';
@@ -7,17 +15,11 @@ import { MedicalConditions } from '../pages/MedicalConditions';
 import { Medications } from '../pages/Medications';
 import { PatientInfo } from '../pages/PatientInfo';
 import { PatientVitals } from '../pages/PatientVitals';
+import { Plan } from '../pages/Plan';
 import { ProgressNote } from '../pages/ProgressNote';
-import { Hospitalization } from '../pages/Hospitalization';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
-import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
-import { Plan } from '../pages/Plan';
-import { Examination } from '../pages/Examination';
-import { ERX } from '../pages/ERX';
-// import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
-// import { OrderDetails } from '../../external-labs/pages/OrderDetails';
-// import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
+import { OttehrAi } from '../pages/OttehrAi';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -36,11 +38,11 @@ export enum ROUTER_PATH {
   EXAMINATION = 'examination',
   PLAN = 'plan',
   ERX = 'erx',
+  OTTEHR_AI = 'ottehr-ai',
 
-  // ERX = 'erx',
-  // EXTERNAL_LAB_ORDER = 'external-lab-orders',
-  // EXTERNAL_LAB_ORDER_CREATE = 'external-lab-orders/create',
-  // EXTERNAL_LAB_ORDER_DETAILS = 'external-lab-orders/order-details',
+  EXTERNAL_LAB_ORDER = 'external-lab-orders',
+  EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
+  EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -50,6 +52,13 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: <ProgressNote />,
     text: 'Progress Note',
     iconKey: 'Progress Note',
+  },
+  [ROUTER_PATH.OTTEHR_AI]: {
+    path: ROUTER_PATH.OTTEHR_AI,
+    modes: ['provider', 'readonly'],
+    element: <OttehrAi />,
+    text: 'Oystehr AI',
+    iconKey: 'Oystehr AI',
   },
   [ROUTER_PATH.PATIENT_INFO]: {
     path: ROUTER_PATH.PATIENT_INFO,
@@ -134,13 +143,29 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'In-house Medications',
     iconKey: 'Med. Administration',
   },
-  // [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
-  //   path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
-  //   modes: ['provider', 'readonly'],
-  //   element: <ExternalLabOrdersListPage />,
-  //   text: 'Labs',
-  //   iconKey: 'Send Out Labs',
-  // },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <ExternalLabOrdersListPage /> : null,
+    text: 'Labs',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <CreateExternalLabOrder /> : null,
+    text: 'Order Lab',
+    iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
+    path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
+    text: 'Order Details',
+    iconKey: 'External Labs',
+  },
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
     modes: ['provider', 'readonly'],
@@ -169,21 +194,4 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'Plan',
     iconKey: 'Lab profile',
   },
-
-  // [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
-  //   path: ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE,
-  //   modes: ['provider', 'readonly'],
-  //   isSkippedInNavigation: true,
-  //   element: <CreateExternalLabOrder />,
-  //   text: 'Order Lab',
-  //   iconKey: 'Send Out Labs',
-  // },
-  // [ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS]: {
-  //   path: ROUTER_PATH.EXTERNAL_LAB_ORDER_DETAILS,
-  //   modes: ['provider', 'readonly'],
-  //   isSkippedInNavigation: true,
-  //   element: <OrderDetails />,
-  //   text: 'Order Details',
-  //   iconKey: 'Send Out Labs',
-  // },
 };

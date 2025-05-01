@@ -14,7 +14,16 @@ import {
 } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { GetScheduleResponse, PatientInfo, ScheduleType, ServiceMode, VisitType, getSelectors } from 'utils';
+import {
+  GetScheduleResponse,
+  PatientInfo,
+  ScheduleType,
+  ServiceMode,
+  VisitType,
+  getSelectors,
+  PROJECT_NAME,
+  PROJECT_WEBSITE,
+} from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import zapehrApi, { AvailableLocationInformation } from '../api/zapehrApi';
@@ -25,13 +34,13 @@ import {
   bookingBasePath,
   intakeFlowPageRoute,
 } from '../App';
-import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer, Schedule } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { PatientInfoInProgress } from '../features/patients/types';
 import { NO_LOCATION_ERROR } from '../helpers';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
+import { ottehrLightBlue } from '@theme/icons';
 import { SlotListItem } from 'utils/lib/utils';
 import { Slot } from 'fhir/r4b';
 
@@ -525,8 +534,8 @@ const BookingHome: FC = () => {
     return (
       <PageContainer title={t('welcome.errors.notFound.title')}>
         <Typography variant="body1">
-          {t('welcome.errors.notFound.description')}{' '}
-          <a href="https://ottehr.com/find-care/">{t('welcome.errors.notFound.link')}</a>.
+          {t('welcome.errors.notFound.description', { PROJECT_NAME })}{' '}
+          <a href={`${PROJECT_WEBSITE}/find-care/`}>{t('welcome.errors.notFound.link')}</a>.
         </Typography>
       </PageContainer>
     );
@@ -624,9 +633,9 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
     if (visitTypeParam === VisitType.PreBook) {
       return { title: t('welcome.title') };
     } else if (visitTypeParam === VisitType.WalkIn && !walkinOpen && !locationLoading) {
-      return { title: t('welcome.titleClosed') };
+      return { title: t('welcome.titleClosed', { PROJECT_NAME }) };
     } else {
-      return { title: t('welcome.titleBranded'), subtext: t('welcome.subtitleBranded') };
+      return { title: t('welcome.titleBranded', { PROJECT_NAME }), subtext: t('welcome.subtitleBranded') };
     }
   };
 
@@ -717,9 +726,9 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
                 {t('welcome.errors.closed.description')}
               </Typography>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
-                <Link to="https://ottehr.com" aria-label="Ottehr website" target="_blank">
+                <Link to={PROJECT_WEBSITE} aria-label={`${PROJECT_NAME} website`} target="_blank">
                   <Button variant="contained" color="primary">
-                    {t('welcome.goToWebsite')}
+                    {t('welcome.goToWebsite', { PROJECT_NAME })}
                   </Button>
                 </Link>
               </Box>

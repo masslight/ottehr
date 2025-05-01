@@ -385,6 +385,25 @@
       "src": "src/ehr/create-lab-order/index",
       "zip": ".dist/zips/create-lab-order.zip"
     },
+    "GET-CREATE-LAB-ORDER-RESOURCES": {
+      "name": "GET-CREATE-LAB-ORDER-RESOURCES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-create-lab-order-resources/index",
+      "zip": ".dist/zips/get-create-lab-order-resources.zip"
+    },
+    "HANDLE-LAB-RESULT": {
+      "name": "HANDLE-LAB-RESULT",
+      "type": "subscription",
+      "runtime": "nodejs20.x",
+      "src": "src/subscriptions/diagnostic-report/handle-lab-result/index",
+      "zip": ".dist/zips/handle-lab-result.zip",
+      "subscription": {
+        "criteria": "DiagnosticReport?category=OSL",
+        "reason": "Received new preliminary or final lab result",
+        "event": "create"
+      }
+    },
     "PAPERWORK-TO-PDF": {
       "name": "PAPERWORK-TO-PDF",
       "type": "http_auth",
@@ -767,7 +786,7 @@
       "src": "src/subscriptions/questionnaire-response/sub-intake-harvest/index",
       "zip": ".dist/zips/sub-intake-harvest.zip",
       "subscription": {
-        "criteria": "QuestionnaireResponse?status=completed,amended",
+        "criteria": "QuestionnaireResponse?status=completed,amended&questionnaire=https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson,https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
         "reason": "paperwork harvest",
         "event": "update"
       }
@@ -792,6 +811,34 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
+    },
+    "GET-LAB-ORDERS": {
+      "name": "GET-LAB-ORDERS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-lab-orders/index",
+      "zip": ".dist/zips/get-lab-orders.zip"
+    },
+    "DELETE-LAB-ORDER": {
+      "name": "DELETE-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/delete-lab-order/index",
+      "zip": ".dist/zips/delete-lab-order.zip"
+    },
+    "SUBMIT-LAB-ORDER": {
+      "name": "SUBMIT-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/submit-lab-order/index",
+      "zip": ".dist/zips/submit-lab-order.zip"
+    },
+    "UPDATE-LAB-ORDER-RESOURCES": {
+      "name": "UPDATE-LAB-ORDER-RESOURCES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-lab-order-resources/index",
+      "zip": ".dist/zips/update-lab-order-resources.zip"
     },
     "EHR-GET-SCHEDULE": {
       "name": "EHR-GET-SCHEDULE",
@@ -830,7 +877,7 @@
       "subscription": {
         "criteria": "QuestionnaireResponse?status=completed&questionnaire=#aiInterviewQuestionnaire",
         "reason": "Generate summary of chat with AI",
-        "event": "create"
+        "event": "update"
       }
     }
   },

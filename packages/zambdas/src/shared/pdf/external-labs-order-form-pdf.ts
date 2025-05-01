@@ -1,5 +1,4 @@
 import fontkit from '@pdf-lib/fontkit';
-import { Patient } from 'fhir/r4';
 import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
@@ -9,6 +8,10 @@ import { Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 
 async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Promise<Uint8Array> {
+  if (!data.orderName) {
+    throw new Error('Order name is required');
+  }
+
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage();
@@ -133,7 +136,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
       page.drawText(line, {
         font,
         size,
-        x: currXPos + font.widthOfTextAtSize(fieldName, size) + regularTextWidth,
+        x: currXPos + styles.regularTextBold.font.widthOfTextAtSize(fieldName, styles.regularTextBold.fontSize) + 1,
         y: currYPos - index * regularLineHeight,
       });
     });
@@ -174,12 +177,14 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
       size: columnOneFontSize,
       x: currXPos,
       y: currYPos,
+      maxWidth: pageTextWidth / 2 - currXPos,
     });
     page.drawText(columnTwoName, {
       font: columnTwoFont,
       size: columnTwoFontSize,
       x: pageTextWidth / 2,
       y: currYPos,
+      maxWidth: pageTextWidth / 2,
     });
   };
 
@@ -232,19 +237,19 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   // --- add all sections to PDF ---
   // ===============================
   // Main header
-  drawHeader('Order Form');
+  drawHeader(`${data.labOrganizationName}: Order Form`);
   addNewLine();
   drawSeparatorLine();
   addNewLine();
 
   // Location details
-  drawSubHeader(`Ottehr${data.locationName}`);
+  drawSubHeader(data.locationName);
   drawFieldLineRight('Req ID:', data.reqId);
   addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.locationStreetAddress.toUpperCase());
-  drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularText.font);
+  drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularTextBold.font);
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
   drawRegularTextLeft(
@@ -260,7 +265,6 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   await drawImage(faxIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.locationFax);
-  drawRegularTextRight(data.serviceName.toUpperCase());
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
@@ -270,20 +274,23 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   drawSubHeader(`${data.patientFirstName},`);
   currXPos +=
     styles.subHeader.font.widthOfTextAtSize(data.patientFirstName, styles.subHeader.fontSize) + subHeaderTextWidth;
-  drawSubHeader(`${data.patientMiddleName},`);
-  currXPos +=
-    styles.subHeader.font.widthOfTextAtSize(data.patientMiddleName, styles.subHeader.fontSize) + subHeaderTextWidth;
+  if (data.patientMiddleName) {
+    drawSubHeader(`${data.patientMiddleName},`);
+    currXPos +=
+      styles.subHeader.font.widthOfTextAtSize(data.patientMiddleName, styles.subHeader.fontSize) + subHeaderTextWidth;
+  }
   drawSubHeader(`${data.patientLastName},`);
   currXPos +=
     styles.subHeader.font.widthOfTextAtSize(data.patientLastName, styles.subHeader.fontSize) + subHeaderTextWidth;
   drawRegularTextLeft(`${data.patientSex},`);
   currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientSex, styles.regularText.fontSize) + regularTextWidth;
   drawRegularTextLeft(`${data.patientDOB},`);
-  currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientDOB, styles.regularText.fontSize) + regularTextWidth;
-  drawFieldLineLeft('ID:', data.patientId);
-  drawFieldLineRight(`Today's Date:`, data.todayDate);
+  drawFieldLineRight(`Today's date:`, data.todayDate);
   addNewLine();
   currXPos = styles.margin.x;
+  drawFieldLineLeft('ID:', data.patientId);
+  drawFieldLineRight('Order Create Date:', data.orderCreateDate);
+  addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientAddress);
@@ -292,7 +299,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   await drawImage(callIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientPhone);
-  drawFieldLineRight('Order Date:', data.orderDate);
+  drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
@@ -320,18 +327,18 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     addNewLine();
   }
 
-  // AOE Answers section
-  if (data.aoeAnswers && Array.isArray(data.aoeAnswers)) {
-    drawSubHeader('AOE Answers');
-    addNewLine();
-
-    data.aoeAnswers.forEach((answer, index) => {
-      drawFieldLineLeft(`Question ${index + 1}:`, answer);
+  drawSubHeader('AOE Answers');
+  addNewLine();
+  if (data.aoeAnswers?.length) {
+    // AOE Answers section
+    data.aoeAnswers.forEach((item) => {
+      drawFieldLineLeft(`${item.question}:`, item.answer.toString());
       addNewLine();
     });
-
-    addNewLine();
+  } else {
+    drawRegularTextLeft('No AOE questions');
   }
+  addNewLine();
 
   // Additional fields
   drawSeparatorLine(lightGreyOpacity);
@@ -348,10 +355,10 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   drawSeparatorLine(lightGreyOpacity);
   addNewLine();
   drawColumnText(
-    data.labType.toUpperCase(),
+    data.orderName.toUpperCase(),
     styles.subHeader.font,
     styles.subHeader.fontSize,
-    `${data.assessmentCode} ${data.assessmentName}`,
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '),
     styles.regularText.font,
     styles.regularText.fontSize
   );
@@ -376,14 +383,10 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsOrderFormPDF(
   input: ExternalLabsData,
-  patient: Patient,
+  patientID: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  if (!patient.id) {
-    throw new Error('No patient id found for external lab order');
-  }
-
   console.log('Creating labs order form pdf bytes');
   const pdfBytes = await createExternalLabsOrderFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
@@ -393,7 +396,7 @@ export async function createExternalLabsOrderFormPDF(
   const bucketName = 'visit-notes';
   const fileName = 'ExternalLabsOrderForm.pdf';
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
+  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);

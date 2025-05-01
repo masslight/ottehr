@@ -10,12 +10,13 @@ import {
   Observation,
   Practitioner,
   Procedure,
+  QuestionnaireResponse,
   Reference,
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
 import {
-  AI_OBSERVATION_FIELD,
+  AiObservationField,
   ASQ_FIELD,
   ASQKeys,
   HISTORY_OBTAINED_FROM_FIELD,
@@ -35,6 +36,7 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
+import { EncounterLabResult } from '../lab';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -54,12 +56,15 @@ export interface ChartDataFields {
   disposition?: DispositionDTO;
   episodeOfCare?: HospitalizationDTO[];
   diagnosis?: DiagnosisDTO[];
+  aiPotentialDiagnosis?: DiagnosisDTO[];
   patientInfoConfirmed?: BooleanValueDTO;
   addToVisitNote?: BooleanValueDTO;
   addendumNote?: FreeTextNoteDTO;
   notes?: NoteDTO[];
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
+  aiChat?: QuestionnaireResponse;
+  labResults?: EncounterLabResult;
 }
 
 export type ChartDataFieldsKeys = keyof ChartDataFields;
@@ -261,7 +266,7 @@ export type ASQObservationDTO = {
 } & SaveableDTO;
 
 export type AiObservationDTO = {
-  field: AI_OBSERVATION_FIELD;
+  field: typeof AiObservationField;
   value: string;
 } & SaveableDTO;
 
@@ -327,6 +332,7 @@ export interface DiagnosisDTO extends SaveableDTO {
   code: string;
   display: string;
   isPrimary: boolean;
+  addedViaLabOrder?: boolean;
 }
 
 export interface BirthHistoryDTO extends SaveableDTO {
@@ -478,3 +484,38 @@ const defaultNotes: Record<DispositionType, string> = {
 export const getDefaultNote = (dispositionType: DispositionType): string => {
   return defaultNotes[dispositionType];
 };
+
+export const followUpInOptions = [
+  {
+    label: '1 day',
+    value: 1,
+  },
+  {
+    label: '2 days',
+    value: 2,
+  },
+  {
+    label: '3 days',
+    value: 3,
+  },
+  {
+    label: '4 days',
+    value: 4,
+  },
+  {
+    label: '5 days',
+    value: 5,
+  },
+  {
+    label: '1 week',
+    value: 7,
+  },
+  {
+    label: '2 weeks',
+    value: 14,
+  },
+  {
+    label: 'as needed',
+    value: 0,
+  },
+];

@@ -1,15 +1,16 @@
 import {
   Appointment,
   Encounter,
+  Extension,
   HealthcareService,
   Location,
   Patient,
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
+  Coding,
 } from 'fhir/r4b';
 
-import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import {
   AppointmentMessaging,
   AppointmentType,
@@ -17,7 +18,8 @@ import {
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
-import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../telemed';
+import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
+import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
@@ -59,8 +61,11 @@ export type GetAppointmentsResponseEhr = AppointmentsResponse<AppointmentInforma
 export type GetTelemedAppointmentsResponseEhr = AppointmentsResponse<TelemedAppointmentInformation>;
 
 export interface AppointmentLocation {
-  locationID?: string;
+  reference?: string;
   state?: string;
+  resourceType: Location['resourceType'];
+  id: string;
+  extension?: Extension[];
 }
 
 export interface AppointmentInformation extends AppointmentMessaging {
@@ -78,6 +83,7 @@ export interface AppointmentInformation extends AppointmentMessaging {
   next: boolean;
   visitStatusHistory: VisitStatusHistoryEntry[];
   practitioner?: Practitioner;
+  appointmentType?: AppointmentType;
 }
 
 export interface ParticipantInfo {
@@ -96,7 +102,6 @@ export interface InPersonAppointmentInformation
   start: string;
   unconfirmedDOB: string;
   reasonForVisit: string;
-  appointmentType?: AppointmentType;
   status: VisitStatusLabel;
   provider?: string;
   group?: string;
@@ -138,12 +143,30 @@ export interface GetTelemedAppointmentsInput {
   groupsFilter?: string[];
   patientFilter: PatientFilterType;
   statusesFilter: TelemedCallStatuses[];
+  visitTypesFilter?: string[];
   userToken: string;
 }
 
 export const PARTICIPANT_TYPE = {
   ADMITTER: 'ADM',
   ATTENDER: 'ATND',
+};
+
+export const PRACTITIONER_CODINGS = {
+  Admitter: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      code: 'ADM',
+      display: 'admitter',
+    },
+  ] as Coding[],
+  Attender: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      code: 'ATND',
+      display: 'attender',
+    },
+  ] as Coding[],
 };
 
 export type AppointmentRelatedResources =

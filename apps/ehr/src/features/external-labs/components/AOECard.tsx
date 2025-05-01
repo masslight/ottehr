@@ -2,22 +2,23 @@ import { Paper, Grid, CircularProgress, Typography } from '@mui/material';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { AOEQuestion } from './AOEQuestion';
-import { AOEQuestionWithAnswer, UserProvidedAnswerType } from './SampleCollection';
+import { QuestionnaireItem } from 'fhir/r4b';
+import { LabQuestionnaireResponse } from 'utils';
 
 interface AOEProps {
-  questions: AOEQuestionWithAnswer[];
-  onAnswer: (answer: UserProvidedAnswerType, isValid: boolean, index: number) => void;
-  submitAttempted: boolean;
+  questions: QuestionnaireItem[];
+  labQuestionnaireResponses: LabQuestionnaireResponse[] | undefined;
+  isCollapsed?: boolean;
 }
 
-export const AOECard: React.FC<AOEProps> = ({ questions, onAnswer, submitAttempted }) => {
-  const [collapsed, setCollapsed] = useState(false);
+export const AOECard: React.FC<AOEProps> = ({ questions, labQuestionnaireResponses, isCollapsed = false }) => {
+  const [collapsed, setCollapsed] = useState(isCollapsed);
   const [isLoading, _setLoading] = useState(false);
 
   return (
     <>
       <AccordionCard
-        label={'AOE Questions'}
+        label={!labQuestionnaireResponses ? 'AOE Questions' : 'AOE Answers'}
         collapsed={collapsed}
         withBorder={false}
         onSwitch={() => {
@@ -31,15 +32,13 @@ export const AOECard: React.FC<AOEProps> = ({ questions, onAnswer, submitAttempt
             <Grid container sx={{ width: '100%' }} spacing={1}>
               {questions?.length ? (
                 questions.map((question, index) => {
-                  // not using a React callBack here lets me generate this function per question
                   return (
                     <AOEQuestion
                       key={index}
-                      onChange={(answer: UserProvidedAnswerType, isValid: boolean) => {
-                        onAnswer(answer, isValid, index);
-                      }}
                       question={question}
-                      submitAttempted={submitAttempted}
+                      answer={
+                        labQuestionnaireResponses?.find((response) => response.linkId === question.linkId)?.response
+                      }
                     />
                   );
                 })

@@ -160,4 +160,22 @@ export class FillingInfo {
       timeout: 15000,
     });
   }
+  async fillVisitReason() {
+    const reason = this.getRandomElement(this.reasonForVisit);
+    const enteredReason = this.getRandomString();
+    await this.page.getByLabel('Reason for visit *', { exact: true }).click();
+    await this.page.getByRole('option', { name: reason, exact: true }).click();
+    await this.page.getByRole('textbox', { name: 'Tell us more (optional)' }).fill(enteredReason);
+    return { reason, enteredReason };
+  }
+  async fillCorrectDOB(month: string, day: string, year: string) {
+    await this.page.getByRole('combobox').nth(0).click();
+    await this.page.getByRole('option', { name: month }).click();
+
+    await this.page.getByRole('combobox').nth(1).click();
+    await this.page.getByRole('option', { name: day, exact: true }).click();
+
+    await this.page.getByRole('combobox').nth(2).click();
+    await this.page.getByRole('option', { name: year }).click();
+  }
 }

@@ -5,6 +5,7 @@ import { createVitalsSearchConfig } from './create-vitals-search-config.helper';
 export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFields => ({
   episodeOfCare: {},
   prescribedMedications: {},
+  disposition: {},
   notes: {
     _sort: '-_lastUpdated',
     _count: 1000,
@@ -18,8 +19,10 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
       .map((name) => (createVitalsSearchConfig(name, 'encounter').searchParams as { _tag: string })._tag)
       .join(','),
   },
+  labResults: {},
 });
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
   prescribedMedications: {},
+  disposition: {},
 };

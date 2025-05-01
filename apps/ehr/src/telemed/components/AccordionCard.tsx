@@ -1,8 +1,8 @@
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { FC, ReactNode } from 'react';
-import { otherColors } from '../../CustomThemeProvider';
 import { PropsWithChildren } from '../../shared/types';
+import { otherColors } from '@theme/colors';
 
 type AccordionCardProps = PropsWithChildren<{
   collapsed?: boolean;

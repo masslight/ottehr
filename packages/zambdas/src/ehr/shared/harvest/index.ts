@@ -60,7 +60,7 @@ import {
   INSURANCE_COVERAGE_CODING,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
-  OTTEHR_BASE_URL,
+  FHIR_BASE_URL,
   OTTEHR_MODULE,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
@@ -123,6 +123,7 @@ interface ResponsiblePartyContact {
   firstName: string;
   lastName: string;
   relationship: 'Self' | 'Spouse' | 'Parent' | 'Legal Guardian' | 'Other';
+  address: Address;
 
   number?: string;
 }
@@ -715,7 +716,7 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   const facilityName = isVirtualLocation
     ? 'Ottehr Telemedicine'
     : locationResource?.identifier?.find(
-        (identifierTemp) => identifierTemp.system === `${OTTEHR_BASE_URL}/r4/facility-name`
+        (identifierTemp) => identifierTemp.system === `${FHIR_BASE_URL}/r4/facility-name`
       )?.value;
 
   const ipAddress = questionnaireResponse.extension?.find((ext) => {
@@ -1197,7 +1198,6 @@ export function createMasterRecordPatchOperations(
     // Change index if path is changeable
     if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
       const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
-
       fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
     }
 
@@ -1279,6 +1279,11 @@ export function createMasterRecordPatchOperations(
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
             const operation = createBasicPatchOperation([value], parentPath, currentParentValue);
+            // looks like there is a bug here when there is a patient name but not patient name contains the 'use: official' desgination
+            // todo: a better fix here is needed, along with some kind of unit/integration tests
+            if (fullPath.includes('name/-1/')) {
+              return;
+            }
             if (operation) tempOperations.patient.push(operation);
             return;
           }
@@ -1321,7 +1326,7 @@ export function createMasterRecordPatchOperations(
 
         // Handle regular fields
         const currentValue = getCurrentValue(patient, path);
-        if (value !== currentValue) {
+        if (value !== currentValue && !fullPath.includes('name/-1/')) {
           const operation = createBasicPatchOperation(value, path, currentValue);
           if (operation) tempOperations.patient.push(operation);
         }
@@ -1968,6 +1973,21 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
   const findAnswer = (linkId: string): string | undefined =>
     items.find((item) => item.linkId === linkId)?.answer?.[0]?.valueString;
 
+  const city = findAnswer('responsible-party-city');
+  const addressLine = findAnswer('responsible-party-address');
+  const line = addressLine ? [addressLine] : undefined;
+  const addressLine2 = findAnswer('responsible-party-address-2');
+  if (addressLine2) line?.push(addressLine2);
+  const state = findAnswer('responsible-party-state');
+  const postalCode = findAnswer('responsible-party-zip');
+
+  const guarantorAddress: Address = {
+    city,
+    line,
+    state,
+    postalCode,
+  };
+
   const contact: ResponsiblePartyContact = {
     birthSex: findAnswer('responsible-party-birth-sex') as 'Male' | 'Female' | 'Intersex',
     dob: findAnswer('responsible-party-date-of-birth') ?? '',
@@ -1979,6 +1999,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
       | 'Parent'
       | 'Legal Guardian'
       | 'Other',
+    address: guarantorAddress,
     number: findAnswer('responsible-party-number'),
   };
 
@@ -2680,23 +2701,28 @@ export const resolveGuarantor = (input: ResolveGuarantorInput): ResolveGuarantor
     timestamp,
   } = input;
   console.log('guarantorFromQuestionnaire', JSON.stringify(guarantorFromQuestionnaire, null, 2));
-  if (guarantorFromQuestionnaire === undefined || guarantorFromQuestionnaire.relationship === 'Self') {
-    if (existingGuarantorResource?.resourceType === 'Patient' && existingGuarantorResource.id === patientId) {
+  if (guarantorFromQuestionnaire === undefined) {
+    return { guarantors: existingGuarantorReferences, contained: existingContained };
+  } else if (guarantorFromQuestionnaire.relationship === 'Self') {
+    const currentGuarantorIsPatient = existingGuarantorReferences.some((g) => {
+      return g.party.reference === `Patient/${patientId}` && g.period?.end === undefined;
+    });
+    if (currentGuarantorIsPatient) {
       return { guarantors: existingGuarantorReferences, contained: existingContained };
-    } else {
-      const newGuarantor = {
-        party: {
-          reference: `Patient/${patientId}`,
-          type: 'Patient',
-        },
-      };
-      return {
-        guarantors: replaceCurrentGuarantor(newGuarantor, existingGuarantorReferences, timestamp),
-        contained: existingContained,
-      };
     }
+    console.log('guarantorFromQuestionnaire is undefined or relationship is self 1');
+    const newGuarantor = {
+      party: {
+        reference: `Patient/${patientId}`,
+        type: 'Patient',
+      },
+    };
+    return {
+      guarantors: replaceCurrentGuarantor(newGuarantor, existingGuarantorReferences, timestamp),
+      contained: existingContained,
+    };
   }
-  // the new gurantor is not the patient...
+  // the new guarantor is not the patient...
   const existingResourceIsPersisted = existingGuarantorReferences.some((r) => {
     const ref = r.party.reference;
     if (r.period?.end !== undefined) return false;
@@ -2923,6 +2949,7 @@ export const createContainedGuarantor = (guarantor: ResponsiblePartyContact, pat
     gender: mapBirthSexToGender(guarantor.birthSex),
     telecom,
     patient: { reference: `Patient/${patientId}` },
+    address: [guarantor.address],
     relationship: [
       {
         coding: [

@@ -22,6 +22,7 @@ import {
   APIError,
   APPOINTMENT_NOT_FOUND_ERROR,
   AppointmentData,
+  PROJECT_NAME,
   UCGetPaperworkResponse,
   VisitType,
   formatPhoneNumberDisplay,
@@ -33,16 +34,16 @@ import { persist } from 'zustand/middleware';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import zapehrApi from '../api/zapehrApi';
-import { ottehrLightBlue } from '../assets/icons';
 import { PageContainer } from '../components';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
+import { ottehrLightBlue } from '@theme/icons';
 import { dataTestIds } from '../helpers/data-test-ids';
-import { ottehrAiLogo } from '../assets';
 import { LoadingButton } from '@mui/lab';
 import api from '../api/zapehrApi';
+import { ottehrAiLogo } from '@theme/index';
 
 const MODAL_STYLE = {
   position: 'absolute' as const,
@@ -291,7 +292,7 @@ const ThankYou = (): JSX.Element => {
           <Box style={{ background: '#FFF3E0', borderRadius: '8px', padding: '24px', display: 'flex' }}>
             <Box style={{ fontWeight: 600, fontSize: '18px' }}>
               <Typography variant="subtitle1" color="text.primary" style={{ paddingBottom: '16px', fontSize: '18px' }}>
-                Save your time and get ready for the visit with Ottehr AI Chat
+                Save your time and get ready for the visit with Oystehr AI Chat
               </Typography>
               <Button
                 type="button"
@@ -299,7 +300,7 @@ const ThankYou = (): JSX.Element => {
                 style={{ backgroundColor: '#F57C00' }}
                 onClick={() => setAiChatConsentModalOpen(true)}
               >
-                Try Ottehr AI chat
+                Try Oystehr AI chat
               </Button>
             </Box>
             <img src={ottehrAiLogo} style={{ width: '80px', marginLeft: '8px' }} />
@@ -329,7 +330,10 @@ const ThankYou = (): JSX.Element => {
   };
 
   return (
-    <PageContainer title={t('thanks.title')} description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}>
+    <PageContainer
+      title={t('thanks.title', { PROJECT_NAME })}
+      description={visitType === VisitType.WalkIn ? '' : t('thanks.subtitle')}
+    >
       {(!loading && (
         <>
           {visitType !== VisitType.WalkIn && <Divider />}
@@ -446,7 +450,7 @@ const ThankYou = (): JSX.Element => {
           >
             <Box sx={MODAL_STYLE}>
               <Typography variant={'h2'} color="primary.main" style={{ marginBottom: '16px' }}>
-                Chat with Ottehr AI
+                Chat with Oystehr AI
               </Typography>
               <Typography color="text.primary" style={{ marginBottom: '8px' }}>
                 Our AI assistant will ask about your symptoms, conditions, and medical history. Your doctor will review
@@ -458,7 +462,7 @@ const ThankYou = (): JSX.Element => {
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', margin: '16px 0 16px 0' }}>
                 <Checkbox color="secondary" onChange={(e) => setAiChatStartButtonEnabled(e.target.checked)} />
-                <Typography color="text.primary">I consent to Ottehr AI collecting my information</Typography>
+                <Typography color="text.primary">I consent to Oystehr AI collecting my information</Typography>
               </Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Button

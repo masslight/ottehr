@@ -1,6 +1,6 @@
 import { Stack, Typography, Box, useTheme, Paper, IconButton } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import React, { useState } from 'react';
 import { DateTime } from 'luxon';
 import { LoadingButton } from '@mui/lab';
@@ -8,7 +8,7 @@ import { LoadingButton } from '@mui/lab';
 interface TaskBannerProps {
   orderName: string;
   orderingPhysician: string;
-  orderedOnDate: DateTime;
+  orderedOnDate: DateTime | undefined;
   labName: string;
   taskStatus: string;
 }
@@ -24,7 +24,7 @@ export const TaskBanner: React.FC<TaskBannerProps> = ({
 
   const theme = useTheme();
   const verb = taskStatus === 'pending' ? 'Collect sample' : 'Do Something';
-  const localDate = orderedOnDate.toLocal();
+  const localDate = orderedOnDate?.toLocal();
 
   console.log('This is theme', theme);
   // Note: Alert did not allow for easy justifying of content for nice spacing, so had to re-invent the wheel. Sad MUI
@@ -46,9 +46,9 @@ export const TaskBanner: React.FC<TaskBannerProps> = ({
                 {`${verb} "${orderName} / ${labName}"`}
               </Box>
             </Typography>
-            <Typography variant="body1">{`Ordered by ${orderingPhysician} on ${localDate.toFormat(
-              'MM/dd/yyyy'
-            )} at ${localDate.toFormat('hh:mm a')}`}</Typography>
+            <Typography variant="body1">{`Ordered by ${orderingPhysician} on ${
+              localDate?.toFormat('MM/dd/yyyy') || 'Unknown date'
+            } at ${localDate?.toFormat('hh:mm a') || 'Unknown date'}`}</Typography>
           </Stack>
           <Stack direction="row" sx={{ alignItems: 'center' }}>
             <LoadingButton

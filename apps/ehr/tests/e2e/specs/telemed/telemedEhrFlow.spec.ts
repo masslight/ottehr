@@ -246,13 +246,13 @@ test.describe('Tests interacting with appointment state', () => {
     ).toBeVisible();
   });
 
-  test.skip('Check message for patient', async () => {
+  test('Check message for patient', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardChatButton(resourceHandler.appointment.id!)).click();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.chatModalDescription)).toBeVisible();
 
     const expectedSms =
       'Thank you for your patience. We apologize, but the provider is unexpectedly no longer available. You will receive an update when another provider is available';
-    await expect(page.getByText(expectedSms)).toBeVisible({ timeout: 25000 });
+    await expect(page.getByText(expectedSms).first()).toBeVisible({ timeout: 25000 });
   });
 
   test('Buttons on visit page should not appear', async () => {

@@ -1,13 +1,16 @@
 import { ReactElement, useCallback, useEffect, useState } from 'react';
-import { CircularProgress, Grid, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Grid, TextField, Tooltip, Typography } from '@mui/material';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
 import GroupMembers from '../components/schedule/GroupMembers';
 import { useApiClients } from '../hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
-import { getPatchBinary } from 'utils';
-import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
-import { useParams } from 'react-router-dom';
+import { getPatchBinary, getSlugForBookableResource, SLUG_SYSTEM } from 'utils';
+import { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { Link, useParams } from 'react-router-dom';
 import PageContainer from '../layout/PageContainer';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+
+const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
 export default function GroupPage(): ReactElement {
   return (
@@ -29,6 +32,15 @@ function GroupPageContent(): ReactElement {
   const [practitionerRoles, setPractitionerRoles] = useState<PractitionerRole[] | undefined>(undefined);
   const [selectedLocations, setSelectedLocations] = useState<string[] | undefined>(undefined);
   const [selectedPractitioners, setSelectedPractitioners] = useState<string[] | undefined>(undefined);
+  const [slug, setSlug] = useState<string>('');
+  const [linkIsCopied, setLinkIsCopied] = useState(false);
+
+  const defaultIntakeUrl = (() => {
+    if (slug) {
+      return `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=group`;
+    }
+    return '';
+  })();
 
   const getOptions = useCallback(async () => {
     if (!oystehr) {
@@ -69,6 +81,7 @@ function GroupPageContent(): ReactElement {
     ) as PractitionerRole[];
     console.log(request);
     setGroup(groupTemp);
+    setSlug(getSlugForBookableResource(groupTemp) ?? '');
     setLocations(locationsTemp);
     setPractitioners(practitionersTemp);
     setPractitionerRoles(practitionerRolesTemp);
@@ -155,11 +168,12 @@ function GroupPageContent(): ReactElement {
       resourceId: groupID,
       patchOperations: [
         {
-          op: 'add',
+          op: group?.location ? 'replace' : 'add',
           path: '/location',
-          value: selectedLocations?.map((selectedLocationTemp) => ({
-            reference: `Location/${selectedLocationTemp}`,
-          })),
+          value:
+            selectedLocations?.map((selectedLocationTemp) => ({
+              reference: `Location/${selectedLocationTemp}`,
+            })) ?? [],
         },
       ],
     });
@@ -218,10 +232,35 @@ function GroupPageContent(): ReactElement {
           })
       )
     );
+    const slugPatchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
+    const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
+    if (group && slug !== currentSlug) {
+      const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
+      if (slug) {
+        newIdentifierList.push({
+          system: SLUG_SYSTEM,
+          value: slug,
+        });
+      }
+      slugPatchRequests.push(
+        getPatchBinary({
+          resourceType: 'HealthcareService',
+          resourceId: groupID,
+          patchOperations: [
+            {
+              op: group.identifier === undefined ? 'add' : 'replace',
+              path: '/identifier',
+              value: newIdentifierList,
+            },
+          ],
+        })
+      );
+    }
     await oystehr.fhir.batch<PractitionerRole | HealthcareService>({
       requests: [
         ...practitionerRolesResourceCreateRequests,
         ...practitionerRolesResourcePatchRequests,
+        ...slugPatchRequests,
         updateLocations,
       ],
     });
@@ -243,62 +282,100 @@ function GroupPageContent(): ReactElement {
         This is a group schedule. Its availability is made up of the schedules of the locations and providers selected.
       </Typography>
       <form onSubmit={onSubmit}>
-        <Grid container spacing={4} sx={{ marginTop: 0 }}>
+        <Grid container direction="column" spacing={4} sx={{ marginTop: 0 }}>
           <Grid item xs={6}>
-            <GroupMembers
-              option="locations"
-              options={
-                locations
-                  ? locations.map((locationTemp) => ({
-                      value: locationTemp.id || 'Undefined name',
-                      label: locationTemp.name || 'Undefined name',
-                    }))
-                  : []
-              }
-              values={
-                selectedLocations
-                  ? selectedLocations?.map((locationTemp) => {
-                      const locationName = locations?.find((location) => location.id === locationTemp)?.name;
-                      return {
-                        value: locationTemp,
-                        label: locationName || 'Undefined name',
-                      };
-                    })
-                  : []
-              }
-              onChange={(event, value) => setSelectedLocations(value.map((valueTemp: any) => valueTemp.value))}
+            <TextField
+              label="Slug"
+              value={slug}
+              onChange={(event) => setSlug(event.target.value)}
+              sx={{ width: '250px' }}
             />
+            <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600, display: slug ? 'block' : 'none' }}>
+              Share booking link to this schedule:
+            </Typography>
+            <Box sx={{ display: defaultIntakeUrl ? 'flex' : 'none', alignItems: 'center', gap: 0.5, mb: 3 }}>
+              <Tooltip
+                title={linkIsCopied ? 'Link copied!' : 'Copy link'}
+                placement="top"
+                arrow
+                onClose={() => {
+                  setTimeout(() => {
+                    setLinkIsCopied(false);
+                  }, 200);
+                }}
+              >
+                <Button
+                  onClick={() => {
+                    void navigator.clipboard.writeText(defaultIntakeUrl);
+                    setLinkIsCopied(true);
+                  }}
+                  sx={{ p: 0, minWidth: 0 }}
+                >
+                  <ContentCopyRoundedIcon fontSize="small" />
+                </Button>
+              </Tooltip>
+              <Link to={defaultIntakeUrl} target="_blank">
+                <Typography variant="body2">{defaultIntakeUrl}</Typography>
+              </Link>
+            </Box>
           </Grid>
-          <Grid item xs={6}>
-            <GroupMembers
-              option="providers"
-              options={
-                practitioners
-                  ? practitioners.map((practitionerTemp) => ({
-                      value: practitionerTemp.id || 'Undefined name',
-                      label: practitionerTemp.name
-                        ? oystehr?.fhir.formatHumanName(practitionerTemp.name[0]) || 'Undefined name'
-                        : 'Undefined name',
-                    }))
-                  : []
-              }
-              values={
-                selectedPractitioners
-                  ? selectedPractitioners.map((practitionerTemp) => {
-                      const practitionerName = practitioners?.find(
-                        (practitioner) => practitioner.id === practitionerTemp
-                      )?.name?.[0];
-                      return {
-                        value: practitionerTemp,
-                        label: practitionerName
-                          ? oystehr?.fhir.formatHumanName(practitionerName) || 'Undefined name'
+          <Grid container item xs={6}>
+            <Grid item xs={6}>
+              <GroupMembers
+                option="locations"
+                options={
+                  locations
+                    ? locations.map((locationTemp) => ({
+                        value: locationTemp.id || 'Undefined name',
+                        label: locationTemp.name || 'Undefined name',
+                      }))
+                    : []
+                }
+                values={
+                  selectedLocations
+                    ? selectedLocations?.map((locationTemp) => {
+                        const locationName = locations?.find((location) => location.id === locationTemp)?.name;
+                        return {
+                          value: locationTemp,
+                          label: locationName || 'Undefined name',
+                        };
+                      })
+                    : []
+                }
+                onChange={(event, value) => setSelectedLocations(value.map((valueTemp: any) => valueTemp.value))}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <GroupMembers
+                option="providers"
+                options={
+                  practitioners
+                    ? practitioners.map((practitionerTemp) => ({
+                        value: practitionerTemp.id || 'Undefined name',
+                        label: practitionerTemp.name
+                          ? oystehr?.fhir.formatHumanName(practitionerTemp.name[0]) || 'Undefined name'
                           : 'Undefined name',
-                      };
-                    })
-                  : []
-              }
-              onChange={(event, value) => setSelectedPractitioners(value.map((valueTemp: any) => valueTemp.value))}
-            />
+                      }))
+                    : []
+                }
+                values={
+                  selectedPractitioners
+                    ? selectedPractitioners.map((practitionerTemp) => {
+                        const practitionerName = practitioners?.find(
+                          (practitioner) => practitioner.id === practitionerTemp
+                        )?.name?.[0];
+                        return {
+                          value: practitionerTemp,
+                          label: practitionerName
+                            ? oystehr?.fhir.formatHumanName(practitionerName) || 'Undefined name'
+                            : 'Undefined name',
+                        };
+                      })
+                    : []
+                }
+                onChange={(event, value) => setSelectedPractitioners(value.map((valueTemp: any) => valueTemp.value))}
+              />
+            </Grid>
           </Grid>
           <Grid item xs={2}>
             <LoadingButton loading={loading} type="submit" variant="contained">

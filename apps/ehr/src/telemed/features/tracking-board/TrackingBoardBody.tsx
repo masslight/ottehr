@@ -14,6 +14,7 @@ import {
 import { ReactElement } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { ProviderNotificationMethod } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { useUpdateProviderNotificationSettingsMutation } from '../../../features/notifications/notifications.queries';
 import { useProviderNotificationsStore } from '../../../features/notifications/notifications.store';
 import useEvolveUser from '../../../hooks/useEvolveUser';
@@ -22,7 +23,6 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { ContainedPrimaryToggleButton } from '../../components';
 import { useTrackingBoardStore } from '../../state';
 import { TrackingBoardTabs } from './TrackingBoardTabs';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 export function TrackingBoardBody(): ReactElement {
   const { alignment, setAlignment } = getSelectors(useTrackingBoardStore, ['alignment', 'setAlignment']);
@@ -43,16 +43,16 @@ export function TrackingBoardBody(): ReactElement {
           <Grid container direction="row" justifyContent="space-between" alignItems="center">
             <ToggleButtonGroup size="small" value={alignment} exclusive onChange={setAlignment}>
               <ContainedPrimaryToggleButton
-                value="my-patients"
-                data-testid={dataTestIds.telemedEhrFlow.myPatientsButton}
-              >
-                My Patients
-              </ContainedPrimaryToggleButton>
-              <ContainedPrimaryToggleButton
                 value="all-patients"
                 data-testid={dataTestIds.telemedEhrFlow.allPatientsButton}
               >
                 All Patients
+              </ContainedPrimaryToggleButton>
+              <ContainedPrimaryToggleButton
+                value="my-patients"
+                data-testid={dataTestIds.telemedEhrFlow.myPatientsButton}
+              >
+                Patients Matching My Credentials
               </ContainedPrimaryToggleButton>
             </ToggleButtonGroup>
 

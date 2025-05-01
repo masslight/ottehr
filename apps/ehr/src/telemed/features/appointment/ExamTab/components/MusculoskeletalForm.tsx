@@ -5,7 +5,6 @@ import { ExamObservationDTO } from 'utils';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { StatelessExamCheckbox } from './StatelessExamCheckbox';
-import { otherColors } from '../../../../../CustomThemeProvider';
 import {
   musculoskeletalFields,
   parseMusculoskeletalFieldToName,
@@ -16,6 +15,7 @@ import {
   musculoskeletalAbnormalOptions,
 } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { otherColors } from '@theme/colors';
 
 type FormValues = {
   side: string;
