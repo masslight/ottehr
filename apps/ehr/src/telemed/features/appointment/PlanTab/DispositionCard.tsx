@@ -49,11 +49,20 @@ export const DispositionCard: FC = () => {
   const { encounter, setPartialChartData } = getSelectors(useAppointmentStore, ['encounter', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
   const isResetting = useRef(false);
+  const latestRequestId = useRef(0);
 
   const methods = useForm<DispositionFormValues>({
     defaultValues: DEFAULT_DISPOSITION_VALUES,
   });
-  const { control, handleSubmit, watch, getValues, setValue, reset } = methods;
+  const {
+    control,
+    handleSubmit,
+    watch,
+    getValues,
+    setValue,
+    reset,
+    formState: { isDirty },
+  } = methods;
 
   const { chartData, isFetching: isChartDataLoading } = useChartData({
     encounterId: encounter.id || '',
@@ -61,6 +70,9 @@ export const DispositionCard: FC = () => {
     onSuccess: (data) => {
       setPartialChartData({ disposition: data?.disposition });
       isResetting.current = true;
+      if (data?.disposition?.note) {
+        setNoteCache(data.disposition.note);
+      }
       reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
       setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
       isResetting.current = false;
@@ -77,25 +89,30 @@ export const DispositionCard: FC = () => {
 
   const onSubmit = useCallback(
     (values: DispositionFormValues): void => {
+      setIsError(false);
+      const requestId = ++latestRequestId.current;
       debounce(() => {
-        setIsError(false);
         mutate(
           { disposition: withNote(values) },
           {
             onSuccess: (data) => {
-              const disposition = data.chartData?.disposition;
-              if (disposition) {
-                setPartialChartData({ disposition });
-                isResetting.current = true;
-                reset(mapDispositionToForm(disposition));
-                isResetting.current = false;
+              if (requestId === latestRequestId.current) {
+                const disposition = data.chartData?.disposition;
+                if (disposition) {
+                  setPartialChartData({ disposition });
+                  isResetting.current = true;
+                  reset(mapDispositionToForm(disposition));
+                  isResetting.current = false;
+                }
               }
             },
             onError: () => {
-              enqueueSnackbar(ERROR_TEXT, {
-                variant: 'error',
-              });
-              setIsError(true);
+              if (requestId === latestRequestId.current) {
+                enqueueSnackbar(ERROR_TEXT, {
+                  variant: 'error',
+                });
+                setIsError(true);
+              }
             },
           }
         );
@@ -132,7 +149,7 @@ export const DispositionCard: FC = () => {
     <AccordionCard
       label="Disposition"
       headerItem={
-        isLoading ? (
+        isLoading || isDirty ? (
           <CircularProgress size="20px" />
         ) : isError ? (
           <Tooltip title={ERROR_TEXT}>
