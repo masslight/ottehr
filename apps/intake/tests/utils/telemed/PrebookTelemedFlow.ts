@@ -32,7 +32,6 @@ export class PrebookTelemedFlow extends BaseTelemedFlow {
 
   async startVisitFullFlow(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
-    console.log('crapped out later than here!');
     const slotAndLocation = await this.selectTimeLocationAndContinue();
     await this.selectDifferentFamilyMemberAndContinue();
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();
