@@ -22,6 +22,7 @@ import {
   isPostTelemedAppointment,
   UpdateAppointmentParameters,
   normalizeSlotToUTC,
+  getSlugForBookableResource,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -37,7 +38,6 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getSlugForBookableResource } from '../../bookable/helpers';
 
 export interface UpdateAppointmentInput extends UpdateAppointmentParameters {
   secrets: Secrets | null;
@@ -104,8 +104,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     if (isPostTelemedAppointment(fhirAppointment)) {
       throw POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR;
     }
-
-    const originalDate = DateTime.fromISO(fhirAppointment?.start ?? '').setZone('UTC');
 
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
     if (fhirAppointment.status === 'arrived') {

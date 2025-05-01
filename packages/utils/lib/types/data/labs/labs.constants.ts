@@ -34,6 +34,16 @@ export const LAB_DR_TYPE_TAG = {
   },
 };
 
+export const SPECIMEN_CODING_CONFIG = {
+  collection: {
+    system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-details',
+    code: {
+      collectionInstructions: 'collectionInstructions',
+      specimenVolume: 'specimenVolume',
+    },
+  },
+};
+
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';

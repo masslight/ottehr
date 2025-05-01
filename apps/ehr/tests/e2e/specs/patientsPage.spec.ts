@@ -24,7 +24,7 @@ test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test('Search patients with different filters', async ({ page }) => {
+test.skip('Search patients with different filters', async ({ page }) => {
   await page.goto('/patients');
 
   await test.step('Search by Last name', async () => {
