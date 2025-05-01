@@ -11,15 +11,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SampleInformationCard } from './SampleInformationCard';
 import { OrderHistoryCard } from './OrderHistoryCard';
 import { useApiClients } from '../../../hooks/useAppClients';
-// import { StatusString } from './StatusChip';
-
-// interface CollectionInstructions {
-//   container: string;
-//   volume: string;
-//   minimumVolume: string;
-//   storageRequirements: string;
-//   collectionInstructions: string;
-// }
+import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 
 interface SampleCollectionProps {
   labOrder: LabOrderDetailedPageDTO;
@@ -109,7 +101,14 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
           isCollapsed={isAOECollapsed}
         />
-        {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
+
+        {labOrder?.sampleCollections?.map((sampleCollection) => (
+          <SampleCollectionInstructionsCard
+            key={Object.values(sampleCollection).join('-')}
+            instructions={sampleCollection}
+          />
+        ))}
+
         {showOrderInfo && (
           <SampleInformationCard
           // orderAddedDateTime={labOrder?.orderAddedDate}

@@ -6,13 +6,14 @@ export interface OrderableItemSearchResult {
   lab: OrderableItemLab;
 }
 
-export interface OrderableItemSpecimen {
+export interface SampleCollectionDTO {
   container: string;
   volume: string;
   minimumVolume: string;
   storageRequirements: string;
   collectionInstructions: string;
 }
+
 export interface OrderableItemComponent {
   componentItemCode: string;
   name: string;
@@ -32,7 +33,7 @@ export interface OrderableItem {
   itemType: string;
   itemName: string;
   uniqueName: string;
-  specimens: OrderableItemSpecimen[];
+  specimens: SampleCollectionDTO[];
   components: OrderableItemComponent[];
   cptCodes: OrderableItemCptCode[];
   aoe: Questionnaire;
@@ -52,7 +53,7 @@ export enum ExternalLabsStatus {
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
-  unparsed = 'unparsed', // for debugging purposes
+  unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
@@ -112,6 +113,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   orderSource: string; // order source (SR.orderDetail code.display)
   questionnaire: QuestionnaireData[];
+  sampleCollections: SampleCollectionDTO[];
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {

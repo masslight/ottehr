@@ -34,6 +34,8 @@ import {
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   getPresignedURL,
+  SampleCollectionDTO,
+  SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -150,6 +152,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
       accountNumber: parseAccountNumber(serviceRequest, organizations),
       resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
+      sampleCollections: parseSpecimenInfoFromServiceRequest(serviceRequest),
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -781,7 +784,7 @@ export const parseLabOrderStatus = (
 ): ExternalLabsStatus => {
   if (!serviceRequest.id) {
     console.error('ServiceRequest id is required to parse lab order status');
-    return ExternalLabsStatus.unparsed;
+    return ExternalLabsStatus.unknown;
   }
 
   const { orderedFinalResults, reflexFinalResults, orderedPrelimResults, reflexPrelimResults } =
@@ -855,8 +858,7 @@ export const parseLabOrderStatus = (
     }
   }
 
-  // unparsed status, for debugging purposes
-  return ExternalLabsStatus.unparsed;
+  return ExternalLabsStatus.unknown;
 };
 
 export const parseDiagnoses = (serviceRequest: ServiceRequest): DiagnosisDTO[] => {
@@ -1411,7 +1413,7 @@ export const parseResultDetails = (
         ? ExternalLabsStatus.pending
         : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
         ? ExternalLabsStatus.sent
-        : ExternalLabsStatus.unparsed,
+        : ExternalLabsStatus.unknown,
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
@@ -1587,4 +1589,98 @@ export const parseQuestionnaireResponseItems = (
   });
 
   return questionnaireResponseItems || [];
+};
+
+export const parseSpecimenInfoFromServiceRequest = (serviceRequest: ServiceRequest): SampleCollectionDTO[] => {
+  const NOT_FOUND = 'Not specified';
+
+  if (!serviceRequest.contained || !serviceRequest.contained.length) {
+    console.log('Error: No contained resources found in serviceRequest');
+    return [];
+  }
+
+  const activityDefinition = serviceRequest.contained.find(
+    (resource) => resource.resourceType === 'ActivityDefinition'
+  );
+
+  if (!activityDefinition || !activityDefinition.specimenRequirement) {
+    console.log('Error: No specimenRequirement found in activityDefinition');
+    return [];
+  }
+
+  const specimenDefinitionRefs = activityDefinition.specimenRequirement.map((req: any) => req.reference);
+
+  const specimens: SampleCollectionDTO[] = [];
+
+  for (let i = 0; i < specimenDefinitionRefs.length; i++) {
+    const ref = specimenDefinitionRefs[i];
+    const specDefId = ref.startsWith('#') ? ref.substring(1) : ref;
+
+    const specimenDefinition = serviceRequest.contained.find(
+      (resource) => resource.resourceType === 'SpecimenDefinition' && resource.id === specDefId
+    );
+
+    if (!specimenDefinition) {
+      console.log(`Error: SpecimenDefinition with id ${specDefId} not found in contained resources`);
+      continue;
+    }
+
+    if (!('typeTested' in specimenDefinition)) {
+      console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested.`);
+      continue;
+    }
+
+    if (!Array.isArray(specimenDefinition.typeTested) || specimenDefinition.typeTested.length === 0) {
+      console.log(`Error: SpecimenDefinition ${specDefId} is not array or empty.`);
+      continue;
+    }
+
+    // by the dev design typeTestedInfo should have preferred preference
+    const typeTestedInfo = specimenDefinition.typeTested.find((item) => item.preference === 'preferred');
+
+    if (!typeTestedInfo) {
+      console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested with preference = 'preferred'`);
+    }
+
+    const container = typeTestedInfo?.container?.description;
+
+    const minimumVolume = typeTestedInfo?.container?.minimumVolumeString;
+
+    // by dev design for storage requirements handling[0].instruction should be used
+    const storageRequirements = typeTestedInfo?.handling?.[0]?.instruction;
+
+    const volumeInfo = specimenDefinition.collection?.find(
+      (item) =>
+        item.coding?.some(
+          (code) =>
+            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+            code.code === SPECIMEN_CODING_CONFIG.collection.code.specimenVolume
+        )
+    );
+
+    const volume = volumeInfo?.text;
+
+    const instructionsInfo = specimenDefinition.collection?.find(
+      (item: any) =>
+        item.coding?.some(
+          (code: any) =>
+            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+            code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
+        )
+    );
+
+    const collectionInstructions = instructionsInfo?.text;
+
+    const logAboutMissingInfo = (info: string): void => console.log(`Error: ${info} is undefined`);
+
+    specimens.push({
+      container: container || (logAboutMissingInfo('container'), NOT_FOUND),
+      volume: volume || (logAboutMissingInfo('volume'), NOT_FOUND),
+      minimumVolume: minimumVolume || (logAboutMissingInfo('minimumVolume'), NOT_FOUND),
+      storageRequirements: storageRequirements || (logAboutMissingInfo('storageRequirements'), NOT_FOUND),
+      collectionInstructions: collectionInstructions || (logAboutMissingInfo('collectionInstructions'), NOT_FOUND),
+    });
+  }
+
+  return specimens;
 };

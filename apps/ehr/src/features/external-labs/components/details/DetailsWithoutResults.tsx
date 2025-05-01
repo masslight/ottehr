@@ -2,23 +2,15 @@ import React, { useState } from 'react';
 import { Typography, Stack, Grid } from '@mui/material';
 import { OrderCollection } from '../OrderCollection';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
-import { LabOrderDetailedPageDTO } from 'utils';
+import { LabOrderDetailedPageDTO, SampleCollectionDTO } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
-
-interface CollectionInstructions {
-  container: string;
-  volume: string;
-  minimumVolume: string;
-  storageRequirements: string;
-  collectionInstructions: string;
-}
 
 export const DetailsWithoutResults: React.FC<{ labOrder: LabOrderDetailedPageDTO }> = ({ labOrder }) => {
   // Note: specimens are no longer MVP, and also we'll be getting specimens from Create Order
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [specimen, setSpecimen] = useState({});
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [collectionInstructions, setCollectionInstructions] = useState({} as CollectionInstructions);
+  const [collectionInstructions, setCollectionInstructions] = useState({} as SampleCollectionDTO); // ?
 
   return (
     <>
