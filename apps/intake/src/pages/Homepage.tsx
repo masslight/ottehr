@@ -16,7 +16,7 @@ import {
   useGetAppointments,
 } from '../telemed/features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
-import HomepageOption from '../telemed/features/homepage/HomepageOption';
+import HomepageOption from '../components/HomepageOption';
 import { useZapEHRAPIClient } from '../telemed/utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { pastVisits } from '@theme/icons';

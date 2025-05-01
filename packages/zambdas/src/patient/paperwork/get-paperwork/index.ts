@@ -396,6 +396,7 @@ interface LocationSummaryInput {
   hsResources?: HealthcareServiceWithLocationContext;
   practitioner?: Practitioner;
 }
+// todo: consider whether all the location config stuff needs to be on here
 const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['location'] => {
   const { appointment, location, hsResources, practitioner } = input;
   if (hsResources) {

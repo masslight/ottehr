@@ -190,7 +190,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     slot.appointmentType = { ...SLOT_WALKIN_APPOINTMENT_TYPE_CODING };
   } else if (postTelemedLabOnly) {
     slot.appointmentType = { ...SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING };
-    // todo: check if post-telemed lab only slot is available
+    // todo 1.8-9: check if post-telemed lab only slot is available
   } else {
     // check if slot is available
     const isAvailable = await checkSlotAvailable(

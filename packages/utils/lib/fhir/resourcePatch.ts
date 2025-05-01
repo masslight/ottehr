@@ -189,7 +189,6 @@ export const getPatchOperationToUpdateExtension = (
   return undefined;
 };
 
-// todo:
 export const getPatchOperationToRemoveExtension = (
   resource: { extension?: Extension[] },
   extensionToRemove: { url: Extension['url'] }

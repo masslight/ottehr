@@ -20,7 +20,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
   const oystehrClient = createOystehrClient(token, envConfig);
   // setup telemed location schedules
   try {
-    const telemedLocationAndSchedules = (await oystehrClient.fhir.search<Location|Schedule>({
+    const locationAndSchedules = (await oystehrClient.fhir.search<Location|Schedule>({
       resourceType: 'Location',
       params: [{
         name: 'status',
@@ -33,8 +33,8 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     ],
     })).unbundle();
 
-    const schedules = telemedLocationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
-    const locations = telemedLocationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
+    const schedules = locationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
+    const locations = locationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
     console.log('telemedLocations', locations.length);
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
@@ -227,14 +227,3 @@ main().catch((error) => {
   console.log('error', error);
   throw error;
 });
-
-/*
-const isDefaultWalkinLocaiton = (location: Location): boolean => {
-  if (isLocationVirtual(location)) {
-    return false;
-  }
-  // todo: this could be more explicit somewhere, but probably makes sense to address as part of the larger
-  // effort to better orchestrate set up and deployment
-  return location?.address?.state === 'NY' && location?.address?.city === 'New York';
-}
-*/

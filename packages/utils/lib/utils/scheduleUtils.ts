@@ -434,7 +434,7 @@ interface GetAvailableSlotsInput {
   now: DateTime;
   numDays: number;
   schedule: Schedule;
-  busySlots: Slot[]; // todo: add these in upstream
+  busySlots: Slot[]; // todo 1.8: add these in upstream
 }
 
 export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
@@ -728,7 +728,6 @@ export async function addWaitingMinutesToAppointment(
 interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
-  busySlots?: Slot[];
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -745,54 +744,11 @@ export const getAvailableSlotsForSchedules = async (
     schedule: scheduleTemp.schedule,
     owner: scheduleTemp.owner,
   }));
-  /*
-  const [appointments, busySlots] = await Promise.all([
-    getAppointments(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
-    checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
-  ]);
-
-
-  if (scheduleResource.resourceType === 'Location' || scheduleResource.resourceType === 'Practitioner') {
-    schedules.push(scheduleResource);
-  } else if (scheduleResource.resourceType === 'HealthcareService') {
-    if (!groupItems) {
-      const relatedScheduleResources = (
-        await oystehr.fhir.search<Location | Practitioner | HealthcareService>({
-          resourceType: 'HealthcareService',
-          params: [
-            { name: 'identifier', value: slug },
-            {
-              name: '_include',
-              value: 'HealthcareService:location',
-            },
-            {
-              name: '_revinclude',
-              value: 'PractitionerRole:service',
-            },
-            {
-              name: '_include:iterate',
-              value: 'PractitionerRole:practitioner',
-            },
-          ],
-        })
-      ).unbundle();
-      groupItems = relatedScheduleResources.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Location' || resourceTemp.resourceType === 'Practitioner'
-      );
-    }
-    schedules.push(...getSchedulesForGroup(scheduleResource, groupItems));
-  }
-    */
 
   schedules.forEach((scheduleTemp) => {
     try {
-      // todo: find existing appointments and busy slots
-      /*filterAppointmentsByType(appointments, [
-        VisitType.PreBook,
-        VisitType.WalkIn,
-      ]);*/
+      // todo 1.8: find busy / busy-tentative slots
       const busySlots: Slot[] = []; // checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleTemp);
-      // const postTelemedAppointments = filterAppointmentsByType(appointments, [VisitType.PostTelemed]);
       console.log('getting post telemed slots');
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
       console.log('getting available slots to display');
@@ -1457,7 +1413,8 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
   };
   const availableSlots = getAvailableSlots(getAvailableInput);
   // note this is just checking for same start times, and assumes length of slot is same as available slots
-  // todo: improve the logic here
+  // todo: improve the logic here; we need a better heuristic for slot equivalence since we have no persisted slots with ids to check
+  // it's not so pressing at the moment since we're assuming a schedule only vends slots of equivalent type and length
   return availableSlots.some((slot) => {
     const slotTime = DateTime.fromISO(slot);
     if (slotTime !== null) {

@@ -169,10 +169,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const { availableSlots } = await getAvailableSlotsForSchedules({
       now: DateTime.now(),
       scheduleList: scheduleData.scheduleList,
-      busySlots: [], // todo: add busy slots or refactor - see previous todo, these can be queried form the passed in slot
     });
 
-    // todo: another place to refactor with a slot comparator utility func
+    // todo 1.9: another place to refactor with a slot comparator utility func
     if (availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {
       console.log('slot is available');
     } else {
