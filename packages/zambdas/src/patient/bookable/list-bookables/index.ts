@@ -7,6 +7,7 @@ import {
   createOystehrClient,
   GetBookableItemListParams,
   getSecret,
+  getSlugForBookableResource,
   isLocationVirtual,
   SecretsKeys,
   ServiceMode,
@@ -15,7 +16,6 @@ import {
   stateCodeToFullName,
 } from 'utils';
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
-import { getSlugForBookableResource } from '../helpers';
 
 let zapehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

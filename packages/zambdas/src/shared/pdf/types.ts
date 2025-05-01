@@ -112,12 +112,13 @@ export interface ExternalLabsData {
   locationZip: string;
   locationPhone: string;
   locationFax: string;
+  labOrganizationName: string;
   reqId: string;
   providerName: string;
   providerTitle: string;
   providerNPI: string;
   patientFirstName: string;
-  patientMiddleName: string;
+  patientMiddleName: string | undefined;
   patientLastName: string;
   patientSex: string;
   patientDOB: string;
@@ -134,8 +135,7 @@ export interface ExternalLabsData {
   insuredAddress?: string;
   aoeAnswers?: { question: string; answer: any }[];
   orderName?: string | undefined;
-  assessmentCode: string;
-  assessmentName: string;
+  orderAssessments: { code: string; name: string }[];
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
@@ -228,6 +228,8 @@ export interface VisitNoteData extends ExaminationBlockData {
     [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
     labService: string;
     virusTest: string;
+    followUpIn?: number;
+    reason?: string;
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];
