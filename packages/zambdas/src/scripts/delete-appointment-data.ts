@@ -196,26 +196,6 @@ const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Prom
         value: 'Appointment:location',
       },
       {
-        name: '_include',
-        value: 'Appointment:service-provider',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:reason-code',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:supporting-information',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:based-on',
-      },
-      {
-        name: '_revinclude',
-        value: 'Patient:appointment',
-      },
-      {
         name: '_revinclude:iterate',
         value: 'RelatedPerson:patient',
       },

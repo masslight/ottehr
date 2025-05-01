@@ -4,6 +4,7 @@ import {
   checkSlotAvailable,
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
+  getTimezone,
   INVALID_INPUT_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
@@ -161,12 +162,13 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   if (!schedule) {
     throw FHIR_RESOURCE_NOT_FOUND('Schedule');
   }
+  const timezone = getTimezone(schedule);
 
   const startTime = DateTime.fromISO(startISO);
   const endTime = startTime.plus({ [apptLength.unit]: apptLength.length });
 
-  const start = startTime.toISO();
-  const end = endTime.toISO();
+  const start = startTime.setZone(timezone).toISO();
+  const end = endTime.setZone(timezone).toISO();
 
   if (!start || !end) {
     throw INVALID_INPUT_ERROR('Unable to create start and end times');

@@ -1412,6 +1412,9 @@ export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr
     busySlots,
   };
   const availableSlots = getAvailableSlots(getAvailableInput);
+
+  //console.log('found this many available slots: ', availableSlots.length);
+
   // note this is just checking for same start times, and assumes length of slot is same as available slots
   // todo: improve the logic here; we need a better heuristic for slot equivalence since we have no persisted slots with ids to check
   // it's not so pressing at the moment since we're assuming a schedule only vends slots of equivalent type and length

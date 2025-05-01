@@ -378,6 +378,7 @@ const generateRandomPatientInfo = async (
   let randomLocationId = '';
   if (serviceMode === ServiceMode['in-person']) {
     if (!notSoRandomLocation?.id) {
+      console.log('Location not found in search results');
       throw new Error(`Location ${process.env.LOCATION} not found in search results`);
     }
     randomLocationId = notSoRandomLocation.id;
@@ -399,6 +400,7 @@ const generateRandomPatientInfo = async (
   });
 
   if (!matchingRandomSchedule?.id) {
+    console.log('Schedule not found in search results');
     throw new Error(`No matching schedule found for location ID: ${randomLocationId}`);
   }
   const now = DateTime.now();
