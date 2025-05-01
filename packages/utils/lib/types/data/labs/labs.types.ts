@@ -6,12 +6,18 @@ export interface OrderableItemSearchResult {
   lab: OrderableItemLab;
 }
 
-export interface SampleCollectionDTO {
+export interface OrderableItemSpecimen {
+  id: string;
   container: string;
   volume: string;
   minimumVolume: string;
   storageRequirements: string;
   collectionInstructions: string;
+}
+
+export interface OrderableItemSample {
+  id: string;
+  instruction: OrderableItemSpecimen;
 }
 
 export interface OrderableItemComponent {
@@ -33,7 +39,7 @@ export interface OrderableItem {
   itemType: string;
   itemName: string;
   uniqueName: string;
-  specimens: SampleCollectionDTO[];
+  specimens: OrderableItemSpecimen[];
   components: OrderableItemComponent[];
   cptCodes: OrderableItemCptCode[];
   aoe: Questionnaire;
@@ -114,7 +120,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   orderSource: string; // order source (SR.orderDetail code.display)
   questionnaire: QuestionnaireData[];
-  sampleCollections: SampleCollectionDTO[];
+  sampleCollections: OrderableItemSpecimen[];
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {

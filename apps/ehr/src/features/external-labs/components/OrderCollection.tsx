@@ -42,6 +42,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<boolean>(false);
+  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
 
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
     setSubmitLoading(true);
@@ -102,12 +103,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           isCollapsed={isAOECollapsed}
         />
 
-        {labOrder?.sampleCollections?.map((sampleCollection) => (
-          <SampleCollectionInstructionsCard
-            key={Object.values(sampleCollection).join('-')}
-            instructions={sampleCollection}
-          />
-        ))}
+        {shouldShowSampleCollectionInstructions &&
+          labOrder.sampleCollections.map((sampleCollection) => (
+            <SampleCollectionInstructionsCard
+              key={Object.values(sampleCollection).join('-')}
+              instructions={sampleCollection}
+            />
+          ))}
 
         {showOrderInfo && (
           <SampleInformationCard
