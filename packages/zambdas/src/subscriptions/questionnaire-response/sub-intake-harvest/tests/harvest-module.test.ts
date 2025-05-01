@@ -21,7 +21,6 @@ import {
   GetAccountOperationsOutput,
   getCoverageResources,
   getCoverageUpdateResourcesFromUnbundled,
-  getPatientAddressPatchOps,
   getPrimaryPolicyHolderFromAnswers,
   getSecondaryPolicyHolderFromAnswers,
   resolveCoverageUpdates,
@@ -128,18 +127,6 @@ describe('Harvest Module', () => {
     expect(true).toBe(true);
   });
 
-  it('should generate correct JSON patch operations for patient address', () => {
-    const expectedPatchOps = [
-      {
-        op: 'add',
-        path: '/address',
-        value: [{ line: ['123 Main St', 'Apt 4B'], city: 'Springfield', state: 'IL', postalCode: '62701' }],
-      },
-    ];
-
-    const patchOps = getPatientAddressPatchOps(questionnaireResponse1.item ?? [], newPatient1);
-    expect(patchOps).toEqual(expectedPatchOps);
-  });
   it('should extract primary policy holder information from answers', () => {
     const expectedPrimaryPolicyHolder = {
       firstName: 'Barnabas',
@@ -257,6 +244,12 @@ describe('Harvest Module', () => {
             },
           ],
         },
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+            valueString: 'Additional info to primary insurance',
+          },
+        ],
       },
       secondary: {
         resourceType: 'Coverage',
@@ -307,6 +300,12 @@ describe('Harvest Module', () => {
             },
           ],
         },
+        extension: [
+          {
+            url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+            valueString: 'Additional info to secondary insurance',
+          },
+        ],
       },
     };
 
@@ -350,6 +349,8 @@ describe('Harvest Module', () => {
     expect(secondary.contained?.[0].id).toBe('coverageSubscriber');
     expect(primary.contained).toEqual(expectedCoverageResources.primary.contained);
     expect(secondary.contained).toEqual(expectedCoverageResources.secondary.contained);
+    expect(primary.extension).toEqual(expectedCoverageResources.primary.extension);
+    expect(secondary.extension).toEqual(expectedCoverageResources.secondary.extension);
 
     expect(primary.relationship).toEqual(expectedCoverageResources.primary.relationship);
     expect(secondary.relationship).toEqual(expectedCoverageResources.secondary.relationship);
@@ -485,6 +486,12 @@ describe('Harvest Module', () => {
           },
         ],
       },
+      extension: [
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+          valueString: 'Additional info to primary insurance',
+        },
+      ],
     };
     const primarySubscriber: RelatedPerson = {
       resourceType: 'RelatedPerson',
@@ -569,6 +576,12 @@ describe('Harvest Module', () => {
           },
         ],
       },
+      extension: [
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+          valueString: 'Additional info to secondary insurance',
+        },
+      ],
     };
     const secondarySubscriber: RelatedPerson = {
       resourceType: 'RelatedPerson',
@@ -760,7 +773,7 @@ describe('Harvest Module', () => {
           },
         ]);
       });
-      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new susbcriber, but coverage should be reused if it already exists', () => {
+      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new subscriber, but coverage should be reused if it already exists', () => {
         const existingSubscriber: RelatedPerson = {
           ...primarySubscriber,
           birthDate: '1999-09-09',
@@ -963,7 +976,7 @@ describe('Harvest Module', () => {
           },
         ]);
       });
-      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new susbcriber, but coverage should be reused if it already exists', () => {
+      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new subscriber, but coverage should be reused if it already exists', () => {
         const existingSubscriber: RelatedPerson = {
           ...secondarySubscriber,
           birthDate: '1999-09-09',
@@ -1236,7 +1249,7 @@ describe('Harvest Module', () => {
           },
         ]);
       });
-      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new susbcriber, but coverage should be reused if it already exists', () => {
+      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new subscriber, but coverage should be reused if it already exists', () => {
         const existingPrimarySubscriber: RelatedPerson = {
           ...primarySubscriber,
           birthDate: '1999-09-09',
@@ -1268,7 +1281,7 @@ describe('Harvest Module', () => {
         expect(Object.values(relatedPersonUpdates).flatMap((v) => v).length).toBe(0);
         expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(4);
       });
-      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new susbcriber, but coverage should be reused if it already exists', () => {
+      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new subscriber, but coverage should be reused if it already exists', () => {
         const existingPrimarySubscriber: RelatedPerson = {
           ...primarySubscriber,
           birthDate: '1999-09-09',
@@ -1582,7 +1595,7 @@ describe('Harvest Module', () => {
         expect(newPrimaryCoverage?.reference).toBe(`Coverage/${existingCoverages.secondary.id}`);
         expect(newSecondaryCoverage.reference).toBe(`Coverage/${existingCoverages.primary.id}`);
       });
-      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new susbcriber, but coverage should be reused if it already exists', () => {
+      it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new subscriber, but coverage should be reused if it already exists', () => {
         const existingPrimarySubscriber: RelatedPerson = {
           ...primarySubscriber,
           birthDate: '1999-09-09',
@@ -1685,7 +1698,7 @@ describe('Harvest Module', () => {
         expect(guarantors?.length).toBe(1);
         expect(guarantors).toEqual([existingGuarantor]);
       });
-      it('should make no changes when existing account gurantor is a persisted RelatedPerson that mateches the questionnaire responsible party', () => {
+      it('should make no changes when existing account guarantor is a persisted RelatedPerson that matches the questionnaire responsible party', () => {
         const existingGuarantorId = uuidv4();
         const existingGuarantorReference = {
           party: {
@@ -1930,6 +1943,51 @@ describe('Harvest Module', () => {
         expect(contained).toEqual([expectedAccountGuarantorFromQR1]);
       });
     });
+    // it('should remove fields that are no longer present in input from existing primary and secondary coverages', () => {
+    //   const existingCoverages = {
+    //     primary,
+    //     primarySubscriber,
+    //     secondary,
+    //     secondarySubscriber,
+    //   };
+
+    //   const newCoverages: Record<string, Coverage> = {
+    //     primary: {
+    //       ...primary,
+    //       subscriber: { reference: `#${primarySubscriber.id}` },
+    //       contained: [primarySubscriber],
+    //       extension: undefined,
+    //     },
+    //     secondary: {
+    //       ...secondary,
+    //       subscriber: { reference: `#${secondarySubscriber.id}` },
+    //       contained: [secondarySubscriber],
+    //       extension: undefined,
+    //     },
+    //   };
+
+    //   console.log('newCoverages before call:', newCoverages);
+    //   const result = resolveCoverageUpdates({
+    //     patient: newPatient1,
+    //     existingCoverages,
+    //     newCoverages,
+    //   });
+    //   expect(result).toBeDefined();
+    //   assert(result);
+    //   expect(result.coverageUpdates).toBeDefined();
+    //   expect(Object.values(result.coverageUpdates).flatMap((v) => v).length).toBe(2);
+    //   const coverageUpdateList = Object.values(result.coverageUpdates).flatMap((v) => v);
+    //   const coverageUpdate1 = coverageUpdateList[0];
+    //   const coverageUpdate2 = coverageUpdateList[1];
+
+    //   assert(coverageUpdate1);
+    //   assert(coverageUpdate2);
+
+    //   expect(coverageUpdate1.op).toBe('remove');
+    //   expect(coverageUpdate1.path).toBe('/extension/0');
+    //   expect(coverageUpdate2.op).toBe('remove');
+    //   expect(coverageUpdate2.path).toBe('/extension/0');
+    // });
   });
   describe('getAccountOperations', () => {
     const questionnaireResponseItem = questionnaireResponse1.item;
@@ -2083,7 +2141,7 @@ describe('Harvest Module', () => {
       const patchObj = patch?.[0];
       assert(patchObj);
       const patchOperations = (patchObj as any).operations;
-      expect(patchOperations.length).toBe(2);
+      expect(patchOperations.length).toBe(3);
       expect(patchObj.url).toBe(`Coverage/${primary.id}`);
       const [patch1, patch2] = patchOperations;
       assert(patch1 && patch2);
@@ -2209,7 +2267,7 @@ describe('Harvest Module', () => {
       expect(patch1.path).toBe('/status');
       expect(patch1.value).toBe('cancelled');
     });
-    it('should patch an existing Account when one exists and shouldnt post a new one', () => {
+    it("should patch an existing Account when one exists and shouldn't post a new one", () => {
       const primary: Coverage = {
         resourceType: 'Coverage',
         id: uuidv4(),
@@ -2384,7 +2442,7 @@ describe('Harvest Module', () => {
         ],
       },
     };
-    it('should have one existing coverage resource for an existing Account case with one primary coverage associated, and all the outher stuff should be right too', () => {
+    it('should have one existing coverage resource for an existing Account case with one primary coverage associated, and all the other stuff should be right too', () => {
       const inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources: bundle1 });
       expect(inputs).toBeDefined();
       expect(inputs.account).toBeDefined();
@@ -2471,53 +2529,6 @@ describe('Harvest Module', () => {
       expect(inputs.coverages.secondary).toBeDefined();
       expect(inputs.coverages.secondarySubscriber).toBeDefined();
     });
-    it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account and secondary coverage has a contained RP', () => {
-      const secondaryCvg = {
-        ...stubSecondaryCoverage,
-        subscriber: { reference: `#${expectedSecondaryPolicyHolderFromQR1.id}` },
-        contained: [expectedSecondaryPolicyHolderFromQR1],
-        order: 2,
-      };
-      let resources = [...bundle1, secondaryCvg].filter((r) => r.id !== bundle1Account.id);
-      let inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
-      expect(inputs).toBeDefined();
-      expect(inputs.coverages).toBeDefined();
-      expect(inputs.coverages?.primary).toBeDefined();
-      expect(inputs.coverages?.primary?.id).toBe(bundle1Coverage.id);
-      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`RelatedPerson/${bundle1RP1.id}`);
-      expect(inputs.coverages?.primarySubscriber).toBeDefined();
-      expect(inputs.coverages?.primarySubscriber?.id).toBe(bundle1RP1.id);
-
-      expect(inputs.coverages.secondary).toBeDefined();
-      expect(inputs.coverages.secondarySubscriber).toBeDefined();
-
-      // the same result basic result should obtain with primary/secondary flipped if the order is flipped on the Coverage resources
-
-      resources = resources.map((r) => {
-        const asAny = r as any;
-        if (asAny.order !== undefined && asAny.resourceType === 'Coverage') {
-          return {
-            ...asAny,
-            order: asAny.order === 2 ? 1 : 2,
-          };
-        }
-        return asAny;
-      });
-      inputs = getCoverageUpdateResourcesFromUnbundled({ patient: bundle1Patient, resources });
-      expect(inputs).toBeDefined();
-      expect(inputs.coverages).toBeDefined();
-      expect(inputs.coverages?.primary).toBeDefined();
-      expect(inputs.coverages?.primary?.id).toBe(secondaryCvg.id);
-      expect(inputs.coverages?.primary?.subscriber).toBeDefined();
-      expect(inputs.coverages?.primary?.subscriber?.reference).toBe(`#${expectedSecondaryPolicyHolderFromQR1.id}`);
-      expect(inputs.coverages?.primarySubscriber).toBeDefined();
-      expect(inputs.coverages?.primarySubscriber?.id).toBe(expectedSecondaryPolicyHolderFromQR1.id);
-
-      expect(inputs.coverages.secondary).toBeDefined();
-      expect(inputs.coverages.secondarySubscriber).toBeDefined();
-    });
-
     it('it should have primary and secondary coverage when secondary coverage is added and there is no existing account and secondary coverage has a contained RP', () => {
       const secondaryCvg = {
         ...stubSecondaryCoverage,
@@ -2979,6 +2990,14 @@ const questionnaireResponse1: QuestionnaireResponse = {
           ],
         },
         {
+          linkId: 'insurance-additional-information',
+          answer: [
+            {
+              valueString: 'Additional info to primary insurance',
+            },
+          ],
+        },
+        {
           linkId: 'insurance-card-front',
           answer: [
             {
@@ -3137,6 +3156,14 @@ const questionnaireResponse1: QuestionnaireResponse = {
               answer: [
                 {
                   valueString: 'Child',
+                },
+              ],
+            },
+            {
+              linkId: 'insurance-additional-information-2',
+              answer: [
+                {
+                  valueString: 'Additional info to secondary insurance',
                 },
               ],
             },
