@@ -124,7 +124,7 @@ export default function PatientPage(): JSX.Element {
                   <Tab
                     value="labs"
                     label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Labs</Typography>
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Labs</Typography>
                     }
                   />
                 )}

@@ -181,13 +181,8 @@ test.describe('Medical conditions', async () => {
       .filter({ hasText: new RegExp(conditionName, 'i') })
       .first();
     await medicalConditionListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await waitForChartDataDeletion(page);
     await expect(medicalConditionListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
   });
 
   test('Should confirm medical condition deleted, in HPI and in Review&Sign tabs', async () => {
@@ -342,13 +337,8 @@ test.describe('Current medications', () => {
       .first();
 
     await scheduledMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await waitForChartDataDeletion(page);
     await expect(scheduledMedicationListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
   });
 
   test('Should delete as needed medication', async () => {
@@ -364,13 +354,8 @@ test.describe('Current medications', () => {
       .first();
 
     await asNeededMedicationListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await waitForChartDataDeletion(page);
     await expect(asNeededMedicationListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
   });
 
   test('Should confirm medications are deleted on Review&Sign tab', async () => {
@@ -439,13 +424,8 @@ test.describe('Known allergies', () => {
       .filter({ hasText: new RegExp(knownAllergyName, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await waitForChartDataDeletion(page);
     await expect(knownAllergyListItem).not.toBeVisible();
-    await expect(
-      page
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesColumn)
-        .getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton)
-        .first()
-    ).not.toBeVisible();
   });
 
   test('Should confirm known allergy deleted', async () => {
@@ -500,6 +480,7 @@ test.describe('Surgical history', () => {
       .locator('textarea')
       .first()
       .fill(providerNote);
+    await waitForSaveChartDataResponse(page);
   });
 
   test('Should search surgery and select it', async () => {
@@ -545,6 +526,7 @@ test.describe('Surgical history', () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryList)).toBeVisible();
 
     await page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryNote).locator('textarea').first().fill('');
+    await waitForChartDataDeletion(page);
   });
 
   test('Should delete surgery record', async () => {
@@ -553,9 +535,8 @@ test.describe('Surgical history', () => {
       .filter({ hasText: new RegExp(surgery, 'i') })
       .first();
     await knownAllergyListItem.getByTestId(dataTestIds.deleteOutlinedIcon).click();
+    await waitForChartDataDeletion(page);
     await expect(knownAllergyListItem).not.toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryColumn)).toBeVisible();
-    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
   });
 
   test('Should check surgical history record deleted from HPI and Review&Sign tab', async () => {
