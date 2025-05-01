@@ -1943,51 +1943,6 @@ describe('Harvest Module', () => {
         expect(contained).toEqual([expectedAccountGuarantorFromQR1]);
       });
     });
-    // it('should remove fields that are no longer present in input from existing primary and secondary coverages', () => {
-    //   const existingCoverages = {
-    //     primary,
-    //     primarySubscriber,
-    //     secondary,
-    //     secondarySubscriber,
-    //   };
-
-    //   const newCoverages: Record<string, Coverage> = {
-    //     primary: {
-    //       ...primary,
-    //       subscriber: { reference: `#${primarySubscriber.id}` },
-    //       contained: [primarySubscriber],
-    //       extension: undefined,
-    //     },
-    //     secondary: {
-    //       ...secondary,
-    //       subscriber: { reference: `#${secondarySubscriber.id}` },
-    //       contained: [secondarySubscriber],
-    //       extension: undefined,
-    //     },
-    //   };
-
-    //   console.log('newCoverages before call:', newCoverages);
-    //   const result = resolveCoverageUpdates({
-    //     patient: newPatient1,
-    //     existingCoverages,
-    //     newCoverages,
-    //   });
-    //   expect(result).toBeDefined();
-    //   assert(result);
-    //   expect(result.coverageUpdates).toBeDefined();
-    //   expect(Object.values(result.coverageUpdates).flatMap((v) => v).length).toBe(2);
-    //   const coverageUpdateList = Object.values(result.coverageUpdates).flatMap((v) => v);
-    //   const coverageUpdate1 = coverageUpdateList[0];
-    //   const coverageUpdate2 = coverageUpdateList[1];
-
-    //   assert(coverageUpdate1);
-    //   assert(coverageUpdate2);
-
-    //   expect(coverageUpdate1.op).toBe('remove');
-    //   expect(coverageUpdate1.path).toBe('/extension/0');
-    //   expect(coverageUpdate2.op).toBe('remove');
-    //   expect(coverageUpdate2.path).toBe('/extension/0');
-    // });
   });
   describe('getAccountOperations', () => {
     const questionnaireResponseItem = questionnaireResponse1.item;

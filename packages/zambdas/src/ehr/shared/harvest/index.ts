@@ -2141,26 +2141,6 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         priority: 1,
       });
 
-      // if (
-      //   existingPrimarySubscriber?.id &&
-      //   existingPrimarySubscriberIsPersisted &&
-      //   existingPrimarySubscriber.resourceType === 'RelatedPerson' &&
-      //   primarySubscriberFromPaperwork
-      // ) {
-      //   const ops = patchOpsForRelatedPerson({
-      //     source: primarySubscriberFromPaperwork as RelatedPerson,
-      //     target: existingPrimarySubscriber,
-      //   });
-      //   addRelatedPersonUpdates(existingPrimarySubscriber.id, ops);
-      // }
-      // if (existingPrimaryCoverage?.id && primaryCoverageFromPaperwork) {
-      //   const ops = patchOpsForCoverage({
-      //     source: primaryCoverageFromPaperwork,
-      //     target: existingPrimaryCoverage,
-      //   });
-      //   addCoverageUpdates(existingPrimaryCoverage.id, ops);
-      // }
-
       if (
         existingPrimarySubscriber?.id &&
         existingPrimarySubscriberIsPersisted &&
@@ -2243,25 +2223,6 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: `Coverage/${existingSecondaryCoverage?.id}` },
         priority: 2,
       });
-      // if (
-      //   existingSecondarySubscriber?.id &&
-      //   existingSecondarySubscriberIsPersisted &&
-      //   existingSecondarySubscriber.resourceType === 'RelatedPerson' &&
-      //   secondarySubscriberFromPaperwork
-      // ) {
-      //   const ops = patchOpsForRelatedPerson({
-      //     source: secondarySubscriberFromPaperwork as RelatedPerson,
-      //     target: existingSecondarySubscriber,
-      //   });
-      //   addRelatedPersonUpdates(existingSecondarySubscriber.id, ops);
-      // }
-      // if (existingSecondaryCoverage?.id && secondaryCoverageFromPaperwork) {
-      //   const ops = patchOpsForCoverage({
-      //     source: secondaryCoverageFromPaperwork,
-      //     target: existingSecondaryCoverage,
-      //   });
-      //   addCoverageUpdates(existingSecondaryCoverage.id, ops);
-      // }
       if (
         existingSecondarySubscriber?.id &&
         existingSecondarySubscriberIsPersisted &&
