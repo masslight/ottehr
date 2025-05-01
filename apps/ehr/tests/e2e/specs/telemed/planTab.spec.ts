@@ -4,6 +4,7 @@ import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../..
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { waitForSaveChartDataResponse } from 'test-utils';
+import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
 
 test.describe('Disposition', async () => {
   test.describe('Primary Care Physician', async () => {
@@ -11,6 +12,8 @@ test.describe('Disposition', async () => {
     let page: Page;
     const defaultNote = 'Please see your Primary Care Physician as discussed.';
     const updatedNote = 'Lorem ipsum';
+    const followUpMenuOption = '3 days';
+    const followUpMessage = 'Follow-up visit in 3 days';
 
     test.beforeAll(async ({ browser }) => {
       const context = await browser.newContext();
@@ -43,26 +46,36 @@ test.describe('Disposition', async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toBeVisible();
     });
 
-    test("Should check note section has pre-filled text for 'Primary Care Physician'", async () => {
+    test("Should check 'Note' section has pre-filled text for 'Primary Care Physician'", async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toHaveText(
         new RegExp(defaultNote)
       );
     });
 
-    // todo: i'm not sure but i can't see follow up days on Review&Sign after save
-    // test('Should select follow up option and check it on Review&Sign tab', async () => {});
+    test("Should select some 'Follow up visit in' option", async () => {
+      await checkDropdownHasOptionAndSelectIt(
+        page,
+        dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown,
+        followUpMenuOption
+      );
+    });
 
-    test('Should update Primary Care Physician note and check it on Review&Sign tab', async () => {
+    test("Should update 'Primary Care Physician' 'Note' section", async () => {
       await page
         .getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)
         .locator('textarea')
         .first()
         .fill(updatedNote);
       await waitForSaveChartDataResponse(page);
+    });
+
+    test('Should check follow up message and note are saved on Review&Sign tab', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer)).toHaveText(
-        new RegExp(updatedNote)
+      const patientInstructionsContainer = page.getByTestId(
+        dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer
       );
+      await expect(patientInstructionsContainer).toHaveText(new RegExp(updatedNote));
+      await expect(patientInstructionsContainer).toHaveText(new RegExp(followUpMessage));
     });
   });
 
@@ -71,6 +84,7 @@ test.describe('Disposition', async () => {
     let page: Page;
     const defaultNote = 'Please proceed to the ABC Office as advised.';
     const updatedNote = 'Lorem ipsum';
+    const reasonForTransferOption = 'Equipment availability';
 
     test.beforeAll(async ({ browser }) => {
       const context = await browser.newContext();
@@ -99,13 +113,21 @@ test.describe('Disposition', async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toBeVisible();
     });
 
-    test("Should check note section has pre-filled text for 'Transfer to another location' selected", async () => {
+    test("Should check 'Note' section has pre-filled text for 'Transfer to another location' selected", async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toHaveText(
         new RegExp(defaultNote)
       );
     });
 
-    test('Should edit transfer note and check it on Review&Sign tab', async () => {
+    test("Should select some 'Reason for transfer' option", async () => {
+      await checkDropdownHasOptionAndSelectIt(
+        page,
+        dataTestIds.telemedEhrFlow.planTabDispositionReasonForTransferDropdown,
+        reasonForTransferOption
+      );
+    });
+
+    test('Should edit transfer Note', async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toHaveText(
         new RegExp(defaultNote)
       );
@@ -115,10 +137,15 @@ test.describe('Disposition', async () => {
         .first()
         .fill(updatedNote);
       await waitForSaveChartDataResponse(page);
+    });
+
+    test('Should check reason for transfer and note are saved on Review&Sign tab', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer)).toHaveText(
-        new RegExp(updatedNote)
+      const patientInstructionsContainer = page.getByTestId(
+        dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer
       );
+      await expect(patientInstructionsContainer).toHaveText(new RegExp(updatedNote));
+      await expect(patientInstructionsContainer).toHaveText(new RegExp(reasonForTransferOption));
     });
   });
 
@@ -126,6 +153,8 @@ test.describe('Disposition', async () => {
     const resourceHandler = new ResourceHandler('telemed');
     let page: Page;
     const updatedNote = 'Lorem ipsum';
+    const followUpMenuOption = '3 days';
+    const followUpMessage = 'Follow-up visit in 3 days';
 
     test.beforeAll(async ({ browser }) => {
       const context = await browser.newContext();
@@ -152,17 +181,34 @@ test.describe('Disposition', async () => {
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toBeVisible();
     });
 
-    test('Should edit transfer note and check it on Review&Sign tab', async () => {
+    test("Should check 'Note' field is empty by default for 'Speciality transfer' selected", async () => {
+      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toHaveText('');
+    });
+
+    test("Should select some 'Follow up visit in' option", async () => {
+      await checkDropdownHasOptionAndSelectIt(
+        page,
+        dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown,
+        followUpMenuOption
+      );
+    });
+
+    test('Should edit transfer note', async () => {
       await page
         .getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)
         .locator('textarea')
         .first()
         .fill(updatedNote);
       await waitForSaveChartDataResponse(page);
+    });
+
+    test('Should check follow up message and transfer note are saved on Review&Sign tab', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer)).toHaveText(
-        new RegExp(updatedNote)
+      const patientInstructionsContainer = page.getByTestId(
+        dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer
       );
+      await expect(patientInstructionsContainer).toHaveText(new RegExp(updatedNote));
+      await expect(patientInstructionsContainer).toHaveText(new RegExp(followUpMessage));
     });
   });
 });
