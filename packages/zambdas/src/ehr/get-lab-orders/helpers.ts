@@ -78,7 +78,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       parsedTasks,
     };
 
-    return parseOrderDetails({
+    return parseOrderData({
       searchBy,
       tasks,
       serviceRequest,
@@ -96,7 +96,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   });
 };
 
-export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
+export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   searchBy,
   serviceRequest,
   tasks,
