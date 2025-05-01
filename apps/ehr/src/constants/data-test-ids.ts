@@ -300,6 +300,7 @@ export const dataTestIds = {
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
+    sendFaxButton: 'send-fax-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',
     primaryDiagnosisLink: 'primary-diagnosis-link',
