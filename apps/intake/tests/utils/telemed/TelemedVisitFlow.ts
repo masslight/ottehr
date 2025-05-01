@@ -29,7 +29,7 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     const slotAndLocation = await this.selectTimeLocationAndContinue();
     await this.selectDifferentFamilyMemberAndContinue();
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();
-    await this.page.waitForURL(/\/paperwork/);
+    // await this.page.waitForURL(/\/paperwork/);
     const bookingURL = this.page.url();
     console.log('Booking URL: ', bookingURL);
     const match = bookingURL.match(/paperwork\/([0-9a-fA-F-]+)/);
