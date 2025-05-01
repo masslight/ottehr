@@ -105,6 +105,7 @@ export type LabOrderListPageDTO = {
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
+  encounterTimezone: string | undefined; // used to format dates correctly on the front end
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
