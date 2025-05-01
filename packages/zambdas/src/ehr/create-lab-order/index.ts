@@ -86,9 +86,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const createSpecimenResources = !psc && orderableItem.item.specimens.length > 0;
     console.log('createSpecimenResources', createSpecimenResources, psc, orderableItem.item.specimens.length);
+    const specimenFullUrlArr: string[] = [];
     if (createSpecimenResources) {
       const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
         orderableItem,
+        patientId,
         serviceRequestFullUrl
       );
       activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
@@ -96,10 +98,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }));
       serviceRequestContained.push(activityDefinitionToContain, ...specimenDefinitionConfigs);
       specimenConfigs.forEach((specimenResource) => {
+        const specimenFullUrl = `urn:uuid:${randomUUID()}`;
+        specimenFullUrlArr?.push(specimenFullUrl);
         requests.push({
           method: 'POST',
           url: '/Specimen',
           resource: specimenResource,
+          fullUrl: specimenFullUrl,
         });
       });
     } else {
@@ -170,6 +175,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           text: PSC_HOLD_CONFIG.display,
         },
       ];
+    }
+    if (specimenFullUrlArr.length > 0) {
+      serviceRequestConfig.specimen = specimenFullUrlArr.map((url) => ({
+        type: 'Specimen',
+        reference: url,
+      }));
     }
 
     const preSubmissionTaskConfig: Task = {
@@ -333,6 +344,7 @@ const formatActivityDefinitionToContain = (orderableItem: OrderableItemSearchRes
 
 const formatSpecimenResources = (
   orderableItem: OrderableItemSearchResult,
+  patientID: string,
   serviceRequestFullUrl: string
 ): { specimenDefinitionConfigs: SpecimenDefinition[]; specimenConfigs: Specimen[] } => {
   const specimenDefinitionConfigs: SpecimenDefinition[] = [];
@@ -384,6 +396,10 @@ const formatSpecimenResources = (
       request: [{ reference: serviceRequestFullUrl }],
       collection: {
         method: collectionInstructionsCoding,
+      },
+      subject: {
+        type: 'Patient',
+        reference: `Patient/${patientID}`,
       },
     };
     specimenConfigs.push(specimenConfig);
