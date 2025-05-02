@@ -976,7 +976,10 @@ export function createMasterRecordPatchOperations(
             if (operation) tempOperations.patient.push(operation);
           }
         }
-        break;
+        return;
+      }
+      default: {
+        return;
       }
     }
   });
