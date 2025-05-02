@@ -47,10 +47,10 @@ export const SendFaxButton: FC = () => {
 
     try {
       // TODO use api to send the visit note as a fax to the number provided
-      // await apiClient.sendFax({
-      //   appointmentId: appointment.id,
-      //   faxNumber,
-      // });
+      await apiClient.sendFax({
+        appointmentId: appointment.id,
+        faxNumber,
+      });
       enqueueSnackbar('Fax sent.', { variant: 'success' });
     } catch (error: any) {
       console.error('Error sending fax:', error);
@@ -90,7 +90,6 @@ export const SendFaxButton: FC = () => {
                   }}
                   onChange={(e) => {
                     const number = e.target.value.replace(/\D/g, '');
-                    console.log('number', number);
                     setFaxNumber(number);
                     isPhoneNumberValid(number) ? setFaxError(false) : setFaxError(true);
                   }}
