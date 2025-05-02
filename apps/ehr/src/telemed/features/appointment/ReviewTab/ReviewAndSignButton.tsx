@@ -179,7 +179,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
                 disabled={errorMessage.length > 0 || isLoading || completed}
                 variant="contained"
                 onClick={showDialog}
-                startIcon={completed ? <CheckIcon color="inherit" width={16} /> : undefined}
+                startIcon={completed ? <CheckIcon color="inherit" /> : undefined}
                 data-testid={dataTestIds.progressNotePage.reviewAndSignButton}
               >
                 {completed ? 'Signed' : 'Review & Sign'}

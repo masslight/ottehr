@@ -1,5 +1,5 @@
+import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import { Box, FormControl, FormHelperText, InputLabel, OutlinedInput, Tooltip, Typography } from '@mui/material';
-import { faxIcon } from '@theme/icons';
 import { FC, useMemo, useState } from 'react';
 import { getVisitStatus, isPhoneNumberValid, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
@@ -46,7 +46,6 @@ export const SendFaxButton: FC = () => {
     }
 
     try {
-      // TODO use api to send the visit note as a fax to the number provided
       await apiClient.sendFax({
         appointmentId: appointment.id,
         faxNumber,
@@ -114,8 +113,7 @@ export const SendFaxButton: FC = () => {
                 disabled={errorMessage !== null}
                 variant="outlined"
                 onClick={showDialog}
-                // TODO fix color
-                startIcon={<img src={faxIcon} color="inherit" alt="" width={16} />}
+                startIcon={<FaxOutlinedIcon color="inherit" />}
                 data-testid={dataTestIds.progressNotePage.sendFaxButton}
               >
                 Send Fax
