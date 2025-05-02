@@ -3,11 +3,11 @@ import { FC, useCallback, useRef } from 'react';
 import { telemedProgressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useAppointmentStore, useGetReviewAndSignData } from '../../../state';
 import { AddendumCard } from './AddendumCard';
 import { MissingCard } from './MissingCard';
 import { ReviewAndSignButton } from './ReviewAndSignButton';
+import { SendFaxButton } from './SendFaxButton';
 import { VisitNoteCard } from './VisitNoteCard';
 
 export const ReviewTab: FC = () => {
@@ -17,7 +17,6 @@ export const ReviewTab: FC = () => {
     'isChartDataLoading',
     'setPartialChartData',
   ]);
-  const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
@@ -70,7 +69,10 @@ export const ReviewTab: FC = () => {
       <MissingCard />
       <VisitNoteCard />
       <AddendumCard />
-      {!isReadOnly && <ReviewAndSignButton onSigned={onAppointmentSigned} />}
+      <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
+        <SendFaxButton />
+        <ReviewAndSignButton onSigned={onAppointmentSigned} />
+      </Box>
     </Box>
   );
 };

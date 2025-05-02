@@ -66,11 +66,22 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
 
+  const completed = useMemo(() => {
+    if (css) {
+      return inPersonStatus === 'completed';
+    }
+    return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
+  }, [css, inPersonStatus, appointmentAccessibility.status]);
+
   const errorMessage = useMemo(() => {
-    const messages = [];
+    const messages: string[] = [];
+
+    if (completed) {
+      return messages;
+    }
 
     if (css && inPersonStatus) {
-      if (!['provider', 'ready for discharge', 'completed'].includes(inPersonStatus)) {
+      if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
         messages.push('The appointment must be in the status of provider or ready for discharge');
       }
     } else {
@@ -94,6 +105,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return messages;
   }, [
     css,
+    completed,
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,
@@ -164,13 +176,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading || (css && inPersonStatus === 'completed')}
+                disabled={errorMessage.length > 0 || isLoading || completed}
                 variant="contained"
                 onClick={showDialog}
-                startIcon={css && inPersonStatus === 'completed' ? <CheckIcon color="inherit" width={16} /> : undefined}
+                startIcon={completed ? <CheckIcon color="inherit" width={16} /> : undefined}
                 data-testid={dataTestIds.progressNotePage.reviewAndSignButton}
               >
-                {css && inPersonStatus === 'completed' ? 'Signed' : 'Review & Sign'}
+                {completed ? 'Signed' : 'Review & Sign'}
               </RoundedButton>
             )}
           </ConfirmationDialog>
