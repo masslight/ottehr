@@ -20,6 +20,7 @@ import { ProgressNote } from '../pages/ProgressNote';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
 import { OttehrAi } from '../pages/OttehrAi';
+import ProcedureNew from '../pages/ProcedureNew';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -43,6 +44,8 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
+
+  PROCEDURE_NEW = 'procedure/new',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -192,6 +195,13 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     modes: ['provider', 'readonly'],
     element: <Plan />,
     text: 'Plan',
+    iconKey: 'Lab profile',
+  },
+  [ROUTER_PATH.PROCEDURE_NEW]: {
+    path: ROUTER_PATH.PROCEDURE_NEW,
+    modes: ['provider'],
+    element: <ProcedureNew />,
+    text: 'Document procedure',
     iconKey: 'Lab profile',
   },
 };
