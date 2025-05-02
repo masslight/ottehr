@@ -69,11 +69,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     (participant) =>
       participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
   );
-  console.log('attendingPractitioner', attendingPractitioner);
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
-  const [psc, setPsc] = useState<boolean>(true); // defaulting & locking to true for mvp
+  const [psc, setPsc] = useState<boolean>(false);
   const [coverageName, setCoverageName] = useState<string | undefined>(undefined);
   const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
 
@@ -351,10 +350,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   ></LabsAutocomplete>
                 </Grid>
                 <Grid item xs={12}>
-                  {/* disabling this field as we are only allowing psc orders for mvp */}
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
-                    control={<Switch checked={psc} onChange={() => setPsc(!psc)} disabled />}
+                    control={<Switch checked={psc} onChange={() => setPsc((psc) => !psc)} />}
                     label={<Typography variant="body2">PSC</Typography>}
                   />
                 </Grid>
