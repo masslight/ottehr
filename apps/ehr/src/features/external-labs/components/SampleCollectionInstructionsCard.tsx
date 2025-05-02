@@ -3,16 +3,17 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
 import React, { useState } from 'react';
-import { OrderableItemSpecimen } from 'utils';
+import { OrderableSampleDTO } from 'utils';
 import { CalendarIcon } from '@mui/x-date-pickers/icons';
 
 interface InstructionProps {
-  instructions: OrderableItemSpecimen;
+  sample: OrderableSampleDTO;
 }
 
-export const SampleCollectionInstructionsCard: React.FC<InstructionProps> = ({ instructions }) => {
+export const SampleCollectionInstructionsCard: React.FC<InstructionProps> = ({ sample }) => {
+  const { specimen, definition } = sample;
   const [collapsed, setCollapsed] = useState(false);
-  const [isoDateTime, setIsoDateTime] = useState(instructions.isoDateTime || '2024-10-21T09:20');
+  const [isoDateTime, setIsoDateTime] = useState(specimen.collectionDate);
 
   const dateValue = isoDateTime.split('T')[0];
   const timeValue = isoDateTime.split('T')[1].substring(0, 5);
@@ -37,11 +38,11 @@ export const SampleCollectionInstructionsCard: React.FC<InstructionProps> = ({ i
       >
         <Paper sx={{ p: 3 }}>
           <Stack spacing={1}>
-            <BoldedTitleText title={'Container'} description={instructions.container} />
-            <BoldedTitleText title={'Volume'} description={instructions.volume} />
-            <BoldedTitleText title={'Minimum Volume'} description={instructions.minimumVolume} />
-            <BoldedTitleText title={'Storage Requirements'} description={instructions.storageRequirements} />
-            <BoldedTitleText title={'Collection Instructions'} description={instructions.collectionInstructions} />
+            <BoldedTitleText title={'Container'} description={definition.container} />
+            <BoldedTitleText title={'Volume'} description={definition.volume} />
+            <BoldedTitleText title={'Minimum Volume'} description={definition.minimumVolume} />
+            <BoldedTitleText title={'Storage Requirements'} description={definition.storageRequirements} />
+            <BoldedTitleText title={'Collection Instructions'} description={definition.collectionInstructions} />
           </Stack>
 
           <Grid container spacing={2} sx={{ mt: 2 }}>

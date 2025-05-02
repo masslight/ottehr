@@ -104,11 +104,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         />
 
         {shouldShowSampleCollectionInstructions &&
-          labOrder.sampleCollections.map((sampleCollection) => (
-            <SampleCollectionInstructionsCard
-              key={Object.values(sampleCollection).join('-')}
-              instructions={sampleCollection}
-            />
+          labOrder.samples.map((sample) => (
+            <SampleCollectionInstructionsCard key={sample.specimen.id} sample={sample} />
           ))}
 
         {showOrderInfo && (

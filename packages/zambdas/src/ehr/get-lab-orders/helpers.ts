@@ -18,6 +18,7 @@ import {
   QuestionnaireResponseItem,
   DocumentReference,
   Location,
+  Specimen,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
@@ -36,7 +37,7 @@ import {
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   getPresignedURL,
   getTimezone,
-  OrderableItemSpecimen,
+  OrderableSampleDTO,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
@@ -66,7 +67,8 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   provenances: Provenance[],
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
-  labPDFs: LabOrderPDF[]
+  labPDFs: LabOrderPDF[],
+  specimens: Specimen[]
 ): LabOrderDTO<SearchBy>[] => {
   return serviceRequests.map((serviceRequest) => {
     const parsedResults = parseResults(serviceRequest, results);
@@ -91,6 +93,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       organizations,
       questionnaires,
       labPDFs,
+      specimens,
       cache,
     });
   });
@@ -109,6 +112,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   organizations,
   questionnaires,
   labPDFs,
+  specimens,
   cache,
 }: {
   searchBy: SearchBy;
@@ -123,6 +127,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
+  specimens: Specimen[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   if (!serviceRequest.id) {
@@ -132,7 +137,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
-  const timezone = parseLocationTimezoneForSR(serviceRequest, locations);
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -149,7 +153,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
-    encounterTimezone: timezone,
+    encounterTimezone: parseLocationTimezoneForSR(serviceRequest, locations),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -160,7 +164,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
       accountNumber: parseAccountNumber(serviceRequest, organizations),
       resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
-      sampleCollections: parseSpecimenInfoFromServiceRequest(serviceRequest),
+      samples: parseSamples(serviceRequest, specimens),
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -326,6 +330,7 @@ export const getLabResources = async (
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
+  specimens: Specimen[];
 }> => {
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
 
@@ -348,7 +353,8 @@ export const getLabResources = async (
           | Provenance
           | Organization
           | Location
-          | QuestionnaireResponse => Boolean(res)
+          | QuestionnaireResponse
+          | Specimen => Boolean(res)
       ) || [];
 
   const {
@@ -361,6 +367,7 @@ export const getLabResources = async (
     provenances,
     organizations,
     questionnaireResponses,
+    specimens,
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
@@ -394,6 +401,7 @@ export const getLabResources = async (
     organizations,
     questionnaires,
     labPDFs,
+    specimens,
     pagination,
   };
 };
@@ -494,6 +502,11 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_revinclude',
       value: 'QuestionnaireResponse:based-on',
     });
+
+    searchParams.push({
+      name: '_include',
+      value: 'ServiceRequest:specimen',
+    });
   }
 
   if (visitDate) {
@@ -517,6 +530,7 @@ export const extractLabResources = (
     | Organization
     | QuestionnaireResponse
     | Location
+    | Specimen
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -528,6 +542,7 @@ export const extractLabResources = (
   provenances: Provenance[];
   organizations: Organization[];
   questionnaireResponses: QuestionnaireResponse[];
+  specimens: Specimen[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -538,7 +553,7 @@ export const extractLabResources = (
   const provenances: Provenance[] = [];
   const organizations: Organization[] = [];
   const questionnaireResponses: QuestionnaireResponse[] = [];
-
+  const specimens: Specimen[] = [];
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -549,21 +564,23 @@ export const extractLabResources = (
         serviceRequests.push(serviceRequest);
       }
     } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
-      tasks.push(resource as Task);
+      tasks.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
-      diagnosticReports.push(resource as DiagnosticReport);
+      diagnosticReports.push(resource);
     } else if (resource.resourceType === 'Encounter') {
-      encounters.push(resource as Encounter);
+      encounters.push(resource);
     } else if (resource.resourceType === 'Observation') {
-      observations.push(resource as Observation);
+      observations.push(resource);
     } else if (resource.resourceType === 'Provenance') {
-      provenances.push(resource as Provenance);
+      provenances.push(resource);
     } else if (resource.resourceType === 'Organization') {
-      organizations.push(resource as Organization);
+      organizations.push(resource);
     } else if (resource.resourceType === 'QuestionnaireResponse') {
       questionnaireResponses.push(resource as QuestionnaireResponse);
     } else if (resource.resourceType === 'Location') {
-      locations.push(resource as Location);
+      locations.push(resource);
+    } else if (resource.resourceType === 'Specimen') {
+      specimens.push(resource);
     }
   }
 
@@ -577,6 +594,7 @@ export const extractLabResources = (
     provenances,
     organizations,
     questionnaireResponses,
+    specimens,
   };
 };
 
@@ -1624,7 +1642,7 @@ export const parseQuestionnaireResponseItems = (
   return questionnaireResponseItems || [];
 };
 
-export const parseSpecimenInfoFromServiceRequest = (serviceRequest: ServiceRequest): OrderableItemSpecimen[] => {
+export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): OrderableSampleDTO[] => {
   const NOT_FOUND = 'Not specified';
 
   if (!serviceRequest.contained || !serviceRequest.contained.length) {
@@ -1642,8 +1660,7 @@ export const parseSpecimenInfoFromServiceRequest = (serviceRequest: ServiceReque
   }
 
   const specimenDefinitionRefs = activityDefinition.specimenRequirement.map((req) => req.reference);
-
-  const specimens: OrderableItemSpecimen[] = [];
+  const result: OrderableSampleDTO[] = [];
 
   for (let i = 0; i < specimenDefinitionRefs.length; i++) {
     const ref = specimenDefinitionRefs[i];
@@ -1710,16 +1727,64 @@ export const parseSpecimenInfoFromServiceRequest = (serviceRequest: ServiceReque
 
     const collectionInstructions = instructionsInfo?.text;
 
-    const logAboutMissingInfo = (info: string): void => console.log(`Error: ${info} is undefined`);
+    const relatedSpecimens = specimens.filter((spec) => {
+      const isMatchServiceRequest = spec.request?.some(
+        (req) => req.reference === `ServiceRequest/${serviceRequest.id}`
+      );
 
-    specimens.push({
-      container: container || (logAboutMissingInfo('container'), NOT_FOUND),
-      volume: volume || (logAboutMissingInfo('volume'), NOT_FOUND),
-      minimumVolume: minimumVolume || (logAboutMissingInfo('minimumVolume'), NOT_FOUND),
-      storageRequirements: storageRequirements || (logAboutMissingInfo('storageRequirements'), NOT_FOUND),
-      collectionInstructions: collectionInstructions || (logAboutMissingInfo('collectionInstructions'), NOT_FOUND),
+      if (!isMatchServiceRequest) {
+        return false;
+      }
+
+      const isMatchInstructionCode = spec.collection?.method?.coding?.some(
+        (code) =>
+          code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+          code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
+      );
+
+      if (!isMatchInstructionCode) {
+        return false;
+      }
+
+      const isMatchInstructionText = spec.collection?.method?.text === collectionInstructions;
+
+      return isMatchInstructionText;
+    });
+
+    if (relatedSpecimens.length > 1) {
+      console.log(
+        `Error: More than one specimen found for ServiceRequest/${serviceRequest.id} and SpecimenDefinition/${specDefId}`
+      );
+      continue;
+    }
+
+    const specimen = relatedSpecimens[0];
+
+    if (!specimen?.id) {
+      console.log(
+        `Error: No matching specimen found for ServiceRequest/${serviceRequest.id} and SpecimenDefinition/${specDefId}`
+      );
+      continue;
+    }
+
+    const collectionDate = specimen.collection?.collectedDateTime;
+
+    const logAboutMissingData = (info: string): void => console.log(`Error: ${info} is undefined`);
+
+    result.push({
+      specimen: {
+        id: specimen.id,
+        collectionDate: collectionDate || (logAboutMissingData('collectionDate'), NOT_FOUND),
+      },
+      definition: {
+        container: container || (logAboutMissingData('container'), NOT_FOUND),
+        volume: volume || (logAboutMissingData('volume'), NOT_FOUND),
+        minimumVolume: minimumVolume || (logAboutMissingData('minimumVolume'), NOT_FOUND),
+        storageRequirements: storageRequirements || (logAboutMissingData('storageRequirements'), NOT_FOUND),
+        collectionInstructions: collectionInstructions || (logAboutMissingData('collectionInstructions'), NOT_FOUND),
+      },
     });
   }
 
-  return specimens;
+  return result;
 };

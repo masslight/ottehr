@@ -6,18 +6,18 @@ export interface OrderableItemSearchResult {
   lab: OrderableItemLab;
 }
 
+export interface OrderableSampleDTO {
+  specimen: { id: string; collectionDate: string };
+  definition: OrderableItemSpecimen;
+}
+
+// todo: maybe rename to OrderableItemSpecimenDefinition to fit the FHIR terms
 export interface OrderableItemSpecimen {
-  id: string;
   container: string;
   volume: string;
   minimumVolume: string;
   storageRequirements: string;
   collectionInstructions: string;
-}
-
-export interface OrderableItemSample {
-  id: string;
-  instruction: OrderableItemSpecimen;
 }
 
 export interface OrderableItemComponent {
@@ -33,6 +33,7 @@ export interface OrderableItemCptCode {
   cptCode: string;
   serviceUnitsCount: number;
 }
+
 export interface OrderableItem {
   itemCode: string;
   itemLoinc: string;
@@ -120,7 +121,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   orderSource: string; // order source (SR.orderDetail code.display)
   questionnaire: QuestionnaireData[];
-  sampleCollections: OrderableItemSpecimen[];
+  samples: OrderableSampleDTO[];
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {

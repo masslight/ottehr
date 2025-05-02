@@ -396,6 +396,7 @@ const formatSpecimenResources = (
       request: [{ reference: serviceRequestFullUrl }],
       collection: {
         method: collectionInstructionsCoding,
+        collectedDateTime: DateTime.now().toISO(),
       },
       subject: {
         type: 'Patient',
