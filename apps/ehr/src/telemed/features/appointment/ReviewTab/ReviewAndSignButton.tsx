@@ -1,3 +1,4 @@
+import CheckIcon from '@mui/icons-material/Check';
 import { Box, Tooltip, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
 import { getVisitStatus, TelemedAppointmentStatusEnum, PRACTITIONER_CODINGS } from 'utils';
@@ -69,7 +70,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     const messages = [];
 
     if (css && inPersonStatus) {
-      if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
+      if (!['provider', 'ready for discharge', 'completed'].includes(inPersonStatus)) {
         messages.push('The appointment must be in the status of provider or ready for discharge');
       }
     } else {
@@ -138,11 +139,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     onSigned && onSigned();
   };
 
-  // TODO: remove after actualizing isAppointmentReadOnly logic
-  if (css && inPersonStatus === 'completed') {
-    return null;
-  }
-
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
       <Tooltip
@@ -168,12 +164,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading}
+                disabled={errorMessage.length > 0 || isLoading || (css && inPersonStatus === 'completed')}
                 variant="contained"
                 onClick={showDialog}
+                startIcon={css && inPersonStatus === 'completed' ? <CheckIcon color="inherit" width={16} /> : undefined}
                 data-testid={dataTestIds.progressNotePage.reviewAndSignButton}
               >
-                Review & Sign
+                {css && inPersonStatus === 'completed' ? 'Signed' : 'Review & Sign'}
               </RoundedButton>
             )}
           </ConfirmationDialog>
