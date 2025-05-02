@@ -150,7 +150,9 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     (resourceTemp): resourceTemp is Observation => resourceTemp.resourceType === 'Observation'
   );
 
-  const specimens = serviceRequestTemp?.filter((resourceTemp) => resourceTemp.resourceType === 'Specimen');
+  const specimens = serviceRequestTemp?.filter(
+    (resource): resource is Specimen => resource.resourceType === 'Specimen'
+  );
 
   if (serviceRequestsTemp?.length !== 1) {
     throw new Error('service request is not found');
