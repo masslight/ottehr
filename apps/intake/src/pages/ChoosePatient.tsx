@@ -24,8 +24,17 @@ const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
   const zambdaClient = useUCZambdaClient({ tokenless: false });
   const { isAuthenticated, isLoading: authIsLoading, loginWithRedirect } = useAuth0();
-  const { patients, patientInfo, visitType, slotId, timezone, patientsLoading, scheduleOwnerName, setPatientInfo } =
-    useBookingContext();
+  const {
+    startISO,
+    patients,
+    patientInfo,
+    visitType,
+    slotId,
+    timezone,
+    patientsLoading,
+    scheduleOwnerName,
+    setPatientInfo,
+  } = useBookingContext();
   const [appointmentsLoading, setAppointmentsLoading] = useState<boolean>(false);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [checkInModalOpen, setCheckInModalOpen] = useState<boolean>(false);
@@ -65,7 +74,7 @@ const ChoosePatient = (): JSX.Element => {
     }
   }, [timezone, zambdaClient]);
 
-  const { todayAppointments, showCheckIn } = useMemo(() => {
+  const { todayAppointments, tomorrowAppointments, showCheckIn } = useMemo(() => {
     let todayAppointments: Appointment[] = [];
     let tomorrowAppointments: Appointment[] = [];
     let showCheckIn = false;
@@ -87,11 +96,11 @@ const ChoosePatient = (): JSX.Element => {
     // console.log('today', todayAppointments, 'tomorrow', tomorrowAppointments);
     showCheckIn = todayAppointments.some(
       (appointment: Appointment) =>
-        !appointment.checkedIn && appointment.status !== 'fulfilled' && appointment.location?.name === scheduleOwnerName
+        !appointment.checkedIn && appointment.status !== 'fulfilled' && appointment.slotId === slotId
     );
 
     return { todayAppointments, tomorrowAppointments, showCheckIn };
-  }, [allAppointments, scheduleOwnerName, timezone]);
+  }, [allAppointments, slotId, timezone]);
 
   const onSubmit = async (data: FieldValues): Promise<void> => {
     let foundPatient = false;
@@ -214,32 +223,27 @@ const ChoosePatient = (): JSX.Element => {
     }
   };
 
-  // todo 1.8
   const alreadyBooked = (patientID: string): string | undefined => {
-    // todo: return the appointment id from the slot details if it matches with some already booked appointment for the patient
     console.log('already booked', patientID);
-    return undefined;
-    /*(let bookedAppointmentID: string | undefined;
-    const timezone = selectedLocation?.timezone;
+    let bookedAppointmentID: string | undefined;
 
     if (patientID && timezone) {
       // get appointments for the selected slot date
       // can't use strict equality for luxon datetimes so use equals() instead
       const today = DateTime.now().setZone(timezone).startOf('day');
-      const selectedSlotDay = DateTime.fromISO(selectedSlot).setZone(timezone).startOf('day');
+      const selectedSlotDay = DateTime.fromISO(startISO).setZone(timezone).startOf('day');
       const appointments = selectedSlotDay.equals(today) ? todayAppointments : tomorrowAppointments;
 
       // check if selected patient already has appointment and return its id
       const alreadyBookedAtThisLocation = appointments.find(
         (appointment: Appointment) =>
           appointment.patientID === patientID &&
-          appointment.location?.name === selectedLocation?.name &&
+          appointment.slotId === slotId &&
           appointment.visitStatus !== 'completed'
       );
       bookedAppointmentID = alreadyBookedAtThisLocation?.id;
     }
     return bookedAppointmentID;
-    */
   };
 
   const checkInIfAppointmentBooked = async (checkIns: Appointment[], cancels: Appointment[]): Promise<void> => {
