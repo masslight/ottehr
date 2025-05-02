@@ -95,7 +95,7 @@ export const CompletedFormsContainer: FC = () => {
           button: <PdfButton pdfUrl={hipaaPdfUrl} />,
         },
         {
-          label: 'I have reviewed and accept Consent to Treat and Guarantee of Payment',
+          label: 'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement',
           value: consentToTreat ? 'Signed' : 'Not signed',
           button: <PdfButton pdfUrl={consentPdfUrl} />,
         },

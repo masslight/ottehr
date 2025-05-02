@@ -387,7 +387,9 @@ export class Locators {
 
     //Consent forms locators
     this.hipaaAcknowledgement = page.getByLabel('I have reviewed and accept HIPAA Acknowledgement *');
-    this.consentToTreat = page.getByLabel('I have reviewed and accept Consent to Treat and Guarantee of Payment *');
+    this.consentToTreat = page.getByLabel(
+      'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement *'
+    );
     this.signature = page.locator('[id="signature"]');
     this.consentFullName = page.locator('[id="full-name"]');
     this.consentSignerRelationship = page.locator('[id="consent-form-signer-relationship"]');

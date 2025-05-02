@@ -670,13 +670,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }/${Date.now()}`;
   const consentDocument =
     locationState === 'IL'
-      ? './assets/CTT.and.Guarantee.of.Payment.Illinois-S.pdf'
-      : './assets/CTT.and.Guarantee.of.Payment-S.pdf';
+      ? './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf'
+      : './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf';
   const pdfsToCreate = [
     {
       uploadURL: `${baseUploadURL}-consent-to-treat.pdf`,
       copyFromPath: consentDocument,
-      formTitle: 'Consent to Treat and Guarantee of Payment',
+      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
       resourceTitle: 'Consent forms',
       type: {
         coding: [
