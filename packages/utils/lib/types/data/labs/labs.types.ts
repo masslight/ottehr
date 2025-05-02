@@ -7,7 +7,7 @@ export interface OrderableItemSearchResult {
 }
 
 export interface OrderableSampleDTO {
-  specimen: { id: string; collectionDate: string };
+  specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
   definition: OrderableItemSpecimen;
 }
 
@@ -190,14 +190,26 @@ export type LabOrderResourcesRes = {
   labs: OrderableItemSearchResult[];
 };
 
-export const VALID_LAB_ORDER_UPDATE_EVENTS = ['reviewed'] as const;
+export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
+  reviewed: 'reviewed',
+  specimenDateChanged: 'specimenDateChanged',
+} as const;
 
-export type UpdateLabOrderResourceParams = {
-  taskId: string;
+export type TaskReviewedParameters = {
   serviceRequestId: string;
+  taskId: string;
   diagnosticReportId: string;
-  event: (typeof VALID_LAB_ORDER_UPDATE_EVENTS)[number];
 };
+
+export type SpecimenDateChangedParameters = {
+  serviceRequestId: string;
+  specimenId: string;
+  date: string;
+};
+
+export type UpdateLabOrderResourcesParameters =
+  | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
+  | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged });
 
 export type DeleteLabOrderParams = {
   serviceRequestId: string;

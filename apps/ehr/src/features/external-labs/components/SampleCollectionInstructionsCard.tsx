@@ -3,26 +3,75 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
 import React, { useState } from 'react';
-import { OrderableSampleDTO } from 'utils';
+import { OrderableSampleDTO, SpecimenDateChangedParameters } from 'utils';
 import { CalendarIcon } from '@mui/x-date-pickers/icons';
+import { DateTime } from 'luxon';
 
-interface InstructionProps {
+interface SampleCollectionInstructionsCardProps {
   sample: OrderableSampleDTO;
+  serviceRequestId: string;
+  timezone?: string;
+  onSpecimenDateChange: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+  setIsDataSaving: (isDataSaving: boolean) => void;
+
+  // The date is edited from several fields; effectively it's a single ISO date, but the editing is presented as
+  // multiple fields of date:hours:minutes. To avoid race conditions when saving the modified part of the date,
+  // the fields are locked until the saving process is complete.
+  isDataSaving: boolean;
 }
 
-export const SampleCollectionInstructionsCard: React.FC<InstructionProps> = ({ sample }) => {
+export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstructionsCardProps> = ({
+  sample,
+  serviceRequestId,
+  timezone,
+  onSpecimenDateChange,
+  setIsDataSaving,
+
+  isDataSaving,
+}) => {
   const { specimen, definition } = sample;
   const [collapsed, setCollapsed] = useState(false);
-  const [isoDateTime, setIsoDateTime] = useState(specimen.collectionDate);
 
-  const dateValue = isoDateTime.split('T')[0];
-  const timeValue = isoDateTime.split('T')[1].substring(0, 5);
+  const initialDateTime = specimen.collectionDate
+    ? DateTime.fromISO(specimen.collectionDate, { zone: timezone })
+    : DateTime.now().setZone(timezone);
 
-  const handleDateTimeChange = (field: string, value: string): void => {
+  const [dateTime, setDateTime] = useState(initialDateTime);
+
+  const dateValue = dateTime.toFormat('yyyy-MM-dd');
+  const timeValue = dateTime.toFormat('HH:mm');
+
+  const handleDateTimeChange = async ({ field, value }: { field: string; value: string }): Promise<void> => {
+    const oldDateTime = dateTime;
+    let newDateTime;
+
     if (field === 'collectionDate') {
-      setIsoDateTime(`${value}T${timeValue}`);
+      const [year, month, day] = value.split('-').map(Number);
+      newDateTime = dateTime.set({ year, month, day });
     } else if (field === 'collectionTime') {
-      setIsoDateTime(`${dateValue}T${value}`);
+      const [hours, minutes] = value.split(':').map((v) => Number(v));
+      newDateTime = dateTime.set({ hour: hours, minute: minutes });
+    }
+
+    if (!newDateTime?.isValid) {
+      console.error('Invalid date');
+      return;
+    }
+
+    setDateTime(newDateTime);
+
+    setIsDataSaving(true);
+    try {
+      await onSpecimenDateChange({
+        specimenId: specimen.id,
+        serviceRequestId,
+        date: newDateTime.toISO(),
+      });
+    } catch (error) {
+      setDateTime(oldDateTime);
+      console.error('Error updating specimen date', error);
+    } finally {
+      setIsDataSaving(false);
     }
   };
 
@@ -51,11 +100,13 @@ export const SampleCollectionInstructionsCard: React.FC<InstructionProps> = ({ s
                 Collection date
               </Typography>
               <TextField
+                // See the description of isDataSaving in the SampleCollectionInstructionsCard interface.
+                disabled={isDataSaving}
                 fullWidth
                 variant="outlined"
                 type="date"
                 value={dateValue}
-                onChange={(e) => handleDateTimeChange('collectionDate', e.target.value)}
+                onChange={(e) => handleDateTimeChange({ field: 'collectionDate', value: e.target.value })}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
@@ -80,11 +131,13 @@ export const SampleCollectionInstructionsCard: React.FC<InstructionProps> = ({ s
                 Collection time
               </Typography>
               <TextField
+                // See the description of isDataSaving in the SampleCollectionInstructionsCard interface.
+                disabled={isDataSaving}
                 fullWidth
                 variant="outlined"
                 type="time"
                 value={timeValue}
-                onChange={(e) => handleDateTimeChange('collectionTime', e.target.value)}
+                onChange={(e) => handleDateTimeChange({ field: 'collectionTime', value: e.target.value })}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">

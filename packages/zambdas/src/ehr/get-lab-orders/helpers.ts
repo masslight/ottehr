@@ -1774,7 +1774,7 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
     result.push({
       specimen: {
         id: specimen.id,
-        collectionDate: collectionDate || (logAboutMissingData('collectionDate'), NOT_FOUND),
+        collectionDate,
       },
       definition: {
         container: container || (logAboutMissingData('container'), NOT_FOUND),

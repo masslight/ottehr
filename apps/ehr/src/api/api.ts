@@ -24,6 +24,7 @@ import {
   GetLabOrdersParameters,
   DeleteLabOrderParams,
   SubmitLabOrderDTO,
+  UpdateLabOrderResourcesParameters,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -639,13 +640,6 @@ export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrde
     console.log(error);
     throw error;
   }
-};
-
-export type UpdateLabOrderResourcesParameters = {
-  taskId: string;
-  serviceRequestId: string;
-  diagnosticReportId: string;
-  event: 'reviewed';
 };
 
 export const updateLabOrderResources = async (

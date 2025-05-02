@@ -1,6 +1,6 @@
 import { Stack } from '@mui/system';
 import React from 'react';
-import { LabOrderDetailedPageDTO, UpdateLabOrderResourceParams } from 'utils';
+import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters, TaskReviewedParameters } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { ResultItem } from './ResultItem';
 import { Button, Typography } from '@mui/material';
@@ -9,8 +9,9 @@ import { OrderCollection } from '../OrderCollection';
 
 export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
-  updateTask: (params: UpdateLabOrderResourceParams) => Promise<void>;
-}> = ({ labOrder, updateTask }) => {
+  markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
+  onSpecimenDateChange: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+}> = ({ labOrder, markTaskAsReviewed, onSpecimenDateChange }) => {
   const navigate = useNavigate();
 
   const handleBack = (): void => {
@@ -29,11 +30,10 @@ export const DetailsWithResults: React.FC<{
         {labOrder.resultsDetails.map((result) => (
           <ResultItem
             onMarkAsReviewed={() =>
-              updateTask({
+              markTaskAsReviewed({
                 taskId: result.taskId,
                 serviceRequestId: labOrder.serviceRequestId,
                 diagnosticReportId: result.diagnosticReportId,
-                event: 'reviewed',
               })
             }
             resultDetails={result}
@@ -41,7 +41,13 @@ export const DetailsWithResults: React.FC<{
           />
         ))}
 
-        <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
+        <OrderCollection
+          showActionButtons={false}
+          showOrderInfo={false}
+          isAOECollapsed={true}
+          labOrder={labOrder}
+          onSpecimenDateChange={onSpecimenDateChange}
+        />
 
         <Button
           variant="outlined"

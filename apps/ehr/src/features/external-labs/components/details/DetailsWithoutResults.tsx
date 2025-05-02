@@ -2,10 +2,13 @@ import React from 'react';
 import { Typography, Stack, Grid } from '@mui/material';
 import { OrderCollection } from '../OrderCollection';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
-import { LabOrderDetailedPageDTO } from 'utils';
+import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
-export const DetailsWithoutResults: React.FC<{ labOrder: LabOrderDetailedPageDTO }> = ({ labOrder }) => {
+export const DetailsWithoutResults: React.FC<{
+  labOrder: LabOrderDetailedPageDTO;
+  onSpecimenDateChange: (params: SpecimenDateChangedParameters) => Promise<void>;
+}> = ({ labOrder, onSpecimenDateChange }) => {
   return (
     <Stack spacing={2} sx={{ p: 3 }}>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
@@ -38,7 +41,7 @@ export const DetailsWithoutResults: React.FC<{ labOrder: LabOrderDetailedPageDTO
             taskStatus={taskStatus}
           />
         )} */}
-      <OrderCollection labOrder={labOrder} />
+      <OrderCollection labOrder={labOrder} onSpecimenDateChange={onSpecimenDateChange} />
     </Stack>
   );
 };
