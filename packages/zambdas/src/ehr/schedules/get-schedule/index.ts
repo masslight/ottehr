@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
   getScheduleDetails,
+  getSlugForBookableResource,
   getTimezone,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
@@ -21,7 +22,6 @@ import {
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { getSlugForBookableResource } from '../../../patient/bookable/helpers';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mtoken: string;

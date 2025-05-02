@@ -566,13 +566,14 @@ export function makeServiceRequestResource({
     status: 'active',
     orderDetail: orderDetail ?? undefined,
     performerType: performerType ?? undefined,
-    occurrenceTiming: followUpIn
-      ? {
-          repeat: {
-            offset: followUpIn,
-          },
-        }
-      : undefined,
+    occurrenceTiming:
+      typeof followUpIn === 'number'
+        ? {
+            repeat: {
+              offset: followUpIn,
+            },
+          }
+        : undefined,
     note: note
       ? [
           {
@@ -621,6 +622,7 @@ export function makeDispositionDTO(
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;
+  console.log('followUpTime', followUpTime);
 
   return {
     type: dispositionCode as DispositionType,
@@ -629,7 +631,7 @@ export function makeDispositionDTO(
     virusTest: virusTests,
     reason: reasonForTransfer,
     followUp: followUpArr ?? undefined,
-    followUpIn: followUpTime ? Math.floor(followUpTime / 1440) : undefined,
+    followUpIn: typeof followUpTime === 'number' ? Math.floor(followUpTime / 1440) : undefined,
     [NOTHING_TO_EAT_OR_DRINK_FIELD]: followUp.extension?.some(
       (ext) => ext.url === NOTHING_TO_EAT_OR_DRINK_ID && ext.valueBoolean === true
     ),
@@ -1253,7 +1255,7 @@ export const createDispositionServiceRequest = ({
     orderDetail?.push?.(createCodingCode(disposition.reason, undefined, 'reason-for-transfer'));
   }
 
-  const followUpDaysInMinutes = disposition.followUpIn ? disposition.followUpIn * 1440 : undefined;
+  const followUpDaysInMinutes = typeof disposition.followUpIn === 'number' ? disposition.followUpIn * 1440 : undefined;
 
   return saveOrUpdateResourceRequest(
     makeServiceRequestResource({
