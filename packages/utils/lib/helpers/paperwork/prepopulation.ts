@@ -565,7 +565,10 @@ const mapPCPToQuestionnaireResponseItems = (input: MapPCPItemsInput): Questionna
     }
 
     if (linkId === 'pcp-number' && phone) {
-      answer = makeAnswer(phone);
+      const formatted = formatPhoneNumberDisplay(phone);
+      if (formatted) {
+        answer = makeAnswer(formatted);
+      }
     }
     if (linkId === 'pcp-active') {
       answer = makeAnswer(!!physician && !physician.active === false, 'Boolean');
