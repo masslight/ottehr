@@ -17,7 +17,7 @@ const INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'Bob';
 const INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Common Law Spouse';
 const INSURANCE_POLICY_HOLDER_STATE = 'AK';
 const INSURANCE_POLICY_HOLDER_ZIP = '78956';
-const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
+//const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
 const INSURANCE_CARRIER = '6 Degrees Health Incorporated';
 
 test.describe('Insurance Information Section non-mutating tests', () => {

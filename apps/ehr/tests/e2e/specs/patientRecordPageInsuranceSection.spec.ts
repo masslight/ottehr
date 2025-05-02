@@ -332,11 +332,29 @@ test.describe('Insurance Information Section mutating tests', () => {
     );*/
   });
 
-  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present and id displayed is one of them is removed', async ({
+  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyAddInsuranceButtonIsHidden();
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.clickRemoveInsuranceButton();
+    await patientInformationPage.verifyCoverageRemovedMessageShown();
+    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
+    await addInsuranceDialog.verifyTypeField('Primary', false);
+  });
+
+  test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.clickRemoveInsuranceButton();
+    await patientInformationPage.verifyCoverageRemovedMessageShown();
+    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
+    await addInsuranceDialog.verifyTypeField('Secondary', false);
   });
 });
 

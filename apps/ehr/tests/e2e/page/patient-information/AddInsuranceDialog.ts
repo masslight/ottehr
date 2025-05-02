@@ -134,4 +134,10 @@ export class AddInsuranceDialog {
   async verifyValidationErrorShown(testId: string): Promise<void> {
     await expect(this.#container.getByTestId(testId).locator('p:text("This field is required")')).toBeVisible();
   }
+
+  async verifyTypeField(value: string, enabled: boolean): Promise<void> {
+    const locator = this.#container.getByTestId(dataTestIds.addInsuranceDialog.type).locator('input');
+    await expect(locator).toHaveValue(value);
+    await expect(locator).toBeEnabled({ enabled });
+  }
 }

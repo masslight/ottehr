@@ -814,7 +814,11 @@ export class PatientInformationPage {
   }
 
   async verifyAddInsuranceButtonIsVisible(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isVisible;
+    this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isVisible;
+  }
+
+  async verifyCoverageRemovedMessageShown(): Promise<void> {
+    await expect(this.#page.getByText('Coverage removed from patient account')).toBeVisible();
   }
 }
 
@@ -1104,6 +1108,9 @@ export class InsuranceCard {
       .getByTestId(dataTestIds.insuranceContainer.additionalInformation)
       .locator('input')
       .fill(additionalInfo);
+  }
+  async clickRemoveInsuranceButton(): Promise<void> {
+    await this.#container.getByTestId(dataTestIds.insuranceContainer.removeButton).click();
   }
 }
 
