@@ -48,12 +48,11 @@ const clearPorts = (): void => {
   }
   for (const port of [ports.intake, ports.ehr, ports.backend]) {
     try {
-      const pid = execSync(`lsof -ti :${port}`).toString().trim();
-      if (pid) {
-        process.kill(parseInt(pid, 10), 'SIGTERM');
-      }
+      const output = execSync(`lsof -i :${port} | grep "^node" | awk '{print $2}'`).toString().trim();
+      const pids = [...new Set(output.split('\n'))];
+      pids.forEach((pid) => process.kill(parseInt(pid, 10), 'SIGTERM'));
     } catch (error) {
-      console.log(`No process found on port ${port}`);
+      console.log(`No node process found on port ${port}`);
     }
   }
 };
