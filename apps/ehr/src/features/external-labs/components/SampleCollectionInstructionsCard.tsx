@@ -3,12 +3,12 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
 import React, { useState } from 'react';
-import { OrderableSampleDTO, SpecimenDateChangedParameters } from 'utils';
+import { sampleDTO, SpecimenDateChangedParameters } from 'utils';
 import { CalendarIcon } from '@mui/x-date-pickers/icons';
 import { DateTime } from 'luxon';
 
 interface SampleCollectionInstructionsCardProps {
-  sample: OrderableSampleDTO;
+  sample: sampleDTO;
   serviceRequestId: string;
   timezone?: string;
   onSpecimenDateChange: (parameters: SpecimenDateChangedParameters) => Promise<void>;

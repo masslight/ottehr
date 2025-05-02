@@ -6,7 +6,7 @@ export interface OrderableItemSearchResult {
   lab: OrderableItemLab;
 }
 
-export interface OrderableSampleDTO {
+export interface sampleDTO {
   specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
   definition: OrderableItemSpecimen;
 }
@@ -121,7 +121,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   orderSource: string; // order source (SR.orderDetail code.display)
   questionnaire: QuestionnaireData[];
-  samples: OrderableSampleDTO[];
+  samples: sampleDTO[];
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {

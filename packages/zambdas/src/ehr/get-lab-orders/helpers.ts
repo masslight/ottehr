@@ -37,7 +37,7 @@ import {
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   getPresignedURL,
   getTimezone,
-  OrderableSampleDTO,
+  sampleDTO,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
@@ -1642,7 +1642,7 @@ export const parseQuestionnaireResponseItems = (
   return questionnaireResponseItems || [];
 };
 
-export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): OrderableSampleDTO[] => {
+export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): sampleDTO[] => {
   const NOT_FOUND = 'Not specified';
 
   if (!serviceRequest.contained || !serviceRequest.contained.length) {
@@ -1660,7 +1660,7 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
   }
 
   const specimenDefinitionRefs = activityDefinition.specimenRequirement.map((req) => req.reference);
-  const result: OrderableSampleDTO[] = [];
+  const result: sampleDTO[] = [];
 
   for (let i = 0; i < specimenDefinitionRefs.length; i++) {
     const ref = specimenDefinitionRefs[i];
