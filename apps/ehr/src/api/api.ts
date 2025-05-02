@@ -24,7 +24,6 @@ import {
   GetLabOrdersParameters,
   DeleteLabOrderParams,
   SubmitLabOrderDTO,
-  SendFaxZambdaInput,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -73,7 +72,6 @@ const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAM
 const UPDATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_SCHEDULE_ZAMBDA_ID;
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = import.meta.env.VITE_APP_LIST_SCHEDULE_OWNERS_ZAMBDA_ID;
 const CREATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_SCHEDULE_ZAMBDA_ID;
-const SEND_FAX_ZAMBDA_ID = import.meta.env.VITE_APP_VITE_APP_SEND_FAX_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -478,23 +476,6 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
 
     const response = await oystehr.zambda.execute({
       id: CREATE_SCHEDULE_ZAMBDA_ID,
-      ...params,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
-};
-
-export const sendFax = async (params: SendFaxZambdaInput, oystehr: Oystehr): Promise<Schedule> => {
-  try {
-    if (SEND_FAX_ZAMBDA_ID == null) {
-      throw new Error('send-fax zambda environment variable could not be loaded');
-    }
-
-    const response = await oystehr.zambda.execute({
-      id: SEND_FAX_ZAMBDA_ID,
       ...params,
     });
     return chooseJson(response);
