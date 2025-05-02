@@ -44,6 +44,7 @@ import {
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
 import {
+  BookableResource,
   EncounterVirtualServiceExtension,
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
@@ -68,6 +69,7 @@ import {
   ScheduleStrategy,
   SERVICE_MODE_SYSTEM,
   ServiceModeCoding,
+  SLUG_SYSTEM,
 } from './constants';
 
 export function isFHIRError(error: any): boolean {
@@ -1286,4 +1288,10 @@ export const getStripeCustomerIdFromAccount = (account: Account): string | undef
 export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
   const guarantor = account?.guarantor?.find((g) => g.period?.end === undefined)?.party;
   return guarantor?.reference;
+};
+
+export const getSlugForBookableResource = (resource: BookableResource): string | undefined => {
+  return resource.identifier?.find((id) => {
+    return id.system === SLUG_SYSTEM;
+  })?.value;
 };

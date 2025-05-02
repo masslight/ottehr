@@ -635,7 +635,7 @@ const Welcome: FC<{ context: BookAppointmentContext }> = ({ context }) => {
     } else if (visitTypeParam === VisitType.WalkIn && !walkinOpen && !locationLoading) {
       return { title: t('welcome.titleClosed', { PROJECT_NAME }) };
     } else {
-      return { title: t('welcome.titleBranded'), subtext: t('welcome.subtitleBranded') };
+      return { title: t('welcome.titleBranded', { PROJECT_NAME }), subtext: t('welcome.subtitleBranded') };
     }
   };
 
