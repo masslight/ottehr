@@ -110,12 +110,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `Organization/${labOrganization.id}`,
         },
       ],
-      locationReference: [
-        {
-          type: 'Location',
-          reference: `Location/${location.id}`,
-        },
-      ],
       authoredOn: DateTime.now().toISO() || undefined,
       priority: 'stat',
       code: serviceRequestCode,
@@ -123,6 +117,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
       contained: [activityDefinitionToContain],
     };
+    if (location) {
+      serviceRequestConfig.locationReference = [
+        {
+          type: 'Location',
+          reference: `Location/${location.id}`,
+        },
+      ];
+    }
     if (coverage) {
       serviceRequestConfig.insurance = [
         {
@@ -152,9 +154,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounter: {
         reference: `Encounter/${encounter.id}`,
       },
-      location: {
-        reference: `Location/${location.id}`,
-      },
       basedOn: [
         {
           type: 'ServiceRequest',
@@ -172,6 +171,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         ],
       },
     };
+    if (location) {
+      preSubmissionTaskConfig.location = {
+        reference: `Location/${location.id}`,
+      };
+    }
 
     const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
     if (aoeQRConfig) {
@@ -194,7 +198,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
     const provenanceConfig = getProvenanceConfig(
       serviceRequestFullUrl,
-      location.id || '',
+      location?.id,
       curUserPractitionerId,
       attendingPractitionerId
     );
@@ -307,11 +311,11 @@ const formatActivityDefinitionToContain = (orderableItem: OrderableItemSearchRes
 
 const getProvenanceConfig = (
   serviceRequestFullUrl: string,
-  locationId: string,
+  locationId: string | undefined,
   currentUserId: string,
   attendingPractitionerId: string
 ): Provenance => {
-  return {
+  const provenanceConfig: Provenance = {
     resourceType: 'Provenance',
     activity: {
       coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
@@ -321,7 +325,6 @@ const getProvenanceConfig = (
         reference: serviceRequestFullUrl,
       },
     ],
-    location: { reference: `Location/${locationId}` },
     recorded: DateTime.now().toISO(),
     agent: [
       {
@@ -330,6 +333,8 @@ const getProvenanceConfig = (
       },
     ],
   };
+  if (locationId) provenanceConfig.location = { reference: `Location/${locationId}` };
+  return provenanceConfig;
 };
 
 const getAdditionalResources = async (
@@ -338,9 +343,9 @@ const getAdditionalResources = async (
   oystehr: Oystehr
 ): Promise<{
   labOrganization: Organization;
-  coverage?: Coverage;
-  location: Location;
   patientId: string;
+  coverage?: Coverage;
+  location?: Location;
 }> => {
   const labGuid = orderableItem.lab.labGuid;
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
@@ -383,8 +388,7 @@ const getAdditionalResources = async (
 
   const missingRequiredResourcse: string[] = [];
   if (!patientId) missingRequiredResourcse.push('patient');
-  if (!location) missingRequiredResourcse.push('location');
-  if (!patientId || !location) {
+  if (!patientId) {
     throw new Error(
       `The following resources could not be found for this encounter: ${missingRequiredResourcse.join(', ')}`
     );
@@ -398,8 +402,8 @@ const getAdditionalResources = async (
 
   return {
     labOrganization,
+    patientId,
     coverage: patientPrimaryInsurance,
     location,
-    patientId,
   };
 };

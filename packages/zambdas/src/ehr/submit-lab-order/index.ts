@@ -1,7 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   getPatchBinary,
-  isValidUUID,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   getPresignedURL,
@@ -60,18 +59,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw new Error('service request reasonCode is undefined');
     }
 
-    if (!locationID || !isValidUUID(locationID)) {
-      throw new Error(`location id ${locationID} is not a uuid`);
-    }
-
     if (!patient.id) {
       throw new Error('patient.id is undefined');
     }
 
-    const location: Location = await oystehr.fhir.get({
-      resourceType: 'Location',
-      id: locationID,
-    });
+    let location: Location | undefined;
+    if (locationID) {
+      location = await oystehr.fhir.get<Location>({
+        resourceType: 'Location',
+        id: locationID,
+      });
+    }
 
     let coverage: Coverage | undefined = undefined;
     let organization: Organization | undefined = undefined;
@@ -268,13 +266,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
       {
-        locationName: location.name || ORDER_ITEM_UNKNOWN,
-        locationStreetAddress: location.address?.line?.join(',') || ORDER_ITEM_UNKNOWN,
-        locationCity: location.address?.city || ORDER_ITEM_UNKNOWN,
-        locationState: location.address?.state || ORDER_ITEM_UNKNOWN,
-        locationZip: location.address?.postalCode || ORDER_ITEM_UNKNOWN,
-        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_ITEM_UNKNOWN,
+        locationName: location?.name,
+        locationStreetAddress: location?.address?.line?.join(','),
+        locationCity: location?.address?.city,
+        locationState: location?.address?.state,
+        locationZip: location?.address?.postalCode,
+        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
         labOrganizationName: labOrganization.name || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
