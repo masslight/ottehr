@@ -66,9 +66,6 @@ export async function checkDropdownHasOptionAndSelectIt(
   }
 }
 
-export async function getDropdownOption(page: Page, pattern: string): Promise<Locator | undefined> {
-  return page
-    .locator('.MuiAutocomplete-popper li')
-    .filter({ hasText: new RegExp(pattern, 'i') })
-    .first();
+export async function getDropdownOption(page: Page, pattern: string): Promise<Locator> {
+  return page.locator('[role="option"]', { hasText: new RegExp(pattern, 'i') }).first();
 }

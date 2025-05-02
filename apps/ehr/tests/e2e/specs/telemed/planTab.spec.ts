@@ -4,7 +4,7 @@ import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../..
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { waitForSaveChartDataResponse } from 'test-utils';
-import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
+import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
 
 test.describe('Disposition', async () => {
   test.describe('Primary Care Physician', async () => {
@@ -53,11 +53,10 @@ test.describe('Disposition', async () => {
     });
 
     test("Should select some 'Follow up visit in' option", async () => {
-      await checkDropdownHasOptionAndSelectIt(
-        page,
-        dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown,
-        followUpMenuOption
-      );
+      await page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown).click();
+      const option = await getDropdownOption(page, followUpMenuOption);
+      await option.click();
+      await waitForSaveChartDataResponse(page);
     });
 
     test("Should update 'Primary Care Physician' 'Note' section", async () => {
@@ -74,6 +73,7 @@ test.describe('Disposition', async () => {
       const patientInstructionsContainer = page.getByTestId(
         dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer
       );
+      await expect(patientInstructionsContainer).toBeVisible();
       await expect(patientInstructionsContainer).toHaveText(new RegExp(updatedNote));
       await expect(patientInstructionsContainer).toHaveText(new RegExp(followUpMessage));
     });
@@ -120,11 +120,10 @@ test.describe('Disposition', async () => {
     });
 
     test("Should select some 'Reason for transfer' option", async () => {
-      await checkDropdownHasOptionAndSelectIt(
-        page,
-        dataTestIds.telemedEhrFlow.planTabDispositionReasonForTransferDropdown,
-        reasonForTransferOption
-      );
+      await page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionReasonForTransferDropdown).click();
+      const option = await getDropdownOption(page, reasonForTransferOption);
+      await option.click();
+      await waitForSaveChartDataResponse(page);
     });
 
     test('Should edit transfer Note', async () => {
@@ -182,15 +181,16 @@ test.describe('Disposition', async () => {
     });
 
     test("Should check 'Note' field is empty by default for 'Speciality transfer' selected", async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toHaveText('');
+      await expect(
+        page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote).locator('textarea').first()
+      ).toHaveText('');
     });
 
     test("Should select some 'Follow up visit in' option", async () => {
-      await checkDropdownHasOptionAndSelectIt(
-        page,
-        dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown,
-        followUpMenuOption
-      );
+      await page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown).click();
+      const option = await getDropdownOption(page, followUpMenuOption);
+      await option.click();
+      await waitForSaveChartDataResponse(page);
     });
 
     test('Should edit transfer note', async () => {

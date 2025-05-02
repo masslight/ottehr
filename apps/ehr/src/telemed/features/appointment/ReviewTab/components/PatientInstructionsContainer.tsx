@@ -12,7 +12,9 @@ import { SectionList } from '../../../../components';
 import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { followUpInOptions } from '../../../../utils/disposition.helper';
+import { followUpInOptions } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+
 export const PatientInstructionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
 
