@@ -7,8 +7,8 @@ import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 export const DetailsWithoutResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
-  onSpecimenDateChange: (params: SpecimenDateChangedParameters) => Promise<void>;
-}> = ({ labOrder, onSpecimenDateChange }) => {
+  saveSpecimenDate: (params: SpecimenDateChangedParameters) => Promise<void>;
+}> = ({ labOrder, saveSpecimenDate }) => {
   return (
     <Stack spacing={2} sx={{ p: 3 }}>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
@@ -41,7 +41,7 @@ export const DetailsWithoutResults: React.FC<{
             taskStatus={taskStatus}
           />
         )} */}
-      <OrderCollection labOrder={labOrder} onSpecimenDateChange={onSpecimenDateChange} />
+      <OrderCollection labOrder={labOrder} saveSpecimenDate={saveSpecimenDate} />
     </Stack>
   );
 };

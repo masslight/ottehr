@@ -38,7 +38,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   }) => void;
   DeleteOrderDialog: ReactElement | null;
   markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
-  onSpecimenDateChange: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
@@ -227,7 +227,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     [oystehrZambda, fetchLabOrders, getCurrentSearchParamsForPage]
   );
 
-  const onSpecimenDateChange = useCallback(
+  const saveSpecimenDate = useCallback(
     async ({
       specimenId,
       date,
@@ -270,6 +270,6 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
     markTaskAsReviewed: markTaskAsReviewed,
-    onSpecimenDateChange,
+    saveSpecimenDate: saveSpecimenDate,
   };
 };

@@ -20,7 +20,7 @@ import { SampleCollectionInstructionsCard } from './SampleCollectionInstructions
 
 interface SampleCollectionProps {
   labOrder: LabOrderDetailedPageDTO;
-  onSpecimenDateChange: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
@@ -32,7 +32,7 @@ export async function openLabOrder(url: string): Promise<void> {
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
   labOrder,
-  onSpecimenDateChange,
+  saveSpecimenDate,
   showActionButtons = true,
   showOrderInfo = true,
   isAOECollapsed = false,
@@ -50,7 +50,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<boolean>(false);
   const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
-  const [isDataSaving, setIsDataSaving] = useState<boolean>(false);
+  const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
+
+  const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
+    setSpecimensLoadingState((prevState) => ({ ...prevState, [specimenId]: state }));
+  };
 
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
     setSubmitLoading(true);
@@ -102,6 +106,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
+  const isSpecimenSaving = Object.values(specimensLoadingState).some((state) => state === 'saving');
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
@@ -118,9 +124,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
               sample={sample}
               serviceRequestId={labOrder.serviceRequestId}
               timezone={labOrder.encounterTimezone}
-              onSpecimenDateChange={onSpecimenDateChange}
-              setIsDataSaving={setIsDataSaving}
-              isDataSaving={isDataSaving}
+              saveSpecimenDate={saveSpecimenDate}
+              updateSpecimenLoadingState={updateSpecimenLoadingState}
             />
           ))}
 
@@ -157,9 +162,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   variant="contained"
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   type="submit"
-                  disabled={isDataSaving}
+                  disabled={isSpecimenSaving}
                 >
-                  {isDataSaving ? 'Saving changes...' : 'Submit & Print order'}
+                  {isSpecimenSaving ? 'Saving changes...' : 'Submit & Print order'}
                 </LoadingButton>
                 {/* <FormHelperText error>Please address errors</FormHelperText> */}
               </Stack>

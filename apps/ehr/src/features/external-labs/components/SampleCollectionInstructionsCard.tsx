@@ -1,78 +1,82 @@
-import { Box, Button, Grid, Paper, TextField, Stack, Typography, InputAdornment } from '@mui/material';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import React, { useState } from 'react';
+import { DateTime } from 'luxon';
+import { Box, Button, Grid, Paper, TextField, Stack, Typography } from '@mui/material';
+import { sampleDTO, SpecimenDateChangedParameters } from 'utils';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
-import React, { useState } from 'react';
-import { sampleDTO, SpecimenDateChangedParameters } from 'utils';
-import { CalendarIcon } from '@mui/x-date-pickers/icons';
-import { DateTime } from 'luxon';
+import { useDebounce } from 'src/telemed/hooks/useDebounce';
+import { enqueueSnackbar } from 'notistack';
 
 interface SampleCollectionInstructionsCardProps {
   sample: sampleDTO;
   serviceRequestId: string;
   timezone?: string;
-  onSpecimenDateChange: (parameters: SpecimenDateChangedParameters) => Promise<void>;
-  setIsDataSaving: (isDataSaving: boolean) => void;
-
-  // The date is edited from several fields; effectively it's a single ISO date, but the editing is presented as
-  // multiple fields of date:hours:minutes. To avoid race conditions when saving the modified part of the date,
-  // the fields are locked until the saving process is complete.
-  isDataSaving: boolean;
+  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+  updateSpecimenLoadingState?: (specimenId: string, state: 'saving' | 'saved') => void;
 }
 
 export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstructionsCardProps> = ({
   sample,
   serviceRequestId,
   timezone,
-  onSpecimenDateChange,
-  setIsDataSaving,
-
-  isDataSaving,
+  saveSpecimenDate,
+  updateSpecimenLoadingState,
 }) => {
   const { specimen, definition } = sample;
   const [collapsed, setCollapsed] = useState(false);
+  const { debounce } = useDebounce(1000);
 
   const initialDateTime = specimen.collectionDate
     ? DateTime.fromISO(specimen.collectionDate, { zone: timezone })
     : DateTime.now().setZone(timezone);
 
-  const [dateTime, setDateTime] = useState(initialDateTime);
+  const [date, setDate] = useState(initialDateTime);
+  const dateValue = date.toFormat('yyyy-MM-dd');
+  const timeValue = date.toFormat('HH:mm');
 
-  const dateValue = dateTime.toFormat('yyyy-MM-dd');
-  const timeValue = dateTime.toFormat('HH:mm');
+  const saveDateHandler = ({ field, value }: { field: 'collectionDate' | 'collectionTime'; value: string }): void => {
+    setDate((prevDate) => {
+      let newDate;
 
-  const handleDateTimeChange = async ({ field, value }: { field: string; value: string }): Promise<void> => {
-    const oldDateTime = dateTime;
-    let newDateTime;
+      if (field === 'collectionDate') {
+        const [year, month, day] = value.split('-').map((v) => parseInt(v, 10));
+        newDate = prevDate.set({ year, month, day });
+      } else if (field === 'collectionTime') {
+        const [hour, minute] = value.split(':').map((v) => parseInt(v, 10));
+        newDate = prevDate.set({ hour, minute });
+      }
 
-    if (field === 'collectionDate') {
-      const [year, month, day] = value.split('-').map(Number);
-      newDateTime = dateTime.set({ year, month, day });
-    } else if (field === 'collectionTime') {
-      const [hours, minutes] = value.split(':').map((v) => Number(v));
-      newDateTime = dateTime.set({ hour: hours, minute: minutes });
-    }
+      if (!newDate?.isValid) {
+        console.error('Invalid new date');
+        return prevDate;
+      }
 
-    if (!newDateTime?.isValid) {
-      console.error('Invalid date');
-      return;
-    }
+      if (newDate.toISO() === prevDate.toISO()) {
+        return prevDate;
+      }
 
-    setDateTime(newDateTime);
+      updateSpecimenLoadingState?.(specimen.id, 'saving');
 
-    setIsDataSaving(true);
-    try {
-      await onSpecimenDateChange({
-        specimenId: specimen.id,
-        serviceRequestId,
-        date: newDateTime.toISO(),
+      debounce(async () => {
+        try {
+          await saveSpecimenDate({
+            specimenId: specimen.id,
+            serviceRequestId,
+            date: newDate,
+          });
+        } catch (error) {
+          setDate(prevDate);
+          enqueueSnackbar('Date was not saved. Please try again.', {
+            variant: 'error',
+          });
+          console.error('Error updating specimen date', error);
+        } finally {
+          updateSpecimenLoadingState?.(specimen.id, 'saved');
+        }
       });
-    } catch (error) {
-      setDateTime(oldDateTime);
-      console.error('Error updating specimen date', error);
-    } finally {
-      setIsDataSaving(false);
-    }
+
+      return newDate;
+    });
   };
 
   return (
@@ -100,30 +104,11 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
                 Collection date
               </Typography>
               <TextField
-                // See the description of isDataSaving in the SampleCollectionInstructionsCard interface.
-                disabled={isDataSaving}
                 fullWidth
                 variant="outlined"
                 type="date"
                 value={dateValue}
-                onChange={(e) => handleDateTimeChange({ field: 'collectionDate', value: e.target.value })}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <CalendarIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& input::-webkit-calendar-picker-indicator': {
-                    position: 'absolute',
-                    right: 0,
-                    opacity: 0,
-                    width: '100%',
-                    height: '100%',
-                    cursor: 'pointer',
-                  },
-                }}
+                onChange={(e) => saveDateHandler({ field: 'collectionDate', value: e.target.value })}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -131,30 +116,11 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
                 Collection time
               </Typography>
               <TextField
-                // See the description of isDataSaving in the SampleCollectionInstructionsCard interface.
-                disabled={isDataSaving}
                 fullWidth
                 variant="outlined"
                 type="time"
                 value={timeValue}
-                onChange={(e) => handleDateTimeChange({ field: 'collectionTime', value: e.target.value })}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <ArrowDropDownIcon />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& input::-webkit-calendar-picker-indicator': {
-                    position: 'absolute',
-                    right: 0,
-                    opacity: 0,
-                    width: '100%',
-                    height: '100%',
-                    cursor: 'pointer',
-                  },
-                }}
+                onChange={(e) => saveDateHandler({ field: 'collectionTime', value: e.target.value })}
               />
             </Grid>
           </Grid>

@@ -10,8 +10,8 @@ import { OrderCollection } from '../OrderCollection';
 export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
   markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
-  onSpecimenDateChange: (parameters: SpecimenDateChangedParameters) => Promise<void>;
-}> = ({ labOrder, markTaskAsReviewed, onSpecimenDateChange }) => {
+  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+}> = ({ labOrder, markTaskAsReviewed, saveSpecimenDate }) => {
   const navigate = useNavigate();
 
   const handleBack = (): void => {
@@ -46,7 +46,7 @@ export const DetailsWithResults: React.FC<{
           showOrderInfo={false}
           isAOECollapsed={true}
           labOrder={labOrder}
-          onSpecimenDateChange={onSpecimenDateChange}
+          saveSpecimenDate={saveSpecimenDate}
         />
 
         <Button

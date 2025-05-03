@@ -900,6 +900,15 @@ export const parseLabOrderStatus = (
     }
   }
 
+  console.log({
+    srStatus: serviceRequest.status,
+    pstStatus: taskPST?.status,
+    hasCompletedPSTTask,
+    isActiveServiceRequest,
+    orderedFinalResults,
+    prelimResults,
+  });
+
   return ExternalLabsStatus.unknown;
 };
 

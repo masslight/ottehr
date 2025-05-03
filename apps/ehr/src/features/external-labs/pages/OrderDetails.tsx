@@ -10,7 +10,7 @@ export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
 
-  const { labOrders, loading, markTaskAsReviewed, onSpecimenDateChange } = usePatientLabOrders({
+  const { labOrders, loading, markTaskAsReviewed, saveSpecimenDate } = usePatientLabOrders({
     searchBy: { field: 'serviceRequestId', value: serviceRequestId },
   });
 
@@ -31,7 +31,7 @@ export const OrderDetailsPage: React.FC = () => {
   if (status === 'pending' || status === 'sent') {
     return (
       <WithLabBreadcrumbs sectionName={labOrder.testItem}>
-        <DetailsWithoutResults labOrder={labOrder} onSpecimenDateChange={onSpecimenDateChange} />
+        <DetailsWithoutResults labOrder={labOrder} saveSpecimenDate={saveSpecimenDate} />
       </WithLabBreadcrumbs>
     );
   }
@@ -41,7 +41,7 @@ export const OrderDetailsPage: React.FC = () => {
       <DetailsWithResults
         labOrder={labOrder}
         markTaskAsReviewed={markTaskAsReviewed}
-        onSpecimenDateChange={onSpecimenDateChange}
+        saveSpecimenDate={saveSpecimenDate}
       />
     </WithLabBreadcrumbs>
   );
