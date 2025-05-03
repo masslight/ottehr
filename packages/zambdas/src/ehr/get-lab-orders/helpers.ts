@@ -272,19 +272,28 @@ export const parseResults = (
     const result = relatedResults[i];
 
     if (!result.id) {
+      console.log(`Error: result ${result} has no id`);
       continue;
     }
 
     const resultCodes = result.code?.coding?.map((coding) => coding.code);
 
     if (resultCodes?.some((code) => serviceRequestCodes?.includes(code))) {
-      result.status === 'preliminary'
-        ? orderedPrelimResults.set(result.id, result)
-        : orderedFinalResults.set(result.id, result);
+      if (result.status === 'preliminary') {
+        orderedPrelimResults.set(result.id, result);
+      } else if (result.status === 'final') {
+        orderedFinalResults.set(result.id, result);
+      } else {
+        console.log(`Error: unknown status "${result.status}" for ordered result ${result.id}`);
+      }
     } else {
-      result.status === 'preliminary'
-        ? reflexPrelimResults.set(result.id, result)
-        : reflexFinalResults.set(result.id, result);
+      if (result.status === 'preliminary') {
+        reflexPrelimResults.set(result.id, result);
+      } else if (result.status === 'final') {
+        reflexFinalResults.set(result.id, result);
+      } else {
+        console.log(`Error: unknown status "${result.status}" for reflex result ${result.id}`);
+      }
     }
   }
 
@@ -847,67 +856,94 @@ export const parseLabOrderStatus = (
   const hasCompletedPSTTask = taskPST?.status === 'completed';
   const isActiveServiceRequest = serviceRequest.status === 'active';
 
+  const hasAllConditions = (conditions: Record<string, boolean>): boolean =>
+    Object.values(conditions).every((condition) => condition === true);
+
   // 'pending': If the SR.status == draft and a pre-submission task exists
-  if (serviceRequest.status === 'draft' && taskPST?.status === 'ready') {
+  const pendingStatusConditions = {
+    serviceRequestStatusIsDraft: serviceRequest.status === 'draft',
+    pstTaskStatusIsReady: taskPST?.status === 'ready',
+  };
+
+  if (hasAllConditions(pendingStatusConditions)) {
     return ExternalLabsStatus.pending;
   }
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
-  const isSentStatus =
-    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0 && prelimResults.length === 0;
+  const sentStatusConditions = {
+    hasCompletedPSTTask,
+    isActiveServiceRequest,
+    noFinalResults: orderedFinalResults.length === 0,
+    noPrelimResults: prelimResults.length === 0,
+  };
 
-  if (isSentStatus) {
+  if (hasAllConditions(sentStatusConditions)) {
     return ExternalLabsStatus.sent;
   }
 
-  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
   const hasPrelimResults = prelimResults.length > 0;
-  const isPreliminaryStatus = hasPrelimResults && hasCompletedPSTTask && isActiveServiceRequest;
 
-  if (isPreliminaryStatus) {
+  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
+  const prelimStatusConditions = {
+    hasPrelimResults,
+    hasCompletedPSTTask,
+    isActiveServiceRequest,
+  };
+
+  if (hasAllConditions(prelimStatusConditions)) {
     return ExternalLabsStatus.prelim;
   }
 
   // received: Task(RFRT).status = 'ready' and DR the Task is basedOn have DR.status = ‘final’
-  for (let i = 0; i < finalTasks.length; i++) {
-    const task = finalTasks[i];
-
+  const hasReadyTaskWithFinalResult = finalTasks.some((task) => {
     if (task.status !== 'ready') {
-      continue;
+      return false;
     }
 
-    const relatedTasks = parseResultByTask(task, finalResults);
-    const hasFinalResults = relatedTasks.some((result) => result.status === 'final');
+    const relatedFinalResults = parseResultByTask(task, finalResults);
+    return relatedFinalResults.length > 0;
+  });
 
-    if (hasFinalResults) {
-      return ExternalLabsStatus.received;
-    }
+  const receivedStatusConditions = {
+    hasReadyTaskWithFinalResult,
+  };
+
+  if (hasAllConditions(receivedStatusConditions)) {
+    return ExternalLabsStatus.received;
   }
 
   //  reviewed: Task(RFRT).status = 'completed' and DR the Task is basedOn have DR.status = ‘final’
-  for (let i = 0; i < finalTasks.length; i++) {
-    const task = finalTasks[i];
-
+  const hasCompletedTaskWithFinalResult = finalTasks.some((task) => {
     if (task.status !== 'completed') {
-      continue;
+      return false;
     }
 
-    const relatedResults = parseResultByTask(task, finalResults);
-    const hasFinalResults = relatedResults.some((result) => result.status === 'final');
+    const relatedFinalResults = parseResultByTask(task, finalResults);
+    return relatedFinalResults.length > 0;
+  });
 
-    if (hasFinalResults) {
-      return ExternalLabsStatus.reviewed;
-    }
+  const reviewedStatusConditions = {
+    hasCompletedTaskWithFinalResult,
+  };
+
+  if (hasAllConditions(reviewedStatusConditions)) {
+    return ExternalLabsStatus.reviewed;
   }
 
-  console.log({
-    srStatus: serviceRequest.status,
-    pstStatus: taskPST?.status,
-    hasCompletedPSTTask,
-    isActiveServiceRequest,
-    orderedFinalResults,
-    prelimResults,
-  });
+  console.log(
+    `Error: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
+    JSON.stringify(
+      {
+        pendingStatusConditions,
+        sentStatusConditions,
+        prelimStatusConditions,
+        receivedStatusConditions,
+        reviewedStatusConditions,
+      },
+      null,
+      2
+    )
+  );
 
   return ExternalLabsStatus.unknown;
 };

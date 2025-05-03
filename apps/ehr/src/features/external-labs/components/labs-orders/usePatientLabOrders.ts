@@ -269,7 +269,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
-    markTaskAsReviewed: markTaskAsReviewed,
-    saveSpecimenDate: saveSpecimenDate,
+    markTaskAsReviewed,
+    saveSpecimenDate,
   };
 };
