@@ -51,7 +51,6 @@ const Homepage = (): JSX.Element => {
       their phone number, or maybe a link the user opens by scanning a QR code made available at the location. 
     */
 
-    // todo 1.8: put this id in some config
     const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
       name: DEFAULT_WALKIN_LOCATION_NAME,
     });

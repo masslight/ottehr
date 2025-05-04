@@ -18,7 +18,7 @@ const GetReadyForVisit = (): JSX.Element => {
   const { isAuthenticated, loginWithRedirect } = useAuth0();
 
   const waitingMinutes = location.state && parseInt(location.state.waitingTime);
-  const { officeOpen, slotId, visitType } = useBookingContext();
+  const { slotId, visitType } = useBookingContext();
   const preserveQueryParams = usePreserveQueryParams();
 
   const onSubmit = async (): Promise<void> => {
@@ -43,7 +43,11 @@ const GetReadyForVisit = (): JSX.Element => {
       title={t('getReady.title')}
       imgWidth={150}
       topOutsideCardComponent={
-        visitType === VisitType.PreBook && officeOpen ? (
+        // todo: previously this only was displaye when the office was open,
+        // but it seems waiting minutes shouldn't be defined in cases where the office is closed
+        // so that additional check should not be needed. currently it looks like waiting minutes will never
+        // be written to the location state being checked here and this will never show.
+        visitType === VisitType.PreBook && waitingMinutes !== undefined ? (
           <WaitingEstimateCard waitingMinutes={waitingMinutes} />
         ) : undefined
       }

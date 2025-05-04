@@ -95,8 +95,6 @@ interface BookAppointmentContext
   startISO: string;
   endISO: string;
   waitingMinutes: number | undefined;
-  walkinOpen: boolean;
-  officeOpen: boolean;
   patientsLoading: boolean;
 }
 
@@ -240,8 +238,6 @@ const BookingHome: FC = () => {
       timezone: timezone ?? TIMEZONES[0],
       patientsLoading: patientsLoadingInSomeWay,
       unconfirmedDateOfBirth,
-      walkinOpen: true, // todo 1.8
-      officeOpen: true, // todo 1.8
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
       setPatientInfo,
@@ -258,7 +254,6 @@ const BookingHome: FC = () => {
     setUnconfirmedDateOfBirth,
     completeBooking,
   ]);
-  // const walkinOpen = outletContext?.walkinOpen ?? false;
 
   useEffect(() => {
     if (!isAuthenticated && !authIsLoading) {
