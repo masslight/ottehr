@@ -148,10 +148,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('current appointment slot: ', fhirSlot);
     // todo 1.8-9: consider whether we really need to be getting avaialble slots when getting appointment details
     // why do we need to do this?
-    const { availableSlots } = await getAvailableSlotsForSchedules({
-      now: DateTime.now(),
-      scheduleList: [{ schedule: fhirSchedule, owner: scheduleOwner }],
-    });
+    const { availableSlots } = await getAvailableSlotsForSchedules(
+      {
+        now: DateTime.now(),
+        scheduleList: [{ schedule: fhirSchedule, owner: scheduleOwner }],
+      },
+      oystehr
+    );
 
     const response: GetAppointmentDetailsResponse = {
       appointment,

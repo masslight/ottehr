@@ -68,10 +68,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
 
     console.time('synchronous_data_processing');
-    const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules({
-      now: DateTime.now(),
-      scheduleList,
-    });
+    const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules(
+      {
+        now: DateTime.now(),
+        scheduleList,
+      },
+      oystehr
+    );
     telemedAvailable.push(...tmSlots);
     availableSlots.push(...regularSlots);
     console.timeEnd('synchronous_data_processing');

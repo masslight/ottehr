@@ -164,10 +164,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       },
     };
 
-    const { availableSlots } = await getAvailableSlotsForSchedules({
-      now: DateTime.now(),
-      scheduleList: scheduleData.scheduleList,
-    });
+    const { availableSlots } = await getAvailableSlotsForSchedules(
+      {
+        now: DateTime.now(),
+        scheduleList: scheduleData.scheduleList,
+      },
+      oystehr
+    );
 
     // todo 1.9: another place to refactor with a slot comparator utility func
     if (availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {

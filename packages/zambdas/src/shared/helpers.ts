@@ -270,7 +270,7 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   return parsedExtValue;
 }
 
-// todo 1.8: this needs to take a schedule (or be async and got get a schedule), have a better name
+// todo 1.8: this needs to take a schedule (or be async and go get a schedule), have a better name
 // also check that this data is truly needed everywhere it is used
 export function getLocationInformation(
   oystehr: Oystehr,

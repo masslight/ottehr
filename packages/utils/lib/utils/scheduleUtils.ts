@@ -37,6 +37,7 @@ import {
   VisitType,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   isLocationVirtual,
+  WALKIN_APPOINTMENT_TYPE_CODE,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -731,7 +732,8 @@ interface GetSlotsInput {
 }
 
 export const getAvailableSlotsForSchedules = async (
-  input: GetSlotsInput
+  input: GetSlotsInput,
+  oystehr: Oystehr
 ): Promise<{
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
@@ -745,11 +747,23 @@ export const getAvailableSlotsForSchedules = async (
     owner: scheduleTemp.owner,
   }));
 
+  const getBusySlotsInput: GetSlotsInWindowInput = {
+    scheduleIds: schedules.map((scheduleTemp) => scheduleTemp.schedule.id!),
+    fromISO: now.toISO() ?? '',
+    toISO: now.plus({ days: SCHEDULE_NUM_DAYS }).toISO() ?? '',
+    status: ['busy', 'busy-tentative', 'busy-unavailable'],
+  };
+  const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
+
   schedules.forEach((scheduleTemp) => {
     try {
       // todo 1.8: find busy / busy-tentative slots
-      const busySlots: Slot[] = []; // checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleTemp);
+      const busySlots: Slot[] = allBusySlots.filter((slot) => {
+        const scheduleId = slot.schedule?.reference?.split('/')?.[1];
+        return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
+      });
       console.log('getting post telemed slots');
+      // todo: 1.8-9 check busy slots for telemed
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
       console.log('getting available slots to display');
       const slotStartsForSchedule = getAvailableSlots({
@@ -774,12 +788,17 @@ export const getAvailableSlotsForSchedules = async (
       );
       // console.log('available slots for schedule:', slotStartsForSchedule);
     } catch (err) {
-      console.error(`Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`);
+      console.error(
+        `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
+        JSON.stringify(err, null, 2),
+        err
+      );
     }
   });
 
   // this logic removes duplicate slots even across schedules,
   const usedSlots: { [time: string]: SlotListItem } = {};
+  console.log('available slots before deduping:', availableSlots.length);
   const dedupedSlots = availableSlots
     .sort((a, b) => {
       const time1 = DateTime.fromISO(a.slot.start);
@@ -793,6 +812,8 @@ export const getAvailableSlotsForSchedules = async (
       usedSlots[slot.slot.start] = slot;
       return true;
     });
+
+  console.log('available slots after deduping:', dedupedSlots.length);
 
   return { availableSlots: dedupedSlots, telemedAvailable };
 };
@@ -1349,25 +1370,31 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
 };
 
 interface GetSlotsInWindowInput {
-  scheduleId: string;
+  scheduleIds: string[];
   fromISO: string;
   toISO: string;
   status: Slot['status'][];
 }
 
 export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oystehr): Promise<Slot[]> => {
-  const { scheduleId, fromISO, toISO, status } = input;
+  const { scheduleIds, fromISO, toISO, status } = input;
   const statusParams = status.map((statusTemp) => ({
     name: 'status',
     value: statusTemp,
   }));
+  const appointmentTypeParams = [
+    {
+      name: 'appointment-type:not',
+      value: WALKIN_APPOINTMENT_TYPE_CODE,
+    },
+  ];
   const slots = (
     await oystehr.fhir.search<Slot>({
       resourceType: 'Slot',
       params: [
         {
           name: 'schedule',
-          value: `Schedule/${scheduleId}`,
+          value: scheduleIds.map((scheduleId) => `Schedule/${scheduleId}`).join(','),
         },
         {
           name: 'start',
@@ -1377,10 +1404,7 @@ export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oy
           name: 'start',
           value: `le${toISO}`,
         },
-        {
-          name: 'appointment-type:not',
-          value: 'WALKIN',
-        },
+        ...appointmentTypeParams,
         ...statusParams,
       ],
     })
@@ -1394,7 +1418,7 @@ interface CheckSlotAvailableInput {
 }
 export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
   const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleId: input.schedule.id!,
+    scheduleIds: [input.schedule.id!],
     fromISO: input.slot.start,
     toISO: input.slot.end,
     status: ['busy', 'busy-tentative', 'busy-unavailable'],
@@ -1435,7 +1459,7 @@ export const getSlotServiceCategoryCodingFromScheduleOwner = (
   // when the slot is submitted to the create-appointment endpoint. alternatively, the service modality can be written to the slot directly by passing a value for
   // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
 
-  console.log('getting service category from schedule owner', owner);
+  // console.log('getting service category from schedule owner', owner);
   if (owner.resourceType === 'Location' && isLocationVirtual(owner as Location)) {
     return [SlotServiceCategory.virtualServiceMode];
   }
