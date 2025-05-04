@@ -105,11 +105,6 @@ export const useBookingContext = (): BookAppointmentContext => {
   };
 };
 
-/*interface CustomContainerText {
-  title: string;
-  subtext?: string;
-}i*/
-
 const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): boolean => {
   // review is last step but we detect on submit instead so redirect doesnt jump
   // the transition to the appointment page

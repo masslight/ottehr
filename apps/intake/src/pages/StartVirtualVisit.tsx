@@ -3,10 +3,19 @@ import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
 import { useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { BoldPurpleInputLabel, CustomTooltip, PageForm, useUCZambdaClient } from 'ui-components';
 import {
+  BoldPurpleInputLabel,
+  CustomTooltip,
+  ErrorDialog,
+  ErrorDialogConfig,
+  PageForm,
+  useUCZambdaClient,
+} from 'ui-components';
+import {
+  APIError,
   checkTelemedLocationAvailability,
   CreateSlotParams,
+  isApiError,
   ServiceMode,
   stateCodeToFullName,
   TelemedLocation,
@@ -27,6 +36,8 @@ const StartVirtualVisit = (): JSX.Element => {
   const theme = useTheme();
   const [selectedLocation, setSelectedLocation] = useState<TelemedLocation | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
   const apiClient = useZapEHRAPIClient();
   const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
@@ -62,7 +73,15 @@ const StartVirtualVisit = (): JSX.Element => {
         navigate(`${basePath}/patients`);
       } catch (error) {
         console.error('Error creating slot:', error);
-        // todo 1.8: handle error
+        let errorMessage = 'Sorry, this virtual service may not be available at the moment.';
+        if (isApiError(error)) {
+          errorMessage = (error as APIError).message;
+        }
+        setErrorDialogConfig({
+          title: 'Error starting virtual visit',
+          description: errorMessage,
+          closeButtonText: 'Ok',
+        });
       }
 
       setIsSubmitting(true);
@@ -205,6 +224,13 @@ const StartVirtualVisit = (): JSX.Element => {
           submitLabel: 'Continue',
         }}
         onSubmit={onSubmit}
+      />
+      <ErrorDialog
+        open={!!errorDialogConfig}
+        title={errorDialogConfig?.title || ''}
+        description={errorDialogConfig?.description || ''}
+        closeButtonText={errorDialogConfig?.closeButtonText || ''}
+        handleClose={() => setErrorDialogConfig(undefined)}
       />
     </PageContainer>
   );

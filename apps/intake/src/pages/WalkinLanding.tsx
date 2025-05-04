@@ -1,4 +1,3 @@
-// import { Schedule } from '@mui/icons-material';
 import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, useState } from 'react';
@@ -8,7 +7,7 @@ import { ottehrApi } from '../api';
 import { PageContainer } from '../components';
 import { t } from 'i18next';
 import { useQuery } from 'react-query';
-import { CreateSlotParams, ServiceMode } from 'utils';
+import { APIError, CreateSlotParams, isApiError, ServiceMode } from 'utils';
 import { DateTime } from 'luxon';
 import { bookingBasePath } from '../App';
 import { ottehrLightBlue } from '@theme/icons';
@@ -83,7 +82,15 @@ export const WalkinLanding: FC = () => {
                     navigate(`${basePath}/patients`);
                   } catch (error) {
                     console.error('Error creating slot:', error);
-                    // todo 1.8: handle error
+                    let errorMessage = 'Sorry, something went wrong. Please proceed to the front desk to check in.';
+                    if (isApiError(error)) {
+                      errorMessage = (error as APIError).message;
+                    }
+                    setErrorConfig({
+                      title: 'Error starting virtual visit',
+                      description: errorMessage,
+                      closeButtonText: 'Ok',
+                    });
                   }
                 }
               }}

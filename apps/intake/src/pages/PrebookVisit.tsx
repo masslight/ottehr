@@ -3,14 +3,16 @@ import { Box, styled } from '@mui/system';
 import { FC, useState } from 'react';
 import { generatePath, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import noop from 'lodash/noop';
-import { BoldPurpleInputLabel, useUCZambdaClient } from 'ui-components';
+import { BoldPurpleInputLabel, ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
 import {
+  APIError,
   BookableItem,
   CreateSlotParams,
   getAppointmentDurationFromSlot,
   //getAppointmentDurationFromSlot,
   GetScheduleResponse,
   getServiceModeFromSlot,
+  isApiError,
   ScheduleType,
   ServiceMode,
 } from 'utils';
@@ -144,6 +146,8 @@ const PrebookVisit: FC = () => {
   const [selectedInPersonLocation, setSelectedInPersonLocation] = useState<BookableItem | null>(null);
   const [selectedVirtualLocation, setSelectedVirtualLocation] = useState<BookableItem | null>(null);
 
+  const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
+
   const serviceModeFromParam = pathParams[BOOKING_SERVICE_MODE_PARAM];
   const serviceMode: ServiceMode = (serviceModeFromParam as ServiceMode | undefined) ?? SERVICE_MODES[serviceModeIndex];
 
@@ -191,8 +195,15 @@ const PrebookVisit: FC = () => {
         });
         navigate(`${basePath}/patients`);
       } catch (error) {
-        console.error('Error creating slot:', error);
-        // todo 1.8: handle error
+        let errorMessage = 'Sorry, this time slot may no longer be available. Please select another time.';
+        if (isApiError(error)) {
+          errorMessage = (error as APIError).message;
+        }
+        setErrorDialogConfig({
+          title: 'Error reserving time',
+          description: errorMessage,
+          closeButtonText: 'Ok',
+        });
       }
     }
   };
@@ -271,6 +282,14 @@ const PrebookVisit: FC = () => {
             />
           ))}
       </SelectionContainer>
+
+      <ErrorDialog
+        open={!!errorDialogConfig}
+        title={errorDialogConfig?.title || ''}
+        description={errorDialogConfig?.description || ''}
+        closeButtonText={errorDialogConfig?.closeButtonText || ''}
+        handleClose={() => setErrorDialogConfig(undefined)}
+      />
     </PageContainer>
   );
 };
