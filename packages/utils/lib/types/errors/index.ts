@@ -33,6 +33,7 @@ export enum APIErrorCode {
   MISSING_SCHEDULE_EXTENSION = 4305,
   MISSING_PATIENT_COVERAGE_INFO = 4306,
   INVALID_INPUT = 4340,
+  EXTERNAL_LAB_GENERAL = 4400,
 }
 
 export interface APIError {
@@ -253,4 +254,11 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
+};
+
+export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.EXTERNAL_LAB_GENERAL,
+    message,
+  };
 };

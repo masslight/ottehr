@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
@@ -11,6 +11,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SampleInformationCard } from './SampleInformationCard';
 import { OrderHistoryCard } from './OrderHistoryCard';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 // import { StatusString } from './StatusChip';
 
 // interface CollectionInstructions {
@@ -38,6 +39,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   showOrderInfo = true,
   isAOECollapsed = false,
 }) => {
+  const theme = useTheme();
   const { oystehrZambda: oystehr } = useApiClients();
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
@@ -49,16 +51,16 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const aoe = questionnaireData?.questionnaire.item || [];
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [error, setError] = useState<boolean>(false);
+  const [error, setError] = useState<string[] | undefined>(undefined);
 
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
     setSubmitLoading(true);
 
     async function updateFhir(): Promise<void> {
       if (!oystehr) {
-        throw new Error('oystehr client is undefined');
+        setError(['Oystehr client is undefined']);
+        return;
       }
-      setError(false);
       Object.keys(data).forEach((item) => {
         if (!data[item]) {
           delete data[item];
@@ -89,15 +91,22 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
         await openLabOrder(pdfUrl);
         setSubmitLoading(false);
-        setError(false);
+        setError(undefined);
         navigate(`/in-person/${appointmentID}/external-lab-orders`);
-      } catch (error) {
-        console.log('error with lab order', error);
+      } catch (e) {
+        const oyError = e as OystehrSdkError;
+        console.log('error creating lab order1', oyError.code, oyError.message);
+        const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+        setError(errorMessage);
         setSubmitLoading(false);
-        setError(true);
       }
     }
-    updateFhir().catch((error) => console.log(error));
+    updateFhir().catch((e) => {
+      const oyError = e as OystehrSdkError;
+      console.log('error creating lab order2', oyError.code, oyError.message);
+      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      setError(errorMessage);
+    });
     console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
@@ -133,11 +142,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             </Link>
             {orderStatus === 'pending' && (
               <Stack>
-                {error && (
-                  <Typography variant="body1" color="error">
-                    Error submitting lab order
-                  </Typography>
-                )}
                 <LoadingButton
                   loading={submitLoading}
                   variant="contained"
@@ -146,10 +150,20 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                 >
                   Order
                 </LoadingButton>
-                {/* <FormHelperText error>Please address errors</FormHelperText> */}
               </Stack>
             )}
           </Stack>
+        )}
+        {error && error.length > 0 && (
+          <Box sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            {error.map((msg, idx) => (
+              <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                <Typography sx={{ color: theme.palette.error.main }} key={`errormsg-${idx}`}>
+                  {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
         )}
       </form>
     </FormProvider>
