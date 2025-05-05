@@ -3,6 +3,8 @@ import Oystehr from '@oystehr/sdk';
 import dotenv from 'dotenv';
 import { Location } from 'fhir/r4b';
 import fs from 'fs';
+import { SLUG_SYSTEM } from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
 import { DEFAULT_TESTING_SLUG } from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
@@ -55,9 +57,9 @@ interface IntakeConfig {
   [key: string]: any;
 }
 
-async function getLocationForTesting(
+async function getLocationsForTesting(
   ehrZambdaEnv: Record<string, string>
-): Promise<{ locationId: string; locationName: string; locationSlug: string; locationState: string }> {
+): Promise<{ locationId: string; locationName: string; locationSlug: string; virtualLocationState: string }> {
   const tokenResponse = await fetch(ehrZambdaEnv.AUTH0_ENDPOINT, {
     method: 'POST',
     headers: {
@@ -82,52 +84,66 @@ async function getLocationForTesting(
     },
   });
 
-  const testingResponse = await oystehr.fhir.search<Location>({
+  const locationsResponse = await oystehr.fhir.search<Location>({
     resourceType: 'Location',
-    params: [
-      {
-        name: 'identifier',
-        value: `https://fhir.ottehr.com/r4/slug|${DEFAULT_TESTING_SLUG}`,
-      },
-    ],
   });
 
-  if (testingResponse.entry && testingResponse.entry.length > 0) {
-    const locationResource = testingResponse.entry[0].resource;
+  const locations = locationsResponse.unbundle();
 
-    const locationId = locationResource?.id;
-    const locationName = locationResource?.name;
-    const locationSlug = locationResource?.identifier?.[0]?.value;
-    const locationState = (locationResource?.address?.state || '').toLowerCase();
+  const virtualLocations = locations.filter(isLocationVirtual);
 
-    if (!locationId) {
-      throw Error('Required locationId not found  ');
-    }
+  console.log('Locations:', JSON.stringify(locations, null, 2));
 
-    if (!locationName) {
-      throw Error('Required locationName not found');
-    }
-
-    if (!locationSlug) {
-      throw Error('Required locationSlug not found');
-    }
-
-    if (!locationState) {
-      throw Error('Required locationState not found');
-    }
-
-    console.log(`Found location by slug '${DEFAULT_TESTING_SLUG}' with ID: ${locationId}`);
-    console.log(`Location name: ${locationName}, slug: ${locationSlug}, state: ${locationState}`);
-
-    return {
-      locationId,
-      locationName,
-      locationSlug,
-      locationState,
-    };
+  if (locations.length === 0) {
+    throw Error('No locations found in FHIR API');
   }
 
-  throw Error('No locations found in FHIR API');
+  if (virtualLocations.length === 0) {
+    throw Error('No virtual locations found in FHIR API');
+  }
+
+  const locationResource = locations.find(
+    (location) =>
+      location.identifier?.some(
+        (identifier) => identifier.system === SLUG_SYSTEM && identifier.value === DEFAULT_TESTING_SLUG
+      )
+  );
+
+  const locationId = locationResource?.id;
+  const locationName = locationResource?.name;
+  const locationSlug = locationResource?.identifier?.[0]?.value;
+
+  const virtualLocation = virtualLocations.at(0);
+  const locationState = (virtualLocation?.address?.state || '').toLowerCase();
+
+  if (!locationId) {
+    throw Error('Required locationId not found  ');
+  }
+
+  if (!locationName) {
+    throw Error('Required locationName not found');
+  }
+
+  if (!locationSlug) {
+    throw Error('Required locationSlug not found');
+  }
+
+  if (!locationState) {
+    throw Error('Required locationState not found');
+  }
+
+  console.log(`Found location by slug '${DEFAULT_TESTING_SLUG}' with ID: ${locationId}`);
+  console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
+
+  console.log(`Found virtual location with ID: ${virtualLocation?.id}`);
+  console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
+
+  return {
+    locationId,
+    locationName,
+    locationSlug,
+    virtualLocationState: locationState,
+  };
 }
 
 export async function createTestEnvFiles(): Promise<void> {
@@ -144,7 +160,7 @@ export async function createTestEnvFiles(): Promise<void> {
       fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
     );
 
-    const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(zambdaEnv);
+    const { locationId, locationName, locationSlug, virtualLocationState } = await getLocationsForTesting(zambdaEnv);
 
     let existingEhrConfig: EhrConfig = {};
     let existingIntakeConfig: IntakeConfig = {};
@@ -227,7 +243,7 @@ export async function createTestEnvFiles(): Promise<void> {
       GET_ANSWER_OPTIONS_ZAMBDA_ID: intakeUiEnv.VITE_APP_GET_ANSWER_OPTIONS_ZAMBDA_ID,
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
       SLUG_ONE: locationSlug,
-      STATE_ONE: locationState,
+      STATE_ONE: virtualLocationState,
       EHR_APPLICATION_ID: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
       ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
@@ -237,7 +253,7 @@ export async function createTestEnvFiles(): Promise<void> {
       TEXT_USERNAME: textUsername,
       TEXT_PASSWORD: textPassword,
       SLUG_ONE: locationSlug,
-      STATE_ONE: locationState,
+      STATE_ONE: virtualLocationState,
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
       AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
