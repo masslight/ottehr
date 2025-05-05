@@ -47,7 +47,9 @@ export abstract class BaseInPersonFlow {
     dobYear: string;
     dobDay: string;
   }> {
-    await this.locator.selectDifferentFamilyMember();
+    await this.locator.waitUntilLoadingIsFinished();
+    await this.locator.continueOrDifferentFamilyMember();
+
     await this.locator.clickContinueButton();
 
     const bookingData = await this.fillingInfo.fillNewPatientInfo();
