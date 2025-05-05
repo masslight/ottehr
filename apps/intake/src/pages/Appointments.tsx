@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useUCZambdaClient } from 'ui-components';
 import { VisitType } from 'utils';
 import { otherColors, palette } from '../IntakeThemeProvider';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 import { LinkedButtonWithIcon, PageContainer } from '../components';
 import { useIntakeCommonStore } from '../features/common';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
@@ -49,7 +49,7 @@ const Appointments = (): JSX.Element => {
   useEffect(() => {
     async function getAppointments(): Promise<void> {
       if (zambdaClient) {
-        const res = await zapehrApi.getAppointments(zambdaClient);
+        const res = await ottehrApi.getAppointments(zambdaClient);
         const appointments = res.appointments;
         setAppointments(appointments);
       }

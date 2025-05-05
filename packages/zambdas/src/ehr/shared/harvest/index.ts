@@ -3005,7 +3005,6 @@ interface UnbundledAccountResourceWithInsuranceResources {
   resources: UnbundledAccountResources;
 }
 // this function is exported for testing purposes
-// todo: rename this function to something more descriptive
 export const getCoverageUpdateResourcesFromUnbundled = (
   input: UnbundledAccountResourceWithInsuranceResources
 ): PatientAccountAndCoverageResources => {

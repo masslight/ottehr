@@ -9,6 +9,7 @@ import {
   Resource,
   Schedule,
   Slot,
+  LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -27,8 +28,16 @@ import {
   scheduleStrategyForHealthcareService,
   ScheduleType,
   Timezone,
+  SlotServiceCategory,
+  ServiceMode,
+  codingContainedInList,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  HOURS_OF_OPERATION_FORMAT,
   TIMEZONES,
   VisitType,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
+  isLocationVirtual,
+  WALKIN_APPOINTMENT_TYPE_CODE,
 } from 'utils';
 import {
   applyBuffersToSlots,
@@ -133,6 +142,7 @@ export interface SlotOwner {
 export interface SlotListItem {
   slot: Slot;
   owner: SlotOwner;
+  timezone: Timezone;
 }
 
 export const mapSlotListItemToStartTimesArray = (items: SlotListItem[]): string[] => {
@@ -231,7 +241,7 @@ export function getScheduleDetails(
 
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
-): string {
+): Timezone {
   const timezone = schedule.extension?.find(
     (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
   )?.valueString;
@@ -426,7 +436,7 @@ interface GetAvailableSlotsInput {
   now: DateTime;
   numDays: number;
   schedule: Schedule;
-  busySlots: Slot[]; // todo: add these in upstream
+  busySlots: Slot[]; // todo 1.8: add these in upstream
 }
 
 export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
@@ -720,11 +730,11 @@ export async function addWaitingMinutesToAppointment(
 interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
-  busySlots?: Slot[];
 }
 
 export const getAvailableSlotsForSchedules = async (
-  input: GetSlotsInput
+  input: GetSlotsInput,
+  oystehr: Oystehr
 ): Promise<{
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
@@ -737,55 +747,24 @@ export const getAvailableSlotsForSchedules = async (
     schedule: scheduleTemp.schedule,
     owner: scheduleTemp.owner,
   }));
-  /*
-  const [appointments, busySlots] = await Promise.all([
-    getAppointments(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
-    checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleResource),
-  ]);
 
-
-  if (scheduleResource.resourceType === 'Location' || scheduleResource.resourceType === 'Practitioner') {
-    schedules.push(scheduleResource);
-  } else if (scheduleResource.resourceType === 'HealthcareService') {
-    if (!groupItems) {
-      const relatedScheduleResources = (
-        await oystehr.fhir.search<Location | Practitioner | HealthcareService>({
-          resourceType: 'HealthcareService',
-          params: [
-            { name: 'identifier', value: slug },
-            {
-              name: '_include',
-              value: 'HealthcareService:location',
-            },
-            {
-              name: '_revinclude',
-              value: 'PractitionerRole:service',
-            },
-            {
-              name: '_include:iterate',
-              value: 'PractitionerRole:practitioner',
-            },
-          ],
-        })
-      ).unbundle();
-      groupItems = relatedScheduleResources.filter(
-        (resourceTemp) => resourceTemp.resourceType === 'Location' || resourceTemp.resourceType === 'Practitioner'
-      );
-    }
-    schedules.push(...getSchedulesForGroup(scheduleResource, groupItems));
-  }
-    */
+  const getBusySlotsInput: GetSlotsInWindowInput = {
+    scheduleIds: schedules.map((scheduleTemp) => scheduleTemp.schedule.id!),
+    fromISO: now.toISO() ?? '',
+    toISO: now.plus({ days: SCHEDULE_NUM_DAYS }).toISO() ?? '',
+    status: ['busy', 'busy-tentative', 'busy-unavailable'],
+  };
+  const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
 
   schedules.forEach((scheduleTemp) => {
     try {
-      // todo: find existing appointments and busy slots
-      /*filterAppointmentsByType(appointments, [
-        VisitType.PreBook,
-        VisitType.WalkIn,
-      ]);*/
-      const busySlots: Slot[] = []; // checkBusySlots(oystehr, now, SCHEDULE_NUM_DAYS, scheduleTemp);
-      // const postTelemedAppointments = filterAppointmentsByType(appointments, [VisitType.PostTelemed]);
+      // todo 1.8: find busy / busy-tentative slots
+      const busySlots: Slot[] = allBusySlots.filter((slot) => {
+        const scheduleId = slot.schedule?.reference?.split('/')?.[1];
+        return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
+      });
       console.log('getting post telemed slots');
+      // todo: 1.8-9 check busy slots for telemed
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
       console.log('getting available slots to display');
       const slotStartsForSchedule = getAvailableSlots({
@@ -799,6 +778,7 @@ export const getAvailableSlotsForSchedules = async (
           startTimes: slotStartsForSchedule,
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
+          timezone: getTimezone(scheduleTemp.schedule),
         })
       );
       telemedAvailable.push(
@@ -806,16 +786,22 @@ export const getAvailableSlotsForSchedules = async (
           startTimes: telemedTimes,
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
+          timezone: getTimezone(scheduleTemp.schedule),
         })
       );
       // console.log('available slots for schedule:', slotStartsForSchedule);
     } catch (err) {
-      console.error(`Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`);
+      console.error(
+        `Error trying to get slots for schedule item: Schedule/${scheduleTemp.schedule.id}`,
+        JSON.stringify(err, null, 2),
+        err
+      );
     }
   });
 
   // this logic removes duplicate slots even across schedules,
   const usedSlots: { [time: string]: SlotListItem } = {};
+  console.log('available slots before deduping:', availableSlots.length);
   const dedupedSlots = availableSlots
     .sort((a, b) => {
       const time1 = DateTime.fromISO(a.slot.start);
@@ -829,6 +815,8 @@ export const getAvailableSlotsForSchedules = async (
       usedSlots[slot.slot.start] = slot;
       return true;
     });
+
+  console.log('available slots after deduping:', dedupedSlots.length);
 
   return { availableSlots: dedupedSlots, telemedAvailable };
 };
@@ -863,17 +851,19 @@ interface MakeSlotListItemsInput {
   startTimes: string[];
   scheduleId: string;
   owner: Practitioner | Location | HealthcareService;
+  timezone: Timezone;
   appointmentLengthInMinutes?: number;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
-  const { startTimes, owner: ownerResource, scheduleId, appointmentLengthInMinutes = 15 } = input;
+  const { startTimes, owner: ownerResource, scheduleId, timezone, appointmentLengthInMinutes = 15 } = input;
   return startTimes.map((startTime) => {
-    const end = DateTime.fromISO(startTimes[0]).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
+    const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
     const slot: Slot = {
       resourceType: 'Slot',
-      id: `${scheduleId}-${startTime}`,
+      id: `${scheduleId}|${startTime}`,
       start: startTime,
+      serviceCategory: getSlotServiceCategoryCodingFromScheduleOwner(ownerResource),
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
@@ -882,6 +872,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     return {
       slot,
       owner,
+      timezone,
     };
   });
 };
@@ -1383,6 +1374,245 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
   return 'HealthcareService';
 };
 
+interface GetSlotsInWindowInput {
+  scheduleIds: string[];
+  fromISO: string;
+  toISO: string;
+  status: Slot['status'][];
+}
+
+export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oystehr): Promise<Slot[]> => {
+  const { scheduleIds, fromISO, toISO, status } = input;
+  const statusParams = status.map((statusTemp) => ({
+    name: 'status',
+    value: statusTemp,
+  }));
+  const appointmentTypeParams = [
+    {
+      name: 'appointment-type:not',
+      value: WALKIN_APPOINTMENT_TYPE_CODE,
+    },
+  ];
+  const slots = (
+    await oystehr.fhir.search<Slot>({
+      resourceType: 'Slot',
+      params: [
+        {
+          name: 'schedule',
+          value: scheduleIds.map((scheduleId) => `Schedule/${scheduleId}`).join(','),
+        },
+        {
+          name: 'start',
+          value: `ge${fromISO}`,
+        },
+        {
+          name: 'start',
+          value: `le${toISO}`,
+        },
+        ...appointmentTypeParams,
+        ...statusParams,
+      ],
+    })
+  ).unbundle();
+  return slots;
+};
+
+interface CheckSlotAvailableInput {
+  slot: Slot;
+  schedule: Schedule;
+}
+export const checkSlotAvailable = async (input: CheckSlotAvailableInput, oystehr: Oystehr): Promise<boolean> => {
+  const getBusySlotsInput: GetSlotsInWindowInput = {
+    scheduleIds: [input.schedule.id!],
+    fromISO: input.slot.start,
+    toISO: input.slot.end,
+    status: ['busy', 'busy-tentative', 'busy-unavailable'],
+  };
+  const busySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
+  console.log('found this many busy slots: ', busySlots.length);
+
+  const startTime = DateTime.fromISO(input.slot.start);
+  const dayStart = startTime.startOf('day');
+
+  const getAvailableInput: GetAvailableSlotsInput = {
+    now: dayStart,
+    numDays: 1,
+    schedule: input.schedule,
+    busySlots,
+  };
+  const availableSlots = getAvailableSlots(getAvailableInput);
+
+  //console.log('found this many available slots: ', availableSlots.length);
+
+  // note this is just checking for same start times, and assumes length of slot is same as available slots
+  // todo: improve the logic here; we need a better heuristic for slot equivalence since we have no persisted slots with ids to check
+  // it's not so pressing at the moment since we're assuming a schedule only vends slots of equivalent type and length
+  return availableSlots.some((slot) => {
+    const slotTime = DateTime.fromISO(slot);
+    if (slotTime !== null) {
+      return slotTime.equals(startTime);
+    }
+    return false;
+  });
+};
+
+export const getSlotServiceCategoryCodingFromScheduleOwner = (
+  owner: ScheduleOwnerFhirResource
+): Slot['serviceCategory'] | undefined => {
+  // customization point - override this to return a specific service category given a known schedule owner. if a category is returned here,
+  // the service modality may be inferred from the schedule owner. the service modality will then be used to specify the service mode for the appointment
+  // when the slot is submitted to the create-appointment endpoint. alternatively, the service modality can be written to the slot directly by passing a value for
+  // the serviceModality param to the create-slot endpoint. if a Slot has an express service modality set, that will take priority over any value returned here.
+
+  // console.log('getting service category from schedule owner', owner);
+  if (owner.resourceType === 'Location' && isLocationVirtual(owner as Location)) {
+    return [SlotServiceCategory.virtualServiceMode];
+  }
+
+  // default to in-person service mode
+  return [SlotServiceCategory.inPersonServiceMode];
+};
+
+export const getServiceModeFromScheduleOwner = (
+  owner: ScheduleOwnerFhirResource,
+  schedule?: Schedule
+): ServiceMode | undefined => {
+  // customization point - override this to return a specific service mode given a known schedule owner, or, optionally a schedule.
+  // for use cases that offer virtual or in-person services but not both, the owner resource may be sufficient to determine the service mode.
+  // for more complex cases, a given provider may offer both virtual and in-person services, and may wish to configure separate schedules for each service mode.
+  // if a schedule with a specific serivce mode is provided, it will be used to determine the service mode for any slots returned against that schedule.
+  // in any event, the value returned here may be ovverridden by passing a value for the serviceMode param to the create-slot endpoint.
+
+  const scheduleServiceCategory = schedule?.serviceCategory;
+  if (scheduleServiceCategory) {
+    const isVirtual = scheduleServiceCategory.some((category) => {
+      const codingList = category.coding ?? [];
+      return codingList.some((coding) => {
+        return codingContainedInList(coding, SlotServiceCategory.virtualServiceMode.coding!);
+      });
+    });
+    if (isVirtual) {
+      return ServiceMode.virtual;
+    }
+    const isInPerson = scheduleServiceCategory.some((category) => {
+      const codingList = category.coding ?? [];
+      return codingList.some((coding) => {
+        return codingContainedInList(coding, SlotServiceCategory.inPersonServiceMode.coding!);
+      });
+    });
+    if (isInPerson) {
+      return ServiceMode['in-person'];
+    }
+  }
+
+  // default to in-person service mode
+  const [codeableConcept] = getSlotServiceCategoryCodingFromScheduleOwner(owner) || [];
+  if (codeableConcept) {
+    const coding = codeableConcept.coding?.[0] ?? {};
+    if (codingContainedInList(coding, SlotServiceCategory.inPersonServiceMode.coding!)) {
+      return ServiceMode['in-person'];
+    }
+    if (codingContainedInList(coding, SlotServiceCategory.virtualServiceMode.coding!)) {
+      return ServiceMode.virtual;
+    }
+  }
+  return undefined;
+};
+
+export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
+  let serviceMode: ServiceMode | undefined;
+  (slot.serviceCategory ?? []).forEach((category) => {
+    const categoryCoding = category.coding?.[0] ?? {};
+    if (codingContainedInList(categoryCoding, SlotServiceCategory.inPersonServiceMode.coding!)) {
+      console.log('service mode in-person found');
+      serviceMode = ServiceMode['in-person'];
+    }
+    if (codingContainedInList(categoryCoding, SlotServiceCategory.virtualServiceMode.coding!)) {
+      console.log('service mode virtual found');
+      serviceMode = ServiceMode.virtual;
+    }
+  });
+  console.log('service mode from slot', serviceMode, slot.id);
+  return serviceMode;
+};
+
+export const getSlotIsWalkin = (slot: Slot): boolean => {
+  const appointmentType = slot.appointmentType?.coding?.[0];
+  if (appointmentType) {
+    return codingContainedInList(appointmentType, SLOT_WALKIN_APPOINTMENT_TYPE_CODING.coding!);
+  }
+  return false;
+};
+
+export const getSlotIsPostTelemed = (slot: Slot): boolean => {
+  const appointmentType = slot.appointmentType?.coding?.[0];
+  if (appointmentType) {
+    return codingContainedInList(appointmentType, SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING.coding!);
+  }
+  return false;
+};
+
+export const getLocationHoursFromScheduleExtension = (extension: ScheduleExtension): LocationHoursOfOperation[] => {
+  const hourEntries: LocationHoursOfOperation[] = [];
+  const { schedule } = extension;
+
+  Object.entries(schedule).forEach((keyVal) => {
+    const [day, scheduleDay] = keyVal;
+    const dayAbbrev = day.slice(0, 3).toLowerCase() as 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+    console.log('day abbrev', dayAbbrev);
+    const { open, close, workingDay } = scheduleDay;
+    if (workingDay) {
+      hourEntries.push({
+        daysOfWeek: [dayAbbrev],
+        openingTime: `${open}`,
+        closingTime: `${close}`,
+      });
+    } else {
+      hourEntries.push({
+        daysOfWeek: [dayAbbrev],
+      });
+    }
+  });
+
+  return hourEntries;
+};
+
+interface OverrideOperatingHoursInput {
+  from: DateTime;
+  scheduleOverrides: ScheduleOverrides;
+  hoursOfOperation: LocationHoursOfOperation[];
+  timezone: Timezone;
+}
+export const applyOverridesToOperatingHours = (input: OverrideOperatingHoursInput): LocationHoursOfOperation[] => {
+  const { from, scheduleOverrides, hoursOfOperation, timezone } = input;
+  const currentDate = from.setZone(timezone);
+  const overrideDate = Object.keys(scheduleOverrides).find((date) => {
+    return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
+  });
+  if (overrideDate) {
+    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase();
+    const override = scheduleOverrides[overrideDate];
+    const dayIndex = hoursOfOperation?.findIndex((hour) => (hour.daysOfWeek as string[])?.includes(dayOfWeek));
+    if (hoursOfOperation && typeof dayIndex !== 'undefined' && dayIndex >= 0) {
+      hoursOfOperation[dayIndex].openingTime = DateTime.fromFormat(override.open.toString(), 'h')
+        .set({
+          year: currentDate.year,
+          month: currentDate.month,
+          day: currentDate.day,
+        })
+        .toFormat(HOURS_OF_OPERATION_FORMAT);
+      hoursOfOperation[dayIndex].closingTime = DateTime.fromFormat(override.close.toString(), 'h')
+        .set({
+          year: currentDate.year,
+          month: currentDate.month,
+          day: currentDate.day,
+        })
+        .toFormat(HOURS_OF_OPERATION_FORMAT);
+    }
+  }
+  return hoursOfOperation;
+};
+
 export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {
   if (fhirType === 'Location') {
     return ScheduleType.location;
@@ -1391,4 +1621,11 @@ export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType'])
     return ScheduleType.provider;
   }
   return ScheduleType.group;
+};
+
+export const getAppointmentDurationFromSlot = (slot: Slot, unit: 'minutes' | 'hours' = 'minutes'): number => {
+  const start = DateTime.fromISO(slot.start);
+  const end = DateTime.fromISO(slot.end);
+  const duration = end.diff(start, unit).toObject();
+  return duration[unit] || 0;
 };
