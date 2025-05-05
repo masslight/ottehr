@@ -182,6 +182,10 @@ const createPhysicalLocation = async (
         value: `${locationInfo.city}-${locationInfo.state}`.replace(/\s/g, ''), // remove whitespace from the name
       },
     ];
+    newLocation.extension = [{
+      url: TIMEZONE_EXTENSION_URL,
+      valueString: 'America/New_York',
+    }];
 
     const createLocationRequest: BatchInputPostRequest<Location> = {
       method: 'POST',

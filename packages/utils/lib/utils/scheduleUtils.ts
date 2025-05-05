@@ -142,6 +142,7 @@ export interface SlotOwner {
 export interface SlotListItem {
   slot: Slot;
   owner: SlotOwner;
+  timezone: Timezone;
 }
 
 export const mapSlotListItemToStartTimesArray = (items: SlotListItem[]): string[] => {
@@ -777,6 +778,7 @@ export const getAvailableSlotsForSchedules = async (
           startTimes: slotStartsForSchedule,
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
+          timezone: getTimezone(scheduleTemp.schedule),
         })
       );
       telemedAvailable.push(
@@ -784,6 +786,7 @@ export const getAvailableSlotsForSchedules = async (
           startTimes: telemedTimes,
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
+          timezone: getTimezone(scheduleTemp.schedule),
         })
       );
       // console.log('available slots for schedule:', slotStartsForSchedule);
@@ -848,11 +851,12 @@ interface MakeSlotListItemsInput {
   startTimes: string[];
   scheduleId: string;
   owner: Practitioner | Location | HealthcareService;
+  timezone: Timezone;
   appointmentLengthInMinutes?: number;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
-  const { startTimes, owner: ownerResource, scheduleId, appointmentLengthInMinutes = 15 } = input;
+  const { startTimes, owner: ownerResource, scheduleId, timezone, appointmentLengthInMinutes = 15 } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
     const slot: Slot = {
@@ -868,6 +872,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
     return {
       slot,
       owner,
+      timezone,
     };
   });
 };
