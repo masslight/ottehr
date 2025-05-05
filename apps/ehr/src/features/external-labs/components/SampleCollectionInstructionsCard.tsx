@@ -36,17 +36,17 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
 
   const saveDateHandler = ({ field, value }: { field: 'collectionDate' | 'collectionTime'; value: string }): void => {
     setDate((prevDate) => {
-      let newDate;
+      let newDate: DateTime = prevDate;
 
       if (field === 'collectionDate') {
         const [year, month, day] = value.split('-').map((v) => parseInt(v, 10));
-        newDate = prevDate.set({ year, month, day });
+        newDate = newDate.set({ year, month, day });
       } else if (field === 'collectionTime') {
         const [hour, minute] = value.split(':').map((v) => parseInt(v, 10));
-        newDate = prevDate.set({ hour, minute });
+        newDate = newDate.set({ hour, minute });
       }
 
-      if (!newDate?.isValid) {
+      if (!newDate.isValid) {
         console.error('Invalid new date');
         return prevDate;
       }
@@ -59,10 +59,16 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
 
       debounce(async () => {
         try {
+          const dateISOToSave = newDate.toISO();
+
+          if (!dateISOToSave) {
+            throw Error('Invalid date to save');
+          }
+
           await saveSpecimenDate({
             specimenId: specimen.id,
             serviceRequestId,
-            date: newDate,
+            date: dateISOToSave,
           });
         } catch (error) {
           setDate(prevDate);
