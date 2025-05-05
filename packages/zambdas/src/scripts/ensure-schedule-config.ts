@@ -97,7 +97,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [
         ...schedulePostRequests,
-        //...locationUpdateRequests, // uncomment to remove schedule json from locations
+        ...locationUpdateRequests,
       ],
     });
   } catch (error) {
@@ -196,7 +196,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     await oystehrClient.fhir.transaction<FhirResource>({
       requests: [
         ...schedulePostRequests,
-        //...practitionerUpdateRequests, // uncomment to remove schedule json from practitioners
+        ...practitionerUpdateRequests,
       ],
     });
 
