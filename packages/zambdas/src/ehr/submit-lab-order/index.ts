@@ -6,6 +6,8 @@ import {
   getPresignedURL,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   EXTERNAL_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -56,10 +58,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw EXTERNAL_LAB_ERROR('encounter id is undefined');
     }
     if (!serviceRequest.reasonCode) {
-      throw EXTERNAL_LAB_ERROR('service request reasonCode is undefined');
+      throw EXTERNAL_LAB_ERROR(
+        `Please ensure at least one diagnosis is recorded for this service request, ServiceRequest/${serviceRequest.id}, it should be recorded in serviceRequest.reasonCode`
+      );
     }
     if (!patient.id) {
-      throw EXTERNAL_LAB_ERROR('patient.id is undefined');
+      throw EXTERNAL_LAB_ERROR('patient id is undefined');
     }
 
     let location: Location | undefined;
@@ -173,8 +177,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!submitLabRequest.ok) {
       const submitLabRequestResponse = await submitLabRequest.json();
-      console.log(submitLabRequestResponse);
-      throw EXTERNAL_LAB_ERROR('error submitting lab request to oystehr');
+      console.log('submitLabRequestResponse', submitLabRequestResponse);
+      throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
     }
 
     // submitted successful, so do the fhir provenance writes and update SR
@@ -334,6 +338,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   } catch (error: any) {
     console.log(error);
     console.log('submit lab order error:', JSON.stringify(error));
-    return topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    await topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    let body = JSON.stringify({ message: 'Error submitting a lab order' });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
+    return {
+      statusCode: 500,
+      body,
+    };
   }
 };

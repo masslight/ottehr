@@ -12,6 +12,8 @@ import {
   LabOrderResourcesRes,
   CODE_SYSTEM_COVERAGE_CLASS,
   EXTERNAL_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
 import { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { Coverage, Account, Organization, FhirResource } from 'fhir/r4b';
@@ -103,7 +105,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('admin-get-create-lab-order-resources', error, input.secrets);
+    await topLevelCatch('admin-get-create-lab-order-resources', error, input.secrets);
+    let body = JSON.stringify({ message: `Error getting resources for create lab order: ${error}` });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
+    return {
+      statusCode: 500,
+      body,
+    };
   }
 };
 

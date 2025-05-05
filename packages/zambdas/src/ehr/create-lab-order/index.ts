@@ -9,6 +9,8 @@ import {
   PRACTITIONER_CODINGS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   EXTERNAL_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -239,7 +241,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify('successfully created fhir resources for lab order'),
     };
   } catch (error: any) {
-    return topLevelCatch('admin-create-lab-order', error, input.secrets);
+    await topLevelCatch('admin-create-lab-order', error, input.secrets);
+    let body = JSON.stringify({ message: `Error creating lab order: ${error}` });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
+    return {
+      statusCode: 500,
+      body,
+    };
   }
 };
 
