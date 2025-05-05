@@ -13,7 +13,7 @@ import {
   TELEMED_INITIAL_STATES,
   TIMEZONE_EXTENSION_URL,
   unbundleBatchPostOutput,
-  VirtualLocationBody
+  VirtualLocationBody,
 } from 'utils';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
@@ -25,7 +25,7 @@ const virtualLocations: { value: string; label: string }[] = [
   ...TELEMED_INITIAL_STATES.map((state) => ({ value: state, label: state })),
 ];
 
-const allPhysicalLocations: { state: string; city: string, name: string }[] = [
+const allPhysicalLocations: { state: string; city: string; name: string }[] = [
   {
     state: 'NY',
     city: 'New York',
@@ -112,7 +112,7 @@ const createTelemedLocation = async (
     url: '/Location',
     resource: location,
     fullUrl: `urn:uuid:${randomUUID()}`,
-  }
+  };
 
   /*
     for each location, we create a schedule with a json extension that will be used in calculating the available bookable
@@ -132,9 +132,11 @@ const createTelemedLocation = async (
         valueString: 'America/New_York',
       },
     ],
-    actor: [{
-      reference: createLocationRequest.fullUrl,
-    }],
+    actor: [
+      {
+        reference: createLocationRequest.fullUrl,
+      },
+    ],
   };
 
   const createScheduleRequest: BatchInputPostRequest<Schedule> = {
@@ -143,8 +145,10 @@ const createTelemedLocation = async (
     resource: locationSchedule,
   };
 
-  const fhirResponse = await oystehr.fhir.transaction<Location | Schedule>({ requests: [createLocationRequest, createScheduleRequest] });
-  const unbundled = unbundleBatchPostOutput<Location|Schedule>(fhirResponse);
+  const fhirResponse = await oystehr.fhir.transaction<Location | Schedule>({
+    requests: [createLocationRequest, createScheduleRequest],
+  });
+  const unbundled = unbundleBatchPostOutput<Location | Schedule>(fhirResponse);
   const fhirLocation = unbundled.find((resource) => resource.resourceType === 'Location') as Location;
   console.log(`Created fhir location: state: ${fhirLocation?.address?.state}, id: ${fhirLocation?.id}`);
   console.log(`Created fhir schedule: id: ${locationSchedule.id} for ${fhirLocation?.address?.state} location`);
@@ -182,10 +186,12 @@ const createPhysicalLocation = async (
         value: `${locationInfo.city}-${locationInfo.state}`.replace(/\s/g, ''), // remove whitespace from the name
       },
     ];
-    newLocation.extension = [{
-      url: TIMEZONE_EXTENSION_URL,
-      valueString: 'America/New_York',
-    }];
+    newLocation.extension = [
+      {
+        url: TIMEZONE_EXTENSION_URL,
+        valueString: 'America/New_York',
+      },
+    ];
 
     const createLocationRequest: BatchInputPostRequest<Location> = {
       method: 'POST',
@@ -212,9 +218,11 @@ const createPhysicalLocation = async (
           valueString: 'America/New_York',
         },
       ],
-      actor: [{
-        reference: createLocationRequest.fullUrl,
-      }],
+      actor: [
+        {
+          reference: createLocationRequest.fullUrl,
+        },
+      ],
     };
 
     const createScheduleRequest: BatchInputPostRequest<Schedule> = {
@@ -223,7 +231,7 @@ const createPhysicalLocation = async (
       resource: locationSchedule,
     };
 
-    const results =  await oystehr.fhir.transaction<Location | Schedule>({
+    const results = await oystehr.fhir.transaction<Location | Schedule>({
       requests: [createLocationRequest, createScheduleRequest],
     });
 

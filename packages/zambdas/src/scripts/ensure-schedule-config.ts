@@ -1,14 +1,11 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import {
-  SCHEDULE_EXTENSION_URL,
-  TIMEZONE_EXTENSION_URL,
-} from 'utils';
+import { SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
 import fs from 'fs';
 
-type EnsureScheduleResult =  { telemedError: null | Error, inPersonGroupError: null | Error };
+type EnsureScheduleResult = { telemedError: null | Error; inPersonGroupError: null | Error };
 const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> => {
   const token = await getAuth0Token(envConfig);
 
@@ -20,18 +17,21 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
   const oystehrClient = createOystehrClient(token, envConfig);
   // setup telemed location schedules
   try {
-    const locationAndSchedules = (await oystehrClient.fhir.search<Location|Schedule>({
-      resourceType: 'Location',
-      params: [{
-        name: 'status',
-        value: 'active',
-      },
-      {
-        name: '_revinclude',
-        value: 'Schedule:actor:Location',
-      }
-    ],
-    })).unbundle();
+    const locationAndSchedules = (
+      await oystehrClient.fhir.search<Location | Schedule>({
+        resourceType: 'Location',
+        params: [
+          {
+            name: 'status',
+            value: 'active',
+          },
+          {
+            name: '_revinclude',
+            value: 'Schedule:actor:Location',
+          },
+        ],
+      })
+    ).unbundle();
 
     const schedules = locationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
     const locations = locationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
@@ -41,7 +41,9 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     const locationUpdateRequests: BatchInputPutRequest<Location>[] = [];
 
     locations.forEach((location) => {
-      const existingSchedule = schedules.find((sched) => sched.actor?.some((act) => act.reference === `Location/${location.id}`));
+      const existingSchedule = schedules.find(
+        (sched) => sched.actor?.some((act) => act.reference === `Location/${location.id}`)
+      );
       const extension = location.extension ?? [];
 
       const scheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
@@ -50,9 +52,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
       const newExtension = extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL);
       const modifiedLocation: Location = {
         ...location,
-        extension: [
-          ...newExtension,
-        ],
+        extension: [...newExtension],
       };
       // oystehr search bug prevents finding exact string match when there is a comma in the string
       if ((modifiedLocation.name?.split(',') ?? []).length > 1) {
@@ -63,84 +63,86 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
         }
       }
       if (scheduleExtension && timezoneExtension && existingSchedule === undefined) {
-      const locationSchedule: Schedule = {
-        resourceType: 'Schedule',
-        active: true,
-        extension: [
-          { ...scheduleExtension },
-          { ...timezoneExtension},
-        ],
-        actor: [{
-          reference: `Location/${location.id}`,
-        }],
-      };
-      schedulePostRequests.push({
-        method: 'POST',
-        url: '/Schedule',
-        resource: locationSchedule,
-      });
-      locationUpdateRequests.push({
-        method: 'PUT',
-        url: `/Location/${location.id}`,
-        resource: modifiedLocation,
-      });
+        const locationSchedule: Schedule = {
+          resourceType: 'Schedule',
+          active: true,
+          extension: [{ ...scheduleExtension }, { ...timezoneExtension }],
+          actor: [
+            {
+              reference: `Location/${location.id}`,
+            },
+          ],
+        };
+        schedulePostRequests.push({
+          method: 'POST',
+          url: '/Schedule',
+          resource: locationSchedule,
+        });
+        locationUpdateRequests.push({
+          method: 'PUT',
+          url: `/Location/${location.id}`,
+          resource: modifiedLocation,
+        });
       }
       if (existingSchedule && scheduleExtension) {
-      locationUpdateRequests.push({
-        method: 'PUT',
-        url: `/Location/${location.id}`,
-        resource: modifiedLocation,
-      });
-    }
-  });
+        locationUpdateRequests.push({
+          method: 'PUT',
+          url: `/Location/${location.id}`,
+          resource: modifiedLocation,
+        });
+      }
+    });
     console.log('schedulePostRequests', schedulePostRequests.length);
     await oystehrClient.fhir.transaction<FhirResource>({
-      requests: [
-        ...schedulePostRequests,
-        ...locationUpdateRequests,
-      ],
+      requests: [...schedulePostRequests, ...locationUpdateRequests],
     });
   } catch (error) {
     console.error('Error setting up telemed locations:', error);
-    if (error instanceof Error) { 
+    if (error instanceof Error) {
       results.telemedError = error as any;
     } else {
       results.telemedError = new Error('Unknown error occurred while setting up telemed location schedules');
     }
   }
 
-   // setup in person healthcare service practitioner schedules
-   try {
-
-    const practitionersAndSchedules = (await oystehrClient.fhir.search<HealthcareService|PractitionerRole|Practitioner|Schedule>({
-      resourceType: 'HealthcareService',
-      params: [{
-        name: 'identifier',
-        value: 'visit-followup-group',
-      },
-      {
-        name: '_revinclude',
-        value: 'PractitionerRole:service',
-      },
-      {
-        name: '_include:iterate',
-        value: 'PractitionerRole:practitioner',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Schedule:actor:Practitioner',
-      }
-    ],
-    })).unbundle();
+  // setup in person healthcare service practitioner schedules
+  try {
+    const practitionersAndSchedules = (
+      await oystehrClient.fhir.search<HealthcareService | PractitionerRole | Practitioner | Schedule>({
+        resourceType: 'HealthcareService',
+        params: [
+          {
+            name: 'identifier',
+            value: 'visit-followup-group',
+          },
+          {
+            name: '_revinclude',
+            value: 'PractitionerRole:service',
+          },
+          {
+            name: '_include:iterate',
+            value: 'PractitionerRole:practitioner',
+          },
+          {
+            name: '_revinclude:iterate',
+            value: 'Schedule:actor:Practitioner',
+          },
+        ],
+      })
+    ).unbundle();
 
     const schedules = practitionersAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
-    const practitioners = practitionersAndSchedules.filter((pract) => pract.resourceType === 'Practitioner') as Practitioner[];
+    const practitioners = practitionersAndSchedules.filter(
+      (pract) => pract.resourceType === 'Practitioner'
+    ) as Practitioner[];
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
     const practitionerUpdateRequests: BatchInputPutRequest<Practitioner>[] = [];
 
     practitioners.forEach((practitioner) => {
-      const existingSchedule = schedules.find((sched) => sched.actor?.some((act) => act.reference === `Practitioner/${practitioner.id}`));
+      const existingSchedule = schedules.find(
+        (sched) => sched.actor?.some((act) => act.reference === `Practitioner/${practitioner.id}`)
+      );
       const extension = practitioner.extension ?? [];
 
       const scheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
@@ -149,25 +151,24 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
         valueString: 'America/New_York',
       };
 
-      const newExtension = extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL);
+      const newExtension = extension.filter(
+        (ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL
+      );
       const modifiedPractitioner: Practitioner = {
         ...practitioner,
-        extension: [
-          ...newExtension,
-        ],
+        extension: [...newExtension],
       };
 
       if (!existingSchedule && scheduleExtension && timezoneExtension) {
         const practitionerSchedule: Schedule = {
           resourceType: 'Schedule',
           active: true,
-          extension: [
-            { ...scheduleExtension },
-            { ...timezoneExtension},
+          extension: [{ ...scheduleExtension }, { ...timezoneExtension }],
+          actor: [
+            {
+              reference: `Practitioner/${practitioner.id}`,
+            },
           ],
-          actor: [{
-            reference: `Practitioner/${practitioner.id}`,
-          }],
         };
         schedulePostRequests.push({
           method: 'POST',
@@ -190,22 +191,20 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
     });
 
     console.log('schedulePostRequests', schedulePostRequests.length);
-     //console.log('practitionerUpdateRequests', practitionerUpdateRequests.length);
-     //console.log('pracititioners', JSON.stringify(practitioners, null, 2));
+    //console.log('practitionerUpdateRequests', practitionerUpdateRequests.length);
+    //console.log('pracititioners', JSON.stringify(practitioners, null, 2));
 
     await oystehrClient.fhir.transaction<FhirResource>({
-      requests: [
-        ...schedulePostRequests,
-        ...practitionerUpdateRequests,
-      ],
+      requests: [...schedulePostRequests, ...practitionerUpdateRequests],
     });
-
   } catch (error) {
     console.error('Error setting up in person healthcare service practitioner schedules:', error);
-    if (error instanceof Error) { 
+    if (error instanceof Error) {
       results.telemedError = error as any;
     } else {
-      results.telemedError = new Error('Unknown error while setting up in person healthcare service practitioner schedules');
+      results.telemedError = new Error(
+        'Unknown error while setting up in person healthcare service practitioner schedules'
+      );
     }
   }
   return results;
@@ -214,13 +213,13 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
 // Main
 
 const main = async (): Promise<void> => {
-   const env = process.argv[2];
-  
-    const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
-    const { telemedError, inPersonGroupError } = await ensureSchedules(envConfig);
-    if (telemedError === null && inPersonGroupError === null) {
-      console.log('Schedule resources configured successfully');
-    }
+  const env = process.argv[2];
+
+  const envConfig = JSON.parse(fs.readFileSync(`.env/${env}.json`, 'utf8'));
+  const { telemedError, inPersonGroupError } = await ensureSchedules(envConfig);
+  if (telemedError === null && inPersonGroupError === null) {
+    console.log('Schedule resources configured successfully');
+  }
 };
 
 main().catch((error) => {

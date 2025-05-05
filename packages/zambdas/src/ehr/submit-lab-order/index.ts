@@ -10,13 +10,14 @@ import {
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Coverage, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
+import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
 import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
+import { BatchInputPatchRequest } from '@oystehr/sdk';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -45,6 +46,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       appointment,
       encounter,
       organization: labOrganization,
+      specimens,
     } = await getLabOrderResources(oystehr, serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
@@ -203,8 +205,43 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
     };
 
+    const specimenPatchOperations = specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+      if (!specimen.id) {
+        return acc;
+      }
+
+      const specimenDateTime = specimen.collection?.collectedDateTime;
+
+      if (specimenDateTime) {
+        /**
+         * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
+         * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
+         * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
+         * upon submission we should set the current date.
+         */
+        return acc;
+      }
+
+      acc.push(
+        getPatchBinary({
+          resourceType: 'Specimen',
+          resourceId: specimen.id,
+          patchOperations: [
+            {
+              path: '/collection/collectedDateTime',
+              op: 'add',
+              value: now.toISO(),
+            },
+          ],
+        })
+      );
+
+      return acc;
+    }, []);
+
     await oystehr?.fhir.transaction({
       requests: [
+        ...specimenPatchOperations,
         getPatchBinary({
           resourceType: 'ServiceRequest',
           resourceId: serviceRequest.id || 'unknown',
