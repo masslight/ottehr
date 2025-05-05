@@ -1,18 +1,14 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, List, ListItem, Typography, useTheme } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { generatePath, useLocation, useNavigate } from 'react-router-dom';
 import { PageForm } from 'ui-components';
-import { ServiceMode, VisitType } from 'utils';
-import { BOOKING_SERVICE_MODE_PARAM, BOOKING_SLUG_PARAMS, BOOKING_VISIT_TYPE_PARAM } from '../App';
+import { VisitType } from 'utils';
 import { otherColors } from '../IntakeThemeProvider';
 import { PageContainer } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
-import { getStartingPath } from '../helpers';
-import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
-import { useBookingContext } from './Welcome';
+import { useBookingContext } from './BookingHome';
 
 const GetReadyForVisit = (): JSX.Element => {
   const theme = useTheme();
@@ -20,47 +16,38 @@ const GetReadyForVisit = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, loginWithRedirect } = useAuth0();
-  const {
-    [BOOKING_SLUG_PARAMS]: slugParam,
-    [BOOKING_VISIT_TYPE_PARAM]: visitTypeParam,
-    [BOOKING_SERVICE_MODE_PARAM]: serviceTypeParam,
-  } = useParams();
-  const visitType = (visitTypeParam || VisitType.PreBook) as VisitType;
-  const serviceType = (serviceTypeParam || ServiceMode['in-person']) as ServiceMode;
 
   const waitingMinutes = location.state && parseInt(location.state.waitingTime);
-  const { selectedLocation } = useBookingContext();
+  const { slotId, visitType } = useBookingContext();
   const preserveQueryParams = usePreserveQueryParams();
 
-  const { officeOpen } = useCheckOfficeOpen(selectedLocation);
-
   const onSubmit = async (): Promise<void> => {
-    if (!isAuthenticated) {
+    const solvedPath = generatePath(slotId, {
+      slotId,
+    });
+    if (!isAuthenticated && slotId) {
       loginWithRedirect({
         appState: {
-          target: preserveQueryParams(`${getStartingPath(slugParam, visitType, serviceType)}/patients`),
+          target: preserveQueryParams(`${solvedPath}/patients`),
         },
       }).catch((error) => {
         throw new Error(`Error calling loginWithRedirect Auth0: ${error}`);
       });
     } else {
-      navigate(`${getStartingPath(slugParam, visitType, serviceType)}/patients`);
+      navigate(`${solvedPath}/patients`);
     }
   };
-
-  useTrackMixpanelEvents({
-    eventName: 'Get Ready For Visit',
-    visitType: visitType,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   return (
     <PageContainer
       title={t('getReady.title')}
       imgWidth={150}
       topOutsideCardComponent={
-        visitTypeParam === VisitType.PreBook && officeOpen ? (
+        // todo: previously this only was displaye when the office was open,
+        // but it seems waiting minutes shouldn't be defined in cases where the office is closed
+        // so that additional check should not be needed. currently it looks like waiting minutes will never
+        // be written to the location state being checked here and this will never show.
+        visitType === VisitType.PreBook && waitingMinutes !== undefined ? (
           <WaitingEstimateCard waitingMinutes={waitingMinutes} />
         ) : undefined
       }

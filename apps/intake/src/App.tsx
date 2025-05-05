@@ -20,33 +20,27 @@ import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
 import ThankYou from './pages/ThankYou';
-import WelcomeBack from './pages/WelcomeBack';
+import WelcomeBack from './pages/ChoosePatient';
 import { ErrorAlert } from './telemed/components/ErrorAlert';
 import { IOSMessagesHandler } from './telemed/components/IOSMessagesHandler';
 import { ProtectedRoute } from './telemed/features/auth';
 import { ErrorFallbackScreen, LoadingScreen } from './telemed/features/common';
 import { useIOSAppSync } from './telemed/features/ios-communication/useIOSAppSync';
-import TelemedConfirmDateOfBirth from './telemed/pages/ConfirmDateOfBirth';
-import Homepage from './telemed/pages/Homepage';
+import Homepage from './pages/Homepage';
 import { IOSCallEndedPage } from './telemed/pages/IOS/IOSCallEndedPage';
 import { IOSPatientManageParticipantsPage } from './telemed/pages/IOS/IOSManageParticipantsPage';
 import { IOSPatientPhotosEditPage } from './telemed/pages/IOS/IOSPatientPhotosEditPage';
 import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
-import {
-  PaperworkHome as TelemedPaperworkHome,
-  PaperworkPage as TelemedPaperworkPage,
-} from './telemed/pages/PaperworkPage';
 import PastVisits from './pages/PastVisits';
 import VisitDetails from './pages/VisitDetails';
-import TelemedPatientInformation from './telemed/pages/PatientInformation';
-import RequestVirtualVisit from './telemed/pages/RequestVirtualVisit';
-import TelemedReviewPaperwork from './telemed/pages/ReviewPaperwork';
-import TelemedSelectPatient from './telemed/pages/SelectPatient';
 import UserFlowRoot from './telemed/pages/UserFlowRoot';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
 import AIInterview from './pages/AIInterview';
+import { WalkinLanding } from './pages/WalkinLanding';
+import StartVirtualVisit from './pages/StartVirtualVisit';
+import MyPatients from './pages/MyPatients';
 
 const {
   MODE: environment,
@@ -83,14 +77,13 @@ const queryClient = new QueryClient({
   },
 });
 
+export const BOOKING_SLOT_ID_PARAM = 'slotId';
 export const BOOKING_SERVICE_MODE_PARAM = 'service_mode';
-export const BOOKING_SLUG_PARAMS = 'slug';
-export const BOOKING_VISIT_TYPE_PARAM = 'visit_type';
 export const BOOKING_SCHEDULE_TYPE_QUERY_PARAM = 'scheduleType';
 export const BOOKING_SCHEDULE_ON_QUERY_PARAM = 'bookingOn';
 export const BOOKING_SCHEDULE_SELECTED_SLOT = 'slot';
 
-export const bookingBasePath = `/book/:slug/:visit_type/:${BOOKING_SERVICE_MODE_PARAM}`;
+export const bookingBasePath = `/book/:${BOOKING_SLOT_ID_PARAM}`;
 export const paperworkBasePath = '/paperwork/:id';
 export const telemedPaperworkBasePath = `/telemed${paperworkBasePath}`;
 export const visitBasePath = '/visit/:id';
@@ -98,158 +91,124 @@ export const intakeFlowPageRoute = {
   Homepage: {
     path: '/home',
     getPage: () => <Homepage />,
-  }, // ET
+  },
   AuthPage: {
     path: '/auth',
     getPage: () => <AuthPage />,
-  }, // ET
+  },
   Welcome: {
     path: '/welcome',
     getPage: () => <Welcome />,
-  }, // ET
-  RequestVirtualVisit: {
-    path: '/request-virtual-visit',
-    getPage: () => <RequestVirtualVisit />,
-  }, // ET
+  },
+  WalkinLanding: {
+    path: '/walkin/schedule/:id',
+    getPage: () => <WalkinLanding />,
+  },
+  WalkinLandingByLocationName: {
+    path: '/walkin/location/:name',
+    getPage: () => <WalkinLanding />,
+  },
   Appointments: {
     path: '/visits',
     getPage: () => <Appointments />,
-  }, // IP
+  },
+  MyPatients: {
+    path: '/my-patients',
+    getPage: () => <MyPatients />,
+  },
   PastVisits: {
-    path: '/past-visits',
+    path: '/my-patients/:patientId/past-visits',
     getPage: () => <PastVisits />,
-  }, // ET, IP
+  },
   VisitDetails: {
-    path: '/visit-details',
+    path: '/my-patients/:patientId/past-visits/:visitId',
     getPage: () => <VisitDetails />,
-  }, // ET, IP
+  },
 
   // paperwork routers
   PaperworkHomeRoute: {
     path: paperworkBasePath,
     getPage: () => <PaperworkHome />,
-  }, // IP
+  },
   PaperworkInformation: {
     path: `${paperworkBasePath}/:slug`,
     getPage: () => <PaperworkPage />,
-  }, // IP
+  },
   ReviewPaperwork: {
     path: `${paperworkBasePath}/review`,
     getPage: () => <ReviewPaperwork />,
-  }, // IP
+  },
 
   // visit routes
   ThankYou: {
     path: visitBasePath,
     getPage: () => <ThankYou />,
-  }, // IP
+  },
   CheckIn: {
     path: `${visitBasePath}/check-in`,
     getPage: () => <CheckIn />,
-  }, // IP
+  },
   Reschedule: {
     path: `${visitBasePath}/reschedule`,
     getPage: () => <Reschedule />,
-  }, // IP
+  },
   CancellationConfirmation: {
     path: `${visitBasePath}/cancellation-confirmation`,
     getPage: () => <CancellationConfirmation />,
-  }, // IP
+  },
   CancellationReason: {
     path: `${visitBasePath}/cancel`,
     getPage: () => <CancellationReason />,
-  }, // IP
+  },
   AIInterview: {
     path: `${visitBasePath}/ai-interview`,
     getPage: () => <AIInterview />,
-  }, // IP
-
-  // telemed
-  TelemedSelectPatient: {
-    path: '/select-patient',
-    getPage: () => <TelemedSelectPatient />,
-  }, // ET
-  TelemedConfirmDateOfBirth: {
-    path: '/confirm-date-of-birth',
-    getPage: () => <TelemedConfirmDateOfBirth />,
-  }, // ET
+  },
   TelemedGetReadyForVisit: {
     path: '/paperwork/get-ready-for-the-visit',
     getPage: () => <GetReadyForVisit />,
-  }, // ET
-  TelemedPatientInformation: {
-    path: '/about-patient',
-    getPage: () => <TelemedPatientInformation />,
-  }, // ET
-  // PatientCondition: {
-  //   path: '/paperwork/patient-condition',
-  //   getPage: () => <PatientCondition />,
-  // }, // ET
-  // PaymentOption: {
-  //   path: '/paperwork/payment-option',
-  //   getPage: () => <PaymentOption />,
-  // }, // ET
-  // PaperworkPage: {
-  //   path: '/paperwork/:slug',
-  //   getPage: () => <TelemedPaperworkPage />,
-  // }, // ET
-  // PersonAccompanying: {
-  //   path: '/paperwork/person-accompanying-the-minor-patient',
-  //   getPage: () => <PersonAccompanying />,
-  // }, // ET
-  TelemedPaperworkHomeRoute: {
-    path: telemedPaperworkBasePath,
-    getPage: () => <TelemedPaperworkHome />,
-  }, // ET
-  TelemedPaperworkInformation: {
-    path: `${telemedPaperworkBasePath}/:slug`,
-    getPage: () => <TelemedPaperworkPage />,
-  }, // ET
+  },
   WaitingRoom: {
     path: '/waiting-room',
     getPage: () => <WaitingRoom />,
-  }, // ET
+  },
   InvitedWaitingRoom: {
     path: '/invited-waiting-room',
     getPage: () => <WaitingRoom />,
-  }, // ET
-  TelemedReviewPaperwork: {
-    path: `${telemedPaperworkBasePath}/review`,
-    getPage: () => <TelemedReviewPaperwork />,
-  }, // ET
+  },
   VideoCall: {
     path: '/video-call',
     getPage: () => <VideoChatPage />,
-  }, // ET
+  },
   InvitedVideoCall: {
     path: '/invited-video-call',
     getPage: () => <VideoChatPage />,
-  }, // ET
+  },
   CallEnded: {
     path: '/call-ended',
     getPage: () => <CallEndedPage />,
-  }, // ET
+  },
   InvitedCallEnded: {
     path: '/invited-call-ended',
     getPage: () => <CallEndedPage />,
-  }, // ET
+  },
 
   IOSPatientPhotosEdit: {
     path: '/ios-patient-photos',
     getPage: () => <IOSPatientPhotosEditPage />,
-  }, // ET
+  },
   IOSPatientManageParticipants: {
     path: '/ios-manage-participants',
     getPage: () => <IOSPatientManageParticipantsPage />,
-  }, // ET
+  },
   IOSVideoCallMenu: {
     path: '/ios-video-call-menu',
     getPage: () => <IOSVideoCallMenu />,
-  }, // ET
+  },
   IOSCallEnded: {
     path: '/ios-call-ended',
     getPage: () => <IOSCallEndedPage />,
-  }, // ET
+  },
 
   // booking routes
   PrebookVisit: {
@@ -260,43 +219,39 @@ export const intakeFlowPageRoute = {
     path: `/prebook/:${BOOKING_SERVICE_MODE_PARAM}`,
     getPage: () => <PrebookVisit />,
   },
-  WelcomeType: {
+  StartVirtualVisit: {
+    path: '/start-virtual',
+    getPage: () => <StartVirtualVisit />,
+  },
+  BookingHome: {
     path: bookingBasePath,
     getPage: () => <BookingHome />,
-  }, // IP
-  WelcomeBack: {
+  },
+  ChoosePatient: {
     path: `${bookingBasePath}/patients`,
     getPage: () => <WelcomeBack />,
-  }, // IP
+  },
   GetReadyForVisit: {
     path: `${bookingBasePath}/get-ready`,
     getPage: () => <GetReadyForVisit />,
-  }, // IP
+  },
   ConfirmDateOfBirth: {
     path: `${bookingBasePath}/confirm-date-of-birth`,
     getPage: () => <ConfirmDateOfBirth />,
-  }, // IP
+  },
   PatientInformation: {
     path: `${bookingBasePath}/patient-information`,
     getPage: () => <PatientInformation />,
-  }, // IP
+  },
   Review: {
     path: `${bookingBasePath}/review`,
     getPage: () => <Review />,
-  }, // IP
+  },
   NewUser: {
     path: `${bookingBasePath}/new-user`,
     getPage: () => <NewUser />,
-  }, // IP
+  },
 } as const;
-
-// export const FORM_PAGES = [
-//   intakeFlowPageRoute.NewUser,
-//   intakeFlowPageRoute.PatientInformation,
-//   intakeFlowPageRoute.Review,
-//   intakeFlowPageRoute.ReviewPaperwork,
-//   intakeFlowPageRoute.ConfirmDateOfBirth,
-// ];
 
 function App(): JSX.Element {
   useIOSAppSync();
@@ -361,29 +316,17 @@ function App(): JSX.Element {
                 }
               >
                 <Route path="/" element={<UserFlowRoot />} />
-                <Route
-                  path={intakeFlowPageRoute.RequestVirtualVisit.path}
-                  element={intakeFlowPageRoute.RequestVirtualVisit.getPage()}
-                />
                 <Route path={intakeFlowPageRoute.Homepage.path} element={intakeFlowPageRoute.Homepage.getPage()} />
-                <Route
-                  path={intakeFlowPageRoute.TelemedSelectPatient.path}
-                  element={intakeFlowPageRoute.TelemedSelectPatient.getPage()}
-                />
-                <Route path={intakeFlowPageRoute.PastVisits.path} element={intakeFlowPageRoute.PastVisits.getPage()} />
-                <Route
-                  path={intakeFlowPageRoute.VisitDetails.path}
-                  element={intakeFlowPageRoute.VisitDetails.getPage()}
-                />
-                <Route
-                  path={intakeFlowPageRoute.TelemedConfirmDateOfBirth.path}
-                  element={intakeFlowPageRoute.TelemedConfirmDateOfBirth.getPage()}
-                />
-                <Route
-                  path={intakeFlowPageRoute.TelemedPatientInformation.path}
-                  element={intakeFlowPageRoute.TelemedPatientInformation.getPage()}
-                />
-
+                <Route path={intakeFlowPageRoute.MyPatients.path} element={intakeFlowPageRoute.MyPatients.getPage()}>
+                  <Route
+                    path={intakeFlowPageRoute.PastVisits.path}
+                    element={intakeFlowPageRoute.PastVisits.getPage()}
+                  />
+                  <Route
+                    path={intakeFlowPageRoute.VisitDetails.path}
+                    element={intakeFlowPageRoute.VisitDetails.getPage()}
+                  />
+                </Route>
                 <Route
                   path={intakeFlowPageRoute.WaitingRoom.path}
                   element={intakeFlowPageRoute.WaitingRoom.getPage()}
@@ -392,39 +335,6 @@ function App(): JSX.Element {
                   path={intakeFlowPageRoute.TelemedGetReadyForVisit.path}
                   element={intakeFlowPageRoute.TelemedGetReadyForVisit.getPage()}
                 />
-                <Route
-                  path={intakeFlowPageRoute.TelemedPaperworkHomeRoute.path}
-                  element={intakeFlowPageRoute.TelemedPaperworkHomeRoute.getPage()}
-                >
-                  <Route
-                    path={intakeFlowPageRoute.TelemedPaperworkInformation.path}
-                    element={intakeFlowPageRoute.TelemedPaperworkInformation.getPage()}
-                  />
-                  <Route
-                    path={intakeFlowPageRoute.TelemedReviewPaperwork.path}
-                    element={intakeFlowPageRoute.TelemedReviewPaperwork.getPage()}
-                  />
-                </Route>
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PatientCondition.path}*/}
-                {/*  element={intakeFlowPageRoute.PatientCondition.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PaymentOption.path}*/}
-                {/*  element={intakeFlowPageRoute.PaymentOption.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PaperworkPage.path}*/}
-                {/*  element={intakeFlowPageRoute.PaperworkPage.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.PersonAccompanying.path}*/}
-                {/*  element={intakeFlowPageRoute.PersonAccompanying.getPage()}*/}
-                {/*/>*/}
-                {/*<Route*/}
-                {/*  path={intakeFlowPageRoute.TelemedReviewPaperwork.path}*/}
-                {/*  element={intakeFlowPageRoute.TelemedReviewPaperwork.getPage()}*/}
-                {/*/>*/}
                 <Route path={intakeFlowPageRoute.VideoCall.path} element={intakeFlowPageRoute.VideoCall.getPage()} />
                 <Route path={intakeFlowPageRoute.CallEnded.path} element={intakeFlowPageRoute.CallEnded.getPage()} />
               </Route>
@@ -433,13 +343,25 @@ function App(): JSX.Element {
                 element={intakeFlowPageRoute.PrebookVisit.getPage()}
               />
               <Route
+                path={intakeFlowPageRoute.WalkinLanding.path}
+                element={intakeFlowPageRoute.WalkinLanding.getPage()}
+              />
+              <Route
+                path={intakeFlowPageRoute.WalkinLandingByLocationName.path}
+                element={intakeFlowPageRoute.WalkinLandingByLocationName.getPage()}
+              />
+              <Route
+                path={intakeFlowPageRoute.StartVirtualVisit.path}
+                element={intakeFlowPageRoute.StartVirtualVisit.getPage()}
+              />
+              <Route
                 path={intakeFlowPageRoute.PrebookVisitDynamic.path}
                 element={intakeFlowPageRoute.PrebookVisitDynamic.getPage()}
               />
-              <Route path={intakeFlowPageRoute.WelcomeType.path} element={intakeFlowPageRoute.WelcomeType.getPage()}>
+              <Route path={intakeFlowPageRoute.BookingHome.path} element={intakeFlowPageRoute.BookingHome.getPage()}>
                 <Route
-                  path={intakeFlowPageRoute.WelcomeBack.path}
-                  element={intakeFlowPageRoute.WelcomeBack.getPage()}
+                  path={intakeFlowPageRoute.ChoosePatient.path}
+                  element={intakeFlowPageRoute.ChoosePatient.getPage()}
                 />
                 <Route
                   path={intakeFlowPageRoute.GetReadyForVisit.path}

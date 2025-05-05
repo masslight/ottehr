@@ -7,7 +7,6 @@ import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
-  CreateAppointmentUCTelemedResponse,
   createSamplePrebookAppointments,
   createSampleTelemedAppointments,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
@@ -140,17 +139,11 @@ export class ResourceHandler {
 
     this.#initPromise = this.initApi();
 
-    if (flow === 'in-person') {
-      this.#createAppointmentZambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
-      return;
+    if (flow === 'telemed' || flow === 'in-person') {
+      this.#createAppointmentZambdaId = 'create-appointment';
+    } else {
+      throw new Error('❌ Invalid flow name');
     }
-
-    if (flow === 'telemed') {
-      this.#createAppointmentZambdaId = process.env.CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID!;
-      return;
-    }
-
-    throw new Error('❌ Invalid flow name');
   }
 
   private async initApi(): Promise<void> {
@@ -161,14 +154,14 @@ export class ResourceHandler {
     this.#apiClient = new Oystehr({
       accessToken: this.#authToken,
       fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.AUTH0_AUDIENCE,
+      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
     });
   }
 
-  private async createAppointment(
-    inputParams?: CreateTestAppointmentInput
-  ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
+  private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     await this.#initPromise;
+
+    console.log('create appointment params', JSON.stringify(inputParams, null, 2));
 
     try {
       const address: Address = {
@@ -190,6 +183,8 @@ export class ResourceHandler {
         address: [address],
       };
 
+      console.log('patientData', patientData);
+
       if (!process.env.PROJECT_API_ZAMBDA_URL) {
         throw new Error('PROJECT_API_ZAMBDA_URL is not set');
       }
@@ -205,6 +200,8 @@ export class ResourceHandler {
       if (!process.env.PROJECT_ID) {
         throw new Error('PROJECT_ID is not set');
       }
+
+      console.log('resource handler flow', this.#flow);
 
       // Create appointment and related resources using zambda
       const appointmentData =
@@ -246,7 +243,7 @@ export class ResourceHandler {
         console.log(`✅ created relatedPerson: ${appointmentData.relatedPersonId}`);
       }
 
-      return appointmentData;
+      return appointmentData as CreateAppointmentResponse;
     } catch (error) {
       console.error('❌ Failed to create resources:', error);
       throw error;
@@ -409,13 +406,13 @@ export class ResourceHandler {
   }
 
   private findResourceByType<T>(resourceType: string): T {
-    const resourse = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
+    const resource = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
 
-    if (!resourse) {
+    if (!resource) {
       throw new Error(`Resource ${resourceType} not found in the resources`);
     }
 
-    return resourse;
+    return resource;
   }
 
   async cleanupAppointmentsForPatient(patientId: string): Promise<void> {

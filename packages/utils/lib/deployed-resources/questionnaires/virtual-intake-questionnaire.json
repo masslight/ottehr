@@ -3,7 +3,7 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
     "title": "virtual pre-visit paperwork",
     "status": "active",

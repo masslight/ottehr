@@ -135,10 +135,9 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
       await expect(locator.patientRelationship).toHaveValue(
         filledPaperwork.insuranceData!.insuranceRequiredData.relationship
       );
-      // TODO: Need to uncomment when https://github.com/masslight/ottehr/issues/1987 is fixed
-      //   await expect(locator.policyHolderBirthSex).toHaveValue(
-      //     filledPaperwork.insuranceData!.insuranceRequiredData.birthSex
-      //   );
+      await expect(locator.policyHolderBirthSex).toHaveValue(
+        filledPaperwork.insuranceData!.insuranceRequiredData.birthSex
+      );
 
       await expect(locator.policyHolderAddress).toHaveValue(
         filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderAddress

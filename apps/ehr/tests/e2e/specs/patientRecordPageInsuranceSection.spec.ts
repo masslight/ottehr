@@ -73,8 +73,6 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'Bob';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Common Law Spouse';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'AK';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '78956';
-const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
-const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
 const NEW_PATIENT_INSURANCE_CARRIER = '6 Degrees Health Incorporated';
 const NEW_PATIENT_INSURANCE_CARRIER_2 = 'AAA - Minnesota/Iowa';
 
@@ -330,6 +328,31 @@ test.describe('Insurance Information Section mutating tests', () => {
     /*await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
     );*/
+  });
+
+  test('Check [Add insurance] button is hidden when both primary and secondary insurances are present,[Add insurance] button is present if primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Primary"', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyAddInsuranceButtonIsHidden();
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    await primaryInsuranceCard.clickShowMoreButton();
+    await primaryInsuranceCard.clickRemoveInsuranceButton();
+    await patientInformationPage.verifyCoverageRemovedMessageShown();
+    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
+    await addInsuranceDialog.verifyTypeField('Primary', false);
+  });
+
+  test('Check [Add insurance] button is present if Primary insurance is removed and "Type" on "Add insurance" screen is pre-filled with "Secondary"', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+    await secondaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.clickRemoveInsuranceButton();
+    await patientInformationPage.verifyCoverageRemovedMessageShown();
+    const addInsuranceDialog = await patientInformationPage.clickAddInsuranceButton();
+    await addInsuranceDialog.verifyTypeField('Secondary', false);
   });
 });
 

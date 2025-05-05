@@ -1,6 +1,6 @@
 import { Stack } from '@mui/system';
-import React, { useState } from 'react';
-import { LabOrderDetailedPageDTO, UpdateLabOrderResourceParams, LabOrderResultDetails } from 'utils';
+import React from 'react';
+import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters, TaskReviewedParameters } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { ResultItem } from './ResultItem';
 import { Button, Typography } from '@mui/material';
@@ -9,25 +9,16 @@ import { OrderCollection } from '../OrderCollection';
 
 export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
-  updateTask: (params: UpdateLabOrderResourceParams) => Promise<void>;
-}> = ({ labOrder, updateTask }) => {
+  markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
+  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+  loading: boolean;
+}> = ({ labOrder, markTaskAsReviewed, saveSpecimenDate, loading }) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState<boolean>(false);
 
   const handleBack = (): void => {
     navigate(-1);
   };
 
-  const markAsReviewed = async (result: LabOrderResultDetails): Promise<void> => {
-    setLoading(true);
-    await updateTask({
-      taskId: result.taskId,
-      serviceRequestId: labOrder.serviceRequestId,
-      diagnosticReportId: result.diagnosticReportId,
-      event: 'reviewed',
-    });
-    setLoading(false);
-  };
   return (
     <div style={{ maxWidth: '890px', width: '100%', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
@@ -39,14 +30,26 @@ export const DetailsWithResults: React.FC<{
 
         {labOrder.resultsDetails.map((result) => (
           <ResultItem
-            onMarkAsReviewed={() => markAsReviewed(result)}
+            onMarkAsReviewed={() =>
+              markTaskAsReviewed({
+                taskId: result.taskId,
+                serviceRequestId: labOrder.serviceRequestId,
+                diagnosticReportId: result.diagnosticReportId,
+              })
+            }
             resultDetails={result}
             labOrder={labOrder}
             loading={loading}
           />
         ))}
 
-        <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
+        <OrderCollection
+          showActionButtons={false}
+          showOrderInfo={false}
+          isAOECollapsed={true}
+          labOrder={labOrder}
+          saveSpecimenDate={saveSpecimenDate}
+        />
 
         <Button
           variant="outlined"
