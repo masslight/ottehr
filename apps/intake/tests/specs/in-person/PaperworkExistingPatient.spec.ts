@@ -135,22 +135,21 @@ test.describe('Check paperwork is prefilled for existing patient. Payment - insu
       //   filledPaperwork.insuranceData!.insuranceRequiredData.birthSex
       // );
 
-      // TODO: Need to uncomment when https://github.com/masslight/ottehr/issues/1936 is fixed
-      // await expect(locator.policyHolderAddress).toHaveValue(
-      //   filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderAddress
-      // );
-      // await expect(locator.policyHolderCity).toHaveValue(
-      //   filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderCity
-      // );
-      // await expect(locator.policyHolderState).toHaveValue(
-      //   filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderState
-      // );
-      // await expect(locator.policyHolderZip).toHaveValue(
-      //   filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderZip
-      // );
-      // await expect(locator.policyHolderAddressLine2).toHaveValue(
-      //   filledPaperwork.insuranceData!.insuranceOptionalData.policyHolderAddressLine2
-      // );
+      await expect(locator.policyHolderAddress).toHaveValue(
+        filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderAddress
+      );
+      await expect(locator.policyHolderCity).toHaveValue(
+        filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderCity
+      );
+      await expect(locator.policyHolderState).toHaveValue(
+        filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderState
+      );
+      await expect(locator.policyHolderZip).toHaveValue(
+        filledPaperwork.insuranceData!.insuranceRequiredData.policyHolderZip
+      );
+      await expect(locator.policyHolderAddressLine2).toHaveValue(
+        filledPaperwork.insuranceData!.insuranceOptionalData.policyHolderAddressLine2
+      );
     });
   });
   // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1938 is fixed

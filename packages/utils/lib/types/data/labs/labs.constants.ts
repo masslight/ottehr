@@ -12,6 +12,7 @@ export const LAB_ORDER_TASK = {
     presubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
+    reviewCorrectedResult: 'RCRT',
   },
 } as const;
 
