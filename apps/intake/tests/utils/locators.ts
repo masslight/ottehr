@@ -521,6 +521,15 @@ export class Locators {
     return this.page.locator(`input[value='${value}']`);
   }
 
+  async waitUntilLoadingIsFinished(): Promise<void> {
+    await this.page.getByText('Loading...').waitFor({ state: 'hidden' });
+  }
+
+  async continueOrDifferentFamilyMember(): Promise<void> {
+    (await this.differentFamilyMember.isEnabled())
+      ? await this.selectDifferentFamilyMember()
+      : await this.clickContinueButton();
+  }
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });
   }
