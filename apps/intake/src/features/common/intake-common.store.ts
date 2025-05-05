@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { AvailableLocationInformation } from '../../api/zapehrApi';
+import { AvailableLocationInformation } from '../../api/ottehrApi';
 
 interface IntakeCommonState {
   networkError: boolean;

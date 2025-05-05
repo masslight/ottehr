@@ -25,14 +25,16 @@ const virtualLocations: { value: string; label: string }[] = [
   ...TELEMED_INITIAL_STATES.map((state) => ({ value: state, label: state })),
 ];
 
-const allPhysicalLocations: { state: string; city: string }[] = [
+const allPhysicalLocations: { state: string; city: string, name: string }[] = [
   {
     state: 'NY',
     city: 'New York',
+    name: 'New York',
   },
   {
     state: 'CA',
     city: 'Los Angeles',
+    name: 'Los Angeles',
   },
 ];
 export type PhysicalLocation = (typeof allPhysicalLocations)[number];
@@ -156,15 +158,19 @@ const createPhysicalLocation = async (
     resourceType: 'Location',
     params: [
       {
-        name: 'name',
-        value: `${locationInfo.city}, ${locationInfo.state}`,
+        name: 'address-state',
+        value: locationInfo.state,
+      },
+      {
+        name: 'address-city',
+        value: locationInfo.city,
       },
     ],
   });
 
   if (!prevLocations.entry?.length) {
     const newLocation = defaultLocation;
-    newLocation.name = `${locationInfo.city}, ${locationInfo.state}`;
+    newLocation.name = locationInfo.name;
     newLocation.address = {
       city: locationInfo.city,
       state: locationInfo.state,
@@ -176,16 +182,10 @@ const createPhysicalLocation = async (
         value: `${locationInfo.city}-${locationInfo.state}`.replace(/\s/g, ''), // remove whitespace from the name
       },
     ];
-
-    // todo: remove once the walkin in-person flow is not dependant on having a slug of 'testing'
-    if (locationInfo.city == 'New York' && locationInfo.state == 'NY') {
-      newLocation.identifier = [
-        {
-          system: SLUG_SYSTEM,
-          value: DEFAULT_TESTING_SLUG,
-        },
-      ];
-    }
+    newLocation.extension = [{
+      url: TIMEZONE_EXTENSION_URL,
+      valueString: 'America/New_York',
+    }];
 
     const createLocationRequest: BatchInputPostRequest<Location> = {
       method: 'POST',
@@ -223,9 +223,11 @@ const createPhysicalLocation = async (
       resource: locationSchedule,
     };
 
-    return await oystehr.fhir.transaction<Location | Schedule>({
+    const results =  await oystehr.fhir.transaction<Location | Schedule>({
       requests: [createLocationRequest, createScheduleRequest],
     });
+
+    return results;
   } else {
     console.log(`Location already exists.`);
     return null;

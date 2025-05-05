@@ -1,55 +1,49 @@
 import { InfoOutlined } from '@mui/icons-material';
 import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
-import { useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BoldPurpleInputLabel, CustomTooltip, PageForm } from 'ui-components';
+import { useMemo, useState } from 'react';
+import { generatePath, useNavigate } from 'react-router-dom';
 import {
+  BoldPurpleInputLabel,
+  CustomTooltip,
+  ErrorDialog,
+  ErrorDialogConfig,
+  PageForm,
+  useUCZambdaClient,
+} from 'ui-components';
+import {
+  APIError,
   checkTelemedLocationAvailability,
+  CreateSlotParams,
+  isApiError,
+  ServiceMode,
   stateCodeToFullName,
   TelemedLocation,
   telemedStateWorkingSchedule,
 } from 'utils';
-import { intakeFlowPageRoute } from '../../App';
-import { otherColors } from '../../IntakeThemeProvider';
-import { useAppointmentUpdate, useGetTelemedStates } from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import { useTelemedLocation } from '../features/locationState';
-import { useZapEHRAPIClient } from '../utils';
+import { bookingBasePath, intakeFlowPageRoute } from '../App';
+import { otherColors } from '../IntakeThemeProvider';
+import { useGetTelemedStates } from '../telemed/features/appointments';
+import { useZapEHRAPIClient } from '../telemed/utils';
+import { PageContainer } from '../components';
+import { DateTime } from 'luxon';
+import ottehrApi from '../api/ottehrApi';
 
 const emptyArray: [] = [];
 
-const RequestVirtualVisit = (): JSX.Element => {
+const StartVirtualVisit = (): JSX.Element => {
   const navigate = useNavigate();
-  const location = useLocation();
   const theme = useTheme();
   const [selectedLocation, setSelectedLocation] = useState<TelemedLocation | null>(null);
-  const { getAppointmentNextUpdateType } = useAppointmentUpdate();
-  const canUpdateLocation = getAppointmentNextUpdateType() === 'update';
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
 
   const apiClient = useZapEHRAPIClient();
   const { data: locationsResponse } = useGetTelemedStates(apiClient, Boolean(apiClient));
+  const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
-  const {
-    location: telemedLocation,
-    isLocationInitialized,
-    updateLocation,
-    updateLocationAvailabilityByWorkingHours,
-  } = useTelemedLocation();
-
-  const [searchParams] = useSearchParams();
-  const flowParam = searchParams.get('flow');
   const telemedStates = locationsResponse?.locations || emptyArray;
-  const { t } = useTranslation();
-
-  // set previous selected location to UI selector
-  useEffect(() => {
-    if (telemedLocation?.available) {
-      setSelectedLocation(telemedLocation);
-    }
-  }, [telemedLocation]);
 
   const handleStateChange = (_e: any, newValue: TelemedLocation | null): void => {
     setSelectedLocation(newValue);
@@ -57,51 +51,41 @@ const RequestVirtualVisit = (): JSX.Element => {
 
   const onSubmit = async (): Promise<void> => {
     try {
-      if (!selectedLocation?.state) {
+      if (!selectedLocation?.state || !tokenlessZambdaClient) {
         return;
+      }
+
+      const createSlotInput: CreateSlotParams = {
+        scheduleId: selectedLocation.scheduleId,
+        startISO: DateTime.now().toISO(),
+        serviceModality: ServiceMode.virtual,
+        lengthInMinutes: 15,
+        status: 'busy-tentative',
+        walkin: true,
+      };
+
+      try {
+        const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
+        console.log('createSlotResponse', slot);
+        const basePath = generatePath(bookingBasePath, {
+          slotId: slot.id!,
+        });
+        navigate(`${basePath}/patients`);
+      } catch (error) {
+        console.error('Error creating slot:', error);
+        let errorMessage = 'Sorry, this virtual service may not be available at the moment.';
+        if (isApiError(error)) {
+          errorMessage = (error as APIError).message;
+        }
+        setErrorDialogConfig({
+          title: 'Error starting virtual visit',
+          description: errorMessage,
+          closeButtonText: 'Ok',
+        });
       }
 
       setIsSubmitting(true);
-
-      /**
-       * If the user has been on the page for too long, the location availability
-       * might have changed, so we need to check it again.
-       *
-       * The telemed location might also have been changed by an admin, but we
-       * defer checking this until the review page to avoid an additional GET request.
-       */
-      const actualizedLocation = updateLocationAvailabilityByWorkingHours(selectedLocation);
-
-      if (!actualizedLocation?.available) {
-        setSelectedLocation(null);
-        useIntakeCommonStore.setState({ error: `${selectedLocation.state} state is closed now` });
-        return;
-      }
-
-      if (canUpdateLocation) {
-        // we can update appointment and location only if appointment created already
-        const updateResult = await updateLocation(selectedLocation.state);
-        if (updateResult?.status === 'error') {
-          throw new Error('location is not updated');
-        }
-      } else {
-        /**
-         * We can't update the location if the appointment hasn't been created yet.
-         * In this case, we save the location to the store to use it later during
-         * appointment creation. After the appointment is created, we will clear
-         * the location from the store. This is the only case when we need to have
-         * the location in the store.
-         */
-        useIntakeCommonStore.setState({ selectedLocationState: selectedLocation.state });
-      }
-
-      const query = flowParam ? `?flow=${flowParam}` : '';
-
-      navigate(`${intakeFlowPageRoute.TelemedPatientInformation.path}${query}`, {
-        state: { patientId: location?.state?.patientId },
-      });
     } catch (error) {
-      useIntakeCommonStore.setState({ error: t('general.errors.general') });
       console.error(error);
     } finally {
       setIsSubmitting(false);
@@ -129,6 +113,7 @@ const RequestVirtualVisit = (): JSX.Element => {
           available: serverState ? checkTelemedLocationAvailability(serverState) : false,
           workingHours: (Boolean(serverState?.available) && telemedStateWorkingSchedule[stateCode]) || null,
           fullName: stateCodeToFullName[stateCode] || stateCode,
+          scheduleId: serverState?.scheduleId || '',
         };
       })
       .sort((a, b) => {
@@ -137,20 +122,15 @@ const RequestVirtualVisit = (): JSX.Element => {
       });
   }, [telemedStates]);
 
-  console.log(
-    'isLocationInitialized, sortedStates, telemedStates',
-    isLocationInitialized,
-    sortedStates?.length,
-    telemedStates?.length
-  );
+  console.log('sortedStates, telemedStates', sortedStates?.length, telemedStates?.length);
 
   return (
-    <CustomContainer title="Request a Virtual Visit" imgAlt="Chat icon">
+    <PageContainer title="Request a Virtual Visit" imgAlt="Chat icon">
       <Typography variant="body1">
         We're pleased to offer this new technology for accessing care. You will need to enter your information just
         once. Next time you return, it will all be here for you!
       </Typography>
-      {!isLocationInitialized || !sortedStates?.length || !telemedStates?.length ? (
+      {!sortedStates?.length || !telemedStates?.length ? (
         <Skeleton
           sx={{
             borderRadius: 2,
@@ -245,8 +225,15 @@ const RequestVirtualVisit = (): JSX.Element => {
         }}
         onSubmit={onSubmit}
       />
-    </CustomContainer>
+      <ErrorDialog
+        open={!!errorDialogConfig}
+        title={errorDialogConfig?.title || ''}
+        description={errorDialogConfig?.description || ''}
+        closeButtonText={errorDialogConfig?.closeButtonText || ''}
+        handleClose={() => setErrorDialogConfig(undefined)}
+      />
+    </PageContainer>
   );
 };
 
-export default RequestVirtualVisit;
+export default StartVirtualVisit;
