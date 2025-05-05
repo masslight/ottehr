@@ -347,7 +347,7 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
   // namely, if the test is reflex and also lets us grab the related service request which has info on the test & lab name, needed for results display
   const docRefSearch: BatchInputGetRequest = {
     method: 'GET',
-    url: `/DocumentReference?type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
+    url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
   };
   // Grabbing active lab service requests seperately since they might not have results
   // but we validate against actually signing the progress note if there are any pending

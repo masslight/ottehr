@@ -1,6 +1,6 @@
 import { Stack } from '@mui/system';
-import React from 'react';
-import { LabOrderDetailedPageDTO, UpdateLabOrderResourceParams } from 'utils';
+import React, { useState } from 'react';
+import { LabOrderDetailedPageDTO, UpdateLabOrderResourceParams, LabOrderResultDetails } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { ResultItem } from './ResultItem';
 import { Button, Typography } from '@mui/material';
@@ -12,11 +12,22 @@ export const DetailsWithResults: React.FC<{
   updateTask: (params: UpdateLabOrderResourceParams) => Promise<void>;
 }> = ({ labOrder, updateTask }) => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState<boolean>(false);
 
   const handleBack = (): void => {
     navigate(-1);
   };
 
+  const markAsReviewed = async (result: LabOrderResultDetails): Promise<void> => {
+    setLoading(true);
+    await updateTask({
+      taskId: result.taskId,
+      serviceRequestId: labOrder.serviceRequestId,
+      diagnosticReportId: result.diagnosticReportId,
+      event: 'reviewed',
+    });
+    setLoading(false);
+  };
   return (
     <div style={{ maxWidth: '890px', width: '100%', margin: '0 auto' }}>
       <Stack spacing={2} sx={{ p: 3 }}>
@@ -28,16 +39,10 @@ export const DetailsWithResults: React.FC<{
 
         {labOrder.resultsDetails.map((result) => (
           <ResultItem
-            onMarkAsReviewed={() =>
-              updateTask({
-                taskId: result.taskId,
-                serviceRequestId: labOrder.serviceRequestId,
-                diagnosticReportId: result.diagnosticReportId,
-                event: 'reviewed',
-              })
-            }
+            onMarkAsReviewed={() => markAsReviewed(result)}
             resultDetails={result}
             labOrder={labOrder}
+            loading={loading}
           />
         ))}
 
