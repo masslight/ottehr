@@ -73,7 +73,7 @@ export class AddInsuranceDialog {
 
   async selectPolicyHoldersBirthSex(birthSex: string): Promise<void> {
     await this.#container.getByTestId(dataTestIds.addInsuranceDialog.policyHoldersSex).click();
-    await this.#container.page().locator(`li:text("${birthSex}")`).click();
+    await this.#container.page().locator(`li:text-is("${birthSex}")`).click();
   }
 
   async enterPolicyHolderStreetAddress(street: string): Promise<void> {
