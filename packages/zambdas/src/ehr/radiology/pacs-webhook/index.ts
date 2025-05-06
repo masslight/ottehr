@@ -17,6 +17,7 @@ import {
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
 } from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
@@ -137,27 +138,26 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequestR5, oy
     },
   ];
 
-  // The idea is that the first time we get a ServiceRequest from AdvaPACS with the performer, that should also be moment that the request was performed.
-  if (advaPacsServiceRequest.performer) {
-    // TODO make a good plan for practitioner sync
-    // operations.push({
-    //   op: 'add',
-    //   path: '/performer',
-    //   value: resource.performer,
-    // });
-    if (!srToUpdate.performer) {
+  // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time that the order was performed.
+  if (advaPacsServiceRequest.status === 'completed') {
+    if (srToUpdate.status !== 'completed') {
       operations.push({
         op: 'add',
-        path: '/extension',
-        value: [
-          {
-            url: 'performedOn',
-            valueDateTime: DateTime.now().toISO(),
-          },
-        ],
+        path: '/extension/-',
+        value: {
+          url: SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+          valueDateTime: DateTime.now().toISO(),
+        },
       });
     }
   }
+
+  // TODO make a good plan for practitioner sync
+  // operations.push({
+  //   op: 'add',
+  //   path: '/performer',
+  //   value: resource.performer,
+  // });
 
   const patchResponse = await oystehr.fhir.patch<ServiceRequest>({
     resourceType: 'ServiceRequest',
