@@ -73,11 +73,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await oystehr.fax.send({
       media,
       quality: 'standard',
+      patient: `Patient/${patientId}`,
+      recipientNumber: faxNumber,
       sender: `Organization/${organizationId}`,
-      // TODO pending hotfix
-      recipient: 'HealthcareService/a98207f4-ce62-4d62-b001-3b334fbbfdb5',
-      // recipientNumber: faxNumber,
-      // subject: `Patient/${patientId}`,
     });
     console.log('Fax sent successfully');
 
