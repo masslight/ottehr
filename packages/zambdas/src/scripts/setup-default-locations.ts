@@ -60,8 +60,6 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   }
 };
 
-const TELEMED_VIRTUAL_LOCATION_CODE_SYSTEM = 'https://fhir.pmpediatriccare.com/r4/location-code';
-
 const createTelemedLocation = async (
   virtualLocation: { state: string; label: string },
   stateData: VirtualLocationBody,
@@ -94,18 +92,6 @@ const createTelemedLocation = async (
       },
     ],
     // managing organization will be added later after organizations are created
-    type: stateData.code
-      ? [
-          {
-            coding: [
-              {
-                system: TELEMED_VIRTUAL_LOCATION_CODE_SYSTEM,
-                code: stateData.code,
-              },
-            ],
-          },
-        ]
-      : undefined,
     name: stateData.name,
   };
   const createLocationRequest: BatchInputPostRequest<Location> = {
