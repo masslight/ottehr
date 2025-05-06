@@ -14,6 +14,7 @@ import {
   ACCESSION_NUMBER_CODE_SYSTEM,
   ADVAPACS_FHIR_BASE_URL,
   ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM,
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM,
   HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER,
   ORDER_TYPE_CODE_SYSTEM,
@@ -140,7 +141,10 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequestR5, oy
 
   // The idea is that the first time we get a ServiceRequest in the completed state, that should be the time that the order was performed.
   if (advaPacsServiceRequest.status === 'completed') {
-    if (srToUpdate.status !== 'completed') {
+    if (
+      srToUpdate.status !== 'completed' &&
+      srToUpdate.extension?.find((e) => e.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL) == null
+    ) {
       operations.push({
         op: 'add',
         path: '/extension/-',
@@ -164,7 +168,7 @@ const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequestR5, oy
     id: srToUpdate.id,
     operations,
   });
-  console.log('Patch succeeded: ', patchResponse);
+  console.log('Patch succeeded: ', JSON.stringify(patchResponse, null, 2));
 };
 
 const handleDiagnosticReport = async (
@@ -367,6 +371,15 @@ const createOurDiagnosticReport = async (
     presentedForm: pacsDiagnosticReport.presentedForm,
   };
 
+  if (pacsDiagnosticReport.status === 'preliminary') {
+    diagnosticReportToCreate.extension = [
+      {
+        url: DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+        valueDateTime: DateTime.now().toISO(),
+      },
+    ];
+  }
+
   const createResult = await oystehr.fhir.create<DiagnosticReport>(diagnosticReportToCreate);
-  console.log('Created our DiagnosticReport: ', createResult);
+  console.log('Created our DiagnosticReport: ', JSON.stringify(createResult, null, 2));
 };
