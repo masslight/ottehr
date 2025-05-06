@@ -105,6 +105,7 @@ export interface InPersonAppointmentInformation
   status: VisitStatusLabel;
   provider?: string;
   group?: string;
+  room?: string;
   paperwork: {
     demographics: boolean;
     photoID: boolean;

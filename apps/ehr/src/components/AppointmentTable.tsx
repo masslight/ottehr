@@ -92,6 +92,13 @@ export default function AppointmentTable({
                     Intake
                   </Typography>
                 </TableCell>
+                {tab === ApptTab['in-office'] && (
+                  <TableCell style={{ width: TIME_WIDTH }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                      Room
+                    </Typography>
+                  </TableCell>
+                )}
                 <TableCell style={{ width: PROVIDER_WIDTH }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Provider

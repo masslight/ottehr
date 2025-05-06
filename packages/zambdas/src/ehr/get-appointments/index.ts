@@ -655,6 +655,8 @@ const makeAppointmentInformation = (
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
 
+  const room = appointment.extension?.find((ext) => ext.url === 'room')?.valueString;
+
   return {
     id: appointment.id || 'Unknown',
     encounter,
@@ -679,6 +681,7 @@ const makeAppointmentInformation = (
     cancellationReason: cancellationReason,
     provider: provider,
     group: group,
+    room: room,
     paperwork: {
       demographics: paperworkHasBeenSubmitted,
       photoID: idCard,
