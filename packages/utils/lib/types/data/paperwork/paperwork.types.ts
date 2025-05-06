@@ -115,6 +115,7 @@ export interface AppointmentSummary {
   start: string;
   location: AvailableLocationInformation;
   visitType: VisitType;
+  serviceMode: string;
   status?: string;
   // otherOffices: { display: string; url: string }[];
   unconfirmedDateOfBirth?: string;

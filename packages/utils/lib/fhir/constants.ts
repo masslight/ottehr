@@ -1,4 +1,4 @@
-import { Account, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -437,3 +437,46 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 };
 
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
+export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
+export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: WALKIN_APPOINTMENT_TYPE_CODE,
+    },
+  ],
+};
+
+export const FOLLOW_UP_APPOINTMENT_TYPE_CODE = 'FOLLOWUP';
+export const SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: 'FOLLOWUP',
+    },
+  ],
+};
+
+export enum SlotServiceCategoryCode {
+  virtualServiceMode = 'virtual-service-mode',
+  inPersonServiceMode = 'in-person-service-mode',
+}
+
+export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
+  virtualServiceMode: {
+    coding: [
+      {
+        system: `${FHIR_BASE_URL}/slot-service-category`,
+        code: SlotServiceCategoryCode.virtualServiceMode,
+      },
+    ],
+  },
+  inPersonServiceMode: {
+    coding: [
+      {
+        system: `${FHIR_BASE_URL}/slot-service-category`,
+        code: SlotServiceCategoryCode.inPersonServiceMode,
+      },
+    ],
+  },
+};
