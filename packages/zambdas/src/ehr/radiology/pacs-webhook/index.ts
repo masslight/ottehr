@@ -76,166 +76,193 @@ const performEffect = async (validatedInput: ValidatedInput, oystehr: Oystehr, s
   }
 
   if (resource.resourceType === 'ServiceRequest') {
-    console.log('processing ServiceRequest');
-    const accessionNumber = resource.identifier?.find((i) => {
-      return (
-        i.type?.coding?.[0].system === HL7_IDENTIFIER_TYPE_CODE_SYSTEM &&
-        i.type?.coding?.[0].code === HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER &&
-        i.system === ACCESSION_NUMBER_CODE_SYSTEM
-      );
-    })?.value;
-    if (accessionNumber == null) {
-      throw new Error('Accession number is required');
-    }
-
-    const srResults = (
-      await oystehr.fhir.search<ServiceRequest>({
-        resourceType: 'ServiceRequest',
-        params: [
-          {
-            name: '_tag',
-            value: `${ORDER_TYPE_CODE_SYSTEM}|radiology`,
-          },
-          {
-            name: 'identifier',
-            // TODO can we include also the type.coding.system & code to be super exact here?
-            // TODO maybe encode | as %7C
-            value: `${ACCESSION_NUMBER_CODE_SYSTEM}|${accessionNumber}`,
-          },
-        ],
-      })
-    ).unbundle();
-
-    if (srResults.length === 0) {
-      throw new Error('No ServiceRequest found with the given accession number');
-    }
-
-    if (srResults.length > 1) {
-      throw new Error('Multiple ServiceRequests found with the given accession number');
-    }
-
-    const srToUpdate = srResults[0];
-    console.log('Updating our ServiceRequest with ID: ', srToUpdate.id);
-
-    if (srToUpdate.id == null) {
-      throw new Error('ServiceRequest ID is required');
-    }
-
-    const operations: Operation[] = [
-      {
-        op: 'replace',
-        path: '/status',
-        value: resource.status,
-      },
-    ];
-
-    if (resource.performer) {
-      // TODO make a good plan for practitioner sync
-      // operations.push({
-      //   op: 'add',
-      //   path: '/performer',
-      //   value: resource.performer,
-      // });
-      if (!srToUpdate.performer) {
-        operations.push({
-          op: 'add',
-          path: '/extension',
-          value: [
-            {
-              url: 'performedOn',
-              valueDateTime: DateTime.now().toISO(),
-            },
-          ],
-        });
-      }
-    }
-
-    const patchResponse = await oystehr.fhir.patch<ServiceRequest>({
-      resourceType: 'ServiceRequest',
-      id: srToUpdate.id,
-      operations,
-    });
-    console.log('Patch succeeded: ', patchResponse);
+    await handleServiceRequest(resource as ServiceRequestR5, oystehr);
   } else if (resource.resourceType === 'DiagnosticReport') {
-    console.log('processing DiagnosticReport');
-    // First we want to figure out if we need to create or update, so we search for the DR in our FHIR store
-    const drSearchResults = (
-      await oystehr.fhir.search<DiagnosticReport>({
-        resourceType: 'DiagnosticReport',
-        params: [
-          {
-            name: 'identifier',
-            // TODO can we include also the type.coding.system & code to be super exact here?
-            // TODO maybe encode | as %7C
-            value: `${ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM}|${resource.id}`,
-          },
-        ],
-      })
-    ).unbundle();
-
-    if (drSearchResults.length > 1) {
-      throw new Error('Multiple DiagnosticReports found with the given ID');
-    } else if (drSearchResults.length === 1) {
-      // Update case
-      const drToUpdate = drSearchResults[0];
-      if (drToUpdate.id == null) {
-        throw new Error('DiagnosticReport ID is required');
-      }
-
-      console.log('Updating our DiagnosticReport with ID: ', drToUpdate.id);
-
-      const operations: Operation[] = [
-        {
-          op: 'replace',
-          path: '/status',
-          value: resource.status,
-        },
-        {
-          op: 'add',
-          path: '/presentedForm',
-          value: resource.presentedForm,
-        },
-      ];
-
-      if (drToUpdate.status !== resource.status && resource.status === 'final') {
-        operations.push({
-          op: 'add',
-          path: '/issued',
-          value: DateTime.now().toISO(),
-        });
-      }
-
-      console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(operations, null, 2));
-
-      const patchResult = await oystehr.fhir.patch<DiagnosticReport>({
-        resourceType: 'DiagnosticReport',
-        id: drToUpdate.id,
-        operations,
-      });
-      console.log('DiagnosticReport Patch succeeded: ', JSON.stringify(patchResult, null, 2));
-    } else if (drSearchResults.length === 0) {
-      console.log('Creating our DiagnosticReport');
-      // Now look up the SR via DR.basedOn, so we can create our own DR with our own SR basedOn
-      const pacsServiceRequestRelativeReference = resource.basedOn?.[0]?.reference;
-      if (pacsServiceRequestRelativeReference == null) {
-        throw new Error('The DiagnosticReport was not associated with any ServiceRequest');
-      }
-
-      const pacsServiceRequest = await getAdvaPacsServiceRequestByID(pacsServiceRequestRelativeReference, secrets);
-      console.log('Found PACS ServiceRequest: ', pacsServiceRequest);
-      const pacsServiceRequestAccessionNumber = pacsServiceRequest.identifier?.find(
-        (i) => i.system === ACCESSION_NUMBER_CODE_SYSTEM
-      )?.value;
-      if (pacsServiceRequestAccessionNumber == null) {
-        throw new Error('The ServiceRequest was not associated with any accession number');
-      }
-      const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
-      console.log('Found our ServiceRequest: ', pacsServiceRequest);
-      await createOurDiagnosticReport(ourServiceRequest, resource, oystehr);
-    }
+    await handleDiagnosticReport(resource as DiagnosticReportR5, oystehr, secrets);
   } else {
     throw new Error('Unexpected resource type in performEffect');
   }
+};
+
+const handleServiceRequest = async (advaPacsServiceRequest: ServiceRequestR5, oystehr: Oystehr): Promise<void> => {
+  console.log('processing ServiceRequest');
+  const accessionNumber = advaPacsServiceRequest.identifier?.find((i) => {
+    return (
+      i.type?.coding?.[0].system === HL7_IDENTIFIER_TYPE_CODE_SYSTEM &&
+      i.type?.coding?.[0].code === HL7_IDENTIFIER_TYPE_CODE_SYSTEM_ACCESSION_NUMBER &&
+      i.system === ACCESSION_NUMBER_CODE_SYSTEM
+    );
+  })?.value;
+  if (accessionNumber == null) {
+    throw new Error('Accession number is required');
+  }
+
+  const srResults = (
+    await oystehr.fhir.search<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      params: [
+        {
+          name: '_tag',
+          value: `${ORDER_TYPE_CODE_SYSTEM}|radiology`,
+        },
+        {
+          name: 'identifier',
+          // TODO can we include also the type.coding.system & code to be super exact here?
+          value: `${ACCESSION_NUMBER_CODE_SYSTEM}|${accessionNumber}`,
+        },
+      ],
+    })
+  ).unbundle();
+
+  if (srResults.length === 0) {
+    throw new Error('No ServiceRequest found with the given accession number');
+  }
+
+  if (srResults.length > 1) {
+    throw new Error('Multiple ServiceRequests found with the given accession number');
+  }
+
+  const srToUpdate = srResults[0];
+  console.log('Updating our ServiceRequest with ID: ', srToUpdate.id);
+
+  if (srToUpdate.id == null) {
+    throw new Error('ServiceRequest ID is required');
+  }
+
+  const operations: Operation[] = [
+    {
+      op: 'replace',
+      path: '/status',
+      value: advaPacsServiceRequest.status,
+    },
+  ];
+
+  // The idea is that the first time we get a ServiceRequest from AdvaPACS with the performer, that should also be moment that the request was performed.
+  if (advaPacsServiceRequest.performer) {
+    // TODO make a good plan for practitioner sync
+    // operations.push({
+    //   op: 'add',
+    //   path: '/performer',
+    //   value: resource.performer,
+    // });
+    if (!srToUpdate.performer) {
+      operations.push({
+        op: 'add',
+        path: '/extension',
+        value: [
+          {
+            url: 'performedOn',
+            valueDateTime: DateTime.now().toISO(),
+          },
+        ],
+      });
+    }
+  }
+
+  const patchResponse = await oystehr.fhir.patch<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    id: srToUpdate.id,
+    operations,
+  });
+  console.log('Patch succeeded: ', patchResponse);
+};
+
+const handleDiagnosticReport = async (
+  advaPacsDiagnosticReport: DiagnosticReportR5,
+  oystehr: Oystehr,
+  secrets: Secrets
+): Promise<void> => {
+  console.log('processing DiagnosticReport');
+  // First we want to figure out if we need to create or update, so we search for the DR in our FHIR store
+  const drSearchResults = (
+    await oystehr.fhir.search<DiagnosticReport>({
+      resourceType: 'DiagnosticReport',
+      params: [
+        {
+          name: 'identifier',
+          // TODO can we include also the type.coding.system & code to be super exact here?
+          value: `${ADVAPACS_FHIR_RESOURCE_ID_CODE_SYSTEM}|${advaPacsDiagnosticReport.id}`,
+        },
+      ],
+    })
+  ).unbundle();
+
+  if (drSearchResults.length > 1) {
+    throw new Error('Multiple DiagnosticReports found with the given ID');
+  } else if (drSearchResults.length === 1) {
+    const drToUpdate = drSearchResults[0];
+    if (drToUpdate.id == null) {
+      throw new Error('DiagnosticReport ID is required');
+    }
+    await handleUpdateDiagnosticReport(advaPacsDiagnosticReport, drToUpdate, oystehr);
+  } else if (drSearchResults.length === 0) {
+    await handleCreateDiagnosticReport(advaPacsDiagnosticReport, oystehr, secrets);
+  }
+};
+
+const handleCreateDiagnosticReport = async (
+  advaPacsDiagnosticReport: DiagnosticReportR5,
+  oystehr: Oystehr,
+  secrets: Secrets
+): Promise<void> => {
+  console.log('Processing DiagnosticReport create');
+  // Now look up the SR via DR.basedOn, so we can create our own DR with our own SR basedOn
+  const pacsServiceRequestRelativeReference = advaPacsDiagnosticReport.basedOn?.[0]?.reference;
+  if (pacsServiceRequestRelativeReference == null) {
+    throw new Error('The DiagnosticReport was not associated with any ServiceRequest');
+  }
+
+  const pacsServiceRequest = await getAdvaPacsServiceRequestByID(pacsServiceRequestRelativeReference, secrets);
+  console.log('Found PACS ServiceRequest: ', pacsServiceRequest);
+  const pacsServiceRequestAccessionNumber = pacsServiceRequest.identifier?.find(
+    (i) => i.system === ACCESSION_NUMBER_CODE_SYSTEM
+  )?.value;
+  if (pacsServiceRequestAccessionNumber == null) {
+    throw new Error('The ServiceRequest was not associated with any accession number');
+  }
+  const ourServiceRequest = await getOurServiceRequestByAccessionNumber(pacsServiceRequestAccessionNumber, oystehr);
+  console.log('Found our ServiceRequest: ', pacsServiceRequest);
+  await createOurDiagnosticReport(ourServiceRequest, advaPacsDiagnosticReport, oystehr);
+};
+
+const handleUpdateDiagnosticReport = async (
+  advaPacsDiagnosticReport: DiagnosticReportR5,
+  ourDiagnosticReport: DiagnosticReport,
+  oystehr: Oystehr
+): Promise<void> => {
+  console.log('processing DiagnosticReport update');
+
+  console.log('Updating our DiagnosticReport with ID: ', ourDiagnosticReport.id);
+
+  const operations: Operation[] = [
+    {
+      op: 'replace',
+      path: '/status',
+      value: advaPacsDiagnosticReport.status,
+    },
+    {
+      op: 'add',
+      path: '/presentedForm',
+      value: advaPacsDiagnosticReport.presentedForm,
+    },
+  ];
+
+  if (ourDiagnosticReport.status !== advaPacsDiagnosticReport.status && advaPacsDiagnosticReport.status === 'final') {
+    operations.push({
+      op: 'add',
+      path: '/issued',
+      value: DateTime.now().toISO(),
+    });
+  }
+
+  console.log('Updating our DiagnosticReport with operations: ', JSON.stringify(operations, null, 2));
+
+  const patchResult = await oystehr.fhir.patch<DiagnosticReport>({
+    resourceType: 'DiagnosticReport',
+    id: ourDiagnosticReport.id!,
+    operations,
+  });
+  console.log('DiagnosticReport Patch succeeded: ', JSON.stringify(patchResult, null, 2));
 };
 
 const getAdvaPacsServiceRequestByID = async (
@@ -290,7 +317,6 @@ const getOurServiceRequestByAccessionNumber = async (
         {
           name: 'identifier',
           // TODO can we include also the type.coding.system & code to be super exact here?
-          // TODO maybe encode | as %7C
           value: `${ACCESSION_NUMBER_CODE_SYSTEM}|${accessionNumber}`,
         },
       ],
