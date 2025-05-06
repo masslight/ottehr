@@ -27,14 +27,17 @@ export async function getPatientConditionPhotosStepAnswers({
   appointmentId: string;
   fileName: string;
 }): Promise<PatchPaperworkParameters['answers']> {
-  const getPathToProjectRoot = (currentPath: string): string => {
-    if (currentPath.split('/').at(-1) === 'ottehr') {
+  const getPathToProjectRoot = async (currentPath: string): Promise<string> => {
+    const appsDirPath = join(currentPath, 'apps');
+    try {
+      await fsPromises.access(appsDirPath);
       return currentPath;
+    } catch {
+      return getPathToProjectRoot(resolve(currentPath, '..'));
     }
-    return getPathToProjectRoot(resolve(currentPath, '..'));
   };
 
-  const filePath = join(getPathToProjectRoot(__dirname), `apps/intake/images-for-tests/${fileName}`);
+  const filePath = join(await getPathToProjectRoot(__dirname), `apps/intake/images-for-tests/${fileName}`);
   const response = await fsPromises.readFile(filePath, 'binary');
 
   const blob = new Blob([response], { type: 'application/jpg' });
