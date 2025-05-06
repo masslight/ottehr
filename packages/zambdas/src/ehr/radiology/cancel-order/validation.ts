@@ -25,7 +25,19 @@ const validateBody = async (input: ZambdaInput, oystehr: Oystehr): Promise<Cance
     throw new Error('serviceRequestId is required and must be a uuid');
   }
 
-  const serviceRequest = await oystehr.fhir.get<ServiceRequest>(serviceRequestId);
+  let serviceRequest: ServiceRequest;
+  try {
+    serviceRequest = await oystehr.fhir.get<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      id: serviceRequestId,
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      console.log('Error fetching ServiceRequest in validate body: ', error.message);
+    }
+    throw new Error('Error fetching ServiceRequest in validate body');
+  }
+
   if (serviceRequest.status !== 'active') {
     throw new Error('Only orders with active status can be canceled');
   }

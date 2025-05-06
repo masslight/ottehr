@@ -60,6 +60,7 @@ const SERVICE_REQUEST_ORDER_DETAIL_PARAMETER_PRE_RELEASE_VALUE_STRING_URL =
   'https://extensions.fhir.ottehr.com/service-request-order-detail-parameter-pre-release-value-string';
 const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
   'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
+const SERVICE_REQUEST_REQUESTED_TIME_URL = 'https://extensions.fhir.ottehr.com/service-request-requested-time';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -219,6 +220,10 @@ const writeOurServiceRequest = (
             ],
           },
         ],
+      },
+      {
+        url: SERVICE_REQUEST_REQUESTED_TIME_URL,
+        valueDateTime: now.toISO(),
       },
     ],
   };

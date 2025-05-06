@@ -831,6 +831,13 @@
       "src": "src/ehr/radiology/create-order/index",
       "zip": ".dist/zips/radiology-create-order.zip"
     },
+    "RADIOLOGY-CANCEL-ORDER": {
+      "name": "RADIOLOGY-CANCEL-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/cancel-order/index",
+      "zip": ".dist/zips/radiology-cancel-order.zip"
+    },
     "RADIOLOGY-ORDER-LIST": {
       "name": "RADIOLOGY-ORDER-LIST",
       "type": "http_auth",
