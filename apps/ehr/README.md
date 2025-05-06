@@ -11,5 +11,6 @@ For feature flag configuration, application environment variables are used. For 
 ```
 export const FEATURE_FLAGS = {
   LAB_ORDERS_ENABLED: import.meta.env.VITE_APP_IS_LAB_ORDERS_ENABLED_FEATURE_FLAG === 'true',
+  IN_HOUSE_LABS_ENABLED: import.meta.env.VITE_APP_IS_LAB_ORDERS_ENABLED_FEATURE_FLAG === 'true',
 };
 ```
