@@ -20,6 +20,9 @@ import { ProgressNote } from '../pages/ProgressNote';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
 import { OttehrAi } from '../pages/OttehrAi';
+import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
+import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPage';
+import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -43,6 +46,10 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
+
+  IN_HOUSE_LAB_ORDERS = 'in-house-lab-orders',
+  IN_HOUSE_LAB_ORDER_CREATE = `in-house-lab-orders/create`,
+  IN_HOUSE_LAB_ORDER_DETAILS = `in-house-lab-orders/:serviceRequestID/order-details`,
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -172,6 +179,29 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: <ERX />,
     text: 'eRX',
     iconKey: 'eRX',
+  },
+  [ROUTER_PATH.IN_HOUSE_LAB_ORDERS]: {
+    path: ROUTER_PATH.IN_HOUSE_LAB_ORDERS,
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly'] : [],
+    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabsPage /> : null,
+    text: 'In-house Labs',
+    iconKey: 'In-house Labs',
+  },
+  [ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE]: {
+    path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_CREATE,
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabOrderCreatePage /> : null,
+    text: 'In-house Labs',
+    iconKey: 'In-house Labs',
+  },
+  [ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS]: {
+    path: ROUTER_PATH.IN_HOUSE_LAB_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabTestDetailsPage /> : null,
+    text: 'In-house Labs',
+    iconKey: 'In-house Labs',
   },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
