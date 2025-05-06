@@ -1,4 +1,5 @@
 import { BatchInputPostRequest, default as Oystehr } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { FhirResource, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import {
   AllStatesToVirtualLocationsData,
@@ -8,24 +9,20 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
-  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
+  SLUG_SYSTEM,
   TELEMED_INITIAL_STATES,
   TIMEZONE_EXTENSION_URL,
   unbundleBatchPostOutput,
   VirtualLocationBody,
 } from 'utils';
-import { getAuth0Token } from '../shared';
-import { createOystehrClient } from '../shared';
-import { randomUUID } from 'crypto';
+import { createOystehrClient, getAuth0Token } from '../shared';
 
-export const DEFAULT_TESTING_SLUG = 'testing';
-
-const virtualLocations: { value: string; label: string }[] = [
-  ...TELEMED_INITIAL_STATES.map((state) => ({ value: state, label: state })),
+export const virtualDefaultLocations: { state: string; label: string }[] = [
+  ...TELEMED_INITIAL_STATES.map((state) => ({ state, label: state })),
 ];
 
-const allPhysicalLocations: { state: string; city: string; name: string }[] = [
+export const allPhysicalDefaultLocations: { state: string; city: string; name: string }[] = [
   {
     state: 'NY',
     city: 'New York',
@@ -37,7 +34,7 @@ const allPhysicalLocations: { state: string; city: string; name: string }[] = [
     name: 'Los Angeles',
   },
 ];
-export type PhysicalLocation = (typeof allPhysicalLocations)[number];
+export type PhysicalLocation = (typeof allPhysicalDefaultLocations)[number];
 
 export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   const allLocations = await oystehr.fhir.search({
@@ -52,21 +49,19 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
 
   console.log('Filtered all virtual telemed locations.');
 
-  for (const statePkg of virtualLocations) {
-    const stateData = AllStatesToVirtualLocationsData[statePkg.value];
-    if (!telemedStates.includes(statePkg.value)) await createTelemedLocation(statePkg, stateData, oystehr);
+  for (const statePkg of virtualDefaultLocations) {
+    const stateData = AllStatesToVirtualLocationsData[statePkg.state];
+    if (!telemedStates.includes(statePkg.state)) await createTelemedLocation(statePkg, stateData, oystehr);
   }
   console.log('All telemed locations exist');
 
-  for (const locationInfo of allPhysicalLocations) {
+  for (const locationInfo of allPhysicalDefaultLocations) {
     await createPhysicalLocation(locationInfo, oystehr);
   }
 };
 
-const TELEMED_VIRTUAL_LOCATION_CODE_SYSTEM = 'https://fhir.pmpediatriccare.com/r4/location-code';
-
 const createTelemedLocation = async (
-  state: { value: string; label: string },
+  virtualLocation: { state: string; label: string },
   stateData: VirtualLocationBody,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -74,7 +69,7 @@ const createTelemedLocation = async (
     resourceType: 'Location',
     status: 'active',
     address: {
-      state: state.value,
+      state: virtualLocation.state,
     },
     extension: [
       {
@@ -85,6 +80,10 @@ const createTelemedLocation = async (
           display: 'Virtual',
         },
       },
+      {
+        url: TIMEZONE_EXTENSION_URL,
+        valueString: 'America/New_York',
+      },
     ],
     identifier: [
       {
@@ -93,18 +92,6 @@ const createTelemedLocation = async (
       },
     ],
     // managing organization will be added later after organizations are created
-    type: stateData.code
-      ? [
-          {
-            coding: [
-              {
-                system: TELEMED_VIRTUAL_LOCATION_CODE_SYSTEM,
-                code: stateData.code,
-              },
-            ],
-          },
-        ]
-      : undefined,
     name: stateData.name,
   };
   const createLocationRequest: BatchInputPostRequest<Location> = {
