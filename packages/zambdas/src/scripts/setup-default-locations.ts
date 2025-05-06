@@ -18,8 +18,8 @@ import {
 } from 'utils';
 import { createOystehrClient, getAuth0Token } from '../shared';
 
-export const virtualDefaultLocations: { value: string; label: string }[] = [
-  ...TELEMED_INITIAL_STATES.map((state) => ({ value: state, label: state })),
+export const virtualDefaultLocations: { state: string; label: string }[] = [
+  ...TELEMED_INITIAL_STATES.map((state) => ({ state, label: state })),
 ];
 
 export const allPhysicalDefaultLocations: { state: string; city: string; name: string }[] = [
@@ -50,8 +50,8 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   console.log('Filtered all virtual telemed locations.');
 
   for (const statePkg of virtualDefaultLocations) {
-    const stateData = AllStatesToVirtualLocationsData[statePkg.value];
-    if (!telemedStates.includes(statePkg.value)) await createTelemedLocation(statePkg, stateData, oystehr);
+    const stateData = AllStatesToVirtualLocationsData[statePkg.state];
+    if (!telemedStates.includes(statePkg.state)) await createTelemedLocation(statePkg, stateData, oystehr);
   }
   console.log('All telemed locations exist');
 
@@ -63,7 +63,7 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
 const TELEMED_VIRTUAL_LOCATION_CODE_SYSTEM = 'https://fhir.pmpediatriccare.com/r4/location-code';
 
 const createTelemedLocation = async (
-  state: { value: string; label: string },
+  virtualLocation: { state: string; label: string },
   stateData: VirtualLocationBody,
   oystehr: Oystehr
 ): Promise<void> => {
@@ -71,7 +71,7 @@ const createTelemedLocation = async (
     resourceType: 'Location',
     status: 'active',
     address: {
-      state: state.value,
+      state: virtualLocation.state,
     },
     extension: [
       {
@@ -81,6 +81,10 @@ const createTelemedLocation = async (
           code: 'vi',
           display: 'Virtual',
         },
+      },
+      {
+        url: TIMEZONE_EXTENSION_URL,
+        valueString: 'America/New_York',
       },
     ],
     identifier: [

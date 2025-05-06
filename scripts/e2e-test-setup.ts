@@ -5,7 +5,10 @@ import { Location, Practitioner } from 'fhir/r4b';
 import fs from 'fs';
 import { allLicensesForPractitioner, makeQualificationForPractitioner } from 'utils';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import { allPhysicalDefaultLocations } from '../packages/zambdas/src/scripts/setup-default-locations';
+import {
+  allPhysicalDefaultLocations,
+  virtualDefaultLocations,
+} from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
@@ -95,6 +98,7 @@ async function getLocationsForTesting(
   const oystehr = await getToken(ehrZambdaEnv);
 
   const firstDefaultLocation = allPhysicalDefaultLocations[0];
+  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
   const locationsResponse = await oystehr.fhir.search<Location>({
     resourceType: 'Location',
@@ -118,8 +122,10 @@ async function getLocationsForTesting(
   const locationName = locationResource?.name;
   const locationSlug = locationResource?.identifier?.[0]?.value;
 
-  const virtualLocation = virtualLocations.at(0);
-  const locationState = (virtualLocation?.address?.state || '').toLowerCase();
+  const virtualLocation = virtualLocations.find(
+    (location) => location.address?.state === firstDefaultVirtualLocation.state
+  );
+  const virtualLocationState = (virtualLocation?.address?.state || '').toLowerCase();
 
   if (!locationId) {
     throw Error('Required locationId not found  ');
@@ -133,21 +139,21 @@ async function getLocationsForTesting(
     throw Error('Required locationSlug not found');
   }
 
-  if (!locationState) {
+  if (!virtualLocationState) {
     throw Error('Required locationState not found');
   }
 
   console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
   console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
 
-  console.log(`Found virtual location with ID: ${virtualLocation?.id}`);
+  console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
   console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
 
   return {
     locationId,
     locationName,
     locationSlug,
-    virtualLocationState: locationState,
+    virtualLocationState: virtualLocationState,
   };
 }
 
