@@ -21,6 +21,7 @@ import {
   findQuestionnaireResponseItemLinkId,
   getScheduleDetails,
   getSecret,
+  getTimezone,
   HOURS_OF_OPERATION_FORMAT,
   OVERRIDE_DATE_FORMAT,
   pickFirstValueFromAnswerItem,
@@ -277,9 +278,7 @@ export function getLocationInformation(
   currentDate: DateTime = DateTime.now()
 ): AvailableLocationInformation {
   const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
-  const timezone = scheduleResource.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-  )?.valueString;
+  const timezone = getTimezone(scheduleResource);
 
   const schedule = getScheduleDetails(scheduleResource);
   const scheduleOverrides = schedule?.scheduleOverrides || {};
