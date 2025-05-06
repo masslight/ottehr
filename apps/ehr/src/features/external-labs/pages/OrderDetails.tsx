@@ -42,6 +42,7 @@ export const OrderDetailsPage: React.FC = () => {
         labOrder={labOrder}
         markTaskAsReviewed={markTaskAsReviewed}
         saveSpecimenDate={saveSpecimenDate}
+        loading={loading}
       />
     </WithLabBreadcrumbs>
   );

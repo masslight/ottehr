@@ -11,7 +11,8 @@ export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
   markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
-}> = ({ labOrder, markTaskAsReviewed, saveSpecimenDate }) => {
+  loading: boolean;
+}> = ({ labOrder, markTaskAsReviewed, saveSpecimenDate, loading }) => {
   const navigate = useNavigate();
 
   const handleBack = (): void => {
@@ -38,6 +39,7 @@ export const DetailsWithResults: React.FC<{
             }
             resultDetails={result}
             labOrder={labOrder}
+            loading={loading}
           />
         ))}
 

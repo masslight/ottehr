@@ -221,6 +221,8 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
         return;
       }
 
+      setLoading(true);
+
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
       await fetchLabOrders(getCurrentSearchParamsForPage(1));
     },

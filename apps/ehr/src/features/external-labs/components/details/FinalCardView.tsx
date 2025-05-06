@@ -2,14 +2,16 @@ import { Box, Button, Divider } from '@mui/material';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
 import { FC } from 'react';
 import { ExternalLabsStatus } from 'utils';
+import { LoadingButton } from '@mui/lab';
 
 interface FinalCardViewProps {
   resultPdfUrl: string | null;
   labStatus: ExternalLabsStatus;
   onMarkAsReviewed: () => void;
+  loading: boolean;
 }
 
-export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus, onMarkAsReviewed }) => {
+export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus, onMarkAsReviewed, loading }) => {
   const openPdf = (): void => {
     if (resultPdfUrl) {
       window.open(resultPdfUrl, '_blank');
@@ -50,7 +52,8 @@ export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus,
             </Box>
 
             {isMarkAsReviewedButtonVisible ? (
-              <Button
+              <LoadingButton
+                loading={loading}
                 variant="contained"
                 onClick={onMarkAsReviewed}
                 sx={{
@@ -60,7 +63,7 @@ export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus,
                 color="primary"
               >
                 Mark as Reviewed
-              </Button>
+              </LoadingButton>
             ) : null}
           </Box>
         </>
