@@ -4,6 +4,7 @@ import { PageSizes } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
+  followUpInOptions,
   IN_PERSON_EXAM_CARDS,
   InPersonExamObservationFieldItem,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
@@ -578,6 +579,8 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     data.disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ||
     data.disposition.labService ||
     data.disposition.virusTest ||
+    data.disposition.followUpIn ||
+    data.disposition.reason ||
     (data.subSpecialtyFollowUp && data.subSpecialtyFollowUp.length > 0) ||
     (data.workSchoolExcuse && data.workSchoolExcuse.length > 0)
   ) {
@@ -594,7 +597,9 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       data.disposition.text ||
       data.disposition?.[NOTHING_TO_EAT_OR_DRINK_FIELD] ||
       data.disposition.labService ||
-      data.disposition.virusTest
+      data.disposition.virusTest ||
+      data.disposition.followUpIn ||
+      data.disposition.reason
     ) {
       drawBlockHeader(data.disposition.header, textStyles.blockSubHeader);
       if (data.disposition.text) {
@@ -608,6 +613,18 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
       }
       if (data.disposition.virusTest) {
         regularText(`Virus Tests: ${data.disposition.virusTest}`);
+      }
+      if (typeof data.disposition.followUpIn === 'number') {
+        regularText(
+          `Follow-up visit ${
+            data.disposition.followUpIn === 0
+              ? followUpInOptions.find((option) => option.value === data.disposition.followUpIn)?.label
+              : `in ${followUpInOptions.find((option) => option.value === data.disposition.followUpIn)?.label}`
+          }`
+        );
+      }
+      if (data.disposition.reason) {
+        regularText(`Reason for transfer: ${data.disposition.reason}`);
       }
       separateLine();
     }

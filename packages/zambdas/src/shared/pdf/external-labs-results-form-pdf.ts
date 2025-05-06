@@ -12,6 +12,7 @@ import {
   LAB_RESULT_DOC_REF_CODING_CODE,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  LAB_RESTULT_PDF_BASE_NAME,
   Secrets,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -57,6 +58,9 @@ export async function createLabResultPDF(
 
   if (!encounter.id) {
     throw new Error('encounter id is undefined');
+  }
+  if (!serviceRequest.reasonCode) {
+    throw new Error('service request reasonCode is undefined');
   }
 
   if (!locationID || !isValidUUID(locationID)) {
@@ -165,6 +169,7 @@ export async function createLabResultPDF(
       locationZip: location.address?.postalCode || ORDER_RESULT_ITEM_UNKNOWN,
       locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
       locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      labOrganizationName: organization.name || ORDER_RESULT_ITEM_UNKNOWN,
       reqId: orderID || ORDER_RESULT_ITEM_UNKNOWN,
       providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_RESULT_ITEM_UNKNOWN,
       providerTitle:
@@ -174,7 +179,7 @@ export async function createLabResultPDF(
         provider.identifier?.find((id) => id.system === 'http://hl7.org/fhir/sid/us-npi')?.value ||
         ORDER_RESULT_ITEM_UNKNOWN,
       patientFirstName: patient.name?.[0].given?.[0] || ORDER_RESULT_ITEM_UNKNOWN,
-      patientMiddleName: patient.name?.[0].given?.[1] || '',
+      patientMiddleName: patient.name?.[0].given?.[1],
       patientLastName: patient.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
       patientSex: patient.gender || ORDER_RESULT_ITEM_UNKNOWN,
       patientDOB: patient.birthDate
@@ -193,9 +198,10 @@ export async function createLabResultPDF(
           ?.filter((item): item is ActivityDefinition => item.resourceType === 'ActivityDefinition')
           .map((resource) => resource.title)
           .join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
-      assessmentCode:
-        serviceRequest.reasonCode?.map((code) => code.coding?.[0].code).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
-      assessmentName: serviceRequest.reasonCode?.map((code) => code.text).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
+      orderAssessments: serviceRequest.reasonCode.map((code) => ({
+        code: code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+        name: code.text || ORDER_RESULT_ITEM_UNKNOWN,
+      })),
       accessionNumber: accessionNumber || ORDER_RESULT_ITEM_UNKNOWN,
       // orderReceived: '10/10/2024',
       // specimenReceived: '10/10/2024',
@@ -258,6 +264,7 @@ export async function createLabResultPDF(
     patientID: patient.id,
     encounterID: encounter.id,
     diagnosticReportID: diagnosticReport.id,
+    reviewed,
   });
 }
 
@@ -603,7 +610,12 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   // ===============================
   // Main header
   addNewLine();
-  drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`);
+  // name
+  if (data.patientMiddleName) {
+    drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`);
+  } else {
+    drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}`);
+  }
   drawSubHeaderRight(`Ottehr${data.locationName}`);
   addNewLine();
   drawRegularTextLeft(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`);
@@ -676,7 +688,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   // drawFieldLineLeft('Specimen source:', data.specimenSource.toUpperCase());
   // drawFieldLineRight('Specimen description:', data.specimenDescription);
   addNewLine();
-  drawFieldLineLeft('Dx:', `${data.assessmentCode} ${`(${data.assessmentName})`}`);
+  drawFieldLineLeft(
+    'Dx:',
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+  );
   addNewLine(undefined, 3);
   drawLargeHeader(data.testName.toUpperCase());
   addNewLine(undefined, 2);
@@ -754,7 +769,7 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `ExternalLabsResultsForm${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
@@ -829,7 +844,7 @@ export async function makeLabPdfDocumentReference({
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [],
+    searchParams: [{ name: 'encounter', value: `Encounter/${encounterID}` }],
     listResources,
   });
   return docRefs[0];

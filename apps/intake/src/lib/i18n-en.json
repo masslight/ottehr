@@ -859,7 +859,7 @@
     "subtitleBranded": "We look forward to helping you soon!",
     "title": "Select check-in time",
     "titleClosed": "This {{PROJECT_NAME}} office is closed now",
-    "titleBranded": "Welcome to {{{PROJECT_NAME}}}"
+    "titleBranded": "Welcome to {{PROJECT_NAME}}"
   },
   "welcomeBack": {
     "alreadyReserved": "Already reserved a check-in time?",

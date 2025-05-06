@@ -621,13 +621,6 @@
       "src": "src/patient/appointment/telemed-cancel-appointment/index",
       "zip": ".dist/zips/telemed-cancel-appointment.zip"
     },
-    "TELEMED-CREATE-APPOINTMENT": {
-      "name": "TELEMED-CREATE-APPOINTMENT",
-      "type": "http_auth",
-      "runtime": "nodejs20.x",
-      "src": "src/patient/appointment/telemed-create-appointment/index",
-      "zip": ".dist/zips/telemed-create-appointment.zip"
-    },
     "TELEMED-GET-APPOINTMENTS": {
       "name": "TELEMED-GET-APPOINTMENTS",
       "type": "http_auth",
@@ -886,6 +879,27 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/send-fax/index",
       "zip": ".dist/zips/send-fax.zip"
+    },
+    "CREATE-SLOT": {
+      "name": "CREATE-SLOT",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/bookable/create-slot/index",
+      "zip": ".dist/zips/create-slot.zip"
+    },
+    "GET-SLOT-DETAILS": {
+      "name": "GET-SLOT-DETAILS",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/bookable/get-slot-details/index",
+      "zip": ".dist/zips/get-slot-details.zip"
+    },
+    "WALKIN-CHECK-AVAILABILITY": {
+      "name": "WALKIN-CHECK-AVAILABILITY",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/patient/walkin/check-availability/index",
+      "zip": ".dist/zips/walkin-check-availability.zip"
     }
   },
   "fhirResources": {

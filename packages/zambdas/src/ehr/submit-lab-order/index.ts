@@ -5,17 +5,19 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   getPresignedURL,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Coverage, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
+import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
 import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
+import { BatchInputPatchRequest } from '@oystehr/sdk';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -43,6 +45,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       task,
       appointment,
       encounter,
+      organization: labOrganization,
+      specimens,
     } = await getLabOrderResources(oystehr, serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
@@ -53,6 +57,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!encounter.id) {
       throw new Error('encounter id is undefined');
+    }
+    if (!serviceRequest.reasonCode) {
+      throw new Error('service request reasonCode is undefined');
     }
 
     if (!locationID || !isValidUUID(locationID)) {
@@ -198,8 +205,43 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
     };
 
+    const specimenPatchOperations = specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+      if (!specimen.id) {
+        return acc;
+      }
+
+      const specimenDateTime = specimen.collection?.collectedDateTime;
+
+      if (specimenDateTime) {
+        /**
+         * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
+         * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
+         * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
+         * upon submission we should set the current date.
+         */
+        return acc;
+      }
+
+      acc.push(
+        getPatchBinary({
+          resourceType: 'Specimen',
+          resourceId: specimen.id,
+          patchOperations: [
+            {
+              path: '/collection/collectedDateTime',
+              op: 'add',
+              value: now.toISO(),
+            },
+          ],
+        })
+      );
+
+      return acc;
+    }, []);
+
     await oystehr?.fhir.transaction({
       requests: [
+        ...specimenPatchOperations,
         getPatchBinary({
           resourceType: 'ServiceRequest',
           resourceId: serviceRequest.id || 'unknown',
@@ -270,6 +312,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationZip: location.address?.postalCode || ORDER_ITEM_UNKNOWN,
         locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_ITEM_UNKNOWN,
+        labOrganizationName: labOrganization.name || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         providerTitle:
@@ -277,7 +320,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           ORDER_ITEM_UNKNOWN,
         providerNPI: 'test',
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
-        patientMiddleName: patient.name?.[0].given?.[1] || '',
+        patientMiddleName: patient.name?.[0].given?.[1],
         patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,
         patientSex: patient.gender || ORDER_ITEM_UNKNOWN,
         patientDOB: patient.birthDate
@@ -298,15 +341,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         insuredAddress: coveragePatient?.address ? oystehr.fhir.formatAddress(coveragePatient.address?.[0]) : undefined,
         aoeAnswers: questionsAndAnswers,
         orderName:
-          serviceRequest.code?.coding?.map((codingTemp) => codingTemp.display).join(', ') || ORDER_ITEM_UNKNOWN,
-        assessmentCode:
-          serviceRequest.reasonCode
-            ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.code).join(', '))
-            .join(', ') || ORDER_ITEM_UNKNOWN,
-        assessmentName:
-          serviceRequest.reasonCode
-            ?.map((reasonTemp) => reasonTemp.coding?.map((codingTemp) => codingTemp.display).join(', '))
-            .join(', ') || ORDER_ITEM_UNKNOWN,
+          serviceRequest.code?.coding?.find((coding) => coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.display ||
+          ORDER_ITEM_UNKNOWN,
+        orderAssessments: serviceRequest.reasonCode?.map((code) => ({
+          code: code.coding?.[0].code || ORDER_ITEM_UNKNOWN,
+          name: code.text || ORDER_ITEM_UNKNOWN,
+        })),
         orderPriority: serviceRequest.priority || ORDER_ITEM_UNKNOWN,
       },
       patient.id,

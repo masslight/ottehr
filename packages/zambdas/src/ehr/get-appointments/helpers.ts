@@ -1,7 +1,14 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
 import { Appointment, Encounter, FhirResource, Practitioner, Location, HealthcareService, Extension } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { AppointmentParticipants, OTTEHR_MODULE, PARTICIPANT_TYPE, ParticipantInfo } from 'utils';
+import {
+  AppointmentParticipants,
+  OTTEHR_MODULE,
+  PARTICIPANT_TYPE,
+  ParticipantInfo,
+  ScheduleStrategy,
+  scheduleStrategyForHealthcareService,
+} from 'utils';
 
 const parseParticipantInfo = (practitioner: Practitioner): ParticipantInfo => ({
   firstName: practitioner.name?.[0]?.given?.[0] ?? '',
@@ -112,7 +119,13 @@ export const getTimezone = async ({
   return timezoneMap.get(resourceId);
 };
 
-export const makeAppointmentSearchRequest = async ({
+interface AppointmentQueryInput {
+  resourceType: 'Appointment';
+  params: SearchParam[];
+  group?: HealthcareService;
+}
+
+export const getAppointmentQueryInput = async ({
   oystehr,
   resourceId,
   resourceType,
@@ -122,7 +135,7 @@ export const makeAppointmentSearchRequest = async ({
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
   searchDate: string;
-}): Promise<{ resourceType: 'Appointment'; params: SearchParam[] }> => {
+}): Promise<AppointmentQueryInput> => {
   const timezone = await getTimezone({
     oystehr,
     resourceType,
@@ -132,6 +145,88 @@ export const makeAppointmentSearchRequest = async ({
   const searchDateInTargetTimezone = DateTime.fromISO(searchDate, { zone: timezone });
   const startDay = searchDateInTargetTimezone.startOf('day').toUTC().toISO();
   const endDay = searchDateInTargetTimezone.endOf('day').toUTC().toISO();
+  let healthcareService: HealthcareService | undefined;
+
+  const actorParams = await (async () => {
+    if (resourceType === 'Location') {
+      return [{ name: 'location', value: `Location/${resourceId}` }];
+    }
+    if (resourceType === 'Practitioner') {
+      return [{ name: 'actor', value: `Practitioner/${resourceId}` }];
+    }
+    if (resourceType === 'HealthcareService') {
+      const healthcareServiceAndMembers = await oystehr.fhir.search<HealthcareService | Location | Practitioner>({
+        resourceType: 'HealthcareService',
+        params: [
+          {
+            name: '_id',
+            value: resourceId,
+          },
+          {
+            name: '_include',
+            value: 'HealthcareService:location',
+          },
+          {
+            name: '_revinclude',
+            value: 'PractitionerRole:service',
+          },
+          {
+            name: '_include:iterate',
+            value: 'PractitionerRole:practitioner',
+          },
+        ],
+      });
+      const allResources = healthcareServiceAndMembers.unbundle();
+      healthcareService = allResources.find(
+        (resource) => resource.resourceType === 'HealthcareService'
+      ) as HealthcareService;
+
+      if (healthcareService && scheduleStrategyForHealthcareService(healthcareService) === ScheduleStrategy.owns) {
+        return [{ name: 'actor', value: `HealthcareService/${resourceId}` }];
+      }
+      const locations = allResources.filter((resource) => resource.resourceType === 'Location') as Location[];
+      const practitioners = allResources.filter(
+        (resource) => resource.resourceType === 'Practitioner'
+      ) as Practitioner[];
+
+      const locationIdParams: string[] = [];
+      const practitionerIdParams: string[] = [];
+
+      if (healthcareService) {
+        const scheduleStrategy = scheduleStrategyForHealthcareService(healthcareService);
+        if (scheduleStrategy === ScheduleStrategy.poolsLocations || scheduleStrategy === ScheduleStrategy.poolsAll) {
+          locationIdParams.push(...locations.map((location) => `Location/${location.id}`));
+        }
+        if (scheduleStrategy === ScheduleStrategy.poolsProviders || scheduleStrategy === ScheduleStrategy.poolsAll) {
+          practitionerIdParams.push(...practitioners.map((prac) => `Practitioner/${prac.id}`));
+        }
+
+        if (scheduleStrategy === ScheduleStrategy.poolsLocations) {
+          return [
+            {
+              name: 'actor',
+              value: locationIdParams.join(','),
+            },
+          ];
+        } else if (scheduleStrategy === ScheduleStrategy.poolsProviders) {
+          return [
+            {
+              name: 'actor',
+              value: practitionerIdParams.join(','),
+            },
+          ];
+        } else if (scheduleStrategy === ScheduleStrategy.poolsAll) {
+          return [
+            {
+              name: 'actor',
+              value: [...locationIdParams, ...practitionerIdParams].join(','),
+            },
+          ];
+        }
+      }
+    }
+    return [];
+  })();
 
   return {
     resourceType: 'Appointment',
@@ -180,11 +275,9 @@ export const makeAppointmentSearchRequest = async ({
       { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
       { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
       { name: '_include', value: 'Appointment:actor' },
-
-      ...(resourceType === 'Location' ? [{ name: 'location', value: `Location/${resourceId}` }] : []),
-      ...(resourceType === 'Practitioner' ? [{ name: 'actor', value: `Practitioner/${resourceId}` }] : []),
-      ...(resourceType === 'HealthcareService' ? [{ name: 'actor', value: `HealthcareService/${resourceId}` }] : []),
+      ...actorParams,
     ],
+    group: healthcareService,
   };
 };
 

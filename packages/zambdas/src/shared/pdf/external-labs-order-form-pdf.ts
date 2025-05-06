@@ -177,12 +177,14 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
       size: columnOneFontSize,
       x: currXPos,
       y: currYPos,
+      maxWidth: pageTextWidth / 2 - currXPos,
     });
     page.drawText(columnTwoName, {
       font: columnTwoFont,
       size: columnTwoFontSize,
       x: pageTextWidth / 2,
       y: currYPos,
+      maxWidth: pageTextWidth / 2,
     });
   };
 
@@ -235,7 +237,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   // --- add all sections to PDF ---
   // ===============================
   // Main header
-  drawHeader('Order Form');
+  drawHeader(`${data.labOrganizationName}: Order Form`);
   addNewLine();
   drawSeparatorLine();
   addNewLine();
@@ -272,9 +274,11 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   drawSubHeader(`${data.patientFirstName},`);
   currXPos +=
     styles.subHeader.font.widthOfTextAtSize(data.patientFirstName, styles.subHeader.fontSize) + subHeaderTextWidth;
-  drawSubHeader(`${data.patientMiddleName},`);
-  currXPos +=
-    styles.subHeader.font.widthOfTextAtSize(data.patientMiddleName, styles.subHeader.fontSize) + subHeaderTextWidth;
+  if (data.patientMiddleName) {
+    drawSubHeader(`${data.patientMiddleName},`);
+    currXPos +=
+      styles.subHeader.font.widthOfTextAtSize(data.patientMiddleName, styles.subHeader.fontSize) + subHeaderTextWidth;
+  }
   drawSubHeader(`${data.patientLastName},`);
   currXPos +=
     styles.subHeader.font.widthOfTextAtSize(data.patientLastName, styles.subHeader.fontSize) + subHeaderTextWidth;
@@ -354,7 +358,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     data.orderName.toUpperCase(),
     styles.subHeader.font,
     styles.subHeader.fontSize,
-    `${data.assessmentCode} ${data.assessmentName}`,
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '),
     styles.regularText.font,
     styles.regularText.fontSize
   );

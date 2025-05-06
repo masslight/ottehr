@@ -1,5 +1,5 @@
 import { Appointment, Encounter, Period, Slot } from 'fhir/r4b';
-import { AvailableLocationInformation, TelemedAppointmentStatusEnum } from '../../types';
+import { AvailableLocationInformation, ServiceMode, TelemedAppointmentStatusEnum } from '../../types';
 import { SlotListItem } from '../../utils';
 
 export type AppointmentType = 'walk-in' | 'pre-booked' | 'post-telemed';
@@ -99,4 +99,20 @@ export interface UpdateAppointmentParameters {
   appointmentID: string;
   language: string;
   slot: Slot;
+}
+
+export interface WalkinAvailabilityCheckParams {
+  scheduleId?: string;
+  locationName?: string;
+}
+
+export interface WalkinAvailabilityCheckResult {
+  officeOpen: boolean;
+  walkinOpen: boolean;
+  officeHasClosureOverrideToday: boolean;
+  officeHasClosureOverrideTomorrow: boolean;
+  prebookStillOpenForToday: boolean;
+  scheduleOwnerName: string;
+  scheduleId: string;
+  serviceMode?: ServiceMode;
 }
