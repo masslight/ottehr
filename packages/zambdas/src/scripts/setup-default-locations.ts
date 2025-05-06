@@ -1,4 +1,5 @@
 import { BatchInputPostRequest, default as Oystehr } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import { FhirResource, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import {
   AllStatesToVirtualLocationsData,
@@ -8,34 +9,32 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
-  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
+  SLUG_SYSTEM,
   TELEMED_INITIAL_STATES,
   TIMEZONE_EXTENSION_URL,
   unbundleBatchPostOutput,
-  VirtualLocationBody
+  VirtualLocationBody,
 } from 'utils';
-import { getAuth0Token } from '../shared';
-import { createOystehrClient } from '../shared';
-import { randomUUID } from 'crypto';
+import { createOystehrClient, getAuth0Token } from '../shared';
 
-export const DEFAULT_TESTING_SLUG = 'testing';
-
-const virtualLocations: { value: string; label: string }[] = [
+export const virtualDefaultLocations: { value: string; label: string }[] = [
   ...TELEMED_INITIAL_STATES.map((state) => ({ value: state, label: state })),
 ];
 
-const allPhysicalLocations: { state: string; city: string }[] = [
+export const allPhysicalDefaultLocations: { state: string; city: string; name: string }[] = [
   {
     state: 'NY',
     city: 'New York',
+    name: 'New York',
   },
   {
     state: 'CA',
     city: 'Los Angeles',
+    name: 'Los Angeles',
   },
 ];
-export type PhysicalLocation = (typeof allPhysicalLocations)[number];
+export type PhysicalLocation = (typeof allPhysicalDefaultLocations)[number];
 
 export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
   const allLocations = await oystehr.fhir.search({
@@ -50,13 +49,13 @@ export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
 
   console.log('Filtered all virtual telemed locations.');
 
-  for (const statePkg of virtualLocations) {
+  for (const statePkg of virtualDefaultLocations) {
     const stateData = AllStatesToVirtualLocationsData[statePkg.value];
     if (!telemedStates.includes(statePkg.value)) await createTelemedLocation(statePkg, stateData, oystehr);
   }
   console.log('All telemed locations exist');
 
-  for (const locationInfo of allPhysicalLocations) {
+  for (const locationInfo of allPhysicalDefaultLocations) {
     await createPhysicalLocation(locationInfo, oystehr);
   }
 };
@@ -110,7 +109,7 @@ const createTelemedLocation = async (
     url: '/Location',
     resource: location,
     fullUrl: `urn:uuid:${randomUUID()}`,
-  }
+  };
 
   /*
     for each location, we create a schedule with a json extension that will be used in calculating the available bookable
@@ -130,9 +129,11 @@ const createTelemedLocation = async (
         valueString: 'America/New_York',
       },
     ],
-    actor: [{
-      reference: createLocationRequest.fullUrl,
-    }],
+    actor: [
+      {
+        reference: createLocationRequest.fullUrl,
+      },
+    ],
   };
 
   const createScheduleRequest: BatchInputPostRequest<Schedule> = {
@@ -141,8 +142,10 @@ const createTelemedLocation = async (
     resource: locationSchedule,
   };
 
-  const fhirResponse = await oystehr.fhir.transaction<Location | Schedule>({ requests: [createLocationRequest, createScheduleRequest] });
-  const unbundled = unbundleBatchPostOutput<Location|Schedule>(fhirResponse);
+  const fhirResponse = await oystehr.fhir.transaction<Location | Schedule>({
+    requests: [createLocationRequest, createScheduleRequest],
+  });
+  const unbundled = unbundleBatchPostOutput<Location | Schedule>(fhirResponse);
   const fhirLocation = unbundled.find((resource) => resource.resourceType === 'Location') as Location;
   console.log(`Created fhir location: state: ${fhirLocation?.address?.state}, id: ${fhirLocation?.id}`);
   console.log(`Created fhir schedule: id: ${locationSchedule.id} for ${fhirLocation?.address?.state} location`);
@@ -212,9 +215,11 @@ const createPhysicalLocation = async (
           valueString: 'America/New_York',
         },
       ],
-      actor: [{
-        reference: createLocationRequest.fullUrl,
-      }],
+      actor: [
+        {
+          reference: createLocationRequest.fullUrl,
+        },
+      ],
     };
 
     const createScheduleRequest: BatchInputPostRequest<Schedule> = {

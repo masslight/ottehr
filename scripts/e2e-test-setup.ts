@@ -3,9 +3,9 @@ import Oystehr from '@oystehr/sdk';
 import dotenv from 'dotenv';
 import { Location, Practitioner } from 'fhir/r4b';
 import fs from 'fs';
-import { allLicensesForPractitioner, makeQualificationForPractitioner, SLUG_SYSTEM } from 'utils';
+import { allLicensesForPractitioner, makeQualificationForPractitioner } from 'utils';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
-import { DEFAULT_TESTING_SLUG } from '../packages/zambdas/src/scripts/setup-default-locations';
+import { allPhysicalDefaultLocations } from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
@@ -93,6 +93,9 @@ async function getLocationsForTesting(
 ): Promise<{ locationId: string; locationName: string; locationSlug: string; virtualLocationState: string }> {
   console.log(`Setting up locations for testing`);
   const oystehr = await getToken(ehrZambdaEnv);
+
+  const firstDefaultLocation = allPhysicalDefaultLocations[0];
+
   const locationsResponse = await oystehr.fhir.search<Location>({
     resourceType: 'Location',
   });
@@ -109,12 +112,7 @@ async function getLocationsForTesting(
     throw Error('No virtual locations found in FHIR API');
   }
 
-  const locationResource = locations.find(
-    (location) =>
-      location.identifier?.some(
-        (identifier) => identifier.system === SLUG_SYSTEM && identifier.value === DEFAULT_TESTING_SLUG
-      )
-  );
+  const locationResource = locations.find((location) => location.name === firstDefaultLocation.name);
 
   const locationId = locationResource?.id;
   const locationName = locationResource?.name;
@@ -139,7 +137,7 @@ async function getLocationsForTesting(
     throw Error('Required locationState not found');
   }
 
-  console.log(`Found location by slug '${DEFAULT_TESTING_SLUG}' with ID: ${locationId}`);
+  console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
   console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
 
   console.log(`Found virtual location with ID: ${virtualLocation?.id}`);
