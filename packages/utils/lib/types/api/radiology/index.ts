@@ -41,7 +41,14 @@ export interface GetRadiologyOrderListZambdaOrder {
   diagnosis: string;
   status: RadiologyOrderStatus;
   result?: string;
+  history?: RadiologyOrderHistoryRow[];
 }
+
+export type RadiologyOrderHistoryRow = {
+  status: RadiologyOrderStatus;
+  performer?: string;
+  date: string;
+};
 
 export interface GetRadiologyOrderListZambdaOutput {
   orders: GetRadiologyOrderListZambdaOrder[];

@@ -8,13 +8,19 @@ import {
   GetRadiologyOrderListZambdaOutput,
   isPositiveNumberOrZero,
   Pagination,
+  RadiologyOrderHistoryRow,
   RadiologyOrderStatus,
   RoleType,
   Secrets,
   User,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../../shared';
-import { ORDER_TYPE_CODE_SYSTEM } from '../shared';
+import {
+  DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL,
+  ORDER_TYPE_CODE_SYSTEM,
+  SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL,
+  SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL,
+} from '../shared';
 import { validateInput, validateSecrets } from './validation';
 
 // Types
@@ -251,6 +257,8 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
+  const history = buildHistory(serviceRequest, myDiagnosticReport);
+
   return {
     serviceRequestId: serviceRequest.id,
     appointmentId,
@@ -261,7 +269,54 @@ const parseResultsToOrder = (
     diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
     result,
+    history,
   };
+};
+
+const buildHistory = (
+  serviceRequest: ServiceRequest,
+  diagnosticReport?: DiagnosticReport
+): RadiologyOrderHistoryRow[] => {
+  const history: RadiologyOrderHistoryRow[] = [];
+
+  const requestedTimeExtensionValue = serviceRequest.extension?.find(
+    (ext) => ext.url === SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL
+  )?.valueDateTime;
+  if (requestedTimeExtensionValue) {
+    history.push({
+      status: RadiologyOrderStatus.pending,
+      date: requestedTimeExtensionValue,
+    });
+  }
+
+  const performedHistoryExtensionValue = serviceRequest.extension?.find(
+    (ext) => ext.url === SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL
+  )?.valueDateTime;
+  if (performedHistoryExtensionValue) {
+    history.push({
+      status: RadiologyOrderStatus.performed,
+      date: performedHistoryExtensionValue,
+    });
+  }
+
+  const diagnosticReportPreliminaryReadTimeExtensionValue = diagnosticReport?.extension?.find(
+    (ext) => ext.url === DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL
+  )?.valueDateTime;
+  if (diagnosticReportPreliminaryReadTimeExtensionValue) {
+    history.push({
+      status: RadiologyOrderStatus.preliminary,
+      date: diagnosticReportPreliminaryReadTimeExtensionValue,
+    });
+  }
+
+  if (diagnosticReport?.issued) {
+    history.push({
+      status: RadiologyOrderStatus.final,
+      date: diagnosticReport.issued,
+    });
+  }
+
+  return history;
 };
 
 const extractResources = (

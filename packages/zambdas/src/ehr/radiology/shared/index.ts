@@ -9,3 +9,5 @@ export const DIAGNOSTIC_REPORT_PRELIMINARY_REVIEW_ON_EXTENSION_URL =
   'https://extensions.fhir.oystehr.com/diagnostic-report-preliminary-review-on';
 export const SERVICE_REQUEST_PERFORMED_ON_EXTENSION_URL =
   'https://extensions.fhir.oystehr.com/service-request-performed-on';
+export const SERVICE_REQUEST_REQUESTED_TIME_EXTENSION_URL =
+  'https://extensions.fhir.ottehr.com/service-request-requested-time';

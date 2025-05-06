@@ -6,8 +6,8 @@ import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { RadiologyTableStatusChip } from '../components/labs-orders/RadiologyTableStatusChip';
 import { usePatientRadiologyOrders } from '../components/labs-orders/usePatientRadiologyOrders';
-// import { OrderCollection } from '../components/OrderCollection';
 import radiologyIcon from '../../../assets/mui-radiology.svg';
+import { RadiologyOrderHistoryCard } from '../components/labs-orders/RadiologyOrderHistoryCard';
 
 export const RadiologyOrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
@@ -85,19 +85,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
           </Box>
         </Box>
 
-        {/* <OrderCollection
-          aoe={{}}
-          status={taskStatus}
-          labQuestionnaireResponses={labQuestionnaireResponses}
-          collectionInstructions={collectionInstructions}
-          specimen={specimen}
-          serviceRequestID={serviceRequestID}
-          serviceRequest={serviceRequest}
-          accountNumber={serviceRequest.accountNumber}
-          _onCollectionSubmit={handleSampleCollectionTaskChange}
-          oystehr={oystehrZambda}
-          labOrder={labOrder}
-        /> */}
+        <RadiologyOrderHistoryCard orderHistory={order.history} />
 
         <Button
           variant="outlined"
