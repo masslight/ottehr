@@ -202,14 +202,14 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
   if (virtualLocations.length === 0) {
     throw Error('No virtual locations found in FHIR API');
   }
+  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
-  const firstVirtualLocation = virtualLocations.at(0);
   const licenses = allLicensesForPractitioner(practitioner);
   const qualification = practitioner.qualification || [];
-  if (!licenses.find((license) => license.state === firstVirtualLocation?.address?.state)) {
+  if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
     qualification.push(
       makeQualificationForPractitioner({
-        state: firstVirtualLocation?.address?.state || '',
+        state: firstDefaultVirtualLocation.state,
         number: '1234567890',
         code: 'MD',
         active: true,
