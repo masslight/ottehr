@@ -11,6 +11,7 @@ import {
   EXTERNAL_LAB_ERROR,
   isApiError,
   APIError,
+  SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -27,6 +28,8 @@ import {
   Patient,
   Account,
   Provenance,
+  SpecimenDefinition,
+  Specimen,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
@@ -82,9 +85,38 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       oystehr
     );
 
-    const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
-
     const requests: BatchInputRequest<FhirResource>[] = [];
+    const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
+
+    const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
+    const serviceRequestContained: FhirResource[] = [];
+
+    const createSpecimenResources = !psc && orderableItem.item.specimens.length > 0;
+    console.log('createSpecimenResources', createSpecimenResources, psc, orderableItem.item.specimens.length);
+    const specimenFullUrlArr: string[] = [];
+    if (createSpecimenResources) {
+      const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
+        orderableItem,
+        patientId,
+        serviceRequestFullUrl
+      );
+      activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
+        reference: `#${sd.id}`,
+      }));
+      serviceRequestContained.push(activityDefinitionToContain, ...specimenDefinitionConfigs);
+      specimenConfigs.forEach((specimenResource) => {
+        const specimenFullUrl = `urn:uuid:${randomUUID()}`;
+        specimenFullUrlArr?.push(specimenFullUrl);
+        requests.push({
+          method: 'POST',
+          url: '/Specimen',
+          resource: specimenResource,
+          fullUrl: specimenFullUrl,
+        });
+      });
+    } else {
+      serviceRequestContained.push(activityDefinitionToContain);
+    }
 
     const serviceRequestCode = formatSrCode(orderableItem);
     const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
@@ -122,7 +154,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,
       instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
-      contained: [activityDefinitionToContain],
+      contained: serviceRequestContained,
     };
     if (location) {
       serviceRequestConfig.locationReference = [
@@ -153,7 +185,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ];
     }
-    const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
+    if (specimenFullUrlArr.length > 0) {
+      serviceRequestConfig.specimen = specimenFullUrlArr.map((url) => ({
+        type: 'Specimen',
+        reference: url,
+      }));
+    }
 
     const preSubmissionTaskConfig: Task = {
       resourceType: 'Task',
@@ -319,6 +356,72 @@ const formatActivityDefinitionToContain = (orderableItem: OrderableItemSearchRes
   };
 
   return activityDefinitionConfig;
+};
+
+const formatSpecimenResources = (
+  orderableItem: OrderableItemSearchResult,
+  patientID: string,
+  serviceRequestFullUrl: string
+): { specimenDefinitionConfigs: SpecimenDefinition[]; specimenConfigs: Specimen[] } => {
+  const specimenDefinitionConfigs: SpecimenDefinition[] = [];
+  const specimenConfigs: Specimen[] = [];
+
+  orderableItem.item.specimens.forEach((specimen, idx) => {
+    const collectionInstructionsCoding = {
+      coding: [
+        {
+          system: SPECIMEN_CODING_CONFIG.collection.system,
+          code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
+        },
+      ],
+      text: specimen.collectionInstructions,
+    };
+    const specimenDefitionConfig: SpecimenDefinition = {
+      resourceType: 'SpecimenDefinition',
+      id: `specimenDefinitionId${idx}`,
+      typeTested: [
+        {
+          preference: 'preferred',
+          container: {
+            description: specimen.container,
+            minimumVolumeString: specimen.minimumVolume,
+          },
+          handling: [
+            {
+              instruction: specimen.storageRequirements,
+            },
+          ],
+        },
+      ],
+      collection: [
+        collectionInstructionsCoding,
+        {
+          coding: [
+            {
+              system: SPECIMEN_CODING_CONFIG.collection.system,
+              code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
+            },
+          ],
+          text: specimen.volume,
+        },
+      ],
+    };
+    specimenDefinitionConfigs.push(specimenDefitionConfig);
+    const specimenConfig: Specimen = {
+      resourceType: 'Specimen',
+      request: [{ reference: serviceRequestFullUrl }],
+      collection: {
+        method: collectionInstructionsCoding,
+      },
+      subject: {
+        type: 'Patient',
+        reference: `Patient/${patientID}`,
+      },
+    };
+    specimenConfigs.push(specimenConfig);
+  });
+
+  return { specimenDefinitionConfigs, specimenConfigs };
 };
 
 const getProvenanceConfig = (

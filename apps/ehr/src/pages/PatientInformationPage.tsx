@@ -42,6 +42,7 @@ import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import { useQueryClient } from 'react-query';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
 import _ from 'lodash';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;
@@ -299,6 +300,7 @@ const PatientInformationPage: FC = () => {
                   ))}
                   {coverages.length < 2 && (
                     <Button
+                      data-testid={dataTestIds.patientInformationPage.addInsuranceButton}
                       variant="outlined"
                       color="primary"
                       onClick={() => setOpenAddInsuranceModal(true)}

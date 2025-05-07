@@ -1,4 +1,4 @@
-import { DeletePatientInstructionInput } from 'utils';
+import { DeletePatientInstructionInput, MISSING_AUTH_TOKEN } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
@@ -11,7 +11,7 @@ export function validateRequestParameters(
   const data = JSON.parse(input.body) as DeletePatientInstructionInput;
 
   if (input.headers.Authorization === undefined) {
-    throw new Error('AuthToken is not provided in headers');
+    throw MISSING_AUTH_TOKEN;
   }
 
   if (data.instructionId === undefined) {

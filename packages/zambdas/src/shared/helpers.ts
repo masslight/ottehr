@@ -134,51 +134,6 @@ export function logTime(): void {
   }
 }
 
-/*
-{
-  "resourceType": "Communication",
-  "status": "in-progress",
-  "medium": [
-    {
-      "coding": [
-        {
-          "system": "http://terminology.hl7.org/CodeSystem/v3-ParticipationMode",
-          "code": "SMSWRIT"
-        }
-      ]
-    }
-  ],
-  "sent": "2023-11-19T18:27:51.387+00:00",
-  "payload": [
-    {
-      "contentString": "Your appointment is confirmed. We look forward to seeing you January 18, 2023 at 5:00PM EDT. To reschedule or cancel visit https://app.notarealpractice.com/visit/4xDzrJKXDOY"
-    }
-  ],
-  "recipient": [
-    {
-      "reference": "Patient/51940f7e-7311-4006-b9aa-83bbc0c5b62c"
-    }
-  ],
-  "note": [
-    {
-      "time": "2023-11-19T18:27:51.387+00:00",
-      "text": "Message sent using ZapEHR SMS"
-    },
-    {
-      "time": "2023-11-19T18:27:51.387+00:00",
-      "text": "Message sent to number: +12345678900"
-    }
-  ],
-  "id": "d96634a9-082d-4e98-93d2-f514cde691fd",
-  "meta": {
-    "versionId": "1478e1d4-d4e2-49f0-a99c-8fae79e09584",
-    "lastUpdated": "2023-11-19T18:27:52.121Z"
-  }
-}
-
-
-*/
-
 export function isValidPhoneNumber(phone: string): boolean {
   const phoneRegex = /^\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})$/;
   return phoneRegex.test(phone);
@@ -271,7 +226,8 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   return parsedExtValue;
 }
 
-// todo: this needs to take a schedule.
+// todo 1.8: this needs to take a schedule (or be async and go get a schedule), have a better name
+// also check that this data is truly needed everywhere it is used
 export function getLocationInformation(
   oystehr: Oystehr,
   scheduleResource: Location | Practitioner | HealthcareService,

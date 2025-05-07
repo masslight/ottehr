@@ -5,7 +5,6 @@ import { SubscriptionZambdaDetails } from 'utils';
 import ottehrSpec from '../../ottehr-spec.json';
 import { getAuth0Token } from '../shared';
 
-
 interface DeployZambda {
   type: 'http_open' | 'http_auth' | 'subscription' | 'cron';
   subscriptionDetails?: SubscriptionZambdaDetails[];
@@ -27,7 +26,7 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
 
   const zambdaDefinition: DeployZambda = {
     type: spec.type,
-  }
+  };
 
   if (spec.type === 'subscription') {
     if (anySpec.subscription === undefined) {
@@ -38,9 +37,6 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
     }
     if (anySpec.subscription.reason === undefined) {
       throw new Error('Subscription zambda must have the subscription.reason property');
-    }
-    if (anySpec.subscription.event === undefined) {
-      throw new Error('Subscription zambda must have the subscription.event property');
     }
 
     zambdaDefinition.subscriptionDetails = [anySpec.subscription];
@@ -54,10 +50,13 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
 
     zambdaDefinition.schedule = {
       expression: anySpec.schedule.expression,
-    }
+    };
   }
 
-  if (process.env.environment !== 'demo' && (spec.name === 'SEND-MESSAGE-CRON' || spec.name === 'NOTIFICATIONS-UPDATER')) {
+  if (
+    process.env.environment !== 'demo' &&
+    (spec.name === 'SEND-MESSAGE-CRON' || spec.name === 'NOTIFICATIONS-UPDATER')
+  ) {
     console.log('TODO Skipping zambda because we only want it in the demo env', spec.name);
     return;
   }

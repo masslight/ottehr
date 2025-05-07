@@ -4,9 +4,10 @@ import {
   LabOrderDTO,
   DEFAULT_LABS_ITEMS_PER_PAGE,
   GetLabOrdersParameters,
-  UpdateLabOrderResourceParams,
   DeleteLabOrderParams,
   LabOrdersSearchBy,
+  TaskReviewedParameters,
+  SpecimenDateChangedParameters,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
@@ -36,7 +37,8 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  updateTask: ({ taskId, event }: UpdateLabOrderResourceParams) => Promise<void>;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
+  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
@@ -212,17 +214,44 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     deleteOrder: handleDeleteLabOrder,
   });
 
-  const updateTask = useCallback(
-    async ({ taskId, serviceRequestId, diagnosticReportId, event }: UpdateLabOrderResourceParams): Promise<void> => {
+  const markTaskAsReviewed = useCallback(
+    async ({ taskId, serviceRequestId, diagnosticReportId }: TaskReviewedParameters): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
       }
 
-      await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event });
+      setLoading(true);
+
+      await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
       await fetchLabOrders(getCurrentSearchParamsForPage(1));
     },
     [oystehrZambda, fetchLabOrders, getCurrentSearchParamsForPage]
+  );
+
+  const saveSpecimenDate = useCallback(
+    async ({
+      specimenId,
+      date,
+      serviceRequestId,
+    }: {
+      specimenId: string;
+      date: string;
+      serviceRequestId: string;
+    }): Promise<void> => {
+      if (!oystehrZambda) {
+        console.error('oystehrZambda is not defined');
+        return;
+      }
+
+      await updateLabOrderResources(oystehrZambda, {
+        specimenId,
+        date,
+        event: 'specimenDateChanged',
+        serviceRequestId,
+      });
+    },
+    [oystehrZambda]
   );
 
   return {
@@ -242,6 +271,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
-    updateTask,
+    markTaskAsReviewed,
+    saveSpecimenDate,
   };
 };

@@ -2,7 +2,7 @@ import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PatientHeader } from './PatientHeader';
 import { formatPhoneNumberForQuestionarie } from 'utils';
-import { PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME } from '../../e2e-utils/resource-handler';
+import { AddInsuranceDialog } from './patient-information/AddInsuranceDialog';
 
 export enum Field {
   PATIENT_LAST_NAME,
@@ -790,8 +790,34 @@ export class PatientInformationPage {
     await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').isHidden();
   }
 
+  async verifyValidationErrorInvalidPhoneFromPcp(): Promise<void> {
+    await expect(
+      this.#page
+        .getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile)
+        .locator('p:text("Phone number must be 10 digits in the format (xxx) xxx-xxxx")')
+    ).toBeVisible();
+  }
+
   async clearMobileFromPcp(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.primaryCarePhysicianContainer.mobile).locator('input').clear();
+  }
+
+  async clickAddInsuranceButton(): Promise<AddInsuranceDialog> {
+    await this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).click();
+    await this.#page.getByTestId(dataTestIds.addInsuranceDialog.id).isVisible();
+    return new AddInsuranceDialog(this.#page.getByTestId(dataTestIds.addInsuranceDialog.id));
+  }
+
+  async verifyAddInsuranceButtonIsHidden(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isHidden();
+  }
+
+  async verifyAddInsuranceButtonIsVisible(): Promise<void> {
+    this.#page.getByTestId(dataTestIds.patientInformationPage.addInsuranceButton).isVisible;
+  }
+
+  async verifyCoverageRemovedMessageShown(): Promise<void> {
+    await expect(this.#page.getByText('Coverage removed from patient account')).toBeVisible();
   }
 }
 
@@ -1081,6 +1107,9 @@ export class InsuranceCard {
       .getByTestId(dataTestIds.insuranceContainer.additionalInformation)
       .locator('input')
       .fill(additionalInfo);
+  }
+  async clickRemoveInsuranceButton(): Promise<void> {
+    await this.#container.getByTestId(dataTestIds.insuranceContainer.removeButton).click();
   }
 }
 

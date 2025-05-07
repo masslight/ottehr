@@ -4,7 +4,12 @@ import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
-import { DynamicAOEInput, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
+import {
+  DynamicAOEInput,
+  LabOrderDetailedPageDTO,
+  LabQuestionnaireResponse,
+  SpecimenDateChangedParameters,
+} from 'utils';
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -12,18 +17,11 @@ import { SampleInformationCard } from './SampleInformationCard';
 import { OrderHistoryCard } from './OrderHistoryCard';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
-// import { StatusString } from './StatusChip';
-
-// interface CollectionInstructions {
-//   container: string;
-//   volume: string;
-//   minimumVolume: string;
-//   storageRequirements: string;
-//   collectionInstructions: string;
-// }
+import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 
 interface SampleCollectionProps {
   labOrder: LabOrderDetailedPageDTO;
+  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
@@ -35,6 +33,7 @@ export async function openLabOrder(url: string): Promise<void> {
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
   labOrder,
+  saveSpecimenDate,
   showActionButtons = true,
   showOrderInfo = true,
   isAOECollapsed = false,
@@ -52,6 +51,12 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
+  const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
+
+  const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
+    setSpecimensLoadingState((prevState) => ({ ...prevState, [specimenId]: state }));
+  };
 
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
     setSubmitLoading(true);
@@ -110,6 +115,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
+  const isSpecimenSaving = Object.values(specimensLoadingState).some((state) => state === 'saving');
+
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
@@ -118,7 +125,19 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
           isCollapsed={isAOECollapsed}
         />
-        {/* <SampleCollectionInstructionsCard instructions={collectionInstructions} /> */}
+
+        {shouldShowSampleCollectionInstructions &&
+          labOrder.samples.map((sample) => (
+            <SampleCollectionInstructionsCard
+              key={sample.specimen.id}
+              sample={sample}
+              serviceRequestId={labOrder.serviceRequestId}
+              timezone={labOrder.encounterTimezone}
+              saveSpecimenDate={saveSpecimenDate}
+              updateSpecimenLoadingState={updateSpecimenLoadingState}
+            />
+          ))}
+
         {showOrderInfo && (
           <SampleInformationCard
           // orderAddedDateTime={labOrder?.orderAddedDate}
@@ -130,7 +149,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         )}
 
         <Box sx={{ mt: 2 }}>
-          <OrderHistoryCard orderHistory={labOrder?.history} />
+          <OrderHistoryCard orderHistory={labOrder?.history} timezone={labOrder.encounterTimezone} />
         </Box>
 
         {showActionButtons && (
@@ -147,8 +166,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   variant="contained"
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   type="submit"
+                  disabled={isSpecimenSaving}
                 >
-                  Order
+                  {isSpecimenSaving ? 'Saving changes...' : 'Submit & Print order'}
                 </LoadingButton>
               </Stack>
             )}

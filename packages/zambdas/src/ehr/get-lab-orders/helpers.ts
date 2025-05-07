@@ -17,6 +17,8 @@ import {
   Questionnaire,
   QuestionnaireResponseItem,
   DocumentReference,
+  Location,
+  Specimen,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
@@ -34,6 +36,9 @@ import {
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   getPresignedURL,
+  getTimezone,
+  sampleDTO,
+  SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -57,11 +62,13 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   results: DiagnosticReport[],
   practitioners: Practitioner[],
   encounters: Encounter[],
+  locations: Location[],
   appointments: Appointment[],
   provenances: Provenance[],
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
-  labPDFs: LabOrderPDF[]
+  labPDFs: LabOrderPDF[],
+  specimens: Specimen[]
 ): LabOrderDTO<SearchBy>[] => {
   return serviceRequests.map((serviceRequest) => {
     const parsedResults = parseResults(serviceRequest, results);
@@ -73,35 +80,39 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       parsedTasks,
     };
 
-    return parseOrderDetails({
+    return parseOrderData({
       searchBy,
       tasks,
       serviceRequest,
       results,
       appointments,
       encounters,
+      locations,
       practitioners,
       provenances,
       organizations,
       questionnaires,
       labPDFs,
+      specimens,
       cache,
     });
   });
 };
 
-export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
+export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   searchBy,
   serviceRequest,
   tasks,
   results,
   appointments,
   encounters,
+  locations,
   practitioners,
   provenances,
   organizations,
   questionnaires,
   labPDFs,
+  specimens,
   cache,
 }: {
   searchBy: SearchBy;
@@ -110,11 +121,13 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
   results: DiagnosticReport[];
   appointments: Appointment[];
   encounters: Encounter[];
+  locations: Location[];
   practitioners: Practitioner[];
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
+  specimens: Specimen[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
   if (!serviceRequest.id) {
@@ -140,6 +153,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
     diagnosesDTO: parseDiagnoses(serviceRequest),
     orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
     diagnoses: parseDx(serviceRequest),
+    encounterTimezone: parseLocationTimezoneForSR(serviceRequest, locations),
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
@@ -150,6 +164,7 @@ export const parseOrderDetails = <SearchBy extends LabOrdersSearchBy>({
       accountNumber: parseAccountNumber(serviceRequest, organizations),
       resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
+      samples: parseSamples(serviceRequest, specimens),
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -257,19 +272,28 @@ export const parseResults = (
     const result = relatedResults[i];
 
     if (!result.id) {
+      console.log(`Error: result ${result} has no id`);
       continue;
     }
 
     const resultCodes = result.code?.coding?.map((coding) => coding.code);
 
     if (resultCodes?.some((code) => serviceRequestCodes?.includes(code))) {
-      result.status === 'preliminary'
-        ? orderedPrelimResults.set(result.id, result)
-        : orderedFinalResults.set(result.id, result);
+      if (result.status === 'preliminary') {
+        orderedPrelimResults.set(result.id, result);
+      } else if (result.status === 'final') {
+        orderedFinalResults.set(result.id, result);
+      } else {
+        console.log(`Error: unknown status "${result.status}" for ordered result ${result.id}`);
+      }
     } else {
-      result.status === 'preliminary'
-        ? reflexPrelimResults.set(result.id, result)
-        : reflexFinalResults.set(result.id, result);
+      if (result.status === 'preliminary') {
+        reflexPrelimResults.set(result.id, result);
+      } else if (result.status === 'final') {
+        reflexFinalResults.set(result.id, result);
+      } else {
+        console.log(`Error: unknown status "${result.status}" for reflex result ${result.id}`);
+      }
     }
   }
 
@@ -308,18 +332,20 @@ export const getLabResources = async (
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   appointments: Appointment[];
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
+  specimens: Specimen[];
 }> => {
-  const labOrdersSearchParams = createLabOrdersSearchParams(params);
+  const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
 
   const labOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
-    params: labOrdersSearchParams,
+    params: labServiceRequestSearchParams,
   });
 
   const labResources =
@@ -335,18 +361,22 @@ export const getLabResources = async (
           | DiagnosticReport
           | Provenance
           | Organization
-          | QuestionnaireResponse => Boolean(res)
+          | Location
+          | QuestionnaireResponse
+          | Specimen => Boolean(res)
       ) || [];
 
   const {
     serviceRequests,
     tasks: preSubmissionTasks,
     encounters,
+    locations,
     diagnosticReports,
     observations,
     provenances,
     organizations,
     questionnaireResponses,
+    specimens,
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
@@ -373,17 +403,19 @@ export const getLabResources = async (
     diagnosticReports,
     practitioners,
     encounters,
+    locations,
     observations,
     appointments,
     provenances,
     organizations,
     questionnaires,
     labPDFs,
+    specimens,
     pagination,
   };
 };
 
-export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
+export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
   const { searchBy, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0, orderableItemCode } = params;
 
   const searchParams: SearchParam[] = [
@@ -438,6 +470,12 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
       name: '_revinclude',
       value: 'Provenance:target',
     },
+
+    // include encounter location
+    {
+      name: '_include:iterate',
+      value: 'Encounter:location',
+    },
   ];
 
   // chart data case
@@ -473,6 +511,11 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
       name: '_revinclude',
       value: 'QuestionnaireResponse:based-on',
     });
+
+    searchParams.push({
+      name: '_include',
+      value: 'ServiceRequest:specimen',
+    });
   }
 
   if (visitDate) {
@@ -495,26 +538,31 @@ export const extractLabResources = (
     | Provenance
     | Organization
     | QuestionnaireResponse
+    | Location
+    | Specimen
   )[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   provenances: Provenance[];
   organizations: Organization[];
   questionnaireResponses: QuestionnaireResponse[];
+  specimens: Specimen[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
+  const locations: Location[] = [];
   const observations: Observation[] = [];
   const provenances: Provenance[] = [];
   const organizations: Organization[] = [];
   const questionnaireResponses: QuestionnaireResponse[] = [];
-
+  const specimens: Specimen[] = [];
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -525,19 +573,23 @@ export const extractLabResources = (
         serviceRequests.push(serviceRequest);
       }
     } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
-      tasks.push(resource as Task);
+      tasks.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
-      diagnosticReports.push(resource as DiagnosticReport);
+      diagnosticReports.push(resource);
     } else if (resource.resourceType === 'Encounter') {
-      encounters.push(resource as Encounter);
+      encounters.push(resource);
     } else if (resource.resourceType === 'Observation') {
-      observations.push(resource as Observation);
+      observations.push(resource);
     } else if (resource.resourceType === 'Provenance') {
-      provenances.push(resource as Provenance);
+      provenances.push(resource);
     } else if (resource.resourceType === 'Organization') {
-      organizations.push(resource as Organization);
+      organizations.push(resource);
     } else if (resource.resourceType === 'QuestionnaireResponse') {
       questionnaireResponses.push(resource as QuestionnaireResponse);
+    } else if (resource.resourceType === 'Location') {
+      locations.push(resource);
+    } else if (resource.resourceType === 'Specimen') {
+      specimens.push(resource);
     }
   }
 
@@ -546,10 +598,12 @@ export const extractLabResources = (
     tasks,
     diagnosticReports,
     encounters,
+    locations,
     observations,
     provenances,
     organizations,
     questionnaireResponses,
+    specimens,
   };
 };
 
@@ -633,6 +687,10 @@ export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: Diagno
       {
         name: 'based-on',
         value: resultsIds.join(','),
+      },
+      {
+        name: 'status:not',
+        value: 'cancelled',
       },
     ],
   });
@@ -777,7 +835,7 @@ export const parseLabOrderStatus = (
 ): ExternalLabsStatus => {
   if (!serviceRequest.id) {
     console.error('ServiceRequest id is required to parse lab order status');
-    return ExternalLabsStatus.unparsed;
+    return ExternalLabsStatus.unknown;
   }
 
   const { orderedFinalResults, reflexFinalResults, orderedPrelimResults, reflexPrelimResults } =
@@ -798,61 +856,96 @@ export const parseLabOrderStatus = (
   const hasCompletedPSTTask = taskPST?.status === 'completed';
   const isActiveServiceRequest = serviceRequest.status === 'active';
 
+  const hasAllConditions = (conditions: Record<string, boolean>): boolean =>
+    Object.values(conditions).every((condition) => condition === true);
+
   // 'pending': If the SR.status == draft and a pre-submission task exists
-  if (serviceRequest.status === 'draft' && taskPST?.status === 'ready') {
+  const pendingStatusConditions = {
+    serviceRequestStatusIsDraft: serviceRequest.status === 'draft',
+    pstTaskStatusIsReady: taskPST?.status === 'ready',
+  };
+
+  if (hasAllConditions(pendingStatusConditions)) {
     return ExternalLabsStatus.pending;
   }
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
-  const isSentStatus =
-    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0 && prelimResults.length === 0;
+  const sentStatusConditions = {
+    hasCompletedPSTTask,
+    isActiveServiceRequest,
+    noFinalResults: orderedFinalResults.length === 0,
+    noPrelimResults: prelimResults.length === 0,
+  };
 
-  if (isSentStatus) {
+  if (hasAllConditions(sentStatusConditions)) {
     return ExternalLabsStatus.sent;
   }
 
-  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
   const hasPrelimResults = prelimResults.length > 0;
-  const isPreliminaryStatus = hasPrelimResults && hasCompletedPSTTask && isActiveServiceRequest;
 
-  if (isPreliminaryStatus) {
+  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
+  const prelimStatusConditions = {
+    hasPrelimResults,
+    hasCompletedPSTTask,
+    isActiveServiceRequest,
+  };
+
+  if (hasAllConditions(prelimStatusConditions)) {
     return ExternalLabsStatus.prelim;
   }
 
   // received: Task(RFRT).status = 'ready' and DR the Task is basedOn have DR.status = ‘final’
-  for (let i = 0; i < finalTasks.length; i++) {
-    const task = finalTasks[i];
-
+  const hasReadyTaskWithFinalResult = finalTasks.some((task) => {
     if (task.status !== 'ready') {
-      continue;
+      return false;
     }
 
-    const relatedTasks = parseResultByTask(task, finalResults);
-    const hasFinalResults = relatedTasks.some((result) => result.status === 'final');
+    const relatedFinalResults = parseResultByTask(task, finalResults);
+    return relatedFinalResults.length > 0;
+  });
 
-    if (hasFinalResults) {
-      return ExternalLabsStatus.received;
-    }
+  const receivedStatusConditions = {
+    hasReadyTaskWithFinalResult,
+  };
+
+  if (hasAllConditions(receivedStatusConditions)) {
+    return ExternalLabsStatus.received;
   }
 
   //  reviewed: Task(RFRT).status = 'completed' and DR the Task is basedOn have DR.status = ‘final’
-  for (let i = 0; i < finalTasks.length; i++) {
-    const task = finalTasks[i];
-
+  const hasCompletedTaskWithFinalResult = finalTasks.some((task) => {
     if (task.status !== 'completed') {
-      continue;
+      return false;
     }
 
-    const relatedResults = parseResultByTask(task, finalResults);
-    const hasFinalResults = relatedResults.some((result) => result.status === 'final');
+    const relatedFinalResults = parseResultByTask(task, finalResults);
+    return relatedFinalResults.length > 0;
+  });
 
-    if (hasFinalResults) {
-      return ExternalLabsStatus.reviewed;
-    }
+  const reviewedStatusConditions = {
+    hasCompletedTaskWithFinalResult,
+  };
+
+  if (hasAllConditions(reviewedStatusConditions)) {
+    return ExternalLabsStatus.reviewed;
   }
 
-  // unparsed status, for debugging purposes
-  return ExternalLabsStatus.unparsed;
+  console.log(
+    `Error: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
+    JSON.stringify(
+      {
+        pendingStatusConditions,
+        sentStatusConditions,
+        prelimStatusConditions,
+        receivedStatusConditions,
+        reviewedStatusConditions,
+      },
+      null,
+      2
+    )
+  );
+
+  return ExternalLabsStatus.unknown;
 };
 
 export const parseDiagnoses = (serviceRequest: ServiceRequest): DiagnosisDTO[] => {
@@ -879,7 +972,7 @@ export const parsePractitionerNameFromServiceRequest = (
   return parsePractitionerName(practitionerIdFromServiceRequest, practitioners);
 };
 
-export const parsePractitionerNameFromTask = (task: Task, practitioners: Practitioner[]): string => {
+export const parseReviewerNameFromTask = (task: Task, practitioners: Practitioner[]): string => {
   const performerId = task.owner?.reference?.split('/').pop() || '';
   return parsePractitionerName(performerId, practitioners);
 };
@@ -1043,6 +1136,15 @@ export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: E
   }
 
   return NOT_FOUND;
+};
+
+const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: Location[]): string | undefined => {
+  const location = locations.find((location) => {
+    const locationRef = `Location/${location.id}`;
+    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
+  });
+
+  return location ? getTimezone(location) : undefined;
 };
 
 export const parseVisitDate = (appointment: Appointment | undefined): string => {
@@ -1229,7 +1331,7 @@ export const parseTaskReceivedAndReviewedHistory = (
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
   const result: LabOrderHistoryRow[] = [];
-  const receivedDate = parseTaskReceivedInfo(task, practitioners);
+  const receivedDate = parseTaskReceivedInfo(task);
 
   if (receivedDate) {
     result.push({ ...receivedDate, testType: task.testType });
@@ -1250,13 +1352,10 @@ export const parseTaskReceivedAndReviewedHistory = (
   return result;
 };
 
-export const parseTaskReceivedInfo = (
-  task: Task,
-  practitioners: Practitioner[]
-): Omit<LabOrderHistoryRow, 'resultType'> | null => {
+export const parseTaskReceivedInfo = (task: Task): Omit<LabOrderHistoryRow, 'resultType'> | null => {
   return {
     action: 'received',
-    performer: parsePractitionerNameFromTask(task, practitioners),
+    performer: '-',
     date: task.authoredOn || '',
   };
 };
@@ -1274,7 +1373,7 @@ export const parseTaskReviewedInfo = (
 
   return {
     action: 'reviewed',
-    performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
+    performer: parseReviewerNameFromProvenance(reviewProvenance, practitioners), // also may be received with parseReviewerNameFromTask(task, practitioners);
     date: reviewProvenance.recorded || '',
   };
 };
@@ -1299,7 +1398,7 @@ export const isProvenanceReviewActivity = (provenance: Provenance): boolean => {
   );
 };
 
-export const extractPerformerFromProvenance = (provenance: Provenance, practitioners: Practitioner[]): string => {
+export const parseReviewerNameFromProvenance = (provenance: Provenance, practitioners: Practitioner[]): string => {
   if (!provenance.agent || provenance.agent.length === 0) {
     return '';
   }
@@ -1410,7 +1509,7 @@ export const parseResultDetails = (
         ? ExternalLabsStatus.pending
         : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
         ? ExternalLabsStatus.sent
-        : ExternalLabsStatus.unparsed,
+        : ExternalLabsStatus.unknown,
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
@@ -1586,4 +1685,151 @@ export const parseQuestionnaireResponseItems = (
   });
 
   return questionnaireResponseItems || [];
+};
+
+export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): sampleDTO[] => {
+  const NOT_FOUND = 'Not specified';
+
+  if (!serviceRequest.contained || !serviceRequest.contained.length) {
+    console.log('Error: No contained resources found in serviceRequest');
+    return [];
+  }
+
+  const activityDefinition = serviceRequest.contained.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+
+  if (!activityDefinition || !activityDefinition.specimenRequirement) {
+    console.log('Error: No specimenRequirement found in activityDefinition');
+    return [];
+  }
+
+  const specimenDefinitionRefs = activityDefinition.specimenRequirement.map((req) => req.reference);
+  const result: sampleDTO[] = [];
+
+  for (let i = 0; i < specimenDefinitionRefs.length; i++) {
+    const ref = specimenDefinitionRefs[i];
+
+    if (!ref) {
+      console.log('Error: No reference found in specimenDefinitionRefs');
+      continue;
+    }
+
+    const specDefId = ref.startsWith('#') ? ref.substring(1) : ref;
+
+    const specimenDefinition = serviceRequest.contained.find(
+      (resource) => resource.resourceType === 'SpecimenDefinition' && resource.id === specDefId
+    );
+
+    if (!specimenDefinition) {
+      console.log(`Error: SpecimenDefinition with id ${specDefId} not found in contained resources`);
+      continue;
+    }
+
+    if (!('typeTested' in specimenDefinition)) {
+      console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested.`);
+      continue;
+    }
+
+    if (!Array.isArray(specimenDefinition.typeTested) || specimenDefinition.typeTested.length === 0) {
+      console.log(`Error: SpecimenDefinition ${specDefId} is not array or empty.`);
+      continue;
+    }
+
+    // by the dev design typeTestedInfo should have preferred preference
+    const typeTestedInfo = specimenDefinition.typeTested.find((item) => item.preference === 'preferred');
+
+    if (!typeTestedInfo) {
+      console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested with preference = 'preferred'`);
+    }
+
+    const container = typeTestedInfo?.container?.description;
+
+    const minimumVolume = typeTestedInfo?.container?.minimumVolumeString;
+
+    // by dev design for storage requirements handling[0].instruction should be used
+    const storageRequirements = typeTestedInfo?.handling?.[0]?.instruction;
+
+    const volumeInfo = specimenDefinition.collection?.find(
+      (item) =>
+        item.coding?.some(
+          (code) =>
+            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+            code.code === SPECIMEN_CODING_CONFIG.collection.code.specimenVolume
+        )
+    );
+
+    const volume = volumeInfo?.text;
+
+    const instructionsInfo = specimenDefinition.collection?.find(
+      (item: any) =>
+        item.coding?.some(
+          (code: any) =>
+            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+            code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
+        )
+    );
+
+    const collectionInstructions = instructionsInfo?.text;
+
+    const relatedSpecimens = specimens.filter((spec) => {
+      const isMatchServiceRequest = spec.request?.some(
+        (req) => req.reference === `ServiceRequest/${serviceRequest.id}`
+      );
+
+      if (!isMatchServiceRequest) {
+        return false;
+      }
+
+      const isMatchInstructionCode = spec.collection?.method?.coding?.some(
+        (code) =>
+          code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+          code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
+      );
+
+      if (!isMatchInstructionCode) {
+        return false;
+      }
+
+      const isMatchInstructionText = spec.collection?.method?.text === collectionInstructions;
+
+      return isMatchInstructionText;
+    });
+
+    if (relatedSpecimens.length > 1) {
+      console.log(
+        `Error: More than one specimen found for ServiceRequest/${serviceRequest.id} and SpecimenDefinition/${specDefId}`
+      );
+      continue;
+    }
+
+    const specimen = relatedSpecimens[0];
+
+    if (!specimen?.id) {
+      console.log(
+        `Error: No matching specimen found for ServiceRequest/${serviceRequest.id} and SpecimenDefinition/${specDefId}`
+      );
+      continue;
+    }
+
+    const collectionDate = specimen.collection?.collectedDateTime;
+
+    const logAboutMissingData = (info: string): void => console.log(`Error: ${info} is undefined`);
+
+    result.push({
+      specimen: {
+        id: specimen.id,
+        collectionDate,
+      },
+      definition: {
+        container: container || (logAboutMissingData('container'), NOT_FOUND),
+        volume: volume || (logAboutMissingData('volume'), NOT_FOUND),
+        minimumVolume: minimumVolume || (logAboutMissingData('minimumVolume'), NOT_FOUND),
+        storageRequirements: storageRequirements || (logAboutMissingData('storageRequirements'), NOT_FOUND),
+        collectionInstructions: collectionInstructions || (logAboutMissingData('collectionInstructions'), NOT_FOUND),
+      },
+    });
+  }
+
+  return result;
 };

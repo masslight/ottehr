@@ -1,7 +1,7 @@
 import { FC, ChangeEvent, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Attachment } from 'fhir/r4b';
-import { zapehrApi } from '../../../../api';
+import { ottehrApi } from '../../../../api';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { DateTime } from 'luxon';
 import { addContentTypeToAttachement } from 'utils';
@@ -109,7 +109,7 @@ const FileInput: FC<FileInputProps> = ({
     const saveObjectToZ3 = async (file: File, appointmentId: string, client: ZambdaClient): Promise<void> => {
       try {
         setZ3UploadState(UploadState.pending);
-        const uploadResponse = await zapehrApi.createZ3Object(
+        const uploadResponse = await ottehrApi.createZ3Object(
           appointmentId,
           fileName,
           file.type.split('/')[1],

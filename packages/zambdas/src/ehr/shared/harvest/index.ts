@@ -1180,6 +1180,7 @@ export function createMasterRecordPatchOperations(
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
+  let isUseMissedInPatientName = false;
 
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
@@ -1197,7 +1198,13 @@ export function createMasterRecordPatchOperations(
 
     // Change index if path is changeable
     if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
-      const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+      let nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+      isUseMissedInPatientName = nameIndex === -1;
+
+      if (isUseMissedInPatientName) {
+        nameIndex = 0;
+      }
+
       fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
     }
 
@@ -1279,11 +1286,6 @@ export function createMasterRecordPatchOperations(
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
             const operation = createBasicPatchOperation([value], parentPath, currentParentValue);
-            // looks like there is a bug here when there is a patient name but not patient name contains the 'use: official' desgination
-            // todo: a better fix here is needed, along with some kind of unit/integration tests
-            if (fullPath.includes('name/-1/')) {
-              return;
-            }
             if (operation) tempOperations.patient.push(operation);
             return;
           }
@@ -1326,7 +1328,7 @@ export function createMasterRecordPatchOperations(
 
         // Handle regular fields
         const currentValue = getCurrentValue(patient, path);
-        if (value !== currentValue && !fullPath.includes('name/-1/')) {
+        if (value !== currentValue) {
           const operation = createBasicPatchOperation(value, path, currentValue);
           if (operation) tempOperations.patient.push(operation);
         }
@@ -1334,6 +1336,14 @@ export function createMasterRecordPatchOperations(
       }
     }
   });
+
+  if (isUseMissedInPatientName) {
+    tempOperations.patient.push({
+      op: 'add',
+      path: '/name/0/use',
+      value: 'official',
+    });
+  }
 
   // Separate operations for each resource
   // Separate Patient operations
@@ -1912,11 +1922,15 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
 
 // EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this
 const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
-  const priorityAnswer = items.find((item) => item.linkId === 'insurance-priority')?.answer?.[0]?.valueString;
-  if (priorityAnswer && priorityAnswer !== 'Primary') {
-    return true;
+  const priorities = items.filter(
+    (item) => item.linkId === 'insurance-priority' || item.linkId === 'insurance-priority-2'
+  );
+
+  if (priorities.length === 0) {
+    return false;
   }
-  return false;
+
+  return !priorities.some((item) => item.answer?.[0]?.valueString === 'Primary');
 };
 
 // note: this function assumes items have been flattened before being passed in
@@ -2243,7 +2257,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     questionnaireResponse: {
       item: flattenedItems,
     } as QuestionnaireResponse,
-    patientId: patient.id!,
+    patientId: patient.id,
     insurancePlanResources,
     organizationResources,
   });
@@ -2991,7 +3005,6 @@ interface UnbundledAccountResourceWithInsuranceResources {
   resources: UnbundledAccountResources;
 }
 // this function is exported for testing purposes
-// todo: rename this function to something more descriptive
 export const getCoverageUpdateResourcesFromUnbundled = (
   input: UnbundledAccountResourceWithInsuranceResources
 ): PatientAccountAndCoverageResources => {

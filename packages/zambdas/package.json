@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.7.13",
+  "version": "1.8.2",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -29,7 +29,8 @@
     "setup-questionnaires": "tsx src/scripts/setup-questionnaires.ts",
     "setup-billing-providers": "tsx src/scripts/setup-billing-providers.ts",
     "setup-deployed-resources": "tsx src/scripts/setup-questionnaires.ts ${ENV} && tsx src/scripts/setup-billing-providers.ts ${ENV} && tsx src/scripts/ensure-schedule-config.ts ${ENV}",
-    "test": "vitest"
+    "test": "vitest",
+    "mock-reflex-test": "tsx src/scripts/reflex-test-helper.ts"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -37,7 +38,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.272.0",
-    "@oystehr/sdk": "3.0.15",
+    "@oystehr/sdk": "3.0.16",
     "diacritics": "^1.3.0",
     "fast-json-patch": "^3.1.1",
     "luxon": "^3.4.3",

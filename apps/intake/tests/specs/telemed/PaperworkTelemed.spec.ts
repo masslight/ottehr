@@ -47,6 +47,7 @@ test.beforeAll(async ({ browser }) => {
   locator = new Locators(page);
   uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
+  console.log('getting booking data...');
   bookingData = await flowClass.startVisitFullFlow();
 });
 test.afterAll(async () => {

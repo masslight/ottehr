@@ -11,6 +11,7 @@ import {
   LAB_RESULT_DOC_REF_CODING_CODE,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  LAB_RESTULT_PDF_BASE_NAME,
   Secrets,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -261,6 +262,7 @@ export async function createLabResultPDF(
     patientID: patient.id,
     encounterID: encounter.id,
     diagnosticReportID: diagnosticReport.id,
+    reviewed,
   });
 }
 
@@ -767,7 +769,7 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `ExternalLabsResultsForm${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
@@ -842,7 +844,7 @@ export async function makeLabPdfDocumentReference({
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [],
+    searchParams: [{ name: 'encounter', value: `Encounter/${encounterID}` }],
     listResources,
   });
   return docRefs[0];
