@@ -29,6 +29,8 @@ import {
   SubmitLabOrderDTO,
   CreateAppointmentInputParams,
   UpdateLabOrderResourcesParameters,
+  CreateSlotParams,
+  apiErrorToThrow,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -658,7 +660,6 @@ export const updateLabOrderResources = async (
   }
 };
 
-<<<<<<< HEAD
 export const createRadiologyOrder = async (
   oystehr: Oystehr,
   parameters: CreateRadiologyZambdaOrderInput
@@ -696,7 +697,9 @@ export const getRadiologyOrders = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
-=======
+  }
+};
+
 export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Promise<Slot> => {
   try {
     const response = await oystehr.zambda.executePublic({ id: CREATE_SLOT_ZAMBDA_ID, ...input });
@@ -704,6 +707,5 @@ export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Pro
     return jsonToUse;
   } catch (error: unknown) {
     throw apiErrorToThrow(error);
->>>>>>> 4f276062b3b33d000f65c28b6d97fe2d6d6d4cd8
   }
 };
