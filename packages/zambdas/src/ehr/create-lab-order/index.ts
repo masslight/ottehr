@@ -10,6 +10,7 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SPECIMEN_CODING_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  SPECIMEN_TYPE_CODING_SYSTEM,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -408,6 +409,16 @@ const formatSpecimenResources = (
       subject: {
         type: 'Patient',
         reference: `Patient/${patientID}`,
+      },
+      // temp hard coding to eliminate submission errors and allow for testing the sepciment ui
+      type: {
+        coding: [
+          {
+            system: SPECIMEN_TYPE_CODING_SYSTEM,
+            code: 'SER', // this will come from the orderable item (?)
+            display: 'Serum', // tbd where will we get this but it is needed for the lab submission
+          },
+        ],
       },
     };
     specimenConfigs.push(specimenConfig);

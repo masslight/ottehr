@@ -18,6 +18,7 @@ import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-resu
 import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -157,43 +158,53 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       const specimenCollector = { reference: currentUser?.profile };
 
+      const requests: Operation[] = [];
+
       if (specimen.collection) {
-        acc.push(
-          getPatchBinary({
-            resourceType: 'Specimen',
-            resourceId: specimen.id,
-            patchOperations: [
-              {
-                path: '/collection/collectedDateTime',
-                op: 'add',
-                value: now, // todo this needs to come from the frontend
-              },
-              {
-                path: '/collection/collector',
-                op: 'add',
-                value: specimenCollector,
-              },
-            ],
-          })
+        requests.push(
+          {
+            path: '/collection/collectedDateTime',
+            op: 'add',
+            value: now, // todo this needs to come from the frontend
+          },
+          {
+            path: '/collection/collector',
+            op: 'add',
+            value: specimenCollector,
+          }
         );
       } else {
-        acc.push(
-          getPatchBinary({
-            resourceType: 'Specimen',
-            resourceId: specimen.id,
-            patchOperations: [
-              {
-                path: '/collection',
-                op: 'add',
-                value: {
-                  collectedDateTime: now, // todo this needs to come from the frontend
-                  collector: specimenCollector,
-                },
-              },
-            ],
-          })
-        );
+        requests.push({
+          path: '/collection',
+          op: 'add',
+          value: {
+            collectedDateTime: now, // todo this needs to come from the frontend
+            collector: specimenCollector,
+          },
+        });
       }
+
+      // temp hard coding to eliminate submission errors and allow for testing the sepciment ui
+      // we have a ticket to add a field and accept this value from the front end
+      requests.push({
+        path: '/container',
+        op: 'add',
+        value: [
+          {
+            specimenQuantity: {
+              value: 1,
+            },
+          },
+        ],
+      });
+
+      acc.push(
+        getPatchBinary({
+          resourceType: 'Specimen',
+          resourceId: specimen.id,
+          patchOperations: requests,
+        })
+      );
 
       return acc;
     }, []);
