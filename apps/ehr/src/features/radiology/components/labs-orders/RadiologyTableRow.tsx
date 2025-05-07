@@ -1,8 +1,8 @@
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { Box, Button, TableCell, TableRow, Typography } from '@mui/material';
+import { otherColors } from '@theme/colors';
 import { ReactElement } from 'react';
 import { formatDate, GetRadiologyOrderListZambdaOrder } from 'utils';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { RadiologyTableColumn } from './RadiologyTable';
 import { RadiologyTableStatusChip } from './RadiologyTableStatusChip';
 
