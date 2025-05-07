@@ -88,6 +88,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             code:
               diagnosticReport.status === 'preliminary'
                 ? LAB_ORDER_TASK.code.reviewPreliminaryResult
+                : diagnosticReport.status === 'corrected'
+                ? LAB_ORDER_TASK.code.reviewCorrectedResult
                 : LAB_ORDER_TASK.code.reviewFinalResult,
           },
         ],
