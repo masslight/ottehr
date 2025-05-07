@@ -328,7 +328,7 @@ export default function AppointmentTableRow({
     let patchOp: Operation;
 
     if (!room) {
-      const extension = (appointmentToUpdate.extension || []).filter((ext) => ext.url !== 'room');
+      const extension = (appointmentToUpdate.extension || []).filter((ext) => ext.url !== ROOM_EXTENSION_URL);
 
       if (extension?.length === 0) {
         patchOp = {
