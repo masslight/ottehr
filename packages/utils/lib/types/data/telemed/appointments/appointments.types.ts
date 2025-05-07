@@ -43,6 +43,7 @@ export interface PrescribedMedication {
 export interface GetVisitDetailsResponse {
   files: FileURLs;
   medications: PrescribedMedication[];
+  appointmentTime: string;
   charge: {
     amount: number;
     currency: string;
@@ -104,6 +105,7 @@ export enum TelemedAppointmentVisitTabs {
   'assessment' = 'assessment',
   'plan' = 'plan',
   'sign' = 'sign',
+  'ottehrai' = 'ottehrai',
 }
 
 export enum ApptTelemedTab {

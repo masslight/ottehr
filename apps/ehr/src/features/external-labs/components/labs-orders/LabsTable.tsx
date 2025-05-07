@@ -21,7 +21,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LabsTableRow } from './LabsTableRow';
 import { usePatientLabOrders } from './usePatientLabOrders';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderDTO, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
+import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocomplete } from '../LabsAutocomplete';
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
@@ -43,9 +43,8 @@ export type LabsTableColumn =
   | 'psc'
   | 'actions';
 
-type LabsTableProps = {
-  patientId?: string;
-  encounterId?: string;
+type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
+  searchBy: SearchBy;
   columns: LabsTableColumn[];
   showFilters?: boolean;
   allowDelete?: boolean;
@@ -54,16 +53,15 @@ type LabsTableProps = {
   onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
 };
 
-export const LabsTable = ({
-  patientId,
-  encounterId,
+export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
+  searchBy,
   columns,
   showFilters = false,
   allowDelete = false,
   titleText,
   redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
-}: LabsTableProps): ReactElement => {
+}: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
 
   const {
@@ -77,12 +75,9 @@ export const LabsTable = ({
     setVisitDateFilter,
     showPagination,
     error,
-    onDeleteOrder,
+    showDeleteLabOrderDialog,
     DeleteOrderDialog,
-  } = usePatientLabOrders({
-    patientId,
-    encounterId,
-  });
+  } = usePatientLabOrders(searchBy);
 
   const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
 
@@ -99,7 +94,7 @@ export const LabsTable = ({
     setVisitDateFilter(null);
   };
 
-  const onRowClick = (labOrderData: LabOrderDTO): void => {
+  const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
@@ -142,7 +137,7 @@ export const LabsTable = ({
     setPage(value);
   };
 
-  if (loading && labOrders.length === 0) {
+  if (loading || !labOrders) {
     return <LabOrderLoading />;
   }
 
@@ -320,7 +315,12 @@ export const LabsTable = ({
                   <LabsTableRow
                     key={order.serviceRequestId}
                     labOrderData={order}
-                    onDeleteOrder={() => onDeleteOrder(order)}
+                    onDeleteOrder={() =>
+                      showDeleteLabOrderDialog({
+                        serviceRequestId: order.serviceRequestId,
+                        testItemName: order.testItem,
+                      })
+                    }
                     onRowClick={() => onRowClick(order)}
                     columns={columns}
                     allowDelete={allowDelete}

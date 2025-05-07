@@ -17,6 +17,7 @@ import {
 import {
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   checkBundleOutcomeOk,
+  FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   flattenBundleResources,
   flattenIntakeQuestionnaireItems,
   getActiveAccountGuarantorReference,
@@ -35,6 +36,7 @@ import {
   updatePatientAccountFromQuestionnaire,
   updateStripeCustomer,
 } from '../../../ehr/shared/harvest';
+import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
   captureSentryException,
   configSentry,
@@ -49,7 +51,6 @@ import {
 import '../../../shared/instrument.mjs';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
-import { getStripeClient } from '../../../patient/payment-methods/helpers';
 
 let zapehrToken: string;
 
@@ -255,6 +256,7 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   const erxContactOperation = createErxContactOperation(relatedPerson, patientResource);
   if (erxContactOperation) patientPatches.push(erxContactOperation);
   //TODO: remove addDefaultCountryOperation after country selection is supported in paperwork
+  // to improve: this operation will fail if earlier patch operation necessary to insert an address fails
   const addDefaultCountryOperation: Operation = {
     op: 'add',
     path: '/address/0/country',
@@ -301,6 +303,19 @@ export const performEffect = async (input: QRSubscriptionInput, oystehr: Oystehr
   } catch (error: unknown) {
     tasksFailed.push('create additional questions chart data resource', JSON.stringify(error));
     console.log(`Failed to create additional questions chart data resource: ${error}`);
+  }
+
+  try {
+    console.time('Patching appointment resource tag');
+    await oystehr.fhir.patch({
+      resourceType: 'Appointment',
+      id: appointmentResource.id,
+      operations: [{ op: 'add', path: '/meta/tag/-', value: FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG }],
+    });
+    console.timeEnd('Patching appointment resource tag');
+  } catch (error: unknown) {
+    tasksFailed.push('patch appointment resource tag failed', JSON.stringify(error));
+    console.log(`Failed to patch appointment resource tag: ${JSON.stringify(error)}`);
   }
 
   const response = tasksFailed.length

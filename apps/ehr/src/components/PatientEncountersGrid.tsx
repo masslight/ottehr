@@ -1,8 +1,4 @@
-import { FC, useMemo, useState } from 'react';
-import { AppointmentHistoryRow } from '../hooks/useGetPatient';
-import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
-import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
-import { RoundedButton } from './RoundedButton';
+import AddIcon from '@mui/icons-material/Add';
 import {
   Box,
   capitalize,
@@ -14,23 +10,29 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import { DateTime } from 'luxon';
-import {
-  Visit_Status_Array,
-  EmployeeDetails,
-  mapStatusToTelemed,
-  TelemedCallStatusesArr,
-  getVisitStatus,
-  formatMinutes,
-  OTTEHR_MODULE,
-} from 'utils';
-import { getAppointmentStatusChip as getTelemedAppointmentStatusChip } from '../telemed/utils';
-import { create } from 'zustand';
-import { useQuery } from 'react-query';
-import { getEmployees } from '../api/api';
-import { useApiClients } from '../hooks/useAppClients';
+import { DataGridPro, GridColDef } from '@mui/x-data-grid-pro';
 import { Encounter } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { FC, useMemo, useState } from 'react';
+import { useQuery } from 'react-query';
+import { VisitTypeToLabel, VisitTypeToLabelTelemed } from 'src/types/types';
+import {
+  EmployeeDetails,
+  formatMinutes,
+  getVisitStatus,
+  mapStatusToTelemed,
+  OTTEHR_MODULE,
+  ServiceMode,
+  TelemedCallStatusesArr,
+  Visit_Status_Array,
+} from 'utils';
+import { create } from 'zustand';
+import { getEmployees } from '../api/api';
+import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
+import { useApiClients } from '../hooks/useAppClients';
+import { AppointmentHistoryRow } from '../hooks/useGetPatient';
+import { getAppointmentStatusChip as getTelemedAppointmentStatusChip } from '../telemed/utils';
+import { RoundedButton } from './RoundedButton';
 
 type PatientEncountersGridProps = {
   appointments?: AppointmentHistoryRow[];
@@ -69,8 +71,8 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     field: 'status',
     headerName: 'Status',
     width: 140,
-    renderCell: ({ row: { appointment, type, encounter } }) => {
-      if (type === 'Telemed' || type === 'Pre-booked Telemed') {
+    renderCell: ({ row: { appointment, serviceMode: serviceType, encounter } }) => {
+      if (serviceType === ServiceMode.virtual) {
         if (!encounter) {
           return;
         }
@@ -92,7 +94,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     field: 'type',
     headerName: 'Type',
     width: 150,
-    renderCell: ({ row: { type } }) => type || '-',
+    renderCell: ({ row: { typeLabel: type } }) => type || '-',
   },
   {
     sortable: false,
@@ -154,11 +156,11 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     field: 'note',
     headerName: 'Progress Note',
     width: 150,
-    renderCell: ({ row: { id, type } }) => (
+    renderCell: ({ row: { id, serviceMode: serviceType } }) => (
       <RoundedButton
         target="_blank"
         to={
-          type === 'Telemed' || type === 'Pre-booked Telemed'
+          serviceType === ServiceMode.virtual
             ? `/telemed/appointments/${id}?tab=sign`
             : `/in-person/${id}/progress-note`
         }
@@ -194,7 +196,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     let filtered = appointments || [];
 
     if (type !== 'all') {
-      filtered = filtered.filter((item) => item.type === type);
+      filtered = filtered.filter((item) => item.typeLabel === type);
     }
 
     if (period) {
@@ -212,7 +214,9 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
     }
 
     if (hideNoShow) {
-      filtered = filtered.filter((item) => item.type === 'Telemed' || !filterAppointmentForStatus(item, 'no show'));
+      filtered = filtered.filter(
+        (item) => item.serviceMode === ServiceMode.virtual || !filterAppointmentForStatus(item, 'no show')
+      );
     }
 
     return filtered;
@@ -221,7 +225,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
   function filterAppointmentForStatus(appointmentHistory: AppointmentHistoryRow, filterStatus: string): boolean {
     if (!appointmentHistory.encounter) return false;
     const appointmentStatus =
-      appointmentHistory.type === 'Telemed'
+      appointmentHistory.serviceMode === ServiceMode.virtual
         ? mapStatusToTelemed(appointmentHistory.encounter.status, appointmentHistory.appointment.status)
         : getVisitStatus(appointmentHistory.appointment, appointmentHistory.encounter);
     return filterStatus === appointmentStatus;
@@ -246,11 +250,11 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
       <Box sx={{ display: 'flex', gap: 2 }}>
         <TextField size="small" fullWidth label="Type" select value={type} onChange={(e) => setType(e.target.value)}>
           <MenuItem value="all">All</MenuItem>
-          <MenuItem value="Walk-in In-Person Visit">Walk-in In-Person Visit</MenuItem>
-          <MenuItem value="Post Telemed Lab Only">Post Telemed Lab Only</MenuItem>
-          <MenuItem value="Pre-booked In-Person Visit">Pre-booked In-Person Visit</MenuItem>
-          <MenuItem value="Pre-booked Telemed">Pre-booked Telemed</MenuItem>
-          <MenuItem value="Telemed">Telemed</MenuItem>
+          <MenuItem value={VisitTypeToLabel['walk-in']}>{VisitTypeToLabel['walk-in']}</MenuItem>
+          <MenuItem value={VisitTypeToLabel['post-telemed']}>{VisitTypeToLabel['post-telemed']}</MenuItem>
+          <MenuItem value={VisitTypeToLabel['pre-booked']}>{VisitTypeToLabel['pre-booked']}</MenuItem>
+          <MenuItem value={VisitTypeToLabelTelemed['pre-booked']}>{VisitTypeToLabelTelemed['pre-booked']}</MenuItem>
+          <MenuItem value={VisitTypeToLabelTelemed['walk-in']}>{VisitTypeToLabelTelemed['walk-in']}</MenuItem>
         </TextField>
 
         <TextField
@@ -325,7 +329,7 @@ export const PatientEncountersGrid: FC<PatientEncountersGridProps> = (props) => 
         sx={{
           border: 0,
           '.MuiDataGrid-columnHeaderTitle': {
-            fontWeight: 700,
+            fontWeight: 500,
           },
         }}
       />

@@ -297,12 +297,13 @@ export interface ProviderNotificationSettings {
   enabled: boolean;
 }
 
-export const PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL =
-  'https://fhir.ottehr.com/r4/provider-notifications-settings';
-export const PROVIDER_NOTIFICATION_METHOD_URL = 'https://fhir.ottehr.com/r4/provider-notifications-method';
-export const PROVIDER_NOTIFICATIONS_ENABLED_URL = 'https://fhir.ottehr.com/r4/provider-notifications-enabled';
+const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
-export const PROVIDER_NOTIFICATION_TAG_SYSTEM = 'https://fhir.ottehr.com/r4/provider-notifications-tag';
+export const PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL = `${FHIR_BASE_URL}/r4/provider-notifications-settings`;
+export const PROVIDER_NOTIFICATION_METHOD_URL = `${FHIR_BASE_URL}/r4/provider-notifications-method`;
+export const PROVIDER_NOTIFICATIONS_ENABLED_URL = `${FHIR_BASE_URL}/r4/provider-notifications-enabled`;
+
+export const PROVIDER_NOTIFICATION_TAG_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-tag`;
 export enum AppointmentProviderNotificationTags {
   patient_waiting = 'patient waiting',
   unsigned_more_than_x_hours_1 = 'unsigned more than x hours 1',
@@ -310,7 +311,7 @@ export enum AppointmentProviderNotificationTags {
   unsigned_more_than_x_hours_3 = 'unsigned more than x hours 3',
 }
 
-export const PROVIDER_NOTIFICATION_TYPE_SYSTEM = 'https://fhir.ottehr.com/r4/provider-notifications-type';
+export const PROVIDER_NOTIFICATION_TYPE_SYSTEM = `${FHIR_BASE_URL}/r4/provider-notifications-type`;
 export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',

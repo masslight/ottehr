@@ -47,6 +47,7 @@ test.beforeAll(async ({ browser }) => {
   locator = new Locators(page);
   uploadDocs = new UploadDocs(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
+  console.log('getting booking data...');
   bookingData = await flowClass.startVisitFullFlow();
 });
 test.afterAll(async () => {
@@ -587,9 +588,7 @@ test.describe('Secondary Insurance', () => {
 test.describe('Responsible party information - check and fill all fields', () => {
   test.describe.configure({ mode: 'serial' });
   test('PRPI-0 Open Responsible party information', async () => {
-    await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
-    await page.waitForLoadState('networkidle');
-    await paperwork.checkCorrectPageOpens('Responsible party information');
+    await openResponsiblePartyPage();
   });
   test('PRPI-1 Check patient name is displayed', async () => {
     await paperwork.checkPatientNameIsDisplayed(
@@ -651,6 +650,7 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.dateFutureError).toBeVisible();
   });
   test('PRPI-9 Fill all fields and click [Continue]', async () => {
+    await openResponsiblePartyPage();
     responsiblePartyData = await paperwork.fillResponsiblePartyDataNotSelf();
     await expect(locator.dateOlder18YearsError).not.toBeVisible();
     await expect(locator.dateFutureError).not.toBeVisible();
@@ -665,6 +665,12 @@ test.describe('Responsible party information - check and fill all fields', () =>
     await expect(locator.responsiblePartyRelationship).toHaveValue(responsiblePartyData.relationship);
     await expect(locator.responsiblePartyDOBAnswer).toHaveValue(responsiblePartyData.dob);
   });
+
+  async function openResponsiblePartyPage(): Promise<void> {
+    await page.goto(`paperwork/${bookingData.bookingUUID}/responsible-party`);
+    await page.waitForLoadState('networkidle');
+    await paperwork.checkCorrectPageOpens('Responsible party information');
+  }
 });
 test.describe('Photo ID - Upload photo', () => {
   test.describe.configure({ mode: 'serial' });
@@ -958,11 +964,11 @@ test.describe('Invite participant', () => {
     await paperwork.checkEmailValidations(locator.inviteeEmail);
   });
   test('PIP-10 Invite participant by phone', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('phone');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('phone', 'paperwork');
   });
   test('PIP-11 Invite participant by phone - data is saved after reload', async () => {
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
     await expect(locator.inviteeContactPhone).toBeChecked();
   });
@@ -971,17 +977,17 @@ test.describe('Invite participant', () => {
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteePhone).toHaveValue(inviteeData.phone!);
     await expect(locator.inviteeContactPhone).toBeChecked();
   });
   test('PIP-13 Invite participant by email', async () => {
-    inviteeData = await paperworkTelemed.fillInviteParticipant('email');
+    inviteeData = await paperworkTelemed.fillInviteParticipant('email', 'paperwork');
   });
   test('PIP-14 Invite participant by email - data is saved after reload', async () => {
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
     await expect(locator.inviteeContactEmail).toBeChecked();
   });
@@ -990,8 +996,8 @@ test.describe('Invite participant', () => {
     await paperwork.checkCorrectPageOpens('Review and submit');
     await locator.clickBackButton();
     await paperwork.checkCorrectPageOpens('Would you like someone to join this call?');
-    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.firstName);
-    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.lastName);
+    await expect(locator.inviteeFirstName).toHaveValue(inviteeData.inviteeName.inviteeFirstName);
+    await expect(locator.inviteeLastName).toHaveValue(inviteeData.inviteeName.inviteeLastName);
     await expect(locator.inviteeEmail).toHaveValue(inviteeData.email!);
     await expect(locator.inviteeContactEmail).toBeChecked();
   });

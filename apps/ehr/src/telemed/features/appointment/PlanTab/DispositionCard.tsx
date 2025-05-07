@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState } from 'react';
+import React, { FC, useCallback, useEffect, useState, useRef } from 'react';
 import {
   Autocomplete,
   Box,
@@ -7,6 +7,7 @@ import {
   Divider,
   FormControlLabel,
   MenuItem,
+  Skeleton,
   TextField,
   ToggleButtonGroup,
   Tooltip,
@@ -40,17 +41,42 @@ import {
 } from '../../../utils';
 import { useDispositionMultipleNotes } from './useDispositionMultipleNotes';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 
 const ERROR_TEXT = 'Disposition data update was unsuccessful, please change some disposition field data to try again.';
 
 export const DispositionCard: FC = () => {
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const { encounter, setPartialChartData } = getSelectors(useAppointmentStore, ['encounter', 'setPartialChartData']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const isResetting = useRef(false);
+  const latestRequestId = useRef(0);
 
   const methods = useForm<DispositionFormValues>({
-    defaultValues: chartData?.disposition
-      ? mapDispositionToForm(chartData.disposition)
-      : { ...DEFAULT_DISPOSITION_VALUES },
+    defaultValues: DEFAULT_DISPOSITION_VALUES,
+  });
+  const {
+    control,
+    handleSubmit,
+    watch,
+    getValues,
+    setValue,
+    reset,
+    formState: { isDirty },
+  } = methods;
+
+  const { chartData, isFetching: isChartDataLoading } = useChartData({
+    encounterId: encounter.id || '',
+    requestedFields: { disposition: {} },
+    onSuccess: (data) => {
+      setPartialChartData({ disposition: data?.disposition });
+      isResetting.current = true;
+      if (data?.disposition?.note) {
+        setNoteCache(data.disposition.note);
+      }
+      reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
+      setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
+      isResetting.current = false;
+    },
   });
 
   const { setNoteCache, withNote } = useDispositionMultipleNotes({ methods, savedDisposition: chartData?.disposition });
@@ -58,49 +84,72 @@ export const DispositionCard: FC = () => {
   const showVirusTest = labServiceValue?.includes?.(SEND_OUT_VIRUS_TEST_LABEL);
   const { debounce } = useDebounce(1500);
   const { mutate, isLoading } = useSaveChartData();
-  const { control, handleSubmit, watch, getValues, setValue } = methods;
   const [currentType, setCurrentType] = useState(getValues('type'));
   const [isError, setIsError] = useState(false);
 
   const onSubmit = useCallback(
     (values: DispositionFormValues): void => {
+      setIsError(false);
+      const requestId = ++latestRequestId.current;
       debounce(() => {
-        setIsError(false);
         mutate(
           { disposition: withNote(values) },
           {
             onSuccess: (data) => {
-              const disposition = data.chartData?.disposition;
-              if (disposition) {
-                setPartialChartData({ disposition });
+              if (requestId === latestRequestId.current) {
+                const disposition = data.chartData?.disposition;
+                if (disposition) {
+                  setPartialChartData({ disposition });
+                  isResetting.current = true;
+                  reset(mapDispositionToForm(disposition));
+                  isResetting.current = false;
+                }
               }
             },
             onError: () => {
-              enqueueSnackbar(ERROR_TEXT, {
-                variant: 'error',
-              });
-              setIsError(true);
+              if (requestId === latestRequestId.current) {
+                enqueueSnackbar(ERROR_TEXT, {
+                  variant: 'error',
+                });
+                setIsError(true);
+              }
             },
           }
         );
       });
     },
-    [debounce, mutate, setPartialChartData, withNote]
+    [debounce, mutate, setPartialChartData, withNote, reset]
   );
 
   useEffect(() => {
-    const subscription = watch(() => handleSubmit(onSubmit)());
+    const subscription = watch(() => {
+      if (!isResetting.current) {
+        void handleSubmit(onSubmit)();
+      }
+    });
     return () => subscription.unsubscribe();
   }, [handleSubmit, onSubmit, watch]);
 
   const fields = dispositionFieldsPerType[currentType];
   const tabs: DispositionType[] = ['pcp-no-type', 'another', 'speciality'];
 
+  if (isChartDataLoading || !chartData?.disposition) {
+    return (
+      <AccordionCard label="Disposition">
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+          <Skeleton variant="rounded" height={36} />
+        </Box>
+      </AccordionCard>
+    );
+  }
+
   return (
     <AccordionCard
       label="Disposition"
       headerItem={
-        isLoading ? (
+        isLoading || isDirty ? (
           <CircularProgress size="20px" />
         ) : isError ? (
           <Tooltip title={ERROR_TEXT}>

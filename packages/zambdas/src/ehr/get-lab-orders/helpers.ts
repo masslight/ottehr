@@ -12,17 +12,33 @@ import {
   Task,
   Reference,
   Provenance,
+  Organization,
+  QuestionnaireResponse,
+  Questionnaire,
+  QuestionnaireResponseItem,
+  DocumentReference,
+  Location,
+  Specimen,
 } from 'fhir/r4b';
 import {
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
+  LAB_ACCOUNT_NUMBER_SYSTEM,
+  LabOrderDetailedPageDTO,
   LabOrderHistoryRow,
+  LabOrderListPageDTO,
   LabOrderResultDetails,
+  LabOrdersSearchBy,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
+  QuestionnaireData,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  getPresignedURL,
+  getTimezone,
+  sampleDTO,
+  SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -34,15 +50,26 @@ type Cache = {
   parsedTasks?: ReturnType<typeof parseTasks>;
 };
 
-export const mapResourcesToLabOrderDTOs = (
+type LabOrderPDF = {
+  url: string;
+  diagnosticReportId: string;
+};
+
+export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
+  searchBy: SearchBy,
   serviceRequests: ServiceRequest[],
   tasks: Task[],
   results: DiagnosticReport[],
   practitioners: Practitioner[],
   encounters: Encounter[],
+  locations: Location[],
   appointments: Appointment[],
-  provenances: Provenance[]
-): LabOrderDTO[] => {
+  provenances: Provenance[],
+  organizations: Organization[],
+  questionnaires: QuestionnaireData[],
+  labPDFs: LabOrderPDF[],
+  specimens: Specimen[]
+): LabOrderDTO<SearchBy>[] => {
   return serviceRequests.map((serviceRequest) => {
     const parsedResults = parseResults(serviceRequest, results);
     const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
@@ -53,76 +80,56 @@ export const mapResourcesToLabOrderDTOs = (
       parsedTasks,
     };
 
-    const details = parseOrderDetails({
+    return parseOrderData({
+      searchBy,
       tasks,
       serviceRequest,
       results,
       appointments,
       encounters,
+      locations,
       practitioners,
       provenances,
+      organizations,
+      questionnaires,
+      labPDFs,
+      specimens,
       cache,
     });
-
-    return {
-      serviceRequestId: details.serviceRequestId,
-      appointmentId: details.appointmentId,
-      providerName: details.providerName, // ordered by
-      diagnoses: details.diagnoses,
-      orderStatus: details.orderStatus,
-      reflexResultsCount: details.reflexResultsCount,
-      isPSC: details.isPSC,
-      dx: details.dx,
-      testItem: details.testItem,
-      fillerLab: details.fillerLab,
-      visitDate: details.visitDate,
-      orderAddedDate: details.orderAddedDate, // order date
-      performedBy: details.performedBy, // order performed
-      lastResultReceivedDate: details.lastResultReceivedDate,
-      accessionNumbers: details.accessionNumbers,
-      history: details.history,
-      resultsDetails: details.resultsDetails,
-    };
   });
 };
 
-export const parseOrderDetails = ({
+export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
+  searchBy,
   serviceRequest,
   tasks,
   results,
   appointments,
   encounters,
+  locations,
   practitioners,
   provenances,
+  organizations,
+  questionnaires,
+  labPDFs,
+  specimens,
   cache,
 }: {
+  searchBy: SearchBy;
   serviceRequest: ServiceRequest;
   tasks: Task[];
   results: DiagnosticReport[];
   appointments: Appointment[];
   encounters: Encounter[];
+  locations: Location[];
   practitioners: Practitioner[];
   provenances: Provenance[];
+  organizations: Organization[];
+  questionnaires: QuestionnaireData[];
+  labPDFs: LabOrderPDF[];
+  specimens: Specimen[];
   cache?: Cache;
-}): {
-  serviceRequestId: string;
-  orderStatus: ExternalLabsStatus;
-  accessionNumbers: string[];
-  orderAddedDate: string;
-  lastResultReceivedDate: string;
-  visitDate: string;
-  testItem: string;
-  fillerLab: string;
-  isPSC: boolean;
-  reflexResultsCount: number;
-  diagnoses: DiagnosisDTO[];
-  providerName: string;
-  dx: string;
-  performedBy: string;
-  appointmentId: string;
-  history: LabOrderHistoryRow[];
-  resultsDetails: LabOrderResultDetails[];
-} => {
+}): LabOrderDTO<SearchBy> => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -131,7 +138,7 @@ export const parseOrderDetails = ({
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
 
-  return {
+  const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem,
     fillerLab,
@@ -143,13 +150,27 @@ export const parseOrderDetails = ({
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
     reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
-    diagnoses: parseDiagnoses(serviceRequest),
-    providerName: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
-    dx: parseDx(serviceRequest),
-    performedBy: parsePerformed(serviceRequest),
-    history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
-    resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, cache),
+    diagnosesDTO: parseDiagnoses(serviceRequest),
+    orderingPhysician: parsePractitionerNameFromServiceRequest(serviceRequest, practitioners),
+    diagnoses: parseDx(serviceRequest),
+    encounterTimezone: parseLocationTimezoneForSR(serviceRequest, locations),
   };
+
+  if (searchBy.searchBy.field === 'serviceRequestId') {
+    const detailedPageDTO: LabOrderDetailedPageDTO = {
+      ...listPageDTO,
+      orderSource: parsePerformed(serviceRequest),
+      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
+      accountNumber: parseAccountNumber(serviceRequest, organizations),
+      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
+      questionnaire: questionnaires,
+      samples: parseSamples(serviceRequest, specimens),
+    };
+
+    return detailedPageDTO as LabOrderDTO<SearchBy>;
+  }
+
+  return listPageDTO as LabOrderDTO<SearchBy>;
 };
 
 /**
@@ -251,19 +272,28 @@ export const parseResults = (
     const result = relatedResults[i];
 
     if (!result.id) {
+      console.log(`Error: result ${result} has no id`);
       continue;
     }
 
     const resultCodes = result.code?.coding?.map((coding) => coding.code);
 
     if (resultCodes?.some((code) => serviceRequestCodes?.includes(code))) {
-      result.status === 'preliminary'
-        ? orderedPrelimResults.set(result.id, result)
-        : orderedFinalResults.set(result.id, result);
+      if (result.status === 'preliminary') {
+        orderedPrelimResults.set(result.id, result);
+      } else if (result.status === 'final') {
+        orderedFinalResults.set(result.id, result);
+      } else {
+        console.log(`Error: unknown status "${result.status}" for ordered result ${result.id}`);
+      }
     } else {
-      result.status === 'preliminary'
-        ? reflexPrelimResults.set(result.id, result)
-        : reflexFinalResults.set(result.id, result);
+      if (result.status === 'preliminary') {
+        reflexPrelimResults.set(result.id, result);
+      } else if (result.status === 'final') {
+        reflexFinalResults.set(result.id, result);
+      } else {
+        console.log(`Error: unknown status "${result.status}" for reflex result ${result.id}`);
+      }
     }
   }
 
@@ -292,7 +322,9 @@ export const parseResults = (
 
 export const getLabResources = async (
   oystehr: Oystehr,
-  params: GetZambdaLabOrdersParams
+  params: GetZambdaLabOrdersParams,
+  m2mtoken: string,
+  searchBy: LabOrdersSearchBy
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -300,36 +332,68 @@ export const getLabResources = async (
   practitioners: Practitioner[];
   pagination: Pagination;
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   appointments: Appointment[];
   provenances: Provenance[];
+  organizations: Organization[];
+  questionnaires: QuestionnaireData[];
+  labPDFs: LabOrderPDF[];
+  specimens: Specimen[];
 }> => {
-  const labOrdersSearchParams = createLabOrdersSearchParams(params);
+  const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
 
   const labOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
-    params: labOrdersSearchParams,
+    params: labServiceRequestSearchParams,
   });
 
   const labResources =
     labOrdersResponse.entry
       ?.map((entry) => entry.resource)
-      .filter((res): res is ServiceRequest | Task | Encounter | DiagnosticReport | Provenance => Boolean(res)) || [];
+      .filter(
+        (
+          res
+        ): res is
+          | ServiceRequest
+          | Task
+          | Encounter
+          | DiagnosticReport
+          | Provenance
+          | Organization
+          | Location
+          | QuestionnaireResponse
+          | Specimen => Boolean(res)
+      ) || [];
 
   const {
     serviceRequests,
     tasks: preSubmissionTasks,
     encounters,
+    locations,
     diagnosticReports,
     observations,
     provenances,
+    organizations,
+    questionnaireResponses,
+    specimens,
   } = extractLabResources(labResources);
 
-  const [practitioners, appointments, finalAndPrelimTasks] = await Promise.all([
+  const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
+
+  const [practitioners, appointments, finalAndPrelimTasks, questionnaires, documentReferences] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
     fetchFinalAndPrelimTasks(oystehr, diagnosticReports),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
+    ),
+    executeByCondition(isDetailPageRequest, () =>
+      fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports)
+    ),
   ]);
+
+  const labPDFs = await executeByCondition(isDetailPageRequest, () => fetchLabOrderPDFs(documentReferences, m2mtoken));
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
@@ -339,23 +403,20 @@ export const getLabResources = async (
     diagnosticReports,
     practitioners,
     encounters,
+    locations,
     observations,
     appointments,
     provenances,
+    organizations,
+    questionnaires,
+    labPDFs,
+    specimens,
     pagination,
   };
 };
 
-export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
-  const {
-    encounterId,
-    patientId,
-    serviceRequestId,
-    visitDate,
-    itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE,
-    pageIndex = 0,
-    orderableItemCode,
-  } = params;
+export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersParams): SearchParam[] => {
+  const { searchBy, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0, orderableItemCode } = params;
 
   const searchParams: SearchParam[] = [
     {
@@ -409,26 +470,51 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
       name: '_revinclude',
       value: 'Provenance:target',
     },
+
+    // include encounter location
+    {
+      name: '_include:iterate',
+      value: 'Encounter:location',
+    },
   ];
 
-  if (encounterId) {
+  // chart data case
+  if (searchBy.field === 'encounterId') {
     searchParams.push({
       name: 'encounter',
-      value: `Encounter/${encounterId}`,
+      value: `Encounter/${searchBy.value}`,
     });
   }
 
-  if (patientId) {
+  // patient page case
+  if (searchBy.field === 'patientId') {
     searchParams.push({
       name: 'subject',
-      value: `Patient/${patientId}`,
+      value: `Patient/${searchBy.value}`,
     });
   }
 
-  if (serviceRequestId) {
+  // detailed page case
+  if (searchBy.field === 'serviceRequestId') {
     searchParams.push({
       name: '_id',
-      value: serviceRequestId,
+      value: searchBy.value,
+    });
+
+    // for retrieving accountNumber (from Organization); used on Detailed Page
+    searchParams.push({
+      name: '_include',
+      value: 'ServiceRequest:performer',
+    });
+
+    searchParams.push({
+      name: '_revinclude',
+      value: 'QuestionnaireResponse:based-on',
+    });
+
+    searchParams.push({
+      name: '_include',
+      value: 'ServiceRequest:specimen',
     });
   }
 
@@ -443,22 +529,40 @@ export const createLabOrdersSearchParams = (params: GetZambdaLabOrdersParams): S
 };
 
 export const extractLabResources = (
-  resources: (ServiceRequest | Task | DiagnosticReport | Encounter | Observation | Provenance)[]
+  resources: (
+    | ServiceRequest
+    | Task
+    | DiagnosticReport
+    | Encounter
+    | Observation
+    | Provenance
+    | Organization
+    | QuestionnaireResponse
+    | Location
+    | Specimen
+  )[]
 ): {
   serviceRequests: ServiceRequest[];
   tasks: Task[];
   diagnosticReports: DiagnosticReport[];
   encounters: Encounter[];
+  locations: Location[];
   observations: Observation[];
   provenances: Provenance[];
+  organizations: Organization[];
+  questionnaireResponses: QuestionnaireResponse[];
+  specimens: Specimen[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
-  const results: DiagnosticReport[] = [];
+  const diagnosticReports: DiagnosticReport[] = [];
   const encounters: Encounter[] = [];
+  const locations: Location[] = [];
   const observations: Observation[] = [];
   const provenances: Provenance[] = [];
-
+  const organizations: Organization[] = [];
+  const questionnaireResponses: QuestionnaireResponse[] = [];
+  const specimens: Specimen[] = [];
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -469,20 +573,38 @@ export const extractLabResources = (
         serviceRequests.push(serviceRequest);
       }
     } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
-      // todo: filtering out cancelled tasks looks valid, but better to confirm this
-      tasks.push(resource as Task);
+      tasks.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
-      results.push(resource as DiagnosticReport);
+      diagnosticReports.push(resource);
     } else if (resource.resourceType === 'Encounter') {
-      encounters.push(resource as Encounter);
+      encounters.push(resource);
     } else if (resource.resourceType === 'Observation') {
-      observations.push(resource as Observation);
+      observations.push(resource);
     } else if (resource.resourceType === 'Provenance') {
-      provenances.push(resource as Provenance);
+      provenances.push(resource);
+    } else if (resource.resourceType === 'Organization') {
+      organizations.push(resource);
+    } else if (resource.resourceType === 'QuestionnaireResponse') {
+      questionnaireResponses.push(resource as QuestionnaireResponse);
+    } else if (resource.resourceType === 'Location') {
+      locations.push(resource);
+    } else if (resource.resourceType === 'Specimen') {
+      specimens.push(resource);
     }
   }
 
-  return { serviceRequests, tasks, diagnosticReports: results, encounters, observations, provenances };
+  return {
+    serviceRequests,
+    tasks,
+    diagnosticReports,
+    encounters,
+    locations,
+    observations,
+    provenances,
+    organizations,
+    questionnaireResponses,
+    specimens,
+  };
 };
 
 export const fetchPractitionersForServiceRequests = async (
@@ -566,11 +688,144 @@ export const fetchFinalAndPrelimTasks = async (oystehr: Oystehr, results: Diagno
         name: 'based-on',
         value: resultsIds.join(','),
       },
+      {
+        name: 'status:not',
+        value: 'cancelled',
+      },
     ],
   });
 
   return tasksResponse.unbundle();
 };
+
+export const fetchDocumentReferencesForDiagnosticReports = async (
+  oystehr: Oystehr,
+  diagnosticReports: DiagnosticReport[]
+): Promise<DocumentReference[]> => {
+  const reportIds = diagnosticReports.map((report) => report.id).filter(Boolean);
+
+  if (!reportIds.length) {
+    return [];
+  }
+
+  const documentReferencesResponse = await oystehr.fhir.search<DocumentReference>({
+    resourceType: 'DocumentReference',
+    params: [
+      {
+        name: 'related',
+        value: reportIds.map((id) => `DiagnosticReport/${id}`).join(','),
+      },
+    ],
+  });
+
+  return documentReferencesResponse.unbundle();
+};
+
+export const fetchLabOrderPDFs = async (
+  documentReferences: DocumentReference[],
+  m2mtoken: string
+): Promise<LabOrderPDF[]> => {
+  if (!documentReferences.length) {
+    return [];
+  }
+
+  const pdfPromises: Promise<LabOrderPDF | null>[] = [];
+
+  for (const docRef of documentReferences) {
+    const diagnosticReportReference = docRef.context?.related?.find(
+      (rel) => rel.reference?.startsWith('DiagnosticReport/')
+    )?.reference;
+
+    const diagnosticReportId = diagnosticReportReference?.split('/')[1];
+
+    if (!diagnosticReportId) {
+      continue;
+    }
+
+    for (const content of docRef.content) {
+      const z3Url = content.attachment?.url;
+      if (z3Url) {
+        pdfPromises.push(
+          getPresignedURL(z3Url, m2mtoken)
+            .then((url) => ({
+              url,
+              diagnosticReportId,
+            }))
+            .catch((error) => {
+              console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
+              return null;
+            })
+        );
+      }
+    }
+  }
+
+  const results = await Promise.allSettled(pdfPromises);
+
+  return results
+    .filter(
+      (result): result is PromiseFulfilledResult<LabOrderPDF> => result.status === 'fulfilled' && result.value !== null
+    )
+    .map((result) => result.value as LabOrderPDF);
+};
+
+export const fetchQuestionnaireForServiceRequests = async (
+  m2mtoken: string,
+  serviceRequests: ServiceRequest[],
+  questionnaireResponses: QuestionnaireResponse[]
+): Promise<QuestionnaireData[]> => {
+  const results: {
+    questionnaireUrl: string;
+    serviceRequestId: string;
+    questionnaireResponse: QuestionnaireResponse;
+  }[] = [];
+
+  for (const serviceRequest of serviceRequests) {
+    for (const questionnaireResponse of questionnaireResponses) {
+      if (
+        questionnaireResponse.basedOn?.some((b) => b.reference === `ServiceRequest/${serviceRequest.id}`) &&
+        !results.some((q) => q.serviceRequestId === serviceRequest.id) &&
+        questionnaireResponse.questionnaire &&
+        serviceRequest.id
+      ) {
+        results.push({
+          questionnaireUrl: questionnaireResponse.questionnaire,
+          serviceRequestId: serviceRequest.id,
+          questionnaireResponse,
+        });
+      }
+    }
+  }
+
+  return Promise.all(
+    results.map(async (result) => {
+      const questionnaireRequest = await fetch(result.questionnaireUrl, {
+        headers: {
+          Authorization: `Bearer ${m2mtoken}`,
+        },
+      });
+
+      const { questionnaireResponse, serviceRequestId } = result;
+
+      const questionnaire = (await questionnaireRequest.json()) as Questionnaire;
+
+      return {
+        questionnaire,
+        questionnaireResponse,
+        questionnaireResponseItems: parseQuestionnaireResponseItems(questionnaireResponse, questionnaire),
+        serviceRequestId,
+      };
+    })
+  );
+};
+
+export function executeByCondition<T>(
+  condition: boolean,
+  fetchFunction: () => Promise<T[]>,
+  emptyResultType: T[] = [] as T[]
+): Promise<T[]> {
+  return condition ? fetchFunction() : Promise.resolve(emptyResultType);
+}
 
 export const parseLabOrderStatus = (
   serviceRequest: ServiceRequest,
@@ -580,7 +835,7 @@ export const parseLabOrderStatus = (
 ): ExternalLabsStatus => {
   if (!serviceRequest.id) {
     console.error('ServiceRequest id is required to parse lab order status');
-    return ExternalLabsStatus.unparsed;
+    return ExternalLabsStatus.unknown;
   }
 
   const { orderedFinalResults, reflexFinalResults, orderedPrelimResults, reflexPrelimResults } =
@@ -601,61 +856,96 @@ export const parseLabOrderStatus = (
   const hasCompletedPSTTask = taskPST?.status === 'completed';
   const isActiveServiceRequest = serviceRequest.status === 'active';
 
+  const hasAllConditions = (conditions: Record<string, boolean>): boolean =>
+    Object.values(conditions).every((condition) => condition === true);
+
   // 'pending': If the SR.status == draft and a pre-submission task exists
-  if (serviceRequest.status === 'draft' && taskPST?.status === 'ready') {
+  const pendingStatusConditions = {
+    serviceRequestStatusIsDraft: serviceRequest.status === 'draft',
+    pstTaskStatusIsReady: taskPST?.status === 'ready',
+  };
+
+  if (hasAllConditions(pendingStatusConditions)) {
     return ExternalLabsStatus.pending;
   }
 
   // 'sent': If Task(PST).status == completed, SR.status == active, and there is no DR for the ordered test code
-  const isSentStatus =
-    hasCompletedPSTTask && isActiveServiceRequest && orderedFinalResults.length === 0 && prelimResults.length === 0;
+  const sentStatusConditions = {
+    hasCompletedPSTTask,
+    isActiveServiceRequest,
+    noFinalResults: orderedFinalResults.length === 0,
+    noPrelimResults: prelimResults.length === 0,
+  };
 
-  if (isSentStatus) {
+  if (hasAllConditions(sentStatusConditions)) {
     return ExternalLabsStatus.sent;
   }
 
-  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
   const hasPrelimResults = prelimResults.length > 0;
-  const isPreliminaryStatus = hasPrelimResults && hasCompletedPSTTask && isActiveServiceRequest;
 
-  if (isPreliminaryStatus) {
+  // 'prelim': DR.status == 'preliminary', Task(PST).status == completed, SR.status == active
+  const prelimStatusConditions = {
+    hasPrelimResults,
+    hasCompletedPSTTask,
+    isActiveServiceRequest,
+  };
+
+  if (hasAllConditions(prelimStatusConditions)) {
     return ExternalLabsStatus.prelim;
   }
 
   // received: Task(RFRT).status = 'ready' and DR the Task is basedOn have DR.status = ‘final’
-  for (let i = 0; i < finalTasks.length; i++) {
-    const task = finalTasks[i];
-
+  const hasReadyTaskWithFinalResult = finalTasks.some((task) => {
     if (task.status !== 'ready') {
-      continue;
+      return false;
     }
 
-    const relatedTasks = parseResultByTask(task, finalResults);
-    const hasFinalResults = relatedTasks.some((result) => result.status === 'final');
+    const relatedFinalResults = parseResultByTask(task, finalResults);
+    return relatedFinalResults.length > 0;
+  });
 
-    if (hasFinalResults) {
-      return ExternalLabsStatus.received;
-    }
+  const receivedStatusConditions = {
+    hasReadyTaskWithFinalResult,
+  };
+
+  if (hasAllConditions(receivedStatusConditions)) {
+    return ExternalLabsStatus.received;
   }
 
   //  reviewed: Task(RFRT).status = 'completed' and DR the Task is basedOn have DR.status = ‘final’
-  for (let i = 0; i < finalTasks.length; i++) {
-    const task = finalTasks[i];
-
+  const hasCompletedTaskWithFinalResult = finalTasks.some((task) => {
     if (task.status !== 'completed') {
-      continue;
+      return false;
     }
 
-    const relatedResults = parseResultByTask(task, finalResults);
-    const hasFinalResults = relatedResults.some((result) => result.status === 'final');
+    const relatedFinalResults = parseResultByTask(task, finalResults);
+    return relatedFinalResults.length > 0;
+  });
 
-    if (hasFinalResults) {
-      return ExternalLabsStatus.reviewed;
-    }
+  const reviewedStatusConditions = {
+    hasCompletedTaskWithFinalResult,
+  };
+
+  if (hasAllConditions(reviewedStatusConditions)) {
+    return ExternalLabsStatus.reviewed;
   }
 
-  // unparsed status, for debugging purposes
-  return ExternalLabsStatus.unparsed;
+  console.log(
+    `Error: unknown status for ServiceRequest/${serviceRequest.id}. Here are the conditions for determining the status, all conditions must be true for picking the corresponding status:`,
+    JSON.stringify(
+      {
+        pendingStatusConditions,
+        sentStatusConditions,
+        prelimStatusConditions,
+        receivedStatusConditions,
+        reviewedStatusConditions,
+      },
+      null,
+      2
+    )
+  );
+
+  return ExternalLabsStatus.unknown;
 };
 
 export const parseDiagnoses = (serviceRequest: ServiceRequest): DiagnosisDTO[] => {
@@ -682,7 +972,7 @@ export const parsePractitionerNameFromServiceRequest = (
   return parsePractitionerName(practitionerIdFromServiceRequest, practitioners);
 };
 
-export const parsePractitionerNameFromTask = (task: Task, practitioners: Practitioner[]): string => {
+export const parseReviewerNameFromTask = (task: Task, practitioners: Practitioner[]): string => {
   const performerId = task.owner?.reference?.split('/').pop() || '';
   return parsePractitionerName(performerId, practitioners);
 };
@@ -848,6 +1138,15 @@ export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: E
   return NOT_FOUND;
 };
 
+const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: Location[]): string | undefined => {
+  const location = locations.find((location) => {
+    const locationRef = `Location/${location.id}`;
+    return serviceRequest.locationReference?.find((srLocationRef) => srLocationRef.reference === locationRef);
+  });
+
+  return location ? getTimezone(location) : undefined;
+};
+
 export const parseVisitDate = (appointment: Appointment | undefined): string => {
   return appointment?.created || '';
 };
@@ -1001,13 +1300,38 @@ export const parseLabOrdersHistory = (
   return history;
 };
 
+export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations: Organization[]): string => {
+  const NOT_FOUND = '';
+
+  if (!serviceRequest.performer || !serviceRequest.performer.length) {
+    return NOT_FOUND;
+  }
+
+  for (const performer of serviceRequest.performer) {
+    if (performer.reference && performer.reference.includes('Organization/')) {
+      const organizationId = performer.reference.split('Organization/')[1];
+      const matchingOrg = organizations.find((org) => org.id === organizationId);
+
+      if (matchingOrg) {
+        const accountNumber = matchingOrg.identifier?.find(
+          (identifier) => identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM
+        )?.value;
+
+        return accountNumber || NOT_FOUND;
+      }
+    }
+  }
+
+  return NOT_FOUND;
+};
+
 export const parseTaskReceivedAndReviewedHistory = (
   task: Task & { testType: 'reflex' | 'ordered' },
   practitioners: Practitioner[],
   provenances: Provenance[]
 ): LabOrderHistoryRow[] => {
   const result: LabOrderHistoryRow[] = [];
-  const receivedDate = parseTaskReceivedInfo(task, practitioners);
+  const receivedDate = parseTaskReceivedInfo(task);
 
   if (receivedDate) {
     result.push({ ...receivedDate, testType: task.testType });
@@ -1028,13 +1352,10 @@ export const parseTaskReceivedAndReviewedHistory = (
   return result;
 };
 
-export const parseTaskReceivedInfo = (
-  task: Task,
-  practitioners: Practitioner[]
-): Omit<LabOrderHistoryRow, 'resultType'> | null => {
+export const parseTaskReceivedInfo = (task: Task): Omit<LabOrderHistoryRow, 'resultType'> | null => {
   return {
     action: 'received',
-    performer: parsePractitionerNameFromTask(task, practitioners),
+    performer: '-',
     date: task.authoredOn || '',
   };
 };
@@ -1052,7 +1373,7 @@ export const parseTaskReviewedInfo = (
 
   return {
     action: 'reviewed',
-    performer: extractPerformerFromProvenance(reviewProvenance, practitioners),
+    performer: parseReviewerNameFromProvenance(reviewProvenance, practitioners), // also may be received with parseReviewerNameFromTask(task, practitioners);
     date: reviewProvenance.recorded || '',
   };
 };
@@ -1077,7 +1398,7 @@ export const isProvenanceReviewActivity = (provenance: Provenance): boolean => {
   );
 };
 
-export const extractPerformerFromProvenance = (provenance: Provenance, practitioners: Practitioner[]): string => {
+export const parseReviewerNameFromProvenance = (provenance: Provenance, practitioners: Practitioner[]): string => {
   if (!provenance.agent || provenance.agent.length === 0) {
     return '';
   }
@@ -1102,6 +1423,7 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
+  labPDFs: LabOrderPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
   if (!serviceRequest.id) {
@@ -1151,7 +1473,8 @@ export const parseLResultsDetails = (
       const details = parseResultDetails(result, tasks, serviceRequest);
       const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
-      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate });
+      const resultPdfUrl = labPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.url || null;
+      if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
     });
   });
 
@@ -1162,7 +1485,7 @@ export const parseResultDetails = (
   result: DiagnosticReport,
   tasks: Task[],
   serviceRequest: ServiceRequest
-): Omit<LabOrderResultDetails, 'testType' | 'resultType' | 'reviewedDate'> | null => {
+): Omit<LabOrderResultDetails, 'testType' | 'resultType' | 'reviewedDate' | 'resultPdfUrl'> | null => {
   const task = filterResourcesBasedOnDiagnosticReports(tasks, [result])[0];
 
   if (!task?.id || !result?.id || !serviceRequest.id) {
@@ -1186,7 +1509,7 @@ export const parseResultDetails = (
         ? ExternalLabsStatus.pending
         : serviceRequest.status === 'active' && PSTTask?.status === 'completed'
         ? ExternalLabsStatus.sent
-        : ExternalLabsStatus.unparsed,
+        : ExternalLabsStatus.unknown,
     diagnosticReportId: result.id,
     taskId: task.id,
     receivedDate: task.authoredOn || '',
@@ -1307,13 +1630,13 @@ export const parseDx = (serviceRequest: ServiceRequest): string => {
         (reasonCode) =>
           reasonCode?.text ||
           reasonCode.coding
-            ?.map((coding) => coding.display)
+            ?.map((coding) => `${coding.code} ${coding.display}`.trim())
             .filter(Boolean)
-            .join(',') ||
+            .join('; ') ||
           ''
       )
       .filter(Boolean)
-      .join(',') || ''
+      .join('; ') || ''
   );
 };
 
@@ -1325,4 +1648,188 @@ export const parseResultByTask = (task: Task, results: DiagnosticReport[]): Diag
     const resultId = result.id;
     return taskBasedOn.includes(`DiagnosticReport/${resultId}`);
   });
+};
+
+export const parseQuestionnaireResponseItems = (
+  questionnaireResponse: QuestionnaireResponse,
+  questionnaire: Questionnaire
+): QuestionnaireResponseItem[] => {
+  const questionnaireResponseItems = questionnaireResponse.item?.map((item) => {
+    const question = questionnaire.item?.find((q) => q.linkId === item.linkId);
+
+    if (!question) {
+      throw new Error(`question ${item.linkId} is not found`);
+    }
+
+    return {
+      linkId: item.linkId,
+      type: question.type,
+      response: item.answer?.map((answer) => {
+        if (question.type === 'text') {
+          return answer.valueString;
+        } else if (question.type === 'boolean') {
+          return answer.valueBoolean;
+        } else if (question.type === 'date') {
+          return answer.valueDate;
+        } else if (question.type === 'decimal') {
+          return answer.valueDecimal;
+        } else if (question.type === 'integer') {
+          return answer.valueInteger;
+        } else if (question.type === 'choice') {
+          return answer.valueString;
+        } else {
+          throw new Error(`Unknown question type: ${question.type}`);
+        }
+      }),
+    };
+  });
+
+  return questionnaireResponseItems || [];
+};
+
+export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): sampleDTO[] => {
+  const NOT_FOUND = 'Not specified';
+
+  if (!serviceRequest.contained || !serviceRequest.contained.length) {
+    console.log('Error: No contained resources found in serviceRequest');
+    return [];
+  }
+
+  const activityDefinition = serviceRequest.contained.find(
+    (resource): resource is ActivityDefinition => resource.resourceType === 'ActivityDefinition'
+  );
+
+  if (!activityDefinition || !activityDefinition.specimenRequirement) {
+    console.log('Error: No specimenRequirement found in activityDefinition');
+    return [];
+  }
+
+  const specimenDefinitionRefs = activityDefinition.specimenRequirement.map((req) => req.reference);
+  const result: sampleDTO[] = [];
+
+  for (let i = 0; i < specimenDefinitionRefs.length; i++) {
+    const ref = specimenDefinitionRefs[i];
+
+    if (!ref) {
+      console.log('Error: No reference found in specimenDefinitionRefs');
+      continue;
+    }
+
+    const specDefId = ref.startsWith('#') ? ref.substring(1) : ref;
+
+    const specimenDefinition = serviceRequest.contained.find(
+      (resource) => resource.resourceType === 'SpecimenDefinition' && resource.id === specDefId
+    );
+
+    if (!specimenDefinition) {
+      console.log(`Error: SpecimenDefinition with id ${specDefId} not found in contained resources`);
+      continue;
+    }
+
+    if (!('typeTested' in specimenDefinition)) {
+      console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested.`);
+      continue;
+    }
+
+    if (!Array.isArray(specimenDefinition.typeTested) || specimenDefinition.typeTested.length === 0) {
+      console.log(`Error: SpecimenDefinition ${specDefId} is not array or empty.`);
+      continue;
+    }
+
+    // by the dev design typeTestedInfo should have preferred preference
+    const typeTestedInfo = specimenDefinition.typeTested.find((item) => item.preference === 'preferred');
+
+    if (!typeTestedInfo) {
+      console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested with preference = 'preferred'`);
+    }
+
+    const container = typeTestedInfo?.container?.description;
+
+    const minimumVolume = typeTestedInfo?.container?.minimumVolumeString;
+
+    // by dev design for storage requirements handling[0].instruction should be used
+    const storageRequirements = typeTestedInfo?.handling?.[0]?.instruction;
+
+    const volumeInfo = specimenDefinition.collection?.find(
+      (item) =>
+        item.coding?.some(
+          (code) =>
+            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+            code.code === SPECIMEN_CODING_CONFIG.collection.code.specimenVolume
+        )
+    );
+
+    const volume = volumeInfo?.text;
+
+    const instructionsInfo = specimenDefinition.collection?.find(
+      (item: any) =>
+        item.coding?.some(
+          (code: any) =>
+            code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+            code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
+        )
+    );
+
+    const collectionInstructions = instructionsInfo?.text;
+
+    const relatedSpecimens = specimens.filter((spec) => {
+      const isMatchServiceRequest = spec.request?.some(
+        (req) => req.reference === `ServiceRequest/${serviceRequest.id}`
+      );
+
+      if (!isMatchServiceRequest) {
+        return false;
+      }
+
+      const isMatchInstructionCode = spec.collection?.method?.coding?.some(
+        (code) =>
+          code.system === SPECIMEN_CODING_CONFIG.collection.system &&
+          code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
+      );
+
+      if (!isMatchInstructionCode) {
+        return false;
+      }
+
+      const isMatchInstructionText = spec.collection?.method?.text === collectionInstructions;
+
+      return isMatchInstructionText;
+    });
+
+    if (relatedSpecimens.length > 1) {
+      console.log(
+        `Error: More than one specimen found for ServiceRequest/${serviceRequest.id} and SpecimenDefinition/${specDefId}`
+      );
+      continue;
+    }
+
+    const specimen = relatedSpecimens[0];
+
+    if (!specimen?.id) {
+      console.log(
+        `Error: No matching specimen found for ServiceRequest/${serviceRequest.id} and SpecimenDefinition/${specDefId}`
+      );
+      continue;
+    }
+
+    const collectionDate = specimen.collection?.collectedDateTime;
+
+    const logAboutMissingData = (info: string): void => console.log(`Error: ${info} is undefined`);
+
+    result.push({
+      specimen: {
+        id: specimen.id,
+        collectionDate,
+      },
+      definition: {
+        container: container || (logAboutMissingData('container'), NOT_FOUND),
+        volume: volume || (logAboutMissingData('volume'), NOT_FOUND),
+        minimumVolume: minimumVolume || (logAboutMissingData('minimumVolume'), NOT_FOUND),
+        storageRequirements: storageRequirements || (logAboutMissingData('storageRequirements'), NOT_FOUND),
+        collectionInstructions: collectionInstructions || (logAboutMissingData('collectionInstructions'), NOT_FOUND),
+      },
+    });
+  }
+
+  return result;
 };

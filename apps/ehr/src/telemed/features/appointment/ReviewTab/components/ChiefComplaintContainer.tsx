@@ -4,6 +4,7 @@ import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { getSpentTime } from 'utils';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const ChiefComplaintContainer: FC = () => {
   const { chartData, encounter } = getSelectors(useAppointmentStore, ['chartData', 'encounter']);
@@ -15,7 +16,10 @@ export const ChiefComplaintContainer: FC = () => {
   const spentTime = getSpentTime(encounter.statusHistory);
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}
+      data-testid={dataTestIds.telemedEhrFlow.reviewTabChiefComplaintContainer}
+    >
       <Typography variant="h5" color="primary.dark">
         Chief complaint & History of Present Illness
       </Typography>

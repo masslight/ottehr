@@ -1,9 +1,10 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
 import { Appointment, Extension, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { phone } from 'phone';
 import { OTTEHR_MODULE } from '../fhir';
 import { PatchPaperworkParameters } from '../types';
-import { zipRegex } from '../validation';
+import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
   const FHIR_API = fhirAPI.replace(/\/r4/g, '');
@@ -25,6 +26,7 @@ export function getParticipantIdFromAppointment(
     ?.actor?.reference?.replace(`${participant}/`, '');
 }
 
+/*
 export function getAppointmentConfirmationMessage(
   appointmentID: string,
   locationName: string,
@@ -34,6 +36,7 @@ export function getAppointmentConfirmationMessage(
 ): string {
   return `You're confirmed! Your check-in time for ${firstName} at ${locationName} is ${startTime}. Please save time at check-in by completing your pre-visit paperwork, or modify/cancel your visit: ${websiteURL}/appointment/${appointmentID}`;
 }
+  */
 
 export function checkValidBookingTime(slotTime: string): boolean {
   const slotDate = DateTime.fromISO(slotTime);
@@ -64,7 +67,12 @@ export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => 
   }
   const plusOneRegex = /^\+1\d{10}$/;
   const tenDigitRegex = /^\d{10}$/;
-  return plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber);
+  return (
+    plusOneRegex.test(phoneNumber) ||
+    tenDigitRegex.test(phoneNumber) ||
+    phoneRegex.test(phoneNumber) ||
+    phone(phoneNumber).isValid
+  );
 };
 
 export function formatPhoneNumber(phoneNumber: string | undefined): string | undefined {
@@ -224,7 +232,11 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
-export const DEMO_VISIT_RESPONSIBLE_PHONE = '(233) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(244) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
+export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
+export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
+export const DEMO_VISIT_RESPONSIBLE_ZIP = '44101';
 export const DEMO_VISIT_PATIENT_ETHNICITY = 'Decline to Specify';
 export const DEMO_VISIT_PATIENT_RACE = 'Native Hawaiian or Other Pacific Islander';
 export const DEMO_VISIT_POINT_OF_DISCOVERY = 'Friend/Family';
@@ -423,12 +435,20 @@ export function getResponsiblePartyStepAnswers({
   },
   birthSex = DEMO_VISIT_RESPONSIBLE_BIRTH_SEX,
   phone = DEMO_VISIT_RESPONSIBLE_PHONE,
+  address1 = DEMO_VISIT_RESPONSIBLE_ADDRESS1,
+  city = DEMO_VISIT_RESPONSIBLE_CITY,
+  state = DEMO_VISIT_RESPONSIBLE_STATE,
+  zip = DEMO_VISIT_RESPONSIBLE_ZIP,
 }: {
   firstName?: string;
   relationship?: string;
   birthDate?: { day: string; month: string; year: string };
   birthSex?: string;
   lastName?: string;
+  address1?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
   phone?: string;
 }): PatchPaperworkParameters['answers'] {
   return {
@@ -457,6 +477,22 @@ export function getResponsiblePartyStepAnswers({
       {
         linkId: 'responsible-party-birth-sex',
         answer: [{ valueString: birthSex }],
+      },
+      {
+        linkId: 'responsible-party-address',
+        answer: [{ valueString: address1 }],
+      },
+      {
+        linkId: 'responsible-party-city',
+        answer: [{ valueString: city }],
+      },
+      {
+        linkId: 'responsible-party-state',
+        answer: [{ valueString: state }],
+      },
+      {
+        linkId: 'responsible-party-zip',
+        answer: [{ valueString: zip }],
       },
       {
         linkId: 'responsible-party-number',

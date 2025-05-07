@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   isValidUUID,
+  OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   unbundleBatchPostOutput,
 } from 'utils';
@@ -101,12 +102,23 @@ describe('Harvest Module Integration Tests', () => {
     item: replaceGuarantorWithAlternate(BASE_QR.item ?? [], param),
   });
 
-  const getQR1Refs = (pId: string): string[] => {
-    const [key, val] = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
+  const getQR1Refs = (
+    pId: string,
+    dummyResourceRefs?: {
+      appointment: string;
+      encounter: string;
+    }
+  ): string[] => {
+    const [ipId, orgId] = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
+    const persistedIds = patientIdsForCleanup[pId];
+    if (persistedIds === undefined && dummyResourceRefs) {
+      const { appointment, encounter } = dummyResourceRefs;
+      return [`InsurancePlan/${ipId}`, `Organization/${orgId}`, `Patient/${pId}`, encounter, appointment];
+    }
     const [patientId, encounterId, appointmentId] = patientIdsForCleanup[pId];
     const refs = [
-      `InsurancePlan/${key}`,
-      `Organization/${val}`,
+      `InsurancePlan/${ipId}`,
+      `Organization/${orgId}`,
       `Patient/${patientId}`,
       `Encounter/${encounterId}`,
       `Appointment/${appointmentId}`,
@@ -114,8 +126,15 @@ describe('Harvest Module Integration Tests', () => {
     return refs;
   };
 
-  const fillWithQR1Refs = (template: any, patientId: string): any => {
-    const refs = getQR1Refs(patientId);
+  const fillWithQR1Refs = (
+    template: any,
+    patientId: string,
+    dummyResourceRefs?: {
+      appointment: string;
+      encounter: string;
+    }
+  ): any => {
+    const refs = getQR1Refs(patientId, dummyResourceRefs);
     return fillReferences(template, refs);
   };
 
@@ -257,6 +276,10 @@ describe('Harvest Module Integration Tests', () => {
     qr?: QuestionnaireResponse;
     idToCheck?: string;
     guarantorRef?: string;
+    dummyResourceRefs?: {
+      appointment: string;
+      encounter: string;
+    };
   }
   interface ValidatedAccountData {
     account: Account;
@@ -265,8 +288,9 @@ describe('Harvest Module Integration Tests', () => {
     persistedGuarantor?: RelatedPerson | Patient;
   }
   const applyEffectAndValidateResults = async (input: ValidateAccountInput): Promise<ValidatedAccountData> => {
-    const { qr, idToCheck, guarantorRef, patientId } = input;
-    const qrWithPatient = fillWithQR1Refs(qr ?? BASE_QR, patientId);
+    const { qr, idToCheck, guarantorRef, patientId, dummyResourceRefs } = input;
+    const qrWithPatient = fillWithQR1Refs(qr ?? BASE_QR, patientId, dummyResourceRefs);
+    console.log('QR with patient:', JSON.stringify(qrWithPatient, null, 2));
     const effect = await performEffect({ qr: qrWithPatient, secrets: envConfig }, oystehrClient);
     expect(effect).toBe('all tasks executed successfully');
     const foundAccounts = (
@@ -410,6 +434,13 @@ describe('Harvest Module Integration Tests', () => {
         fullUrl: appointmentFullUrl,
         resource: {
           resourceType: 'Appointment',
+          meta: {
+            tag: [
+              {
+                code: OTTEHR_MODULE.IP,
+              },
+            ],
+          },
           status: 'proposed',
           participant: [
             {
@@ -2733,6 +2764,151 @@ describe('Harvest Module Integration Tests', () => {
       expect(fillWithQR1Refs(`{{PATIENT_REF}}`, patientId)).toEqual(account.guarantor?.[0]?.party?.reference);
       expect(account.guarantor?.[0]?.period?.end).toBeUndefined();
       expect(account.guarantor?.[1]?.period?.end).toBeDefined();
+    },
+    DEFAULT_TIMEOUT
+  );
+  it(
+    'should create an Account with Patient guarantor when responsible party relationship = self',
+    async () => {
+      const patient = await oystehrClient.fhir.create<Patient>({
+        resourceType: 'Patient',
+        name: [
+          {
+            given: ['Bibi'],
+            family: 'Baggins',
+          },
+        ],
+        birthDate: '2025-03-27',
+        gender: 'female',
+        active: true,
+      });
+      const patientId = patient.id;
+      expect(patientId).toBeDefined();
+      assert(patientId);
+
+      const freshAccount = await oystehrClient.fhir.create<Account>({
+        resourceType: 'Account',
+        status: 'active',
+        type: {
+          coding: [
+            {
+              system: 'http://terminology.hl7.org/CodeSystem/account-type',
+              code: 'PBILLACCT',
+              display: 'patient billing account',
+            },
+          ],
+        },
+        subject: [
+          {
+            reference: `Patient/${patientId}`,
+          },
+        ],
+      });
+
+      const relatedPerson = await oystehrClient.fhir.create<RelatedPerson>({
+        resourceType: 'RelatedPerson',
+        patient: {
+          reference: `Patient/${patientId}`,
+        },
+        relationship: [
+          {
+            coding: [
+              {
+                code: 'user-relatedperson',
+                system: 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship',
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(relatedPerson).toBeDefined();
+
+      const dummyAppt = await oystehrClient.fhir.create<Appointment>({
+        resourceType: 'Appointment',
+        status: 'booked',
+        meta: {
+          tag: [{ code: OTTEHR_MODULE.IP }],
+        },
+        participant: [
+          {
+            actor: {
+              reference: `Patient/${patientId}`,
+            },
+            status: 'accepted',
+          },
+        ],
+        start: '2025-03-27T10:00:00Z',
+        end: '2025-03-27T10:15:00Z',
+      });
+
+      const dummyEncounter = await oystehrClient.fhir.create<Encounter>({
+        resourceType: 'Encounter',
+        status: 'planned',
+        subject: {
+          reference: `Patient/${patientId}`,
+        },
+        appointment: [
+          {
+            reference: `Appointment/${dummyAppt.id}`,
+          },
+        ],
+        class: {
+          system: 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
+          code: 'VR',
+          display: 'virtual',
+        },
+      });
+
+      expect(dummyAppt).toBeDefined();
+      expect(dummyAppt.id).toBeDefined();
+      assert(dummyAppt.id);
+      expect(dummyEncounter).toBeDefined();
+      expect(dummyEncounter.id).toBeDefined();
+      assert(dummyEncounter.id);
+      expect(freshAccount).toBeDefined();
+      expect(freshAccount.id).toBeDefined();
+      assert(freshAccount.id);
+
+      const { account, persistedGuarantor } = await applyEffectAndValidateResults({
+        idToCheck: freshAccount.id,
+        qr: QR_WITH_PATIENT_FOR_ALL_SUBSCRIBERS_AND_GUARANTOR(),
+        guarantorRef: `Patient/${patientId}`,
+        patientId,
+        dummyResourceRefs: {
+          appointment: `Appointment/${dummyAppt.id}`,
+          encounter: `Encounter/${dummyEncounter.id}`,
+        },
+      });
+
+      expect(account).toBeDefined();
+
+      expect(account.guarantor).toBeDefined();
+      expect(account.guarantor?.length).toBe(1);
+      expect(account.guarantor?.[0]?.party?.reference).toEqual(`Patient/${patientId}`);
+      expect(persistedGuarantor).toBeDefined();
+      assert(persistedGuarantor);
+      expect(persistedGuarantor.resourceType).toEqual('Patient');
+      expect(persistedGuarantor.id).toEqual(patientId);
+
+      const batchDeletes: BatchInputDeleteRequest[] = [
+        {
+          method: 'DELETE',
+          url: `Patient/${patientId}`,
+        },
+        {
+          method: 'DELETE',
+          url: `Account/${freshAccount.id}`,
+        },
+      ];
+      const response = await oystehrClient.fhir.transaction({
+        requests: batchDeletes,
+      });
+      expect(response.entry).toBeDefined();
+      response.entry?.forEach((entry) => {
+        expect(entry.response).toBeDefined();
+        expect(entry.response?.outcome?.id).toBe('ok');
+      });
     },
     DEFAULT_TIMEOUT
   );

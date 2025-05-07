@@ -25,7 +25,6 @@ export class Locators {
   prebookSlotReviewScreen: Locator;
   titleVisitDetails: Locator;
   titlePatient: Locator;
-  titleLocation: Locator;
   descReviewScreen: Locator;
   pageTitle: Locator;
   privacyPolicyReviewScreen: Locator;
@@ -86,6 +85,10 @@ export class Locators {
   photoIdFrontImage: Locator;
   photoIdBackImage: Locator;
   responsiblePartyNumber: Locator;
+  responsiblePartyAddress1: Locator;
+  responsiblePartyCity: Locator;
+  responsiblePartyState: Locator;
+  responsiblePartyZip: Locator;
   numberErrorText: Locator;
   zipErrorText: Locator;
   responsiblePartyDOBAnswer: Locator;
@@ -210,6 +213,25 @@ export class Locators {
   patientConditionEditButton: Locator;
   schoolWorkNotesEditButton: Locator;
   inviteParticipantEditButton: Locator;
+  manageParticipant: Locator;
+  leaveWaitingRoom: Locator;
+  cancelVisit: Locator;
+  modalInviteParticipantTitle: Locator;
+  sendInvite: Locator;
+  inviteeList: Locator;
+  modalManageParticipantsTitle: Locator;
+  wrInviteeName: Locator;
+  wrInviteeContact: Locator;
+  cancelInvite: Locator;
+  keepInvite: Locator;
+  wrInviteePhoneNumber: Locator;
+  wrInviteeEmail: Locator;
+  wrInviteeFirstName: Locator;
+  wrInviteeLastName: Locator;
+  responsiblePartyAddress2: Locator;
+  selectedCard: Locator;
+  cardNumberFilled: Locator;
+  itemAddedValue: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -247,7 +269,6 @@ export class Locators {
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
     this.titleVisitDetails = page.getByRole('heading', { name: 'Visit details' });
     this.titlePatient = page.getByText('Patient');
-    this.titleLocation = page.getByText('Location');
     this.descReviewScreen = page.getByText('Review and confirm all details below.');
     this.privacyPolicyReviewScreen = page.getByTestId(dataTestIds.privacyPolicyReviewScreen);
     this.termsAndConditions = page.getByTestId(dataTestIds.termsAndConditionsReviewScreen);
@@ -339,6 +360,8 @@ export class Locators {
     this.creditCardExpiry = stripeIframe.locator('[data-elements-stable-field-name="cardExpiry"]');
     this.creditCardCVC = stripeIframe.locator('[data-elements-stable-field-name="cardCvc"]');
     this.addCardButton = page.getByRole('button').filter({ hasText: 'Add card' });
+    this.selectedCard = page.locator('[name="default-card-selection-group"]');
+    this.cardNumberFilled = page.getByTestId(dataTestIds.cardNumber);
 
     // Responsible Party locators
     this.responsiblePartyRelationship = page.locator('[id="responsible-party-relationship"]');
@@ -347,6 +370,11 @@ export class Locators {
     this.responsiblePartyBirthSex = page.locator('[id="responsible-party-birth-sex"]');
     this.responsiblePartyNumber = page.locator('[id="responsible-party-number"]');
     this.responsiblePartyDOBAnswer = page.locator('[name="responsible-party-date-of-birth.answer.0.valueString"]');
+    this.responsiblePartyAddress1 = page.locator('[id="responsible-party-address"]');
+    this.responsiblePartyAddress2 = page.locator('[id="responsible-party-address-2"]');
+    this.responsiblePartyCity = page.locator('[id="responsible-party-city"]');
+    this.responsiblePartyState = page.locator('[id="responsible-party-state"]');
+    this.responsiblePartyZip = page.locator('[id="responsible-party-zip"]');
 
     // Paperwork calendar locators
     this.calendarCurrentDay = page.locator('button[aria-current="date"]');
@@ -381,6 +409,9 @@ export class Locators {
       'Please fix the error in the "Select option" field to proceed'
     );
     this.paperworkErrorInFieldAboveMessage = page.getByText('Please fix the error in the field above to proceed');
+
+    // Paperwork Telemed locatots
+    this.itemAddedValue = page.getByTestId(dataTestIds.itemAddedValue);
 
     // Current medications locators
     this.currentMedicationsPresent = this.getInputByValue(CURRENT_MEDICATIONS_PRESENT_LABEL);
@@ -425,8 +456,8 @@ export class Locators {
     this.inviteeFirstName = page.locator("[id='invite-first']");
     this.inviteeEmail = page.locator("[id='invite-email']");
     this.inviteePhone = page.locator("[id='invite-phone']");
-    this.inviteeContactEmail = page.locator(`input[value='Email']`);
-    this.inviteeContactPhone = page.locator(`input[value='Phone']`);
+    this.inviteeContactEmail = page.locator(`input[value='Email' i]`);
+    this.inviteeContactPhone = page.locator(`input[value='Phone' i]`);
 
     // Paperwork - Review and Submit locators
     this.finishButton = page.getByRole('button', { name: 'Finish' });
@@ -465,12 +496,38 @@ export class Locators {
     this.patientConditionChipStatus = page.locator('[data-testid="patient-condition-page-status"] div');
     this.schoolWorkNotesChipStatus = page.locator('[data-testid="school-work-note-page-status"] div');
     this.inviteParticipantChipStatus = page.locator('[data-testid="invite-participant-page-status"] div');
+
+    // Waiting room
+    this.manageParticipant = page.getByText('Manage participants');
+    this.leaveWaitingRoom = page.getByText('Leave waiting room');
+    this.cancelVisit = page.getByText('Cancel visit');
+    this.modalInviteParticipantTitle = page.getByText('Invite participant');
+    this.modalManageParticipantsTitle = page.locator('h2', { hasText: 'Manage participants' });
+    this.sendInvite = page.getByRole('button', { name: 'Send invite' });
+    this.inviteeList = page.getByTestId('manage-participants');
+    this.wrInviteeName = page.getByTestId(dataTestIds.wrInviteeName);
+    this.wrInviteeContact = page.getByTestId(dataTestIds.wrInviteeContact);
+    this.cancelInvite = page.getByRole('button', { name: 'Cancel invite' });
+    this.keepInvite = page.getByRole('button', { name: 'Keep invite' });
+    this.wrInviteePhoneNumber = page.locator("[id='phoneNumber']");
+    this.wrInviteeEmail = page.locator("[id='email']");
+    this.wrInviteeFirstName = page.locator("[id='firstName']");
+    this.wrInviteeLastName = page.locator("[id='lastName']");
   }
 
   private getInputByValue(value: string): Locator {
     return this.page.locator(`input[value='${value}']`);
   }
 
+  async waitUntilLoadingIsFinished(): Promise<void> {
+    await this.page.getByText('Loading...').waitFor({ state: 'hidden' });
+  }
+
+  async continueOrDifferentFamilyMember(): Promise<void> {
+    (await this.differentFamilyMember.isEnabled())
+      ? await this.selectDifferentFamilyMember()
+      : await this.clickContinueButton();
+  }
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });
   }

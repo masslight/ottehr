@@ -6,7 +6,7 @@ import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { RadiologyTableStatusChip } from '../components/labs-orders/RadiologyTableStatusChip';
 import { usePatientRadiologyOrders } from '../components/labs-orders/usePatientRadiologyOrders';
-import radiologyIcon from '../../../assets/mui-radiology.svg';
+import radiologyIcon from '../../../themes/ottehr/icons/mui-radiology.svg';
 import { RadiologyOrderHistoryCard } from '../components/labs-orders/RadiologyOrderHistoryCard';
 
 export const RadiologyOrderDetailsPage: React.FC = () => {

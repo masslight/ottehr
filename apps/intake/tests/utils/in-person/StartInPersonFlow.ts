@@ -7,7 +7,7 @@ export class StartInPersonFlow extends BaseInPersonFlow {
   protected async completeBooking(): Promise<void> {
     await this.locator.confirmWalkInButton.click();
   }
-  protected async additionalStepsForPrebook(): Promise<
+  async additionalStepsForPrebook(): Promise<
     Partial<{ selectedSlot: { buttonName: string | null; selectedSlot: string | undefined }; location: string | null }>
   > {
     return {}; // No additional steps needed for walk-ins

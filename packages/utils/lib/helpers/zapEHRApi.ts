@@ -82,6 +82,7 @@ export function NotFoundApointmentErrorHandler(error: any): void {
   }
 }
 
-export const chooseJson = (json: any): any => {
+// todo: update types in places that use this and remove the any
+export const chooseJson = <T = any>(json: any): T => {
   return json.output;
 };

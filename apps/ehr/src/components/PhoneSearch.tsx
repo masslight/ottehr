@@ -2,6 +2,7 @@ import { Close, Search } from '@mui/icons-material';
 import { InputAdornment, IconButton, OutlinedInput, FormControl, InputLabel, FormHelperText } from '@mui/material';
 import { Dispatch, ReactElement, SetStateAction, useState } from 'react';
 import InputMask from './InputMask';
+import { isPhoneNumberValid } from 'utils';
 
 interface PhoneSearchProps {
   phoneFilter: string | null;
@@ -49,13 +50,13 @@ export default function PhoneSearch({ phoneFilter, setPhoneFilter, onClear }: Ph
         onChange={(e) => {
           const phone = e.target.value.replace(/\D/g, '');
           setPhoneFilter(phone);
-          phone.length && phone.length < 10 ? setError(true) : setError(false);
+          isPhoneNumberValid(phone) ? setError(true) : setError(false);
         }}
         error={error}
         notched
       />
       <FormHelperText error sx={{ visibility: error ? 'visible' : 'hidden' }}>
-        Phone number must be 10 digits
+        Phone number must be 10 digits in the format (xxx) xxx-xxxx
       </FormHelperText>
     </FormControl>
   );

@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
-import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { BaseTelemedFlow, SlotAndLocation, StartVisitResponse } from './BaseTelemedFlow';
+import { dataTestIds } from '../../../src/helpers/data-test-ids';
 
 export class TelemedVisitFlow extends BaseTelemedFlow {
   async clickVisitButton(): Promise<void> {
@@ -26,12 +26,18 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
   }
   async startVisitFullFlow(): Promise<StartVisitResponse> {
     await this.selectVisitAndContinue();
-    await this.selectDifferentFamilyMemberAndContinue();
     const slotAndLocation = await this.selectTimeLocationAndContinue();
+    await this.selectDifferentFamilyMemberAndContinue();
     const patientBasicInfo = await this.fillNewPatientDataAndContinue();
-    await this.fillingInfo.fillContactInformation();
+    // await this.page.waitForURL(/\/paperwork/);
+    const bookingURL = this.page.url();
+    console.log('Booking URL: ', bookingURL);
+    const match = bookingURL.match(/paperwork\/([0-9a-fA-F-]+)/);
+    const bookingUUID = match ? match[1] : null;
+    await this.locator.confirmWalkInButton.click();
+    await this.paperworkGeneral.fillContactInformationRequiredFields();
     await this.continue();
-    await this.fillingInfo.fillPatientDetails();
+    await this.paperworkGeneral.fillPatientDetailsTelemedAllFields();
     await this.continue();
     // Primary Care Physician screen here
     await this.continue();
@@ -46,14 +52,7 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     // additional questions
     await this.continue();
     await this.paperwork.fillAndCheckSelfPay();
-    await this.paperwork.fillAndCheckResponsiblePartyInfoAsSelf({
-      firstName: patientBasicInfo.firstName,
-      lastName: patientBasicInfo.lastName,
-      email: patientBasicInfo.email,
-      birthSex: patientBasicInfo.birthSex,
-      thisEmailBelongsTo: patientBasicInfo.thisEmailBelongsTo,
-      reasonForVisit: patientBasicInfo.reasonForVisit,
-    });
+    await this.paperworkGeneral.fillResponsiblePartyDataSelf();
     await this.continue();
     await this.continue(); // skip optional photo ID
     await this.continue(); // skip optional patient conditions
@@ -68,9 +67,8 @@ export class TelemedVisitFlow extends BaseTelemedFlow {
     return {
       slotAndLocation,
       patientBasicInfo,
-      // todo: fix this, it was not added to the returned value in the previous version cause types were not right
-      bookingURL: '',
-      bookingUUID: null,
+      bookingURL,
+      bookingUUID,
     };
   }
 }

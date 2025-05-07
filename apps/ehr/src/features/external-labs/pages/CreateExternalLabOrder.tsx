@@ -27,7 +27,7 @@ import {
   useSaveChartData,
 } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, OrderableItemSearchResult } from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
@@ -65,9 +65,14 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const { diagnosis } = chartData || {};
   const primaryDiagnosis = diagnosis?.find((d) => d.isPrimary);
 
+  const attendingPractitioner = encounter.participant?.find(
+    (participant) =>
+      participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
+  );
+
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
-  const [psc, setPsc] = useState<boolean>(true); // defaulting & locking to true for mvp
+  const [psc, setPsc] = useState<boolean>(false);
   const [coverageName, setCoverageName] = useState<string | undefined>(undefined);
   const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
 
@@ -126,14 +131,15 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
-        const errorMessage = ['There was an error ordering this lab'];
+        const errorMessage = ['There was an error creating this lab order'];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {
       const errorMessage = [];
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
-      if (errorMessage.length === 0) errorMessage.push('There was an error ordering this lab');
+      if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
+      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
       setError(errorMessage);
     }
     setSubmitting(false);
@@ -344,10 +350,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   ></LabsAutocomplete>
                 </Grid>
                 <Grid item xs={12}>
-                  {/* disabling this field as we are only allowing psc orders for mvp */}
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
-                    control={<Switch checked={psc} onChange={() => setPsc(!psc)} disabled />}
+                    control={<Switch checked={psc} onChange={() => setPsc((psc) => !psc)} />}
                     label={<Typography variant="body2">PSC</Typography>}
                   />
                 </Grid>

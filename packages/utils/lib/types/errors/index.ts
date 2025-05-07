@@ -20,6 +20,7 @@ export enum APIErrorCode {
   BILLING_PROVIDER_NOT_FOUND = 4016,
   FHIR_RESOURCE_NOT_FOUND = 4017,
   SCHEDULE_OWNER_NOT_FOUND = 4018,
+  SLOT_UNAVAILABLE = 4019,
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
   MISSING_REQUEST_BODY = 4200,
@@ -33,6 +34,7 @@ export enum APIErrorCode {
   MISSING_SCHEDULE_EXTENSION = 4305,
   MISSING_PATIENT_COVERAGE_INFO = 4306,
   INVALID_INPUT = 4340,
+  APPOINTMENT_ALREADY_EXISTS = 4341,
 }
 
 export interface APIError {
@@ -253,4 +255,13 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
+};
+export const SLOT_UNAVAILABLE_ERROR = {
+  code: APIErrorCode.SLOT_UNAVAILABLE,
+  message: 'The requested slot is unavailable',
+};
+
+export const APPOINTMENT_ALREADY_EXISTS_ERROR = {
+  code: APIErrorCode.APPOINTMENT_ALREADY_EXISTS,
+  message: 'An appointment can not be created because the slot provided is already attached to an Appointment resource',
 };

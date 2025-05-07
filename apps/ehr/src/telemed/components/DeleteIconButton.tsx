@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
 import { IconButton, IconButtonProps, SvgIconProps } from '@mui/material';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
-import { otherColors } from '../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 
 type DeleteIconButtonProps = {
   onClick?: React.MouseEventHandler<HTMLButtonElement>;

@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 
 import { Add } from '@mui/icons-material';
 import Oystehr from '@oystehr/sdk';
@@ -89,7 +89,6 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
         });
       },
       enabled: !!oystehrZambda,
-      staleTime: 1800000, // half hour
     }
   );
 

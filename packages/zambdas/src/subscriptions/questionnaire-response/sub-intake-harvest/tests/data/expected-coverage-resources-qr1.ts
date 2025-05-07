@@ -74,6 +74,14 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
   birthDate: '1983-02-23',
   gender: 'female',
   patient: { reference: '{{PATIENT_REF}}' }, // newPatient1
+  address: [
+    {
+      city: 'fakeplace',
+      line: ['123 test lane'],
+      postalCode: '11111',
+      state: 'NY',
+    },
+  ],
   relationship: [
     {
       coding: [

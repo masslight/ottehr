@@ -11,6 +11,7 @@ import {
   AllStatesValues,
   makeQualificationForPractitioner,
   PractitionerLicense,
+  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL
 } from 'utils';
@@ -174,7 +175,7 @@ export async function inviteUser(
         value: DEFAULTS.npi,
         system: 'http://hl7.org/fhir/sid/us-npi',
       },
-      { system: 'https://fhir.ottehr.com/r4/slug', value: slug },
+      { system: SLUG_SYSTEM, value: slug },
     ],
     name: [{ family: lastName, given: [firstName] }],
     telecom: [

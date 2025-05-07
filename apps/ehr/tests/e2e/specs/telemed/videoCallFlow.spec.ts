@@ -72,7 +72,7 @@ test('Should fill all required fields', async () => {
     .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.assessment))
     .click();
 
-  const diagnosisAutocomplete = page.getByTestId(dataTestIds.assessmentPage.diagnosisDropdown);
+  const diagnosisAutocomplete = page.getByTestId(dataTestIds.diagnosisContainer.diagnosisDropdown);
   await expect(diagnosisAutocomplete).toBeVisible();
   await diagnosisAutocomplete.click();
   await diagnosisAutocomplete.locator('input').fill('fever');
@@ -83,7 +83,7 @@ test('Should fill all required fields', async () => {
   await page.keyboard.press('Enter');
   await expect(diagnosisAutocomplete.locator('input')).toBeEnabled();
 
-  const emAutocomplete = page.getByTestId(dataTestIds.assessmentPage.emCodeDropdown);
+  const emAutocomplete = page.getByTestId(dataTestIds.assessmentCard.emCodeDropdown);
   await expect(emAutocomplete).toBeVisible();
   await emAutocomplete.click();
   await emAutocomplete.locator('input').fill('1');

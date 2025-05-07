@@ -2,8 +2,8 @@ import { Chip } from '@mui/material';
 import { ReactElement } from 'react';
 import { ExternalLabsStatus } from 'utils';
 
-interface ExternalLabsStatusChipProps {
-  status?: keyof typeof ExternalLabsStatus;
+interface LabsOrderStatusChipProps {
+  status: keyof typeof ExternalLabsStatus;
 }
 
 export const ExternalLabsStatusPalette: {
@@ -66,7 +66,7 @@ export const ExternalLabsStatusPalette: {
       primary: '#01579B',
     },
   },
-  unparsed: {
+  unknown: {
     background: {
       primary: '#e3c254',
     },
@@ -76,17 +76,7 @@ export const ExternalLabsStatusPalette: {
   },
 };
 
-export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChipProps): ReactElement {
-  if (!status) {
-    console.error('Status is undefined');
-    return <span>Unknown status</span>;
-  }
-
-  if (!ExternalLabsStatusPalette[status]) {
-    console.error(`Status "${status}" not found in ExternalLabsStatusPalette`);
-    return <span>Invalid status: {status}</span>;
-  }
-
+export function LabsOrderStatusChip({ status }: LabsOrderStatusChipProps): ReactElement {
   return (
     <Chip
       size="small"
@@ -94,7 +84,7 @@ export function ExternalLabsStatusChip({ status }: ExternalLabsStatusChipProps):
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: '12px',
         textTransform: 'uppercase',
         background: ExternalLabsStatusPalette[status].background.primary,

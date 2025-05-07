@@ -1,4 +1,4 @@
-import { Account, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { Account, CodeableConcept, HealthcareService, Identifier, Location, Practitioner, Schedule } from 'fhir/r4b';
 import {
   AppointmentType,
   CONSENT_CODE,
@@ -26,7 +26,7 @@ const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
 
-export const OTTEHR_BASE_URL = 'https://fhir.ottehr.com';
+export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 
 export const FHIR_IDENTIFIER_NPI = 'http://hl7.org/fhir/sid/us-npi';
 export const FHIR_IDENTIFIER_SYSTEM_TAX = 'http://terminology.hl7.org/CodeSystem/v2-0203';
@@ -169,7 +169,7 @@ export const PRACTITIONER_QUALIFICATION_CODE_SYSTEM = 'http://terminology.hl7.or
 
 export const PRACTITIONER_QUALIFICATION_STATE_SYSTEM = 'http://hl7.org/fhir/us/core/ValueSet/us-core-usps-state';
 
-export const SLUG_SYSTEM = `${OTTEHR_BASE_URL}/r4/slug`;
+export const SLUG_SYSTEM = `${FHIR_BASE_URL}/r4/slug`;
 
 export const SERVICE_EXTENSION = 'http://extensions.ottehr.com';
 
@@ -197,6 +197,11 @@ export const FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG = {
 export const FHIR_APPOINTMENT_PREPROCESSED_TAG = {
   system: FHIR_APPOINTMENT_PREPROCESSING_STATUS_SYSTEM,
   code: 'APPOINTMENT_PREPROCESSED',
+};
+
+export const FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG = {
+  system: 'appointment-harvesting-module-status',
+  code: 'SUB_INTAKE_HARVEST_TASK_COMPLETE',
 };
 
 export const FHIR_APPOINTMENT_TYPE_MAP: Record<string, AppointmentType> = {
@@ -432,3 +437,46 @@ export const AUDIT_EVENT_OUTCOME_CODE = {
 };
 
 export const ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE = 'https://api.stripe.com/v1/customers';
+export const WALKIN_APPOINTMENT_TYPE_CODE = 'WALKIN';
+export const SLOT_WALKIN_APPOINTMENT_TYPE_CODING: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: WALKIN_APPOINTMENT_TYPE_CODE,
+    },
+  ],
+};
+
+export const FOLLOW_UP_APPOINTMENT_TYPE_CODE = 'FOLLOWUP';
+export const SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING: CodeableConcept = {
+  coding: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v2-0276',
+      code: 'FOLLOWUP',
+    },
+  ],
+};
+
+export enum SlotServiceCategoryCode {
+  virtualServiceMode = 'virtual-service-mode',
+  inPersonServiceMode = 'in-person-service-mode',
+}
+
+export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
+  virtualServiceMode: {
+    coding: [
+      {
+        system: `${FHIR_BASE_URL}/slot-service-category`,
+        code: SlotServiceCategoryCode.virtualServiceMode,
+      },
+    ],
+  },
+  inPersonServiceMode: {
+    coding: [
+      {
+        system: `${FHIR_BASE_URL}/slot-service-category`,
+        code: SlotServiceCategoryCode.inPersonServiceMode,
+      },
+    ],
+  },
+};

@@ -3,23 +3,6 @@ import { EvolveUser } from '../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
 import { assignPractitioner, unassignPractitioner } from '../api/api';
 
-export const practitionerType = {
-  Admitter: [
-    {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
-      code: 'ADM',
-      display: 'admitter',
-    },
-  ] as Coding[],
-  Attender: [
-    {
-      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
-      code: 'ATND',
-      display: 'attender',
-    },
-  ] as Coding[],
-};
-
 export const handleParticipantPeriod = async (
   oystehrZambda: Oystehr | undefined,
   encounter: Encounter | undefined,

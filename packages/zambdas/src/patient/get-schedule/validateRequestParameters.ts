@@ -7,7 +7,7 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     throw new Error('No request body provided');
   }
 
-  const { slug, scheduleType, isWalkin } = JSON.parse(input.body);
+  const { slug, scheduleType } = JSON.parse(input.body);
   if (!slug) {
     throw new Error('slug is not found and is required');
   }
@@ -20,6 +20,5 @@ export function validateRequestParameters(input: ZambdaInput): GetScheduleReques
     slug,
     scheduleType,
     secrets: input.secrets,
-    isWalkin: isWalkin || false,
   };
 }

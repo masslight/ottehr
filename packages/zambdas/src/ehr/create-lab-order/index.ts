@@ -6,6 +6,9 @@ import {
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  PRACTITIONER_CODINGS,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -21,6 +24,9 @@ import {
   ActivityDefinition,
   Patient,
   Account,
+  Provenance,
+  SpecimenDefinition,
+  Specimen,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
@@ -46,27 +52,64 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
-    let practitionerId: string | undefined;
+    let curUserPractitionerId: string | undefined;
     try {
-      practitionerId = await getMyPractitionerId(oystehrCurrentUser);
+      curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     } catch (e) {
       throw new Error('User creating this lab order must have a Practitioner resource linked');
     }
+    const attendingPractitionerId = encounter.participant
+      ?.find(
+        (participant) =>
+          participant.type?.find(
+            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
+          )
+      )
+      ?.individual?.reference?.replace('Practitioner/', '');
+    if (!attendingPractitionerId) {
+      // this should never happen since theres also a validation on the front end that you cannot submit without one
+      throw new Error('This encounter does not have an attending practitioner linked');
+    }
 
     console.log('encounter id', encounter.id);
-    const { labOrganization, coverage, location, patientId, existingActivityDefinition } = await getAdditionalResources(
+    const { labOrganization, coverage, location, patientId } = await getAdditionalResources(
       orderableItem,
       encounter,
       oystehr
     );
 
-    const { activityDefinitionId, activityDefinitionToContain } = await handleActivityDefinition(
-      existingActivityDefinition,
-      orderableItem,
-      oystehr
-    );
-
     const requests: BatchInputRequest<FhirResource>[] = [];
+    const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
+
+    const activityDefinitionToContain = formatActivityDefinitionToContain(orderableItem);
+    const serviceRequestContained: FhirResource[] = [];
+
+    const createSpecimenResources = !psc && orderableItem.item.specimens.length > 0;
+    console.log('createSpecimenResources', createSpecimenResources, psc, orderableItem.item.specimens.length);
+    const specimenFullUrlArr: string[] = [];
+    if (createSpecimenResources) {
+      const { specimenDefinitionConfigs, specimenConfigs } = formatSpecimenResources(
+        orderableItem,
+        patientId,
+        serviceRequestFullUrl
+      );
+      activityDefinitionToContain.specimenRequirement = specimenDefinitionConfigs.map((sd) => ({
+        reference: `#${sd.id}`,
+      }));
+      serviceRequestContained.push(activityDefinitionToContain, ...specimenDefinitionConfigs);
+      specimenConfigs.forEach((specimenResource) => {
+        const specimenFullUrl = `urn:uuid:${randomUUID()}`;
+        specimenFullUrlArr?.push(specimenFullUrl);
+        requests.push({
+          method: 'POST',
+          url: '/Specimen',
+          resource: specimenResource,
+          fullUrl: specimenFullUrl,
+        });
+      });
+    } else {
+      serviceRequestContained.push(activityDefinitionToContain);
+    }
 
     const serviceRequestCode = formatSrCode(orderableItem);
     const serviceRequestReasonCode: ServiceRequest['reasonCode'] = dx.map((diagnosis) => {
@@ -92,7 +135,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         reference: `Encounter/${encounter.id}`,
       },
       requester: {
-        reference: `Practitioner/${practitionerId}`,
+        reference: `Practitioner/${attendingPractitionerId}`,
       },
       performer: [
         {
@@ -105,11 +148,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `Location/${location.id}`,
         },
       ],
-      priority: 'routine',
+      authoredOn: DateTime.now().toISO() || undefined,
+      priority: 'stat',
       code: serviceRequestCode,
       reasonCode: serviceRequestReasonCode,
-      instantiatesCanonical: [`#${activityDefinitionId}`],
-      contained: [activityDefinitionToContain],
+      instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
+      contained: serviceRequestContained,
     };
     if (coverage) {
       serviceRequestConfig.insurance = [
@@ -132,7 +176,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ];
     }
-    const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
+    if (specimenFullUrlArr.length > 0) {
+      serviceRequestConfig.specimen = specimenFullUrlArr.map((url) => ({
+        type: 'Specimen',
+        reference: url,
+      }));
+    }
 
     const preSubmissionTaskConfig: Task = {
       resourceType: 'Task',
@@ -179,12 +228,30 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ];
     }
 
+    const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
+    const provenanceConfig = getProvenanceConfig(
+      serviceRequestFullUrl,
+      location.id || '',
+      curUserPractitionerId,
+      attendingPractitionerId
+    );
+    serviceRequestConfig.relevantHistory = [
+      {
+        reference: provenanceFullUrl,
+      },
+    ];
+
+    requests.push({
+      method: 'POST',
+      url: '/Provenance',
+      resource: provenanceConfig,
+      fullUrl: provenanceFullUrl,
+    });
     requests.push({
       method: 'POST',
       url: '/Task',
       resource: preSubmissionTaskConfig,
     });
-
     requests.push({
       method: 'POST',
       url: '/ServiceRequest',
@@ -203,7 +270,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await topLevelCatch('admin-create-lab-order', error, input.secrets);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error submitting lab order: ${error}` }),
+      body: JSON.stringify({ message: `Error creating lab order: ${error}` }),
     };
   }
 };
@@ -250,62 +317,122 @@ const formatSrCode = (orderableItem: OrderableItemSearchResult): ServiceRequest[
   };
 };
 
-const handleActivityDefinition = async (
-  activityDefinition: ActivityDefinition | undefined,
+const formatActivityDefinitionToContain = (orderableItem: OrderableItemSearchResult): ActivityDefinition => {
+  const activityDefinitionConfig: ActivityDefinition = {
+    resourceType: 'ActivityDefinition',
+    id: 'activityDefinitionId',
+    status: 'unknown',
+    code: {
+      coding: [
+        {
+          system: OYSTEHR_LAB_OI_CODE_SYSTEM,
+          code: orderableItem.item.itemCode,
+          display: orderableItem.item.itemName,
+        },
+      ],
+    },
+    publisher: orderableItem.lab.labName,
+    kind: 'ServiceRequest',
+    title: orderableItem.item.itemName,
+    name: orderableItem.item.uniqueName,
+    url: `https://labs-api.zapehr.com/v1/orderableItem?labIds=${orderableItem.lab.labGuid}&itemCodes=${orderableItem.item.itemCode}`,
+    version: orderableItem.lab.compendiumVersion,
+  };
+
+  return activityDefinitionConfig;
+};
+
+const formatSpecimenResources = (
   orderableItem: OrderableItemSearchResult,
-  oystehr: Oystehr
-): Promise<{ activityDefinitionId: string; activityDefinitionToContain: any }> => {
-  let activityDefinitionId: string | undefined;
-  let activityDefinitionToContain: any;
+  patientID: string,
+  serviceRequestFullUrl: string
+): { specimenDefinitionConfigs: SpecimenDefinition[]; specimenConfigs: Specimen[] } => {
+  const specimenDefinitionConfigs: SpecimenDefinition[] = [];
+  const specimenConfigs: Specimen[] = [];
 
-  if (!activityDefinition) {
-    const activityDefinitionConfig: ActivityDefinition = {
-      resourceType: 'ActivityDefinition',
-      status: 'unknown',
-      code: {
-        coding: [
-          {
-            system: OYSTEHR_LAB_OI_CODE_SYSTEM,
-            code: orderableItem.item.itemCode,
-            display: orderableItem.item.itemName,
-          },
-        ],
-      },
-      publisher: orderableItem.lab.labName,
-      kind: 'ServiceRequest',
-      title: orderableItem.item.itemName,
-      name: orderableItem.item.uniqueName,
-      url: `https://labs-api.zapehr.com/v1/orderableItem?labIds=${orderableItem.lab.labGuid}&itemCodes=${orderableItem.item.itemCode}`,
-      version: orderableItem.lab.compendiumVersion,
+  orderableItem.item.specimens.forEach((specimen, idx) => {
+    const collectionInstructionsCoding = {
+      coding: [
+        {
+          system: SPECIMEN_CODING_CONFIG.collection.system,
+          code: SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions,
+        },
+      ],
+      text: specimen.collectionInstructions,
     };
-    console.log(
-      'creating a new activityDefinition for orderable item',
-      orderableItem.item.itemCode,
-      orderableItem.item.itemName,
-      orderableItem.lab.labName,
-      orderableItem.lab.compendiumVersion
-    );
-    activityDefinitionToContain = activityDefinitionConfig;
-    const newActivityDef = await oystehr.fhir.create<ActivityDefinition>(activityDefinitionConfig);
-    activityDefinitionId = newActivityDef.id;
-  } else if (activityDefinition) {
-    console.log(
-      'activityDefinition found for orderable item',
-      orderableItem.item.itemCode,
-      orderableItem.item.itemName,
-      orderableItem.lab.labName,
-      orderableItem.lab.compendiumVersion
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { meta, ...activityDefToContain } = activityDefinition;
-    activityDefinitionToContain = activityDefToContain;
-    activityDefinitionId = activityDefinition.id;
-  }
+    const specimenDefitionConfig: SpecimenDefinition = {
+      resourceType: 'SpecimenDefinition',
+      id: `specimenDefinitionId${idx}`,
+      typeTested: [
+        {
+          preference: 'preferred',
+          container: {
+            description: specimen.container,
+            minimumVolumeString: specimen.minimumVolume,
+          },
+          handling: [
+            {
+              instruction: specimen.storageRequirements,
+            },
+          ],
+        },
+      ],
+      collection: [
+        collectionInstructionsCoding,
+        {
+          coding: [
+            {
+              system: SPECIMEN_CODING_CONFIG.collection.system,
+              code: SPECIMEN_CODING_CONFIG.collection.code.specimenVolume,
+            },
+          ],
+          text: specimen.volume,
+        },
+      ],
+    };
+    specimenDefinitionConfigs.push(specimenDefitionConfig);
+    const specimenConfig: Specimen = {
+      resourceType: 'Specimen',
+      request: [{ reference: serviceRequestFullUrl }],
+      collection: {
+        method: collectionInstructionsCoding,
+      },
+      subject: {
+        type: 'Patient',
+        reference: `Patient/${patientID}`,
+      },
+    };
+    specimenConfigs.push(specimenConfig);
+  });
 
-  if (!activityDefinitionId)
-    throw new Error(`issue finding or creating activity definition for this lab orderable item`);
+  return { specimenDefinitionConfigs, specimenConfigs };
+};
 
-  return { activityDefinitionId, activityDefinitionToContain };
+const getProvenanceConfig = (
+  serviceRequestFullUrl: string,
+  locationId: string,
+  currentUserId: string,
+  attendingPractitionerId: string
+): Provenance => {
+  return {
+    resourceType: 'Provenance',
+    activity: {
+      coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
+    },
+    target: [
+      {
+        reference: serviceRequestFullUrl,
+      },
+    ],
+    location: { reference: `Location/${locationId}` },
+    recorded: DateTime.now().toISO(),
+    agent: [
+      {
+        who: { reference: `Practitioner/${currentUserId}` },
+        onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
+      },
+    ],
+  };
 };
 
 const getAdditionalResources = async (
@@ -317,42 +444,32 @@ const getAdditionalResources = async (
   coverage?: Coverage;
   location: Location;
   patientId: string;
-  existingActivityDefinition: ActivityDefinition | undefined;
 }> => {
   const labGuid = orderableItem.lab.labGuid;
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
     method: 'GET',
     url: `/Organization?identifier=${labGuid}`,
   };
-  const activityDefinitionSearchRequest: BatchInputRequest<ActivityDefinition> = {
-    method: 'GET',
-    url: `/ActivityDefinition?name=${orderableItem.item.uniqueName}&publisher=${orderableItem.lab.labName}&version=${orderableItem.lab.compendiumVersion}`,
-  };
   const encounterResourceSearch: BatchInputRequest<Patient | Location | Coverage | Account> = {
     method: 'GET',
     url: `/Encounter?_id=${encounter.id}&_include=Encounter:patient&_include=Encounter:location&_revinclude:iterate=Coverage:patient&_revinclude:iterate=Account:patient`,
   };
 
-  console.log('searching for lab org, activity definition, and encounter resources');
+  console.log('searching for lab org and encounter resources');
   const searchResults: Bundle<FhirResource> = await oystehr.fhir.batch({
-    requests: [labOrganizationSearchRequest, activityDefinitionSearchRequest, encounterResourceSearch],
+    requests: [labOrganizationSearchRequest, encounterResourceSearch],
   });
 
   const labOrganizationSearchResults: Organization[] = [];
-  const activityDefinitionSearchResults: ActivityDefinition[] = [];
   const coverageSearchResults: Coverage[] = [];
   const accountSearchResults: Account[] = [];
   let patientId: string | undefined;
   let location: Location | undefined;
 
-  const resources = flattenBundleResources<Organization | ActivityDefinition | Coverage | Patient | Location | Account>(
-    searchResults
-  );
+  const resources = flattenBundleResources<Organization | Coverage | Patient | Location | Account>(searchResults);
 
   resources.forEach((resource) => {
     if (resource.resourceType === 'Organization') labOrganizationSearchResults.push(resource as Organization);
-    if (resource.resourceType === 'ActivityDefinition')
-      activityDefinitionSearchResults.push(resource as ActivityDefinition);
     if (resource.resourceType === 'Coverage' && resource.status === 'active')
       coverageSearchResults.push(resource as Coverage);
     if (resource.resourceType === 'Patient') patientId = resource.id;
@@ -387,6 +504,5 @@ const getAdditionalResources = async (
     coverage: patientPrimaryInsurance,
     location,
     patientId,
-    existingActivityDefinition: activityDefinitionSearchResults?.[0],
   };
 };

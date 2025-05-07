@@ -48,7 +48,7 @@ export const EMCodeField: FC = () => {
     <Autocomplete
       disabled={isSaveLoading || isDeleteLoading}
       options={emCodeOptions}
-      data-testid={dataTestIds.assessmentPage.emCodeDropdown}
+      data-testid={dataTestIds.assessmentCard.emCodeDropdown}
       isOptionEqualToValue={(option, value) => option.code === value.code}
       value={emCode ? { display: emCode.display, code: emCode.code } : null}
       getOptionLabel={(option) => option.display}

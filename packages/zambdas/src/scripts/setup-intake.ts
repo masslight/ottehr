@@ -94,7 +94,6 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
         resource: [
           'Zambda:Function:telemed-get-patients',
           'Zambda:Function:telemed-get-appointments',
-          'Zambda:Function:telemed-create-appointment',
           'Zambda:Function:telemed-get-paperwork',
           'Zambda:Function:telemed-create-paperwork',
           'Zambda:Function:telemed-cancel-telemed-appointment',
@@ -133,7 +132,6 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
           'Zambda:Function:ai-interview-handle-answer',
           'Zambda:Function:ai-interview-persist-consent',
           'Zambda:Function:get-lab-orders',
-          'Zambda:Function:get-lab-order-details',
           'Zambda:Function:submit-lab-order',
           'Zambda:Function:update-lab-order-resources',
         ],
