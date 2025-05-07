@@ -14,6 +14,7 @@ import { CSSLoader } from '../components/CSSLoader';
 import { PatientInformationContainer } from '../components/progress-note/PatientInformationContainer';
 import { ProgressNoteDetails } from '../components/progress-note/ProgressNoteDetails';
 import { VisitDetailsContainer } from '../components/progress-note/VisitDetailsContainer';
+import { useFeatureFlags } from '../context/featureFlags';
 import { useAppointment } from '../hooks/useAppointment';
 import { IntakeNotes } from '../hooks/useIntakeNotes';
 import { PageTitle } from '../../../telemed/components/PageTitle';
@@ -30,8 +31,13 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
     error,
   } = useAppointment(appointmentID);
 
-  const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
+  const {
+    appointment: appointmentResource,
+    encounter,
+    isChartDataLoading,
+  } = getSelectors(useAppointmentStore, ['appointment', 'encounter', 'isChartDataLoading']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
+  const { css } = useFeatureFlags();
 
   if (isLoading || isChartDataLoading) return <CSSLoader />;
   if (error) return <Typography>Error: {error.message}</Typography>;
@@ -61,7 +67,7 @@ export const ProgressNote: React.FC<PatientInfoProps> = () => {
 
       {!isReadOnly && (
         <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
-          <SendFaxButton />
+          <SendFaxButton appointment={appointmentResource} encounter={encounter} css={css} />
           <ReviewAndSignButton />
         </Box>
       )}

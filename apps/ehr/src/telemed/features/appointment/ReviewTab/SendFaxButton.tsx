@@ -3,23 +3,28 @@ import { Box, FormControl, FormHelperText, InputLabel, OutlinedInput, Tooltip, T
 import { FC, useMemo, useState } from 'react';
 import { getVisitStatus, isPhoneNumberValid, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useZapEHRAPIClient } from '../../../hooks/useOystehrAPIClient';
-import { useAppointmentStore } from '../../../state';
-import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import InputMask from 'src/components/InputMask';
+import { Appointment, Encounter } from 'fhir/r4b';
 
-export const SendFaxButton: FC = () => {
-  const { appointment, encounter } = getSelectors(useAppointmentStore, ['appointment', 'encounter']);
+interface SendFaxButtonProps {
+  appointment?: Appointment;
+  encounter?: Encounter;
+  css: boolean;
+}
+
+export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, css }: SendFaxButtonProps) => {
   const apiClient = useZapEHRAPIClient();
   const [openTooltip, setOpenTooltip] = useState(false);
 
-  const { css } = useFeatureFlags();
-  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
+  const inPersonStatus = useMemo(
+    () => appointment && encounter && getVisitStatus(appointment, encounter),
+    [appointment, encounter]
+  );
   const appointmentAccessibility = useGetAppointmentAccessibility();
 
   const [faxNumber, setFaxNumber] = useState('');

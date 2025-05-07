@@ -1,5 +1,6 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC, useCallback, useRef } from 'react';
+import { useFeatureFlags } from 'src/features/css-module/context/featureFlags';
 import { telemedProgressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { getSelectors } from '../../../../shared/store/getSelectors';
@@ -12,13 +13,14 @@ import { VisitNoteCard } from './VisitNoteCard';
 
 export const ReviewTab: FC = () => {
   const isInitialLoad = useRef(true);
-  const { appointment, isChartDataLoading, setPartialChartData } = getSelectors(useAppointmentStore, [
+  const { appointment, encounter, isChartDataLoading, setPartialChartData } = getSelectors(useAppointmentStore, [
     'appointment',
+    'encounter',
     'isChartDataLoading',
     'setPartialChartData',
   ]);
 
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+  const { css } = useFeatureFlags();
 
   const { isFetching } = useChartData({
     encounterId: encounter.id || '',
@@ -70,7 +72,7 @@ export const ReviewTab: FC = () => {
       <VisitNoteCard />
       <AddendumCard />
       <Box sx={{ display: 'flex', justifyContent: 'end', gap: 1 }}>
-        <SendFaxButton />
+        <SendFaxButton appointment={appointment} encounter={encounter} css={css} />
         <ReviewAndSignButton onSigned={onAppointmentSigned} />
       </Box>
     </Box>
