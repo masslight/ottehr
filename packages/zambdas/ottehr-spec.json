@@ -400,8 +400,7 @@
       "zip": ".dist/zips/handle-lab-result.zip",
       "subscription": {
         "criteria": "DiagnosticReport?category=OSL",
-        "reason": "Received new preliminary or final lab result",
-        "event": "create"
+        "reason": "Received new preliminary or final lab result"
       }
     },
     "PAPERWORK-TO-PDF": {
