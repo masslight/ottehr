@@ -41,7 +41,11 @@ export const DetailsWithoutResults: React.FC<{
             taskStatus={taskStatus}
           />
         )} */}
-      <OrderCollection labOrder={labOrder} saveSpecimenDate={saveSpecimenDate} />
+      <OrderCollection
+        labOrder={labOrder}
+        showOrderInfo={labOrder.orderStatus !== 'pending'}
+        saveSpecimenDate={saveSpecimenDate}
+      />
     </Stack>
   );
 };
