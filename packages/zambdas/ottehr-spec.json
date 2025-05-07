@@ -873,6 +873,13 @@
         "event": "update"
       }
     },
+    "SEND-FAX": {
+      "name": "SEND-FAX",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/send-fax/index",
+      "zip": ".dist/zips/send-fax.zip"
+    },
     "CREATE-SLOT": {
       "name": "CREATE-SLOT",
       "type": "http_open",
