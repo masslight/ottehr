@@ -135,7 +135,7 @@ export type Pagination = {
   totalPages: number;
 };
 
-export type PaginatedLabOrderResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
+export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
 };

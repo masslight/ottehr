@@ -18,91 +18,48 @@ import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
-
-interface CptCode {
-  code: string;
-  description: string;
-}
-
-interface TestOption {
-  name: string;
-  cptCodes: CptCode[];
-}
+import { TestItem } from 'utils';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { getCreateInHouseLabOrderResources } from 'src/api/api';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
+  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [availableTests, _setAvailableTests] = useState<TestOption[]>([
-    {
-      name: 'Rapid Strep A',
-      cptCodes: [{ code: '87880', description: 'Strep A antigen detection' }],
-    },
-    {
-      name: 'COVID-19 Antigen',
-      cptCodes: [{ code: '87426', description: 'COVID-19 antigen detection' }],
-    },
-    {
-      name: 'Influenza A/B Antigen',
-      cptCodes: [{ code: '87804', description: 'Influenza A/B antigen detection' }],
-    },
-    {
-      name: 'RSV Antigen',
-      cptCodes: [{ code: '87807', description: 'RSV antigen detection' }],
-    },
-    {
-      name: 'Urine Pregnancy Test',
-      cptCodes: [{ code: '81025', description: 'Urine pregnancy test' }],
-    },
-    {
-      name: 'Hemoglobin A1c',
-      cptCodes: [{ code: '83036', description: 'Hemoglobin A1c measurement' }],
-    },
-    {
-      name: 'Glucose (POC)',
-      cptCodes: [{ code: '82962', description: 'Glucose blood test' }],
-    },
-    {
-      name: 'Lipid Panel (POC)',
-      cptCodes: [{ code: '80061', description: 'Lipid panel' }],
-    },
-  ]);
+  const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
   const [selectedTest, setSelectedTest] = useState<string>('');
+  const [availableCptCodes, setAvailableCptCodes] = useState<string[]>([]);
   const [selectedCptCode, setSelectedCptCode] = useState<string>('');
-  const [selectedDiagnoses, setSelectedDiagnoses] = useState<DiagnosisDTO[]>([]);
   const [notes, setNotes] = useState<string>('');
-  const [availableDiagnoses, _setAvailableDiagnoses] = useState<DiagnosisDTO[]>([
-    { code: 'B34.9', display: 'Viral infection, unspecified', isPrimary: true },
-    { code: 'J02.0', display: 'Streptococcal pharyngitis', isPrimary: true },
-    { code: 'J11.1', display: 'Influenza with other respiratory manifestations', isPrimary: true },
-    { code: 'Z11.59', display: 'Encounter for screening for other viral diseases', isPrimary: true },
-  ]);
-
-  const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
-  // const { oystehrZambda } = useApiClients();
-
-  // todo: Get the current provider's name
-  const providerName = 'Unknown Provider';
+  const [providerName, setProviderName] = useState<string>('');
+  const { chartData, patient, encounter } = getSelectors(useAppointmentStore, ['chartData', 'patient', 'encounter']);
+  const primaryDiagnosis = [chartData?.diagnosis?.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
+  const [availableDiagnoses, _setAvailableDiagnoses] = useState<DiagnosisDTO[]>(primaryDiagnosis);
+  const [selectedDiagnoses, setSelectedDiagnoses] = useState<DiagnosisDTO[]>([]);
 
   useEffect(() => {
-    // In a real implementation, this would fetch available in-house lab tests
-    // from the API based on the provider's organization
-    setLoading(true);
-    // Mock API call
-    setTimeout(() => {
-      setLoading(false);
-    }, 500);
-  }, []);
-
-  useEffect(() => {
-    // When a test is selected, automatically select the first CPT code
-    if (selectedTest) {
-      const test = availableTests.find((test) => test.name === selectedTest);
-      if (test && test.cptCodes.length > 0) {
-        setSelectedCptCode(test.cptCodes[0].code);
-      }
+    if (!oystehrZambda) {
+      return;
     }
-  }, [selectedTest, availableTests]);
 
+    const fetchLabs = async (): Promise<void> => {
+      try {
+        setLoading(true);
+        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {});
+        const testItems = Object.values(response.labs || {});
+        setAvailableTests(testItems);
+        setProviderName(response.providerName);
+      } catch (error) {
+        console.error('Error fetching labs:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchLabs();
+  }, [oystehrZambda]);
+
+  // TODO: implement diagnosis
   // Uncomment this in real implementation to use actual diagnoses from the store
   // useEffect(() => {
   //   if (diagnoses.length > 0) {
@@ -178,9 +135,19 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     }
   };
 
-  const getCptCodesForSelectedTest = (): CptCode[] => {
-    const test = availableTests.find((test) => test.name === selectedTest);
-    return test?.cptCodes || [];
+  const handleTestSelection = (selectedTest: string): void => {
+    if (!availableTests?.length) {
+      return;
+    }
+
+    const findedEntry = availableTests.find((test) => test.name === selectedTest);
+
+    if (!findedEntry) {
+      return;
+    }
+
+    setSelectedTest(findedEntry.name);
+    setAvailableCptCodes(findedEntry.cptCode);
   };
 
   return (
@@ -199,13 +166,13 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
             <Grid container spacing={3}>
               <Grid item xs={12}>
                 <FormControl fullWidth required>
-                  <InputLabel id="test-type-label">Test*</InputLabel>
+                  <InputLabel id="test-type-label">Test</InputLabel>
                   <Select
                     labelId="test-type-label"
                     id="test-type"
                     value={selectedTest}
-                    label="Test*"
-                    onChange={(e) => setSelectedTest(e.target.value)}
+                    label="Test"
+                    onChange={(e) => handleTestSelection(e.target.value)}
                   >
                     {availableTests.map((test) => (
                       <MenuItem key={test.name} value={test.name}>
@@ -216,25 +183,26 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                 </FormControl>
               </Grid>
 
-              <Grid item xs={12}>
-                <FormControl fullWidth required>
-                  <InputLabel id="cpt-code-label">CPT code*</InputLabel>
-                  <Select
-                    labelId="cpt-code-label"
-                    id="cpt-code"
-                    value={selectedCptCode}
-                    label="CPT code*"
-                    onChange={(e) => setSelectedCptCode(e.target.value)}
-                    disabled={getCptCodesForSelectedTest().length <= 1}
-                  >
-                    {getCptCodesForSelectedTest().map((cpt) => (
-                      <MenuItem key={cpt.code} value={cpt.code}>
-                        {cpt.code}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
+              {availableCptCodes.length > 0 && (
+                <Grid item xs={12}>
+                  <FormControl fullWidth required>
+                    <InputLabel id="cpt-code-label">CPT code*</InputLabel>
+                    <Select
+                      labelId="cpt-code-label"
+                      id="cpt-code"
+                      value={selectedCptCode}
+                      label="CPT code*"
+                      onChange={(e) => setSelectedCptCode(e.target.value)}
+                    >
+                      {availableCptCodes.map((cpt) => (
+                        <MenuItem key={cpt} value={cpt}>
+                          {cpt}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+              )}
 
               <Grid item xs={12}>
                 <FormControl fullWidth required>
