@@ -155,24 +155,45 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         return acc;
       }
 
-      acc.push(
-        getPatchBinary({
-          resourceType: 'Specimen',
-          resourceId: specimen.id,
-          patchOperations: [
-            {
-              path: '/collection/collectedDateTime',
-              op: 'add',
-              value: now, // todo this needs to come from the frontend
-            },
-            {
-              path: '/collection/collector',
-              op: 'add',
-              value: { reference: currentUser?.profile },
-            },
-          ],
-        })
-      );
+      const specimenCollector = { reference: currentUser?.profile };
+
+      if (specimen.collection) {
+        acc.push(
+          getPatchBinary({
+            resourceType: 'Specimen',
+            resourceId: specimen.id,
+            patchOperations: [
+              {
+                path: '/collection/collectedDateTime',
+                op: 'add',
+                value: now, // todo this needs to come from the frontend
+              },
+              {
+                path: '/collection/collector',
+                op: 'add',
+                value: specimenCollector,
+              },
+            ],
+          })
+        );
+      } else {
+        acc.push(
+          getPatchBinary({
+            resourceType: 'Specimen',
+            resourceId: specimen.id,
+            patchOperations: [
+              {
+                path: '/collection',
+                op: 'add',
+                value: {
+                  collectedDateTime: now, // todo this needs to come from the frontend
+                  collector: specimenCollector,
+                },
+              },
+            ],
+          })
+        );
+      }
 
       return acc;
     }, []);
