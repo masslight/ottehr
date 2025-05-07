@@ -79,6 +79,7 @@ interface State {
   bodySide?: string;
   technique?: string;
   suppliesUsed?: string;
+  otherSuppliesUsed?: string;
   procedureDetails?: string;
   specimenSent?: string;
   complications?: string;
@@ -148,6 +149,23 @@ export default function ProcedureNew(): ReactElement {
         </Select>
         {error ? <FormHelperText>{REQUIRED_FIELD_ERROR}</FormHelperText> : undefined}
       </FormControl>
+    );
+  };
+
+  const otherTextInput = (
+    parentLabel: string,
+    parentValue: string | undefined,
+    stateMutator: (value: string, state: State) => void
+  ): ReactElement => {
+    if (parentValue !== 'Other') {
+      return <></>;
+    }
+    return (
+      <TextField
+        label={'Other ' + parentLabel.toLocaleLowerCase()}
+        size="small"
+        onChange={(e: any) => updateState((state) => stateMutator(e.target.value, state))}
+      />
     );
   };
 
@@ -246,10 +264,22 @@ export default function ProcedureNew(): ReactElement {
             MEDICATIONS_USED,
             (value, state) => (state.medicationUsed = value)
           )}
-          {dropdown('Site/location', SITES, (value, state) => (state.site = value))}
+          {dropdown('Site/location', SITES, (value, state) => {
+            state.site = value;
+            state.otherSite = undefined;
+          })}
+          {otherTextInput('Site/location', state.site, (value, state) => (state.otherSite = value))}
           {dropdown('Side of body', SIDES_OF_BODY, (value, state) => (state.bodySide = value))}
           {dropdown('Technique', TECHNIQUES, (value, state) => (state.technique = value))}
-          {dropdown('Instruments / supplies used', SUPPLIES, (value, state) => (state.suppliesUsed = value))}
+          {dropdown('Instruments / supplies used', SUPPLIES, (value, state) => {
+            state.suppliesUsed = value;
+            state.otherSuppliesUsed = undefined;
+          })}
+          {otherTextInput(
+            'Instruments / supplies used',
+            state.suppliesUsed,
+            (value, state) => (state.otherSuppliesUsed = value)
+          )}
           <TextField
             label="Procedure details"
             multiline
@@ -257,12 +287,20 @@ export default function ProcedureNew(): ReactElement {
             onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
           />
           {radio('Specimen sent', SPECIMEN_SENT, (value, state) => (state.specimenSent = value))}
-          {dropdown('Complications', COMPLICATIONS, (value, state) => (state.complications = value))}
+          {dropdown('Complications', COMPLICATIONS, (value, state) => {
+            state.complications = value;
+            state.otherComplications = undefined;
+          })}
+          {otherTextInput('Complications', state.complications, (value, state) => (state.otherComplications = value))}
           {dropdown('Patient response', PATIENT_RESPONSES, (value, state) => (state.patientResponse = value))}
-          {dropdown(
+          {dropdown('Post-procedure Instructions', POST_PROCEDURE_INSTRUCTIONS, (value, state) => {
+            state.postInstructions = value;
+            state.otherPostInstructions = undefined;
+          })}
+          {otherTextInput(
             'Post-procedure Instructions',
-            POST_PROCEDURE_INSTRUCTIONS,
-            (value, state) => (state.postInstructions = value)
+            state.postInstructions,
+            (value, state) => (state.otherPostInstructions = value)
           )}
           {dropdown('Time spent', TIME_SPENT, (value, state) => (state.timeSpent = value))}
           {radio('Documented by', DOCUMENTED_BY, (value, state) => (state.documentedBy = value))}
