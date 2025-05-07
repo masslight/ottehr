@@ -25,10 +25,10 @@ export const DetailsWithoutResults: React.FC<{
         </Typography>
         <Grid container justifyContent="end" spacing={2}>
           <Grid item>
-            <LabsOrderStatusChip status={labOrder.orderStatus} />
+            <Typography variant="body1">{labOrder.isPSC ? 'PSC' : ''}</Typography>
           </Grid>
           <Grid item>
-            <Typography variant="body1">{labOrder.orderSource}</Typography>
+            <LabsOrderStatusChip status={labOrder.orderStatus} />
           </Grid>
         </Grid>
       </Stack>

@@ -135,6 +135,72 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
     }
 
+    const now = DateTime.now();
+
+    const specimenPatchOperations = specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+      if (!specimen.id) {
+        return acc;
+      }
+
+      const specimenDateTime = specimen.collection?.collectedDateTime;
+      console.log('specimenDateTime', specimenDateTime);
+
+      if (specimenDateTime) {
+        /**
+         * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
+         * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
+         * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
+         * upon submission we should set the current date.
+         */
+        return acc;
+      }
+
+      const specimenCollector = { reference: currentUser?.profile };
+
+      if (specimen.collection) {
+        acc.push(
+          getPatchBinary({
+            resourceType: 'Specimen',
+            resourceId: specimen.id,
+            patchOperations: [
+              {
+                path: '/collection/collectedDateTime',
+                op: 'add',
+                value: now, // todo this needs to come from the frontend
+              },
+              {
+                path: '/collection/collector',
+                op: 'add',
+                value: specimenCollector,
+              },
+            ],
+          })
+        );
+      } else {
+        acc.push(
+          getPatchBinary({
+            resourceType: 'Specimen',
+            resourceId: specimen.id,
+            patchOperations: [
+              {
+                path: '/collection',
+                op: 'add',
+                value: {
+                  collectedDateTime: now, // todo this needs to come from the frontend
+                  collector: specimenCollector,
+                },
+              },
+            ],
+          })
+        );
+      }
+
+      return acc;
+    }, []);
+
+    // Specimen.collection.collected is required at time of order so we must make this patch before submitting to oystehr
+    const preSumbissionWriteRequests = [...specimenPatchOperations];
+
     // not every order will have an AOE
     let questionsAndAnswers: AOEDisplayForOrderForm[] = [];
     if (questionnaireResponse !== undefined && questionnaireResponse.id) {
@@ -143,25 +209,30 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       questionsAndAnswers = questionsAndAnswersForFormDisplay;
 
+      preSumbissionWriteRequests.push(
+        getPatchBinary({
+          resourceType: 'QuestionnaireResponse',
+          resourceId: questionnaireResponse.id,
+          patchOperations: [
+            {
+              op: 'add',
+              path: '/item',
+              value: questionnaireResponseItems,
+            },
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'completed',
+            },
+          ],
+        })
+      );
+    }
+
+    if (preSumbissionWriteRequests.length > 0) {
+      console.log('writing updates that must occur before sending order to oysther');
       await oystehr?.fhir.transaction({
-        requests: [
-          getPatchBinary({
-            resourceType: 'QuestionnaireResponse',
-            resourceId: questionnaireResponse.id,
-            patchOperations: [
-              {
-                op: 'add',
-                path: '/item',
-                value: questionnaireResponseItems,
-              },
-              {
-                op: 'replace',
-                path: '/status',
-                value: 'completed',
-              },
-            ],
-          }),
-        ],
+        requests: preSumbissionWriteRequests,
       });
     }
 
@@ -183,7 +254,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     // submitted successful, so do the fhir provenance writes and update SR
-    const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
 
     const provenanceFhir: Provenance = {
@@ -205,43 +275,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
     };
 
-    const specimenPatchOperations = specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
-      if (!specimen.id) {
-        return acc;
-      }
-
-      const specimenDateTime = specimen.collection?.collectedDateTime;
-
-      if (specimenDateTime) {
-        /**
-         * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
-         * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
-         * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
-         * upon submission we should set the current date.
-         */
-        return acc;
-      }
-
-      acc.push(
-        getPatchBinary({
-          resourceType: 'Specimen',
-          resourceId: specimen.id,
-          patchOperations: [
-            {
-              path: '/collection/collectedDateTime',
-              op: 'add',
-              value: now.toISO(),
-            },
-          ],
-        })
-      );
-
-      return acc;
-    }, []);
-
     await oystehr?.fhir.transaction({
       requests: [
-        ...specimenPatchOperations,
         getPatchBinary({
           resourceType: 'ServiceRequest',
           resourceId: serviceRequest.id || 'unknown',

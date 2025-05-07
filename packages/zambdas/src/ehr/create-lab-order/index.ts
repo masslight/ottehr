@@ -9,6 +9,7 @@ import {
   PRACTITIONER_CODINGS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   SPECIMEN_CODING_CONFIG,
+  RELATED_SPECIMEN_DEFINITION_SYSTEM,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -360,9 +361,10 @@ const formatSpecimenResources = (
       ],
       text: specimen.collectionInstructions,
     };
+    const specimenDefinitionId = `specimenDefinitionId${idx}`;
     const specimenDefitionConfig: SpecimenDefinition = {
       resourceType: 'SpecimenDefinition',
-      id: `specimenDefinitionId${idx}`,
+      id: specimenDefinitionId,
       typeTested: [
         {
           preference: 'preferred',
@@ -397,6 +399,12 @@ const formatSpecimenResources = (
       collection: {
         method: collectionInstructionsCoding,
       },
+      extension: [
+        {
+          url: RELATED_SPECIMEN_DEFINITION_SYSTEM,
+          valueString: specimenDefinitionId,
+        },
+      ],
       subject: {
         type: 'Patient',
         reference: `Patient/${patientID}`,

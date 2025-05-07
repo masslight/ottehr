@@ -119,7 +119,6 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   accountNumber: string; // identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM (organization identifier) [added if list requested by ServiceRequest id]
   history: LabOrderHistoryRow[];
   resultsDetails: LabOrderResultDetails[];
-  orderSource: string; // order source (SR.orderDetail code.display)
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
 };
