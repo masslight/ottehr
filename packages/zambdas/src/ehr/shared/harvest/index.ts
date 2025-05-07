@@ -1575,11 +1575,15 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
 
 // EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this
 const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
-  const priorityAnswer = items.find((item) => item.linkId === 'insurance-priority')?.answer?.[0]?.valueString;
-  if (priorityAnswer && priorityAnswer !== 'Primary') {
-    return true;
+  const priorities = items.filter(
+    (item) => item.linkId === 'insurance-priority' || item.linkId === 'insurance-priority-2'
+  );
+
+  if (priorities.length === 0) {
+    return false;
   }
-  return false;
+
+  return !priorities.some((item) => item.answer?.[0]?.valueString === 'Primary');
 };
 
 // note: this function assumes items have been flattened before being passed in
@@ -1920,7 +1924,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     questionnaireResponse: {
       item: flattenedItems,
     } as QuestionnaireResponse,
-    patientId: patient.id!,
+    patientId: patient.id,
     insurancePlanResources,
     organizationResources,
   });
@@ -2703,7 +2707,6 @@ interface UnbundledAccountResourceWithInsuranceResources {
   resources: UnbundledAccountResources;
 }
 // this function is exported for testing purposes
-// todo: rename this function to something more descriptive
 export const getCoverageUpdateResourcesFromUnbundled = (
   input: UnbundledAccountResourceWithInsuranceResources
 ): PatientAccountAndCoverageResources => {

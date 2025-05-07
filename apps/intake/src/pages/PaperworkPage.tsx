@@ -34,7 +34,7 @@ import {
   convertQuesitonnaireItemToQRLinkIdMap,
   convertQRItemToLinkIdMap,
 } from 'utils';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { PageContainer } from '../components';
 import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
@@ -43,7 +43,7 @@ import { persist } from 'zustand/middleware';
 import { DateTime } from 'luxon';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { useGetFullName } from '../hooks/useGetFullName';
-import api from '../api/zapehrApi';
+import api from '../api/ottehrApi';
 import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
@@ -182,7 +182,7 @@ export const PaperworkHome: FC = () => {
     const fetchAuthedPaperwork = async (apptId: string, zambdaClient: ZambdaClient): Promise<void> => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
-        const paperworkResponse = await zapehrApi.getPaperwork(zambdaClient, {
+        const paperworkResponse = await ottehrApi.getPaperwork(zambdaClient, {
           appointmentID: apptId,
         });
         setResponse(paperworkResponse);

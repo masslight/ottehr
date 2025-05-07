@@ -1,35 +1,18 @@
 import { Typography } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { generatePath, useNavigate, useParams } from 'react-router-dom';
+import { generatePath, useNavigate } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
-import { intakeFlowPageRoute } from '../App';
-import { ottehrLightBlue } from '../themes/ottehr/icons';
+import { intakeFlowPageRoute, BOOKING_SLOT_ID_PARAM } from '../App';
 import { PageContainer } from '../components';
-import { NO_LOCATION_ERROR } from '../helpers';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
-import { useBookingContext } from './Welcome';
+import { useBookingContext } from './BookingHome';
 import { PROJECT_NAME } from 'utils';
+import { ottehrLightBlue } from '@theme/icons';
 const NewUser = (): JSX.Element => {
   const navigate = useNavigate();
-  const { patientInfo, visitType, serviceType, selectedLocation, locationLoading, setPatientInfo } =
-    useBookingContext();
+  const { slotId, patientInfo, setPatientInfo } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-  const { slug: slugParam } = useParams();
   const { t } = useTranslation();
-
-  useEffect(() => {
-    if (!visitType || (!selectedLocation && !locationLoading)) {
-      setErrorConfig(NO_LOCATION_ERROR(t));
-    }
-  }, [visitType, selectedLocation, locationLoading, t]);
-
-  useTrackMixpanelEvents({
-    eventName: 'New User',
-    visitType: visitType,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   const onSubmit = async (): Promise<void> => {
     if (!patientInfo) {
@@ -47,15 +30,8 @@ const NewUser = (): JSX.Element => {
       });
     }
 
-    console.log(`
-      visit type and selected location extracted from store on new user page, ${visitType}, ${serviceType}, ${JSON.stringify(
-        selectedLocation
-      )}
-    `);
     const path = generatePath(intakeFlowPageRoute.PatientInformation.path, {
-      visit_type: visitType ?? null,
-      service_mode: serviceType ?? null,
-      slug: slugParam ?? null,
+      [BOOKING_SLOT_ID_PARAM]: slotId,
     });
     navigate(path);
   };

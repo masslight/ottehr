@@ -31,6 +31,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       organizations,
       questionnaires,
       labPDFs,
+      specimens,
     } = await getLabResources(oystehr, validatedParameters, m2mtoken, {
       searchBy: validatedParameters.searchBy,
     });
@@ -57,7 +58,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       provenances,
       organizations,
       questionnaires,
-      labPDFs
+      labPDFs,
+      specimens
     );
 
     return {
