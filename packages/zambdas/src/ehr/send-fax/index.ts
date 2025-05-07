@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Appointment, DocumentReference, Patient } from 'fhir/r4b';
@@ -80,11 +80,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify('Fax sent'),
       statusCode: 200,
     };
-  } catch (error) {
-    console.log(error);
+  } catch (error: any) {
+    await topLevelCatch('send-fax', error, input.secrets);
+    console.log('Error: ', JSON.stringify(error.message));
     return {
-      body: JSON.stringify({ message: 'Error sending fax' }),
       statusCode: 500,
+      body: JSON.stringify(error.message),
     };
   }
 };
