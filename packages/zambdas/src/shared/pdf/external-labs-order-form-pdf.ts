@@ -11,6 +11,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   if (!data.orderName) {
     throw new Error('Order name is required');
   }
+  console.log('drawing pdf for ', data.reqId, data.orderName);
 
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -22,6 +23,19 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   const locationIcon = './assets/location_on.png';
   const callIcon = './assets/call.png';
   const faxIcon = './assets/fax.png';
+
+  const hadSomeAddressInfo =
+    data.locationName ||
+    data.locationStreetAddress ||
+    data.locationCity ||
+    data.locationState ||
+    data.locationZip ||
+    data.locationPhone ||
+    data.locationFax;
+
+  const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
+    data.locationState?.toUpperCase() || ''
+  }${data.locationState ? ' ' : ''}${data.locationZip?.toUpperCase() || ''}`;
 
   const styles = {
     image: {
@@ -234,6 +248,20 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     currYPos -= regularLineHeight / 2;
   };
 
+  const addLocationPhoneInfo = async (): Promise<void> => {
+    await drawImage(callIcon);
+    currXPos += imageWidth + regularTextWidth;
+    drawRegularTextLeft(data.locationPhone || '');
+    currXPos +=
+      helveticaFont.widthOfTextAtSize(data.locationPhone || '', styles.regularText.fontSize) + regularTextWidth;
+  };
+
+  const addLocationFaxInfo = async (): Promise<void> => {
+    await drawImage(faxIcon);
+    currXPos += imageWidth + regularTextWidth;
+    data.locationFax && drawRegularTextLeft(data.locationFax);
+  };
+
   // --- add all sections to PDF ---
   // ===============================
   // Main header
@@ -243,28 +271,21 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   addNewLine();
 
   // Location details
-  drawSubHeader(data.locationName);
+  drawSubHeader(data?.locationName || '');
   drawFieldLineRight('Req ID:', data.reqId);
   addNewLine();
-  await drawImage(locationIcon);
+  if (hadSomeAddressInfo) await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
-  drawRegularTextLeft(data.locationStreetAddress.toUpperCase());
+  drawRegularTextLeft(data.locationStreetAddress?.toUpperCase() || '');
   drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularTextBold.font);
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
-  drawRegularTextLeft(
-    `${data.locationCity.toUpperCase()}, ${data.locationState.toUpperCase()} ${data.locationZip.toUpperCase()}`
-  );
+  drawRegularTextLeft(locationCityStateZip);
   drawFieldLineRight('NPI:', data.providerNPI);
   addNewLine();
   currXPos = styles.margin.x;
-  await drawImage(callIcon);
-  currXPos += imageWidth + regularTextWidth;
-  drawRegularTextLeft(data.locationPhone);
-  currXPos += helveticaFont.widthOfTextAtSize(data.locationPhone, styles.regularText.fontSize) + regularTextWidth;
-  await drawImage(faxIcon);
-  currXPos += imageWidth + regularTextWidth;
-  drawRegularTextLeft(data.locationFax);
+  if (data.locationPhone) await addLocationPhoneInfo();
+  if (data.locationFax) await addLocationFaxInfo();
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();

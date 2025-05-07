@@ -40,6 +40,7 @@ export enum APIErrorCode {
   MISSING_PATIENT_COVERAGE_INFO = 4306,
   // 434x
   INVALID_INPUT = 4340,
+  EXTERNAL_LAB_GENERAL = 4400,
   APPOINTMENT_ALREADY_EXISTS = 4341,
 }
 
@@ -266,6 +267,13 @@ export const INVALID_INPUT_ERROR = (message: string): APIError => {
 export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
+};
+
+export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.EXTERNAL_LAB_GENERAL,
+    message,
+  };
 };
 export const SLOT_UNAVAILABLE_ERROR = {
   code: APIErrorCode.SLOT_UNAVAILABLE,

@@ -1,13 +1,15 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   getPatchBinary,
-  isValidUUID,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   getPresignedURL,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  EXTERNAL_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
@@ -52,28 +54,27 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
     if (!appointment.id) {
-      throw new Error('appointment id is undefined');
+      throw EXTERNAL_LAB_ERROR('appointment id is undefined');
     }
-
     if (!encounter.id) {
-      throw new Error('encounter id is undefined');
+      throw EXTERNAL_LAB_ERROR('encounter id is undefined');
     }
     if (!serviceRequest.reasonCode) {
-      throw new Error('service request reasonCode is undefined');
+      throw EXTERNAL_LAB_ERROR(
+        `Please ensure at least one diagnosis is recorded for this service request, ServiceRequest/${serviceRequest.id}, it should be recorded in serviceRequest.reasonCode`
+      );
     }
-
-    if (!locationID || !isValidUUID(locationID)) {
-      throw new Error(`location id ${locationID} is not a uuid`);
-    }
-
     if (!patient.id) {
-      throw new Error('patient.id is undefined');
+      throw EXTERNAL_LAB_ERROR('patient id is undefined');
     }
 
-    const location: Location = await oystehr.fhir.get({
-      resourceType: 'Location',
-      id: locationID,
-    });
+    let location: Location | undefined;
+    if (locationID) {
+      location = await oystehr.fhir.get<Location>({
+        resourceType: 'Location',
+        id: locationID,
+      });
+    }
 
     let coverage: Coverage | undefined = undefined;
     let organization: Organization | undefined = undefined;
@@ -113,15 +114,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
 
       if (coveragesRequestsTemp?.length !== 1) {
-        throw new Error('coverage is not found');
+        throw EXTERNAL_LAB_ERROR('coverage is not found');
       }
 
       if (organizationsRequestsTemp?.length !== 1) {
-        throw new Error('organization is not found');
+        throw EXTERNAL_LAB_ERROR('organization is not found');
       }
 
       if (patientsRequestsTemp?.length !== 1) {
-        throw new Error('patient is not found');
+        throw EXTERNAL_LAB_ERROR('patient is not found');
       }
 
       coverage = coveragesRequestsTemp[0];
@@ -129,7 +130,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       coveragePatient = patientsRequestsTemp[0];
 
       if (coveragePatient.id !== patient.id) {
-        throw new Error(
+        throw EXTERNAL_LAB_ERROR(
           `the patient check with coverage isn't the same as the patient the order is being requested on behalf of, coverage patient ${coveragePatient.id}, patient ${patient.id}`
         );
       }
@@ -249,8 +250,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!submitLabRequest.ok) {
       const submitLabRequestResponse = await submitLabRequest.json();
-      console.log(submitLabRequestResponse);
-      throw new Error('error submitting lab request');
+      console.log('submitLabRequestResponse', submitLabRequestResponse);
+      throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
     }
 
     // submitted successful, so do the fhir provenance writes and update SR
@@ -340,13 +341,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
       {
-        locationName: location.name || ORDER_ITEM_UNKNOWN,
-        locationStreetAddress: location.address?.line?.join(',') || ORDER_ITEM_UNKNOWN,
-        locationCity: location.address?.city || ORDER_ITEM_UNKNOWN,
-        locationState: location.address?.state || ORDER_ITEM_UNKNOWN,
-        locationZip: location.address?.postalCode || ORDER_ITEM_UNKNOWN,
-        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_ITEM_UNKNOWN,
+        locationName: location?.name,
+        locationStreetAddress: location?.address?.line?.join(','),
+        locationCity: location?.address?.city,
+        locationState: location?.address?.state,
+        locationZip: location?.address?.postalCode,
+        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
         labOrganizationName: labOrganization.name || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
@@ -406,12 +407,18 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
       statusCode: 200,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
     console.log('submit lab order error:', JSON.stringify(error));
+    await topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    let body = JSON.stringify({ message: 'Error submitting a lab order' });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
     return {
-      body: JSON.stringify({ message: 'Error submitting a lab order' }),
       statusCode: 500,
+      body,
     };
   }
 };
