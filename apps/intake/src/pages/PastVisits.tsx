@@ -1,44 +1,39 @@
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { intakeFlowPageRoute } from '../App';
-import { CustomContainer } from '../telemed/features/common';
-import { useGetPastVisits, usePastVisitsStore } from '../features/past-visits';
+import { useGetPastVisits } from '../features/past-visits';
 import { useZapEHRAPIClient } from '../telemed/utils';
-import { usePatientInfoStore } from '../telemed/features/patient-info';
-import { AppointmentInformationIntake, getPatientInfoFullNameUsingChosen } from 'utils';
+import { AppointmentInformationIntake } from 'utils';
 import { otherColors } from '../IntakeThemeProvider';
-import { useNavigate } from 'react-router-dom';
+import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { formatVisitDate } from 'utils';
 
 const PastVisits = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
+  const { patientId } = useParams();
   const navigate = useNavigate();
-  const { patientInfo: currentPatientInfo } = usePatientInfoStore.getState();
-  const patientFullName = currentPatientInfo ? getPatientInfoFullNameUsingChosen(currentPatientInfo) : '';
-  const formattedPatientBirthDay = formatVisitDate(currentPatientInfo.dateOfBirth || '', 'birth');
 
   const { data: pastVisitsData, isFetching } = useGetPastVisits(
     apiClient,
-    Boolean(apiClient) && Boolean(currentPatientInfo?.id),
-    currentPatientInfo?.id
+    Boolean(apiClient) && Boolean(patientId),
+    patientId ?? ''
   );
 
   const pastAppointments = pastVisitsData?.appointments;
 
   const handleVisitDetails = (appointment: AppointmentInformationIntake): void => {
-    usePastVisitsStore.setState({
-      appointmentID: appointment.id,
-      appointmentDate: formatVisitDate(appointment.start || '', 'visit', appointment.timezone),
+    if (!appointment || !patientId) {
+      return;
+    }
+    const { id } = appointment;
+    const destination = generatePath(intakeFlowPageRoute.VisitDetails.path, {
+      patientId,
+      visitId: id,
     });
-    navigate(`${intakeFlowPageRoute.VisitDetails.path}?id=${appointment.id}`);
+    navigate(destination);
   };
 
   return (
-    <CustomContainer
-      title={patientFullName}
-      subtext={`Birthday: ${formattedPatientBirthDay}`}
-      description=""
-      isFirstPage={true}
-    >
+    <Box>
       <Typography variant="h2" color="primary.main" sx={{ mb: 2 }}>
         Visits
       </Typography>
@@ -151,7 +146,7 @@ const PastVisits = (): JSX.Element => {
       >
         Back to homepage
       </Button>
-    </CustomContainer>
+    </Box>
   );
 };
 

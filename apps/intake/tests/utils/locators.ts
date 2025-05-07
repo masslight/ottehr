@@ -25,7 +25,6 @@ export class Locators {
   prebookSlotReviewScreen: Locator;
   titleVisitDetails: Locator;
   titlePatient: Locator;
-  titleLocation: Locator;
   descReviewScreen: Locator;
   pageTitle: Locator;
   privacyPolicyReviewScreen: Locator;
@@ -270,7 +269,6 @@ export class Locators {
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
     this.titleVisitDetails = page.getByRole('heading', { name: 'Visit details' });
     this.titlePatient = page.getByText('Patient');
-    this.titleLocation = page.getByText('Location');
     this.descReviewScreen = page.getByText('Review and confirm all details below.');
     this.privacyPolicyReviewScreen = page.getByTestId(dataTestIds.privacyPolicyReviewScreen);
     this.termsAndConditions = page.getByTestId(dataTestIds.termsAndConditionsReviewScreen);
@@ -521,6 +519,15 @@ export class Locators {
     return this.page.locator(`input[value='${value}']`);
   }
 
+  async waitUntilLoadingIsFinished(): Promise<void> {
+    await this.page.getByText('Loading...').waitFor({ state: 'hidden' });
+  }
+
+  async continueOrDifferentFamilyMember(): Promise<void> {
+    (await this.differentFamilyMember.isEnabled())
+      ? await this.selectDifferentFamilyMember()
+      : await this.clickContinueButton();
+  }
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });
   }

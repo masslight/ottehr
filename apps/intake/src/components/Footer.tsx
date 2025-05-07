@@ -2,10 +2,8 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { Box, Typography } from '@mui/material';
 import { FC, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { generatePath, useLocation } from 'react-router-dom';
-import { ServiceMode, VisitType } from 'utils';
+import { generatePath, useLocation, useParams } from 'react-router-dom';
 import { bookingBasePath } from '../App';
-import { useBookingContext } from '../pages/Welcome';
 import { ContactSupportDialog } from './ContactSupportDialog';
 import QuestionMarkButton from './QuestionMarkButton';
 
@@ -13,15 +11,13 @@ const Footer: FC = () => {
   const { t } = useTranslation();
   const location = useLocation();
 
-  const { selectedLocation, visitType, serviceType } = useBookingContext();
+  const { BOOKING_SLOT_ID_PARAM: slotIdParam } = useParams();
   const [supportDialogOpen, setSupportDialogOpen] = useState(false);
 
   // only show on the review page
   const reviewPgPath =
     generatePath(bookingBasePath, {
-      slug: `${selectedLocation?.address?.state?.toLocaleLowerCase()}/${selectedLocation?.slug}`,
-      visit_type: visitType || VisitType.PreBook,
-      service_mode: serviceType || ServiceMode['in-person'],
+      slotId: slotIdParam ?? '',
     }) + '/review';
   const showFooter = location.pathname === reviewPgPath;
 

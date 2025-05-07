@@ -66,7 +66,7 @@ export const ExternalLabsStatusPalette: {
       primary: '#01579B',
     },
   },
-  unparsed: {
+  unknown: {
     background: {
       primary: '#e3c254',
     },
