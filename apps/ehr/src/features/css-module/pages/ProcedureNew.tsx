@@ -1,9 +1,10 @@
 import { ReactElement, useState } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { AccordionCard } from 'src/telemed';
+import { AccordionCard, ActionsList, DeleteIconButton } from 'src/telemed';
 import { Box, Stack } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
+  Button,
   Checkbox,
   Divider,
   FormControl,
@@ -21,6 +22,8 @@ import {
 import { RoundedButton } from 'src/components/RoundedButton';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DiagnosisDTO, IcdSearchResponse } from 'utils';
+import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 
 const REQUIRED_FIELD_ERROR = 'This field is required';
 const PROCEDURE_TYPES = [
@@ -65,8 +68,8 @@ interface State {
   procedureTypeError?: boolean;
   cptCode?: string;
   cptCodeError?: boolean;
-  dxCode?: string;
-  dxCodeError?: boolean;
+  diagnoses?: DiagnosisDTO[];
+  diagnosesError?: boolean;
   procedureDate?: string;
   procedureDateError?: boolean;
   procedureTime?: string;
@@ -106,8 +109,8 @@ export default function ProcedureNew(): ReactElement {
     if (isNullOrEmpty(state.cptCode)) {
       state.cptCodeError = true;
     }
-    if (isNullOrEmpty(state.dxCode)) {
-      state.dxCodeError = true;
+    if (state.diagnoses == null || state.diagnoses.length === 0) {
+      state.diagnosesError = true;
     }
     if (isNullOrEmpty(state.procedureDate)) {
       state.procedureDateError = true;
@@ -119,6 +122,46 @@ export default function ProcedureNew(): ReactElement {
       state.performerError = true;
     }
     setState({ ...state });
+  };
+
+  const diagnosesWidget = (): ReactElement => {
+    return (
+      <>
+        <DiagnosesField
+          label="Dx *"
+          onChange={(value: IcdSearchResponse['codes'][number]): void => {
+            const preparedValue = { ...value, isPrimary: false };
+            updateState((state) => (state.diagnoses = [...(state.diagnoses ?? []), preparedValue]));
+          }}
+          error={state.diagnosesError ? { type: 'required', message: REQUIRED_FIELD_ERROR } : undefined}
+          disableForPrimary={false}
+        />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <ActionsList
+            data={state.diagnoses ?? []}
+            getKey={(value, index) => value.resourceId || index}
+            renderItem={(value) => (
+              <Typography>
+                {value.display} {value.code}
+              </Typography>
+            )}
+            renderActions={(value) => (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <DeleteIconButton
+                  onClick={() =>
+                    updateState(
+                      (state) =>
+                        (state.diagnoses = state.diagnoses?.filter((diagnosis) => diagnosis.code != value.code))
+                    )
+                  }
+                />
+              </Box>
+            )}
+            divider
+          />
+        </Box>
+      </>
+    );
   };
 
   const dropdown = (
@@ -227,7 +270,7 @@ export default function ProcedureNew(): ReactElement {
             state.procedureTypeError
           )}
           {dropdown('CPT code *', [], (value, state) => (state.cptCode = value), state.cptCodeError)}
-          {dropdown('Dx *', [], (value, state) => (state.dxCode = value), state.dxCodeError)}
+          {diagnosesWidget()}
           <Stack direction="row" spacing={2}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <DatePicker
