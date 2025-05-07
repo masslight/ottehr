@@ -286,6 +286,7 @@ const PatientInformationPage: FC = () => {
                   {coverages.map((coverage) => (
                     <InsuranceContainer
                       key={coverage.resource.id}
+                      patientId={patient.id ?? ''}
                       ordinal={coverage.startingPriority}
                       removeInProgress={removeCoverage.isLoading}
                       handleRemoveClick={

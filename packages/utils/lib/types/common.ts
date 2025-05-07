@@ -879,3 +879,5 @@ export interface CanonicalUrl {
 }
 
 export type Timezone = (typeof TIMEZONES)[number];
+
+export type EligibilityCheckSimpleStatus = 'ELIGIBLE' | 'NOT ELIGIBLE' | 'UNKNOWN';

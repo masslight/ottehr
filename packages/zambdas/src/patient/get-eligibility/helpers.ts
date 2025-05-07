@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import {
   Bundle,
+  Coverage,
   CoverageEligibilityRequest,
   CoverageEligibilityResponse,
   DomainResource,
@@ -14,24 +15,6 @@ import {
   InsurancePlanResources,
   removeTimeFromDate,
 } from 'utils';
-
-// todo: move this into a higher level util
-export const performEligibilityCheck = (
-  coverageEligibilityRequestId: string | undefined,
-  projectApiURL: string,
-  oystehrToken: string
-): Promise<Response> => {
-  return fetch(`${projectApiURL}/rcm/eligibility-check`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      Authorization: `Bearer ${oystehrToken}`,
-    },
-    body: JSON.stringify({
-      eligibilityRequestId: coverageEligibilityRequestId,
-    }),
-  });
-};
 
 interface InsuranceIds {
   primary: string;
@@ -159,19 +142,20 @@ export const makeCoverageEligibilityRequest = (
 
 export const parseEligibilityCheckResponse = async (
   eligibilityCheckResponse: PromiseFulfilledResult<Response> | PromiseRejectedResult
-): Promise<InsuranceEligibilityCheckStatus> => {
+): Promise<{ status: InsuranceEligibilityCheckStatus; dateISO: string }> => {
+  const now = DateTime.now().toISO();
   if (eligibilityCheckResponse.status === 'rejected') {
     console.log('eligibility check service failure reason: ', JSON.stringify(eligibilityCheckResponse.reason, null, 2));
-    return InsuranceEligibilityCheckStatus.eligibilityNotChecked;
+    return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO: now };
   } else if (!eligibilityCheckResponse.value.ok) {
     const message = await eligibilityCheckResponse.value.json();
     console.log('eligibility check service failure reason: ', JSON.stringify(message, null, 2));
-    return InsuranceEligibilityCheckStatus.eligibilityNotChecked;
+    return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO: now };
   }
   try {
     const coverageResponse = (await eligibilityCheckResponse.value.json()) as CoverageEligibilityResponse;
     console.log('coverageResponse: ', JSON.stringify(coverageResponse, null, 2));
-
+    const dateISO = coverageResponse.meta?.lastUpdated ?? now;
     if (coverageResponse.error) {
       const errors = coverageResponse.error.map((error) => ({
         code: error.code.coding?.[0].code,
@@ -183,10 +167,10 @@ export const parseEligibilityCheckResponse = async (
       if (errorCodes.includes('410')) {
         // "Payer ID [<ID>] does not support real-time eligibility."
         console.log('Payer does not support real-time eligibility. Bypassing.');
-        return InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported;
+        return { status: InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported, dateISO };
       }
       console.log(`eligibility check service failure reason(s): `, errorMessages.join(', '));
-      return InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
+      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
     }
 
     const eligible = coverageResponse.insurance?.[0].item?.some((item) => {
@@ -196,13 +180,22 @@ export const parseEligibilityCheckResponse = async (
     });
     // console.log('eligible', eligible);
     if (eligible) {
-      return InsuranceEligibilityCheckStatus.eligibilityConfirmed;
+      return { status: InsuranceEligibilityCheckStatus.eligibilityConfirmed, dateISO };
     } else {
       // console.log('error result: ', JSON.stringify(coverageResponse.insurance?.[0].item, null, 2));
-      return InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
+      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
     }
   } catch (error: any) {
     console.error('API response included an error', error);
-    return InsuranceEligibilityCheckStatus.eligibilityNotChecked;
+    return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO: now };
   }
+};
+
+export const getPayorRef = (coverage: Coverage, orgs: Organization[]): string | undefined => {
+  const payor = orgs.find((org) => {
+    return coverage.payor.some((res) => {
+      return res.reference === `Organization/${org.id}`;
+    });
+  });
+  return payor ? `Organization/${payor.id}` : undefined;
 };
