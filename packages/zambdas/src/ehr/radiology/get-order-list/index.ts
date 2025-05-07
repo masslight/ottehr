@@ -226,6 +226,7 @@ const parseResultsToOrder = (
   if (!providerFirstName || !providerLastName) {
     throw new Error('Provider name is unexpectedly null');
   }
+  const providerName = `${providerLastName}, ${providerFirstName}`;
 
   // TODO can we do provider requesting provider qualifications to render "MD"?
 
@@ -257,7 +258,7 @@ const parseResultsToOrder = (
 
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
 
-  const history = buildHistory(serviceRequest, myDiagnosticReport);
+  const history = buildHistory(serviceRequest, myDiagnosticReport, providerName);
 
   return {
     serviceRequestId: serviceRequest.id,
@@ -265,7 +266,7 @@ const parseResultsToOrder = (
     studyType: `${cptCode} — ${cptCodeDisplay}`,
     visitDateTime: '', // TODO
     orderAddedDateTime,
-    providerName: `${providerLastName}, ${providerFirstName}`,
+    providerName,
     diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
     result,
@@ -275,7 +276,8 @@ const parseResultsToOrder = (
 
 const buildHistory = (
   serviceRequest: ServiceRequest,
-  diagnosticReport?: DiagnosticReport
+  diagnosticReport: DiagnosticReport | undefined,
+  orderingProviderName: string
 ): RadiologyOrderHistoryRow[] => {
   const history: RadiologyOrderHistoryRow[] = [];
 
@@ -285,6 +287,7 @@ const buildHistory = (
   if (requestedTimeExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.pending,
+      performer: orderingProviderName,
       date: requestedTimeExtensionValue,
     });
   }
@@ -295,6 +298,7 @@ const buildHistory = (
   if (performedHistoryExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.performed,
+      performer: 'See AdvaPACS',
       date: performedHistoryExtensionValue,
     });
   }
@@ -305,6 +309,7 @@ const buildHistory = (
   if (diagnosticReportPreliminaryReadTimeExtensionValue) {
     history.push({
       status: RadiologyOrderStatus.preliminary,
+      performer: 'See AdvaPACS',
       date: diagnosticReportPreliminaryReadTimeExtensionValue,
     });
   }
@@ -312,6 +317,7 @@ const buildHistory = (
   if (diagnosticReport?.issued) {
     history.push({
       status: RadiologyOrderStatus.final,
+      performer: 'See AdvaPACS',
       date: diagnosticReport.issued,
     });
   }
