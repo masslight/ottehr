@@ -643,6 +643,12 @@
             ]
           },
           {
+            "linkId": "policy-holder-address-as-patient",
+            "text": "Policy holder address is the same as patient's address",
+            "type": "boolean",
+            "required": false
+          },
+          {
             "linkId": "policy-holder-address",
             "text": "Policy holder address",
             "type": "string",
@@ -966,6 +972,12 @@
                 "valueString": "Intersex"
               }
             ]
+          },
+          {
+            "linkId": "policy-holder-address-as-patient-2",
+            "text": "Policy holder address is the same as patient's address",
+            "type": "boolean",
+            "required": false
           },
           {
             "linkId": "policy-holder-address-2",
