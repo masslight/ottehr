@@ -236,11 +236,13 @@ const parseResultsToOrder = (
     task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
   });
 
-  const myDiagnosticReport = diagnosticReports.find((report) => {
-    report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
-  });
+  const myDiagnosticReport = diagnosticReports.find(
+    (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
+  );
 
-  const result = myDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/plain')?.data;
+  console.log('alex diagnosticReport', JSON.stringify(myDiagnosticReport, null, 2));
+
+  const result = myDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')?.data;
 
   if (serviceRequest.status === 'active') {
     status = RadiologyOrderStatus.pending;

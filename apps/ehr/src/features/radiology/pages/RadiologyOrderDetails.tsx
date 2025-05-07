@@ -81,9 +81,13 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               >
                 View Image
               </Button>
-              <Typography sx={{ mt: 2 }} variant="body2">
-                Results yada
-              </Typography>
+              {order.result != null ? (
+                <Typography sx={{ mt: 2 }} variant="body2">
+                  <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />
+                </Typography>
+              ) : (
+                <div />
+              )}
             </Box>
           </Box>
 
