@@ -331,6 +331,47 @@ test.describe('Insurance Information Section mutating tests', () => {
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
     );*/
   });
+
+  test('Set and remove Additional Insurance Information for both primary and secondary insurance, then verify it is cleared after save', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+
+    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+
+    //todo: remove extra selectInsuranceCarrier once issue #1965 is resolved
+    await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
+
+    await primaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.clickShowMoreButton();
+
+    await primaryInsuranceCard.enterAdditionalInsuranceInformation('Primary test info');
+    await secondaryInsuranceCard.enterAdditionalInsuranceInformation('Secondary test info');
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+
+    await patientInformationPage.reloadPatientInformationPage();
+    await primaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.clickShowMoreButton();
+
+    await primaryInsuranceCard.verifyAdditionalInsuranceInformation('Primary test info');
+    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('Secondary test info');
+
+    await primaryInsuranceCard.enterAdditionalInsuranceInformation('');
+    await secondaryInsuranceCard.enterAdditionalInsuranceInformation('');
+
+    await patientInformationPage.clickSaveChangesButton();
+    await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
+
+    await patientInformationPage.reloadPatientInformationPage();
+    await primaryInsuranceCard.clickShowMoreButton();
+    await secondaryInsuranceCard.clickShowMoreButton();
+
+    await primaryInsuranceCard.verifyAdditionalInsuranceInformation('');
+    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('');
+  });
 });
 
 async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
