@@ -73,6 +73,8 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'Bob';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Common Law Spouse';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'AK';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP = '78956';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
 const NEW_PATIENT_INSURANCE_CARRIER = '6 Degrees Health Incorporated';
 const NEW_PATIENT_INSURANCE_CARRIER_2 = 'AAA - Minnesota/Iowa';
 
@@ -233,7 +235,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyValidationErrorZipFieldFromInsurance();
   });
 
-  //todo: uncomment when #2085 will be fixed
   test('Updated values from Insurance information block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
@@ -255,7 +256,7 @@ test.describe('Insurance Information Section mutating tests', () => {
     await primaryInsuranceCard.selectPolicyHoldersState(NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE);
     await primaryInsuranceCard.enterZipFromInsuranceContainer(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
     await primaryInsuranceCard.selectPatientsRelationship(NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
-    //await primaryInsuranceCard.enterAdditionalInsuranceInformation(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
+    await primaryInsuranceCard.enterAdditionalInsuranceInformation(NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
 
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
     await secondaryInsuranceCard.clickShowMoreButton();
@@ -278,9 +279,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.selectPatientsRelationship(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
     );
-    /*await secondaryInsuranceCard.enterAdditionalInsuranceInformation(
+    await secondaryInsuranceCard.enterAdditionalInsuranceInformation(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
-    );*/
+    );
 
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
@@ -304,9 +305,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
     );
-    /*await primaryInsuranceCard.verifyAdditionalInsuranceInformation(
+    await primaryInsuranceCard.verifyAdditionalInsuranceInformation(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO
-    );*/
+    );
 
     await secondaryInsuranceCard.verifyInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
     await secondaryInsuranceCard.verifyMemberId(NEW_PATIENT_INSURANCE_MEMBER_ID_2);
@@ -325,9 +326,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
     );
-    /*await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(
+    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(
       NEW_PATIENT_INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2
-    );*/
+    );
   });
 
   test('Set and remove Additional Insurance Information for both primary and secondary insurance, then verify it is cleared after save', async ({
