@@ -141,7 +141,7 @@ export const RadiologyTable = ({
           color="primary.dark"
           sx={{ mb: -2, mt: 2, width: '100%', display: 'flex', justifyContent: 'flex-start' }}
         >
-          Labs
+          Radiology
         </Typography>
       )}
 

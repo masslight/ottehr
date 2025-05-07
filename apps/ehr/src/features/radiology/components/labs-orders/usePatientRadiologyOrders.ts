@@ -5,10 +5,8 @@ import {
   GetLabOrdersParameters,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
-  LabOrderDTO,
-  UpdateLabOrderResourceParams,
 } from 'utils';
-import { deleteLabOrder, getRadiologyOrders, updateLabOrderResources } from '../../../../api/api';
+import { deleteLabOrder, getRadiologyOrders } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
 
@@ -33,9 +31,14 @@ interface UsePatientLabOrdersResult {
   getCurrentSearchParams: () => GetRadiologyOrderListZambdaInput;
   showPagination: boolean;
   deleteOrder: (params: DeleteOrderParams) => Promise<boolean>;
-  onDeleteOrder: (order: LabOrderDTO, encounterIdOverride?: string) => void;
+  showDeleteLabOrderDialog: ({
+    serviceRequestId,
+    testItemName,
+  }: {
+    serviceRequestId: string;
+    testItemName: string;
+  }) => void;
   DeleteOrderDialog: ReactElement | null;
-  updateTask: ({ taskId, event }: UpdateLabOrderResourceParams) => Promise<void>;
 }
 
 export const usePatientRadiologyOrders = (options: {
@@ -212,19 +215,6 @@ export const usePatientRadiologyOrders = (options: {
     encounterId,
   });
 
-  const updateTask = useCallback(
-    async ({ taskId, serviceRequestId, diagnosticReportId, event }: UpdateLabOrderResourceParams): Promise<void> => {
-      if (!oystehrZambda) {
-        console.error('oystehrZambda is not defined');
-        return;
-      }
-
-      await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event });
-      await fetchOrders(getCurrentSearchParamsForPage(1));
-    },
-    [oystehrZambda, fetchOrders, getCurrentSearchParamsForPage]
-  );
-
   return {
     orders,
     loading,
@@ -238,6 +228,5 @@ export const usePatientRadiologyOrders = (options: {
     onDeleteOrder,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
-    updateTask,
   };
 };

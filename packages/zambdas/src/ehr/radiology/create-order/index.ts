@@ -241,18 +241,18 @@ const writeAdvaPacsTransaction = async (
     const advapacsAuthString = `ID=${advapacsClientId},Secret=${advapacsClientSecret}`;
 
     const ourPatient = await getOurSubject(ourServiceRequest.subject?.reference || '', oystehr);
-    const ourPatientDecimalId = ourPatient.id;
+    const ourPatientId = ourPatient.id;
     const ourRequestingPractitionerId = ourServiceRequest.requester?.reference?.split('/')[1];
 
     const patientToCreate: BatchInputPutRequest<Patient> = {
       method: 'PUT',
-      url: `Patient?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourPatientDecimalId}`,
+      url: `Patient?identifier=${PERSON_IDENTIFIER_CODE_SYSTEM}|${ourPatientId}`,
       resource: {
         resourceType: 'Patient',
         identifier: [
           {
             system: PERSON_IDENTIFIER_CODE_SYSTEM,
-            value: ourPatientDecimalId,
+            value: ourPatientId,
           },
         ],
         name: ourPatient.name,
@@ -289,7 +289,7 @@ const writeAdvaPacsTransaction = async (
         subject: {
           identifier: {
             system: PERSON_IDENTIFIER_CODE_SYSTEM,
-            value: ourPatientDecimalId,
+            value: ourPatientId,
           },
         },
         requester: {
