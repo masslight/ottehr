@@ -4,7 +4,7 @@ import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Appointment, DocumentReference, Patient } from 'fhir/r4b';
-import { VISIT_NOTE_SUMMARY_CODE } from 'utils';
+import { getSecret, SecretsKeys, VISIT_NOTE_SUMMARY_CODE } from 'utils';
 
 let m2mtoken: string;
 
@@ -24,10 +24,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
 
-    const organizationId = secrets?.ORGANIZATION_ID;
-    if (!organizationId) {
-      throw new Error('Organization ID was not found in secrets');
-    }
+    const organizationId = getSecret(SecretsKeys.ORGANIZATION_ID, secrets);
 
     console.log('searching fhir for patient, and visit note');
     // also includes other actors but i'm not using them so i won't include their types
