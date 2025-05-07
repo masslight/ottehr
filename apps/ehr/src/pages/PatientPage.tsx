@@ -13,6 +13,7 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
 import { useGetPatient } from '../hooks/useGetPatient';
 import PageContainer from '../layout/PageContainer';
+import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -128,6 +129,16 @@ export default function PatientPage(): JSX.Element {
                     }
                   />
                 )}
+                {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
+                  <Tab
+                    value="in-house-labs"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                        In-House Labs
+                      </Typography>
+                    }
+                  />
+                )}
               </TabList>
             </Box>
 
@@ -140,6 +151,11 @@ export default function PatientPage(): JSX.Element {
             {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
               <TabPanel value="labs" sx={{ p: 0 }}>
                 <PatientLabsTab patientId={id || ''} />
+              </TabPanel>
+            )}
+            {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
+              <TabPanel value="in-house-labs" sx={{ p: 0 }}>
+                <PatientInHouseLabsTab patientId={id || ''} />
               </TabPanel>
             )}
           </TabContext>
