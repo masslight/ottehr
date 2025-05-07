@@ -35,6 +35,7 @@ import {
   getVisitTotalTime,
   PRACTITIONER_CODINGS,
   getPatchBinary,
+  ROOM_EXTENSION_URL,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -246,6 +247,9 @@ export default function AppointmentTableRow({
   const user = useEvolveUser();
   const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
+  const rooms = useMemo(() => {
+    return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
+  }, [location]);
 
   const handleCSSButton = async (): Promise<void> => {
     setCSSButtonIsLoading(true);
@@ -339,13 +343,13 @@ export default function AppointmentTableRow({
         };
       }
     } else {
-      if (appointmentToUpdate.extension?.find((ext) => ext.url === 'room')) {
+      if (appointmentToUpdate.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)) {
         patchOp = {
           op: 'replace',
           path: '/extension',
           value: appointmentToUpdate.extension.map((ext) => {
-            if (ext.url === 'room') {
-              return { url: 'room', valueString: room };
+            if (ext.url === ROOM_EXTENSION_URL) {
+              return { url: ROOM_EXTENSION_URL, valueString: room };
             }
             return ext;
           }),
@@ -355,13 +359,13 @@ export default function AppointmentTableRow({
           patchOp = {
             op: 'add',
             path: '/extension',
-            value: [{ url: 'room', valueString: room }],
+            value: [{ url: ROOM_EXTENSION_URL, valueString: room }],
           };
         } else {
           patchOp = {
             op: 'replace',
             path: '/extension',
-            value: [...(appointmentToUpdate.extension || []), { url: 'room', valueString: room }],
+            value: [...(appointmentToUpdate.extension || []), { url: ROOM_EXTENSION_URL, valueString: room }],
           };
         }
       }
@@ -744,24 +748,31 @@ export default function AppointmentTableRow({
           verticalAlign: 'center',
         }}
       >
-        <TextField
-          select
-          fullWidth
-          variant="standard"
-          disabled={roomSaving}
-          value={room}
-          onChange={(e) => {
-            setRoom(e.target.value);
-            void changeRoom(e.target.value);
-          }}
-        >
-          <MenuItem value={''}>None</MenuItem>
-          {Array.from({ length: 11 }, (_, index) => (
-            <MenuItem key={index} value={(index + 1).toString()}>
-              {index + 1}
-            </MenuItem>
-          ))}
-        </TextField>
+        {tab === ApptTab['in-office'] ? (
+          rooms &&
+          rooms.length > 0 && (
+            <TextField
+              select
+              fullWidth
+              variant="standard"
+              disabled={roomSaving}
+              value={room}
+              onChange={(e) => {
+                setRoom(e.target.value);
+                void changeRoom(e.target.value);
+              }}
+            >
+              <MenuItem value={''}>None</MenuItem>
+              {rooms?.map((room) => (
+                <MenuItem key={room} value={room}>
+                  {room}
+                </MenuItem>
+              ))}
+            </TextField>
+          )
+        ) : (
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>{room}</Typography>
+        )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>

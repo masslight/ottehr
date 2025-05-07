@@ -92,7 +92,7 @@ export default function AppointmentTable({
                     Intake
                   </Typography>
                 </TableCell>
-                {tab === ApptTab['in-office'] && (
+                {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
                   <TableCell style={{ width: TIME_WIDTH }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Room
