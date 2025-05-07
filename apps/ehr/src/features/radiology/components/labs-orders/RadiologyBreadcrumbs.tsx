@@ -5,7 +5,7 @@ import { FC } from 'react';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
 
-interface LabBreadcrumbsProps {
+interface RadiologyBreadcrumbsProps {
   sectionName: string;
   disableLabsLink?: boolean;
   children: React.ReactNode;
@@ -30,18 +30,22 @@ const Separator = styled(Typography)({
   color: '#666',
 });
 
-export const WithLabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, disableLabsLink = false, children }) => {
+export const WithRadiologyBreadcrumbs: FC<RadiologyBreadcrumbsProps> = ({
+  sectionName,
+  disableLabsLink = false,
+  children,
+}) => {
   const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
 
   return (
     <PageWrapper>
       <BreadcrumbsContainer>
         {!disableLabsLink && appointment?.id ? (
-          <MuiLink component={Link} to={`/in-person/${appointment.id}/external-lab-orders`} color="text.primary">
-            Labs
+          <MuiLink component={Link} to={`/in-person/${appointment.id}/radiology`} color="text.primary">
+            Radiology
           </MuiLink>
         ) : (
-          <Typography color="text.primary">Labs</Typography>
+          <Typography color="text.primary">Radiology</Typography>
         )}
         <Separator>/</Separator>
         <Typography color="text.primary">{sectionName}</Typography>
