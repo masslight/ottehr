@@ -43,7 +43,7 @@ export const DetailsWithoutResults: React.FC<{
         )} */}
       <OrderCollection
         labOrder={labOrder}
-        showOrderInfo={labOrder.orderStatus !== 'pending'}
+        showOrderInfo={labOrder.orderStatus === 'sent'}
         saveSpecimenDate={saveSpecimenDate}
       />
     </Stack>
