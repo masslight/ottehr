@@ -13,6 +13,7 @@ export const OrderDetailsPage: React.FC = () => {
   const { labOrders, loading, markTaskAsReviewed, saveSpecimenDate } = usePatientLabOrders({
     searchBy: { field: 'serviceRequestId', value: serviceRequestId },
   });
+  console.log('labOrders returned', labOrders);
 
   // todo: validate response on the get-lab-orders zambda and use labOrder[0]
   const labOrder = labOrders.find((order) => order.serviceRequestId === serviceRequestId);
