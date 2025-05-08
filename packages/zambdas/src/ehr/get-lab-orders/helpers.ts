@@ -342,11 +342,13 @@ export const getLabResources = async (
   specimens: Specimen[];
 }> => {
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
+  console.log('check the labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
 
   const labOrdersResponse = await oystehr.fhir.search({
     resourceType: 'ServiceRequest',
     params: labServiceRequestSearchParams,
   });
+  console.log('labOrdersResponse', labOrdersResponse);
 
   const labResources =
     labOrdersResponse.entry
