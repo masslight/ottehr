@@ -19,8 +19,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    console.log('validatedParameters', JSON.stringify(validatedParameters));
-
     const {
       serviceRequests,
       tasks,
@@ -40,7 +38,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
 
     if (!serviceRequests.length) {
-      console.log('no serviceRequests, returning empty data array');
+      console.log('no serviceRequests found, returning empty data array');
       return {
         statusCode: 200,
         body: JSON.stringify({

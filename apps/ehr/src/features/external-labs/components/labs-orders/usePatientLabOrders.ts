@@ -114,7 +114,6 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           console.error('Error fetching lab orders:', err);
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
         }
-        console.log('get lab orders res', response?.data);
 
         if (response?.data) {
           setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
