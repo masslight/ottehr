@@ -274,6 +274,7 @@ const parseResultsToOrder = (
     providerName,
     diagnosis: `${diagnosisCode} — ${diagnosisDisplay}`,
     status,
+    isStat: serviceRequest.priority === 'stat',
     result,
     history,
   };

@@ -1,5 +1,5 @@
-import { Button, CircularProgress, Typography } from '@mui/material';
-import { Box, Stack } from '@mui/system';
+import { Button, Chip, CircularProgress, Typography } from '@mui/material';
+import { Box, Stack, useTheme } from '@mui/system';
 import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { radiologyLaunchViewer } from 'src/api/api';
@@ -17,6 +17,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
   const navigate = useNavigate();
+  const theme = useTheme();
 
   const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
   const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
@@ -66,6 +67,25 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
     <WithRadiologyBreadcrumbs sectionName={order.studyType}>
       <div style={{ maxWidth: '714px', margin: '0 auto' }}>
         <Stack spacing={2} sx={{ p: 3 }}>
+          {order.isStat ? (
+            <Chip
+              size="small"
+              label="STAT"
+              sx={{
+                borderRadius: '4px',
+                border: 'none',
+                fontWeight: 900,
+                fontSize: '14px',
+                textTransform: 'uppercase',
+                background: theme.palette.error.main,
+                color: 'white',
+                padding: '8px',
+                height: '24px',
+                width: 'fit-content',
+              }}
+              variant="outlined"
+            />
+          ) : null}
           <CSSPageTitle>{`Radiology: ${order.studyType}`}</CSSPageTitle>
 
           <Box
