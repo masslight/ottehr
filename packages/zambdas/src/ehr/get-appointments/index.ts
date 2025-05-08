@@ -18,6 +18,7 @@ import {
   INSURANCE_CARD_CODE,
   InPersonAppointmentInformation,
   PHOTO_ID_CARD_CODE,
+  ROOM_EXTENSION_URL,
   SMSModel,
   SMSRecipient,
   Secrets,
@@ -668,6 +669,8 @@ const makeAppointmentInformation = (
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
 
+  const room = appointment.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
+
   return {
     id: appointment.id || 'Unknown',
     encounter,
@@ -692,6 +695,7 @@ const makeAppointmentInformation = (
     cancellationReason: cancellationReason,
     provider: provider,
     group: group ? group.name : undefined,
+    room: room,
     paperwork: {
       demographics: paperworkHasBeenSubmitted,
       photoID: idCard,

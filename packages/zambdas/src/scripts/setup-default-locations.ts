@@ -9,6 +9,7 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
+  ROOM_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TELEMED_INITIAL_STATES,
@@ -178,6 +179,10 @@ const createPhysicalLocation = async (
         url: TIMEZONE_EXTENSION_URL,
         valueString: 'America/New_York',
       },
+      ...Array.from({ length: 11 }, (_, i) => ({
+        url: ROOM_EXTENSION_URL,
+        valueString: (i + 1).toString(),
+      })),
     ];
 
     const createLocationRequest: BatchInputPostRequest<Location> = {
