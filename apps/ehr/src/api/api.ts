@@ -31,6 +31,7 @@ import {
   UpdateLabOrderResourcesParameters,
   CreateSlotParams,
   apiErrorToThrow,
+  CancelRadiologyOrderZambdaInput,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -667,6 +668,22 @@ export const createRadiologyOrder = async (
   try {
     const response = await oystehr.zambda.execute({
       id: 'radiology-create-order',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const cancelRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: CancelRadiologyOrderZambdaInput
+): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'cancel-radiology-order',
       ...parameters,
     });
     return chooseJson(response);

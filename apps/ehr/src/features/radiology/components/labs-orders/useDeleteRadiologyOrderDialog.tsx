@@ -9,53 +9,49 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import { LabOrderDTO } from 'utils';
 
-interface UseDeleteLabOrderDialogProps {
-  deleteOrder: (params: { orderId: string; encounterId?: string }) => Promise<boolean>;
-  encounterId?: string;
+interface UseDeleteRadiologyOrderDialogProps {
+  deleteOrder: ({ serviceRequestId }: { serviceRequestId: string }) => Promise<boolean>;
 }
 
-interface UseDeleteLabOrderDialogResult {
-  onDeleteOrder: (order: LabOrderDTO, encounterIdOverride?: string) => void;
+interface UseDeleteRadiologyOrderDialogResult {
+  showDeleteRadiologyOrderDialog: ({
+    serviceRequestId,
+    studyType,
+  }: {
+    serviceRequestId: string;
+    studyType: string;
+  }) => void;
   DeleteOrderDialog: ReactElement | null;
 }
 
-export const useDeleteLabOrderDialog = ({
+export const useDeleteRadiologyOrderDialog = ({
   deleteOrder,
-  encounterId,
-}: UseDeleteLabOrderDialogProps): UseDeleteLabOrderDialogResult => {
+}: UseDeleteRadiologyOrderDialogProps): UseDeleteRadiologyOrderDialogResult => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [currentOrderToDelete, setCurrentOrderToDelete] = useState<LabOrderDTO | null>(null);
-  const [currentOrderEncounterId, setCurrentOrderEncounterId] = useState<string | undefined>(encounterId);
+  const [serviceRequestIdToDelete, setServiceRequestIdToDelete] = useState<string>('');
+  const [studyTypeToDelete, setStudyTypeToDelete] = useState<string>('');
 
-  const onDeleteOrder = useCallback(
-    (order: LabOrderDTO, encounterIdOverride?: string): void => {
-      setCurrentOrderToDelete(order);
-      setCurrentOrderEncounterId(encounterIdOverride || encounterId);
+  const showDeleteRadiologyOrderDialog = useCallback(
+    ({ serviceRequestId, studyType }: { serviceRequestId: string; studyType: string }): void => {
+      setServiceRequestIdToDelete(serviceRequestId);
+      setStudyTypeToDelete(studyType);
       setIsDeleteDialogOpen(true);
       setDeleteError(null);
     },
-    [encounterId]
+    []
   );
 
   const closeDeleteDialog = useCallback((): void => {
     setIsDeleteDialogOpen(false);
     setDeleteError(null);
-    setCurrentOrderEncounterId(undefined);
   }, []);
 
   const confirmDeleteOrder = useCallback(async (): Promise<void> => {
-    if (!currentOrderToDelete || !currentOrderToDelete.serviceRequestId) {
-      setDeleteError('No lab order selected for deletion');
-      return;
-    }
-
-    const effectiveEncounterId = currentOrderEncounterId || encounterId;
-    if (!effectiveEncounterId) {
-      setDeleteError('Encounter ID is required to delete lab order');
+    if (!serviceRequestIdToDelete) {
+      setDeleteError('No radiology order selected for deletion');
       return;
     }
 
@@ -63,14 +59,13 @@ export const useDeleteLabOrderDialog = ({
 
     try {
       const success = await deleteOrder({
-        orderId: currentOrderToDelete.serviceRequestId,
-        encounterId: effectiveEncounterId,
+        serviceRequestId: serviceRequestIdToDelete,
       });
 
       if (success) {
         setIsDeleteDialogOpen(false);
       } else {
-        setDeleteError('Failed to delete lab order');
+        setDeleteError('Failed to delete radiology order');
       }
     } catch (err) {
       console.error('Error confirming delete:', err);
@@ -79,23 +74,26 @@ export const useDeleteLabOrderDialog = ({
     } finally {
       setIsDeleting(false);
     }
-  }, [currentOrderToDelete, deleteOrder, encounterId, currentOrderEncounterId]);
+  }, [serviceRequestIdToDelete, deleteOrder]);
 
   const DeleteOrderDialog = isDeleteDialogOpen ? (
     <Dialog open={isDeleteDialogOpen} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
       <form
+        style={{ padding: '10px' }}
         onSubmit={(e) => {
           e.preventDefault();
           void confirmDeleteOrder();
         }}
       >
-        <DialogTitle>Delete Lab Order</DialogTitle>
+        <DialogTitle variant="h5" color="primary.dark">
+          Cancel Radiology Order
+        </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the lab order for test <strong>{currentOrderToDelete?.testItem}</strong>?
+            Are you sure you want to delete this order <strong>{studyTypeToDelete}</strong>?
             <br />
             <br />
-            This action cannot be undone.
+            Deleting this order will also remove any additional associated diagnoses.
           </DialogContentText>
           {deleteError && (
             <Box sx={{ mt: 2, color: 'error.main' }}>
@@ -103,9 +101,15 @@ export const useDeleteLabOrderDialog = ({
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={closeDeleteDialog} color="primary" disabled={isDeleting}>
-            Cancel
+        <DialogActions sx={{ px: 3, pb: 2, width: '100%', display: 'flex', justifyContent: 'space-between' }}>
+          <Button
+            variant="outlined"
+            onClick={closeDeleteDialog}
+            color="primary"
+            disabled={isDeleting}
+            sx={{ borderRadius: '50px', textTransform: 'none' }}
+          >
+            Keep
           </Button>
           <Button
             type="submit"
@@ -113,8 +117,9 @@ export const useDeleteLabOrderDialog = ({
             color="error"
             disabled={isDeleting}
             startIcon={isDeleting ? <CircularProgress size={16} color="inherit" /> : null}
+            sx={{ borderRadius: '50px', textTransform: 'none' }}
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isDeleting ? 'Deleting Order...' : 'Delete Order'}
           </Button>
         </DialogActions>
       </form>
@@ -122,7 +127,7 @@ export const useDeleteLabOrderDialog = ({
   ) : null;
 
   return {
-    onDeleteOrder,
+    showDeleteRadiologyOrderDialog: showDeleteRadiologyOrderDialog,
     DeleteOrderDialog,
   };
 };

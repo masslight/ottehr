@@ -8,7 +8,7 @@ interface RadiologyOrderHistoryProps {
   isLoading?: boolean;
   isCollapsed?: boolean;
   orderHistory?: RadiologyOrderHistoryRow[];
-  timezone: string | undefined;
+  timezone?: string;
 }
 
 export const RadiologyOrderHistoryCard: React.FC<RadiologyOrderHistoryProps> = ({

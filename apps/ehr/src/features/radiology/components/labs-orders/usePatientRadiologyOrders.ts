@@ -1,26 +1,15 @@
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import {
-  DEFAULT_LABS_ITEMS_PER_PAGE,
+  CancelRadiologyOrderZambdaInput,
   EMPTY_PAGINATION,
-  GetLabOrdersParameters,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
 } from 'utils';
-import { deleteLabOrder, getRadiologyOrders } from '../../../../api/api';
+import { cancelRadiologyOrder, getRadiologyOrders } from '../../../../api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
+import { useDeleteRadiologyOrderDialog } from './useDeleteRadiologyOrderDialog';
 
-interface DeleteLabOrderParams {
-  labOrderId: string;
-  encounterId: string;
-}
-
-interface DeleteOrderParams {
-  orderId: string;
-  encounterId?: string;
-}
-
-interface UsePatientLabOrdersResult {
+interface UsePatientRadiologyOrdersResult {
   orders: GetRadiologyOrderListZambdaOrder[];
   loading: boolean;
   error: Error | null;
@@ -30,13 +19,13 @@ interface UsePatientLabOrdersResult {
   fetchOrders: (params: GetRadiologyOrderListZambdaInput) => Promise<void>;
   getCurrentSearchParams: () => GetRadiologyOrderListZambdaInput;
   showPagination: boolean;
-  deleteOrder: (params: DeleteOrderParams) => Promise<boolean>;
-  showDeleteLabOrderDialog: ({
+  deleteOrder: (params: CancelRadiologyOrderZambdaInput) => Promise<boolean>;
+  showDeleteRadiologyOrderDialog: ({
     serviceRequestId,
-    testItemName,
+    studyType,
   }: {
     serviceRequestId: string;
-    testItemName: string;
+    studyType: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
 }
@@ -45,7 +34,7 @@ export const usePatientRadiologyOrders = (options: {
   patientId?: string;
   encounterId?: string;
   serviceRequestId?: string;
-}): UsePatientLabOrdersResult => {
+}): UsePatientRadiologyOrdersResult => {
   const { oystehrZambda } = useApiClients();
   const { patientId, encounterId, serviceRequestId } = options;
   const [orders, setOrders] = useState<GetRadiologyOrderListZambdaOrder[]>([]);
@@ -55,11 +44,8 @@ export const usePatientRadiologyOrders = (options: {
   const [page, setPage] = useState(1);
   const [showPagination, setShowPagination] = useState(false);
 
-  const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetLabOrdersParameters => {
-    const params: GetLabOrdersParameters = {
-      // pageIndex: 0,
-      itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
-    } as GetLabOrdersParameters;
+  const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetRadiologyOrderListZambdaInput => {
+    const params: GetRadiologyOrderListZambdaInput = {} as GetRadiologyOrderListZambdaInput;
 
     if (patientId) {
       params.patientId = patientId;
@@ -77,11 +63,11 @@ export const usePatientRadiologyOrders = (options: {
   }, [patientId, encounterId, serviceRequestId]);
 
   const getCurrentSearchParamsForPage = useCallback(
-    (pageNubmer: number): GetLabOrdersParameters => {
-      if (pageNubmer < 1) {
+    (pageNumber: number): GetRadiologyOrderListZambdaInput => {
+      if (pageNumber < 1) {
         throw Error('Page number must be greater than 0');
       }
-      return { ...getCurrentSearchParamsWithoutPageIndex(), pageIndex: pageNubmer - 1 };
+      return { ...getCurrentSearchParamsWithoutPageIndex(), pageIndex: pageNumber - 1 };
     },
     [getCurrentSearchParamsWithoutPageIndex]
   );
@@ -154,26 +140,19 @@ export const usePatientRadiologyOrders = (options: {
     }
   }, [fetchOrders, getCurrentSearchParamsForPage, didOrdersFetch, page]);
 
-  const deleteOrder = useCallback(
-    async (params: DeleteOrderParams): Promise<boolean> => {
-      const { orderId, encounterId: paramEncounterId } = params;
-      const effectiveEncounterId = paramEncounterId || encounterId;
+  const handleDeleteOrder = useCallback(
+    async (params: CancelRadiologyOrderZambdaInput): Promise<boolean> => {
+      const { serviceRequestId } = params;
 
-      if (!orderId) {
-        console.error('Cannot delete lab order: Missing order ID');
-        setError(new Error('Missing lab order ID'));
+      if (!serviceRequestId) {
+        console.error('Cannot cancel order: Missing order ID');
+        setError(new Error('Missing order ID'));
         return false;
       }
 
       if (!oystehrZambda) {
-        console.error('Cannot delete lab order: API client is not available');
+        console.error('Cannot delete order: API client is not available');
         setError(new Error('API client is not available'));
-        return false;
-      }
-
-      if (!effectiveEncounterId) {
-        console.error('Cannot delete lab order: Missing encounter ID');
-        setError(new Error('Encounter ID is required to delete lab order'));
         return false;
       }
 
@@ -181,12 +160,7 @@ export const usePatientRadiologyOrders = (options: {
       setError(null);
 
       try {
-        const deleteParams: DeleteLabOrderParams = {
-          labOrderId: orderId,
-          encounterId: effectiveEncounterId,
-        };
-
-        await deleteLabOrder(oystehrZambda, deleteParams);
+        await cancelRadiologyOrder(oystehrZambda, params);
 
         setPage(1);
         const searchParams = getCurrentSearchParamsForPage(1);
@@ -206,13 +180,12 @@ export const usePatientRadiologyOrders = (options: {
         setLoading(false);
       }
     },
-    [encounterId, fetchOrders, getCurrentSearchParamsForPage, oystehrZambda]
+    [fetchOrders, getCurrentSearchParamsForPage, oystehrZambda]
   );
 
   // handle delete dialog
-  const { onDeleteOrder, DeleteOrderDialog } = useDeleteLabOrderDialog({
-    deleteOrder,
-    encounterId,
+  const { showDeleteRadiologyOrderDialog, DeleteOrderDialog } = useDeleteRadiologyOrderDialog({
+    deleteOrder: handleDeleteOrder,
   });
 
   return {
@@ -224,8 +197,8 @@ export const usePatientRadiologyOrders = (options: {
     setPage,
     fetchOrders,
     showPagination,
-    deleteOrder,
-    onDeleteOrder,
+    deleteOrder: handleDeleteOrder,
+    showDeleteRadiologyOrderDialog,
     DeleteOrderDialog,
     getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
   };

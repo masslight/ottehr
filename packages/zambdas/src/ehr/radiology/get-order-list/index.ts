@@ -2,7 +2,6 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, DiagnosticReport, Encounter, Practitioner, ServiceRequest, Task } from 'fhir/r4b';
 import {
-  DEFAULT_RADIOLOGY_ITEMS_PER_PAGE,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
   GetRadiologyOrderListZambdaOutput,
@@ -28,6 +27,8 @@ export interface ValidatedInput {
   body: GetRadiologyOrderListZambdaInput;
   callerAccessToken: string;
 }
+
+export const DEFAULT_RADIOLOGY_ITEMS_PER_PAGE = 10;
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
