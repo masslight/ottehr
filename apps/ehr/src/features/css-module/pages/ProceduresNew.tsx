@@ -5,7 +5,6 @@ import { Box, Stack } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
-  Button,
   Checkbox,
   Divider,
   FormControl,
@@ -94,7 +93,7 @@ interface State {
   documentedBy?: string;
 }
 
-export default function ProcedureNew(): ReactElement {
+export default function ProceduresNew(): ReactElement {
   const [state, setState] = useState<State>({});
 
   const updateState = (stateMutator: (state: State) => void): void => {
