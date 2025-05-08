@@ -6,16 +6,16 @@ import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
   FHIR_RESOURCE_NOT_FOUND,
-  GetScheduleResponse,
-  SecretsKeys,
-  SlotListItem,
   fhirTypeForScheduleType,
   getAvailableSlotsForSchedules,
   getOpeningTime,
   getScheduleDetails,
+  GetScheduleResponse,
   getSecret,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
+  SecretsKeys,
+  SlotListItem,
 } from 'utils';
 import {
   captureSentryException,
@@ -156,8 +156,19 @@ export function getNextOpeningDateTime(
   while (day < NUM_DAYS_TO_CHECK && nextOpeningTime === undefined) {
     const nextOpeningDate = now.plus({ day });
     const locationInfo = getLocationInformation(oystehr, schedule, nextOpeningDate);
-    if (isLocationOpen(locationInfo, nextOpeningDate)) {
-      const maybeNextOpeningTime = getOpeningTime(locationInfo, nextOpeningDate);
+    if (
+      isLocationOpen(
+        locationInfo.hoursOfOperation ?? [],
+        locationInfo.timezone ?? '',
+        locationInfo.closures ?? [],
+        nextOpeningDate
+      )
+    ) {
+      const maybeNextOpeningTime = getOpeningTime(
+        locationInfo.hoursOfOperation ?? [],
+        locationInfo.timezone ?? '',
+        nextOpeningDate
+      );
       if (maybeNextOpeningTime && maybeNextOpeningTime > now) {
         nextOpeningTime = maybeNextOpeningTime;
       }

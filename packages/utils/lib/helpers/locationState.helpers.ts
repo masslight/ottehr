@@ -7,11 +7,11 @@ export const checkTelemedLocationAvailability = (location?: TelemedLocation): bo
       return false;
     }
 
-    const workingSchedule = telemedStateWorkingSchedule[location.state];
+    const workingSchedule = location.schedule;
 
     // if the state is enabled in the EHR states list and we don't have static schedule for it - show it as available always
     if (!workingSchedule) {
-      return true;
+      return false;
     }
 
     const timeZone = workingSchedule.timeZone;

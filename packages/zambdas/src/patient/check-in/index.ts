@@ -13,21 +13,22 @@ import {
   Secrets,
   TaskIndicator,
 } from 'utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import '../../shared/instrument.mjs';
+import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
   captureSentryException,
-  configSentry,
-  getAuth0Token,
   checkPaperworkComplete,
+  configSentry,
   createOystehrClient,
+  getAuth0Token,
   getEncounterStatusHistoryIdx,
   getLocationInformation,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { getUser } from '../../shared/auth';
+import '../../shared/instrument.mjs';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
-import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
 export interface CheckInInput {
   appointment: string;

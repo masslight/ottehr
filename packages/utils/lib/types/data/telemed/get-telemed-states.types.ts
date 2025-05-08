@@ -1,7 +1,11 @@
+import { Schedule } from 'fhir/r4b';
+import { AvailableLocationInformation } from '../../common';
+
 export interface TelemedLocation {
   state: string;
   available: boolean;
-  scheduleId: string;
+  schedule: Schedule;
+  locationInformation: AvailableLocationInformation;
 }
 
 export interface GetTelemedLocationsResponse {

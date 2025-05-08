@@ -28,15 +28,31 @@ export const useCheckOfficeOpen = (
 
     const timeNow = DateTime.now().setZone(selectedLocation.timezone);
     const tomorrowDate = timeNow.plus({ days: 1 });
-    const tomorrowOpeningTime = getOpeningTime(selectedLocation, tomorrowDate);
+    const tomorrowOpeningTime = getOpeningTime(
+      selectedLocation.hoursOfOperation ?? [],
+      selectedLocation.timezone ?? '',
+      tomorrowDate
+    );
 
-    const officeHasClosureOverrideToday = isClosureOverride(selectedLocation, timeNow);
+    const officeHasClosureOverrideToday = isClosureOverride(
+      selectedLocation.closures ?? [],
+      selectedLocation.timezone ?? '',
+      timeNow
+    );
     const officeHasClosureOverrideTomorrow =
-      isClosureOverride(selectedLocation, tomorrowDate) && tomorrowOpeningTime !== undefined;
+      isClosureOverride(selectedLocation.closures ?? [], selectedLocation.timezone ?? '', tomorrowDate) &&
+      tomorrowOpeningTime !== undefined;
 
-    const todayOpeningTime = getOpeningTime(selectedLocation, timeNow);
-    const todayClosingTime = getClosingTime(selectedLocation, timeNow);
-
+    const todayOpeningTime = getOpeningTime(
+      selectedLocation.hoursOfOperation ?? [],
+      selectedLocation.timezone ?? '',
+      timeNow
+    );
+    const todayClosingTime = getClosingTime(
+      selectedLocation.hoursOfOperation ?? [],
+      selectedLocation.timezone ?? '',
+      timeNow
+    );
     const prebookStillOpenForToday =
       todayOpeningTime !== undefined &&
       (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));

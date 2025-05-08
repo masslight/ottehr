@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Location, Resource, Schedule } from 'fhir/r4b';
-import { PUBLIC_EXTENSION_BASE_URL } from './constants';
 import { TelemedLocation } from '../types';
+import { PUBLIC_EXTENSION_BASE_URL } from './constants';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
   return Boolean(
@@ -94,11 +94,10 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
   const listToFilter = telemedLocations.map((location) => ({
     state: location.address?.state || '',
     available: location.status === 'active',
-    scheduleId: locationToScheduleMap.get(location.id ?? ''),
+    schedule: locationToScheduleMap.get(location.id ?? ''),
+    locationInformation: getLocationInformation(oystehr, location),
   }));
-  const filteredLocations = listToFilter.filter(
-    (location) => location.state && location.scheduleId
-  ) as TelemedLocation[];
+  const filteredLocations = listToFilter.filter((location) => location.state && location.schedule) as TelemedLocation[];
   return filteredLocations;
 }
 

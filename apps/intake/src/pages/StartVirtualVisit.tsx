@@ -13,9 +13,10 @@ import {
 } from 'ui-components';
 import {
   APIError,
-  checkTelemedLocationAvailability,
   CreateSlotParams,
+  getCurrentHoursOfOperation,
   isApiError,
+  isLocationOpen,
   ServiceMode,
   stateCodeToFullName,
   TelemedLocation,
@@ -107,10 +108,19 @@ const StartVirtualVisit = (): JSX.Element => {
     return [...allStates]
       .map((stateCode) => {
         const serverState = telemedStates.find((s) => s.state === stateCode);
+        
 
+        getCurrentHoursOfOperation()
         return {
           state: stateCode,
-          available: serverState ? checkTelemedLocationAvailability(serverState) : false,
+          available: serverState
+            ? isLocationOpen(
+                serverState.schedule. ?? [],
+                serverState.timezone ?? '',
+                serverState.closures ?? [],
+                DateTime.now().setZone(serverState.timezone ?? '')
+              )
+            : false,
           workingHours: (Boolean(serverState?.available) && telemedStateWorkingSchedule[stateCode]) || null,
           fullName: stateCodeToFullName[stateCode] || stateCode,
           scheduleId: serverState?.scheduleId || '',

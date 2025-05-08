@@ -27,6 +27,7 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
+  ZambdaInput,
   captureSentryException,
   configSentry,
   createAuditEvent,
@@ -37,7 +38,6 @@ import {
   getUser,
   topLevelCatch,
   validateBundleAndExtractAppointment,
-  ZambdaInput,
 } from '../../../shared';
 import { sendInPersonCancellationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
