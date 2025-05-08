@@ -4,7 +4,7 @@ import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 import radiologyIcon from '../../../themes/ottehr/icons/mui-radiology.svg';
-import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
+import { RadiologyOrderLoading } from '../components/labs-orders/RadiologyOrderLoading';
 import { WithRadiologyBreadcrumbs } from '../components/labs-orders/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/labs-orders/RadiologyOrderHistoryCard';
 import { RadiologyTableStatusChip } from '../components/labs-orders/RadiologyTableStatusChip';
@@ -26,7 +26,7 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const order = orders.find((order) => order.serviceRequestId === serviceRequestId);
 
   if (loading || !order) {
-    return <LabOrderLoading />;
+    return <RadiologyOrderLoading />;
   }
 
   return (

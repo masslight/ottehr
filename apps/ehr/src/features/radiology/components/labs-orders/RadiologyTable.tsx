@@ -15,7 +15,7 @@ import { ReactElement, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder } from 'utils';
 import { getRadiologyOrderEditUrl } from '../../../css-module/routing/helpers';
-import { LabOrderLoading } from './LabOrderLoading';
+import { RadiologyOrderLoading } from './RadiologyOrderLoading';
 import { RadiologyTableRow } from './RadiologyTableRow';
 import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
 
@@ -43,11 +43,20 @@ export const RadiologyTable = ({
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
 
-  const { orders, loading, totalPages, page, setPage, showPagination, error, DeleteOrderDialog } =
-    usePatientRadiologyOrders({
-      patientId,
-      encounterId,
-    });
+  const {
+    orders,
+    loading,
+    totalPages,
+    page,
+    setPage,
+    showPagination,
+    error,
+    showDeleteRadiologyOrderDialog,
+    DeleteOrderDialog,
+  } = usePatientRadiologyOrders({
+    patientId,
+    encounterId,
+  });
 
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
     navigateTo(getRadiologyOrderEditUrl(order.appointmentId, order.serviceRequestId));
@@ -69,7 +78,7 @@ export const RadiologyTable = ({
   };
 
   if (loading && orders.length === 0) {
-    return <LabOrderLoading />;
+    return <RadiologyOrderLoading />;
   }
 
   if (error) {
@@ -80,7 +89,7 @@ export const RadiologyTable = ({
         </Typography>
         {onCreateOrder && (
           <Button variant="contained" onClick={onCreateOrder} sx={{ mt: 2 }}>
-            Create New Lab Order
+            Create New Radiology Order
           </Button>
         )}
       </Paper>
@@ -133,7 +142,7 @@ export const RadiologyTable = ({
         position: 'relative',
       }}
     >
-      {loading && <LabOrderLoading />}
+      {loading && <RadiologyOrderLoading />}
 
       {titleText && (
         <Typography
@@ -149,11 +158,11 @@ export const RadiologyTable = ({
         {!Array.isArray(orders) || orders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" gutterBottom>
-              No lab orders to display
+              No radiology orders to display
             </Typography>
             {onCreateOrder && (
               <Button variant="contained" onClick={onCreateOrder} sx={{ mt: 2 }}>
-                Create New Lab Order
+                Create New Radiology Order
               </Button>
             )}
           </Box>
@@ -182,8 +191,12 @@ export const RadiologyTable = ({
                   <RadiologyTableRow
                     key={order.serviceRequestId}
                     order={order}
-                    // TODO delete button
-                    // onDeleteOrder={() => onDeleteOrder(order)}
+                    onDeleteOrder={() =>
+                      showDeleteRadiologyOrderDialog({
+                        serviceRequestId: order.serviceRequestId,
+                        studyType: order.studyType,
+                      })
+                    }
                     onRowClick={() => onRowClick(order)}
                     columns={columns}
                     allowDelete={allowDelete}

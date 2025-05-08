@@ -86,14 +86,11 @@ export const useDeleteRadiologyOrderDialog = ({
         }}
       >
         <DialogTitle variant="h5" color="primary.dark">
-          Cancel Radiology Order
+          Delete Radiology Order
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this order <strong>{studyTypeToDelete}</strong>?
-            <br />
-            <br />
-            Deleting this order will also remove any additional associated diagnoses.
+            Are you sure you want to delete this order <strong>"{studyTypeToDelete}"</strong>?
           </DialogContentText>
           {deleteError && (
             <Box sx={{ mt: 2, color: 'error.main' }}>

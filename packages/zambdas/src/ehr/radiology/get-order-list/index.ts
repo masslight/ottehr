@@ -128,6 +128,10 @@ const performEffect = async (
       name: '_tag',
       value: `${ORDER_TYPE_CODE_SYSTEM}|radiology`,
     },
+    {
+      name: 'status:not',
+      value: 'revoked',
+    },
   ];
 
   if (encounterId) {

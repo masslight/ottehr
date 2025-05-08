@@ -680,13 +680,12 @@ export const createRadiologyOrder = async (
 export const cancelRadiologyOrder = async (
   oystehr: Oystehr,
   parameters: CancelRadiologyOrderZambdaInput
-): Promise<any> => {
+): Promise<void> => {
   try {
-    const response = await oystehr.zambda.execute({
-      id: 'cancel-radiology-order',
+    await oystehr.zambda.execute({
+      id: 'radiology-cancel-order',
       ...parameters,
     });
-    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
