@@ -1,7 +1,6 @@
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
-import { AvailableLocationInformation } from 'utils';
-import { isClosureOverride, getOpeningTime, getClosingTime } from 'utils';
+import { AvailableLocationInformation, getClosingTime, getOpeningTime, isClosureOverride } from 'utils';
 
 interface CheckOfficeOpenOutput {
   officeOpen: boolean;
@@ -12,7 +11,7 @@ interface CheckOfficeOpenOutput {
 }
 
 export const useCheckOfficeOpen = (
-  selectedLocation: AvailableLocationInformation | undefined
+  selectedLocation: Pick<AvailableLocationInformation, 'hoursOfOperation' | 'timezone' | 'closures'> | undefined
 ): CheckOfficeOpenOutput => {
   return useMemo(() => {
     if (!selectedLocation) {

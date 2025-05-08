@@ -1,7 +1,9 @@
+import { Schedule } from 'fhir/r4b';
+
 export interface TelemedLocation {
   state: string;
   available: boolean;
-  scheduleId: string;
+  schedule: Schedule;
 }
 
 export interface GetTelemedLocationsResponse {

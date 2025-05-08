@@ -1,8 +1,11 @@
-import { DateTime } from 'luxon';
 import { LocationHoursOfOperation } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { AvailableLocationInformation, HOURS_OF_OPERATION_FORMAT, OVERRIDE_DATE_FORMAT } from '../types/common';
 
-export function isClosureOverride(selectedLocation: AvailableLocationInformation, currentDate: DateTime): boolean {
+export function isClosureOverride(
+  selectedLocation: Pick<AvailableLocationInformation, 'closures' | 'timezone'>,
+  currentDate: DateTime
+): boolean {
   const closures = selectedLocation.closures ?? [];
   const result = closures.some((closure) => {
     const { start, end } = closure;
@@ -19,7 +22,7 @@ export function isClosureOverride(selectedLocation: AvailableLocationInformation
 }
 
 export function getOpeningTime(
-  selectedLocation: AvailableLocationInformation,
+  selectedLocation: Pick<AvailableLocationInformation, 'hoursOfOperation' | 'timezone'>,
   currentDate: DateTime
 ): DateTime | undefined {
   const currentHoursOfOperation = getCurrentHoursOfOperation(selectedLocation, currentDate);
@@ -35,7 +38,7 @@ export function getOpeningTime(
 }
 
 export function getClosingTime(
-  selectedLocation: AvailableLocationInformation,
+  selectedLocation: Pick<AvailableLocationInformation, 'hoursOfOperation' | 'timezone'>,
   currentDate: DateTime
 ): DateTime | undefined {
   const currentHoursOfOperation = getCurrentHoursOfOperation(selectedLocation, currentDate);
@@ -61,7 +64,7 @@ export function getClosingTime(
 }
 
 export function getCurrentHoursOfOperation(
-  selectedLocation: AvailableLocationInformation,
+  selectedLocation: Pick<AvailableLocationInformation, 'hoursOfOperation' | 'timezone'>,
   currentDate: DateTime
 ): LocationHoursOfOperation | undefined {
   const weekdayShort = currentDate.toLocaleString({ weekday: 'short' }, { locale: 'en-US' }).toLowerCase();
@@ -70,7 +73,10 @@ export function getCurrentHoursOfOperation(
   });
 }
 
-export function isWalkinOpen(selectedLocation: AvailableLocationInformation, timeNow: DateTime): boolean {
+export function isWalkinOpen(
+  selectedLocation: Pick<AvailableLocationInformation, 'hoursOfOperation' | 'timezone' | 'closures'>,
+  timeNow: DateTime
+): boolean {
   const officeHasClosureOverrideToday = isClosureOverride(selectedLocation, timeNow);
   const todayOpeningTime = getOpeningTime(selectedLocation, timeNow);
   const todayClosingTime = getClosingTime(selectedLocation, timeNow);
@@ -82,7 +88,10 @@ export function isWalkinOpen(selectedLocation: AvailableLocationInformation, tim
   );
 }
 
-export function isLocationOpen(selectedLocation: AvailableLocationInformation, now: DateTime): boolean {
+export function isLocationOpen(
+  selectedLocation: Pick<AvailableLocationInformation, 'hoursOfOperation' | 'timezone' | 'closures'>,
+  now: DateTime
+): boolean {
   const nextOpeningDateTime = getOpeningTime(selectedLocation, now);
   return nextOpeningDateTime !== undefined && !isClosureOverride(selectedLocation, nextOpeningDateTime);
 }

@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Location, Resource, Schedule } from 'fhir/r4b';
-import { PUBLIC_EXTENSION_BASE_URL } from './constants';
 import { TelemedLocation } from '../types';
+import { PUBLIC_EXTENSION_BASE_URL } from './constants';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
   return Boolean(
@@ -78,15 +78,14 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
     (location) => location.resourceType === 'Location' && isLocationVirtual(location)
   ) as Location[];
 
-  const locationToScheduleMap = new Map<string, string | undefined>();
+  const locationToScheduleMap = new Map<string, Schedule | undefined>();
   resources.forEach((res) => {
     const isSchedule = res.resourceType === 'Schedule';
     if (isSchedule) {
-      const scheduleId = res.id;
       const actor = res.actor?.find((a) => a.reference?.startsWith('Location'))?.reference;
       if (actor) {
         const locationId = actor.split('/')[1];
-        locationToScheduleMap.set(locationId, scheduleId);
+        locationToScheduleMap.set(locationId, res);
       }
     }
   });
@@ -94,11 +93,9 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
   const listToFilter = telemedLocations.map((location) => ({
     state: location.address?.state || '',
     available: location.status === 'active',
-    scheduleId: locationToScheduleMap.get(location.id ?? ''),
+    schedule: locationToScheduleMap.get(location.id ?? ''),
   }));
-  const filteredLocations = listToFilter.filter(
-    (location) => location.state && location.scheduleId
-  ) as TelemedLocation[];
+  const filteredLocations = listToFilter.filter((location) => location.state && location.schedule) as TelemedLocation[];
   return filteredLocations;
 }
 

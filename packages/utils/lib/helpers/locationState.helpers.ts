@@ -1,9 +1,15 @@
-import { isHoliday, telemedFederalHolidays, TelemedLocation, telemedStateWorkingSchedule } from 'utils';
 import { DateTime } from 'luxon';
+import {
+  isHoliday,
+  telemedFederalHolidays,
+  TelemedLocation,
+  telemedStateWorkingSchedule,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils';
 
 export const checkTelemedLocationAvailability = (location?: TelemedLocation): boolean => {
   try {
-    if (!location?.available) {
+    if (!location?.available || !location?.schedule) {
       return false;
     }
 
@@ -14,7 +20,7 @@ export const checkTelemedLocationAvailability = (location?: TelemedLocation): bo
       return true;
     }
 
-    const timeZone = workingSchedule.timeZone;
+    const timeZone = location.schedule.extension?.find((ext) => ext.url === TIMEZONE_EXTENSION_URL)?.valueString;
     if (!timeZone) return false;
 
     const now = DateTime.now().setZone(timeZone);
