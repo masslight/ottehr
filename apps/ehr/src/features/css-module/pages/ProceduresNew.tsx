@@ -24,6 +24,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { CPTCodeDTO, DiagnosisDTO, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ROUTER_PATH } from '../routing/routesCSS';
+import { InfoAlert } from '../components/InfoAlert';
 
 const PROCEDURE_TYPES = [
   'Laceration Repair (Suturing/Stapling)',
@@ -94,11 +97,17 @@ interface State {
 }
 
 export default function ProceduresNew(): ReactElement {
+  const navigate = useNavigate();
+  const { id: appointmentId } = useParams();
   const [state, setState] = useState<State>({});
 
   const updateState = (stateMutator: (state: State) => void): void => {
     stateMutator(state);
     setState({ ...state });
+  };
+
+  const onCancel = (): void => {
+    navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
   const onSave = (): void => {
@@ -309,29 +318,19 @@ export default function ProceduresNew(): ReactElement {
   };
 
   return (
-    <>
+    <Stack spacing={1}>
       <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
+      <InfoAlert
+        text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type
+              and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
+      />
       <AccordionCard>
         <Stack spacing={2} style={{ padding: '24px' }}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>
             <Checkbox
               onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
             />
-            <Typography>I have obtained the Consent for Procedure*</Typography>
-          </Box>
-          <Box style={{ display: 'flex', background: '#E5F3FA', padding: '12px', borderRadius: '4px' }}>
-            <InfoOutlinedIcon
-              style={{
-                height: '22px',
-                width: '22px',
-                marginRight: '12px',
-                color: '#0288D1',
-              }}
-            />
-            <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-              Please include body part including laterality, type and quantity anesthesia used, specific materials (type
-              and quantity) used, technique, findings, complications, specimen sent, and after-procedure status.
-            </Typography>
+            <Typography>I have obtained the Consent for Procedure *</Typography>
           </Box>
           {dropdown(
             'Procedure type *',
@@ -422,14 +421,16 @@ export default function ProceduresNew(): ReactElement {
           {radio('Documented by', DOCUMENTED_BY, (value, state) => (state.documentedBy = value))}
           <Divider orientation="horizontal" />
           <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <RoundedButton color="primary">Cancel</RoundedButton>
+            <RoundedButton color="primary" onClick={onCancel}>
+              Cancel
+            </RoundedButton>
             <RoundedButton color="primary" variant="contained" disabled={!state.consentObtained} onClick={onSave}>
               Save
             </RoundedButton>
           </Box>
         </Stack>
       </AccordionCard>
-    </>
+    </Stack>
   );
 }
 
