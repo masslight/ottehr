@@ -1,9 +1,10 @@
 import { ReactElement, useState } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { AccordionCard, ActionsList, DeleteIconButton } from 'src/telemed';
+import { AccordionCard, ActionsList, DeleteIconButton, useDebounce, useGetIcd10Search } from 'src/telemed';
 import { Box, Stack } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
+  Autocomplete,
   Button,
   Checkbox,
   Divider,
@@ -22,10 +23,9 @@ import {
 import { RoundedButton } from 'src/components/RoundedButton';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { DiagnosisDTO, IcdSearchResponse } from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 
-const REQUIRED_FIELD_ERROR = 'This field is required';
 const PROCEDURE_TYPES = [
   'Laceration Repair (Suturing/Stapling)',
   'Wound Care / Dressing Change',
@@ -66,8 +66,8 @@ interface State {
   consentObtained?: boolean;
   procedureType?: string;
   procedureTypeError?: boolean;
-  cptCode?: string;
-  cptCodeError?: boolean;
+  cptCodes?: CPTCodeDTO[];
+  cptCodesError?: boolean;
   diagnoses?: DiagnosisDTO[];
   diagnosesError?: boolean;
   procedureDate?: string;
@@ -106,8 +106,8 @@ export default function ProcedureNew(): ReactElement {
     if (isNullOrEmpty(state.procedureType)) {
       state.procedureTypeError = true;
     }
-    if (isNullOrEmpty(state.cptCode)) {
-      state.cptCodeError = true;
+    if (state.cptCodes == null || state.cptCodes.length === 0) {
+      state.cptCodesError = true;
     }
     if (state.diagnoses == null || state.diagnoses.length === 0) {
       state.diagnosesError = true;
@@ -124,6 +124,77 @@ export default function ProcedureNew(): ReactElement {
     setState({ ...state });
   };
 
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'CPT' });
+  const cptSearchOptions = data?.codes || [];
+  const { debounce } = useDebounce(800);
+  const debouncedHandleInputChange = (data: string): void => {
+    debounce(() => {
+      setDebouncedSearchTerm(data);
+    });
+  };
+
+  const cptWidget = (): ReactElement => {
+    return (
+      <>
+        <Autocomplete
+          fullWidth
+          blurOnSelect
+          options={cptSearchOptions}
+          noOptionsText={
+            debouncedSearchTerm && cptSearchOptions.length === 0
+              ? 'Nothing found for this search criteria'
+              : 'Start typing to load results'
+          }
+          autoComplete
+          includeInputInList
+          disableClearable
+          value={null as unknown as undefined}
+          isOptionEqualToValue={(option, value) => value.code === option.code}
+          loading={isSearching}
+          onChange={(_e: unknown, data: CPTCodeDTO | null) => {
+            updateState((state) => {
+              if (data != null) {
+                state.cptCodes = [...(state.cptCodes ?? []), data];
+                state.cptCodesError = false;
+              }
+            });
+          }}
+          getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} ${option.display}`)}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              size="small"
+              label="CPT code *"
+              placeholder="Search CPT code"
+              onChange={(e) => debouncedHandleInputChange(e.target.value)}
+              error={state.cptCodesError}
+              helperText={state.cptCodesError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined}
+            />
+          )}
+        />
+        <ActionsList
+          data={state.cptCodes ?? []}
+          getKey={(value, index) => value.resourceId || index}
+          renderItem={(value) => (
+            <Typography>
+              {value.code} {value.display}
+            </Typography>
+          )}
+          renderActions={(value) => (
+            <DeleteIconButton
+              onClick={() =>
+                updateState(
+                  (state) => (state.cptCodes = state.cptCodes?.filter((cptCode) => cptCode.code != value.code))
+                )
+              }
+            />
+          )}
+        />
+      </>
+    );
+  };
+
   const diagnosesWidget = (): ReactElement => {
     return (
       <>
@@ -131,9 +202,12 @@ export default function ProcedureNew(): ReactElement {
           label="Dx *"
           onChange={(value: IcdSearchResponse['codes'][number]): void => {
             const preparedValue = { ...value, isPrimary: false };
-            updateState((state) => (state.diagnoses = [...(state.diagnoses ?? []), preparedValue]));
+            updateState((state) => {
+              state.diagnoses = [...(state.diagnoses ?? []), preparedValue];
+              state.diagnosesError = false;
+            });
           }}
-          error={state.diagnosesError ? { type: 'required', message: REQUIRED_FIELD_ERROR } : undefined}
+          error={state.diagnosesError ? { type: 'required', message: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
           disableForPrimary={false}
         />
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -190,7 +264,7 @@ export default function ProcedureNew(): ReactElement {
             );
           })}
         </Select>
-        {error ? <FormHelperText>{REQUIRED_FIELD_ERROR}</FormHelperText> : undefined}
+        {error ? <FormHelperText>{REQUIRED_FIELD_ERROR_MESSAGE}</FormHelperText> : undefined}
       </FormControl>
     );
   };
@@ -230,7 +304,7 @@ export default function ProcedureNew(): ReactElement {
             return <FormControlLabel key={option} value={option} control={<Radio />} label={option} />;
           })}
         </RadioGroup>
-        {error ? <FormHelperText>{REQUIRED_FIELD_ERROR}</FormHelperText> : undefined}
+        {error ? <FormHelperText>{REQUIRED_FIELD_ERROR_MESSAGE}</FormHelperText> : undefined}
       </FormControl>
     );
   };
@@ -269,7 +343,7 @@ export default function ProcedureNew(): ReactElement {
             },
             state.procedureTypeError
           )}
-          {dropdown('CPT code *', [], (value, state) => (state.cptCode = value), state.cptCodeError)}
+          {cptWidget()}
           {diagnosesWidget()}
           <Stack direction="row" spacing={2}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
@@ -279,7 +353,7 @@ export default function ProcedureNew(): ReactElement {
                   textField: {
                     InputLabelProps: { shrink: true },
                     InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                    helperText: state.procedureDateError ? REQUIRED_FIELD_ERROR : undefined,
+                    helperText: state.procedureDateError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined,
                     error: state.procedureDateError,
                   },
                 }}
@@ -293,7 +367,7 @@ export default function ProcedureNew(): ReactElement {
                   textField: {
                     InputLabelProps: { shrink: true },
                     InputProps: { size: 'small' },
-                    helperText: state.procedureTimeError ? REQUIRED_FIELD_ERROR : undefined,
+                    helperText: state.procedureTimeError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined,
                     error: state.procedureTimeError,
                   },
                 }}
