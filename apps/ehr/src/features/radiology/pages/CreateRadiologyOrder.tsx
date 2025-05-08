@@ -139,7 +139,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
 
   return (
     <WithRadiologyBreadcrumbs sectionName="Order Radiology">
-      <Stack spacing={2} sx={{ p: 3 }}>
+      <Stack spacing={1}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
             Order Radiology

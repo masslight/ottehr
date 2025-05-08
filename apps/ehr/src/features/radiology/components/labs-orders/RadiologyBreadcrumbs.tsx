@@ -12,7 +12,7 @@ interface RadiologyBreadcrumbsProps {
 }
 
 const PageWrapper = styled(Box)({
-  padding: '16px 0',
+  padding: '0px 0',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -23,7 +23,7 @@ const BreadcrumbsContainer = styled(Box)({
   display: 'flex',
   gap: '8px',
   alignSelf: 'flex-start',
-  marginLeft: '42px',
+  marginLeft: '0px',
 });
 
 const Separator = styled(Typography)({

@@ -1,13 +1,13 @@
+import { Box, Button, Stack } from '@mui/material';
 import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Typography, useTheme, Stack } from '@mui/material';
+import { PageTitle } from 'src/telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { RadiologyTable, RadiologyTableColumn } from '../components/labs-orders/RadiologyTable';
 
 const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'status', 'actions'];
 
 export const RadiologyOrdersListPage: React.FC = () => {
-  const theme = useTheme();
   const navigate = useNavigate();
   const encounterId = useAppointmentStore((state) => state.encounter?.id);
 
@@ -16,11 +16,9 @@ export const RadiologyOrdersListPage: React.FC = () => {
   }, [navigate]);
 
   return (
-    <Box sx={{ padding: 4 }}>
+    <Stack spacing={2}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h2" gutterBottom sx={{ flexGrow: 1, color: theme.palette.primary.dark }}>
-          Radiology
-        </Typography>
+        <PageTitle label="Radiology" showIntakeNotesButton={false} />
         <Stack direction="row" spacing={2} alignItems="center">
           <Button
             onClick={handleCreateOrder}
@@ -44,6 +42,6 @@ export const RadiologyOrdersListPage: React.FC = () => {
         redirectToOrderCreateIfOrdersEmpty={true}
         onCreateOrder={handleCreateOrder}
       />
-    </Box>
+    </Stack>
   );
 };
