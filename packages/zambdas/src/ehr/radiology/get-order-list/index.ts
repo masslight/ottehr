@@ -245,8 +245,6 @@ const parseResultsToOrder = (
     (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
   );
 
-  console.log('alex diagnosticReport', JSON.stringify(myDiagnosticReport, null, 2));
-
   const result = myDiagnosticReport?.presentedForm?.find((attachment) => attachment.contentType === 'text/html')?.data;
 
   if (serviceRequest.status === 'active') {

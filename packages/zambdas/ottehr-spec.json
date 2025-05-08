@@ -184,6 +184,10 @@
     "ADVAPACS_WEBHOOK_SECRET": {
       "name": "ADVAPACS_WEBHOOK_SECRET",
       "value": "#var/ADVAPACS_WEBHOOK_SECRET"
+    },
+    "ADVAPACS_VIEWER_USERNAME": {
+      "name": "ADVAPACS_VIEWER_USERNAME",
+      "value": "#var/ADVAPACS_VIEWER_USERNAME"
     }
   },
   "zambdas": {
@@ -845,6 +849,13 @@
       "src": "src/ehr/radiology/pacs-webhook/index",
       "zip": ".dist/zips/radiology-pacs-webhook.zip"
     },
+    "RADIOLOGY-LAUNCH-VIEWER": {
+      "name": "RADIOLOGY-LAUNCH-VIEWER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/launch-viewer/index",
+      "zip": ".dist/zips/radiology-launch-viewer.zip"
+    },
     "GET-LAB-ORDERS": {
       "name": "GET-LAB-ORDERS",
       "type": "http_auth",
@@ -944,7 +955,10 @@
         "patient": "patient-id",
         "title": "My Questions"
       },
-      "managedFields": ["name", "title"]
+      "managedFields": [
+        "name",
+        "title"
+      ]
     }
   },
   "apps": {
@@ -967,7 +981,9 @@
           "effect": "Allow"
         }
       ],
-      "roles": ["#ref/EHR_SUPER_ADMIN"]
+      "roles": [
+        "#ref/EHR_SUPER_ADMIN"
+      ]
     }
   },
   "roles": {
