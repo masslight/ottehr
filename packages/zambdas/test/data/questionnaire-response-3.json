@@ -1,65 +1,22 @@
 {
   "resourceType": "QuestionnaireResponse",
-  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.5",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.6",
   "status": "completed",
   "subject": {
-    "reference": "{{PATIENT_REF}}"
+    "reference": "Patient/f22d7f91-2a36-4cd6-a1ad-b97dddcb4ff3"
   },
   "encounter": {
-    "reference": "{{ENCOUNTER_REF}}"
+    "reference": "Encounter/c455a927-5637-4b6c-bcb5-0ccd9f78b6a0"
   },
   "item": [
     {
       "linkId": "contact-information-page",
       "item": [
         {
-          "linkId": "contact-page-address-text"
-        },
-        {
-          "linkId": "patient-street-address",
-          "answer": [
-            {
-              "valueString": "317 R St NW Unit 2"
-            }
-          ]
-        },
-        {
-          "linkId": "patient-street-address-2",
-          "answer": [
-            {
-              "valueString": "conditional-filter-test-1234"
-            }
-          ]
-        },
-        {
-          "linkId": "patient-city",
-          "answer": [
-            {
-              "valueString": "Washington"
-            }
-          ]
-        },
-        {
-          "linkId": "patient-state",
-          "answer": [
-            {
-              "valueString": "DC"
-            }
-          ]
-        },
-        {
-          "linkId": "patient-zip",
-          "answer": [
-            {
-              "valueString": "20001"
-            }
-          ]
-        },
-        {
           "linkId": "patient-will-be-18",
           "answer": [
             {
-              "valueBoolean": false
+              "valueBoolean": true
             }
           ]
         },
@@ -67,7 +24,7 @@
           "linkId": "is-new-qrs-patient",
           "answer": [
             {
-              "valueBoolean": false
+              "valueBoolean": true
             }
           ]
         },
@@ -75,7 +32,7 @@
           "linkId": "patient-first-name",
           "answer": [
             {
-              "valueString": "Duck"
+              "valueString": "Olga"
             }
           ]
         },
@@ -83,7 +40,7 @@
           "linkId": "patient-last-name",
           "answer": [
             {
-              "valueString": "Ottehrpus"
+              "valueString": "Test0418"
             }
           ]
         },
@@ -91,7 +48,7 @@
           "linkId": "patient-birthdate",
           "answer": [
             {
-              "valueString": "2020-08-06"
+              "valueString": "2005-07-18"
             }
           ]
         },
@@ -99,7 +56,7 @@
           "linkId": "patient-birth-sex",
           "answer": [
             {
-              "valueString": "Male"
+              "valueString": "Female"
             }
           ]
         },
@@ -107,13 +64,45 @@
           "linkId": "patient-birth-sex-missing"
         },
         {
-          "linkId": "patient-contact-additional-caption"
+          "linkId": "patient-street-address",
+          "answer": [
+            {
+              "valueString": "street address new"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-street-address-2"
+        },
+        {
+          "linkId": "patient-city",
+          "answer": [
+            {
+              "valueString": "New York"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-state",
+          "answer": [
+            {
+              "valueString": "NY"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-zip",
+          "answer": [
+            {
+              "valueString": "10001"
+            }
+          ]
         },
         {
           "linkId": "patient-email",
           "answer": [
             {
-              "valueString": "ibenham+dbOttherpus@masslight.com"
+              "valueString": "okovalenko+testnew@masslight.com"
             }
           ]
         },
@@ -121,7 +110,7 @@
           "linkId": "patient-number",
           "answer": [
             {
-              "valueString": "(425) 326-8681"
+              "valueString": "(202) 713-9681"
             }
           ]
         },
@@ -137,7 +126,7 @@
           "linkId": "patient-ethnicity",
           "answer": [
             {
-              "valueString": "Not Hispanic or Latino"
+              "valueString": "Hispanic or Latino"
             }
           ]
         },
@@ -145,31 +134,18 @@
           "linkId": "patient-race",
           "answer": [
             {
-              "valueString": "White"
+              "valueString": "American Indian or Alaska Native"
             }
           ]
         },
         {
-          "linkId": "patient-pronouns",
-          "answer": [
-            {
-              "valueString": "He/him"
-            }
-          ]
+          "linkId": "patient-pronouns"
         },
         {
           "linkId": "patient-pronouns-custom"
         },
         {
-          "linkId": "patient-details-additional-text"
-        },
-        {
-          "linkId": "patient-point-of-discovery",
-          "answer": [
-            {
-              "valueString": "Internet Search"
-            }
-          ]
+          "linkId": "patient-point-of-discovery"
         },
         {
           "linkId": "preferred-language",
@@ -182,7 +158,24 @@
       ]
     },
     {
-      "linkId": "primary-care-physician-page"
+      "linkId": "primary-care-physician-page",
+      "item": [
+        {
+          "linkId": "pcp-first"
+        },
+        {
+          "linkId": "pcp-last"
+        },
+        {
+          "linkId": "pcp-practice"
+        },
+        {
+          "linkId": "pcp-address"
+        },
+        {
+          "linkId": "pcp-number"
+        }
+      ]
     },
     {
       "linkId": "payment-option-page",
@@ -196,15 +189,12 @@
           ]
         },
         {
-          "linkId": "card-payment-data"
-        },
-        {
           "linkId": "insurance-carrier",
           "answer": [
             {
               "valueReference": {
-                "reference": "{{INSURANCEPLAN_REF}}",
-                "display": "Aetna"
+                "reference": "InsurancePlan/c2aa5d3c-655b-4ffb-b22f-983bbe9796fc",
+                "display": "1199 National Benefit Fund"
               }
             }
           ]
@@ -213,7 +203,7 @@
           "linkId": "insurance-member-id",
           "answer": [
             {
-              "valueString": "FAfonejwgndkoetwwe6"
+              "valueString": "1234567"
             }
           ]
         },
@@ -221,7 +211,7 @@
           "linkId": "policy-holder-first-name",
           "answer": [
             {
-              "valueString": "Barnabas"
+              "valueString": "Olha1"
             }
           ]
         },
@@ -229,7 +219,7 @@
           "linkId": "policy-holder-middle-name",
           "answer": [
             {
-              "valueString": "Thaddeus"
+              "valueString": "mid1"
             }
           ]
         },
@@ -237,7 +227,7 @@
           "linkId": "policy-holder-last-name",
           "answer": [
             {
-              "valueString": "Picklesworth"
+              "valueString": "Test1"
             }
           ]
         },
@@ -245,7 +235,7 @@
           "linkId": "policy-holder-date-of-birth",
           "answer": [
             {
-              "valueString": "1982-02-23"
+              "valueString": "1998-04-18"
             }
           ]
         },
@@ -258,29 +248,29 @@
           ]
         },
         {
-          "linkId": "policy-holder-address-as-patient"
+          "linkId": "policy-holder-address-as-patient",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
         },
         {
           "linkId": "policy-holder-address",
           "answer": [
             {
-              "valueString": "317 Mustard Street"
+              "valueString": "street address new"
             }
           ]
         },
         {
-          "linkId": "policy-holder-address-additional-line",
-          "answer": [
-            {
-              "valueString": "Unit 2"
-            }
-          ]
+          "linkId": "policy-holder-address-additional-line"
         },
         {
           "linkId": "policy-holder-city",
           "answer": [
             {
-              "valueString": "Deliciousville"
+              "valueString": "Pembroke Pine"
             }
           ]
         },
@@ -288,7 +278,7 @@
           "linkId": "policy-holder-state",
           "answer": [
             {
-              "valueString": "DE"
+              "valueString": "CA"
             }
           ]
         },
@@ -296,7 +286,7 @@
           "linkId": "policy-holder-zip",
           "answer": [
             {
-              "valueString": "20001"
+              "valueString": "06001"
             }
           ]
         },
@@ -304,49 +294,21 @@
           "linkId": "patient-relationship-to-insured",
           "answer": [
             {
-              "valueString": "Child"
+              "valueString": "Parent"
             }
           ]
         },
         {
-          "linkId": "insurance-additional-information",
-          "answer": [
-            {
-              "valueString": "Additional info to primary insurance"
-            }
-          ]
+          "linkId": "insurance-card-front"
         },
         {
-          "linkId": "insurance-card-front",
-          "answer": [
-            {
-              "valueAttachment": {
-                "url": "https://project-api.zapehr.com/v1/z3/0ba6d7a5-a5a6-4c16-a6d9-ce91f300acb4-insurance-cards/099639e6-c89c-4bad-becf-ce15ce010f21/2025-02-23-1740344290487-insurance-card-front.png",
-                "title": "insurance-card-front",
-                "creation": "2025-02-23T15:58:10.979-05:00",
-                "contentType": "image/png"
-              }
-            }
-          ]
-        },
-        {
-          "linkId": "insurance-card-back",
-          "answer": [
-            {
-              "valueAttachment": {
-                "url": "https://project-api.zapehr.com/v1/z3/0ba6d7a5-a5a6-4c16-a6d9-ce91f300acb4-insurance-cards/099639e6-c89c-4bad-becf-ce15ce010f21/2025-02-23-1740344301743-insurance-card-back.png",
-                "title": "insurance-card-back",
-                "creation": "2025-02-23T15:58:22.405-05:00",
-                "contentType": "image/png"
-              }
-            }
-          ]
+          "linkId": "insurance-card-back"
         },
         {
           "linkId": "insurance-eligibility-verification-status",
           "answer": [
             {
-              "valueString": "eligibility-confirmed"
+              "valueString": "eligibility-check-not-supported"
             },
             {
               "valueString": "eligibility-check-not-supported"
@@ -368,8 +330,8 @@
               "answer": [
                 {
                   "valueReference": {
-                    "reference": "{{INSURANCEPLAN_REF}}",
-                    "display": "Aetna"
+                    "reference": "InsurancePlan/5be39ddb-c452-4b17-afe0-b3745bbdb6f2",
+                    "display": "1st Auto & Casualty - MN Only"
                   }
                 }
               ]
@@ -378,7 +340,7 @@
               "linkId": "insurance-member-id-2",
               "answer": [
                 {
-                  "valueString": "fdfdfdfdfdfh7897"
+                  "valueString": "9878654"
                 }
               ]
             },
@@ -386,7 +348,7 @@
               "linkId": "policy-holder-first-name-2",
               "answer": [
                 {
-                  "valueString": "Jennifer"
+                  "valueString": "Olha2"
                 }
               ]
             },
@@ -394,7 +356,7 @@
               "linkId": "policy-holder-middle-name-2",
               "answer": [
                 {
-                  "valueString": "Celeste"
+                  "valueString": "mid2"
                 }
               ]
             },
@@ -402,7 +364,7 @@
               "linkId": "policy-holder-last-name-2",
               "answer": [
                 {
-                  "valueString": "Picklesworth"
+                  "valueString": "Test2"
                 }
               ]
             },
@@ -410,7 +372,7 @@
               "linkId": "policy-holder-date-of-birth-2",
               "answer": [
                 {
-                  "valueString": "1983-02-23"
+                  "valueString": "1998-04-18"
                 }
               ]
             },
@@ -423,18 +385,13 @@
               ]
             },
             {
-              "linkId": "policy-holder-address-as-patient-2",
-              "answer": [
-                {
-                  "valueBoolean": true
-                }
-              ]
+              "linkId": "policy-holder-address-as-patient-2"
             },
             {
               "linkId": "policy-holder-address-2",
               "answer": [
                 {
-                  "valueString": "317 R St NW Unit 2"
+                  "valueString": "test2"
                 }
               ]
             },
@@ -442,7 +399,7 @@
               "linkId": "policy-holder-address-additional-line-2",
               "answer": [
                 {
-                  "valueString": "conditional-filter-test-1234"
+                  "valueString": "opt2"
                 }
               ]
             },
@@ -450,7 +407,7 @@
               "linkId": "policy-holder-city-2",
               "answer": [
                 {
-                  "valueString": "Washington"
+                  "valueString": "New York"
                 }
               ]
             },
@@ -458,7 +415,7 @@
               "linkId": "policy-holder-state-2",
               "answer": [
                 {
-                  "valueString": "DC"
+                  "valueString": "CA"
                 }
               ]
             },
@@ -466,7 +423,7 @@
               "linkId": "policy-holder-zip-2",
               "answer": [
                 {
-                  "valueString": "20001"
+                  "valueString": "06002"
                 }
               ]
             },
@@ -474,15 +431,7 @@
               "linkId": "patient-relationship-to-insured-2",
               "answer": [
                 {
-                  "valueString": "Child"
-                }
-              ]
-            },
-            {
-              "linkId": "insurance-additional-information-2",
-              "answer": [
-                {
-                  "valueString": "Additional info to secondary insurance"
+                  "valueString": "Parent"
                 }
               ]
             },
@@ -498,13 +447,34 @@
       ]
     },
     {
+      "linkId": "card-payment-page",
+      "item": [
+        {
+          "linkId": "valid-card-on-file",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
+        }
+      ]
+    },
+    {
       "linkId": "responsible-party-page",
       "item": [
+        {
+          "linkId": "responsible-party-relationship",
+          "answer": [
+            {
+              "valueString": "Parent"
+            }
+          ]
+        },
         {
           "linkId": "responsible-party-first-name",
           "answer": [
             {
-              "valueString": "Jane"
+              "valueString": "Olha"
             }
           ]
         },
@@ -512,7 +482,15 @@
           "linkId": "responsible-party-last-name",
           "answer": [
             {
-              "valueString": "Doe"
+              "valueString": "test"
+            }
+          ]
+        },
+        {
+          "linkId": "responsible-party-date-of-birth",
+          "answer": [
+            {
+              "valueString": "1992-04-18"
             }
           ]
         },
@@ -525,76 +503,77 @@
           ]
         },
         {
-          "linkId": "responsible-party-date-of-birth",
-          "answer": [
-            {
-              "valueString": "1983-02-23"
-            }
-          ]
-        },
-        {
-          "linkId": "responsible-party-relationship",
-          "answer": [
-            {
-              "valueString": "Parent"
-            }
-          ]
-        },
-        {
-          "linkId": "responsible-party-address",
-          "answer": [
-            {
-              "valueString": "123 test lane"
-            }
-          ]
-        },
-        {
-          "linkId": "responsible-party-address-2"
-        },
-        {
-          "linkId": "responsible-party-city",
-          "answer": [
-            {
-              "valueString": "fakeplace"
-            }
-          ]
-        },
-        {
-          "linkId": "responsible-party-state",
-          "answer": [
-            {
-              "valueString": "NY"
-            }
-          ]
-        },
-        {
-          "linkId": "responsible-party-zip",
-          "answer": [
-            {
-              "valueString": "11111"
-            }
-          ]
-        },
-        {
-          "linkId": "responsible-party-number",
-          "answer": [
-            {
-              "valueString": "(555) 987-6543"
-            }
-          ]
+          "linkId": "responsible-party-number"
         }
       ]
     },
     {
-      "linkId": "photo-id-page"
+      "linkId": "photo-id-page",
+      "item": [
+        {
+          "linkId": "photo-id-front"
+        },
+        {
+          "linkId": "photo-id-back"
+        }
+      ]
     },
     {
-      "linkId": "consent-forms-page"
+      "linkId": "consent-forms-page",
+      "item": [
+        {
+          "linkId": "hipaa-acknowledgement",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
+        },
+        {
+          "linkId": "consent-to-treat",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
+        },
+        {
+          "linkId": "signature",
+          "answer": [
+            {
+              "valueString": "test"
+            }
+          ]
+        },
+        {
+          "linkId": "full-name",
+          "answer": [
+            {
+              "valueString": "Olha test"
+            }
+          ]
+        },
+        {
+          "linkId": "consent-form-signer-relationship",
+          "answer": [
+            {
+              "valueString": "Self"
+            }
+          ]
+        }
+      ]
     }
   ],
-  "id": "e5f86b53-cfc4-49f1-baa7-ac70be95589b",
+  "id": "f6fbd727-3ebb-4049-b634-da9ce70e2081",
   "meta": {
-    "versionId": "78905816-4160-4b62-b3ae-747303788c26",
-    "lastUpdated": "2025-03-03T21:41:51.500Z"
-  }
+    "versionId": "d7420525-7c05-4464-bbd1-4af377e77b7c",
+    "lastUpdated": "2025-04-18T08:51:33.504Z"
+  },
+  "authored": "2025-04-18T08:51:33.216+00:00",
+  "extension": [
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
+      "valueString": "Unknown"
+    }
+  ]
 }
