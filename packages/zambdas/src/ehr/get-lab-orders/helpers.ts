@@ -1830,7 +1830,7 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
 
     const collectionDate = specimen.collection?.collectedDateTime;
 
-    const logAboutMissingData = (info: string): void => console.log(`Error: ${info} is undefined`);
+    const logAboutMissingData = (info: string): void => console.log(`Warning: ${info} is undefined`);
 
     result.push({
       specimen: {
