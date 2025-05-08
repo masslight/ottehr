@@ -177,7 +177,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly'] : [],
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrdersListPage /> : null,
     text: 'Radiology',
-    iconKey: 'External Labs',
+    iconKey: 'Radiology',
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_CREATE]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE,
@@ -185,7 +185,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <CreateRadiologyOrder /> : null,
     text: 'Radiology',
-    iconKey: 'External Labs',
+    iconKey: 'Radiology',
   },
   [ROUTER_PATH.RADIOLOGY_ORDER_DETAILS]: {
     path: ROUTER_PATH.RADIOLOGY_ORDER_DETAILS,
@@ -193,7 +193,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     isSkippedInNavigation: true,
     element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrderDetailsPage /> : null,
     text: 'Radiology',
-    iconKey: 'External Labs',
+    iconKey: 'Radiology',
   },
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
