@@ -13,6 +13,7 @@ type ConfirmationDialogProps = {
     proceed?: {
       text?: string;
       color?: 'inherit' | 'primary' | 'secondary' | 'success' | 'error' | 'info' | 'warning';
+      disabled?: boolean;
     };
     back?: {
       text?: string;
@@ -46,6 +47,7 @@ export const ConfirmationDialog: FC<ConfirmationDialogProps> = (props) => {
             onClick={() => confirmRequest(hideDialog)}
             variant="contained"
             color={props?.actionButtons?.proceed?.color || 'primary'}
+            disabled={props?.actionButtons?.proceed?.disabled}
           >
             {props?.actionButtons?.proceed?.text || 'Proceed'}
           </RoundedButton>

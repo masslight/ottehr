@@ -8,7 +8,11 @@ import {
   flattenBundleResources,
   PRACTITIONER_CODINGS,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  EXTERNAL_LAB_ERROR,
+  isApiError,
+  APIError,
   SPECIMEN_CODING_CONFIG,
+  RELATED_SPECIMEN_DEFINITION_SYSTEM,
 } from 'utils';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
@@ -56,7 +60,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     try {
       curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     } catch (e) {
-      throw new Error('User creating this lab order must have a Practitioner resource linked');
+      throw EXTERNAL_LAB_ERROR(
+        'Resource configuration error - user creating this lab order must have a Practitioner resource linked'
+      );
     }
     const attendingPractitionerId = encounter.participant
       ?.find(
@@ -68,7 +74,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ?.individual?.reference?.replace('Practitioner/', '');
     if (!attendingPractitionerId) {
       // this should never happen since theres also a validation on the front end that you cannot submit without one
-      throw new Error('This encounter does not have an attending practitioner linked');
+      throw EXTERNAL_LAB_ERROR(
+        'Resource configuration error - this encounter does not have an attending practitioner linked'
+      );
     }
 
     console.log('encounter id', encounter.id);
@@ -142,12 +150,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           reference: `Organization/${labOrganization.id}`,
         },
       ],
-      locationReference: [
-        {
-          type: 'Location',
-          reference: `Location/${location.id}`,
-        },
-      ],
       authoredOn: DateTime.now().toISO() || undefined,
       priority: 'stat',
       code: serviceRequestCode,
@@ -155,6 +157,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       instantiatesCanonical: [`#${activityDefinitionToContain.id}`],
       contained: serviceRequestContained,
     };
+    if (location) {
+      serviceRequestConfig.locationReference = [
+        {
+          type: 'Location',
+          reference: `Location/${location.id}`,
+        },
+      ];
+    }
     if (coverage) {
       serviceRequestConfig.insurance = [
         {
@@ -189,9 +199,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounter: {
         reference: `Encounter/${encounter.id}`,
       },
-      location: {
-        reference: `Location/${location.id}`,
-      },
       basedOn: [
         {
           type: 'ServiceRequest',
@@ -209,6 +216,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         ],
       },
     };
+    if (location) {
+      preSubmissionTaskConfig.location = {
+        reference: `Location/${location.id}`,
+      };
+    }
 
     const aoeQRConfig = formatAoeQR(serviceRequestFullUrl, encounter.id || '', orderableItem);
     if (aoeQRConfig) {
@@ -231,7 +243,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
     const provenanceConfig = getProvenanceConfig(
       serviceRequestFullUrl,
-      location.id || '',
+      location?.id,
       curUserPractitionerId,
       attendingPractitionerId
     );
@@ -268,9 +280,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     await topLevelCatch('admin-create-lab-order', error, input.secrets);
+    let body = JSON.stringify({ message: `Error creating lab order: ${error}` });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error creating lab order: ${error}` }),
+      body,
     };
   }
 };
@@ -360,9 +377,10 @@ const formatSpecimenResources = (
       ],
       text: specimen.collectionInstructions,
     };
+    const specimenDefinitionId = `specimenDefinitionId${idx}`;
     const specimenDefitionConfig: SpecimenDefinition = {
       resourceType: 'SpecimenDefinition',
-      id: `specimenDefinitionId${idx}`,
+      id: specimenDefinitionId,
       typeTested: [
         {
           preference: 'preferred',
@@ -397,6 +415,12 @@ const formatSpecimenResources = (
       collection: {
         method: collectionInstructionsCoding,
       },
+      extension: [
+        {
+          url: RELATED_SPECIMEN_DEFINITION_SYSTEM,
+          valueString: specimenDefinitionId,
+        },
+      ],
       subject: {
         type: 'Patient',
         reference: `Patient/${patientID}`,
@@ -410,11 +434,11 @@ const formatSpecimenResources = (
 
 const getProvenanceConfig = (
   serviceRequestFullUrl: string,
-  locationId: string,
+  locationId: string | undefined,
   currentUserId: string,
   attendingPractitionerId: string
 ): Provenance => {
-  return {
+  const provenanceConfig: Provenance = {
     resourceType: 'Provenance',
     activity: {
       coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder],
@@ -424,7 +448,6 @@ const getProvenanceConfig = (
         reference: serviceRequestFullUrl,
       },
     ],
-    location: { reference: `Location/${locationId}` },
     recorded: DateTime.now().toISO(),
     agent: [
       {
@@ -433,6 +456,8 @@ const getProvenanceConfig = (
       },
     ],
   };
+  if (locationId) provenanceConfig.location = { reference: `Location/${locationId}` };
+  return provenanceConfig;
 };
 
 const getAdditionalResources = async (
@@ -441,10 +466,11 @@ const getAdditionalResources = async (
   oystehr: Oystehr
 ): Promise<{
   labOrganization: Organization;
-  coverage?: Coverage;
-  location: Location;
   patientId: string;
+  coverage?: Coverage;
+  location?: Location;
 }> => {
+  const labName = orderableItem.lab.labName;
   const labGuid = orderableItem.lab.labGuid;
   const labOrganizationSearchRequest: BatchInputRequest<Organization> = {
     method: 'GET',
@@ -479,30 +505,32 @@ const getAdditionalResources = async (
   });
 
   if (accountSearchResults.length !== 1)
-    throw new Error('patient must have one account account record to represent a guarantor to order labs');
+    throw EXTERNAL_LAB_ERROR(
+      'Please update responsible party information - patient must have one active account record to represent a guarantor to order labs'
+    );
 
   const patientAccount = accountSearchResults[0];
   const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverageSearchResults);
 
   const missingRequiredResourcse: string[] = [];
   if (!patientId) missingRequiredResourcse.push('patient');
-  if (!location) missingRequiredResourcse.push('location');
-  if (!patientId || !location) {
-    throw new Error(
+  if (!patientId) {
+    throw EXTERNAL_LAB_ERROR(
       `The following resources could not be found for this encounter: ${missingRequiredResourcse.join(', ')}`
     );
   }
 
-  // todo throw defined error to allow for more clear / useful error message on front end
   const labOrganization = labOrganizationSearchResults?.[0];
   if (!labOrganization) {
-    throw new Error(`Could not find lab organization for lab guid ${labGuid}`);
+    throw EXTERNAL_LAB_ERROR(
+      `Organization resource for ${labName} may be misconfigured. No organization found for lab guid ${labGuid}`
+    );
   }
 
   return {
     labOrganization,
+    patientId,
     coverage: patientPrimaryInsurance,
     location,
-    patientId,
   };
 };

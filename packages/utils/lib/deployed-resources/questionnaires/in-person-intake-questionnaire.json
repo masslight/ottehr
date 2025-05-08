@@ -2975,7 +2975,7 @@
           },
           {
             "linkId": "consent-to-treat",
-            "text": "I have reviewed and accept [Consent to Treat and Guarantee of Payment](/consent_to_treat_template.pdf)",
+            "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
             "type": "boolean",
             "required": true
           },

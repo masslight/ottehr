@@ -400,8 +400,7 @@
       "zip": ".dist/zips/handle-lab-result.zip",
       "subscription": {
         "criteria": "DiagnosticReport?category=OSL",
-        "reason": "Received new preliminary or final lab result",
-        "event": "create"
+        "reason": "Received new preliminary or final lab result"
       }
     },
     "PAPERWORK-TO-PDF": {
@@ -872,6 +871,13 @@
         "reason": "Generate summary of chat with AI",
         "event": "update"
       }
+    },
+    "SEND-FAX": {
+      "name": "SEND-FAX",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/send-fax/index",
+      "zip": ".dist/zips/send-fax.zip"
     },
     "CREATE-SLOT": {
       "name": "CREATE-SLOT",

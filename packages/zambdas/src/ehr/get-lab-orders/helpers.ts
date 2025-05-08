@@ -39,6 +39,7 @@ import {
   getTimezone,
   sampleDTO,
   SPECIMEN_CODING_CONFIG,
+  RELATED_SPECIMEN_DEFINITION_SYSTEM,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -159,8 +160,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   if (searchBy.searchBy.field === 'serviceRequestId') {
     const detailedPageDTO: LabOrderDetailedPageDTO = {
       ...listPageDTO,
-      orderSource: parsePerformed(serviceRequest),
-      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, cache),
+      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, specimens, cache),
       accountNumber: parseAccountNumber(serviceRequest, organizations),
       resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
@@ -377,21 +377,25 @@ export const getLabResources = async (
     organizations,
     questionnaireResponses,
     specimens,
+    practitioners,
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
-  const [practitioners, appointments, finalAndPrelimTasks, questionnaires, documentReferences] = await Promise.all([
-    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
-    fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchFinalAndPrelimTasks(oystehr, diagnosticReports),
-    executeByCondition(isDetailPageRequest, () =>
-      fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
-    ),
-    executeByCondition(isDetailPageRequest, () =>
-      fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports)
-    ),
-  ]);
+  const [serviceRequsetPractitioners, appointments, finalAndPrelimTasks, questionnaires, documentReferences] =
+    await Promise.all([
+      fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+      fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
+      fetchFinalAndPrelimTasks(oystehr, diagnosticReports),
+      executeByCondition(isDetailPageRequest, () =>
+        fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
+      ),
+      executeByCondition(isDetailPageRequest, () =>
+        fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports)
+      ),
+    ]);
+
+  const allPractitioners = [...practitioners, ...serviceRequsetPractitioners];
 
   const labPDFs = await executeByCondition(isDetailPageRequest, () => fetchLabOrderPDFs(documentReferences, m2mtoken));
 
@@ -401,7 +405,7 @@ export const getLabResources = async (
     serviceRequests,
     tasks: [...preSubmissionTasks, ...finalAndPrelimTasks],
     diagnosticReports,
-    practitioners,
+    practitioners: allPractitioners,
     encounters,
     locations,
     observations,
@@ -516,6 +520,11 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_include',
       value: 'ServiceRequest:specimen',
     });
+
+    searchParams.push({
+      name: '_include:iterate',
+      value: 'Specimen:collector',
+    });
   }
 
   if (visitDate) {
@@ -540,6 +549,7 @@ export const extractLabResources = (
     | QuestionnaireResponse
     | Location
     | Specimen
+    | Practitioner
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -552,6 +562,7 @@ export const extractLabResources = (
   organizations: Organization[];
   questionnaireResponses: QuestionnaireResponse[];
   specimens: Specimen[];
+  practitioners: Practitioner[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -563,6 +574,7 @@ export const extractLabResources = (
   const organizations: Organization[] = [];
   const questionnaireResponses: QuestionnaireResponse[] = [];
   const specimens: Specimen[] = [];
+  const practitioners: Practitioner[] = [];
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -590,6 +602,8 @@ export const extractLabResources = (
       locations.push(resource);
     } else if (resource.resourceType === 'Specimen') {
       specimens.push(resource);
+    } else if (resource.resourceType === 'Practitioner') {
+      practitioners.push(resource);
     }
   }
 
@@ -604,6 +618,7 @@ export const extractLabResources = (
     organizations,
     questionnaireResponses,
     specimens,
+    practitioners,
   };
 };
 
@@ -1033,14 +1048,19 @@ export const parseReflexTestsCount = (
   return (reflexFinalResults.length || 0) + (reflexPrelimResults.length || 0);
 };
 
-export const parsePerformed = (serviceRequest: ServiceRequest): string => {
-  const NOT_FOUND = '';
+export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
+  const NOT_FOUND = '-';
 
-  if (parseIsPSC(serviceRequest)) {
-    return PSC_HOLD_CONFIG.display;
+  const collectedById = specimen.collection?.collector?.reference?.replace('Practitioner/', '');
+  if (collectedById) {
+    return parsePractitionerName(collectedById, practitioners);
   }
 
   return NOT_FOUND;
+};
+
+export const parsePerformedDate = (specimen: Specimen): string => {
+  return specimen.collection?.collectedDateTime || '-';
 };
 
 const extractCodesFromResults = (resultsMap: Map<string, DiagnosticReport>): Set<string> => {
@@ -1256,6 +1276,7 @@ export const parseLabOrdersHistory = (
   results: DiagnosticReport[],
   practitioners: Practitioner[],
   provenances: Provenance[],
+  specimens: Specimen[],
   cache?: Cache
 ): LabOrderHistoryRow[] => {
   const { orderedFinalTasks, reflexFinalTasks } =
@@ -1268,7 +1289,6 @@ export const parseLabOrdersHistory = (
 
   const orderedBy = parsePractitionerNameFromServiceRequest(serviceRequest, practitioners);
   const orderAddedDate = parseLabOrderAddedDate(serviceRequest, tasks, results, cache);
-  const performedBy = parsePerformed(serviceRequest);
 
   const history: LabOrderHistoryRow[] = [
     {
@@ -1278,13 +1298,21 @@ export const parseLabOrdersHistory = (
     },
   ];
 
-  if (performedBy) {
-    history.push({
-      action: 'performed',
-      performer: performedBy,
-      date: '-',
-    });
+  let performedBy = '-';
+  let performedByDate = '-';
+  if (parseIsPSC(serviceRequest)) {
+    performedBy = 'psc';
+  } else if (specimens.length > 0) {
+    // todo update in the future when we are handling multiple specimens
+    const specimen = specimens[0];
+    performedBy = parsePerformed(specimen, practitioners);
+    performedByDate = parsePerformedDate(specimen);
   }
+  history.push({
+    action: 'performed',
+    performer: performedBy,
+    date: performedByDate,
+  });
 
   const taggedReflexTasks = reflexFinalTasks.map((task) => ({ ...task, testType: 'reflex' }) as const);
   const taggedOrderedTasks = orderedFinalTasks.map((task) => ({ ...task, testType: 'ordered' }) as const);
@@ -1709,18 +1737,15 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
 
   for (let i = 0; i < specimenDefinitionRefs.length; i++) {
     const ref = specimenDefinitionRefs[i];
-
     if (!ref) {
       console.log('Error: No reference found in specimenDefinitionRefs');
       continue;
     }
 
     const specDefId = ref.startsWith('#') ? ref.substring(1) : ref;
-
     const specimenDefinition = serviceRequest.contained.find(
       (resource) => resource.resourceType === 'SpecimenDefinition' && resource.id === specDefId
     );
-
     if (!specimenDefinition) {
       console.log(`Error: SpecimenDefinition with id ${specDefId} not found in contained resources`);
       continue;
@@ -1730,7 +1755,6 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
       console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested.`);
       continue;
     }
-
     if (!Array.isArray(specimenDefinition.typeTested) || specimenDefinition.typeTested.length === 0) {
       console.log(`Error: SpecimenDefinition ${specDefId} is not array or empty.`);
       continue;
@@ -1738,7 +1762,6 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
 
     // by the dev design typeTestedInfo should have preferred preference
     const typeTestedInfo = specimenDefinition.typeTested.find((item) => item.preference === 'preferred');
-
     if (!typeTestedInfo) {
       console.log(`Error: SpecimenDefinition ${specDefId} has no typeTested with preference = 'preferred'`);
     }
@@ -1781,19 +1804,12 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
         return false;
       }
 
-      const isMatchInstructionCode = spec.collection?.method?.coding?.some(
-        (code) =>
-          code.system === SPECIMEN_CODING_CONFIG.collection.system &&
-          code.code === SPECIMEN_CODING_CONFIG.collection.code.collectionInstructions
-      );
-
-      if (!isMatchInstructionCode) {
+      const relatedSdId = spec.extension?.find((ext) => ext.url === RELATED_SPECIMEN_DEFINITION_SYSTEM)?.valueString;
+      if (!relatedSdId) {
         return false;
       }
 
-      const isMatchInstructionText = spec.collection?.method?.text === collectionInstructions;
-
-      return isMatchInstructionText;
+      return relatedSdId === specimenDefinition.id;
     });
 
     if (relatedSpecimens.length > 1) {

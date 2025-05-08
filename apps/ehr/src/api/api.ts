@@ -102,7 +102,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw new Error(JSON.stringify(error));
+    throw error;
   }
 };
 
