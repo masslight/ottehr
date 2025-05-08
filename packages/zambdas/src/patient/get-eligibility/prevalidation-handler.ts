@@ -13,13 +13,11 @@ import {
 import {
   BillingProviderDataObject,
   createFhirHumanName,
-  GetEligibilityInput,
   GetEligibilityInsuranceData,
   GetEligibilityPolicyHolder,
   GetEligibilityResponse,
   INSURANCE_COVERAGE_CODING,
   InsuranceEligibilityCheckStatus,
-  InsuranceEligibilityPrevalidationInput,
   InsurancePlanDTO,
   Secrets,
 } from 'utils';
@@ -27,13 +25,16 @@ import { createInsurancePlanDto, CreateRelatedPersonObject } from '../../shared'
 import {
   getInsurancePlansAndOrgs,
   makeCoverageEligibilityRequest,
-  parseEligibilityCheckResponse,
-  performEligibilityCheck,
+  parseEligibilityCheckResponsePromiseResult,
 } from './helpers';
-import { complexBillingProviderValidation, validateInsuranceRequirements } from './validation';
+import {
+  complexBillingProviderValidation,
+  EligibilityCheckPrevalidationStructuredInput,
+  validateInsuranceRequirements,
+} from './validation';
+import { DateTime } from 'luxon';
 
-interface Input extends Omit<GetEligibilityInput, 'coveragePrevalidationInput'> {
-  coveragePrevalidationInput: InsuranceEligibilityPrevalidationInput;
+interface Input extends EligibilityCheckPrevalidationStructuredInput {
   apiUrl: string;
   accessToken: string;
   secrets: Secrets | null;
@@ -128,7 +129,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     */
     billingProviderData = await complexBillingProviderValidation(
       { primary, secondary },
-      appointmentId,
+      appointmentId ?? '',
       input.secrets ?? null,
       oystehrClient
     );
@@ -197,10 +198,12 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
 
   const requestIds = batchResults.entry?.flatMap((e) => e?.resource?.id ?? []) ?? [];
 
+  const dateISO = DateTime.now().toISO();
   if (requestIds.length < coverages.length) {
     return {
-      primary: InsuranceEligibilityCheckStatus.eligibilityNotChecked,
-      secondary: coverages.length === 2 ? InsuranceEligibilityCheckStatus.eligibilityNotChecked : undefined,
+      primary: { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO },
+      secondary:
+        coverages.length === 2 ? { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO } : undefined,
     };
   }
 
@@ -212,7 +215,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     })
   );
   console.log('results', JSON.stringify(results, null, 2));
-  const eligibilityVerdicts = await Promise.all(results.map((p) => parseEligibilityCheckResponse(p)));
+  const eligibilityVerdicts = await Promise.all(results.map((p) => parseEligibilityCheckResponsePromiseResult(p)));
 
   console.log('eligibility verdicts', eligibilityVerdicts, results.length);
 
@@ -374,4 +377,20 @@ const getGender = (sex: string | undefined): 'male' | 'female' | 'unknown' | 'ot
     }
   }
   return 'unknown';
+};
+const performEligibilityCheck = (
+  coverageEligibilityRequestId: string | undefined,
+  projectApiURL: string,
+  oystehrToken: string
+): Promise<Response> => {
+  return fetch(`${projectApiURL}/rcm/eligibility-check`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      Authorization: `Bearer ${oystehrToken}`,
+    },
+    body: JSON.stringify({
+      eligibilityRequestId: coverageEligibilityRequestId,
+    }),
+  });
 };
