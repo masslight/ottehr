@@ -99,19 +99,16 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               <Button
                 variant="outlined"
                 startIcon={
-                  isLaunchingViewer ? (
-                    <CircularProgress size={16} color="inherit" />
-                  ) : (
-                    <Box
-                      sx={{
-                        fill: 'gray',
-                      }}
-                      component="img"
-                      src={radiologyIcon}
-                      style={{ width: '30px', marginRight: '8px' }}
-                    />
-                  )
+                  <Box
+                    sx={{
+                      fill: 'gray',
+                    }}
+                    component="img"
+                    src={radiologyIcon}
+                    style={{ width: '30px', marginRight: '8px' }}
+                  />
                 }
+                endIcon={isLaunchingViewer ? <CircularProgress size={16} color="inherit" /> : null}
                 onClick={() => handleViewImageClick()}
                 sx={{ borderRadius: '50px', textTransform: 'none' }}
                 disabled={order.status === 'pending' || isLaunchingViewer}
