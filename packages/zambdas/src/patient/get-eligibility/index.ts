@@ -13,7 +13,7 @@ import {
   getSecret,
 } from 'utils';
 import { getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
-import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponse } from './helpers';
+import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';
 
@@ -185,7 +185,7 @@ const checkEligibility = async ({
   eligibilityCheckResponse: Response;
   tagProps?: Omit<TagAppointmentWithEligibilityFailureReasonParameters, 'reason'>;
 }): Promise<InsuranceCheckStatusWithDate> => {
-  const res = await parseEligibilityCheckResponse(
+  const res = await parseEligibilityCheckResponsePromiseResult(
     await Promise.resolve({ status: 'fulfilled', value: eligibilityCheckResponse } as PromiseFulfilledResult<Response>)
   );
   if (res.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed) {

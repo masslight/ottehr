@@ -1,7 +1,22 @@
-import { Address, InsurancePlan, Location, Organization, Practitioner } from 'fhir/r4b';
+import {
+  Address,
+  Coverage,
+  CoverageEligibilityResponse,
+  InsurancePlan,
+  Location,
+  Organization,
+  Practitioner,
+} from 'fhir/r4b';
 
-import { APIErrorCode, BillingProviderData, BillingProviderResource } from '../types';
+import {
+  APIErrorCode,
+  BillingProviderData,
+  BillingProviderResource,
+  CoverageCheckCoverageDetails,
+  InsuranceEligibilityCheckStatus,
+} from '../types';
 import { getNPI, getTaxID } from './helpers';
+import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../main';
 
 export interface InsurancePlanResources {
   insurancePlan: InsurancePlan;
@@ -74,4 +89,80 @@ const getBillingProviderDataFromResource = (
     taxId,
     address,
   };
+};
+
+export const parseCoverageEligibilityResponse = (
+  coverageResponse: CoverageEligibilityResponse
+): { status: InsuranceEligibilityCheckStatus; dateISO: string } => {
+  const dateISO = coverageResponse.created;
+  try {
+    if (coverageResponse.error) {
+      const errors = coverageResponse.error.map((error) => ({
+        code: error.code.coding?.[0].code,
+        text: error.code.text,
+      }));
+      console.log('errors', JSON.stringify(errors));
+      const errorCodes = errors.map((error) => error.code);
+      const errorMessages = errors.map((error) => error.text);
+      if (errorCodes.includes('410')) {
+        // "Payer ID [<ID>] does not support real-time eligibility."
+        console.log('Payer does not support real-time eligibility. Bypassing.');
+        return { status: InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported, dateISO };
+      }
+      console.log(`eligibility check service failure reason(s): `, errorMessages.join(', '));
+      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
+    }
+    const eligible = coverageResponse.insurance?.[0].item?.some((item) => {
+      const code = item.category?.coding?.[0].code;
+      const isActive = item.benefit?.filter((benefit) => benefit.type.text === 'Active Coverage').length !== 0;
+      return isActive && code && ELIGIBILITY_BENEFIT_CODES.includes(code);
+    });
+
+    if (eligible) {
+      return { status: InsuranceEligibilityCheckStatus.eligibilityConfirmed, dateISO };
+    } else {
+      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
+    }
+  } catch (error: any) {
+    console.error('Error parsing eligibility check response', error);
+    return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO };
+  }
+};
+
+export const pullCoverageIdentifyingDetails = (coverage: Coverage): CoverageCheckCoverageDetails | undefined => {
+  const subscriberId = coverage.subscriberId;
+  const payorRef = coverage.payor?.[0]?.reference;
+
+  if (!subscriberId || !payorRef) {
+    return undefined;
+  }
+
+  return {
+    subscriberId,
+    payorRef,
+    planId: getPlanIdFromCoverage(coverage),
+  };
+};
+
+export const checkCoverageMatchesDetails = (coverage: Coverage, details: CoverageCheckCoverageDetails): boolean => {
+  const { subscriberId, payorRef, planId } = details;
+
+  const detailsForCoverage = pullCoverageIdentifyingDetails(coverage);
+  if (!detailsForCoverage) {
+    return false;
+  }
+  const { subscriberId: coverageSubscriberId, payorRef: coveragePayorRef, planId: coveragePlanId } = detailsForCoverage;
+  const subscriberIdMatches = subscriberId === coverageSubscriberId;
+  const payorRefMatches = payorRef === coveragePayorRef;
+  const planIdMatches = planId === coveragePlanId;
+  return subscriberIdMatches && payorRefMatches && planIdMatches;
+};
+
+export const getPlanIdFromCoverage = (coverage: Coverage): string | undefined => {
+  const planCoding = coverage.class?.find((entry) => {
+    return entry.type?.coding?.some((coding) => {
+      return coding.system === INSURANCE_PLAN_ID_CODING.system && coding.code === INSURANCE_PLAN_ID_CODING.code;
+    });
+  });
+  return planCoding?.value;
 };

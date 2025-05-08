@@ -13,6 +13,7 @@ import {
   ELIGIBILITY_BENEFIT_CODES,
   InsuranceEligibilityCheckStatus,
   InsurancePlanResources,
+  parseCoverageEligibilityResponse,
   removeTimeFromDate,
 } from 'utils';
 
@@ -140,7 +141,7 @@ export const makeCoverageEligibilityRequest = (
   return coverageEligibilityRequest;
 };
 
-export const parseEligibilityCheckResponse = async (
+export const parseEligibilityCheckResponsePromiseResult = async (
   eligibilityCheckResponse: PromiseFulfilledResult<Response> | PromiseRejectedResult
 ): Promise<{ status: InsuranceEligibilityCheckStatus; dateISO: string }> => {
   const now = DateTime.now().toISO();
@@ -155,36 +156,7 @@ export const parseEligibilityCheckResponse = async (
   try {
     const coverageResponse = (await eligibilityCheckResponse.value.json()) as CoverageEligibilityResponse;
     console.log('coverageResponse: ', JSON.stringify(coverageResponse, null, 2));
-    const dateISO = coverageResponse.meta?.lastUpdated ?? now;
-    if (coverageResponse.error) {
-      const errors = coverageResponse.error.map((error) => ({
-        code: error.code.coding?.[0].code,
-        text: error.code.text,
-      }));
-      console.log('errors', JSON.stringify(errors));
-      const errorCodes = errors.map((error) => error.code);
-      const errorMessages = errors.map((error) => error.text);
-      if (errorCodes.includes('410')) {
-        // "Payer ID [<ID>] does not support real-time eligibility."
-        console.log('Payer does not support real-time eligibility. Bypassing.');
-        return { status: InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported, dateISO };
-      }
-      console.log(`eligibility check service failure reason(s): `, errorMessages.join(', '));
-      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
-    }
-
-    const eligible = coverageResponse.insurance?.[0].item?.some((item) => {
-      const code = item.category?.coding?.[0].code;
-      const isActive = item.benefit?.filter((benefit) => benefit.type.text === 'Active Coverage').length !== 0;
-      return isActive && code && ELIGIBILITY_BENEFIT_CODES.includes(code);
-    });
-    // console.log('eligible', eligible);
-    if (eligible) {
-      return { status: InsuranceEligibilityCheckStatus.eligibilityConfirmed, dateISO };
-    } else {
-      // console.log('error result: ', JSON.stringify(coverageResponse.insurance?.[0].item, null, 2));
-      return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
-    }
+    return parseCoverageEligibilityResponse(coverageResponse);
   } catch (error: any) {
     console.error('API response included an error', error);
     return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO: now };

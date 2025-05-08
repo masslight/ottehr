@@ -38,7 +38,13 @@ export const RefreshableStatusChip = <StatusType extends string | number>({
 }: StatusChipProps<StatusType>): ReactElement => {
   const chipColors = styleMap[status];
 
-  const lastRefreshDateString = `Last checked: ${DateTime.fromISO(lastRefreshISO).toFormat('MM/dd/yyyy')}`;
+  const lastRefreshDateString: string = (() => {
+    const dt = DateTime.fromISO(lastRefreshISO);
+    if (dt.isValid) {
+      return `Last checked: ${DateTime.fromISO(lastRefreshISO).toFormat('MM/dd/yyyy')}`;
+    }
+    return '';
+  })();
 
   return (
     <Box

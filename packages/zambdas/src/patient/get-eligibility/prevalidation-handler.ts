@@ -22,7 +22,11 @@ import {
   Secrets,
 } from 'utils';
 import { createInsurancePlanDto, CreateRelatedPersonObject } from '../../shared';
-import { getInsurancePlansAndOrgs, makeCoverageEligibilityRequest, parseEligibilityCheckResponse } from './helpers';
+import {
+  getInsurancePlansAndOrgs,
+  makeCoverageEligibilityRequest,
+  parseEligibilityCheckResponsePromiseResult,
+} from './helpers';
 import {
   complexBillingProviderValidation,
   EligibilityCheckPrevalidationStructuredInput,
@@ -211,7 +215,7 @@ export const prevalidationHandler = async (input: Input, oystehrClient: Oystehr)
     })
   );
   console.log('results', JSON.stringify(results, null, 2));
-  const eligibilityVerdicts = await Promise.all(results.map((p) => parseEligibilityCheckResponse(p)));
+  const eligibilityVerdicts = await Promise.all(results.map((p) => parseEligibilityCheckResponsePromiseResult(p)));
 
   console.log('eligibility verdicts', eligibilityVerdicts, results.length);
 

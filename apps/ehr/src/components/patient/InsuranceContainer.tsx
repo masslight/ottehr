@@ -3,6 +3,7 @@ import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import {
   chooseJson,
+  CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
@@ -32,6 +33,7 @@ import { DateTime } from 'luxon';
 type InsuranceContainerProps = {
   ordinal: number;
   patientId: string;
+  initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
 };
@@ -51,12 +53,17 @@ export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusSty
   },
 };
 
-const ELIGIBILITY_STATI = ['ELIGIBLE', 'NOT ELIGIBLE', 'UNKNOWN'];
-function getRandomStatus(): SimpleStatusCheckWithDate {
-  const status = ELIGIBILITY_STATI[Math.floor(Math.random() * 3)] as EligibilityCheckSimpleStatus;
-  const nowish = DateTime.now().minus({ days: Math.floor(Math.random() * 10) });
-  const dateISO = nowish.toISODate() ?? '';
-  return { status, dateISO };
+function mapInitialStatus(
+  initialCheckResult: CoverageCheckWithDetails | undefined
+): SimpleStatusCheckWithDate | undefined {
+  if (initialCheckResult) {
+    const status = mapEligibilityCheckResultToSimpleStatus(initialCheckResult);
+    return {
+      status: status.status,
+      dateISO: DateTime.fromISO(status.dateISO).toFormat('MM/dd/yyyy'),
+    };
+  }
+  return undefined;
 }
 
 interface SimpleStatusCheckWithDate {
@@ -68,6 +75,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
   removeInProgress,
+  initialEligibilityCheck,
   handleRemoveClick,
 }) => {
   //console.log('insuranceId', insuranceId);
@@ -77,8 +85,9 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
 
-  // todo: no random status, obvi
-  const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate>(getRandomStatus());
+  const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
+    mapInitialStatus(initialEligibilityCheck)
+  );
 
   const { control, setValue, watch } = useFormContext();
 
@@ -190,8 +199,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const TitleWidget = (): ReactElement => {
     return (
       <RefreshableStatusChip
-        status={eligibilityStatus.status}
-        lastRefreshISO={eligibilityStatus.dateISO}
+        status={eligibilityStatus?.status ?? 'UNKNOWN'}
+        lastRefreshISO={eligibilityStatus?.dateISO ?? ''}
         styleMap={STATUS_TO_STYLE_MAP}
         isRefreshing={recheckEligibility.isLoading}
         handleRefresh={handleRecheckEligibility}
