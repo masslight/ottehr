@@ -1,19 +1,25 @@
-import { Button, Typography } from '@mui/material';
+import { Button, CircularProgress, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { radiologyLaunchViewer } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 import radiologyIcon from '../../../themes/ottehr/icons/mui-radiology.svg';
-import { RadiologyOrderLoading } from '../components/labs-orders/RadiologyOrderLoading';
 import { WithRadiologyBreadcrumbs } from '../components/labs-orders/RadiologyBreadcrumbs';
 import { RadiologyOrderHistoryCard } from '../components/labs-orders/RadiologyOrderHistoryCard';
+import { RadiologyOrderLoading } from '../components/labs-orders/RadiologyOrderLoading';
 import { RadiologyTableStatusChip } from '../components/labs-orders/RadiologyTableStatusChip';
 import { usePatientRadiologyOrders } from '../components/labs-orders/usePatientRadiologyOrders';
 
 export const RadiologyOrderDetailsPage: React.FC = () => {
+  const { oystehrZambda } = useApiClients();
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
   const navigate = useNavigate();
+
+  const [isLaunchingViewer, setIsLaunchingViewer] = useState(false);
+  const [launchViewerError, setLaunchViewerError] = useState<string | null>(null);
 
   const { orders, loading } = usePatientRadiologyOrders({
     serviceRequestId,
@@ -22,6 +28,33 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
   const handleBack = (): void => {
     navigate(-1);
   };
+
+  const handleViewImageClick = useCallback(async (): Promise<void> => {
+    setIsLaunchingViewer(true);
+    setLaunchViewerError(null);
+
+    if (!oystehrZambda) {
+      console.error('oystehrZambda is not defined');
+      return;
+    }
+
+    try {
+      const response = await radiologyLaunchViewer(oystehrZambda, {
+        serviceRequestId: serviceRequestId,
+      });
+
+      if (response) {
+        window.open(response.url, '_blank');
+      } else {
+        setLaunchViewerError('Could not launch viewer');
+      }
+    } catch (err) {
+      console.error('Error launching viewer:', err);
+      setLaunchViewerError('An error occurred launching the viewer');
+    } finally {
+      setIsLaunchingViewer(false);
+    }
+  }, [serviceRequestId, oystehrZambda]);
 
   const order = orders.find((order) => order.serviceRequestId === serviceRequestId);
 
@@ -66,21 +99,32 @@ export const RadiologyOrderDetailsPage: React.FC = () => {
               <Button
                 variant="outlined"
                 startIcon={
-                  <Box
-                    sx={{
-                      fill: 'gray',
-                    }}
-                    component="img"
-                    src={radiologyIcon}
-                    style={{ width: '30px', marginRight: '8px' }}
-                  />
+                  isLaunchingViewer ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <Box
+                      sx={{
+                        fill: 'gray',
+                      }}
+                      component="img"
+                      src={radiologyIcon}
+                      style={{ width: '30px', marginRight: '8px' }}
+                    />
+                  )
                 }
-                onClick={() => null} // todo: will be released in the future
+                onClick={() => handleViewImageClick()}
                 sx={{ borderRadius: '50px', textTransform: 'none' }}
-                disabled={order.status === 'pending'}
+                disabled={order.status === 'pending' || isLaunchingViewer}
               >
-                View Image
+                {isLaunchingViewer ? 'Launching Image...' : 'View Image'}
               </Button>
+
+              {launchViewerError && (
+                <Box sx={{ mt: 2, color: 'error.main' }}>
+                  <Typography color="error">{launchViewerError}</Typography>
+                </Box>
+              )}
+
               {order.result != null ? (
                 <Typography sx={{ mt: 2 }} variant="body2">
                   <div dangerouslySetInnerHTML={{ __html: atob(order.result) }} />

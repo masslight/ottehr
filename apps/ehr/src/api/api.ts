@@ -32,6 +32,8 @@ import {
   CreateSlotParams,
   apiErrorToThrow,
   CancelRadiologyOrderZambdaInput,
+  RadiologyLaunchViewerZambdaInput,
+  RadiologyLaunchViewerZambdaOutput,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -686,6 +688,22 @@ export const cancelRadiologyOrder = async (
       id: 'radiology-cancel-order',
       ...parameters,
     });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const radiologyLaunchViewer = async (
+  oystehr: Oystehr,
+  parameters: RadiologyLaunchViewerZambdaInput
+): Promise<RadiologyLaunchViewerZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-launch-viewer',
+      ...parameters,
+    });
+    return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
     throw error;
