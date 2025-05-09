@@ -1,5 +1,5 @@
+import { DiagnosisDTO, Pagination } from '../..';
 import { Questionnaire, Encounter, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
-import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
   item: OrderableItem;
@@ -128,12 +128,6 @@ export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
 }
   ? LabOrderDetailedPageDTO
   : LabOrderListPageDTO;
-
-export type Pagination = {
-  currentPageIndex: number;
-  totalItems: number;
-  totalPages: number;
-};
 
 export type PaginatedLabOrderResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
   data: LabOrderDTO<RequestParameters>[];
