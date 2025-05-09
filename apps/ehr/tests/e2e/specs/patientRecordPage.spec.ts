@@ -42,6 +42,7 @@ import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { openAddPatientPage } from '../page/AddPatientPage';
 import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
+import { expectPatientsPage } from '../page/PatientsPage';
 
 const NEW_PATIENT_LAST_NAME = 'Test_lastname';
 const NEW_PATIENT_FIRST_NAME = 'Test_firstname';
@@ -179,6 +180,38 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.enterMobileFromPcp('2222245');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
+  });
+
+  test('Click [x] from Patient info page without updating any data, Patient Record page is opened', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.clickCloseButton();
+    await expectPatientRecordPage(resourceHandler.patient.id!, page);
+  });
+
+  test('Click [x] from Patient info page after updating any field and reverting this changes, Patient Record page is opened', async ({
+    page,
+  }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
+    await patientInformationPage.enterPatientFirstName(PATIENT_FIRST_NAME);
+    await patientInformationPage.clickCloseButton();
+    await expectPatientRecordPage(resourceHandler.patient.id!, page);
+  });
+
+  test('Click on Patients Name breadcrumb, Patient Record page is opened', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.clickPatientNameBreadcrumb(
+      resourceHandler.patient.name?.[0]?.given?.[0] + ' ' + resourceHandler.patient.name?.[0].family
+    );
+    await expectPatientRecordPage(resourceHandler.patient.id!, page);
+  });
+
+  test('Click on Patients breadcrumb, Patients page is opened', async ({ page }) => {
+    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.clickPatientsBreadcrumb();
+    await expectPatientsPage(page);
   });
 });
 
