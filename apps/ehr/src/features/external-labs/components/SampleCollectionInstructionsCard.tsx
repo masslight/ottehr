@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DateTime } from 'luxon';
-import { Box, Button, Grid, Paper, TextField, Stack, Typography } from '@mui/material';
+import { Button, Grid, Paper, TextField, Stack, Typography } from '@mui/material';
 import { sampleDTO, SpecimenDateChangedParameters } from 'utils';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
@@ -86,7 +86,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
   };
 
   return (
-    <Box sx={{ marginTop: 2 }}>
+    <>
       <AccordionCard
         label={'Sample Collection Instructions'}
         collapsed={collapsed}
@@ -143,6 +143,6 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
           </Button>
         </Paper>
       </AccordionCard>
-    </Box>
+    </>
   );
 };
