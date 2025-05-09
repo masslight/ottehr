@@ -21,11 +21,3 @@ export const useAppointmentStore = create<AppointmentState & AppointmentStateAct
 );
 
 zustandDevtools('Telemed appointment', useAppointmentStore);
-
-export const usePastVisitsStore = create<AppointmentState & AppointmentStateActions>()(
-  persist((set) => ({ ...APPOINTMENT_STATE_INITIAL, setState: (state) => set({ ...state }) }), {
-    name: 'telemed-past-visits-storage',
-  })
-);
-
-zustandDevtools('Telemed past visits', usePastVisitsStore);

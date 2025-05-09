@@ -105,13 +105,13 @@ export interface ExaminationBlockData {
 }
 
 export interface ExternalLabsData {
-  locationName: string;
-  locationStreetAddress: string;
-  locationCity: string;
-  locationState: string;
-  locationZip: string;
-  locationPhone: string;
-  locationFax: string;
+  locationName?: string;
+  locationStreetAddress?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationZip?: string;
+  locationPhone?: string;
+  locationFax?: string;
   labOrganizationName: string;
   reqId: string;
   providerName: string;
@@ -128,6 +128,7 @@ export interface ExternalLabsData {
   todayDate: string;
   orderSubmitDate: string;
   orderCreateDate: string;
+  sampleCollectionDate?: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;

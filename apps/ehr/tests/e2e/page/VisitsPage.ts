@@ -38,7 +38,7 @@ export class VisitsPage {
       .click();
   }
 
-  async clickChatButton(appointmentId: string): Promise<void> {
+  async clickChatButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.chatButton).click();
   }
 
@@ -77,7 +77,12 @@ export class VisitsPage {
   }
 
   async clickOnVisit(appointmentId: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId)).click();
+    await this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId)).click({
+      position: {
+        x: 25,
+        y: 25,
+      },
+    });
   }
 }
 

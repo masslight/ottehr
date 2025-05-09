@@ -887,6 +887,12 @@
                 "valueString": "Tertiary"
               }
             ]
+          },
+          {
+            "linkId": "insurance-additional-information",
+            "text": "Additional insurance information",
+            "type": "string",
+            "required": false
           }
         ]
       },
@@ -1218,6 +1224,12 @@
                 "valueString": "Tertiary"
               }
             ]
+          },
+          {
+            "linkId": "insurance-additional-information-2",
+            "text": "Additional insurance information",
+            "type": "string",
+            "required": false
           }
         ]
       },

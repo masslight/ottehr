@@ -24,6 +24,11 @@ export const INSURANCE_COVERAGE_CODING = {
   code: 'HIP',
 };
 
+export const INSURANCE_PLAN_ID_CODING = {
+  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+  code: 'plan',
+};
+
 // Sorted in order of appearance in telemed flow
 export const QRS_TELEMED_COMMON_FIELDS = [
   'patient-street-address',

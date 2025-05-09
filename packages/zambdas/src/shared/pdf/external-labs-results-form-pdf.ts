@@ -6,12 +6,12 @@ import { PdfInfo, rgbNormalized } from './pdf-utils';
 import { LabResultsData } from './types';
 import {
   createFilesDocumentReferences,
-  isValidUUID,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
   LAB_RESULT_DOC_REF_CODING_CODE,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  LAB_RESTULT_PDF_BASE_NAME,
   Secrets,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
@@ -60,10 +60,6 @@ export async function createLabResultPDF(
   }
   if (!serviceRequest.reasonCode) {
     throw new Error('service request reasonCode is undefined');
-  }
-
-  if (!locationID || !isValidUUID(locationID)) {
-    throw new Error(`location id ${locationID} is not a uuid`);
   }
 
   if (!patient.id) {
@@ -141,10 +137,13 @@ export async function createLabResultPDF(
     }
   }
 
-  const location: Location = await oystehr.fhir.get({
-    resourceType: 'Location',
-    id: locationID,
-  });
+  let location: Location | undefined;
+  if (locationID) {
+    location = await oystehr.fhir.get<Location>({
+      resourceType: 'Location',
+      id: locationID,
+    });
+  }
 
   const now = DateTime.now();
   const orderID = serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
@@ -161,13 +160,13 @@ export async function createLabResultPDF(
 
   const pdfDetail = await createExternalLabsResultsFormPDF(
     {
-      locationName: location.name || ORDER_RESULT_ITEM_UNKNOWN,
-      locationStreetAddress: location.address?.line?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
-      locationCity: location.address?.city || ORDER_RESULT_ITEM_UNKNOWN,
-      locationState: location.address?.state || ORDER_RESULT_ITEM_UNKNOWN,
-      locationZip: location.address?.postalCode || ORDER_RESULT_ITEM_UNKNOWN,
-      locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
-      locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      locationName: location?.name,
+      locationStreetAddress: location?.address?.line?.join(','),
+      locationCity: location?.address?.city,
+      locationState: location?.address?.state,
+      locationZip: location?.address?.postalCode,
+      locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+      locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
       labOrganizationName: organization.name || ORDER_RESULT_ITEM_UNKNOWN,
       reqId: orderID || ORDER_RESULT_ITEM_UNKNOWN,
       providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_RESULT_ITEM_UNKNOWN,
@@ -263,6 +262,7 @@ export async function createLabResultPDF(
     patientID: patient.id,
     encounterID: encounter.id,
     diagnosticReportID: diagnosticReport.id,
+    reviewed,
   });
 }
 
@@ -276,6 +276,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const callIcon = './assets/call.png';
   const faxIcon = './assets/fax.png';
+
+  const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
+    data.locationState?.toUpperCase() || ''
+  }${data.locationState ? ' ' : ''}${data.locationZip?.toUpperCase() || ''}`;
 
   const styles = {
     image: {
@@ -614,14 +618,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   } else {
     drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}`);
   }
-  drawSubHeaderRight(`Ottehr${data.locationName}`);
+  drawSubHeaderRight(`Ottehr${data.locationName || ''}`);
   addNewLine();
   drawRegularTextLeft(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`);
-  drawRegularTextRight(
-    `${data.locationStreetAddress.toUpperCase()}, ${data.locationCity.toUpperCase()}, ${data.locationState.toUpperCase()}, ${
-      data.locationZip
-    }`
-  );
+  drawRegularTextRight(locationCityStateZip);
   addNewLine();
   drawRegularTextLeft(`ID: ${data.patientId}`);
   currXPos =
@@ -629,27 +629,29 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     styles.margin.x -
     imageWidth * 2 -
     regularTextWidth * 3 -
-    styles.regularText.font.widthOfTextAtSize(data.locationPhone, styles.regularText.fontSize) -
-    styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  await drawImage(callIcon);
+    styles.regularText.font.widthOfTextAtSize(data?.locationPhone || '', styles.regularText.fontSize) -
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  if (data?.locationPhone) await drawImage(callIcon);
   currXPos =
     width -
     styles.margin.x -
     imageWidth -
     regularTextWidth * 2 -
-    styles.regularText.font.widthOfTextAtSize(data.locationPhone, styles.regularText.fontSize) -
-    styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  drawRegularTextLeft(data.locationPhone);
+    styles.regularText.font.widthOfTextAtSize(data?.locationPhone || '', styles.regularText.fontSize) -
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  drawRegularTextLeft(data?.locationPhone || '');
   currXPos =
     width -
     styles.margin.x -
     imageWidth -
     regularTextWidth -
-    styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  await drawImage(faxIcon);
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  if (data?.locationFax) await drawImage(faxIcon);
   currXPos =
-    width - styles.margin.x - styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  drawRegularTextLeft(data.locationFax);
+    width -
+    styles.margin.x -
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  drawRegularTextLeft(data?.locationFax || '');
   currXPos = styles.margin.x;
   addNewLine();
   drawRegularTextLeft(data.patientPhone);
@@ -767,7 +769,7 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `ExternalLabsResultsForm${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
@@ -842,7 +844,7 @@ export async function makeLabPdfDocumentReference({
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [],
+    searchParams: [{ name: 'encounter', value: `Encounter/${encounterID}` }],
     listResources,
   });
   return docRefs[0];

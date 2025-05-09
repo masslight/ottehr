@@ -51,6 +51,13 @@ export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/l
 
 export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/added-via-lab-order';
 
+export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/related-specimen-definition';
+
+export const SPECIMEN_TYPE_CODING_SYSTEM = 'http://terminology.hl7.org/ValueSet/v2-0487';
+
+export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
+
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we dont like any of them, we have to change there too

@@ -154,7 +154,8 @@ const LAST_ACTIVE_THRESHOLD = 2; // minutes
 
 const patientPronounsNotListedValues = ['My pronounces are not listed', 'My pronouns are not listed'];
 const hipaaPatientDetailsKey = 'I have reviewed and accept HIPAA Acknowledgement';
-const consentToTreatPatientDetailsKey = 'I have reviewed and accept Consent to Treat and Guarantee of Payment';
+const consentToTreatPatientDetailsKey =
+  'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement';
 
 export default function AppointmentPage(): ReactElement {
   // variables
