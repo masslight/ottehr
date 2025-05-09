@@ -58,6 +58,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
         variant="h5"
         color="secondary.main"
         sx={{ width: '100%', fontSize: '20px', color: theme.palette.primary.dark, fontWeight: '600 !important' }}
+        data-testid={dataTestIds.dialog.title}
       >
         {title}
         {closeButton && (
@@ -69,6 +70,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
               right: 8,
               top: 8,
             }}
+            data-testid={dataTestIds.dialog.closeButton}
           >
             <Close />
           </IconButton>
@@ -96,6 +98,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
               mr: '8px',
               textTransform: 'none',
             }}
+            data-testid={dataTestIds.dialog.proceedButton}
           >
             {confirmText}
           </LoadingButton>
@@ -108,7 +111,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
             borderRadius: '100px',
             textTransform: 'none',
           }}
-          data-testid={dataTestIds.dialog.closeButton}
+          data-testid={dataTestIds.dialog.cancelButton}
         >
           {closeButtonText}
         </Button>

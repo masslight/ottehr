@@ -5,6 +5,7 @@ import { showEnvironmentBanner } from '../../App';
 import { BANNER_HEIGHT } from '../../helpers/misc.helper';
 import { useGetPatient } from '../../hooks/useGetPatient';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from './info';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
 type HeaderProps = {
   handleDiscard: () => void;
@@ -47,7 +48,7 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
         </Box>
       </Box>
       <Box>
-        <IconButton onClick={handleDiscard} aria-label="Close">
+        <IconButton onClick={handleDiscard} aria-label="Close" data-testid={dataTestIds.patientHeader.closeButton}>
           <CloseIcon />
         </IconButton>
       </Box>

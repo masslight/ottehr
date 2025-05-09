@@ -1,6 +1,7 @@
 import { ReactElement } from 'react';
 import { Breadcrumbs, useTheme } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
 interface ChainProps {
   link: string;
@@ -16,7 +17,7 @@ export default function CustomBreadcrumbs({ chain }: CustomBreadcrumbsProps): Re
   const theme = useTheme();
 
   return (
-    <Breadcrumbs aria-label="breadcrumb">
+    <Breadcrumbs aria-label="breadcrumb" data-testid={dataTestIds.patientInformationPage.breadcrumb}>
       {chain.map((child) => {
         const link = child.link === '#' ? location.pathname + location.search : child.link;
         return (
