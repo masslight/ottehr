@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Checkbox, TextField, Typography, useTheme } from '@mui/material';
+import { Autocomplete, Box, Checkbox, FormControlLabel, TextField, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import {
@@ -83,7 +83,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const { insurancePlans } = usePatientStore();
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
-  const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
 
   const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
     mapInitialStatus(initialEligibilityCheck)
@@ -118,6 +117,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const localIdentifyingData = watch(LocalIdentifyingFields);
   const selfSelected = watch(FormFields.relationship.key) === 'Self';
   const insurancePriority = watch(FormFields.insurancePriority.key);
+  const sameAsPatientAddress = watch(FormFields.policyHolderAddressAsPatient.key, false);
 
   useEffect(() => {
     if (sameAsPatientAddress || selfSelected) {
@@ -361,15 +361,26 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           </Row>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-              <Checkbox
-                data-testid={dataTestIds.insuranceContainer.policyHolderAdrressCheckbox}
-                checked={sameAsPatientAddress || selfSelected}
-                onChange={() => {
-                  setSameAsPatientAddress((currentVal) => !currentVal);
-                }}
-                disabled={selfSelected}
+              <Controller
+                name={FormFields.policyHolderAddressAsPatient.key}
+                control={control}
+                render={({ field: { value, ...field } }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        {...field}
+                        data-testid={dataTestIds.insuranceContainer.policyHolderAdrressCheckbox}
+                        checked={value}
+                        onChange={(e) => {
+                          const checked = (e.target as HTMLInputElement).checked;
+                          setValue(FormFields.policyHolderAddressAsPatient.key, checked, { shouldDirty: true });
+                        }}
+                      />
+                    }
+                    label={<Typography>Policy holder address is the same as patient's address</Typography>}
+                  />
+                )}
               />
-              <Typography>Policy holder address is the same as patient's address</Typography>
             </Box>
           </Box>
           <Row
