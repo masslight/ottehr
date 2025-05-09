@@ -375,6 +375,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                           const checked = (e.target as HTMLInputElement).checked;
                           setValue(FormFields.policyHolderAddressAsPatient.key, checked, { shouldDirty: true });
                         }}
+                        disabled={selfSelected}
                       />
                     }
                     label={<Typography>Policy holder address is the same as patient's address</Typography>}
