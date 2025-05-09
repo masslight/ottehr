@@ -1,14 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  createOystehrClient,
-  getEncounterForAppointment,
-  getSecret,
-  GetVisitDetailsResponse,
-  SecretsKeys,
-} from 'utils';
+import { createOystehrClient, getSecret, GetVisitDetailsResponse, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../../shared';
 import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+import { Appointment, Encounter } from 'fhir/r4b';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
@@ -30,9 +25,30 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     );
 
     let encounter = null;
+    let appointmentTime = 'unknown date';
 
     try {
-      encounter = await getEncounterForAppointment(appointmentId, oystehr);
+      const encounterResults = (
+        await oystehr.fhir.search<Encounter | Appointment>({
+          resourceType: 'Encounter',
+          params: [
+            {
+              name: 'appointment',
+              value: `Appointment/${appointmentId}`,
+            },
+            {
+              name: '_include',
+              value: 'Encounter:appointment',
+            },
+          ],
+        })
+      ).unbundle();
+      encounter = encounterResults.find((e) => e.resourceType === 'Encounter') as Encounter;
+      const appointment = encounterResults.find((e) => e.resourceType === 'Appointment') as Appointment;
+      if (!encounter || !encounter.id) {
+        throw new Error('Error getting appointment encounter');
+      }
+      appointmentTime = appointment?.start ?? encounter?.period?.start ?? 'unknown date';
     } catch (error) {
       console.log('getEncounterForAppointment', error);
     }
@@ -70,6 +86,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const response: GetVisitDetailsResponse = {
       files: documents || {},
       medications: medications || [],
+      appointmentTime,
       charge: {
         amount: paymentInfo?.amount || NaN,
         currency: paymentInfo?.currency || '',

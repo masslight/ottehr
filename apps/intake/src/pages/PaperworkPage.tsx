@@ -34,7 +34,7 @@ import {
   convertQuesitonnaireItemToQRLinkIdMap,
   convertQRItemToLinkIdMap,
 } from 'utils';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { PageContainer } from '../components';
 import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
@@ -43,7 +43,7 @@ import { persist } from 'zustand/middleware';
 import { DateTime } from 'luxon';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { useGetFullName } from '../hooks/useGetFullName';
-import api from '../api/zapehrApi';
+import api from '../api/ottehrApi';
 import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
@@ -182,7 +182,7 @@ export const PaperworkHome: FC = () => {
     const fetchAuthedPaperwork = async (apptId: string, zambdaClient: ZambdaClient): Promise<void> => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
-        const paperworkResponse = await zapehrApi.getPaperwork(zambdaClient, {
+        const paperworkResponse = await ottehrApi.getPaperwork(zambdaClient, {
           appointmentID: apptId,
         });
         setResponse(paperworkResponse);
@@ -591,13 +591,13 @@ const performComplexValidation = async (
       client
     );
     const { primary, secondary } = eligibilityRes;
-    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary }];
-    if (secondary != undefined) {
-      valueEntryValues.push({ valueString: secondary });
+    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary!.status }];
+    if (secondary?.status != undefined) {
+      valueEntryValues.push({ valueString: secondary?.status });
     }
     if (
-      primary === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
-      primary === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
     ) {
       return {
         type: 'success',
@@ -609,12 +609,12 @@ const performComplexValidation = async (
       let message = '';
       let title = '';
       let attemptCureAction: string | undefined;
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
         title = 'Coverage could not be verified';
         message =
           'System not responding; unable to verify eligibility. Proceed to the next screen to continue as self-pay.';
       }
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
         title = 'Coverage not found';
         message =
           'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or continue as self-pay';

@@ -2,15 +2,22 @@ import { Table, TableRow, TableCell } from '@mui/material';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
+import { DateTime } from 'luxon';
 
 interface OrderHistoryProps {
   isLoading?: boolean;
   isCollapsed?: boolean;
   orderHistory?: LabOrderHistoryRow[];
+  timezone: string | undefined;
 }
 
-export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = false, orderHistory = [] }) => {
+export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = false, orderHistory = [], timezone }) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
+
+  const formatDate = (datetime: string | undefined): string => {
+    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
+    return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
+  };
 
   return (
     <>
@@ -30,7 +37,7 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = fa
               <TableRow key={`${row.action}-${row.performer}-${row.date}`}>
                 <TableCell>{actionDescription}</TableCell>
                 <TableCell>{row.performer}</TableCell>
-                <TableCell>{row.date}</TableCell>
+                <TableCell>{formatDate(row.date)}</TableCell>
               </TableRow>
             );
           })}

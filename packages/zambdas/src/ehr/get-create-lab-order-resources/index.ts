@@ -11,6 +11,9 @@ import {
   OrderableItemSearchResult,
   LabOrderResourcesRes,
   CODE_SYSTEM_COVERAGE_CLASS,
+  EXTERNAL_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
 import { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { Coverage, Account, Organization, FhirResource } from 'fhir/r4b';
@@ -30,7 +33,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
     const patientId = encounter.subject?.reference?.replace('Patient/', '');
-    if (!patientId) throw new Error('Encounter is misconfigured and does not contain a patient subject');
+    if (!patientId) throw EXTERNAL_LAB_ERROR('Encounter is misconfigured and does not contain a patient subject');
 
     const coverageSearchRequest: BatchInputRequest<Coverage> = {
       method: 'GET',
@@ -68,10 +71,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (accounts.length !== 1)
       // there should only be one active account
-      throw new Error('patient must have one active account record to represent a guarantor to order labs');
+      throw EXTERNAL_LAB_ERROR(
+        'Please update responsible party information - patient must have one active account record to represent a guarantor to order labs'
+      );
     const patientAccount = accounts[0];
     if (!patientAccount.guarantor) {
-      throw new Error('patient must have an account with a guarantor resource to order labs');
+      throw EXTERNAL_LAB_ERROR(
+        'Please update responsible party information - patient must have an account with a guarantor resource to order labs'
+      );
     }
     const isSelfPay = !patientAccount.coverage?.length ? true : false;
     const patientPrimaryInsurance = getPrimaryInsurance(patientAccount, coverages);
@@ -79,9 +86,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       (c) => c.type.coding?.find((code) => code.system === CODE_SYSTEM_COVERAGE_CLASS)
     )?.name;
     if (!patientPrimaryInsurance && !isSelfPay)
-      throw new Error('patient must have insurance or have designated self pay to order labs');
+      throw EXTERNAL_LAB_ERROR(
+        'Please update patient payment information - patient must have insurance or have designated self pay to order labs'
+      );
     if (patientPrimaryInsurance && !primaryInsuranceName)
-      throw new Error('insurance appears to be malformed, cannot reconcile insurance class name');
+      throw EXTERNAL_LAB_ERROR('Insurance appears to be malformed, cannot reconcile insurance class name');
     const coverageName = primaryInsuranceName ?? 'Self Pay';
 
     const labs = await getLabs(labOrgsGuids, m2mtoken);
@@ -97,9 +106,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     await topLevelCatch('admin-get-create-lab-order-resources', error, input.secrets);
+    let body = JSON.stringify({ message: `Error getting resources for create lab order: ${error}` });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error getting resources for create lab order: ${error}` }),
+      body,
     };
   }
 };

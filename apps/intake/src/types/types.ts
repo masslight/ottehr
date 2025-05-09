@@ -55,6 +55,7 @@ export interface Appointment {
   checkedIn: boolean;
   visitType: string;
   visitStatus: VisitStatusLabel;
+  slotId?: string;
 }
 
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';

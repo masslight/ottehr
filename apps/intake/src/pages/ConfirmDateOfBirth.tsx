@@ -1,23 +1,14 @@
 import { Typography } from '@mui/material';
 import { PageContainer } from '../components';
-import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import ConfirmDateOfBirthForm from '../components/ConfirmDateOfBirthForm';
-import { useBookingContext } from './Welcome';
+import { useBookingContext } from './BookingHome';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useTranslation } from 'react-i18next';
 
 const ConfirmDateOfBirth = (): JSX.Element => {
-  const { visitType, selectedLocation, patientInfo, unconfirmedDateOfBirth, setUnconfirmedDateOfBirth } =
-    useBookingContext();
+  const { patientInfo, unconfirmedDateOfBirth, setUnconfirmedDateOfBirth } = useBookingContext();
   const navigateInFlow = useNavigateInFlow();
   const { t } = useTranslation();
-
-  useTrackMixpanelEvents({
-    eventName: 'Confirm Date of Birth',
-    visitType: visitType,
-    bookingCity: selectedLocation?.address?.city,
-    bookingState: selectedLocation?.address?.state,
-  });
 
   const handleContinueAnywaySubmit = (): void => {
     navigateInFlow('patient-information');

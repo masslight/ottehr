@@ -2,7 +2,7 @@ import { useUCZambdaClient } from 'ui-components';
 import { PageContainer } from '../components';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
-import api from '../api/zapehrApi';
+import api from '../api/ottehrApi';
 import { Box } from '@mui/system';
 import { Button, TextField } from '@mui/material';
 import { Send } from '@mui/icons-material';

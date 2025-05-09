@@ -15,7 +15,7 @@ import {
   VisitType,
 } from 'utils';
 import { otherColors, palette } from '../IntakeThemeProvider';
-import zapehrApi from '../api/zapehrApi';
+import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
@@ -55,7 +55,7 @@ const CheckIn = (): JSX.Element => {
         throw new Error('zambda client is undefined');
       }
       if (!checkIn) {
-        setCheckIn(await zapehrApi.checkIn(zambdaClient, appointmentID || ''));
+        setCheckIn(await ottehrApi.checkIn(zambdaClient, appointmentID || ''));
       }
       setLoading(false);
     }

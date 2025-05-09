@@ -8,6 +8,7 @@ let flowClass: PrebookInPersonFlow;
 let locator: Locators;
 let visitData: Awaited<ReturnType<PrebookInPersonFlow['goToReviewPage']>>;
 let commonLocators: CommonLocatorsHelper;
+let scheduleOwnerTypeExpected = 'Location';
 
 test.beforeAll(async ({ browser }) => {
   page = await browser.newPage();
@@ -15,10 +16,18 @@ test.beforeAll(async ({ browser }) => {
   locator = new Locators(page);
   commonLocators = new CommonLocatorsHelper(page);
   visitData = await flowClass.goToReviewPage();
+  expect.soft(visitData.slotDetails).toBeDefined();
+  const ownerType = visitData.slotDetails?.ownerType;
+  if (ownerType === 'Practitioner') {
+    scheduleOwnerTypeExpected = 'Provider';
+  } else if (ownerType === 'HealthcareService') {
+    scheduleOwnerTypeExpected = 'Group';
+  }
 });
 
 test('Review and Submit Screen check data is correct', async () => {
   await test.step('Check title is visible', async () => {
+    expect.soft(visitData.slotDetails).toBeDefined();
     await expect.soft(locator.flowHeading).toHaveText('Review and submit');
   });
 
@@ -31,7 +40,7 @@ test('Review and Submit Screen check data is correct', async () => {
   });
 
   await test.step('Check location title is visible', async () => {
-    await expect.soft(locator.titleLocation).toBeVisible();
+    await expect.soft(page.getByText(scheduleOwnerTypeExpected)).toBeVisible();
   });
 
   await test.step('Check visit details title is visible', async () => {
@@ -59,7 +68,8 @@ test('Review and Submit Screen check data is correct', async () => {
   });
 
   await test.step('Check location value is correct', async () => {
-    await commonLocators.checkLocationValueIsCorrect(visitData.location ?? null);
+    expect.soft(visitData.slotDetails?.ownerName).toBeDefined();
+    await commonLocators.checkLocationValueIsCorrect(visitData.slotDetails?.ownerName ?? null);
   });
 
   await test.step('Check privacy policy link', async () => {

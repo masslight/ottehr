@@ -1,4 +1,4 @@
-import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse } from 'fhir/r4b';
+import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   Closure,
@@ -9,6 +9,7 @@ import {
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
+  WalkinAvailabilityCheckParams,
   HandleAnswerInput,
   PatchPaperworkParameters,
   PatientInfo,
@@ -23,6 +24,10 @@ import {
   chooseJson,
   isApiError,
   isoStringFromMDYString,
+  WalkinAvailabilityCheckResult,
+  CreateSlotParams,
+  GetSlotDetailsParams,
+  GetSlotDetailsResponse,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -55,6 +60,9 @@ const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBD
 const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START_ZAMBDA_ID;
 const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
 const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID;
+const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
+const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
+const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 
 export interface AvailableLocationInformation {
   id: string | undefined;
@@ -165,7 +173,7 @@ class API {
     }
   }
 
-  async getPatients(zambdaClient: ZambdaClient): Promise<any> {
+  async getPatients(zambdaClient: ZambdaClient): Promise<{ patients: PatientInfo[] }> {
     try {
       if (GET_PATIENTS_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('get patients environment variable could not be loaded');
@@ -403,7 +411,38 @@ class API {
 
       const response = await zambdaClient.execute(GET_ELIGIBILITY_ZAMBDA_ID, input);
       const jsonToUse = chooseJson(response);
-      console.log('json from get eligibility', jsonToUse);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+  async getWalkinAvailability(
+    input: WalkinAvailabilityCheckParams,
+    zambdaClient: ZambdaClient
+  ): Promise<WalkinAvailabilityCheckResult> {
+    try {
+      const response = await zambdaClient.executePublic(GET_WALKIN_AVAILABILITY_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async createSlot(input: CreateSlotParams, zambdaClient: ZambdaClient): Promise<Slot> {
+    try {
+      const response = await zambdaClient.executePublic(CREATE_SLOT_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response);
+      return jsonToUse;
+    } catch (error: unknown) {
+      throw apiErrorToThrow(error);
+    }
+  }
+
+  async getSlotDetails(input: GetSlotDetailsParams, zambdaClient: ZambdaClient): Promise<GetSlotDetailsResponse> {
+    try {
+      const response = await zambdaClient.executePublic(GET_SLOT_DETAILS_ZAMBDA_ID, input);
+      const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);

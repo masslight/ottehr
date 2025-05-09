@@ -2,18 +2,19 @@ import { Autocomplete, AutocompleteRenderInputParams, TextField } from '@mui/mat
 import { ReactElement, useEffect, useMemo, useState } from 'react';
 
 import Oystehr from '@oystehr/sdk';
-import { Location } from 'fhir/r4b';
+import { Location, Schedule } from 'fhir/r4b';
 import { useNavigate } from 'react-router-dom';
 import { isLocationVirtual } from 'utils';
 import { sortLocationsByLabel } from '../helpers';
 import { useApiClients } from '../hooks/useAppClients';
 import { dataTestIds } from '../constants/data-test-ids';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
 
 interface LocationSelectProps {
-  location?: Location | undefined;
-  setLocation: (location: Location | undefined) => void;
+  location?: LocationWithWalkinSchedule | undefined;
+  setLocation: (location: LocationWithWalkinSchedule | undefined) => void;
   updateURL?: boolean;
   storeLocationInLocalStorage?: boolean;
   required?: boolean;
@@ -39,7 +40,7 @@ export default function LocationSelect({
   renderInputProps,
 }: LocationSelectProps): ReactElement {
   const { oystehr } = useApiClients();
-  const [locations, setLocations] = useState<Location[]>([]);
+  const [locations, setLocations] = useState<LocationWithWalkinSchedule[]>([]);
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const navigate = useNavigate();
   useEffect(() => {
@@ -57,14 +58,29 @@ export default function LocationSelect({
       setLoadingState(LoadingState.loading);
 
       try {
-        let locationsResults = (
-          await oystehr.fhir.search<Location>({
+        const searchResults = (
+          await oystehr.fhir.search<Location | Schedule>({
             resourceType: 'Location',
-            params: [{ name: '_count', value: '1000' }],
+            params: [
+              { name: '_count', value: '1000' },
+              { name: '_revinclude', value: 'Schedule:actor:Location' },
+            ],
           })
         ).unbundle();
-        locationsResults = locationsResults.filter((loc) => !isLocationVirtual(loc));
-        setLocations(locationsResults);
+        const locationsResults = searchResults.filter(
+          (loc) => loc.resourceType === 'Location' && !isLocationVirtual(loc)
+        );
+        const mappedLocations: LocationWithWalkinSchedule[] = locationsResults.map((locationTemp) => {
+          const location = locationTemp as LocationWithWalkinSchedule;
+          const schedule = searchResults.find((scheduleTemp) => {
+            return (
+              scheduleTemp.resourceType === 'Schedule' &&
+              scheduleTemp.actor?.some((actor) => actor.reference === `Location/${location.id}`)
+            );
+          }) as Schedule;
+          return { ...location, walkinSchedule: schedule };
+        });
+        setLocations(mappedLocations);
       } catch (e) {
         console.error('error loading locations', e);
       } finally {

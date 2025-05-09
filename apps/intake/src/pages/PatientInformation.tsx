@@ -8,8 +8,10 @@ import {
   getDateComponentsFromISOString,
   isoStringFromDateComponents,
   PatientInfo,
+  PersonSex,
   REASON_ADDITIONAL_DISPLAY_CHAR,
   REASON_ADDITIONAL_MAX_CHAR,
+  ServiceMode,
 } from 'utils';
 import { PageContainer } from '../components';
 import {
@@ -18,10 +20,11 @@ import {
   PatientSexOptions,
   ReasonForVisitOptions,
 } from '../features/patients';
-import { getStartingPath } from '../helpers';
 import { getPatientAgeDependentDataWithPatientData } from '../helpers/validation';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
-import { useBookingContext } from './Welcome';
+import { useBookingContext } from './BookingHome';
+import { bookingBasePath } from '../App';
+import { DateTime } from 'luxon';
 
 interface PatientInformation {
   dobYear: string | undefined;
@@ -44,9 +47,8 @@ const PatientInformation = (): JSX.Element => {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const { patients, patientInfo, unconfirmedDateOfBirth, selectedLocation, visitType, serviceType, setPatientInfo } =
-    useBookingContext();
-  const selectPatientPageUrl = getStartingPath(selectedLocation, visitType, serviceType) + '/patients';
+  const { patients, slotId, patientInfo, unconfirmedDateOfBirth, serviceMode, setPatientInfo } = useBookingContext();
+  const selectPatientPageUrl = `${bookingBasePath}/${slotId}/patients`;
 
   // console.log('patient info', patientInfo);
 
@@ -77,134 +79,251 @@ const PatientInformation = (): JSX.Element => {
     return getDateComponentsFromISOString(patientInfo?.dateOfBirth);
   }, [patientInfo?.dateOfBirth]);
 
-  const formElements: FormInputType[] = useMemo(
-    () => [
-      {
-        type: 'Text',
-        name: 'firstName',
-        label: t('aboutPatient.patientName.legalFirstName'),
-        placeholder: t('aboutPatient.patientName.placeholderFirstName'),
-        defaultValue: patientInfo?.firstName,
-        required: patientInfo?.newPatient,
-        hidden: !patientInfo?.newPatient,
-      },
-      {
-        type: 'Text',
-        name: 'middleName',
-        label: t('aboutPatient.patientName.legalMiddleName'),
-        placeholder: t('aboutPatient.patientName.placeholderMiddleName'),
-        defaultValue: patientInfo?.middleName,
-        required: false,
-        hidden: middleNameStored,
-      },
-      {
-        type: 'Text',
-        name: 'lastName',
-        label: t('aboutPatient.patientName.legalLastName'),
-        placeholder: t('aboutPatient.patientName.placeholderLastName'),
-        defaultValue: patientInfo?.lastName,
-        required: patientInfo?.newPatient,
-        hidden: !patientInfo?.newPatient,
-      },
-      {
-        type: 'Date',
-        name: 'dateOfBirth',
-        label: t('aboutPatient.birthDate.label'),
-        required: patientInfo?.newPatient,
-        hidden: !patientInfo?.newPatient,
-        fieldMap: {
-          day: 'dobDay',
-          month: 'dobMonth',
-          year: 'dobYear',
+  const formElements: FormInputType[] = useMemo(() => {
+    if (serviceMode === ServiceMode.virtual) {
+      return [
+        {
+          type: 'Text',
+          name: 'firstName',
+          label: 'First name (legal)',
+          placeholder: 'First name',
+          defaultValue: patientInfo?.firstName,
+          required: patientInfo?.newPatient,
+          hidden: !patientInfo?.newPatient,
         },
-        fields: [
-          {
-            type: 'Date Year',
-            name: 'dobYear',
-            label: t('aboutPatient.birthDate.labelYear'),
-            defaultValue: patientInfo?.dobYear ?? defaultDateComponents.year,
-            required: patientInfo?.newPatient,
-            hidden: !patientInfo?.newPatient,
-          },
-          {
-            type: 'Date Month',
-            name: 'dobMonth',
-            label: t('aboutPatient.birthDate.labelMonth'),
-            defaultValue: patientInfo?.dobMonth ?? defaultDateComponents.month,
-            required: patientInfo?.newPatient,
-            hidden: !patientInfo?.newPatient,
-          },
-          {
-            type: 'Date Day',
-            name: 'dobDay',
-            label: t('aboutPatient.birthDate.labelDay'),
-            defaultValue: patientInfo?.dobDay ?? defaultDateComponents.day,
-            required: patientInfo?.newPatient,
-            hidden: !patientInfo?.newPatient,
-          },
-        ],
-      },
-      {
-        type: 'Select',
-        name: 'sex',
-        label: t('aboutPatient.birthSex.label'),
-        defaultValue: patientInfo?.sex,
-        selectOptions: PatientSexOptions.map((sex) => {
-          return { value: sex, label: t(`paperworkPages.${sex}`) };
-        }),
-        required: true,
-        infoTextSecondary: t('aboutPatient.birthSex.whyAskDescription'),
-      },
-      {
-        type: 'Text',
-        name: 'email',
-        label: t('aboutPatient.email.label'),
-        format: 'Email',
-        defaultValue: defaultEmail,
-        required: true,
-      },
-      {
-        type: 'Select',
-        name: 'reasonForVisit',
-        label: t('aboutPatient.reasonForVisit.label'),
-        defaultValue: patientInfo?.reasonForVisit,
-        selectOptions: ReasonForVisitOptions.map((reason) => {
-          return { value: reason, label: t(`paperworkPages.${reason}`) };
-        }),
-        required: true,
-      },
-      {
-        type: 'Text',
-        name: 'reasonAdditional',
-        label: 'Tell us more (optional)',
-        defaultValue: patientInfo?.reasonAdditional,
-        multiline: true,
-        maxRows: 2,
-        maxCharacters: {
-          totalCharacters: REASON_ADDITIONAL_MAX_CHAR,
-          displayCharCount: REASON_ADDITIONAL_DISPLAY_CHAR,
+        {
+          type: 'Text',
+          name: 'middleName',
+          label: 'Middle name (legal)',
+          placeholder: 'Middle name',
+          defaultValue: patientInfo?.middleName,
+          hidden: !patientInfo?.newPatient,
         },
-      },
-    ],
-    [
-      t,
-      patientInfo?.firstName,
-      patientInfo?.newPatient,
-      patientInfo?.lastName,
-      patientInfo?.middleName,
-      patientInfo?.dobYear,
-      patientInfo?.dobMonth,
-      patientInfo?.dobDay,
-      patientInfo?.sex,
-      patientInfo?.reasonForVisit,
-      patientInfo?.reasonAdditional,
-      defaultDateComponents.year,
-      defaultDateComponents.month,
-      defaultDateComponents.day,
-      defaultEmail,
-      middleNameStored,
-    ]
-  );
+        {
+          type: 'Text',
+          name: 'lastName',
+          label: 'Last name (legal)',
+          placeholder: 'Last name',
+          defaultValue: patientInfo?.lastName,
+          required: patientInfo?.newPatient,
+          hidden: !patientInfo?.newPatient,
+        },
+        {
+          type: 'Text',
+          name: 'chosenName',
+          label: 'Chosen or preferred name (optional)',
+          placeholder: 'Chosen name',
+          defaultValue: patientInfo?.chosenName,
+        },
+        {
+          type: 'Date',
+          name: 'dateOfBirth',
+          label: t('aboutPatient.birthDate.label'),
+          required: patientInfo?.newPatient,
+          hidden: !patientInfo?.newPatient,
+          fieldMap: {
+            day: 'dobDay',
+            month: 'dobMonth',
+            year: 'dobYear',
+          },
+          fields: [
+            {
+              type: 'Date Year',
+              name: 'dobYear',
+              label: t('aboutPatient.birthDate.labelYear'),
+              defaultValue: patientInfo?.dobYear ?? defaultDateComponents.year,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+            {
+              type: 'Date Month',
+              name: 'dobMonth',
+              label: t('aboutPatient.birthDate.labelMonth'),
+              defaultValue: patientInfo?.dobMonth ?? defaultDateComponents.month,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+            {
+              type: 'Date Day',
+              name: 'dobDay',
+              label: t('aboutPatient.birthDate.labelDay'),
+              defaultValue: patientInfo?.dobDay ?? defaultDateComponents.day,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+          ],
+        },
+        {
+          type: 'Select',
+          name: 'sex',
+          label: "Patient's birth sex",
+          defaultValue: patientInfo?.sex,
+          required: true,
+          hidden: !patientInfo?.newPatient,
+          infoTextSecondary:
+            'Our care team uses this to inform treatment recommendations and share helpful information regarding potential medication side effects, as necessary.',
+          selectOptions: Object.entries(PersonSex).map(([key, value]) => {
+            return {
+              label: key,
+              value: value,
+            };
+          }),
+        },
+        {
+          type: 'Text',
+          format: 'Decimal',
+          name: 'weight',
+          label: 'Patient weight (lbs)',
+          infoTextSecondary: 'Entering correct information in this box will help us with prescription dosing.',
+          defaultValue: patientInfo?.weight,
+          helperText: patientInfo?.newPatient
+            ? undefined
+            : `Weight last updated: ${
+                patientInfo?.weightLastUpdated
+                  ? DateTime.fromFormat(patientInfo.weightLastUpdated, 'yyyy-LL-dd').toFormat('MM/dd/yyyy')
+                  : 'N/A'
+              }`,
+          showHelperTextIcon: false,
+        },
+        {
+          type: 'Text',
+          name: 'email',
+          label: 'Email',
+          format: 'Email',
+          defaultValue: patientInfo?.email,
+          required: true,
+        },
+        {
+          type: 'Select',
+          name: 'reasonForVisit',
+          label: t('aboutPatient.reasonForVisit.label'),
+          defaultValue: patientInfo?.reasonForVisit,
+          selectOptions: ReasonForVisitOptions.map((reason) => {
+            return { value: reason, label: t(`paperworkPages.${reason}`) };
+          }),
+          required: true,
+        },
+      ];
+    } else {
+      return [
+        {
+          type: 'Text',
+          name: 'firstName',
+          label: t('aboutPatient.patientName.legalFirstName'),
+          placeholder: t('aboutPatient.patientName.placeholderFirstName'),
+          defaultValue: patientInfo?.firstName,
+          required: patientInfo?.newPatient,
+          hidden: !patientInfo?.newPatient,
+        },
+        {
+          type: 'Text',
+          name: 'middleName',
+          label: t('aboutPatient.patientName.legalMiddleName'),
+          placeholder: t('aboutPatient.patientName.placeholderMiddleName'),
+          defaultValue: patientInfo?.middleName,
+          required: false,
+          hidden: middleNameStored,
+        },
+        {
+          type: 'Text',
+          name: 'lastName',
+          label: t('aboutPatient.patientName.legalLastName'),
+          placeholder: t('aboutPatient.patientName.placeholderLastName'),
+          defaultValue: patientInfo?.lastName,
+          required: patientInfo?.newPatient,
+          hidden: !patientInfo?.newPatient,
+        },
+        {
+          type: 'Date',
+          name: 'dateOfBirth',
+          label: t('aboutPatient.birthDate.label'),
+          required: patientInfo?.newPatient,
+          hidden: !patientInfo?.newPatient,
+          fieldMap: {
+            day: 'dobDay',
+            month: 'dobMonth',
+            year: 'dobYear',
+          },
+          fields: [
+            {
+              type: 'Date Year',
+              name: 'dobYear',
+              label: t('aboutPatient.birthDate.labelYear'),
+              defaultValue: patientInfo?.dobYear ?? defaultDateComponents.year,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+            {
+              type: 'Date Month',
+              name: 'dobMonth',
+              label: t('aboutPatient.birthDate.labelMonth'),
+              defaultValue: patientInfo?.dobMonth ?? defaultDateComponents.month,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+            {
+              type: 'Date Day',
+              name: 'dobDay',
+              label: t('aboutPatient.birthDate.labelDay'),
+              defaultValue: patientInfo?.dobDay ?? defaultDateComponents.day,
+              required: patientInfo?.newPatient,
+              hidden: !patientInfo?.newPatient,
+            },
+          ],
+        },
+        {
+          type: 'Select',
+          name: 'sex',
+          label: t('aboutPatient.birthSex.label'),
+          defaultValue: patientInfo?.sex,
+          selectOptions: PatientSexOptions.map((sex) => {
+            return { value: sex, label: t(`paperworkPages.${sex}`) };
+          }),
+          required: true,
+          infoTextSecondary: t('aboutPatient.birthSex.whyAskDescription'),
+        },
+        {
+          type: 'Text',
+          name: 'email',
+          label: t('aboutPatient.email.label'),
+          format: 'Email',
+          defaultValue: defaultEmail,
+          required: true,
+        },
+        {
+          type: 'Select',
+          name: 'reasonForVisit',
+          label: t('aboutPatient.reasonForVisit.label'),
+          defaultValue: patientInfo?.reasonForVisit,
+          selectOptions: ReasonForVisitOptions.map((reason) => {
+            return { value: reason, label: t(`paperworkPages.${reason}`) };
+          }),
+          required: true,
+        },
+        {
+          type: 'Text',
+          name: 'reasonAdditional',
+          label: 'Tell us more (optional)',
+          defaultValue: patientInfo?.reasonAdditional,
+          multiline: true,
+          maxRows: 2,
+          maxCharacters: {
+            totalCharacters: REASON_ADDITIONAL_MAX_CHAR,
+            displayCharCount: REASON_ADDITIONAL_DISPLAY_CHAR,
+          },
+        },
+      ];
+    }
+  }, [
+    serviceMode,
+    patientInfo,
+    t,
+    middleNameStored,
+    defaultDateComponents.year,
+    defaultDateComponents.month,
+    defaultDateComponents.day,
+    defaultEmail,
+  ]);
 
   const confirmDuplicate = useCallback(
     (patient: PatientInfo | undefined, reasonForVisit: string | undefined): void => {
@@ -227,17 +346,12 @@ const PatientInformation = (): JSX.Element => {
     [setPatientInfo]
   );
 
-  /*console.log(`
-    visit type and selected location extracted from store on patient information page, ${visitType}, ${JSON.stringify(
-      selectedLocation
-    )}
-  `);*/
-
   const onSubmit = useCallback(
     async (data: Partial<PatientInfoInProgress>): Promise<void> => {
       let foundDuplicate: PatientInfo | undefined;
       // check if a patient with the same data already exists for this user
       let idx = patients.length - 1;
+      console.log('patient information onSubmit');
       if (patientInfo?.newPatient && data.firstName && data.lastName && data.dobYear && data.dobMonth && data.dobYear) {
         while (!foundDuplicate && idx >= 0) {
           const firstNameMatch = patients[idx].firstName?.toLocaleLowerCase() === data.firstName.toLocaleLowerCase();
