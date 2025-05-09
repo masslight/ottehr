@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
@@ -27,7 +28,6 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
-import Oystehr from '@oystehr/sdk';
 import { chooseJson } from './zapEHRApi';
 
 interface AppointmentData {
@@ -130,7 +130,6 @@ export const createSamplePrebookAppointments = async ({
     console.log('oystehr client is not defined');
     throw new Error('oystehr client is not defined');
   }
-  console.log('create appointment zambda id', createAppointmentZambdaId);
 
   try {
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
@@ -152,8 +151,6 @@ export const createSamplePrebookAppointments = async ({
           },
           selectedLocationId
         );
-
-        console.log('randomPatientInfo', randomPatientInfo);
 
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',
@@ -193,7 +190,6 @@ export const createSamplePrebookAppointments = async ({
 
         // If it's a virtual appointment, mark it as 'arrived'
         if (serviceMode === ServiceMode.virtual) {
-          console.log('appointmentData', JSON.stringify(appointmentData));
           await oystehr.fhir.patch<Appointment>({
             id: appointmentData.appointment!,
             resourceType: 'Appointment',

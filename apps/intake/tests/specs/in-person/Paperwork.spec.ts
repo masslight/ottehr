@@ -485,20 +485,22 @@ test.describe('Consent forms - Check and fill all fields', () => {
   });
   test('PCF-3 Consent Forms - Check required fields', async () => {
     await paperwork.checkRequiredFields(
-      '"I have reviewed and accept HIPAA Acknowledgement","I have reviewed and accept Consent to Treat and Guarantee of Payment","Signature","Full name","Relationship to the patient"',
+      '"I have reviewed and accept HIPAA Acknowledgement","I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement","Signature","Full name","Relationship to the patient"',
       'Complete consent forms',
       true
     );
   });
   test('PCF-4 Consent Forms - Check links are correct', async () => {
     expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'href')).toBe('/hipaa_notice_template.pdf');
-    expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'href')).toBe(
-      '/consent_to_treat_template.pdf'
-    );
+    expect(
+      await page.getAttribute('a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")', 'href')
+    ).toBe('/consent_to_treat_template.pdf');
   });
   test('PCF-5 Consent Forms - Check links opens in new tab', async () => {
     expect(await page.getAttribute('a:has-text("HIPAA Acknowledgement")', 'target')).toBe('_blank');
-    expect(await page.getAttribute('a:has-text("Consent to Treat and Guarantee of Payment")', 'target')).toBe('_blank');
+    expect(
+      await page.getAttribute('a:has-text("Consent to Treat, Guarantee of Payment & Card on File Agreement")', 'target')
+    ).toBe('_blank');
   });
   test('PCF-7 Consent Forms - Fill all data and click on [Continue]', async () => {
     consentFormsData = await paperwork.fillConsentForms();

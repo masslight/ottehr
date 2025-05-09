@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { QuestionnaireResponseItem } from 'fhir/r4b';
+import { Appointment, QuestionnaireResponseItem } from 'fhir/r4b';
 import {
   APIErrorCode,
   BillingProviderDataObject,
@@ -7,103 +7,194 @@ import {
   flattenItems,
   getBillingProviderData,
   GetBillingProviderInput,
-  GetEligibilityInput,
   GetEligibilityInsuranceData,
-  GetEligibilityParameters,
   GetEligibilityPolicyHolder,
   getSecret,
   InsurancePlanDTO,
+  INVALID_INPUT_ERROR,
   isValidUUID,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+  PatientAccountAndCoverageResources,
   Secrets,
   SecretsKeys,
 } from 'utils';
 import { ZambdaInput } from '../../shared';
+import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 
-export function validateRequestParameters(input: ZambdaInput): GetEligibilityInput & { secrets: Secrets | null } {
+interface GetEligibilityStandardInput {
+  type: 'standard';
+  patientId: string;
+  coverageToCheck: 'primary' | 'secondary';
+  appointmentId?: string;
+  billingProvider?: string;
+  secrets: Secrets | null;
+}
+
+interface GetEligibilityPrevalidationInput {
+  type: 'prevalidation';
+  patientId: string;
+  responseItems: QuestionnaireResponseItem[];
+  secrets: Secrets | null;
+  appointmentId?: string;
+}
+type GetEligibilityInput = GetEligibilityStandardInput | GetEligibilityPrevalidationInput;
+
+export function validateRequestParameters(input: ZambdaInput): GetEligibilityInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
-  const { appointmentId, patientId, coveragePrevalidationInput } = JSON.parse(input.body) as ReturnType<
-    typeof validateRequestParameters
-  >;
+  const { appointmentId, patientId, coveragePrevalidationInput, billingProvider, coverageToCheck } = JSON.parse(
+    input.body
+  );
 
-  if (!appointmentId || !isValidUUID(appointmentId)) {
-    throw new Error('Parameter "appointmentId" must be included in input body and be a valid UUID.');
+  if (appointmentId && !isValidUUID(appointmentId)) {
+    throw INVALID_INPUT_ERROR('Parameter "appointmentId" must be a valid UUID.');
   }
   if (!patientId || !isValidUUID(patientId)) {
-    throw new Error('Parameter "patientId" must be included in input body and be a valid UUID.');
+    console.error('Invalid patientId', patientId);
+    throw INVALID_INPUT_ERROR('Parameter "patientId" must be included in input body and be a valid UUID.');
+  }
+  if (billingProvider && typeof billingProvider !== 'string') {
+    throw INVALID_INPUT_ERROR('Parameter "billingProvider" must be a string.');
+  }
+
+  const [billingProviderType, billingProviderId] = billingProvider?.split('/') ?? [];
+  if (billingProvider && (!billingProviderType || !billingProviderId)) {
+    throw INVALID_INPUT_ERROR('Parameter "billingProvider" must be a valid FHIR reference.');
+  }
+  if (billingProvider && !isValidUUID(billingProviderId)) {
+    throw INVALID_INPUT_ERROR('Parameter "billingProvider" must be a valid FHIR reference.');
+  }
+  if (billingProvider && ['Practitioner', 'Location', 'Organization'].includes(billingProviderType) === false) {
+    throw INVALID_INPUT_ERROR(
+      'Parameter "billingProvider" must be a valid FHIR reference of type Practitioner, Location, or Organization.'
+    );
   }
 
   if (coveragePrevalidationInput !== undefined) {
     const { responseItems } = coveragePrevalidationInput;
     if (responseItems === undefined) {
-      throw new Error('Parameter "responseItems" must be included in prevalidation input');
+      throw MISSING_REQUIRED_PARAMETERS(['prevalidationInput.responseItems']);
     }
     if (responseItems !== undefined && (!Array.isArray(responseItems) || typeof responseItems[0] !== 'object')) {
-      throw new Error('Parameter "prevalidationInput.responseItems" must be an array of objects when included');
+      throw INVALID_INPUT_ERROR(
+        'Parameter "prevalidationInput.responseItems" must be an array of objects when included'
+      );
     }
     if (responseItems) {
-      const primaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(responseItems);
-      const primaryInsuranceData = mapResponseItemsToInsuranceData(responseItems);
-      const secondaryInsuranceItem = responseItems.find((item) => item.linkId === 'secondary-insurance');
-      let secondaryPolicyHolder: GetEligibilityPolicyHolder | undefined;
-      let secondaryInsuranceData: GetEligibilityInsuranceData | undefined;
-      if (secondaryInsuranceItem !== undefined) {
-        try {
-          secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
-          secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
-        } catch (e) {
-          console.error('Error parsing secondary insurance data', e);
-          secondaryPolicyHolder = undefined;
-          secondaryInsuranceData = undefined;
-        }
-      }
-      console.log('primaryPolicyHolder', JSON.stringify(primaryPolicyHolder));
-      console.log('primaryInsuranceData', JSON.stringify(primaryInsuranceData));
       return {
+        type: 'prevalidation',
         appointmentId,
         patientId,
-        primaryPolicyHolder,
-        primaryInsuranceData,
-        secondaryPolicyHolder,
-        secondaryInsuranceData,
         secrets: input.secrets,
-        coveragePrevalidationInput: coveragePrevalidationInput,
+        responseItems: responseItems as QuestionnaireResponseItem[],
       };
     }
   }
 
-  const { primaryInsuranceData, primaryPolicyHolder, secondaryInsuranceData, secondaryPolicyHolder } = JSON.parse(
-    input.body
-  ) as GetEligibilityParameters;
-
-  if (!primaryInsuranceData) {
-    throw new Error('Parameter "insurance" must be included in input body.');
+  if (coverageToCheck === undefined || (coverageToCheck !== 'primary' && coverageToCheck !== 'secondary')) {
+    throw INVALID_INPUT_ERROR('Parameter "coverageToCheck" is required and must be either "primary" or "secondary".');
   }
-  if (!primaryInsuranceData.insuranceId || !isValidUUID(primaryInsuranceData.insuranceId)) {
-    throw new Error('Parameter "insurance.insuranceId" must be included in input body and be a valid UUID.');
-  }
-  if (!primaryInsuranceData.memberId) {
-    throw new Error('Parameter "insurance.memberId" must be included in input body and be a non-empty string.');
-  }
-  if (!primaryPolicyHolder) {
-    throw new Error('Parameter "policyHolder" must be included in input body.');
-  }
-  if (typeof primaryPolicyHolder.isPatient !== 'boolean') {
-    throw new Error('Parameter "policyHolder.isPatient" must be included in input body and be a boolean.');
-  }
-
   return {
+    type: 'standard',
     appointmentId,
-    primaryInsuranceData,
+    coverageToCheck: coverageToCheck as 'primary' | 'secondary',
     patientId,
-    primaryPolicyHolder,
-    secondaryInsuranceData,
-    secondaryPolicyHolder,
+    billingProvider,
     secrets: input.secrets,
   };
 }
+
+export interface EligibilityCheckPrevalidationStructuredInput {
+  type: 'prevalidation';
+  patientId: string;
+  primaryInsuranceData: GetEligibilityInsuranceData;
+  primaryPolicyHolder: GetEligibilityPolicyHolder;
+  appointmentId?: string;
+  appointment?: Appointment;
+  secondaryInsuranceData?: GetEligibilityInsuranceData;
+  secondaryPolicyHolder?: GetEligibilityPolicyHolder;
+}
+
+export interface EligibilityCheckStandardStructuredInput {
+  type: 'standard';
+  patientId: string;
+  coverageResources: PatientAccountAndCoverageResources;
+  billingProvider: string;
+  coverageToCheck: 'primary' | 'secondary';
+  appointmentId?: string;
+  appointment?: Appointment;
+}
+
+type EligibilityCheckStructuredInput =
+  | EligibilityCheckPrevalidationStructuredInput
+  | EligibilityCheckStandardStructuredInput;
+
+export const complexInsuranceValidation = async (
+  input: GetEligibilityInput,
+  oystehr: Oystehr
+): Promise<EligibilityCheckStructuredInput> => {
+  const { appointmentId, patientId } = input;
+  let appointment: Appointment | undefined;
+
+  if (appointmentId) {
+    const appointmentResource = await oystehr.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointmentId,
+    });
+    if (appointmentResource) {
+      appointment = appointmentResource;
+    } else {
+      throw APIErrorCode.APPOINTMENT_NOT_FOUND;
+    }
+  }
+  if (input.type === 'prevalidation') {
+    const { responseItems } = input;
+    const primaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(responseItems);
+    const primaryInsuranceData = mapResponseItemsToInsuranceData(responseItems);
+    const secondaryInsuranceItem = responseItems.find((item) => item.linkId === 'secondary-insurance');
+    let secondaryPolicyHolder: GetEligibilityPolicyHolder | undefined;
+    let secondaryInsuranceData: GetEligibilityInsuranceData | undefined;
+    if (secondaryInsuranceItem !== undefined) {
+      try {
+        secondaryPolicyHolder = mapResponseItemsToInsurancePolicyHolder(secondaryInsuranceItem?.item ?? [], '-2');
+        secondaryInsuranceData = mapResponseItemsToInsuranceData(secondaryInsuranceItem.item ?? [], '-2');
+      } catch (e) {
+        console.error('Error parsing secondary insurance data', e);
+        secondaryPolicyHolder = undefined;
+        secondaryInsuranceData = undefined;
+      }
+    }
+    console.log('primaryPolicyHolder', JSON.stringify(primaryPolicyHolder));
+    console.log('primaryInsuranceData', JSON.stringify(primaryInsuranceData));
+    return {
+      type: 'prevalidation',
+      appointmentId,
+      patientId,
+      primaryInsuranceData,
+      primaryPolicyHolder,
+      secondaryInsuranceData,
+      secondaryPolicyHolder,
+      appointment,
+    };
+  } else {
+    const { billingProvider: maybeBillingProvider, coverageToCheck } = input;
+
+    const billingProvider = await resolveBillingProviderReference(maybeBillingProvider, oystehr, input.secrets);
+    const coverageResources = await getAccountAndCoverageResourcesForPatient(patientId, oystehr);
+    return {
+      type: 'standard',
+      appointmentId,
+      patientId,
+      billingProvider,
+      coverageResources,
+      appointment,
+      coverageToCheck,
+    };
+  }
+};
 
 export const validateInsuranceRequirements = ({
   insurancePlanDto,
@@ -233,7 +324,7 @@ export const complexBillingProviderValidation = async (
   };
   const providerData = await getBillingProviderData(
     input,
-    await getDefaultBillingProviderResource(input, oystehrClient)
+    await getDefaultBillingProviderResource(secrets, oystehrClient)
   );
 
   if (providerData === undefined) {
@@ -242,11 +333,11 @@ export const complexBillingProviderValidation = async (
   return providerData;
 };
 
-const getDefaultBillingProviderResource = async (
-  input: GetBillingProviderInputWithSecrets,
+export const getDefaultBillingProviderResource = async (
+  secrets: Secrets | null,
   oystehrClient: Oystehr
 ): Promise<BillingProviderResource> => {
-  const defaultBillingResource = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, input.secrets);
+  const defaultBillingResource = getSecret(SecretsKeys.DEFAULT_BILLING_RESOURCE, secrets);
   if (!defaultBillingResource) {
     throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
   }
@@ -273,4 +364,16 @@ const getDefaultBillingProviderResource = async (
     throw APIErrorCode.BILLING_PROVIDER_NOT_FOUND;
   }
   return billingResource;
+};
+
+const resolveBillingProviderReference = async (
+  providedProviderRef: string | undefined,
+  oystehr: Oystehr,
+  secrets: Secrets | null
+): Promise<string> => {
+  if (providedProviderRef === undefined) {
+    const defaultProvider = await getDefaultBillingProviderResource(secrets, oystehr);
+    return `${defaultProvider.resourceType}/${defaultProvider?.id}`;
+  }
+  return providedProviderRef;
 };

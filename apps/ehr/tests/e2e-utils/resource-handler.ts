@@ -161,8 +161,6 @@ export class ResourceHandler {
   private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     await this.#initPromise;
 
-    console.log('create appointment params', JSON.stringify(inputParams, null, 2));
-
     try {
       const address: Address = {
         city: inputParams?.city ?? PATIENT_CITY,
@@ -183,8 +181,6 @@ export class ResourceHandler {
         address: [address],
       };
 
-      console.log('patientData', patientData);
-
       if (!process.env.PROJECT_API_ZAMBDA_URL) {
         throw new Error('PROJECT_API_ZAMBDA_URL is not set');
       }
@@ -200,8 +196,6 @@ export class ResourceHandler {
       if (!process.env.PROJECT_ID) {
         throw new Error('PROJECT_ID is not set');
       }
-
-      console.log('resource handler flow', this.#flow);
 
       // Create appointment and related resources using zambda
       const appointmentData =

@@ -19,18 +19,8 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
+import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
-
-async function checkDropdownHasOptionAndSelectIt(page: Page, dropdownTestId: string, pattern: string): Promise<void> {
-  await page.getByTestId(dropdownTestId).locator('input').fill(pattern);
-
-  const option = page
-    .locator('.MuiAutocomplete-popper li')
-    .filter({ hasText: new RegExp(pattern, 'i') })
-    .first();
-  await expect(option).toBeVisible();
-  await option.click();
-}
 
 async function checkDropdownNoOptions(
   page: Page,
@@ -218,7 +208,8 @@ test.describe('Medical conditions', async () => {
   });
 });
 
-test.describe('Current medications', () => {
+// TODO: uncomment when erx is enabled
+test.describe.skip('Current medications', () => {
   const resourceHandler = new ResourceHandler('telemed');
   let page: Page;
   const scheduledMedicationName = 'aspirin';
@@ -378,7 +369,8 @@ test.describe('Current medications', () => {
   });
 });
 
-test.describe('Known allergies', () => {
+// TODO: uncomment when erx is enabled
+test.describe.skip('Known allergies', () => {
   const resourceHandler = new ResourceHandler('telemed');
   let page: Page;
   const knownAllergyName = 'penicillin';

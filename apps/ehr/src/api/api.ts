@@ -27,6 +27,7 @@ import {
   CreateSlotParams,
   apiErrorToThrow,
   CreateAppointmentInputParams,
+  UpdateLabOrderResourcesParameters,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -101,7 +102,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw new Error(JSON.stringify(error));
+    throw error;
   }
 };
 
@@ -635,13 +636,6 @@ export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrde
     console.log(error);
     throw error;
   }
-};
-
-export type UpdateLabOrderResourcesParameters = {
-  taskId: string;
-  serviceRequestId: string;
-  diagnosticReportId: string;
-  event: 'reviewed';
 };
 
 export const updateLabOrderResources = async (

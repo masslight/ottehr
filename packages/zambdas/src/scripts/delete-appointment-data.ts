@@ -107,8 +107,10 @@ const generateDeleteRequestsAndPerson = (
   const person = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person')?.[0] as
     | Person
     | undefined;
-  
-  const deleteSlotRequests = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Slot').map((slotTemp) => ({ method: 'DELETE', url: `Slot/${slotTemp.id}`})) as BatchInputDeleteRequest[];
+
+  const deleteSlotRequests = allResources
+    .filter((resourceTemp) => resourceTemp.resourceType === 'Slot')
+    .map((slotTemp) => ({ method: 'DELETE', url: `Slot/${slotTemp.id}` })) as BatchInputDeleteRequest[];
   deleteRequests.push(...deleteSlotRequests);
 
   allResources

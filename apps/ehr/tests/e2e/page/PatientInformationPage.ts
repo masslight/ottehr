@@ -2,7 +2,6 @@ import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PatientHeader } from './PatientHeader';
 import { formatPhoneNumberForQuestionarie } from 'utils';
-import { PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME } from '../../e2e-utils/resource-handler';
 import { AddInsuranceDialog } from './patient-information/AddInsuranceDialog';
 
 export enum Field {

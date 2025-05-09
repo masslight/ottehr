@@ -2,6 +2,7 @@ import Oystehr from '@oystehr/sdk';
 import { Address, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
+import { chooseJson } from '../main';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -27,7 +28,6 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
-import { chooseJson } from '../main';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -161,7 +161,6 @@ const generateRandomPatientInfo = async (
       ],
     })
   ).unbundle();
-  console.log('all offices and schedules: ', allOfficesAndSchedules.length);
   const activeOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
   const allSchedules = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Schedule') as Schedule[];
 
@@ -217,7 +216,6 @@ const generateRandomPatientInfo = async (
     serviceModality: ServiceMode.virtual,
     walkin: true,
   };
-  console.log('slot input: ', createSlotInput);
   let persistedSlot: Slot;
   try {
     const persistedSlotResult = await oystehr.zambda.executePublic({
@@ -229,8 +227,6 @@ const generateRandomPatientInfo = async (
     console.error('Error creating slot:', error);
     throw new Error('Failed to create slot');
   }
-
-  console.log('persisted slot: ', persistedSlot);
 
   return {
     patient: patientData,
@@ -277,7 +273,6 @@ export const createSampleTelemedAppointments = async ({
     const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
       try {
         const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, locationState);
-        console.log('create appointment zambda id', createAppointmentZambdaId, JSON.stringify(patientInfo));
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',
           headers: {
@@ -298,8 +293,6 @@ export const createSampleTelemedAppointments = async ({
         if ((appointmentData as any)?.output) {
           appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
         }
-
-        console.log({ appointmentData });
 
         if (!appointmentData) {
           console.error('Error creating appointment:', appointmentData);

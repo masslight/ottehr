@@ -4,6 +4,8 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  checkCoverageMatchesDetails,
+  CoverageCheckWithDetails,
   extractFirstValueFromAnswer,
   flattenItems,
   getFullName,
@@ -56,6 +58,15 @@ const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   return answer;
 };
 
+const getEligibilityCheckDetailsForCoverage = (
+  coverage: Coverage,
+  coverageChecks: CoverageCheckWithDetails[]
+): CoverageCheckWithDetails | undefined => {
+  return coverageChecks.find((check) => {
+    return checkCoverageMatchesDetails(coverage, check);
+  });
+};
+
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any => {
   const flattened = flattenItems(currentItemValues);
   return flattened.reduce((acc: any, item: QuestionnaireResponseItem) => {
@@ -76,7 +87,6 @@ const PatientInformationPage: FC = () => {
   // data queries
   const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({ apiClient, patientId: id ?? null });
   const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
-
   // data mutations
   const queryClient = useQueryClient();
   const submitQR = useUpdatePatientAccount(() => {
@@ -287,7 +297,12 @@ const PatientInformationPage: FC = () => {
                   {coverages.map((coverage) => (
                     <InsuranceContainer
                       key={coverage.resource.id}
+                      patientId={patient.id ?? ''}
                       ordinal={coverage.startingPriority}
+                      initialEligibilityCheck={getEligibilityCheckDetailsForCoverage(
+                        coverage.resource,
+                        accountData?.coverageChecks ?? []
+                      )}
                       removeInProgress={removeCoverage.isLoading}
                       handleRemoveClick={
                         coverage.resource.id !== undefined
