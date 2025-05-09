@@ -66,8 +66,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       conditions,
       medications,
       allergies,
-      proceduresNote,
-      procedures,
+      surgicalHistoryNote,
+      surgicalHistory,
       observations,
       episodeOfCare,
       secrets,
@@ -125,12 +125,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       deleteOrUpdateRequests.push(deleteResourceRequest('AllergyIntolerance', element.resourceId!));
     });
 
-    if (proceduresNote) {
-      deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', proceduresNote.resourceId!));
+    if (surgicalHistoryNote) {
+      deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', surgicalHistoryNote.resourceId!));
     }
 
     // 6. delete Procedures
-    procedures?.forEach((element: CPTCodeDTO) => {
+    surgicalHistory?.forEach((element: CPTCodeDTO) => {
       deleteOrUpdateRequests.push(deleteResourceRequest('Procedure', element.resourceId!));
     });
 

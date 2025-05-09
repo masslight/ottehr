@@ -12,7 +12,7 @@ import { dataTestIds } from '../../../../../constants/data-test-ids';
 export const SurgicalHistoryProviderColumn: FC = () => {
   const { isChartDataLoading, chartData } = getSelectors(useAppointmentStore, ['isChartDataLoading', 'chartData']);
 
-  const procedures = chartData?.procedures || [];
+  const procedures = chartData?.surgicalHistory || [];
 
   const cssColumnFeatureFlag = useFeatureFlags();
 

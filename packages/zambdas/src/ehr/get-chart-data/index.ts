@@ -97,7 +97,7 @@ export async function getChartData(
   addRequestIfNeeded({ field: 'medications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
 
   // search by patient by default
-  addRequestIfNeeded({ field: 'procedures', resourceType: 'Procedure', defaultSearchBy: 'patient' });
+  addRequestIfNeeded({ field: 'surgicalHistory', resourceType: 'Procedure', defaultSearchBy: 'patient' });
 
   // edge case for Procedures just for getting cpt codes..
   // todo: delete this and just use procedures with special tag in frontend (todo: need to pass tag here through search params most likely)

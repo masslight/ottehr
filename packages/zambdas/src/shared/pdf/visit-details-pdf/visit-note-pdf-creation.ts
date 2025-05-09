@@ -116,7 +116,7 @@ function composeDataForPdf(
   const medicalConditions = mapMedicalConditions(chartData);
 
   // --- Surgical history ---
-  const surgicalHistory = chartData.procedures ? mapResourceByNameField(chartData.procedures) : []; // surgical history
+  const surgicalHistory = chartData.surgicalHistory ? mapResourceByNameField(chartData.surgicalHistory) : []; // surgical history
 
   // --- Addition questions ---
   const additionalQuestions = Object.values(AdditionalBooleanQuestionsFieldsNames).reduce(

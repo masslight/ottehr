@@ -45,8 +45,8 @@ export interface ChartDataFields {
   medications?: MedicationDTO[];
   prescribedMedications?: PrescribedMedicationDTO[];
   allergies?: AllergyDTO[];
-  procedures?: CPTCodeDTO[];
-  proceduresNote?: FreeTextNoteDTO;
+  surgicalHistory?: CPTCodeDTO[];
+  surgicalHistoryNote?: FreeTextNoteDTO;
   observations?: ObservationDTO[];
   examObservations?: ExamObservationDTO[];
   medicalDecision?: ClinicalImpressionDTO;

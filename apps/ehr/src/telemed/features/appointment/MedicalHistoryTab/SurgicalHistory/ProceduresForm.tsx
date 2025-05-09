@@ -56,7 +56,7 @@ export const ProceduresForm: FC = () => {
 
   const { control, reset } = methods;
 
-  const { isLoading, onSubmit, onRemove, values: procedures } = useChartDataArrayValue('procedures', reset, {});
+  const { isLoading, onSubmit, onRemove, values: procedures } = useChartDataArrayValue('surgicalHistory', reset, {});
 
   const handleSelectOption = (data: CPTCodeDTO | null): void => {
     if (data) {
