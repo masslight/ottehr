@@ -129,9 +129,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           />
         )}
 
-        {shouldShowSampleCollectionInstructions && (
-          <Box sx={{ marginTop: `${showAOECard ? 0 : 2}` }}>
-            {labOrder.samples.map((sample) => (
+        {shouldShowSampleCollectionInstructions &&
+          labOrder.samples.map((sample) => (
+            <Box sx={{ marginTop: showAOECard ? 2 : 0 }}>
               <SampleCollectionInstructionsCard
                 key={sample.specimen.id}
                 sample={sample}
@@ -140,9 +140,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                 saveSpecimenDate={saveSpecimenDate}
                 updateSpecimenLoadingState={updateSpecimenLoadingState}
               />
-            ))}
-          </Box>
-        )}
+            </Box>
+          ))}
 
         {showOrderInfo && (
           <SampleInformationCard
