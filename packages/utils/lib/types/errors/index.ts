@@ -40,8 +40,10 @@ export enum APIErrorCode {
   MISSING_PATIENT_COVERAGE_INFO = 4306,
   // 434x
   INVALID_INPUT = 4340,
-  EXTERNAL_LAB_GENERAL = 4400,
   APPOINTMENT_ALREADY_EXISTS = 4341,
+  // 44xx
+  EXTERNAL_LAB_GENERAL = 4400,
+  MISSING_NLM_API_KEY_ERROR = 4401,
 }
 
 export interface APIError {
@@ -53,6 +55,7 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (!errorObject) {
     return false;
   }
+
   let asObj = errorObject;
   if (typeof asObj === 'string') {
     try {
@@ -61,13 +64,29 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
       return false;
     }
   }
+
   const asAny = asObj as any;
   const output = asAny?.output;
+
+  // Check direct properties
   if (asAny && asAny.code && asAny.message) {
-    return typeof asAny.message === 'string' && Object.values(APIErrorCode).includes(asAny.code);
-  } else if (output && output.code && output.message) {
-    return typeof output.message === 'string' && Object.values(APIErrorCode).includes(output.code);
+    const code = asAny.code;
+    const message = asAny.message;
+    const isMessageString = typeof message === 'string';
+    const isCodeValid = Object.values(APIErrorCode).includes(code);
+
+    return isMessageString && isCodeValid;
   }
+  // Check nested 'output' properties
+  else if (output && output.code && output.message) {
+    const code = output.code;
+    const message = output.message;
+    const isMessageString = typeof message === 'string';
+    const isCodeValid = Object.values(APIErrorCode).includes(code);
+
+    return isMessageString && isCodeValid;
+  }
+
   return false;
 };
 
@@ -269,12 +288,18 @@ export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   message: 'No coverage information found for this patient',
 };
 
+export const MISSING_NLM_API_KEY_ERROR: APIError = {
+  code: APIErrorCode.MISSING_NLM_API_KEY_ERROR,
+  message: 'No nlm api key was provided.',
+};
+
 export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.EXTERNAL_LAB_GENERAL,
     message,
   };
 };
+
 export const SLOT_UNAVAILABLE_ERROR = {
   code: APIErrorCode.SLOT_UNAVAILABLE,
   message: 'The requested slot is unavailable',
