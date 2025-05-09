@@ -780,10 +780,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
     }
     if (linkId === 'policy-holder-address-as-patient') {
-      answer = makeAnswer(policyHolderAddressAsPatient ?? false);
+      answer = makeAnswer(policyHolderAddressAsPatient, 'Boolean');
     }
     if (linkId === 'policy-holder-address-as-patient-2') {
-      answer = makeAnswer(secondaryPolicyHolderAddressAsPatient ?? false);
+      answer = makeAnswer(secondaryPolicyHolderAddressAsPatient, 'Boolean');
     }
     if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
       answer = makeAnswer(relationshipToInsured);
