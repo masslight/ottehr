@@ -140,5 +140,30 @@ test.describe('Exam tab', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.examTabField('distress-none')).locator('input').click();
     await waitForSaveChartDataResponse(page);
     await page.getByTestId(dataTestIds.telemedEhrFlow.examTabDistressDropdown).click();
+    // check option here
+  });
+
+  test("Should check 'Tender' checkbox and select dropdown option", async () => {
+    await page
+      .getByTestId(dataTestIds.telemedEhrFlow.examTabField('non-tender-on-parental-exam'))
+      .locator('input')
+      .click();
+    await waitForSaveChartDataResponse(page);
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabTenderDropdown).click();
+    // check option here
+  });
+
+  test("Should check 'Rashes' checkbox and rashes form appeared", async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesCheckbox).locator('input').click();
+    await waitForSaveChartDataResponse(page);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDropdown)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDescription)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton)).toBeVisible();
+  });
+
+  test('Should add skin rash', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDropdown).click();
+    // select option
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton).click();
   });
 });
