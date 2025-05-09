@@ -51,8 +51,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
-  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
   const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
+  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
+  const showAOECard = aoe.length > 0;
 
   const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
     setSpecimensLoadingState((prevState) => ({ ...prevState, [specimenId]: state }));
@@ -120,22 +121,26 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
-        <AOECard
-          questions={aoe}
-          labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
-          isCollapsed={isAOECollapsed}
-        />
+        {showAOECard && (
+          <AOECard
+            questions={aoe}
+            labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
+            isCollapsed={isAOECollapsed}
+          />
+        )}
 
         {shouldShowSampleCollectionInstructions &&
           labOrder.samples.map((sample) => (
-            <SampleCollectionInstructionsCard
-              key={sample.specimen.id}
-              sample={sample}
-              serviceRequestId={labOrder.serviceRequestId}
-              timezone={labOrder.encounterTimezone}
-              saveSpecimenDate={saveSpecimenDate}
-              updateSpecimenLoadingState={updateSpecimenLoadingState}
-            />
+            <Box sx={{ marginTop: showAOECard ? 2 : 0 }}>
+              <SampleCollectionInstructionsCard
+                key={sample.specimen.id}
+                sample={sample}
+                serviceRequestId={labOrder.serviceRequestId}
+                timezone={labOrder.encounterTimezone}
+                saveSpecimenDate={saveSpecimenDate}
+                updateSpecimenLoadingState={updateSpecimenLoadingState}
+              />
+            </Box>
           ))}
 
         {showOrderInfo && (
