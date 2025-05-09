@@ -7,7 +7,7 @@ import { useAppointmentStore, useDeleteChartData, useSaveChartData } from '../st
 
 type ChartDataArrayValueType = Pick<
   GetChartDataResponse,
-  'episodeOfCare' | 'allergies' | 'medications' | 'conditions' | 'procedures'
+  'episodeOfCare' | 'allergies' | 'medications' | 'conditions' | 'surgicalHistory'
 >;
 
 type ElementType<T extends ReadonlyArray<unknown>> = T extends ReadonlyArray<infer ElementType> ? ElementType : never;
@@ -17,7 +17,7 @@ const mapValueToLabel: Record<keyof ChartDataArrayValueType, string> = {
   allergies: 'known allergies',
   medications: 'current medications',
   conditions: 'medical conditions',
-  procedures: 'surgical history',
+  surgicalHistory: 'surgical history',
 };
 
 export const useChartDataArrayValue = <

@@ -191,7 +191,7 @@ export async function convertSearchResultsToResponse(
           conditions: [],
           medications: [],
           allergies: [],
-          procedures: [],
+          surgicalHistory: [],
           examObservations: [],
           cptCodes: [],
           instructions: [],
