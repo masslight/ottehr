@@ -1,6 +1,14 @@
 import { ReactElement, useState } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { AccordionCard, ActionsList, DeleteIconButton, useDebounce, useGetIcd10Search } from 'src/telemed';
+import {
+  AccordionCard,
+  ActionsList,
+  DeleteIconButton,
+  useAppointmentStore,
+  useDebounce,
+  useGetIcd10Search,
+  useSaveChartData,
+} from 'src/telemed';
 import { Box, Stack } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
@@ -20,13 +28,14 @@ import {
   Typography,
 } from '@mui/material';
 import { RoundedButton } from 'src/components/RoundedButton';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { CPTCodeDTO, DiagnosisDTO, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, getSelectors, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
 import { InfoAlert } from '../components/InfoAlert';
+import { enqueueSnackbar } from 'notistack';
+import { DateTime } from 'luxon';
 
 const PROCEDURE_TYPES = [
   'Laceration Repair (Suturing/Stapling)',
@@ -72,9 +81,9 @@ interface State {
   cptCodesError?: boolean;
   diagnoses?: DiagnosisDTO[];
   diagnosesError?: boolean;
-  procedureDate?: string;
+  procedureDate?: DateTime | null;
   procedureDateError?: boolean;
-  procedureTime?: string;
+  procedureTime?: DateTime | null;
   procedureTimeError?: boolean;
   performer?: string;
   performerError?: boolean;
@@ -99,6 +108,9 @@ interface State {
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
+  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const cptCodes = chartData?.cptCodes || [];
+  const { mutate: saveCPTChartData } = useSaveChartData();
   const [state, setState] = useState<State>({});
 
   const updateState = (stateMutator: (state: State) => void): void => {
@@ -110,26 +122,62 @@ export default function ProceduresNew(): ReactElement {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
-  const onSave = (): void => {
+  const validateState = (): boolean => {
+    let valid = true;
     if (isNullOrEmpty(state.procedureType)) {
       state.procedureTypeError = true;
+      valid = false;
     }
     if (state.cptCodes == null || state.cptCodes.length === 0) {
       state.cptCodesError = true;
+      valid = false;
     }
     if (state.diagnoses == null || state.diagnoses.length === 0) {
       state.diagnosesError = true;
+      valid = false;
     }
-    if (isNullOrEmpty(state.procedureDate)) {
+    if (state.procedureDate == null) {
       state.procedureDateError = true;
+      valid = false;
     }
-    if (isNullOrEmpty(state.procedureTime)) {
+    if (state.procedureTime == null) {
       state.procedureTimeError = true;
+      valid = false;
     }
     if (isNullOrEmpty(state.performer)) {
       state.performerError = true;
+      valid = false;
     }
-    setState({ ...state });
+    if (!valid) {
+      setState({ ...state });
+    }
+    return valid;
+  };
+
+  const onSave = (): void => {
+    const valid = validateState();
+    if (valid) {
+      saveCPTChartData(
+        {
+          cptCodes: state.cptCodes,
+        },
+        {
+          onSuccess: (data) => {
+            const savedCptCodes = data.chartData?.cptCodes;
+            if (savedCptCodes) {
+              setPartialChartData({
+                cptCodes: [...cptCodes, ...savedCptCodes],
+              });
+            }
+            enqueueSnackbar('Procedure saved!', { variant: 'success' });
+            navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+          },
+          onError: () => {
+            enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
+          },
+        }
+      );
+    }
   };
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -355,7 +403,12 @@ export default function ProceduresNew(): ReactElement {
                     error: state.procedureDateError,
                   },
                 }}
-                onChange={(e: any) => updateState((state) => (state.procedureDate = e.target.value))}
+                onChange={(date: DateTime | null, _e: any) =>
+                  updateState((state) => {
+                    state.procedureDate = date;
+                    state.procedureDateError = false;
+                  })
+                }
               />
             </LocalizationProvider>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
@@ -369,11 +422,16 @@ export default function ProceduresNew(): ReactElement {
                     error: state.procedureTimeError,
                   },
                 }}
-                onChange={(e: any) => updateState((state) => (state.procedureTime = e.target.value))}
+                onChange={(time: DateTime | null, _e: any) =>
+                  updateState((state) => {
+                    state.procedureTime = time;
+                    state.procedureTimeError = false;
+                  })
+                }
               />
             </LocalizationProvider>
           </Stack>
-          {(radio('Performed by *', PERFORMED_BY, (value, state) => (state.performer = value)), state.performerError)}
+          {radio('Performed by *', PERFORMED_BY, (value, state) => (state.performer = value), state.performerError)}
           {dropdown(
             'Anaesthesia / medication used',
             MEDICATIONS_USED,
