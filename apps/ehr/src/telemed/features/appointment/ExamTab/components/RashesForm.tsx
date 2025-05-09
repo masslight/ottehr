@@ -8,6 +8,7 @@ import { useExamObservations } from '../../../../hooks/useExamObservations';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { parseRashesFieldToName, rashesFields, rashesOptions } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 type FormValues = {
   rashes: string | null;
@@ -75,13 +76,15 @@ export const RashesForm: FC = () => {
         gap: 2,
       }}
     >
-      <StatelessExamCheckbox
-        abnormal
-        label="Rashes"
-        checked={!noRashesField.value}
-        onChange={onBooleanChange}
-        disabled={isNoRashesLoading}
-      />
+      <Box data-testid={dataTestIds.telemedEhrFlow.examTabRashesCheckbox}>
+        <StatelessExamCheckbox
+          abnormal
+          label="Rashes"
+          checked={!noRashesField.value}
+          onChange={onBooleanChange}
+          disabled={isNoRashesLoading}
+        />
+      </Box>
 
       {abnormalFields.length > 0 && (
         <Box sx={{ width: '100%' }}>
@@ -118,6 +121,7 @@ export const RashesForm: FC = () => {
                 <Autocomplete
                   options={Object.keys(rashesOptions)}
                   getOptionLabel={(option) => rashesOptions[option as keyof typeof rashesOptions]}
+                  data-testid={dataTestIds.telemedEhrFlow.examTabRashesDropdown}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -141,6 +145,7 @@ export const RashesForm: FC = () => {
               render={({ field: { onChange, value }, fieldState: { error } }) => (
                 <TextField
                   helperText={error ? error.message : null}
+                  data-testid={dataTestIds.telemedEhrFlow.examTabRashesDescription}
                   error={!!error}
                   size="small"
                   label="Description"
@@ -150,7 +155,11 @@ export const RashesForm: FC = () => {
                 />
               )}
             />
-            <RoundedButton onClick={handleSubmit(onAdd)} disabled={isLoading}>
+            <RoundedButton
+              onClick={handleSubmit(onAdd)}
+              disabled={isLoading}
+              data-testid={dataTestIds.telemedEhrFlow.examTabRashesAddButton}
+            >
               Add
             </RoundedButton>
           </Box>

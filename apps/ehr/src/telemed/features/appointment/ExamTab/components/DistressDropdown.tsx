@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { ControlledExamCheckboxDropdown, ExamCheckboxDropdownOptionType } from './ControlledExamCheckboxDropdown';
 import { examObservationFieldsDetailsArray } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 const options: ExamCheckboxDropdownOptionType[] = examObservationFieldsDetailsArray
   .filter((details) => details.card === 'general' && details.group === 'dropdown')
@@ -13,6 +14,8 @@ export const DistressDropdown: FC = () => {
       checkboxLabel="Distress"
       dropdownLabel="Distress degree"
       options={options}
+      dropdownTestId={dataTestIds.telemedEhrFlow.examTabDistressDropdown}
+      checkboxBlockTestId={dataTestIds.telemedEhrFlow.examTabField('distress-none')}
     />
   );
 };

@@ -11,6 +11,8 @@ import {
 import { ControlledExamCheckbox } from './ControlledExamCheckbox';
 import { ControlledExamRadioGroup } from './ControlledExamRadioGroup';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { Box } from '@mui/material';
 
 type ExamFieldsFactoryProps = { radio?: boolean } & (
   | {
@@ -43,23 +45,25 @@ export const ExamFieldsFactory: FC<ExamFieldsFactoryProps> = (props) => {
     values = fields.map((field) => ExamObservationFieldsDetails[field]);
   }
 
-  const array = values.map((details) =>
-    radio ? (
-      <ControlledExamRadioGroup
-        key={details.field}
-        name={details.field}
-        label={details.label}
-        abnormal={details.abnormal}
-      />
-    ) : (
-      <ControlledExamCheckbox
-        key={details.field}
-        name={details.field}
-        label={details.label}
-        abnormal={details.abnormal}
-      />
-    )
-  );
+  const array = values.map((details) => (
+    <Box data-testid={dataTestIds.telemedEhrFlow.examTabField(details.field)}>
+      {radio ? (
+        <ControlledExamRadioGroup
+          key={details.field}
+          name={details.field}
+          label={details.label}
+          abnormal={details.abnormal}
+        />
+      ) : (
+        <ControlledExamCheckbox
+          key={details.field}
+          name={details.field}
+          label={details.label}
+          abnormal={details.abnormal}
+        />
+      )}
+    </Box>
+  ));
 
   return <>{array}</>;
 };

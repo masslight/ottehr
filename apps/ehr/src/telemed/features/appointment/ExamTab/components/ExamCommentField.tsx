@@ -6,12 +6,13 @@ import { useExamObservations } from '../../../../hooks/useExamObservations';
 
 type ExamCommentFieldProps<T extends ExamCardsNames | InPersonExamCardsNames = ExamCardsNames> = {
   name: T;
+  dataTestId?: string;
 };
 
 export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNames = ExamCardsNames>(
   props: ExamCommentFieldProps<T>
 ): ReactElement => {
-  const { name } = props;
+  const { name, dataTestId } = props;
 
   const { value: field, update, delete: deleteField, isLoading } = useExamObservations(name);
 
@@ -45,6 +46,7 @@ export const ExamCommentField = <T extends ExamCardsNames | InPersonExamCardsNam
       }}
       size="small"
       label="Provider comment"
+      data-testid={dataTestId}
       fullWidth
       InputProps={{
         endAdornment: isLoading && (
