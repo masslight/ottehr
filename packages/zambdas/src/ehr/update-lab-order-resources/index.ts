@@ -9,11 +9,12 @@ import {
   Encounter,
   Observation,
   FhirResource,
+  Specimen,
 } from 'fhir/r4b';
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { getPatchBinary, PROVENANCE_ACTIVITY_CODING_ENTITY, Secrets, UpdateLabOrderResourceParams } from 'utils';
+import { getPatchBinary, PROVENANCE_ACTIVITY_CODING_ENTITY, Secrets, UpdateLabOrderResourcesParameters } from 'utils';
 import { Operation } from 'fast-json-patch';
-import { BatchInputPostRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputPatchRequest } from '@oystehr/sdk';
 import {
   ZambdaInput,
   topLevelCatch,
@@ -29,12 +30,22 @@ let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`update-lab-order-resources started, input: ${JSON.stringify(input)}`);
+
   let secrets = input.secrets;
-  let validatedParameters: (UpdateLabOrderResourceParams & { secrets: Secrets | null; userToken: string }) | null =
-    null;
+  let validatedParameters: UpdateLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string };
 
   try {
     validatedParameters = validateRequestParameters(input);
+  } catch (error: any) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: `Invalid request parameters. ${error.message || error}`,
+      }),
+    };
+  }
+
+  try {
     secrets = validatedParameters.secrets;
 
     console.log('validateRequestParameters success');
@@ -43,45 +54,56 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-    const { taskId, serviceRequestId, diagnosticReportId, event } = validatedParameters;
 
-    if (event === 'reviewed') {
-      const updateTransactionRequest = await handleReviewedEvent({
-        oystehr,
-        practitionerIdFromCurrentUser,
-        taskId,
-        serviceRequestId,
-        diagnosticReportId,
-        secrets,
-      });
+    switch (validatedParameters.event) {
+      case 'reviewed': {
+        const { taskId, serviceRequestId, diagnosticReportId } = validatedParameters;
 
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          message: `Successfully updated Task/${taskId}. Status set to 'completed' and Practitioner set.`,
-          transaction: updateTransactionRequest,
-        }),
-      };
+        const updateTransactionRequest = await handleReviewedEvent({
+          oystehr,
+          practitionerIdFromCurrentUser,
+          taskId,
+          serviceRequestId,
+          diagnosticReportId,
+          secrets,
+        });
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated Task/${taskId}. Status set to 'completed' and Practitioner set.`,
+            transaction: updateTransactionRequest,
+          }),
+        };
+      }
+
+      case 'specimenDateChanged': {
+        const { serviceRequestId, specimenId, date } = validatedParameters;
+
+        const updateTransactionRequest = await handleSpecimenDateChangedEvent({
+          oystehr,
+          serviceRequestId,
+          specimenId,
+          date,
+          practitionerIdFromCurrentUser,
+        });
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            message: `Successfully updated Specimen/${specimenId}. Date set to '${date}'.`,
+            transaction: updateTransactionRequest,
+          }),
+        };
+      }
     }
-
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `action not supported for event: ${validatedParameters.event}`,
-      }),
-    };
   } catch (error: any) {
     console.error('Error updating lab order resource:', error);
     await topLevelCatch('update-lab-order-resources', error, secrets);
     return {
       statusCode: 500,
       body: JSON.stringify({
-        message: `Error updating lab order resource: ${error.message || error}`,
-        requestParameters: validatedParameters
-          ? {
-              taskId: validatedParameters.taskId,
-            }
-          : 'validation failed',
+        message: `Error handling ${validatedParameters.event} event: ${error.message || error}`,
       }),
     };
   }
@@ -216,6 +238,83 @@ const handleReviewedEvent = async ({
   });
 
   await createLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mtoken);
+
+  return updateTransactionRequest;
+};
+
+const handleSpecimenDateChangedEvent = async ({
+  oystehr,
+  serviceRequestId,
+  specimenId,
+  date,
+  practitionerIdFromCurrentUser,
+}: {
+  oystehr: Oystehr;
+  serviceRequestId: string;
+  specimenId: string;
+  date: string;
+  practitionerIdFromCurrentUser: string;
+}): Promise<Bundle<Specimen>> => {
+  if (!DateTime.fromISO(date).isValid) {
+    throw new Error(`Invalid date value: ${date}`);
+  }
+
+  const resources = (
+    await oystehr.fhir.search<ServiceRequest | Specimen>({
+      resourceType: 'ServiceRequest',
+      params: [
+        { name: '_id', value: serviceRequestId },
+        { name: '_include', value: 'ServiceRequest:specimen' },
+      ],
+    })
+  ).unbundle();
+
+  const specimen = resources.find((r): r is Specimen => r.resourceType === 'Specimen' && r.id === specimenId);
+
+  if (!specimen?.id) {
+    throw new Error(`Specimen/${specimenId} not found in ServiceRequest/${serviceRequestId}`);
+  }
+
+  const hasSpecimeCollection = specimen.collection;
+  const hasSpecimenDateTime = specimen.collection?.collectedDateTime;
+  const hasSpecimenCollector = specimen.collection?.collector;
+  const specimenCollector = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
+
+  const operations: Operation[] = [];
+
+  if (hasSpecimeCollection) {
+    operations.push(
+      {
+        op: hasSpecimenCollector ? 'replace' : 'add',
+        path: '/collection/collector',
+        value: specimenCollector,
+      },
+      {
+        op: hasSpecimenDateTime ? 'replace' : 'add',
+        path: '/collection/collectedDateTime',
+        value: date,
+      }
+    );
+  } else {
+    operations.push({
+      path: '/collection',
+      op: 'add',
+      value: {
+        collectedDateTime: date,
+        collector: specimenCollector,
+      },
+    });
+  }
+
+  const specimenPatchRequest: BatchInputPatchRequest<Specimen> = {
+    method: 'PATCH',
+    url: `Specimen/${specimen.id}`,
+    operations: operations,
+  };
+
+  const updateTransactionRequest = await oystehr.fhir.transaction<Specimen>({
+    requests: [specimenPatchRequest],
+  });
 
   return updateTransactionRequest;
 };

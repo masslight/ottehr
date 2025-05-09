@@ -42,8 +42,11 @@ import {
   replaceOperation,
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  LAB_RESTULT_PDF_BASE_NAME,
 } from 'utils';
 import {
+  BookableResource,
   EncounterVirtualServiceExtension,
   HealthcareServiceWithLocationContext,
   PractitionerLicense,
@@ -68,6 +71,7 @@ import {
   ScheduleStrategy,
   SERVICE_MODE_SYSTEM,
   ServiceModeCoding,
+  SLUG_SYSTEM,
 } from './constants';
 
 export function isFHIRError(error: any): boolean {
@@ -115,6 +119,8 @@ export function getTaxID(resource: Practitioner | Organization | Location | Heal
 export const codingsEqual = (coding1: Coding, coding2: Coding): boolean => {
   const systemsAreEqual = coding1.system === coding2.system;
   const codesAreEqual = coding1.code === coding2.code;
+
+  console.log('coding 1, coding 2', coding1, coding2, systemsAreEqual, codesAreEqual);
 
   return systemsAreEqual && codesAreEqual;
 };
@@ -227,6 +233,7 @@ export async function createFilesDocumentReferences(
   const { files, type, meta, dateCreated, docStatus, references, oystehr, searchParams, generateUUID, listResources } =
     input;
   console.log('files for doc refs', JSON.stringify(files, null, 2));
+  const isLabsResultDoc = type.coding?.[0].code === LAB_RESULT_DOC_REF_CODING_CODE.code;
   try {
     console.log('searching for current document references', JSON.stringify(searchParams, null, 2));
     const docsJson = (
@@ -258,7 +265,22 @@ export async function createFilesDocumentReferences(
         continue;
       }
       // If different version exists, mark it as superseded
-      const oldDoc = docsJson.find((doc) => doc.content[0]?.attachment.title === file.title);
+      const oldDoc = docsJson.find((doc) => {
+        if (!isLabsResultDoc) {
+          return doc.content[0]?.attachment.title === file.title;
+        } else {
+          // unreviewed lab result docs should be superseeded by reviewed lab result docs
+          // only the beginning of these file names will match, logic for
+          // const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
+          console.log('isLabsResultDoc');
+          console.log('oldDoc attachment title', doc.content[0]?.attachment.title);
+          console.log('file to be created title', file.title);
+          const labsResultDocIsNewVersion =
+            doc.content[0]?.attachment.title?.startsWith(LAB_RESTULT_PDF_BASE_NAME) &&
+            file.title.startsWith(LAB_RESTULT_PDF_BASE_NAME);
+          return labsResultDocIsNewVersion;
+        }
+      });
       if (oldDoc) {
         await oystehr.fhir.patch({
           resourceType: 'DocumentReference',
@@ -1286,4 +1308,10 @@ export const getStripeCustomerIdFromAccount = (account: Account): string | undef
 export const getActiveAccountGuarantorReference = (account: Account): string | undefined => {
   const guarantor = account?.guarantor?.find((g) => g.period?.end === undefined)?.party;
   return guarantor?.reference;
+};
+
+export const getSlugForBookableResource = (resource: BookableResource): string | undefined => {
+  return resource.identifier?.find((id) => {
+    return id.system === SLUG_SYSTEM;
+  })?.value;
 };

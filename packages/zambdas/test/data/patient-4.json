@@ -1,0 +1,218 @@
+{
+  "id": "d308059a-6680-44da-816d-7698eed62907",
+  "meta": {
+    "versionId": "6ee721c5-e4f3-4c72-8da5-28e3553f6c67",
+    "lastUpdated": "2025-04-18T13:10:27.475Z"
+  },
+  "name": [
+    {
+      "use": "official",
+      "given": ["George", "Mark"],
+      "family": "McLowrand",
+      "suffix": ["Sir"]
+    },
+    {
+      "use": "nickname",
+      "given": ["Goga"]
+    }
+  ],
+  "active": true,
+  "gender": "male",
+  "address": [
+    {
+      "city": "Maryland",
+      "line": ["Lincoln str., 21", "appt. 123"],
+      "state": "CO",
+      "country": "US",
+      "postalCode": "12312"
+    }
+  ],
+  "contact": [
+    {
+      "name": {
+        "given": ["a"],
+        "family": "a"
+      },
+      "gender": "male",
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/birth-date",
+          "valueString": "2000-01-01"
+        }
+      ],
+      "relationship": [
+        {
+          "coding": [
+            {
+              "code": "SELF",
+              "system": "http://hl7.org/fhir/relationship",
+              "display": "Self"
+            }
+          ]
+        },
+        {
+          "coding": [
+            {
+              "code": "BP",
+              "system": "http://terminology.hl7.org/CodeSystem/v2-0131"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "telecom": [
+        {
+          "value": "+17472920712",
+          "system": "phone",
+          "extension": [
+            {
+              "url": "https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx",
+              "valueString": "erx"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "value": "a@a.a",
+      "system": "email"
+    },
+    {
+      "value": "+17472920712",
+      "system": "phone"
+    }
+  ],
+  "birthDate": "2000-01-01",
+  "contained": [
+    {
+      "id": "primary-care-physician",
+      "name": [
+        {
+          "given": ["Elizabeth"],
+          "family": "Ronda"
+        }
+      ],
+      "active": true,
+      "address": [
+        {
+          "text": "Evergreen str., 25"
+        }
+      ],
+      "telecom": [
+        {
+          "value": "+12222222222",
+          "system": "phone"
+        }
+      ],
+      "extension": [
+        {
+          "url": "https://fhir.zapehr.com/r4/StructureDefinitions/practice-name",
+          "valueString": "SuperCare"
+        }
+      ],
+      "resourceType": "Practitioner"
+    }
+  ],
+  "extension": [
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "code": "2186-5",
+            "system": "http://terminology.hl7.org/CodeSystem/v3-Ethnicity",
+            "display": "Not Hispanic or Latino"
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/race",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "code": "2028-9",
+            "system": "http://terminology.hl7.org/CodeSystem/v3-Race",
+            "display": "Asian"
+          }
+        ]
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/us/cdmh/StructureDefinition/cdmh-patient-sexualOrientation",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "code": "446171000124106",
+            "system": "http://snomed.info/sct",
+            "display": "Bisexual"
+          }
+        ]
+      }
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/individual-genderIdentity",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "code": "33791000087105",
+            "system": "http://snomed.info/sct",
+            "display": "Non-binary gender identity"
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/individual-genderIdentity",
+      "valueString": "Table"
+    },
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/individual-pronouns",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "code": "LA29518-0",
+            "system": "http://loinc.org",
+            "display": "He/him"
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/point-of-discovery",
+      "valueString": "Been there with another family member"
+    },
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/send-marketing",
+      "valueBoolean": false
+    },
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/common-well-consent",
+      "valueBoolean": true
+    }
+  ],
+  "resourceType": "Patient",
+  "communication": [
+    {
+      "language": {
+        "coding": [
+          {
+            "code": "en",
+            "system": "urn:ietf:bcp:47",
+            "display": "English"
+          }
+        ]
+      },
+      "preferred": true
+    }
+  ],
+  "generalPractitioner": [
+    {
+      "reference": "#primary-care-physician",
+      "resourceType": "Practitioner"
+    }
+  ]
+}

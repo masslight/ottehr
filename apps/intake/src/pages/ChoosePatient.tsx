@@ -5,51 +5,37 @@ import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import {
-  CustomLoadingButton,
-  ErrorDialog,
-  ErrorDialogConfig,
-  FormInputType,
-  PageForm,
-  useUCZambdaClient,
-  ZambdaClient,
-} from 'ui-components';
-import {
-  CancellationReasonOptionsInPerson,
-  getDateComponentsFromISOString,
-  getPatientInfoFullName,
-  VisitType,
-} from 'utils';
-import { intakeFlowPageRoute } from '../App';
+import { Link, useNavigate } from 'react-router-dom';
+import { CustomLoadingButton, ErrorDialog, ErrorDialogConfig, useUCZambdaClient, ZambdaClient } from 'ui-components';
+import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, VisitType } from 'utils';
+import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
-import { getStartingPath } from '../helpers';
 import { safelyCaptureException } from '../helpers/sentry';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { Appointment } from '../types';
-import { useBookingContext } from './Welcome';
-import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
+import { useBookingContext } from './BookingHome';
+import PatientList from '../features/patients/components/selectable-list';
 import { ottehrLightBlue } from '@theme/icons';
 
-const WelcomeBack = (): JSX.Element => {
+const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
   const zambdaClient = useUCZambdaClient({ tokenless: false });
   const { isAuthenticated, isLoading: authIsLoading, loginWithRedirect } = useAuth0();
   const {
+    startISO,
     patients,
     patientInfo,
     visitType,
-    serviceType,
-    selectedLocation,
+    slotId,
+    timezone,
     patientsLoading,
+    scheduleOwnerName,
     setPatientInfo,
-    selectedSlot,
-    scheduleType,
   } = useBookingContext();
-  const [appointmentsLoading, setAppointmentsLoading] = useState<boolean>(true);
+  const [appointmentsLoading, setAppointmentsLoading] = useState<boolean>(false);
   const [allAppointments, setAllAppointments] = useState<Appointment[]>([]);
   const [checkInModalOpen, setCheckInModalOpen] = useState<boolean>(false);
   const [appointmentsToCheckIn, setAppointmentsToCheckIn] = useState<Appointment[]>([]);
@@ -57,56 +43,12 @@ const WelcomeBack = (): JSX.Element => {
   const [bookedAppointment, setBookedAppointment] = useState<Appointment>();
   const [cancellingAppointment, setCancellingAppointment] = useState<boolean>(false);
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
-  const { slug: slugParam, visit_type: visitTypeParam, state: stateParam } = useParams();
   const preserveQueryParams = usePreserveQueryParams();
   const { t } = useTranslation();
 
   const navigateInFlow = useNavigateInFlow();
 
-  const { walkinOpen } = useCheckOfficeOpen(selectedLocation);
-
-  useEffect(() => {
-    if (visitType === VisitType.WalkIn && !walkinOpen) {
-      navigate(getStartingPath(selectedLocation, visitType, serviceType, selectedSlot), {
-        state: { reschedule: true },
-        replace: true,
-      });
-    }
-  }, [selectedLocation, visitType, serviceType, selectedSlot, walkinOpen, navigate]);
-
-  const formElements: FormInputType[] = useMemo(() => {
-    return [
-      {
-        type: 'Radio',
-        name: 'patientID',
-        label: t('welcomeBack.subtitle'),
-        defaultValue: patientInfo?.id,
-        required: true,
-        radioOptions: (patients || [])
-          .sort((a, b) => {
-            if (!a.firstName) return 1;
-            if (!b.firstName) return -1;
-            return a.firstName.localeCompare(b.firstName);
-          })
-          .map((patient) => {
-            if (!patient.id) {
-              throw new Error('Patient id is not defined');
-            }
-            return {
-              label: getPatientInfoFullName(patient),
-              value: patient.id,
-              color: otherColors.lightBlue,
-            };
-          })
-          .concat({
-            label: 'Different family member',
-            value: 'new-patient',
-            color: otherColors.lightBlue,
-          }),
-      },
-    ];
-  }, [patientInfo?.id, patients, t]);
-
+  // todo: consider whether this is better handled in BookingHome
   useEffect(() => {
     const getAppointmentsTodayAndTomorrow = async (): Promise<void> => {
       try {
@@ -114,10 +56,9 @@ const WelcomeBack = (): JSX.Element => {
           throw new Error('zambdaClient is not defined');
         }
         setAppointmentsLoading(true);
-        const timezone = selectedLocation?.timezone;
         const todayStart = DateTime.now().setZone(timezone).startOf('day');
         const tomorrowEnd = todayStart.plus({ day: 1 }).endOf('day');
-        const response = await zapehrApi.getAppointments(zambdaClient, {
+        const response = await ottehrApi.getAppointments(zambdaClient, {
           dateRange: { greaterThan: todayStart.toISO() || '', lessThan: tomorrowEnd.toISO() || '' },
         });
         setAllAppointments(response.appointments ?? []);
@@ -128,21 +69,21 @@ const WelcomeBack = (): JSX.Element => {
       }
     };
 
-    if (selectedLocation?.timezone) {
+    if (timezone) {
       getAppointmentsTodayAndTomorrow().catch((error) => console.log(error));
     }
-  }, [selectedLocation?.timezone, zambdaClient]);
+  }, [timezone, zambdaClient]);
 
   const { todayAppointments, tomorrowAppointments, showCheckIn } = useMemo(() => {
     let todayAppointments: Appointment[] = [];
     let tomorrowAppointments: Appointment[] = [];
     let showCheckIn = false;
 
-    if (!allAppointments.length || !selectedLocation?.timezone) {
+    if (!allAppointments.length || timezone) {
       return { todayAppointments, tomorrowAppointments, showCheckIn };
     }
 
-    const todayStart = DateTime.now().setZone(selectedLocation.timezone).startOf('day');
+    const todayStart = DateTime.now().setZone(timezone).startOf('day');
     const tomorrowStart = todayStart.plus({ day: 1 });
     todayAppointments = allAppointments.filter(
       (appointment: Appointment) =>
@@ -155,13 +96,11 @@ const WelcomeBack = (): JSX.Element => {
     // console.log('today', todayAppointments, 'tomorrow', tomorrowAppointments);
     showCheckIn = todayAppointments.some(
       (appointment: Appointment) =>
-        !appointment.checkedIn &&
-        appointment.status !== 'fulfilled' &&
-        appointment.location?.name === selectedLocation?.name
+        !appointment.checkedIn && appointment.status !== 'fulfilled' && appointment.slotId === slotId
     );
 
     return { todayAppointments, tomorrowAppointments, showCheckIn };
-  }, [allAppointments, selectedLocation?.name, selectedLocation?.timezone]);
+  }, [allAppointments, slotId, timezone]);
 
   const onSubmit = async (data: FieldValues): Promise<void> => {
     let foundPatient = false;
@@ -267,10 +206,10 @@ const WelcomeBack = (): JSX.Element => {
         );
       }
       const checkIns = patientAppointments.filter(
-        (appointment: Appointment) => appointment.location?.name === selectedLocation?.name
+        (appointment: Appointment) => appointment.slotId === slotId || appointment.location?.name === scheduleOwnerName
       );
       const cancels = patientAppointments.filter(
-        (appointment: Appointment) => appointment.location?.name !== selectedLocation?.name
+        (appointment: Appointment) => appointment.location?.name !== scheduleOwnerName
       );
 
       setAppointmentsToCheckIn(checkIns);
@@ -285,21 +224,21 @@ const WelcomeBack = (): JSX.Element => {
   };
 
   const alreadyBooked = (patientID: string): string | undefined => {
+    console.log('already booked', patientID);
     let bookedAppointmentID: string | undefined;
-    const timezone = selectedLocation?.timezone;
 
-    if (patientID && selectedSlot && timezone) {
+    if (patientID && timezone) {
       // get appointments for the selected slot date
       // can't use strict equality for luxon datetimes so use equals() instead
       const today = DateTime.now().setZone(timezone).startOf('day');
-      const selectedSlotDay = DateTime.fromISO(selectedSlot).setZone(timezone).startOf('day');
+      const selectedSlotDay = DateTime.fromISO(startISO).setZone(timezone).startOf('day');
       const appointments = selectedSlotDay.equals(today) ? todayAppointments : tomorrowAppointments;
 
       // check if selected patient already has appointment and return its id
       const alreadyBookedAtThisLocation = appointments.find(
         (appointment: Appointment) =>
           appointment.patientID === patientID &&
-          appointment.location?.name === selectedLocation?.name &&
+          appointment.slotId === slotId &&
           appointment.visitStatus !== 'completed'
       );
       bookedAppointmentID = alreadyBookedAtThisLocation?.id;
@@ -344,7 +283,7 @@ const WelcomeBack = (): JSX.Element => {
       return;
     }
     setCancellingAppointment(true);
-    await zapehrApi.cancelAppointment(
+    await ottehrApi.cancelAppointment(
       zambdaClient,
       {
         appointmentID: appointmentID,
@@ -360,7 +299,7 @@ const WelcomeBack = (): JSX.Element => {
   const handleCancelAppointmentForAnotherLocation = async (): Promise<void> => {
     if (zambdaClient && bookedAppointment) {
       setCancellingAppointment(true);
-      await zapehrApi.cancelAppointment(
+      await ottehrApi.cancelAppointment(
         zambdaClient,
         {
           appointmentID: bookedAppointment.id,
@@ -396,7 +335,7 @@ const WelcomeBack = (): JSX.Element => {
     // if the user is not signed in, redirect them to auth0
     loginWithRedirect({
       appState: {
-        target: preserveQueryParams(`/${scheduleType}/${stateParam}/${slugParam}/${visitTypeParam}/patients`),
+        target: preserveQueryParams(`/${bookingBasePath}/${slotId}/patients`),
       },
     }).catch((error) => {
       throw new Error(`Error calling loginWithRedirect Auth0: ${error}`);
@@ -443,10 +382,13 @@ const WelcomeBack = (): JSX.Element => {
       <Typography variant="body1" marginTop={1} marginBottom={2}>
         {t('welcomeBack.body2')}
       </Typography>
-      <PageForm
-        formElements={formElements}
+      <PatientList
+        patients={patients}
+        subtitle={t('welcomeBack.subtitle')}
+        selectedPatient={patientInfo}
+        buttonLoading={cancellingAppointment}
         onSubmit={onSubmit}
-        controlButtons={{ onBack, loading: cancellingAppointment }}
+        onBack={onBack}
       />
       <Dialog open={checkInModalOpen} onClose={() => setCheckInModalOpen(false)}>
         <Paper>
@@ -459,7 +401,7 @@ const WelcomeBack = (): JSX.Element => {
             <Typography marginTop={2} marginBottom={2}>
               {t('welcomeBack.errors.alreadyBooked.body1')} {bookedAppointment?.location?.name || 'Unknown'}{' '}
               {t('welcomeBack.errors.alreadyBooked.body2')} {appointmentTimezoneAdjusted}.{' '}
-              {t('welcomeBack.errors.alreadyBooked.body3')} {selectedLocation?.name || 'Unknown'}.
+              {t('welcomeBack.errors.alreadyBooked.body3')} {scheduleOwnerName || 'Unknown'}.
             </Typography>
             <Box display="flex" justifyContent="flex-end">
               <CustomLoadingButton
@@ -498,4 +440,4 @@ const WelcomeBack = (): JSX.Element => {
   );
 };
 
-export default WelcomeBack;
+export default ChoosePatient;

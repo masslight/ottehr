@@ -57,6 +57,7 @@ export const dataTestIds = {
   },
   patientInformationPage: {
     saveChangesButton: 'save-changes-button',
+    addInsuranceButton: 'add-insurance-button',
   },
   patientHeader: {
     patientId: 'header-patient-id',
@@ -300,6 +301,7 @@ export const dataTestIds = {
   },
   progressNotePage: {
     reviewAndSignButton: 'review-and-sign-button',
+    sendFaxButton: 'send-fax-button',
     missingCard: 'missing-card',
     missingCardText: 'missing-card-text',
     primaryDiagnosisLink: 'primary-diagnosis-link',
@@ -354,5 +356,25 @@ export const dataTestIds = {
   },
   patientRecordPage: {
     seeAllPatientInfoButton: 'see-all-patient-info-button',
+  },
+
+  addInsuranceDialog: {
+    id: 'add-insurance-dialog',
+    type: 'add-insurance-dialog-type',
+    insuranceCarrier: 'add-insurance-dialog-carrier',
+    memberId: 'add-insurance-dialog-member-id',
+    policyHoldersFirstName: 'add-insurance-dialog-policy-holders-first-name',
+    policyHoldersLastName: 'add-insurance-dialog-policy-holders-larst-name',
+    policyHoldersMiddleName: 'add-insurance-dialog-policy-holders-middle-name',
+    policyHoldersDateOfBirth: 'add-insurance-dialog-policy-holders-date-of-birth',
+    policyHoldersSex: 'add-insurance-dialog-policy-holders-sex',
+    streetAddress: 'add-insurance-dialog-street-address',
+    addressLine2: 'add-insurance-dialog-address-line2',
+    city: 'add-insurance-dialog-city',
+    state: 'add-insurance-dialog-state',
+    zip: 'add-insurance-dialog-zip',
+    relationship: 'add-insurance-dialog-relationship',
+    additionalInformation: 'add-insurance-dialog-additional-information',
+    addInsuranceButton: 'add-insurance-dialog-add-insurance-button',
   },
 };

@@ -1,25 +1,15 @@
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import {
-  Address,
-  Appointment,
-  Location,
-  Patient,
-  Practitioner,
-  QuestionnaireResponseItem,
-  Schedule,
-  Slot,
-} from 'fhir/r4b';
+import Oystehr from '@oystehr/sdk';
+import { Address, Appointment, Location, Patient, QuestionnaireResponseItem, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
 import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  CreateSlotParams,
   PatchPaperworkParameters,
   PersonSex,
-  ScheduleType,
   ServiceMode,
   SubmitPaperworkParameters,
-  VisitType,
 } from '../types';
 import { GetPaperworkAnswers } from './create-telemed-demo-visits';
 import {
@@ -38,6 +28,7 @@ import {
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
 } from './helpers';
+import { chooseJson } from './zapEHRApi';
 
 interface AppointmentData {
   firstNames?: string[];
@@ -208,7 +199,7 @@ export const createSamplePrebookAppointments = async ({
 
         return appointmentData;
       } catch (error) {
-        console.error(`Error processing appointment ${i + 1}:`, error);
+        console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
         throw error;
       }
     });
@@ -265,6 +256,7 @@ const processPrebookPaperwork = async (
             birthSex: patientInfo.patient.sex,
           }),
           getPatientDetailsStepAnswers({}),
+          getPrimaryCarePhysicianStepAnswers({}),
           getMedicationsStepAnswers(),
           getAllergiesStepAnswers(),
           getMedicalConditionsStepAnswers(),
@@ -286,9 +278,9 @@ const processPrebookPaperwork = async (
             birthSex: patientInfo.patient.sex,
           }),
           getPatientDetailsStepAnswers({}),
+          getPrimaryCarePhysicianStepAnswers({}),
           getPaymentOptionSelfPayAnswers(),
           getResponsiblePartyStepAnswers({}),
-          getPrimaryCarePhysicianStepAnswers({}),
           getConsentStepAnswers({}),
         ];
 
@@ -329,7 +321,7 @@ const generateRandomPatientInfo = async (
   serviceMode: ServiceMode,
   phoneNumber?: string,
   demoData?: AppointmentData,
-  selectedLocationId?: string
+  _selectedLocationId?: string
 ): Promise<CreateAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
@@ -365,56 +357,66 @@ const generateRandomPatientInfo = async (
       params: [
         { name: '_count', value: '1000' },
         { name: 'address-state:missing', value: 'false' },
+        { name: 'status', value: 'active' },
+        { name: '_has:Schedule:actor:_id:missing', value: 'false' },
         { name: '_revinclude', value: 'Schedule:actor:Location' },
       ],
     })
   ).unbundle();
 
-  const allOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
+  const activeOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
   const allSchedules = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Schedule') as Schedule[];
 
-  const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
-  const activeOffices = allOffices.filter((item) => item.status === 'active');
-  const practitionersTemp = (
-    await oystehr.fhir.search<Practitioner>({
-      resourceType: 'Practitioner',
-      params: [
-        { name: '_count', value: '1000' },
-        { name: 'active', value: 'true' },
-      ],
-    })
-  ).unbundle();
+  const telemedOffices = activeOffices.filter((loc) => isLocationVirtual(loc));
 
-  const randomLocationIndex = Math.floor(Math.random() * activeOffices.length);
-  const randomLocationId = activeOffices[randomLocationIndex].id;
+  const notSoRandomLocation = activeOffices.find((loc) => loc.name === process.env.LOCATION);
+
+  let randomLocationId = '';
+  if (serviceMode === ServiceMode['in-person']) {
+    if (!notSoRandomLocation?.id) {
+      console.log('Location not found in search results');
+      throw new Error(`Location ${process.env.LOCATION} not found in search results`);
+    }
+    randomLocationId = notSoRandomLocation.id;
+  }
   const randomTelemedLocationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id;
-  const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
+  // const randomProviderId = practitionersTemp[Math.floor(Math.random() * practitionersTemp.length)].id;
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
   const matchingRandomSchedule = allSchedules.find((schedule) => {
     const scheduleOwner = schedule.actor?.[0]?.reference;
     if (scheduleOwner) {
       const [type, id] = scheduleOwner.split('/');
-      return type === 'Location' && id === randomLocationId;
+      if (serviceMode === 'virtual') {
+        return type === 'Location' && id === randomTelemedLocationId;
+      } else {
+        return type === 'Location' && id === randomLocationId;
+      }
     }
     return false;
   });
 
-  if (!matchingRandomSchedule) {
+  if (!matchingRandomSchedule?.id) {
+    console.log('Schedule not found in search results');
     throw new Error(`No matching schedule found for location ID: ${randomLocationId}`);
   }
   const now = DateTime.now();
-  const startTime = now.plus({ hours: 2 }).toISO();
-  const endTime = now.plus({ hours: 2, minutes: 15 }).toISO();
-  const slot: Slot = {
-    resourceType: 'Slot',
-    id: `${matchingRandomSchedule}-${startTime}`,
-    status: 'busy',
-    start: startTime,
-    end: endTime,
-    schedule: {
-      reference: `Schedule/${matchingRandomSchedule.id}`,
-    },
+  // note this whole setup is fragile because it is assuming that slots are available.
+  // the busy slot logic looks like it was broken at some point, which makes this slightly safer to do right now;
+  // only the schedule not offering any slots at the chosen time (which is also a possibility) will cause it to fail
+  // create slot
+  const createSlotInput: CreateSlotParams = {
+    scheduleId: matchingRandomSchedule.id,
+    startISO: now.startOf('hour').plus({ hours: 2 }).toISO(),
+    lengthInMinutes: 15,
+    serviceModality: serviceMode,
+    walkin: false,
   };
+  const persistedSlotResult = await oystehr.zambda.executePublic({
+    id: 'create-slot',
+    ...createSlotInput,
+  });
+
+  const persistedSlot = await chooseJson(persistedSlotResult);
 
   const patientData = {
     newPatient: true,
@@ -433,24 +435,14 @@ const generateRandomPatientInfo = async (
     return {
       patient: patientData,
       unconfirmedDateOfBirth: randomDateOfBirth,
-      scheduleType: ScheduleType.location,
-      visitType: VisitType.PreBook,
-      serviceType: ServiceMode.virtual,
-      providerID: randomProviderId,
-      locationID: randomTelemedLocationId,
-      slot,
+      slotId: persistedSlot.id!,
       language: 'en',
     };
   }
 
   return {
     patient: patientData,
-    scheduleType: ScheduleType.location,
-    visitType: VisitType.PreBook,
-    serviceType: ServiceMode['in-person'],
-    providerID: randomProviderId,
-    locationID: selectedLocationId || randomLocationId,
-    slot,
+    slotId: persistedSlot.id!,
     language: 'en',
   };
 };

@@ -25,6 +25,7 @@ import {
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
+  checkEncounterIsVirtual,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
@@ -52,9 +53,6 @@ export interface GetPaperworkInput {
   secrets: Secrets | null;
   authorization: string | undefined;
 }
-
-// http://localhost:3003/location/ak/anchorage/prebook
-// http://localhost:3003/visit/d1040d74-cd91-45f5-b910-7efd6fbcdfbc
 
 export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'patient'> & {
   patient: {
@@ -131,6 +129,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           {
             name: '_revinclude',
             value: 'QuestionnaireResponse:encounter',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Appointment:slot',
+          },
+          {
+            name: '_include:iterate',
+            value: 'Slot:schedule',
           },
         ],
       })
@@ -213,6 +219,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       'ip-questionnaire-item-value-set',
       oystehr
     );
+    console.timeEnd('get-questionnaire');
 
     if (!questionnaire.item) {
       questionnaire.item = [];
@@ -256,6 +263,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         location,
         hsResources,
         practitioner,
+        encounter,
       });
 
       console.log('building get paperwork response');
@@ -297,6 +305,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         location,
         hsResources,
         practitioner,
+        encounter,
       });
       const response = {
         appointment: app,
@@ -317,6 +326,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
 interface GetPaperworkSupportingInfoInput {
   appointment: Appointment;
+  encounter: Encounter;
   patient: Patient;
   location: Location | undefined;
   hsResources: { hs: HealthcareService; locations?: Location[]; serviceArea?: Location } | undefined;
@@ -324,7 +334,11 @@ interface GetPaperworkSupportingInfoInput {
 }
 
 function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupportingInfoInput): PaperworkSupportingInfo {
-  const { appointment, patient, location, hsResources, practitioner } = input;
+  const { appointment, patient, location, hsResources, practitioner, encounter } = input;
+  const serviceMode: ServiceMode = checkEncounterIsVirtual(encounter)
+    ? ServiceMode['virtual']
+    : ServiceMode['in-person'];
+
   return {
     appointment: {
       id: appointment?.id ?? 'Unknown', // i hate this
@@ -333,6 +347,7 @@ function getPaperworkSupportingInfoForUserWithAccess(input: GetPaperworkSupporti
       visitType: appointment?.appointmentType?.text as VisitType,
       status: appointment?.status,
       unconfirmedDateOfBirth: appointment ? getUnconfirmedDOBForAppointment(appointment) : undefined,
+      serviceMode: serviceMode,
     },
     patient: {
       id: patient.id,
@@ -381,6 +396,7 @@ interface LocationSummaryInput {
   hsResources?: HealthcareServiceWithLocationContext;
   practitioner?: Practitioner;
 }
+// todo: consider whether all the location config stuff needs to be on here
 const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['location'] => {
   const { appointment, location, hsResources, practitioner } = input;
   if (hsResources) {

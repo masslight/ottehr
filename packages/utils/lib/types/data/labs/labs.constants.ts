@@ -12,6 +12,7 @@ export const LAB_ORDER_TASK = {
     presubmission: 'PST',
     reviewPreliminaryResult: 'RPRT',
     reviewFinalResult: 'RFRT',
+    reviewCorrectedResult: 'RCRT',
   },
 } as const;
 
@@ -34,11 +35,28 @@ export const LAB_DR_TYPE_TAG = {
   },
 };
 
+export const SPECIMEN_CODING_CONFIG = {
+  collection: {
+    system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-details',
+    code: {
+      collectionInstructions: 'collectionInstructions',
+      specimenVolume: 'specimenVolume',
+    },
+  },
+};
+
 export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '261904005', display: 'Laboratory' };
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';
 
 export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/added-via-lab-order';
+
+export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
+  'http://ottehr.org/fhir/StructureDefinition/related-specimen-definition';
+
+export const SPECIMEN_TYPE_CODING_SYSTEM = 'http://terminology.hl7.org/ValueSet/v2-0487';
+
+export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
 
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems

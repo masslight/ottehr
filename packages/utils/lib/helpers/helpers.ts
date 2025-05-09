@@ -26,6 +26,7 @@ export function getParticipantIdFromAppointment(
     ?.actor?.reference?.replace(`${participant}/`, '');
 }
 
+/*
 export function getAppointmentConfirmationMessage(
   appointmentID: string,
   locationName: string,
@@ -35,6 +36,7 @@ export function getAppointmentConfirmationMessage(
 ): string {
   return `You're confirmed! Your check-in time for ${firstName} at ${locationName} is ${startTime}. Please save time at check-in by completing your pre-visit paperwork, or modify/cancel your visit: ${websiteURL}/appointment/${appointmentID}`;
 }
+  */
 
 export function checkValidBookingTime(slotTime: string): boolean {
   const slotDate = DateTime.fromISO(slotTime);

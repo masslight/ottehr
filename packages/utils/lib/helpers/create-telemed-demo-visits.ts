@@ -1,8 +1,16 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Location, Patient, QuestionnaireResponseItem } from 'fhir/r4b';
+import { Address, Location, Patient, QuestionnaireResponseItem, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { isLocationVirtual } from '../fhir';
-import { CreateAppointmentUCTelemedResponse, PatientInfo, PersonSex, SubmitPaperworkParameters } from '../types';
+import { chooseJson } from '../main';
+import {
+  CreateAppointmentInputParams,
+  CreateAppointmentResponse,
+  CreateSlotParams,
+  PersonSex,
+  ServiceMode,
+  SubmitPaperworkParameters,
+} from '../types';
 import { makeSequentialPaperworkPatches } from './create-prebook-demo-visits';
 import {
   getAdditionalQuestionsAnswers,
@@ -14,6 +22,7 @@ import {
   getMedicationsStepAnswers,
   getPatientDetailsStepAnswers,
   getPaymentOptionSelfPayAnswers,
+  getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
   getSurgicalHistoryStepAnswers,
@@ -41,15 +50,6 @@ interface DemoConfig {
 }
 
 type DemoAppointmentData = AppointmentData & DemoConfig;
-
-export interface CreateAppointmentInput {
-  locationState: string;
-  patient: PatientInfo;
-  // user: User;
-  unconfirmedDateOfBirth: string;
-  // secrets: Secrets | null;
-}
-
 export type GetPaperworkAnswers = ({
   patientInfo,
   zambdaUrl,
@@ -57,7 +57,7 @@ export type GetPaperworkAnswers = ({
   projectId,
   appointmentId,
 }: {
-  patientInfo: CreateAppointmentInput;
+  patientInfo: CreateAppointmentInputParams;
   zambdaUrl: string;
   authToken: string;
   projectId: string;
@@ -119,7 +119,7 @@ const generateRandomPatientInfo = async (
   phoneNumber?: string,
   demoData?: DemoAppointmentData,
   locationState?: string
-): Promise<CreateAppointmentInput> => {
+): Promise<CreateAppointmentInputParams> => {
   const {
     firstNames = DEFAULT_FIRST_NAMES,
     lastNames = DEFAULT_LAST_NAMES,
@@ -131,6 +131,7 @@ const generateRandomPatientInfo = async (
     address,
     telecom,
   } = demoData || {};
+  console.log('generating random patient info...');
 
   const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
   const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
@@ -148,19 +149,46 @@ const generateRandomPatientInfo = async (
       .toISODate();
   const randomSex = (gender as Patient['gender']) || sexes[Math.floor(Math.random() * sexes.length)];
 
-  const allOffices = (
-    await oystehr.fhir.search<Location>({
+  const allOfficesAndSchedules = (
+    await oystehr.fhir.search<Location | Schedule>({
       resourceType: 'Location',
       params: [
         { name: '_count', value: '1000' },
         { name: 'address-state:missing', value: 'false' },
+        { name: 'status', value: 'active' },
+        { name: '_has:Schedule:actor:_id:missing', value: 'false' },
+        { name: '_revinclude', value: 'Schedule:actor:Location' },
       ],
     })
   ).unbundle();
+  const activeOffices = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
+  const allSchedules = allOfficesAndSchedules.filter((loc) => loc.resourceType === 'Schedule') as Schedule[];
 
-  const telemedOffices = allOffices.filter((loc) => isLocationVirtual(loc));
-  const randomTelemedLocationState =
-    telemedOffices[Math.floor(Math.random() * telemedOffices.length)].address?.state || '';
+  const telemedOffices = activeOffices.filter((loc) => isLocationVirtual(loc));
+
+  const notSoRandomLocation = activeOffices.find(
+    (loc) => locationState && loc.address?.state?.toLowerCase() === locationState.toLowerCase()
+  );
+
+  let scheduleId = '';
+
+  if (notSoRandomLocation?.id) {
+    scheduleId =
+      allSchedules.find((schedule) => {
+        return schedule.actor?.[0]?.reference === `Location/${notSoRandomLocation.id}`;
+      })?.id || '';
+  }
+  if (!scheduleId) {
+    const randomLocation = telemedOffices[Math.floor(Math.random() * telemedOffices.length)];
+    scheduleId =
+      allSchedules.find((schedule) => {
+        return schedule.actor?.[0]?.reference === `Location/${randomLocation.id}`;
+      })?.id || '';
+  }
+  console.log('scheduleId: ', scheduleId);
+  if (!scheduleId) {
+    throw new Error('No schedule ID found for the selected location');
+  }
   const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
 
   const patientData = {
@@ -176,10 +204,34 @@ const generateRandomPatientInfo = async (
     ...(telecom ? { telecom } : {}),
   };
 
+  const now = DateTime.now();
+  // note this whole setup is fragile because it is assuming that slots are available.
+  // the busy slot logic looks like it was broken at some point, which makes this slightly safer to do right now;
+  // only the schedule not offering any slots at the chosen time (which is also a possibility) will cause it to fail
+  // create slot
+  const createSlotInput: CreateSlotParams = {
+    scheduleId,
+    startISO: now.toISO(),
+    lengthInMinutes: 15,
+    serviceModality: ServiceMode.virtual,
+    walkin: true,
+  };
+  let persistedSlot: Slot;
+  try {
+    const persistedSlotResult = await oystehr.zambda.executePublic({
+      id: 'create-slot',
+      ...createSlotInput,
+    });
+    persistedSlot = await chooseJson(persistedSlotResult);
+  } catch (error) {
+    console.error('Error creating slot:', error);
+    throw new Error('Failed to create slot');
+  }
+
   return {
     patient: patientData,
     unconfirmedDateOfBirth: randomDateOfBirth,
-    locationState: locationState || randomTelemedLocationState, // ?
+    slotId: persistedSlot.id!,
   };
 };
 
@@ -204,7 +256,7 @@ export const createSampleTelemedAppointments = async ({
   demoData?: DemoAppointmentData;
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
-}): Promise<CreateAppointmentUCTelemedResponse> => {
+}): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
   }
@@ -221,7 +273,6 @@ export const createSampleTelemedAppointments = async ({
     const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
       try {
         const patientInfo = await generateRandomPatientInfo(oystehr, phoneNumber, demoData, locationState);
-
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',
           headers: {
@@ -240,10 +291,8 @@ export const createSampleTelemedAppointments = async ({
         let appointmentData = await createAppointmentResponse.json();
 
         if ((appointmentData as any)?.output) {
-          appointmentData = (appointmentData as any).output as CreateAppointmentUCTelemedResponse;
+          appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
         }
-
-        console.log({ appointmentData });
 
         if (!appointmentData) {
           console.error('Error creating appointment:', appointmentData);
@@ -253,7 +302,7 @@ export const createSampleTelemedAppointments = async ({
         await processPaperwork(appointmentData, patientInfo, zambdaUrl, authToken, projectId, paperworkAnswers);
         return appointmentData;
       } catch (error) {
-        console.error(`Error processing appointment ${i + 1}:`, error);
+        console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
         return null; // Return null for failed appointments
       }
     });
@@ -262,7 +311,7 @@ export const createSampleTelemedAppointments = async ({
     const results = await Promise.all(appointmentPromises);
 
     // Filter out failed attempts (null values)
-    const successfulAppointments = results.filter((data) => data !== null) as CreateAppointmentUCTelemedResponse[];
+    const successfulAppointments = results.filter((data) => data !== null) as CreateAppointmentResponse[];
 
     if (successfulAppointments.length > 0) {
       return successfulAppointments[0]; // Return the first successful appointment
@@ -277,7 +326,7 @@ export const createSampleTelemedAppointments = async ({
 
 // Separate function for processing paperwork
 const processPaperwork = async (
-  appointmentData: CreateAppointmentUCTelemedResponse,
+  appointmentData: CreateAppointmentResponse,
   patientInfo: any,
   zambdaUrl: string,
   authToken: string,
@@ -285,8 +334,8 @@ const processPaperwork = async (
   paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
-    const appointmentId = appointmentData.appointmentId;
-    const questionnaireResponseId = appointmentData.questionnaireId;
+    const appointmentId = appointmentData.appointment!;
+    const questionnaireResponseId = appointmentData.questionnaireResponseId;
 
     if (!questionnaireResponseId) return;
 
@@ -306,6 +355,7 @@ const processPaperwork = async (
               birthSex: patientInfo.patient.sex,
             }),
             getPatientDetailsStepAnswers({}),
+            getPrimaryCarePhysicianStepAnswers({}),
             getMedicationsStepAnswers(),
             getAllergiesStepAnswers(),
             getMedicalConditionsStepAnswers(),

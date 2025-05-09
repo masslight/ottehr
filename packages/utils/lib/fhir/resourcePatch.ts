@@ -189,7 +189,6 @@ export const getPatchOperationToUpdateExtension = (
   return undefined;
 };
 
-// todo:
 export const getPatchOperationToRemoveExtension = (
   resource: { extension?: Extension[] },
   extensionToRemove: { url: Extension['url'] }
@@ -252,10 +251,10 @@ export const normalizePhoneNumber = (phone: string | undefined): string => {
 };
 
 export function createPatchOperationForTelecom(
-  newValue: string,
   contactTelecomConfig: ContactTelecomConfig,
   resource: Resource,
-  path: string
+  path: string,
+  newValue?: string
 ): Operation | undefined {
   const arrayPath = path.split('/').slice(0, -2).join('/');
   const existingArray = get(resource, arrayPath.slice(1)) as Array<ContactPoint> | undefined;

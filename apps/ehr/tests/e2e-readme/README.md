@@ -15,7 +15,7 @@ Tests are primarily managed from the root directory during local development. Fr
 | Demo Environment | `npm run ehr:e2e:demo`     | Run in demo environment   |
 
 **Auto login:**\
-When tests run on CI or if you run tests by command from the root package (i.e., by `npm run ehr:e2e:local:ui`), it will run `apps/ehr/test/e2e/login/login.spec.ts` before all other tests. That login test resets the current Playwright context, opens the login page, and types the username and password from the current environment file `apps/ehr/.env/tests.local.json`. It will then use the credentials from this session in all subsequent tests.
+When tests run on CI or if you run tests by command from the root package (i.e., by `npm run ehr:e2e:local:ui`), it will run `apps/ehr/tests/e2e/login/login.spec.ts` before all other tests. That login test resets the current Playwright context, opens the login page, and types the username and password from the current environment file `apps/ehr/.env/tests.local.json`. It will then use the credentials from this session in all subsequent tests.
 
 **Manual login**:\
 From the `./apps/ehr directory`, you can perform `npm run e2e:manual-login` command if you need to log in with your own account for testing. In this case, the script `./apps/ehr/auth.setup.js` will be executed, which resets the Playwright context and opens the authorization page where you can log in. After logging in, you can run .spec tests, and they will use the authentication from this session.
@@ -74,8 +74,8 @@ We utilize the following structure to run and configure E2E tests:
 
 | File                                      | Purpose                                                                                                                             |
 | :---------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/ehr/test/e2e/specs/*.spec.ts`       | Test scenarios.                                                                                                                     |
-| `apps/ehr/test/e2e/e2e-utils/*.ts`        | Helper utilities for test execution, including the ResourceHandler for FHIR resource management and authentication utilities.       |
+| `apps/ehr/tests/e2e/specs/*.spec.ts`      | Test scenarios.                                                                                                                     |
+| `apps/ehr/tests/e2e/e2e-utils/*.ts`       | Helper utilities for test execution, including the ResourceHandler for FHIR resource management and authentication utilities.       |
 | `apps/ehr/src/constants/data-test-ids.ts` | Centralized repository of data-test id selectors to maintain consistent element identification across tests.                        |
 | `.github/workflows/e2e-ehr.yml`           | CI/CD pipeline definition for E2E tests. Configures test execution on PR events, manages secrets, and handles artifact collection.  |
 | `packages/ehr/zambdas/.env/*`             | Environment configuration for backend Zambda functions. Contains API endpoints, credentials, and other runtime settings.            |

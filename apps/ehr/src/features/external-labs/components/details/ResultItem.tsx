@@ -9,9 +9,10 @@ interface ResultItemProps {
   labOrder: LabOrderDetailedPageDTO;
   onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
+  loading: boolean;
 }
 
-export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: ResultItemProps): ReactElement => {
+export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading }: ResultItemProps): ReactElement => {
   const theme = useTheme();
   return (
     <div style={{ marginTop: '42px' }}>
@@ -51,6 +52,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
           resultPdfUrl={resultDetails.resultPdfUrl}
           labStatus={resultDetails.labStatus}
           onMarkAsReviewed={onMarkAsReviewed}
+          loading={loading}
         />
       )}
 

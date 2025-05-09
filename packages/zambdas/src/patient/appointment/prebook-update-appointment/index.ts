@@ -22,6 +22,7 @@ import {
   isPostTelemedAppointment,
   UpdateAppointmentParameters,
   normalizeSlotToUTC,
+  getSlugForBookableResource,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -37,7 +38,6 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getSlugForBookableResource } from '../../bookable/helpers';
 
 export interface UpdateAppointmentInput extends UpdateAppointmentParameters {
   secrets: Secrets | null;
@@ -105,8 +105,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR;
     }
 
-    const originalDate = DateTime.fromISO(fhirAppointment?.start ?? '').setZone('UTC');
-
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
     if (fhirAppointment.status === 'arrived') {
       throw CANT_UPDATE_CHECKED_IN_APT_ERROR;
@@ -166,13 +164,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       },
     };
 
-    const { availableSlots } = await getAvailableSlotsForSchedules({
-      now: DateTime.now(),
-      scheduleList: scheduleData.scheduleList,
-      busySlots: [], // todo: add busy slots or refactor - see previous todo, these can be queried form the passed in slot
-    });
+    const { availableSlots } = await getAvailableSlotsForSchedules(
+      {
+        now: DateTime.now(),
+        scheduleList: scheduleData.scheduleList,
+      },
+      oystehr
+    );
 
-    // todo: another place to refactor with a slot comparator utility func
+    // todo 1.9: another place to refactor with a slot comparator utility func
     if (availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {
       console.log('slot is available');
     } else {
