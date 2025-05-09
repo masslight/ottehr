@@ -20,6 +20,8 @@ import { ProgressNote } from '../pages/ProgressNote';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
 import { OttehrAi } from '../pages/OttehrAi';
+import Procedures from '../pages/Procedures';
+import ProceduresNew from '../pages/ProceduresNew';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -43,6 +45,9 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER = 'external-lab-orders',
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
+
+  PROCEDURES = 'procedures',
+  PROCEDURES_NEW = 'procedures/new',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -172,6 +177,21 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: <ERX />,
     text: 'eRX',
     iconKey: 'eRX',
+  },
+  [ROUTER_PATH.PROCEDURES]: {
+    path: ROUTER_PATH.PROCEDURES,
+    modes: ['provider'],
+    element: <Procedures />,
+    text: 'Procedures',
+    iconKey: 'Procedures',
+  },
+  [ROUTER_PATH.PROCEDURES_NEW]: {
+    path: ROUTER_PATH.PROCEDURES_NEW,
+    modes: ['provider'],
+    isSkippedInNavigation: true,
+    element: <ProceduresNew />,
+    text: 'Document Procedure ',
+    iconKey: 'Procedures',
   },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,
