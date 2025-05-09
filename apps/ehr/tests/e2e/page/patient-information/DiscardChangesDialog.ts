@@ -13,11 +13,11 @@ export class DiscardChangesDialog {
   }
 
   async clickCancelButton(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
+    await this.#page.getByTestId(dataTestIds.dialog.cancelButton).click();
   }
 
-  async clickCloseIcon(): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.closeIcon).click();
+  async clickCloseButton(): Promise<void> {
+    await this.#page.getByTestId(dataTestIds.dialog.closeButton).click();
   }
 }
 

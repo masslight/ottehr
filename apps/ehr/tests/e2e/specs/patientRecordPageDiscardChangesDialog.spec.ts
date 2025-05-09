@@ -48,7 +48,7 @@ test.describe('Discard Changes Dialog non-mutating tests', () => {
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
     const discardChangesDialog = await expectDiscardChangesDialog(page);
-    await discardChangesDialog.clickCloseIcon();
+    await discardChangesDialog.clickCloseButton();
     await expectPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(NEW_PATIENT_FIRST_NAME);
   });

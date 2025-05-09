@@ -70,6 +70,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
               right: 8,
               top: 8,
             }}
+            data-testid={dataTestIds.dialog.closeButton}
           >
             <Close />
           </IconButton>
@@ -110,7 +111,7 @@ export const CustomDialog: FC<CustomDialogProps> = ({
             borderRadius: '100px',
             textTransform: 'none',
           }}
-          data-testid={dataTestIds.dialog.closeButton}
+          data-testid={dataTestIds.dialog.cancelButton}
         >
           {closeButtonText}
         </Button>

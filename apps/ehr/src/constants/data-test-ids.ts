@@ -154,6 +154,7 @@ export const dataTestIds = {
   },
   dialog: {
     closeButton: 'dialog-close-button',
+    cancelButton: 'dialog-cancel-button',
     proceedButton: 'dialog-proceed-button',
     title: 'dialog-title',
   },
