@@ -138,6 +138,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
+  const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
 
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
@@ -147,7 +148,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
     lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, results, tasks, cache),
     orderAddedDate: parseLabOrderAddedDate(serviceRequest, tasks, results, cache),
-    orderStatus: parseLabOrderStatus(serviceRequest, tasks, results, cache),
+    orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
     isPSC: parseIsPSC(serviceRequest),
     reflexResultsCount: parseReflexTestsCount(serviceRequest, results),
@@ -160,7 +161,16 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   if (searchBy.searchBy.field === 'serviceRequestId') {
     const detailedPageDTO: LabOrderDetailedPageDTO = {
       ...listPageDTO,
-      history: parseLabOrdersHistory(serviceRequest, tasks, results, practitioners, provenances, specimens, cache),
+      history: parseLabOrdersHistory(
+        serviceRequest,
+        orderStatus,
+        tasks,
+        results,
+        practitioners,
+        provenances,
+        specimens,
+        cache
+      ),
       accountNumber: parseAccountNumber(serviceRequest, organizations),
       resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
@@ -1277,6 +1287,7 @@ export const parseLabOrderLastResultReceivedDate = (
 
 export const parseLabOrdersHistory = (
   serviceRequest: ServiceRequest,
+  orderStatus: ExternalLabsStatus,
   tasks: Task[],
   results: DiagnosticReport[],
   practitioners: Practitioner[],
@@ -1302,6 +1313,8 @@ export const parseLabOrdersHistory = (
       date: orderAddedDate,
     },
   ];
+
+  if (orderStatus === ExternalLabsStatus.pending) return history;
 
   let performedBy = '-';
   let performedByDate = '-';
