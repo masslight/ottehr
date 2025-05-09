@@ -14,7 +14,12 @@ export const GeneralCard: FC = () => {
         collapsed={isCollapsed}
         onSwitch={onSwitch}
         dataTestId={dataTestIds.telemedEhrFlow.examTabCards('general')}
-        rightComponent={<ExamCommentField name="general-comment" />}
+        rightComponent={
+          <ExamCommentField
+            name="general-comment"
+            dataTestId={dataTestIds.telemedEhrFlow.examTabCardsComments('general')}
+          />
+        }
         grid={[
           {
             Normal: <ExamFieldsFactory card="general" group="normal" />,

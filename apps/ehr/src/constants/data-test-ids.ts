@@ -282,6 +282,7 @@ export const dataTestIds = {
     examTabField: (field: ExamFieldsNames | ExamCardsNames) => `telemed-exam-tab-field-${field}`,
     examTabCards: (card: ExamTabCardNames) => `telemed-exam-tab-cards-${card}`,
     examTabDistressDropdown: 'telemed-exam-tab-distress-dropdown',
+    examTabCardsComments: (card: ExamTabCardNames) => `telemed-exam-tab-cards-comment-${card}`,
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
