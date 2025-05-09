@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
 import { ExamCardContainer, ExamCommentField, ExamFieldsFactory, TenderDropdown } from './components';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 
 export const AbdomenCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('abdomen');
@@ -10,6 +11,7 @@ export const AbdomenCard: FC = () => {
       label="Abdomen"
       collapsed={isCollapsed}
       onSwitch={onSwitch}
+      dataTestId={dataTestIds.telemedEhrFlow.examTabCards('abdomen')}
       rightComponent={<ExamCommentField name="abdomen-comment" />}
       grid={[
         {

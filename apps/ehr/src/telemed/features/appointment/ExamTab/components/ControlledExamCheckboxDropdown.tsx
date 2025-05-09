@@ -11,10 +11,12 @@ type ControlledExamCheckboxDropdownProps = {
   dropdownLabel?: string;
   abnormal?: boolean;
   options: ExamCheckboxDropdownOptionType[];
+  dropdownTestId?: string;
+  checkboxBlockTestId?: string;
 };
 
 export const ControlledExamCheckboxDropdown: FC<ControlledExamCheckboxDropdownProps> = (props) => {
-  const { checkboxLabel, dropdownLabel, abnormal, options } = props;
+  const { checkboxLabel, dropdownLabel, abnormal, options, dropdownTestId, checkboxBlockTestId } = props;
 
   const { value: fields, update, isLoading } = useExamObservations(options.map((option) => option.name));
 
@@ -47,14 +49,17 @@ export const ControlledExamCheckboxDropdown: FC<ControlledExamCheckboxDropdownPr
 
   return (
     <Box sx={{ display: 'flex', gap: 2 }}>
-      <StatelessExamCheckbox
-        label={checkboxLabel}
-        abnormal={abnormal}
-        checked={booleanValue}
-        onChange={onBooleanChange}
-        disabled={isLoading}
-      />
+      <Box data-testid={checkboxBlockTestId}>
+        <StatelessExamCheckbox
+          label={checkboxLabel}
+          abnormal={abnormal}
+          checked={booleanValue}
+          onChange={onBooleanChange}
+          disabled={isLoading}
+        />
+      </Box>
       <Autocomplete
+        data-testid={dropdownTestId}
         disablePortal
         disabled={isLoading}
         options={options}

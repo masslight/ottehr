@@ -9,10 +9,11 @@ export type ExamCardContainerProps = {
   label: string;
   rightComponent?: ReactNode;
   grid: Record<string, ReactNode>[];
+  dataTestId?: string;
 };
 
 export const ExamCardContainer: FC<ExamCardContainerProps> = (props) => {
-  const { collapsed, onSwitch, label, rightComponent, grid } = props;
+  const { collapsed, onSwitch, label, rightComponent, grid, dataTestId } = props;
 
   const renderGrid = (): ReactNode => {
     const nodes: ReactNode[] = [];
@@ -40,7 +41,7 @@ export const ExamCardContainer: FC<ExamCardContainerProps> = (props) => {
   };
 
   return (
-    <AccordionCard label={label} collapsed={collapsed} onSwitch={onSwitch}>
+    <AccordionCard label={label} collapsed={collapsed} onSwitch={onSwitch} dataTestId={dataTestId}>
       <Box sx={{ p: 2, display: 'flex', gap: 4 }}>
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>{renderGrid()}</Box>
         {rightComponent && <Box sx={{ width: '260px' }}>{rightComponent}</Box>}

@@ -1,4 +1,12 @@
-import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
+import {
+  ApptTelemedTab,
+  ExamCardsNames,
+  ExamFieldsNames,
+  ExamTabCardNames,
+  PractitionerQualificationCode,
+  RoleType,
+  TelemedAppointmentVisitTabs,
+} from 'utils';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -271,6 +279,9 @@ export const dataTestIds = {
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
     hpiPatientConditionPhotos: 'telemed-patient-condition-photos',
     hpiReasonForVisit: 'telemed-reason-for-visit',
+    examTabField: (field: ExamFieldsNames | ExamCardsNames) => `telemed-exam-tab-field-${field}`,
+    examTabCards: (card: ExamTabCardNames) => `telemed-exam-tab-cards-${card}`,
+    examTabDistressDropdown: 'telemed-exam-tab-distress-dropdown',
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
