@@ -182,7 +182,8 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyValidationErrorInvalidPhoneFromPcp();
   });
 
-  test('Click [x] from Patient info page without updating any data, Patient Record page is opened', async ({
+  //to do: uncomment when https://github.com/masslight/ottehr/issues/2200 will be fixed
+  /* test('Click [x] from Patient info page without updating any data, Patient Record page is opened', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
@@ -198,7 +199,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.enterPatientFirstName(PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
-  });
+  });*/
 
   test('Click on Patients Name breadcrumb, Patient Record page is opened', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);

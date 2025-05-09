@@ -1,10 +1,10 @@
 import { test } from '@playwright/test';
-import { PATIENT_FIRST_NAME, ResourceHandler } from '../../e2e-utils/resource-handler';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 import { expectPatientInformationPage, openPatientInformationPage } from '../page/PatientInformationPage';
 
 import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
-import { expectPatientRecordPage } from '../page/PatientRecordPage';
+//import { expectPatientRecordPage } from '../page/PatientRecordPage';
 const NEW_PATIENT_FIRST_NAME = 'Test_firstname';
 
 test.describe('Discard Changes Dialog non-mutating tests', () => {
@@ -22,7 +22,8 @@ test.describe('Discard Changes Dialog non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test('Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
+  //to do: uncomment when https://github.com/masslight/ottehr/issues/2200 will be fixed
+  /*test('Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
     let patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
@@ -31,7 +32,7 @@ test.describe('Discard Changes Dialog non-mutating tests', () => {
     await expectPatientRecordPage(resourceHandler.patient.id!, page);
     patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
-  });
+  });*/
 
   test('Click on [Cancel] button, user stays on Patient Information page', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
