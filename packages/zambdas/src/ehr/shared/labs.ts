@@ -15,6 +15,7 @@ import {
   FhirResource,
   DocumentReference,
   ActivityDefinition,
+  Specimen,
 } from 'fhir/r4b';
 import {
   EncounterLabResult,
@@ -40,6 +41,7 @@ export type LabOrderResources = {
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
+  specimens: Specimen[];
 };
 
 export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
@@ -55,6 +57,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
       | Appointment
       | Encounter
       | Observation
+      | Specimen
     >({
       resourceType: 'ServiceRequest',
       params: [
@@ -98,39 +101,57 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
           name: '_include:iterate',
           value: 'DiagnosticReport:result',
         },
+        {
+          name: '_include',
+          value: 'ServiceRequest:specimen',
+        },
       ],
     })
   )?.unbundle();
+
   const serviceRequestsTemp: ServiceRequest[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is ServiceRequest => resourceTemp.resourceType === 'ServiceRequest'
   );
+
   const patientsTemp: Patient[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
   );
+
   const practitionersTemp: Practitioner[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Practitioner => resourceTemp.resourceType === 'Practitioner'
   );
+
   const questionnaireResponsesTemp: QuestionnaireResponse[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
   );
+
   const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
+
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
   );
+
   const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is DiagnosticReport =>
       resourceTemp.resourceType === 'DiagnosticReport' && isLabsDiagnosticReport(resourceTemp)
   );
+
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
   );
+
   const encountersTemp: Encounter[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Encounter => resourceTemp.resourceType === 'Encounter'
   );
+
   const observationsTemp: Observation[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Observation => resourceTemp.resourceType === 'Observation'
+  );
+
+  const specimens = serviceRequestTemp?.filter(
+    (resource): resource is Specimen => resource.resourceType === 'Specimen'
   );
 
   if (serviceRequestsTemp?.length !== 1) {
@@ -183,6 +204,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     appointment,
     encounter,
     observations,
+    specimens,
   };
 }
 
@@ -347,7 +369,7 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
   // namely, if the test is reflex and also lets us grab the related service request which has info on the test & lab name, needed for results display
   const docRefSearch: BatchInputGetRequest = {
     method: 'GET',
-    url: `/DocumentReference?type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
+    url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
   };
   // Grabbing active lab service requests seperately since they might not have results
   // but we validate against actually signing the progress note if there are any pending

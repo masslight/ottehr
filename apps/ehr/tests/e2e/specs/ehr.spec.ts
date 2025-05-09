@@ -54,6 +54,7 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
   // CHOOSE TAB
   await page.locator(`[data-testid="${dataTestIds.dashboard.prebookedTab}"]`).click();
 
+  console.log(`resource handler appointment: ${JSON.stringify(resourceHandler.appointment, null, 2)}`);
   const tableRowLocator = page.getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!));
 
   await expect(tableRowLocator).toBeAttached({

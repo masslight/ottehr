@@ -108,6 +108,11 @@ const generateDeleteRequestsAndPerson = (
     | Person
     | undefined;
 
+  const deleteSlotRequests = allResources
+    .filter((resourceTemp) => resourceTemp.resourceType === 'Slot')
+    .map((slotTemp) => ({ method: 'DELETE', url: `Slot/${slotTemp.id}` })) as BatchInputDeleteRequest[];
+  deleteRequests.push(...deleteSlotRequests);
+
   allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Appointment')
     .forEach((appointmentTemp) => {
@@ -183,6 +188,14 @@ const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Prom
       {
         name: '_include',
         value: 'Appointment:patient',
+      },
+      {
+        name: '_include',
+        value: 'Appointment:slot',
+      },
+      {
+        name: '_include',
+        value: 'Appointment:location',
       },
       {
         name: '_revinclude:iterate',

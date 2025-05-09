@@ -8,7 +8,6 @@ export const useZapEHRAPIClient = (
 ): ReturnType<typeof getZapEHRAPI> | null => {
   const {
     VITE_APP_TELEMED_CANCEL_APPOINTMENT_ZAMBDA_ID,
-    VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
     VITE_APP_CREATE_PAPERWORK_ZAMBDA_ID,
     VITE_APP_DELETE_PAYMENT_METHOD_ZAMBDA_ID,
     VITE_APP_TELEMED_GET_APPOINTMENTS_ZAMBDA_ID,
@@ -43,7 +42,6 @@ export const useZapEHRAPIClient = (
     const client = getZapEHRAPI(
       {
         cancelAppointmentZambdaID: VITE_APP_TELEMED_CANCEL_APPOINTMENT_ZAMBDA_ID,
-        createAppointmentZambdaID: VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
         createPaperworkZambdaID: VITE_APP_CREATE_PAPERWORK_ZAMBDA_ID,
         deletePaymentMethodZambdaID: VITE_APP_DELETE_PAYMENT_METHOD_ZAMBDA_ID,
         getAppointmentsZambdaID: VITE_APP_TELEMED_GET_APPOINTMENTS_ZAMBDA_ID,

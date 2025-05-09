@@ -1,4 +1,5 @@
 name: Deploy Services
+run-name: Deploy ${{ github.ref_name }} to ${{ inputs.environment }}
 
 env:
   CI: false

@@ -5,16 +5,27 @@ interface SectionProps {
   title: string;
   children: ReactNode;
   dataTestId?: string;
+  titleWidget?: ReactNode;
 }
 
-export const Section: FC<SectionProps> = ({ title, children, dataTestId }) => {
+export const Section: FC<SectionProps> = ({ title, children, dataTestId, titleWidget }) => {
   const theme = useTheme();
 
   return (
     <Paper sx={{ p: 3 }} data-testid={dataTestId}>
-      <Typography variant="h4" color={theme.palette.primary.dark} sx={{ mb: 2 }}>
-        {title}
-      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <Typography variant="h4" color={theme.palette.primary.dark} sx={{ mb: 2 }}>
+          {title}
+        </Typography>
+        {titleWidget ? titleWidget : <></>}
+      </Box>
       <Box
         sx={{
           display: 'flex',

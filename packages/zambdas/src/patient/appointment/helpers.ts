@@ -150,6 +150,7 @@ export async function getRelatedResources(
     accountInfo = {
       ...insuranceResponse,
       primaryCarePhysician,
+      coverageChecks: [], // these aren't needed here
     };
   }
 

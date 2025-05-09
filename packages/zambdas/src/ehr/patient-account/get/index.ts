@@ -1,16 +1,19 @@
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  CoverageCheckWithDetails,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PatientAccountResponse,
+  pullCoverageIdentifyingDetails,
   Secrets,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
-import { Practitioner } from 'fhir/r4b';
+import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
+import { parseCoverageEligibilityResponse } from 'utils';
 
 let m2mtoken: string;
 
@@ -41,9 +44,41 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
+  const eligibilityCheckResults = (
+    await oystehr.fhir.search<CoverageEligibilityResponse>({
+      resourceType: 'CoverageEligibilityResponse',
+      params: [
+        {
+          name: `patient._id`,
+          value: patientId,
+        },
+        {
+          name: '_sort',
+          value: '-created',
+        },
+      ],
+    })
+  ).unbundle();
+  const mapped = eligibilityCheckResults
+    .map((result) => {
+      const coverage = (result.contained ?? []).find((resource) => resource.resourceType === 'Coverage') as Coverage;
+      if (!coverage) {
+        return null;
+      }
+      const coverageDetails = pullCoverageIdentifyingDetails(coverage);
+      if (!coverageDetails) {
+        return null;
+      }
+      return {
+        ...parseCoverageEligibilityResponse(result),
+        ...coverageDetails,
+      } as CoverageCheckWithDetails;
+    })
+    .filter((result) => result !== null) as CoverageCheckWithDetails[];
   return {
     ...accountAndCoverages,
     primaryCarePhysician,
+    coverageChecks: mapped,
   };
 };
 

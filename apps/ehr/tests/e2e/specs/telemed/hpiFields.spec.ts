@@ -208,7 +208,8 @@ test.describe('Medical conditions', async () => {
   });
 });
 
-test.describe('Current medications', () => {
+// TODO: uncomment when erx is enabled
+test.describe.skip('Current medications', () => {
   const resourceHandler = new ResourceHandler('telemed');
   let page: Page;
   const scheduledMedicationName = 'aspirin';
@@ -368,7 +369,8 @@ test.describe('Current medications', () => {
   });
 });
 
-test.describe('Known allergies', () => {
+// TODO: uncomment when erx is enabled
+test.describe.skip('Known allergies', () => {
   const resourceHandler = new ResourceHandler('telemed');
   let page: Page;
   const knownAllergyName = 'penicillin';

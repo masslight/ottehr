@@ -1,16 +1,13 @@
 import DownloadIcon from '@mui/icons-material/Download';
 import { Box, Button, CircularProgress, Divider, Typography } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { formatVisitDate, getPatientInfoFullName } from 'utils';
+import { generatePath, useNavigate, useParams } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../App';
-import { usePastVisitsStore } from '../features/past-visits';
 import { useGetVisitDetails } from '../telemed/features/appointments';
 import { useIntakeCommonStore } from '../telemed/features/common';
-import { CustomContainer } from '../telemed/features/common';
-import { usePatientInfoStore } from '../telemed/features/patient-info';
 import { otherColors } from '../IntakeThemeProvider';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { useZapEHRAPIClient } from '../telemed/utils';
+import { DateTime } from 'luxon';
 
 const ExcuseNoteContent = ({
   appointmentID,
@@ -117,28 +114,26 @@ const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.
 
 const VisitDetails = (): JSX.Element => {
   const navigate = useNavigate();
-  const { patientInfo: currentPatientInfo } = usePatientInfoStore.getState();
-  const appointment = usePastVisitsStore.getState();
 
-  const patientFullName = currentPatientInfo ? getPatientInfoFullName(currentPatientInfo) : '';
-  const formattedPatientBirthDay = formatVisitDate(currentPatientInfo.dateOfBirth || '', 'birth');
+  const { patientId, visitId } = useParams();
 
+  const apiClient = useZapEHRAPIClient();
+  const { data } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(visitId), visitId);
+  const appointmentDate = (() => {
+    const dt = DateTime.fromISO(data?.appointmentTime ?? '');
+    return dt.toFormat('MMMM dd, yyyy');
+  })();
   return (
-    <CustomContainer
-      title={patientFullName}
-      subtext={`Birthday: ${formattedPatientBirthDay}`}
-      description=""
-      isFirstPage={true}
-    >
+    <Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Box>
           <Typography variant="h2" color="primary.dark">
-            {appointment.appointmentDate}
+            {appointmentDate}
           </Typography>
-          <Typography variant="body2">Visit ID: {appointment.appointmentID}</Typography>
+          <Typography variant="body2">Visit ID: {visitId}</Typography>
         </Box>
 
-        {appointment.appointmentID && <VisitDetailsContent appointmentID={appointment.appointmentID} />}
+        {visitId && <VisitDetailsContent appointmentID={visitId} />}
 
         <Button
           sx={{
@@ -154,13 +149,19 @@ const VisitDetails = (): JSX.Element => {
             px: 2,
           }}
           onClick={() => {
-            navigate(intakeFlowPageRoute.PastVisits.path);
+            if (!patientId) {
+              return;
+            }
+            const destination = generatePath(intakeFlowPageRoute.PastVisits.path, {
+              patientId,
+            });
+            navigate(destination);
           }}
         >
           Back to visits list
         </Button>
       </Box>
-    </CustomContainer>
+    </Box>
   );
 };
 

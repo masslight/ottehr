@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { useEffect } from 'react';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { zapehrApi } from '../api';
+import { ottehrApi } from '../api';
 
 // Update last active time for paperwork-in-progress flag every minute
 export function useSetLastActiveTime(
@@ -14,7 +14,7 @@ export function useSetLastActiveTime(
     try {
       if (zambdaClient && appointmentID && paperworkPage) {
         interval = setInterval(async () => {
-          await zapehrApi.updatePaperworkInProgress(
+          await ottehrApi.updatePaperworkInProgress(
             zambdaClient,
             { appointmentID: appointmentID, inProgress: DateTime.now().toISO() },
             false

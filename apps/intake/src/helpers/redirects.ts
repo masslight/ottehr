@@ -1,7 +1,4 @@
-import { generatePath } from 'react-router-dom';
-import { ServiceMode, VisitType, PROJECT_WEBSITE } from 'utils';
-import { AvailableLocationInformation } from '../api/zapehrApi';
-import { bookingBasePath } from '../App';
+import { PROJECT_WEBSITE } from 'utils';
 
 interface RedirectResult {
   relative?: string;
@@ -25,34 +22,3 @@ export const getRedirectPath = (params: Record<string, string | undefined>, path
 
   return {};
 };
-
-export function getStartingPath(
-  slugOrLocation: string | AvailableLocationInformation | object | undefined,
-  visitType: VisitType | undefined,
-  serviceType: ServiceMode | undefined,
-  selectedSlot?: string
-): string {
-  let slug = (slugOrLocation || '') as string;
-  const possiblyLocation = slugOrLocation as unknown as AvailableLocationInformation | undefined;
-  if (possiblyLocation && possiblyLocation?.slug) {
-    slug = possiblyLocation.slug || '';
-  }
-
-  if (visitType === VisitType.PreBook && possiblyLocation?.scheduleType && serviceType === ServiceMode.virtual) {
-    return `/prebook/virtual?bookingOn=${slug}&scheduleType=${possiblyLocation?.scheduleType}${
-      selectedSlot ? `&slot=${selectedSlot}` : ''
-    }`;
-  }
-
-  if (visitType === VisitType.PreBook && possiblyLocation?.scheduleType && serviceType !== ServiceMode.virtual) {
-    return `/prebook/in-person?bookingOn=${slug}&scheduleType=${possiblyLocation?.scheduleType}${
-      selectedSlot ? `&slot=${selectedSlot}` : ''
-    }`;
-  }
-
-  return generatePath(bookingBasePath, {
-    slug: slug?.toLowerCase(),
-    visit_type: visitType || VisitType.PreBook,
-    service_mode: serviceType || ServiceMode['in-person'],
-  });
-}

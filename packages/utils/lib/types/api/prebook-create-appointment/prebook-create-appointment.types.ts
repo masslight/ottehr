@@ -1,19 +1,14 @@
 import { Appointment, Encounter, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
-import { ScheduleType, ServiceMode } from '../../common';
-import { PatientInfo, VisitType } from '../../data';
+import { ServiceMode, Timezone } from '../../common';
+import { PatientInfo } from '../../data';
+import { ScheduleOwnerFhirResource } from '../schedules';
 
 export interface CreateAppointmentInputParams {
   patient: PatientInfo;
-  scheduleType: ScheduleType;
-  serviceType: ServiceMode;
-  locationID?: string;
-  providerID?: string;
-  groupID?: string;
-  slot?: Slot;
-  visitType: VisitType;
-  language: string;
+  slotId: string;
+  language?: string;
+  locationState?: string;
   unconfirmedDateOfBirth?: string | undefined;
-  bookingContext?: Record<string, string>; // real open-ended piece of data we can send for whatver quirky business logic needs doing
 }
 
 export interface CreateAppointmentResponse {
@@ -29,4 +24,33 @@ export interface CreateAppointmentResponse {
     questionnaire: QuestionnaireResponse;
     patient: Patient;
   };
+}
+
+export interface CreateSlotParams {
+  scheduleId: string;
+  startISO: string;
+  serviceModality: ServiceMode;
+  lengthInMinutes?: number;
+  lengthInHours?: number;
+  status?: Slot['status'];
+  walkin?: boolean;
+  postTelemedLabOnly?: boolean;
+}
+
+export interface GetSlotDetailsParams {
+  slotId: string;
+}
+
+export interface GetSlotDetailsResponse {
+  slotId: string;
+  startISO: string;
+  endISO: string;
+  serviceMode: ServiceMode;
+  ownerType: ScheduleOwnerFhirResource['resourceType'];
+  ownerId: string;
+  ownerName: string;
+  isWalkin: boolean;
+  appointmentId?: string;
+  comment?: string;
+  timezoneForDisplay?: Timezone;
 }

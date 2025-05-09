@@ -118,7 +118,7 @@ describe('Test "get-telemed-appointments" endpoint', () => {
           authenticationMethod: '',
           profile: '',
           accessPolicy: {
-            rule: [{}],
+            rule: [],
           },
         });
       });

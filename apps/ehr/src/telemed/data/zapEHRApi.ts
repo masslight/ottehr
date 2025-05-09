@@ -35,6 +35,7 @@ import {
   RemoveCoverageZambdaInput,
   UpdateCoverageZambdaInput,
   GetPatientAccountZambdaInput,
+  SendFaxZambdaInput,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
@@ -61,6 +62,7 @@ enum ZambdaNames {
   'get patient account' = 'get patient account',
   'update patient account' = 'update patient account',
   'remove patient coverage' = 'remove patient coverage',
+  'send fax' = 'send fax',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -85,6 +87,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'get patient account': false,
   'update patient account': false,
   'remove patient coverage': false,
+  'send fax': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -114,6 +117,7 @@ export const getOystehrTelemedAPI = (
   getPatientAccount: typeof getPatientAccount;
   updatePatientAccount: typeof updatePatientAccount;
   removePatientCoverage: typeof removePatientCoverage;
+  sendFax: typeof sendFax;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -137,6 +141,7 @@ export const getOystehrTelemedAPI = (
     getPatientAccountZambdaID,
     updatePatientAccountZambdaID,
     removePatientCoverageZambdaID,
+    sendFaxZambdaID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -161,6 +166,7 @@ export const getOystehrTelemedAPI = (
     'get patient account': getPatientAccountZambdaID,
     'update patient account': updatePatientAccountZambdaID,
     'remove patient coverage': removePatientCoverageZambdaID,
+    'send fax': sendFaxZambdaID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -272,6 +278,10 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('remove patient coverage', parameters);
   };
 
+  const sendFax = async (parameters: SendFaxZambdaInput): Promise<void> => {
+    return await makeZapRequest('send fax', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -294,5 +304,6 @@ export const getOystehrTelemedAPI = (
     getPatientAccount,
     updatePatientAccount,
     removePatientCoverage,
+    sendFax,
   };
 };

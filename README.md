@@ -161,7 +161,7 @@ This repository uses a monorepo structure.
 ### EHR App
 
 - [Frontend Documentation](./apps/ehr/README.md)
-- [E2E Testing Guide](./apps/ehr/test/e2e-readme/README.md)
+- [E2E Testing Guide](./apps/ehr/tests/e2e-readme/README.md)
 
 ### Patient Portal App
 

@@ -493,6 +493,32 @@ export function getPatchOperationToAddOrUpdatePreferredLanguage(
   }
 }
 
+export const getPatchOperationToRemovePreferredLanguage = (patient: Patient): Operation | undefined => {
+  if (!patient.communication || patient.communication.length === 0) {
+    return undefined;
+  }
+
+  const communication = patient.communication;
+
+  const existingPreferredLanguageIndex = communication.findIndex((language) => language.preferred === true);
+
+  if (existingPreferredLanguageIndex < 0) {
+    return undefined;
+  }
+
+  if (communication.length > 1) {
+    return {
+      op: 'remove',
+      path: `/communication/${existingPreferredLanguageIndex}`,
+    };
+  } else {
+    return {
+      op: 'remove',
+      path: '/communication',
+    };
+  }
+};
+
 export function getPatchOperationToAddOrUpdatePreferredName(
   path: string,
   currentValue: string,

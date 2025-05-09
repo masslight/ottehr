@@ -8,6 +8,7 @@ import {
   getPatchBinary,
   getPatchOperationToUpdateExtension,
   getSecret,
+  getTelemedLocation,
   RequiredProps,
   SecretsKeys,
   UpdateAppointmentRequestParams,
@@ -22,7 +23,6 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
-import { getTelemedLocation } from '../telemed-create-appointment';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

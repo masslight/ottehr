@@ -1,6 +1,6 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
-import { chooseJson, CreateAppointmentUCTelemedResponse } from 'utils';
+import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { UploadDocs } from '../../utils/UploadDocs';
 import { Locators } from '../../utils/locators';
@@ -8,6 +8,7 @@ import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 enum PersonSex {
   Male = 'male',
   Female = 'female',
@@ -36,6 +37,7 @@ test.describe('Start virtual visit with required information only', async () => 
   let paperwork: PaperworkTelemed;
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
+  let slotId: string;
 
   let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>>;
   let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
@@ -53,10 +55,16 @@ test.describe('Start virtual visit with required information only', async () => 
     telemedFlow = new TelemedVisitFlow(page);
 
     page.on('response', async (response) => {
-      if (response.url().includes('/telemed-create-appointment/')) {
-        const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
+      if (response.url().includes('/create-appointment/')) {
+        const { resources } = chooseJson(await response.json()) as CreateAppointmentResponse;
+        const appointment = resources?.appointment;
+        const appointmentId = appointment?.id;
+        const slotIdFromAppt = appointment?.slot?.[0]?.reference?.split('/')[1];
         if (appointmentId && !appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
+        }
+        if (slotIdFromAppt) {
+          slotId = slotIdFromAppt;
         }
       }
     });
@@ -71,9 +79,9 @@ test.describe('Start virtual visit with required information only', async () => 
     await page.goto('/home');
 
     await telemedFlow.selectVisitAndContinue();
-    await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
     await telemedFlow.selectTimeLocationAndContinue();
+    await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
     const patientData = await telemedFlow.fillNewPatientDataAndContinue();
     patientInfo = patientData;
@@ -83,13 +91,16 @@ test.describe('Start virtual visit with required information only', async () => 
       randomYear: patientData.dob.y,
     };
 
+    await clickContinueButton();
+
     await paperwork.fillAndCheckContactInformation(patientInfo);
 
     await clickContinueButton();
   });
 
   test('Should display new patient in patients list', async () => {
-    await page.goto('/select-patient');
+    expect(slotId).toBeDefined();
+    await page.goto(`/book/${slotId}/patients`);
 
     const locator = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`).locator('..');
 
@@ -128,55 +139,12 @@ test.describe('Start virtual visit with required information only', async () => 
 
     await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
-    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
-    await patientName.scrollIntoViewIfNeeded();
-    await patientName.click();
-    await clickContinueButton();
-
     await telemedFlow.selectTimeLocationAndContinue();
 
-    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
-
-    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
-      throw Error('Date units are not provided');
-    }
-
+    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
     await expect(patientName).toBeVisible();
-    await expect(
-      page.getByText(
-        `Birthday: ${fillingInfo.getStringDateByDateUnits(
-          dob?.randomMonth,
-          dob?.randomDay,
-          dob?.randomYear,
-          'MMM dd, yyyy'
-        )}`
-      )
-    ).toBeVisible();
-    await expect(
-      page.getByText(`Birth sex: ${PersonSex[patientInfo?.birthSex as keyof typeof PersonSex]}`)
-    ).toBeVisible();
-    await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
-  });
-
-  test('Should fill in reason for visit', async () => {
-    await page.goto('/home');
-    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
-
-    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
     await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
-    await clickContinueButton();
-
-    await telemedFlow.selectTimeLocationAndContinue();
-
-    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
-
-    await expect(page.locator('#reasonForVisit')).toHaveText('Select...');
-    const Reason = await fillingInfo.fillTelemedReasonForVisit();
-    await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
-  });
-
-  test("Should fill in correct patient's DOB", async () => {
     await clickContinueButton();
 
     await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
@@ -200,6 +168,50 @@ test.describe('Start virtual visit with required information only', async () => 
 
     await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
     await clickContinueButton();
+
+    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+
+    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
+      throw Error('Date units are not provided');
+    }
+
+    await expect(patientName).toBeVisible();
+    await expect(
+      page.getByText(
+        `Birthday: ${fillingInfo.getStringDateByDateUnits(
+          dob?.randomMonth,
+          dob?.randomDay,
+          dob?.randomYear,
+          'MMMM dd, yyyy'
+        )}`
+      )
+    ).toBeVisible();
+    await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
+  });
+
+  test('Should fill in reason for visit', async () => {
+    await page.goto('/home');
+    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+
+    await telemedFlow.selectTimeLocationAndContinue();
+
+    const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
+    await patientName.scrollIntoViewIfNeeded();
+    await patientName.click();
+    await clickContinueButton();
+
+    await fillingInfo.fillCorrectDOB(dob?.randomMonth ?? '', dob?.randomDay ?? '', dob?.randomYear ?? '');
+    await clickContinueButton();
+    await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
+
+    await expect(page.locator('#reasonForVisit')).toHaveText('Select...');
+    const Reason = await fillingInfo.fillTelemedReasonForVisit();
+    await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
+  });
+
+  test("Should fill in correct patient's DOB", async () => {
+    await clickContinueButton();
+    await clickContinueButton(false);
 
     // todo use another way to get appointment id
     // await getAppointmentIdFromCreateAppointmentRequest(page);
@@ -300,6 +312,7 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   let paperwork: PaperworkTelemed;
   let locators: Locators;
   let telemedFlow: TelemedVisitFlow;
+  let slotId: string;
 
   let patientInfo: Awaited<ReturnType<FillingInfo['fillNewPatientInfo']>>;
   let dob: Awaited<ReturnType<FillingInfo['fillDOBless18']>> | undefined;
@@ -317,10 +330,16 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     telemedFlow = new TelemedVisitFlow(page);
 
     page.on('response', async (response) => {
-      if (response.url().includes('/telemed-create-appointment/')) {
-        const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentUCTelemedResponse;
+      if (response.url().includes('/create-appointment/')) {
+        const { resources } = chooseJson(await response.json()) as CreateAppointmentResponse;
+        const appointment = resources?.appointment;
+        const appointmentId = appointment?.id;
+        const slotIdFromAppt = appointment?.slot?.[0]?.reference?.split('/')[1];
         if (appointmentId && !appointmentIds.includes(appointmentId)) {
           appointmentIds.push(appointmentId);
+        }
+        if (slotIdFromAppt) {
+          slotId = slotIdFromAppt;
         }
       }
     });
@@ -335,9 +354,8 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await page.goto('/home');
 
     await telemedFlow.selectVisitAndContinue();
-    await telemedFlow.selectDifferentFamilyMemberAndContinue();
-
     await telemedFlow.selectTimeLocationAndContinue();
+    await telemedFlow.selectDifferentFamilyMemberAndContinue();
 
     const patientData = await telemedFlow.fillNewPatientDataAndContinue();
     patientInfo = patientData;
@@ -347,13 +365,14 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
       randomYear: patientData.dob.y,
     };
 
+    await clickContinueButton();
     await paperwork.fillAndCheckContactInformation(patientInfo);
-
     await clickContinueButton();
   });
 
-  test('Should display new patient in patients list', async () => {
-    await page.goto('/select-patient');
+  test('Should display new patient in patients list and display correct patient info', async () => {
+    expect(slotId).toBeDefined();
+    await page.goto(`/book/${slotId}/patients`);
 
     const locator = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`).locator('..');
 
@@ -364,24 +383,20 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await expect(locator.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`)).toBeVisible({
       timeout: 10000,
     });
+
     await expect(
       locator.getByText(
         `Birthday: ${fillingInfo.getStringDateByDateUnits(dob?.randomMonth, dob?.randomDay, dob?.randomYear)}`
       )
     ).toBeVisible();
-  });
-
-  test('Should display correct patient info', async () => {
-    await page.goto('/home');
-
-    await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
     await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
     await clickContinueButton();
 
-    await telemedFlow.selectTimeLocationAndContinue();
+    await fillingInfo.fillCorrectDOB(dob?.randomMonth ?? '', dob?.randomDay ?? '', dob?.randomYear ?? '');
+    await clickContinueButton();
 
     await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
@@ -396,12 +411,9 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
           dob?.randomMonth,
           dob?.randomDay,
           dob?.randomYear,
-          'MMM dd, yyyy'
+          'MMMM dd, yyyy'
         )}`
       )
-    ).toBeVisible();
-    await expect(
-      page.getByText(`Birth sex: ${PersonSex[patientInfo?.birthSex as keyof typeof PersonSex]}`)
     ).toBeVisible();
     await expect(page.locator("input[type='text'][id='email']")).toHaveValue(patientInfo?.email || '');
   });
@@ -409,13 +421,15 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
   test('Should fill in reason for visit', async () => {
     await page.goto('/home');
     await page.getByTestId(dataTestIds.startVirtualVisitButton).click();
+    await telemedFlow.selectTimeLocationAndContinue();
 
     const patientName = page.getByText(`${patientInfo?.firstName} ${patientInfo?.lastName}`);
     await patientName.scrollIntoViewIfNeeded();
     await patientName.click();
     await clickContinueButton();
 
-    await telemedFlow.selectTimeLocationAndContinue();
+    await fillingInfo.fillCorrectDOB(dob?.randomMonth ?? '', dob?.randomDay ?? '', dob?.randomYear ?? '');
+    await clickContinueButton();
 
     await expect(page.getByText('About the patient')).toBeVisible({ timeout: 20000 });
 
@@ -424,34 +438,13 @@ test.describe('Start virtual visit with filling in paperwork', async () => {
     await expect(page.locator('#reasonForVisit')).toHaveText(Reason);
   });
 
-  test("Should fill in correct patient's DOB", async () => {
+  test('Should land on first paperwork page when appointment created', async () => {
     await clickContinueButton();
-
-    await expect(page.getByText(`Confirm ${patientInfo?.firstName}'s date of birth`)).toBeVisible();
-
-    if (!dob?.randomMonth || !dob?.randomDay || !dob?.randomYear) {
-      throw Error('Date units are not provided');
-    }
-
-    await fillingInfo.fillWrongDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
-    await clickContinueButton(false);
-
-    const errorText = await page
-      .getByText('Unfortunately, this patient record is not confirmed.') // modal, in that case try again option should be selected
-      .or(page.getByText('Date may not be in the future')) // validation error directly on the form
-      .textContent();
-
-    // close if it is modal
-    if (errorText?.includes('Unfortunately, this patient record is not confirmed')) {
-      await page.getByRole('button', { name: 'Try again' }).click();
-    }
-
-    await fillingInfo.fillCorrectDOB(dob?.randomMonth, dob?.randomDay, dob?.randomYear);
     await clickContinueButton();
 
     // todo use another way to get appointment id
     // await getAppointmentIdFromCreateAppointmentRequest(page);
-
+    expect(slotId).toBeDefined;
     await expect(page.getByText('Contact information')).toBeVisible({ timeout: 30000 });
   });
 

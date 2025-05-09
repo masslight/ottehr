@@ -1,7 +1,7 @@
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
-import { otherColors } from '../../../IntakeThemeProvider';
+import { otherColors } from '../IntakeThemeProvider';
 
 interface HomepageOptionsProps {
   title: string;

@@ -11,15 +11,17 @@ import {
   Box,
   Grid,
   IconButton,
+  MenuItem,
   TableCell,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
   capitalize,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Location } from 'fhir/r4b';
+import { Appointment, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -32,6 +34,8 @@ import {
   PROJECT_NAME,
   getVisitTotalTime,
   PRACTITIONER_CODINGS,
+  getPatchBinary,
+  ROOM_EXTENSION_URL,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -54,6 +58,7 @@ import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
+import { Operation } from 'fast-json-patch';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -235,11 +240,16 @@ export default function AppointmentTableRow({
   const { encounter } = appointment;
   const [statusTime, setStatusTime] = useState<string>('');
   const [arrivedStatusSaving, setArrivedStatusSaving] = useState<boolean>(false);
+  const [room, setRoom] = useState<string>(appointment.room || '');
+  const [roomSaving, setRoomSaving] = useState<boolean>(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
   const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
+  const rooms = useMemo(() => {
+    return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
+  }, [location]);
 
   const handleCSSButton = async (): Promise<void> => {
     setCSSButtonIsLoading(true);
@@ -300,6 +310,76 @@ export default function AppointmentTableRow({
     setArrivedStatusSaving(false);
     await updateAppointments();
   };
+
+  const changeRoom = async (room?: string): Promise<void> => {
+    if (!oystehr) {
+      throw new Error('error getting fhir client');
+    }
+    if (!appointment.id) {
+      throw new Error('error getting appointment id');
+    }
+    setRoomSaving(true);
+
+    const appointmentToUpdate = await oystehr.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+    });
+
+    let patchOp: Operation;
+
+    if (!room) {
+      const extension = (appointmentToUpdate.extension || []).filter((ext) => ext.url !== ROOM_EXTENSION_URL);
+
+      if (extension?.length === 0) {
+        patchOp = {
+          op: 'remove',
+          path: '/extension',
+        };
+      } else {
+        patchOp = {
+          op: 'replace',
+          path: '/extension',
+          value: extension,
+        };
+      }
+    } else {
+      if (appointmentToUpdate.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)) {
+        patchOp = {
+          op: 'replace',
+          path: '/extension',
+          value: appointmentToUpdate.extension.map((ext) => {
+            if (ext.url === ROOM_EXTENSION_URL) {
+              return { url: ROOM_EXTENSION_URL, valueString: room };
+            }
+            return ext;
+          }),
+        };
+      } else {
+        if ((appointmentToUpdate.extension || []).length === 0) {
+          patchOp = {
+            op: 'add',
+            path: '/extension',
+            value: [{ url: ROOM_EXTENSION_URL, valueString: room }],
+          };
+        } else {
+          patchOp = {
+            op: 'replace',
+            path: '/extension',
+            value: [...(appointmentToUpdate.extension || []), { url: ROOM_EXTENSION_URL, valueString: room }],
+          };
+        }
+      }
+    }
+
+    await oystehr.fhir.batch({
+      requests: [
+        getPatchBinary({ resourceId: appointment.id, resourceType: 'Appointment', patchOperations: [patchOp] }),
+      ],
+    });
+
+    setRoomSaving(false);
+  };
+
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
   const { totalMinutes, waitingMinutesEstimate } = useMemo(() => {
     const totalMinutes = getVisitTotalTime(appointment, appointment.visitStatusHistory, now);
@@ -661,6 +741,37 @@ export default function AppointmentTableRow({
           <CSSButton isDisabled={!appointment.id} isLoading={isCSSButtonIsLoading} handleCSSButton={handleCSSButton} />
         ) : (
           <IntakeCheckmark providerName={admitterName} />
+        )}
+      </TableCell>
+      <TableCell
+        sx={{
+          verticalAlign: 'center',
+        }}
+      >
+        {tab === ApptTab['in-office'] ? (
+          rooms &&
+          rooms.length > 0 && (
+            <TextField
+              select
+              fullWidth
+              variant="standard"
+              disabled={roomSaving}
+              value={room}
+              onChange={(e) => {
+                setRoom(e.target.value);
+                void changeRoom(e.target.value);
+              }}
+            >
+              <MenuItem value={''}>None</MenuItem>
+              {rooms?.map((room) => (
+                <MenuItem key={room} value={room}>
+                  {room}
+                </MenuItem>
+              ))}
+            </TextField>
+          )
+        ) : (
+          <Typography sx={{ fontSize: 14, display: 'inline' }}>{room}</Typography>
         )}
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>

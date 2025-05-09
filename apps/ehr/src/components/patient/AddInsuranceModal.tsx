@@ -23,6 +23,7 @@ import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
 import { useQueryClient } from 'react-query';
 import { LoadingButton } from '@mui/lab';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
 interface AddInsuranceModalProps {
   open: boolean;
@@ -77,7 +78,12 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
   }, [open, submitQR, onClose]);
 
   return (
-    <Dialog open={open} onClose={onClose} PaperProps={{ sx: { p: 2, maxWidth: 'none' } }}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      PaperProps={{ sx: { p: 2, maxWidth: 'none' } }}
+      data-testid={dataTestIds.addInsuranceDialog.id}
+    >
       <DialogTitle
         variant="h5"
         color="secondary.main"
@@ -107,6 +113,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
             <Grid item xs={3}>
               <LabeledField label="Type" required error={!!errors[FormFields.insurancePriority.key]}>
                 <FormSelect
+                  data-testid={dataTestIds.addInsuranceDialog.type}
                   name={FormFields.insurancePriority.key}
                   variant="outlined"
                   control={control}
@@ -137,6 +144,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                     );
                     return (
                       <Autocomplete
+                        data-testid={dataTestIds.addInsuranceDialog.insuranceCarrier}
                         options={insurancePlans}
                         loading={isLoading}
                         loadingText={'Loading...'}
@@ -173,7 +181,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.memberId}>
               <LabeledField label="Member ID" required error={!!errors[FormFields.memberId.key]}>
                 <FormTextField
                   variant="outlined"
@@ -186,7 +194,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersFirstName}>
               <LabeledField label="Policy holder's first name" required error={!!errors[FormFields.firstName.key]}>
                 <FormTextField
                   variant="outlined"
@@ -199,7 +207,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersMiddleName}>
               <LabeledField label="Policy holder's middle name">
                 <FormTextField
                   InputLabelProps={{
@@ -215,7 +223,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersLastName}>
               <LabeledField label="Policy holder's last name" required error={!!errors[FormFields.lastName.key]}>
                 <FormTextField
                   variant="outlined"
@@ -228,7 +236,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersDateOfBirth}>
               <LabeledField label="Policy holder's date of birth" required error={!!errors[FormFields.birthDate.key]}>
                 <DatePicker
                   name={FormFields.birthDate.key}
@@ -239,7 +247,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersSex}>
               <LabeledField label="Policy holder's sex" required error={!!errors[FormFields.birthSex.key]}>
                 <FormSelect
                   variant="outlined"
@@ -251,7 +259,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.relationship}>
               <LabeledField
                 label="Patient’s relationship to insured"
                 required
@@ -267,7 +275,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.streetAddress}>
               <LabeledField label="Street address" required error={!!errors[FormFields.streetAddress.key]}>
                 <FormTextField
                   placeholder="No., Street"
@@ -281,7 +289,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.addressLine2}>
               <LabeledField label="Address line 2">
                 <FormTextField
                   placeholder="No., Street"
@@ -292,7 +300,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={1}>
+            <Grid item xs={1} data-testid={dataTestIds.addInsuranceDialog.city}>
               <LabeledField label="City" required error={!!errors[FormFields.city.key]}>
                 <FormTextField
                   variant="outlined"
@@ -317,6 +325,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   }}
                   render={({ field: { onChange, value }, fieldState: { error } }) => (
                     <Autocomplete
+                      data-testid={dataTestIds.addInsuranceDialog.state}
                       options={STATE_OPTIONS}
                       value={(STATE_OPTIONS.find((option) => option.value === value) || null) as Option}
                       getOptionLabel={(option) => option.label || ''}
@@ -339,7 +348,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={1}>
+            <Grid item xs={1} data-testid={dataTestIds.addInsuranceDialog.zip}>
               <LabeledField label="ZIP" required error={!!errors[FormFields.zip.key]}>
                 <FormTextField
                   variant="outlined"
@@ -353,7 +362,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={9}>
+            <Grid item xs={9} data-testid={dataTestIds.addInsuranceDialog.additionalInformation}>
               <LabeledField label="Additional insurance information">
                 <FormTextField
                   variant="outlined"
@@ -381,6 +390,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
           Cancel
         </Button>
         <LoadingButton
+          data-testid={dataTestIds.addInsuranceDialog.addInsuranceButton}
           variant="contained"
           color="primary"
           sx={{

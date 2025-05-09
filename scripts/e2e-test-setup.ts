@@ -1,9 +1,14 @@
 import { input, password } from '@inquirer/prompts';
 import Oystehr from '@oystehr/sdk';
 import dotenv from 'dotenv';
-import { Location } from 'fhir/r4b';
+import { Location, Practitioner } from 'fhir/r4b';
 import fs from 'fs';
-import { DEFAULT_TESTING_SLUG } from '../packages/zambdas/src/scripts/setup-default-locations';
+import { allLicensesForPractitioner, makeQualificationForPractitioner } from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
+import {
+  allPhysicalDefaultLocations,
+  virtualDefaultLocations,
+} from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
@@ -55,17 +60,19 @@ interface IntakeConfig {
   [key: string]: any;
 }
 
-async function getLocationForTesting(
-  ehrZambdaEnv: Record<string, string>
-): Promise<{ locationId: string; locationName: string; locationSlug: string; locationState: string }> {
+async function getToken(
+  ehrZambdaEnv: Record<string, string>,
+  auth0ClientId?: string,
+  auth0ClientSecret?: string
+): Promise<Oystehr> {
   const tokenResponse = await fetch(ehrZambdaEnv.AUTH0_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      client_id: ehrZambdaEnv.AUTH0_CLIENT,
-      client_secret: ehrZambdaEnv.AUTH0_SECRET,
+      client_id: auth0ClientId || ehrZambdaEnv.AUTH0_CLIENT,
+      client_secret: auth0ClientSecret || ehrZambdaEnv.AUTH0_SECRET,
       audience: ehrZambdaEnv.AUTH0_AUDIENCE,
       grant_type: 'client_credentials',
     }),
@@ -81,53 +88,144 @@ async function getLocationForTesting(
       projectApiUrl: ehrZambdaEnv.PROJECT_API,
     },
   });
+  return oystehr;
+}
 
-  const testingResponse = await oystehr.fhir.search<Location>({
+async function getLocationsForTesting(
+  ehrZambdaEnv: Record<string, string>
+): Promise<{ locationId: string; locationName: string; locationSlug: string; virtualLocationState: string }> {
+  console.log(`Setting up locations for testing`);
+  const oystehr = await getToken(ehrZambdaEnv);
+
+  const firstDefaultLocation = allPhysicalDefaultLocations[0];
+  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
+
+  const locationsResponse = await oystehr.fhir.search<Location>({
     resourceType: 'Location',
+  });
+
+  const locations = locationsResponse.unbundle();
+
+  const virtualLocations = locations.filter(isLocationVirtual);
+
+  if (locations.length === 0) {
+    throw Error('No locations found in FHIR API');
+  }
+
+  if (virtualLocations.length === 0) {
+    throw Error('No virtual locations found in FHIR API');
+  }
+
+  const locationResource = locations.find((location) => location.name === firstDefaultLocation.name);
+
+  const locationId = locationResource?.id;
+  const locationName = locationResource?.name;
+  const locationSlug = locationResource?.identifier?.[0]?.value;
+
+  const virtualLocation = virtualLocations.find(
+    (location) => location.address?.state === firstDefaultVirtualLocation.state
+  );
+  const virtualLocationState = (virtualLocation?.address?.state || '').toLowerCase();
+
+  if (!locationId) {
+    throw Error('Required locationId not found  ');
+  }
+
+  if (!locationName) {
+    throw Error('Required locationName not found');
+  }
+
+  if (!locationSlug) {
+    throw Error('Required locationSlug not found');
+  }
+
+  if (!virtualLocationState) {
+    throw Error('Required locationState not found');
+  }
+
+  console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
+  console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
+
+  console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
+  console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
+
+  return {
+    locationId,
+    locationName,
+    locationSlug,
+    virtualLocationState: virtualLocationState,
+  };
+}
+
+async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
+  console.log(`Setting up test EHR provider credentials`);
+  console.log(ehrConfig);
+  const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
+
+  console.log(`Getting e2e test user by email: ${ehrConfig.TEXT_USERNAME}`);
+  const users = await oystehr.user.listV2({ email: ehrConfig.TEXT_USERNAME! });
+  const user = users.data.find((user) => user.email === ehrConfig.TEXT_USERNAME!);
+
+  if (!user) {
+    throw Error('e2e test user not found');
+  }
+
+  const practitionersResponse = await oystehr.fhir.search<Practitioner>({
+    resourceType: 'Practitioner',
     params: [
       {
-        name: 'identifier',
-        value: `https://fhir.ottehr.com/r4/slug|${DEFAULT_TESTING_SLUG}`,
+        name: '_id',
+        value: user.profile.replace(`Practitioner/`, ''),
       },
     ],
   });
 
-  if (testingResponse.entry && testingResponse.entry.length > 0) {
-    const locationResource = testingResponse.entry[0].resource;
+  const practitioners = practitionersResponse.unbundle();
 
-    const locationId = locationResource?.id;
-    const locationName = locationResource?.name;
-    const locationSlug = locationResource?.identifier?.[0]?.value;
-    const locationState = (locationResource?.address?.state || '').toLowerCase();
+  const practitioner = practitioners.at(0);
 
-    if (!locationId) {
-      throw Error('Required locationId not found  ');
-    }
-
-    if (!locationName) {
-      throw Error('Required locationName not found');
-    }
-
-    if (!locationSlug) {
-      throw Error('Required locationSlug not found');
-    }
-
-    if (!locationState) {
-      throw Error('Required locationState not found');
-    }
-
-    console.log(`Found location by slug '${DEFAULT_TESTING_SLUG}' with ID: ${locationId}`);
-    console.log(`Location name: ${locationName}, slug: ${locationSlug}, state: ${locationState}`);
-
-    return {
-      locationId,
-      locationName,
-      locationSlug,
-      locationState,
-    };
+  if (!practitioner) {
+    throw Error('e2e test user profile practitioner not found');
   }
+  const locationsResponse = await oystehr.fhir.search<Location>({
+    resourceType: 'Location',
+    params: [
+      {
+        name: 'address-state:missing',
+        value: 'false',
+      },
+    ],
+  });
 
-  throw Error('No locations found in FHIR API');
+  const virtualLocations = locationsResponse.unbundle().filter(isLocationVirtual);
+
+  if (virtualLocations.length === 0) {
+    throw Error('No virtual locations found in FHIR API');
+  }
+  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
+
+  const licenses = allLicensesForPractitioner(practitioner);
+  const qualification = practitioner.qualification || [];
+  if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
+    qualification.push(
+      makeQualificationForPractitioner({
+        state: firstDefaultVirtualLocation.state,
+        number: '1234567890',
+        code: 'MD',
+        active: true,
+      })
+    );
+
+    try {
+      await oystehr.fhir.update<Practitioner>({
+        id: practitioner.id!,
+        ...practitioner,
+        qualification,
+      });
+    } catch (error) {
+      console.error('Error updating e2e test practitioner qualifications', error);
+    }
+  }
 }
 
 export async function createTestEnvFiles(): Promise<void> {
@@ -144,7 +242,7 @@ export async function createTestEnvFiles(): Promise<void> {
       fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
     );
 
-    const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(zambdaEnv);
+    const { locationId, locationName, locationSlug, virtualLocationState } = await getLocationsForTesting(zambdaEnv);
 
     let existingEhrConfig: EhrConfig = {};
     let existingIntakeConfig: IntakeConfig = {};
@@ -220,14 +318,13 @@ export async function createTestEnvFiles(): Promise<void> {
       FHIR_API: zambdaEnv.FHIR_API,
       AUTH0_ENDPOINT: zambdaEnv.AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: zambdaEnv.AUTH0_AUDIENCE,
-      PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
+      PROJECT_API: ehrUiEnv.VITE_APP_PROJECT_API_URL,
       PROJECT_API_ZAMBDA_URL: ehrUiEnv.VITE_APP_PROJECT_API_ZAMBDA_URL,
       CREATE_APPOINTMENT_ZAMBDA_ID: ehrUiEnv.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
-      CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID: intakeUiEnv.VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
       GET_ANSWER_OPTIONS_ZAMBDA_ID: intakeUiEnv.VITE_APP_GET_ANSWER_OPTIONS_ZAMBDA_ID,
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
       SLUG_ONE: locationSlug,
-      STATE_ONE: locationState,
+      STATE_ONE: virtualLocationState,
       EHR_APPLICATION_ID: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
       ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
@@ -237,7 +334,7 @@ export async function createTestEnvFiles(): Promise<void> {
       TEXT_USERNAME: textUsername,
       TEXT_PASSWORD: textPassword,
       SLUG_ONE: locationSlug,
-      STATE_ONE: locationState,
+      STATE_ONE: virtualLocationState,
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
       AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
@@ -263,8 +360,16 @@ export async function createTestEnvFiles(): Promise<void> {
     fs.writeFileSync(`apps/intake/env/tests.${environment}.json`, JSON.stringify(intakeConfig, null, 2));
 
     console.log('Env files for tests created successfully');
+
+    if (!ehrConfig.AUTH0_CLIENT_TESTS) {
+      console.warn(
+        'Missing AUTH0_CLIENT_TESTS env variable that should be set up manually to alter e2e ehr user credentials'
+      );
+    } else {
+      await setTestEhrUserCredentials(ehrConfig);
+    }
   } catch (e) {
-    console.error('Error creating env files for tests', e);
+    console.error('Error creating env files for tests', e, JSON.stringify(e));
   }
 }
 
