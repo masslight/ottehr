@@ -5,21 +5,23 @@ import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined
 import { Box, Button, Skeleton, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
-import { ServiceMode, VisitType, PROJECT_NAME } from 'utils';
-import { BOOKING_SERVICE_MODE_PARAM, bookingBasePath, intakeFlowPageRoute } from '../../App';
-import { otherColors } from '../../IntakeThemeProvider';
-import { CancelVisitDialog } from '../components';
+import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
+import { ServiceMode, PROJECT_NAME } from 'utils';
+import { otherColors } from '../IntakeThemeProvider';
+import { CancelVisitDialog } from '../telemed/components';
 import {
   findActiveAppointment,
   useAppointmentsData,
   useAppointmentStore,
   useGetAppointments,
-} from '../features/appointments';
-import { CustomContainer, useIntakeCommonStore } from '../features/common';
-import HomepageOption from '../features/homepage/HomepageOption';
-import { useZapEHRAPIClient } from '../utils';
-import { dataTestIds } from '../../helpers/data-test-ids';
+} from '../telemed/features/appointments';
+import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
+import HomepageOption from '../components/HomepageOption';
+import { useZapEHRAPIClient } from '../telemed/utils';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { pastVisits } from '@theme/icons';
+
+const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
 
 const Homepage = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
@@ -39,7 +41,7 @@ const Homepage = (): JSX.Element => {
   }, [refetch, apiClient]);
 
   const handleRequestVisit = (): void => {
-    navigate(`${intakeFlowPageRoute.TelemedSelectPatient.path}?flow=requestVisit`);
+    navigate(intakeFlowPageRoute.StartVirtualVisit.path);
   };
 
   const handleWalkIn = (): void => {
@@ -48,30 +50,30 @@ const Homepage = (): JSX.Element => {
       link to register for a walk-in visit. this might be something a front desk person texts to the individual after getting
       their phone number, or maybe a link the user opens by scanning a QR code made available at the location. 
     */
-    const basePath = generatePath(bookingBasePath, {
-      slug: 'testing',
-      visit_type: `${VisitType.WalkIn}`,
-      service_mode: ServiceMode['in-person'],
+
+    const basePath = generatePath(intakeFlowPageRoute.WalkinLandingByLocationName.path, {
+      name: DEFAULT_WALKIN_LOCATION_NAME,
     });
 
-    navigate(`${basePath}/patients`, {
-      state: { scheduleType: 'location' },
-    });
+    navigate(basePath);
   };
 
   const handleReturnToCall = (): void => {
     navigate(`${intakeFlowPageRoute.WaitingRoom.path}?appointment_id=${appointmentID}`);
   };
 
+  // todo: investigate how to move this functionality
   const handleContinueRequest = (): void => {
     useAppointmentStore.setState({ appointmentDate: activeAppointment?.start, appointmentID });
-    navigate(`${intakeFlowPageRoute.TelemedSelectPatient.path}?flow=continueVisitRequest`, {
+    // was telemedSelectPatient
+    navigate(`${intakeFlowPageRoute.ChoosePatient.path}?flow=continueVisitRequest`, {
       state: { patientId: activeAppointment?.patient?.id },
     });
   };
 
   const handlePastVisits = (): void => {
-    navigate(`${intakeFlowPageRoute.TelemedSelectPatient.path}?flow=pastVisits`);
+    // was telemedSelectPatient
+    navigate(intakeFlowPageRoute.MyPatients.path);
   };
 
   const handleContactSupport = (): void => {

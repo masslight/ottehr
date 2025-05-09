@@ -6,6 +6,12 @@ export interface OrderableItemSearchResult {
   lab: OrderableItemLab;
 }
 
+export interface sampleDTO {
+  specimen: { id: string; collectionDate?: string }; // collectionDate exists after order is submitted
+  definition: OrderableItemSpecimen;
+}
+
+// todo: maybe rename to OrderableItemSpecimenDefinition to fit the FHIR terms
 export interface OrderableItemSpecimen {
   container: string;
   volume: string;
@@ -13,6 +19,7 @@ export interface OrderableItemSpecimen {
   storageRequirements: string;
   collectionInstructions: string;
 }
+
 export interface OrderableItemComponent {
   componentItemCode: string;
   name: string;
@@ -26,6 +33,7 @@ export interface OrderableItemCptCode {
   cptCode: string;
   serviceUnitsCount: number;
 }
+
 export interface OrderableItem {
   itemCode: string;
   itemLoinc: string;
@@ -52,7 +60,7 @@ export enum ExternalLabsStatus {
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
-  unparsed = 'unparsed', // for debugging purposes
+  unknown = 'unknown', // for debugging purposes
 }
 
 export type LabOrderUnreceivedHistoryRow = {
@@ -104,14 +112,15 @@ export type LabOrderListPageDTO = {
   visitDate: string; // based on appointment
   lastResultReceivedDate: string; // the most recent Task RFRT.authoredOn
   accessionNumbers: string[]; // DiagnosticReport.identifier (identifier assigned to a sample when it arrives at a laboratory)
+  encounterTimezone: string | undefined; // used to format dates correctly on the front end
 };
 
 export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   accountNumber: string; // identifier.system === LAB_ACCOUNT_NUMBER_SYSTEM (organization identifier) [added if list requested by ServiceRequest id]
   history: LabOrderHistoryRow[];
   resultsDetails: LabOrderResultDetails[];
-  orderSource: string; // order source (SR.orderDetail code.display)
   questionnaire: QuestionnaireData[];
+  samples: sampleDTO[];
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
@@ -180,14 +189,26 @@ export type LabOrderResourcesRes = {
   labs: OrderableItemSearchResult[];
 };
 
-export const VALID_LAB_ORDER_UPDATE_EVENTS = ['reviewed'] as const;
+export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
+  reviewed: 'reviewed',
+  specimenDateChanged: 'specimenDateChanged',
+} as const;
 
-export type UpdateLabOrderResourceParams = {
-  taskId: string;
+export type TaskReviewedParameters = {
   serviceRequestId: string;
+  taskId: string;
   diagnosticReportId: string;
-  event: (typeof VALID_LAB_ORDER_UPDATE_EVENTS)[number];
 };
+
+export type SpecimenDateChangedParameters = {
+  serviceRequestId: string;
+  specimenId: string;
+  date: string;
+};
+
+export type UpdateLabOrderResourcesParameters =
+  | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
+  | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged });
 
 export type DeleteLabOrderParams = {
   serviceRequestId: string;

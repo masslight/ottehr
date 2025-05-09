@@ -7,8 +7,6 @@ import {
   AvailableLocationInformation,
   FHIR_RESOURCE_NOT_FOUND,
   GetScheduleResponse,
-  SLUG_SYSTEM,
-  ScheduleOwnerFhirResource,
   SecretsKeys,
   SlotListItem,
   fhirTypeForScheduleType,
@@ -42,7 +40,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { secrets, scheduleType, slug, isWalkin } = validatedParameters;
+    const { secrets, scheduleType, slug } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -61,35 +59,25 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const telemedAvailable: SlotListItem[] = [];
     const availableSlots: SlotListItem[] = [];
 
-    let scheduleOwner: ScheduleOwnerFhirResource | undefined;
-    if (!isWalkin) {
-      console.time('get-schedule-from-slug');
-      const scheduleData = await getSchedules(oystehr, scheduleType, slug);
-      const { scheduleList, owner, metadata } = scheduleData;
-      scheduleOwner = owner;
-      console.timeEnd('get-schedule-from-slug');
-      console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
-      console.log('owner retrieved from getScheduleUtil:', JSON.stringify(owner, null, 2));
-      console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
+    console.time('get-schedule-from-slug');
+    const scheduleData = await getSchedules(oystehr, scheduleType, slug);
+    const { scheduleList, owner: scheduleOwner, metadata } = scheduleData;
+    console.timeEnd('get-schedule-from-slug');
+    console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
+    console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
+    console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
 
-      console.time('synchronous_data_processing');
-      const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules({
+    console.time('synchronous_data_processing');
+    const { telemedAvailable: tmSlots, availableSlots: regularSlots } = await getAvailableSlotsForSchedules(
+      {
         now: DateTime.now(),
         scheduleList,
-      });
-      telemedAvailable.push(...tmSlots);
-      availableSlots.push(...regularSlots);
-      console.timeEnd('synchronous_data_processing');
-    } else {
-      const ownerSearchResults = (
-        await oystehr.fhir.search<ScheduleOwnerFhirResource>({
-          resourceType: `${fhirTypeForScheduleType(scheduleType)}`,
-          params: [{ name: 'identifier', value: `${SLUG_SYSTEM}|${slug}` }],
-        })
-      ).unbundle();
-      console.log('ownerSearch', slug, JSON.stringify(ownerSearchResults, null, 2));
-      scheduleOwner = ownerSearchResults[0];
-    }
+      },
+      oystehr
+    );
+    telemedAvailable.push(...tmSlots);
+    availableSlots.push(...regularSlots);
+    console.timeEnd('synchronous_data_processing');
 
     if (!scheduleOwner) {
       throw FHIR_RESOURCE_NOT_FOUND(fhirTypeForScheduleType(scheduleType));
@@ -97,6 +85,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const now = DateTime.now();
 
+    // todo: this should live on a fhir resource raather than being a global secret
     const DISPLAY_TOMORROW_SLOTS_AT_HOUR = parseInt(
       getSecret(SecretsKeys.IN_PERSON_PREBOOK_DISPLAY_TOMORROW_SLOTS_AT_HOUR, secrets)
     );

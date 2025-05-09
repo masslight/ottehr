@@ -153,6 +153,12 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
         },
       ],
     },
+    extension: [
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+        valueString: 'Additional info to primary insurance',
+      },
+    ],
   },
   secondary: {
     resourceType: 'Coverage',
@@ -203,5 +209,11 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
         },
       ],
     },
+    extension: [
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+        valueString: 'Additional info to secondary insurance',
+      },
+    ],
   },
 };

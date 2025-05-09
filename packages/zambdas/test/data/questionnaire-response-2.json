@@ -1,0 +1,385 @@
+{
+  "resourceType": "QuestionnaireResponse",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.6",
+  "status": "completed",
+  "subject": {
+    "reference": "Patient/d308059a-6680-44da-816d-7698eed62907"
+  },
+  "encounter": {
+    "reference": "Encounter/c455a927-5637-4b6c-bcb5-0ccd9f78b6a0"
+  },
+  "item": [
+    {
+      "linkId": "patient-info-section",
+      "item": [
+        {
+          "linkId": "patient-last-name",
+          "answer": [
+            {
+              "valueString": "McLowrand"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-middle-name",
+          "answer": [
+            {
+              "valueString": "Mark"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-first-name",
+          "answer": [
+            {
+              "valueString": "George"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-name-suffix",
+          "answer": [
+            {
+              "valueString": "Sir"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-preferred-name",
+          "answer": [
+            {
+              "valueString": "Goga"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-birthdate",
+          "answer": [
+            {
+              "valueString": "2000-01-01"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-pronouns",
+          "answer": [
+            {
+              "valueString": "He/him"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-birth-sex"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-contact-info-section",
+      "item": [
+        {
+          "linkId": "patient-street-address",
+          "answer": [
+            {
+              "valueString": "Lincoln str., 21"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-street-address-2",
+          "answer": [
+            {
+              "valueString": "appt. 123"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-city",
+          "answer": [
+            {
+              "valueString": "Maryland"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-state",
+          "answer": [
+            {
+              "valueString": "CO"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-zip",
+          "answer": [
+            {
+              "valueString": "12312"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-email",
+          "answer": [
+            {
+              "valueString": "a@a.a"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-number",
+          "answer": [
+            {
+              "valueString": "(747) 292-0712"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "patient-additional-details-section",
+      "item": [
+        {
+          "linkId": "patient-ethnicity",
+          "answer": [
+            {
+              "valueString": "Not Hispanic or Latino"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-race",
+          "answer": [
+            {
+              "valueString": "Asian"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-sexual-orientation",
+          "answer": [
+            {
+              "valueString": "Bisexual"
+            }
+          ]
+        },
+        {
+          "linkId": "preferred-language",
+          "answer": [
+            {
+              "valueString": "English"
+            }
+          ]
+        },
+        {
+          "linkId": "patient-point-of-discovery",
+          "answer": [
+            {
+              "valueString": "Been there with another family member"
+            }
+          ]
+        },
+        {
+          "linkId": "mobile-opt-in",
+          "answer": [
+            {
+              "valueBoolean": false
+            }
+          ]
+        },
+        {
+          "linkId": "common-well-consent",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "primary-care-physician-section",
+      "item": [
+        {
+          "linkId": "pcp-active",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-first",
+          "answer": [
+            {
+              "valueString": "Elizabeth"
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-last",
+          "answer": [
+            {
+              "valueString": "Ronda"
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-practice",
+          "answer": [
+            {
+              "valueString": "SuperCare"
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-address",
+          "answer": [
+            {
+              "valueString": "Evergreen str., 25"
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-number",
+          "answer": [
+            {
+              "valueString": "(222) 222-2222"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "linkId": "insurance-section",
+      "item": [
+        {
+          "linkId": "insurance-carrier"
+        },
+        {
+          "linkId": "insurance-member-id"
+        },
+        {
+          "linkId": "policy-holder-first-name"
+        },
+        {
+          "linkId": "policy-holder-middle-name"
+        },
+        {
+          "linkId": "policy-holder-last-name"
+        },
+        {
+          "linkId": "policy-holder-date-of-birth"
+        },
+        {
+          "linkId": "policy-holder-birth-sex"
+        },
+        {
+          "linkId": "policy-holder-address"
+        },
+        {
+          "linkId": "policy-holder-address-additional-line"
+        },
+        {
+          "linkId": "policy-holder-city"
+        },
+        {
+          "linkId": "policy-holder-state"
+        },
+        {
+          "linkId": "policy-holder-zip"
+        },
+        {
+          "linkId": "patient-relationship-to-insured"
+        },
+        {
+          "linkId": "insurance-priority"
+        }
+      ]
+    },
+    {
+      "linkId": "insurance-section-2",
+      "item": [
+        {
+          "linkId": "insurance-carrier-2"
+        },
+        {
+          "linkId": "insurance-member-id-2"
+        },
+        {
+          "linkId": "policy-holder-first-name-2"
+        },
+        {
+          "linkId": "policy-holder-middle-name-2"
+        },
+        {
+          "linkId": "policy-holder-last-name-2"
+        },
+        {
+          "linkId": "policy-holder-date-of-birth-2"
+        },
+        {
+          "linkId": "policy-holder-birth-sex-2"
+        },
+        {
+          "linkId": "policy-holder-address-2"
+        },
+        {
+          "linkId": "policy-holder-address-additional-line-2"
+        },
+        {
+          "linkId": "policy-holder-city-2"
+        },
+        {
+          "linkId": "policy-holder-state-2"
+        },
+        {
+          "linkId": "policy-holder-zip-2"
+        },
+        {
+          "linkId": "patient-relationship-to-insured-2"
+        },
+        {
+          "linkId": "insurance-priority-2"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-section",
+      "item": [
+        {
+          "linkId": "responsible-party-relationship"
+        },
+        {
+          "linkId": "responsible-party-first-name"
+        },
+        {
+          "linkId": "responsible-party-last-name"
+        },
+        {
+          "linkId": "responsible-party-date-of-birth"
+        },
+        {
+          "linkId": "responsible-party-birth-sex"
+        },
+        {
+          "linkId": "responsible-party-number"
+        }
+      ]
+    },
+    {
+      "linkId": "user-settings-section",
+      "item": []
+    }
+  ],
+  "id": "f6fbd727-3ebb-4049-b634-da9ce70e2082",
+  "meta": {
+    "versionId": "d7420525-7c05-4464-bbd1-4af377e77b7c",
+    "lastUpdated": "2025-04-18T08:51:33.504Z"
+  },
+  "authored": "2025-04-18T08:51:33.216+00:00",
+  "extension": [
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
+      "valueString": "Unknown"
+    }
+  ]
+}

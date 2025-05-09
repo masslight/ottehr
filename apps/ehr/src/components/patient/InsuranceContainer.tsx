@@ -1,7 +1,14 @@
 import { Autocomplete, Box, Checkbox, TextField, Typography, useTheme } from '@mui/material';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import {
+  chooseJson,
+  CoverageCheckWithDetails,
+  EligibilityCheckSimpleStatus,
+  isPostalCodeValid,
+  mapEligibilityCheckResultToSimpleStatus,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+} from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import {
   INSURANCE_COVERAGE_OPTIONS,
@@ -18,20 +25,69 @@ import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
 import { LoadingButton } from '@mui/lab';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { useMutation } from 'react-query';
+import { DateTime } from 'luxon';
 
 type InsuranceContainerProps = {
   ordinal: number;
+  patientId: string;
+  initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
 };
 
-export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, removeInProgress, handleRemoveClick }) => {
+export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusStyleObject> = {
+  ELIGIBLE: {
+    bgColor: '#C8E6C9',
+    textColor: '#1B5E20',
+  },
+  'NOT ELIGIBLE': {
+    bgColor: '#FECDD2',
+    textColor: '#B71C1C',
+  },
+  UNKNOWN: {
+    bgColor: '#FECDD2',
+    textColor: '#B71C1C',
+  },
+};
+
+function mapInitialStatus(
+  initialCheckResult: CoverageCheckWithDetails | undefined
+): SimpleStatusCheckWithDate | undefined {
+  if (initialCheckResult) {
+    const status = mapEligibilityCheckResultToSimpleStatus(initialCheckResult);
+    return {
+      status: status.status,
+      dateISO: DateTime.fromISO(status.dateISO).toFormat('MM/dd/yyyy'),
+    };
+  }
+  return undefined;
+}
+
+interface SimpleStatusCheckWithDate {
+  status: EligibilityCheckSimpleStatus;
+  dateISO: string;
+}
+
+export const InsuranceContainer: FC<InsuranceContainerProps> = ({
+  ordinal,
+  patientId,
+  removeInProgress,
+  initialEligibilityCheck,
+  handleRemoveClick,
+}) => {
   //console.log('insuranceId', insuranceId);
   const theme = useTheme();
   const { insurancePlans } = usePatientStore();
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
+
+  const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
+    mapInitialStatus(initialEligibilityCheck)
+  );
 
   const { control, setValue, watch } = useFormContext();
 
@@ -61,6 +117,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
   const localAddressData = watch(LocalAddressFields);
   const localIdentifyingData = watch(LocalIdentifyingFields);
   const selfSelected = watch(FormFields.relationship.key) === 'Self';
+  const insurancePriority = watch(FormFields.insurancePriority.key);
 
   useEffect(() => {
     if (sameAsPatientAddress || selfSelected) {
@@ -97,8 +154,62 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
     handleRemoveClick?.();
   };
 
+  const { oystehrZambda } = useApiClients();
+
+  const recheckEligibility = useMutation(async () => {
+    // todo: show an alert when form has unsaved changes?
+    console.log('patient id', patientId);
+    const coverageToCheck = insurancePriority?.toLowerCase();
+    try {
+      return oystehrZambda?.zambda
+        .execute({
+          id: 'get-eligibility',
+          patientId,
+          coverageToCheck: coverageToCheck,
+        })
+        .then((res) => {
+          console.log('eligibility check result');
+          const json = chooseJson(res);
+          if (coverageToCheck === 'secondary') {
+            return mapEligibilityCheckResultToSimpleStatus(json.secondary);
+          } else {
+            return mapEligibilityCheckResultToSimpleStatus(json.primary);
+          }
+        });
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  });
+
+  const handleRecheckEligibility = async (): Promise<void> => {
+    console.log('recheck eligibility', recheckEligibility);
+    try {
+      const result = await recheckEligibility.mutateAsync();
+      if (result) {
+        setEligibilityStatus(result);
+      } else {
+        console.error('Error rechecking eligibility:', 'No result returned');
+      }
+      console.log('Eligibility check result:', result);
+    } catch (error) {
+      console.error('Error rechecking eligibility:', error);
+    }
+  };
+
+  const TitleWidget = (): ReactElement => {
+    return (
+      <RefreshableStatusChip
+        status={eligibilityStatus?.status ?? 'UNKNOWN'}
+        lastRefreshISO={eligibilityStatus?.dateISO ?? ''}
+        styleMap={STATUS_TO_STYLE_MAP}
+        isRefreshing={recheckEligibility.isLoading}
+        handleRefresh={handleRecheckEligibility}
+      />
+    );
+  };
+
   return (
-    <Section title="Insurance information" dataTestId="insuranceContainer">
+    <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}

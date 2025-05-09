@@ -18,6 +18,7 @@ import {
   INSURANCE_CARD_CODE,
   InPersonAppointmentInformation,
   PHOTO_ID_CARD_CODE,
+  ROOM_EXTENSION_URL,
   SMSModel,
   SMSRecipient,
   Secrets,
@@ -41,7 +42,7 @@ import { sortAppointments } from '../../shared/queueingUtils';
 import {
   encounterIdMap,
   getTimezoneResourceIdFromAppointment,
-  makeAppointmentSearchRequest,
+  getAppointmentQueryInput,
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
@@ -108,7 +109,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return resources;
     })();
 
-    const { appointmentResources, encounterResources } = await (async () => {
+    const { appointmentResources, encounterResources, appointmentsToGroupMap } = await (async () => {
       // prepare search options
       const searchOptions = await Promise.all(
         requestedTimezoneRelatedResources.map(async (resource) => {
@@ -136,12 +137,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       // request appointments and encounters
       const resourceResults = await Promise.all(
         searchOptions.map(async (options) => {
-          const appointmentRequest = await makeAppointmentSearchRequest({
+          const appointmentRequestInput = await getAppointmentQueryInput({
             oystehr,
             resourceId: options.resourceId,
             resourceType: options.resourceType,
             searchDate,
           });
+
+          const appointmentRequest = {
+            resourceType: appointmentRequestInput.resourceType,
+            params: appointmentRequestInput.params,
+          };
+
+          const { group } = appointmentRequestInput;
 
           // here is a possible optimisation, we can use `options.searchParams !== null` check like for encounterResponse
           // because we may skip appointments search if there are no encounters, but i'm not sure bacuase we didn't use pagination
@@ -174,16 +182,28 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             .unbundle()
             .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
-          return { appointments, encounters };
+          return { appointments, encounters, group };
         })
       );
 
-      const flatAppointments = resourceResults.flatMap((result) => result.appointments || []);
+      const appointmentsToGroupMap = new Map<string, HealthcareService>();
+
+      const flatAppointments = resourceResults.flatMap((result) => {
+        const appointments = result.appointments || [];
+        const { group } = result;
+        if (group) {
+          appointments.forEach((appointment) => {
+            appointmentsToGroupMap.set(`${appointment.id}`, group);
+          });
+        }
+        return appointments;
+      });
       const flatEncounters = resourceResults.flatMap((result) => result.encounters || []);
 
       return {
         appointmentResources: mergeResources(flatAppointments),
         encounterResources: mergeResources(flatEncounters),
+        appointmentsToGroupMap,
       };
     })();
 
@@ -227,7 +247,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         completed,
         cancelled,
       };
-      console.timeEnd('structure_appointment_data');
 
       return {
         statusCode: 200,
@@ -411,6 +430,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         participantIdToResorceMap,
         healthcareServiceIdToResourceMap,
         next: false,
+        group: undefined,
       };
 
       preBooked = appointmentQueues.prebooked
@@ -418,6 +438,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           return makeAppointmentInformation(oystehr, {
             appointment,
             ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         })
         .filter(isTruthy);
@@ -427,6 +448,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             appointment,
             ...baseMapInput,
             next: idx === 0,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
         ...appointmentQueues.inOffice.waitingRoom.ready.map((appointment, idx) => {
@@ -434,12 +456,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             appointment,
             ...baseMapInput,
             next: idx === 0,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
         ...appointmentQueues.inOffice.inExam.intake.map((appointment) => {
           return makeAppointmentInformation(oystehr, {
             appointment,
             ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
         ...appointmentQueues.inOffice.inExam['ready for provider'].map((appointment, idx) => {
@@ -447,18 +471,21 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             appointment,
             ...baseMapInput,
             next: idx === 0,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
         ...appointmentQueues.inOffice.inExam.provider.map((appointment) => {
           return makeAppointmentInformation(oystehr, {
             appointment,
             ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
         ...appointmentQueues.inOffice.inExam['ready for discharge'].map((appointment) => {
           return makeAppointmentInformation(oystehr, {
             appointment,
             ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         }),
       ].filter(isTruthy);
@@ -467,6 +494,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           return makeAppointmentInformation(oystehr, {
             appointment,
             ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         })
         .filter(isTruthy);
@@ -475,6 +503,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           return makeAppointmentInformation(oystehr, {
             appointment,
             ...baseMapInput,
+            group: appointmentsToGroupMap.get(appointment.id ?? ''),
           });
         })
         .filter(isTruthy);
@@ -516,6 +545,7 @@ interface AppointmentInformationInputs {
   healthcareServiceIdToResourceMap: Record<string, HealthcareService>;
   allDocRefs: DocumentReference[];
   next: boolean;
+  group: HealthcareService | undefined;
 }
 
 const makeAppointmentInformation = (
@@ -531,9 +561,9 @@ const makeAppointmentInformation = (
     rpToCommMap,
     practitionerIdToResourceMap,
     participantIdToResorceMap,
-    healthcareServiceIdToResourceMap,
     next,
     patientToRPMap,
+    group,
   } = input;
 
   const patientRef = appointment.participant.find((appt) => appt.actor?.reference?.startsWith('Patient/'))?.actor
@@ -631,22 +661,6 @@ const makeAppointmentInformation = (
     })
     .join(', ');
 
-  const group = appointment.participant
-    .filter((participant) => participant.actor?.reference?.startsWith('HealthcareService/'))
-    .map(function (groupTemp) {
-      if (!groupTemp.actor?.reference) {
-        return;
-      }
-      const group = healthcareServiceIdToResourceMap[groupTemp.actor.reference];
-      console.log(1, healthcareServiceIdToResourceMap);
-
-      if (!group.name) {
-        return;
-      }
-      return group.name;
-    })
-    .join(', ');
-
   // if the QR has been updated at least once, this tag will not be present
   const paperworkHasBeenSubmitted = !!questionnaireResponse?.authored;
 
@@ -654,6 +668,8 @@ const makeAppointmentInformation = (
 
   const timezoneResourceId = getTimezoneResourceIdFromAppointment(appointment);
   const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
+
+  const room = appointment.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)?.valueString;
 
   return {
     id: appointment.id || 'Unknown',
@@ -678,7 +694,8 @@ const makeAppointmentInformation = (
     status: status,
     cancellationReason: cancellationReason,
     provider: provider,
-    group: group,
+    group: group ? group.name : undefined,
+    room: room,
     paperwork: {
       demographics: paperworkHasBeenSubmitted,
       photoID: idCard,

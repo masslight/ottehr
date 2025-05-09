@@ -13,9 +13,9 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   const page = pdfDoc.addPage();
   page.setSize(PageSizes.A4[0], PageSizes.A4[1]);
   const { height, width } = page.getSize();
-  const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./DancingScript-Regular.otf'));
-  const RubikFont = await pdfDoc.embedFont(fs.readFileSync('./Rubik-Regular.otf'));
-  const RubikFontBold = await pdfDoc.embedFont(fs.readFileSync('./Rubik-Bold.otf'));
+  const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./assets/DancingScript-Regular.otf'));
+  const RubikFont = await pdfDoc.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
+  const RubikFontBold = await pdfDoc.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
   const styles = {
     image: {
       width: 110,

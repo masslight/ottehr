@@ -105,19 +105,20 @@ export interface ExaminationBlockData {
 }
 
 export interface ExternalLabsData {
-  locationName: string;
-  locationStreetAddress: string;
-  locationCity: string;
-  locationState: string;
-  locationZip: string;
-  locationPhone: string;
-  locationFax: string;
+  locationName?: string;
+  locationStreetAddress?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationZip?: string;
+  locationPhone?: string;
+  locationFax?: string;
+  labOrganizationName: string;
   reqId: string;
   providerName: string;
   providerTitle: string;
   providerNPI: string;
   patientFirstName: string;
-  patientMiddleName: string;
+  patientMiddleName: string | undefined;
   patientLastName: string;
   patientSex: string;
   patientDOB: string;
@@ -125,7 +126,9 @@ export interface ExternalLabsData {
   patientAddress: string;
   patientPhone: string;
   todayDate: string;
-  orderDate: string;
+  orderSubmitDate: string;
+  orderCreateDate: string;
+  sampleCollectionDate?: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;
@@ -133,10 +136,17 @@ export interface ExternalLabsData {
   insuredAddress?: string;
   aoeAnswers?: { question: string; answer: any }[];
   orderName?: string | undefined;
-  assessmentCode: string;
-  assessmentName: string;
+  orderAssessments: { code: string; name: string }[];
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
+
+interface LabResult {
+  resultCode: string;
+  resultCodeDisplay: string;
+  resultInterpretation: string;
+  resultInterpretationDisplay: string;
+  resultValue: string;
+}
 
 export interface LabResultsData extends ExternalLabsData {
   accessionNumber: string;
@@ -149,13 +159,13 @@ export interface LabResultsData extends ExternalLabsData {
   // specimenDescription: string;
   specimenValue?: string;
   specimenReferenceRange?: string;
-  resultBody: string;
   resultPhase: string;
   reviewed: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
-  reviewDate: string;
+  reviewDate: string | undefined;
+  results: LabResult[];
   testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
@@ -219,6 +229,8 @@ export interface VisitNoteData extends ExaminationBlockData {
     [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
     labService: string;
     virusTest: string;
+    followUpIn?: number;
+    reason?: string;
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];

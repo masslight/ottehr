@@ -1,0 +1,53 @@
+{
+  "resourceType": "QuestionnaireResponse",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.6",
+  "status": "completed",
+  "subject": {
+    "reference": "Patient/f22d7f91-2a36-4cd6-a1ad-b97dddcb4ff3"
+  },
+  "encounter": {
+    "reference": "Encounter/c455a927-5637-4b6c-bcb5-0ccd9f78b6a0"
+  },
+  "item": [
+    {
+      "linkId": "primary-care-physician-page",
+      "item": [
+        {
+          "linkId": "pcp-active",
+          "answer": [
+            {
+              "valueBoolean": false
+            }
+          ]
+        },
+        {
+          "linkId": "pcp-first"
+        },
+        {
+          "linkId": "pcp-last"
+        },
+        {
+          "linkId": "pcp-practice"
+        },
+        {
+          "linkId": "pcp-address"
+        },
+        {
+          "linkId": "pcp-number"
+        }
+      ]
+    }
+  ],
+  "id": "f6fbd727-3ebb-4049-b634-da9ce70e2081",
+  "meta": {
+    "versionId": "d7420525-7c05-4464-bbd1-4af377e77b7c",
+    "lastUpdated": "2025-04-18T08:51:33.504Z"
+  },
+  "authored": "2025-04-18T08:51:33.216+00:00",
+  "extension": [
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
+      "valueString": "Unknown"
+    }
+  ]
+}

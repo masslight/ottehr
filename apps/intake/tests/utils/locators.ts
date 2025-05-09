@@ -25,7 +25,6 @@ export class Locators {
   prebookSlotReviewScreen: Locator;
   titleVisitDetails: Locator;
   titlePatient: Locator;
-  titleLocation: Locator;
   descReviewScreen: Locator;
   pageTitle: Locator;
   privacyPolicyReviewScreen: Locator;
@@ -270,7 +269,6 @@ export class Locators {
     this.prebookSlotReviewScreen = page.getByTestId(dataTestIds.prebookSlotReviewScreen);
     this.titleVisitDetails = page.getByRole('heading', { name: 'Visit details' });
     this.titlePatient = page.getByText('Patient');
-    this.titleLocation = page.getByText('Location');
     this.descReviewScreen = page.getByText('Review and confirm all details below.');
     this.privacyPolicyReviewScreen = page.getByTestId(dataTestIds.privacyPolicyReviewScreen);
     this.termsAndConditions = page.getByTestId(dataTestIds.termsAndConditionsReviewScreen);
@@ -387,7 +385,9 @@ export class Locators {
 
     //Consent forms locators
     this.hipaaAcknowledgement = page.getByLabel('I have reviewed and accept HIPAA Acknowledgement *');
-    this.consentToTreat = page.getByLabel('I have reviewed and accept Consent to Treat and Guarantee of Payment *');
+    this.consentToTreat = page.getByLabel(
+      'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement *'
+    );
     this.signature = page.locator('[id="signature"]');
     this.consentFullName = page.locator('[id="full-name"]');
     this.consentSignerRelationship = page.locator('[id="consent-form-signer-relationship"]');
@@ -521,6 +521,15 @@ export class Locators {
     return this.page.locator(`input[value='${value}']`);
   }
 
+  async waitUntilLoadingIsFinished(): Promise<void> {
+    await this.page.getByText('Loading...').waitFor({ state: 'hidden' });
+  }
+
+  async continueOrDifferentFamilyMember(): Promise<void> {
+    (await this.differentFamilyMember.isEnabled())
+      ? await this.selectDifferentFamilyMember()
+      : await this.clickContinueButton();
+  }
   async selectDifferentFamilyMember(): Promise<void> {
     await this.differentFamilyMember.click({ force: true });
   }

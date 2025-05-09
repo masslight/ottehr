@@ -15,6 +15,7 @@ import {
   FhirResource,
   DocumentReference,
   ActivityDefinition,
+  Specimen,
 } from 'fhir/r4b';
 import {
   EncounterLabResult,
@@ -32,14 +33,15 @@ import {
 export type LabOrderResources = {
   serviceRequest: ServiceRequest;
   patient: Patient;
-  questionnaireResponse: QuestionnaireResponse;
+  questionnaireResponse?: QuestionnaireResponse;
   practitioner: Practitioner;
   task: Task;
   organization: Organization;
-  diagnosticReport: DiagnosticReport;
+  diagnosticReports: DiagnosticReport[];
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
+  specimens: Specimen[];
 };
 
 export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
@@ -55,6 +57,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
       | Appointment
       | Encounter
       | Observation
+      | Specimen
     >({
       resourceType: 'ServiceRequest',
       params: [
@@ -98,40 +101,58 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
           name: '_include:iterate',
           value: 'DiagnosticReport:result',
         },
+        {
+          name: '_include',
+          value: 'ServiceRequest:specimen',
+        },
       ],
     })
   )?.unbundle();
+
   const serviceRequestsTemp: ServiceRequest[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is ServiceRequest => resourceTemp.resourceType === 'ServiceRequest'
   );
+
   const patientsTemp: Patient[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Patient => resourceTemp.resourceType === 'Patient'
   );
+
   const practitionersTemp: Practitioner[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Practitioner => resourceTemp.resourceType === 'Practitioner'
   );
+
   const questionnaireResponsesTemp: QuestionnaireResponse[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
   );
+
   const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
+
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
   );
+
   const diagnosticReportsTemp: DiagnosticReport[] | undefined = serviceRequestTemp?.filter(
-    (resourceTemp): resourceTemp is DiagnosticReport => resourceTemp.resourceType === 'DiagnosticReport'
+    (resourceTemp): resourceTemp is DiagnosticReport =>
+      resourceTemp.resourceType === 'DiagnosticReport' && isLabsDiagnosticReport(resourceTemp)
   );
+
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Appointment => resourceTemp.resourceType === 'Appointment'
   );
+
   const encountersTemp: Encounter[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Encounter => resourceTemp.resourceType === 'Encounter'
   );
+
   const observationsTemp: Observation[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Observation => resourceTemp.resourceType === 'Observation'
   );
-  console.log(2, diagnosticReportsTemp);
+
+  const specimens = serviceRequestTemp?.filter(
+    (resource): resource is Specimen => resource.resourceType === 'Specimen'
+  );
 
   if (serviceRequestsTemp?.length !== 1) {
     throw new Error('service request is not found');
@@ -143,10 +164,6 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
 
   if (practitionersTemp?.length !== 1) {
     throw new Error('practitioner is not found');
-  }
-
-  if (questionnaireResponsesTemp?.length !== 1) {
-    throw new Error('questionnaire response is not found');
   }
 
   if (tasksTemp?.length !== 1) {
@@ -171,7 +188,7 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
   const questionnaireResponse = questionnaireResponsesTemp?.[0];
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
-  const diagnosticReport = diagnosticReportsTemp?.[0];
+  const diagnosticReports = diagnosticReportsTemp;
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
@@ -183,10 +200,11 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     questionnaireResponse: questionnaireResponse,
     task,
     organization,
-    diagnosticReport,
+    diagnosticReports,
     appointment,
     encounter,
     observations,
+    specimens,
   };
 }
 
@@ -243,9 +261,7 @@ export const makeEncounterLabResult = async (
       }
     }
     if (resource.resourceType === 'DiagnosticReport') {
-      const isLabsDR = !!resource.category?.find(
-        (category) => category?.coding?.find((c) => c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system)
-      );
+      const isLabsDR = isLabsDiagnosticReport(resource);
       if (isLabsDR) {
         diagnosticReportMap[`DiagnosticReport/${resource.id}`] = resource as DiagnosticReport;
       }
@@ -353,7 +369,7 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
   // namely, if the test is reflex and also lets us grab the related service request which has info on the test & lab name, needed for results display
   const docRefSearch: BatchInputGetRequest = {
     method: 'GET',
-    url: `/DocumentReference?type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
+    url: `/DocumentReference?status=current&type=${LAB_RESULT_DOC_REF_CODING_CODE.code}&encounter=${encounterId}&_include:iterate=DocumentReference:related&_include:iterate=DiagnosticReport:based-on`,
   };
   // Grabbing active lab service requests seperately since they might not have results
   // but we validate against actually signing the progress note if there are any pending
@@ -362,4 +378,15 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
     url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=active&code=${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
   };
   return [docRefSearch, activeLabServiceRequestSearch];
+};
+
+const isLabsDiagnosticReport = (diagnosicReport: DiagnosticReport): boolean => {
+  return !!diagnosicReport.category?.find(
+    (cat) =>
+      cat?.coding?.find(
+        (c) =>
+          c.system === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system &&
+          c.code === OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
+      )
+  );
 };

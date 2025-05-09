@@ -1,5 +1,6 @@
 import { GetCreateLabOrderResources } from 'utils';
 import { ZambdaInput } from '../../shared';
+import { MISSING_REQUIRED_PARAMETERS } from 'utils';
 
 export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrderResources & { secrets: any } {
   if (!input.body) {
@@ -11,7 +12,7 @@ export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrder
   const missingResources = [];
   if (!encounter.id) missingResources.push('encounter');
   if (missingResources.length) {
-    throw new Error(`missing required resource(s): ${missingResources.join(',')}`);
+    throw MISSING_REQUIRED_PARAMETERS(missingResources);
   }
 
   return {
