@@ -8,17 +8,16 @@ import { otherColors } from '../IntakeThemeProvider';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { useZapEHRAPIClient } from '../telemed/utils';
 import { DateTime } from 'luxon';
+import { GetVisitDetailsResponse } from 'utils';
 
 const ExcuseNoteContent = ({
-  appointmentID,
+  data,
   docType,
 }: {
-  appointmentID: string;
+  data: GetVisitDetailsResponse | undefined;
   docType: string;
 }): JSX.Element | null => {
-  const apiClient = useZapEHRAPIClient();
   const openExternalLink = useOpenExternalLink();
-  const { data } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(appointmentID), appointmentID);
 
   return data?.files[docType] ? (
     <>
@@ -45,15 +44,16 @@ const ExcuseNoteContent = ({
   );
 };
 
-const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.Element | null => {
-  const apiClient = useZapEHRAPIClient();
+const VisitDetailsContent = ({
+  data,
+  isLoading,
+  error,
+}: {
+  data: GetVisitDetailsResponse | undefined;
+  isLoading: boolean;
+  error: any | undefined;
+}): JSX.Element | null => {
   const openExternalLink = useOpenExternalLink();
-  const { data, isLoading, error } = useGetVisitDetails(
-    apiClient,
-    Boolean(apiClient) && Boolean(appointmentID),
-    appointmentID
-  );
-
   if (error) {
     useIntakeCommonStore.setState({ error: 'Failed to load appointment details' });
     return null;
@@ -92,7 +92,7 @@ const VisitDetailsContent = ({ appointmentID }: { appointmentID: string }): JSX.
       )}
 
       {['school', 'work'].map((docType) => (
-        <ExcuseNoteContent key={docType} appointmentID={appointmentID} docType={docType} />
+        <ExcuseNoteContent key={docType} data={data} docType={docType} />
       ))}
 
       <Box>
@@ -118,7 +118,7 @@ const VisitDetails = (): JSX.Element => {
   const { patientId, visitId } = useParams();
 
   const apiClient = useZapEHRAPIClient();
-  const { data } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(visitId), visitId);
+  const { data, isLoading, error } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(visitId), visitId);
   const appointmentDate = (() => {
     if (!data?.appointmentTime) {
       return '';
@@ -136,7 +136,7 @@ const VisitDetails = (): JSX.Element => {
           <Typography variant="body2">Visit ID: {visitId}</Typography>
         </Box>
 
-        {visitId && <VisitDetailsContent appointmentID={visitId} />}
+        {visitId && <VisitDetailsContent data={data} isLoading={isLoading} error={error} />}
 
         <Button
           sx={{
