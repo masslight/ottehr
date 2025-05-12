@@ -16,7 +16,7 @@ export const validateBundleAndExtractSavedChartData = (
 ): ChartDataWithResources => {
   let chartDataResponse: GetChartDataResponse = {
     patientId,
-    procedures: [],
+    surgicalHistory: [],
     medications: [],
     conditions: [],
     allergies: [],

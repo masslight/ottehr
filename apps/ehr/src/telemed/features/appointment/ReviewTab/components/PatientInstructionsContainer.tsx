@@ -12,7 +12,9 @@ import { SectionList } from '../../../../components';
 import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { followUpInOptions } from '../../../../utils/disposition.helper';
+import { followUpInOptions } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+
 export const PatientInstructionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
 
@@ -95,12 +97,12 @@ export const PatientInstructionsContainer: FC = () => {
   ].filter(Boolean);
 
   return (
-    <>
+    <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer}>
       <Typography variant="h5" color="primary.dark">
         Patient instructions
       </Typography>
 
       <SectionList sections={sections} sx={{ width: '100%' }} />
-    </>
+    </Box>
   );
 };
