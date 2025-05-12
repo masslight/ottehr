@@ -461,7 +461,8 @@ const generateRandomPatientInfo = async (
         'x-zapehr-project-id': projectId,
       },
       body: JSON.stringify(createSlotInput),
-    });
+    }).then((res) => res.json());
+    console.log('persistedSlotResult', persistedSlotResult);
     persistedSlot = await chooseJson(persistedSlotResult);
   } catch (error) {
     console.error('Error creating slot:', error);
