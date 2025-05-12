@@ -120,6 +120,9 @@ const VisitDetails = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();
   const { data } = useGetVisitDetails(apiClient, Boolean(apiClient) && Boolean(visitId), visitId);
   const appointmentDate = (() => {
+    if (!data?.appointmentTime) {
+      return '';
+    }
     const dt = DateTime.fromISO(data?.appointmentTime ?? '');
     return dt.toFormat('MMMM dd, yyyy');
   })();
