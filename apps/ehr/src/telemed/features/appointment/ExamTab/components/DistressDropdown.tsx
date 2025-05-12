@@ -15,7 +15,7 @@ export const DistressDropdown: FC = () => {
       dropdownLabel="Distress degree"
       options={options}
       dropdownTestId={dataTestIds.telemedEhrFlow.examTabDistressDropdown}
-      checkboxBlockTestId={dataTestIds.telemedEhrFlow.examTabField('distress-none')}
+      checkboxBlockTestId={dataTestIds.telemedEhrFlow.examTabDistressCheckbox}
     />
   );
 };

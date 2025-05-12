@@ -15,7 +15,7 @@ export const TenderDropdown: FC = () => {
       dropdownLabel="Tender Location"
       options={options}
       dropdownTestId={dataTestIds.telemedEhrFlow.examTabTenderDropdown}
-      checkboxBlockTestId={dataTestIds.telemedEhrFlow.examTabField('non-tender-on-parental-exam')}
+      checkboxBlockTestId={dataTestIds.telemedEhrFlow.examTabTenderCheckbox}
     />
   );
 };

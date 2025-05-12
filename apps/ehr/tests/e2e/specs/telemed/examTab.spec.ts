@@ -10,6 +10,8 @@ import {
 } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { waitForSaveChartDataResponse } from 'test-utils';
+import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
+import { rgbToHex } from '@mui/system';
 
 async function checkCheckboxValueInLocator(locator: Locator, value: boolean): Promise<void> {
   if (value) {
@@ -46,7 +48,18 @@ async function checkValuesInRadioButtons(page: Page, examObservationFields: Exam
 test.describe('Exam tab', async () => {
   const resourceHandler = new ResourceHandler('telemed');
   let page: Page;
+  // this color i've found in the palette
+  const greenColorFromPalette = '#2E7D32';
+  const redColorFromPalette = '#D32F2F';
+  const boldFontSize = 600;
+  const defaultUncheckedNormalField = ExamObservationFieldsDetails['playful-and-active'];
+  const defaultUncheckedAbnormalField = ExamObservationFieldsDetails['tired-appearing'];
   const providerComment = 'Lorem ipsum';
+  const distressDropdownOption = ExamObservationFieldsDetails['moderate-distress'].label;
+  const tenderDropdownOption = ExamObservationFieldsDetails['left-lower-quadrant-abdomen'].label;
+  const rashWithoutDescriptionDropdownOption = ExamObservationFieldsDetails['consistent-with-insect-bites'].label;
+  const rashWithDescriptionDropdownOption = ExamObservationFieldsDetails['consistent-with-impetigo'].label;
+  const rashDescription = 'rash description';
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -95,37 +108,42 @@ test.describe('Exam tab', async () => {
   });
 
   test("Should select value from 'Normal' list and verify checkbox become green", async () => {
-    const uncheckedField = ExamObservationFieldsDetails['playful-and-active'];
+    const normalListField = page.getByTestId(
+      dataTestIds.telemedEhrFlow.examTabField(defaultUncheckedNormalField.field)
+    );
+    const checkbox = normalListField.locator('input');
+    await checkbox.click();
+    await expect(checkbox).toBeEnabled();
+    await checkCheckboxValueInLocator(normalListField, true);
 
-    const normalListCheckbox = page
-      .getByTestId(dataTestIds.telemedEhrFlow.examTabField(uncheckedField.field))
-      .locator('input');
-    await normalListCheckbox.click();
-    await expect(normalListCheckbox).toBeEnabled();
-    await checkCheckboxValueInLocator(normalListCheckbox, true);
+    const color = await normalListField
+      .locator('span')
+      .first()
+      .evaluate((el) => {
+        return window.getComputedStyle(el).getPropertyValue('color');
+      });
 
-    const checkboxSpan = normalListCheckbox.locator('span.MuiCheckbox-root.Mui-checked');
-
-    const computedColor = await checkboxSpan.evaluate((el) => window.getComputedStyle(el).getPropertyValue('color'));
-
-    expect(computedColor).toBe('#2E7D32');
+    expect(rgbToHex(color)).toBe(greenColorFromPalette.toLowerCase());
   });
 
-  test("Should select value from 'Abnormal' list and verify checkbox become red", async () => {
-    const uncheckedField = ExamObservationFieldsDetails['tired-appearing'];
+  test("Should select value from 'Abnormal' list and verify checkbox become red and text is bold", async () => {
+    const abnormalListField = page.getByTestId(
+      dataTestIds.telemedEhrFlow.examTabField(defaultUncheckedAbnormalField.field)
+    );
+    const checkbox = abnormalListField.locator('input');
+    await checkbox.click();
+    await expect(checkbox).toBeEnabled();
+    await checkCheckboxValueInLocator(abnormalListField, true);
 
-    const abnormalListCheckbox = page
-      .getByTestId(dataTestIds.telemedEhrFlow.examTabField(uncheckedField.field))
-      .locator('input');
-    await abnormalListCheckbox.click();
-    await expect(abnormalListCheckbox).toBeEnabled();
-    await checkCheckboxValueInLocator(abnormalListCheckbox, true);
+    const color = await abnormalListField
+      .locator('span')
+      .first()
+      .evaluate((el) => {
+        return window.getComputedStyle(el).getPropertyValue('color');
+      });
 
-    const checkboxSpan = abnormalListCheckbox.locator('span.MuiCheckbox-root.Mui-checked');
-
-    const computedColor = await checkboxSpan.evaluate((el) => window.getComputedStyle(el).getPropertyValue('color'));
-
-    expect(computedColor).toBe('#D32F2F');
+    await expect(abnormalListField.locator('p')).toHaveCSS('font-weight', `${boldFontSize}`);
+    expect(rgbToHex(color)).toBe(redColorFromPalette.toLowerCase());
   });
 
   test("Should enter some text in 'Provider' field", async () => {
@@ -137,20 +155,18 @@ test.describe('Exam tab', async () => {
   });
 
   test("Should check 'Distress' checkbox and select dropdown option", async () => {
-    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabField('distress-none')).locator('input').click();
-    await waitForSaveChartDataResponse(page);
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabDistressCheckbox).click();
     await page.getByTestId(dataTestIds.telemedEhrFlow.examTabDistressDropdown).click();
-    // check option here
+    await (await getDropdownOption(page, distressDropdownOption)).click();
+    await waitForSaveChartDataResponse(page);
   });
 
   test("Should check 'Tender' checkbox and select dropdown option", async () => {
-    await page
-      .getByTestId(dataTestIds.telemedEhrFlow.examTabField('non-tender-on-parental-exam'))
-      .locator('input')
-      .click();
-    await waitForSaveChartDataResponse(page);
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('abdomen')).click();
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabTenderCheckbox).click();
     await page.getByTestId(dataTestIds.telemedEhrFlow.examTabTenderDropdown).click();
-    // check option here
+    await (await getDropdownOption(page, tenderDropdownOption)).click();
+    await waitForSaveChartDataResponse(page);
   });
 
   test("Should check 'Rashes' checkbox and rashes form appeared", async () => {
@@ -161,9 +177,74 @@ test.describe('Exam tab', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton)).toBeVisible();
   });
 
-  test('Should add skin rash', async () => {
+  test('Should add skin rash without description', async () => {
     await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDropdown).click();
-    // select option
+    await (await getDropdownOption(page, rashWithoutDescriptionDropdownOption)).click();
     await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton).click();
+    await waitForSaveChartDataResponse(page);
+  });
+
+  test('Should check rash saved in abnormal subsection without description', async () => {
+    const rashesSubsection = page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection);
+    await expect(rashesSubsection).toHaveText(rashWithoutDescriptionDropdownOption);
+    await expect(rashesSubsection).not.toHaveText('|'); // it means we don't have description saved
+  });
+
+  test('Should add skin rash with description', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDropdown).click();
+    await (await getDropdownOption(page, rashWithDescriptionDropdownOption)).click();
+    await page
+      .getByTestId(dataTestIds.telemedEhrFlow.examTabRashesDescription)
+      .locator('textarea')
+      .first()
+      .fill(rashDescription);
+    await page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAddButton).click();
+    await waitForSaveChartDataResponse(page);
+  });
+
+  test('Should check rash with description is saved', async () => {
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection)).toHaveText(
+      new RegExp(`${rashWithDescriptionDropdownOption}|${rashDescription}`)
+    );
+  });
+
+  test('Should check all fields are saved on Review&Sign tab', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+    const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
+
+    await expect(examinationsContainer).toHaveText(new RegExp(defaultUncheckedNormalField.label));
+    await expect(examinationsContainer).toHaveText(new RegExp(defaultUncheckedAbnormalField.label));
+    await expect(examinationsContainer).toHaveText(new RegExp(providerComment));
+
+    await expect(examinationsContainer).toHaveText(new RegExp(distressDropdownOption));
+    await expect(examinationsContainer).toHaveText(new RegExp(tenderDropdownOption));
+    await expect(examinationsContainer).toHaveText(new RegExp(rashWithoutDescriptionDropdownOption));
+    await expect(examinationsContainer).toHaveText(
+      new RegExp(`${rashWithDescriptionDropdownOption}|${rashDescription}`)
+    );
+  });
+
+  test('Should remove rashes and check it removed from abnormal subsection', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
+    const rashElementDeleteButton = page
+      .getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection)
+      .getByTestId(dataTestIds.telemedEhrFlow.examTabRashElementInSubsection)
+      .filter({ hasText: rashWithDescriptionDropdownOption })
+      .locator('button');
+    await rashElementDeleteButton.click();
+    await waitForSaveChartDataResponse(page);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection)).not.toHaveText(
+      rashWithDescriptionDropdownOption
+    );
+  });
+
+  test('Should check rash was removed from Review&Sign tab', async () => {
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
+    await expect(page.getByTestId(dataTestIds.progressNotePage.visitNoteCard)).toBeVisible();
+    const examinationsContainer = page.getByTestId(dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer);
+
+    await expect(examinationsContainer).not.toHaveText(rashWithDescriptionDropdownOption);
+    await expect(examinationsContainer).not.toHaveText(rashDescription);
   });
 });

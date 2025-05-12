@@ -87,10 +87,11 @@ export const RashesForm: FC = () => {
       </Box>
 
       {abnormalFields.length > 0 && (
-        <Box sx={{ width: '100%' }}>
+        <Box sx={{ width: '100%' }} data-testid={dataTestIds.telemedEhrFlow.examTabRashesAbnormalSubsection}>
           <ActionsList
             data={abnormalFields}
             getKey={(value) => value.field}
+            itemDataTestId={dataTestIds.telemedEhrFlow.examTabRashElementInSubsection}
             renderItem={(value) => <Typography>{parseRashesFieldToName(value.field, fields)}</Typography>}
             renderActions={(value) => <DeleteIconButton disabled={isLoading} onClick={() => onRemove(value.field)} />}
             divider
