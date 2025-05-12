@@ -128,6 +128,7 @@ export interface ExternalLabsData {
   todayDate: string;
   orderSubmitDate: string;
   orderCreateDate: string;
+  sampleCollectionDate?: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;

@@ -71,8 +71,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       conditions,
       medications,
       allergies,
-      proceduresNote,
-      procedures,
+      surgicalHistoryNote,
+      surgicalHistory,
       episodeOfCare,
       observations,
       secrets,
@@ -178,17 +178,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
     });
 
-    procedures?.forEach((procedure) => {
+    surgicalHistory?.forEach((procedure) => {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, procedure, 'surgical-history'))
       );
     });
 
-    if (proceduresNote) {
+    if (surgicalHistoryNote) {
       // convert Procedure to Procedure (FHIR) and preserve FHIR resource IDs
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeProcedureResource(encounterId, patient.id!, proceduresNote, 'surgical-history-note')
+          makeProcedureResource(encounterId, patient.id!, surgicalHistoryNote, 'surgical-history-note')
         )
       );
     }

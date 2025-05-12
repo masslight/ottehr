@@ -1,6 +1,6 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
+import { isLocationVirtual, ROOM_EXTENSION_URL, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
 import fs from 'fs';
@@ -50,10 +50,21 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
       const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
 
       const newExtension = extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL);
+
+      const roomExtensions = extension.filter((ext) => ext.url === ROOM_EXTENSION_URL);
+      const newRoomExtensions =
+        !isLocationVirtual(location) && roomExtensions.length === 0
+          ? Array.from({ length: 11 }, (_, i) => ({
+              url: ROOM_EXTENSION_URL,
+              valueString: (i + 1).toString(),
+            }))
+          : [];
+
       const modifiedLocation: Location = {
         ...location,
-        extension: [...newExtension],
+        extension: [...newExtension, ...newRoomExtensions],
       };
+
       // oystehr search bug prevents finding exact string match when there is a comma in the string
       if ((modifiedLocation.name?.split(',') ?? []).length > 1) {
         if (modifiedLocation.name === 'New York, NY') {
@@ -85,6 +96,16 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
         });
       }
       if (existingSchedule && scheduleExtension) {
+        locationUpdateRequests.push({
+          method: 'PUT',
+          url: `/Location/${location.id}`,
+          resource: modifiedLocation,
+        });
+      }
+      if (
+        newRoomExtensions.length > 0 &&
+        !locationUpdateRequests.find((req) => req.url === `/Location/${location.id}`)
+      ) {
         locationUpdateRequests.push({
           method: 'PUT',
           url: `/Location/${location.id}`,

@@ -1,4 +1,10 @@
-import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
+import {
+  ApptTelemedTab,
+  DispositionType,
+  PractitionerQualificationCode,
+  RoleType,
+  TelemedAppointmentVisitTabs,
+} from 'utils';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -280,6 +286,12 @@ export const dataTestIds = {
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
+    planTabDispositionContainer: 'telemed-plan-tab-disposition-container',
+    planTabDispositionToggleButton: (buttonName: DispositionType) =>
+      `telemed-plan-tab-disposition-toggle-button-${buttonName}`,
+    planTabDispositionFollowUpDropdown: 'telemed-plan-tab-disposition-follow-up-dropdown',
+    planTabDispositionNote: 'telemed-plan-tab-disposition-note',
+    planTabDispositionReasonForTransferDropdown: 'telemed-plan-tab-disposition-reason-for-transfer-dropdown',
     reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
@@ -288,6 +300,7 @@ export const dataTestIds = {
       `telemed-review-tab-additional-question-${questionSymptom}`,
     reviewTabChiefComplaintContainer: 'telemed-review-tab-chief-complaint-container',
     reviewTabRosContainer: 'telemed-review-tab-ros-container',
+    reviewTabPatientInstructionsContainer: 'telemed-review-tab-patient-instructions-container',
     cancelThisVisitButton: 'telemed-cancel-this-visit-button',
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
