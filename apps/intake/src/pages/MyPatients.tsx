@@ -80,6 +80,7 @@ const MyPatients = (): JSX.Element => {
       {isRoot && (
         <PatientList
           patients={patientsData?.patients ?? []}
+          showNewPatientOption={false}
           subtitle="Choose a patient to see their past visits"
           onSubmit={onSubmit}
           onBack={onBack}
