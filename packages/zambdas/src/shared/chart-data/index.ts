@@ -75,6 +75,7 @@ import {
   makeVitalsObservationDTO,
   removeOperation,
   ADDED_VIA_LAB_ORDER_SYSTEM,
+  ProcedureDTO,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
@@ -1222,6 +1223,9 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
       data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
     });
 
+  // 7. Procedures
+  data.procedures = makeProceduresDTOFromFhirResources(encounterResource, resources);
+
   return data;
 }
 
@@ -1279,3 +1283,69 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
   'lurie-ct': createCodingCode('lurie-ct', undefined, 'lurie-ct'),
   other: createCodingCode('other', 'other'),
 };
+
+export function makeProceduresDTOFromFhirResources(
+  encounter: Encounter,
+  resources: FhirResource[]
+): ProcedureDTO[] | undefined {
+  const proceduresServiceRequests: ServiceRequest[] = resources.filter(
+    (res) => res.resourceType === 'ServiceRequest' && chartDataResourceHasMetaTagByCode(res, 'procedure')
+  ) as ServiceRequest[];
+
+  if (proceduresServiceRequests.length === 0) {
+    return undefined;
+  }
+
+  const cptCodeProcedures: Procedure[] = resources.filter(
+    (resource) => resource.resourceType === 'Procedure' && chartDataResourceHasMetaTagByCode(resource, 'cpt-code')
+  ) as Procedure[];
+
+  const diagnosisConditions = (encounter.diagnosis ?? []).flatMap((encounterDiagnosis) => {
+    const conditionId = removePrefix('Condition/', encounterDiagnosis.condition.reference || '');
+    const condition = resources.find((resource) => resource.id === conditionId) as Condition | undefined;
+    if (condition) {
+      return [condition];
+    }
+    return [];
+  });
+
+  return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
+    return {
+      id: serviceRequests.id ?? '',
+      procedureType: 'todo',
+      cptCodes: cptCodeProcedures
+        .filter(
+          (procedure) => procedure.basedOn?.find((ref) => ref.reference === `ServiceRequest/${serviceRequests.id}`)
+        )
+        .flatMap((procedure) => {
+          const cptDto = makeCPTCodeDTO(procedure);
+          if (cptDto != null) {
+            return [cptDto];
+          }
+          return [];
+        }),
+      diagnoses: diagnosisConditions
+        .filter(
+          (condition) => serviceRequests.reasonReference?.find((ref) => ref.reference === `Condition/${condition.id}`)
+        )
+        .map((condition) => {
+          return makeDiagnosisDTO(condition, false);
+        }),
+      procedureDate: 'todo',
+      procedureTime: 'todo',
+      performer: 'todo',
+      medicationUsed: 'todo',
+      site: 'todo',
+      bodySide: 'todo',
+      technique: 'todo',
+      suppliesUsed: 'todo',
+      procedureDetails: 'todo',
+      specimenSent: false,
+      complications: 'todo',
+      patientResponse: 'todo',
+      postInstructions: 'todo',
+      timeSpent: 'todo',
+      documentedBy: 'todo',
+    };
+  });
+}
