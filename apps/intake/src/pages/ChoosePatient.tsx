@@ -348,6 +348,15 @@ const ChoosePatient = (): JSX.Element => {
         <CircularProgress />
       </PageContainer>
     );
+  } else if (patients && patients.length === 0) {
+    // if there are no patients, redirect to the new patient page without requiring user
+    // to select the "new family member" option
+    void onSubmit({ patientID: 'new-patient' });
+    return (
+      <PageContainer title={t('welcomeBack.loading')}>
+        <CircularProgress />
+      </PageContainer>
+    );
   }
 
   const onBack = (): void => {
