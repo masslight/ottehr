@@ -86,63 +86,61 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
   };
 
   return (
-    <>
-      <AccordionCard
-        label={'Sample Collection Instructions'}
-        collapsed={collapsed}
-        withBorder={false}
-        onSwitch={() => {
-          setCollapsed((prevState) => !prevState);
-        }}
-      >
-        <Paper sx={{ p: 3 }}>
-          <Stack spacing={1}>
-            <BoldedTitleText title={'Container'} description={definition.container} />
-            <BoldedTitleText title={'Volume'} description={definition.volume} />
-            <BoldedTitleText title={'Minimum Volume'} description={definition.minimumVolume} />
-            <BoldedTitleText title={'Storage Requirements'} description={definition.storageRequirements} />
-            <BoldedTitleText title={'Collection Instructions'} description={definition.collectionInstructions} />
-          </Stack>
+    <AccordionCard
+      label={'Sample Collection Instructions'}
+      collapsed={collapsed}
+      withBorder={false}
+      onSwitch={() => {
+        setCollapsed((prevState) => !prevState);
+      }}
+    >
+      <Paper sx={{ p: 3 }}>
+        <Stack spacing={1}>
+          <BoldedTitleText title={'Container'} description={definition.container} />
+          <BoldedTitleText title={'Volume'} description={definition.volume} />
+          <BoldedTitleText title={'Minimum Volume'} description={definition.minimumVolume} />
+          <BoldedTitleText title={'Storage Requirements'} description={definition.storageRequirements} />
+          <BoldedTitleText title={'Collection Instructions'} description={definition.collectionInstructions} />
+        </Stack>
 
-          <Grid container spacing={2} sx={{ mt: 2 }}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
-                Collection date
-              </Typography>
-              <TextField
-                fullWidth
-                variant="outlined"
-                type="date"
-                value={dateValue}
-                onChange={(e) => saveDateHandler({ field: 'collectionDate', value: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
-                Collection time
-              </Typography>
-              <TextField
-                fullWidth
-                variant="outlined"
-                type="time"
-                value={timeValue}
-                onChange={(e) => saveDateHandler({ field: 'collectionTime', value: e.target.value })}
-              />
-            </Grid>
+        <Grid container spacing={2} sx={{ mt: 2 }}>
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Collection date
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              type="date"
+              value={dateValue}
+              onChange={(e) => saveDateHandler({ field: 'collectionDate', value: e.target.value })}
+            />
           </Grid>
+          <Grid item xs={12} md={6}>
+            <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+              Collection time
+            </Typography>
+            <TextField
+              fullWidth
+              variant="outlined"
+              type="time"
+              value={timeValue}
+              onChange={(e) => saveDateHandler({ field: 'collectionTime', value: e.target.value })}
+            />
+          </Grid>
+        </Grid>
 
-          <Button
-            variant="outlined"
-            type="button"
-            sx={{ width: 170, borderRadius: '50px', textTransform: 'none', mt: 3 }}
-            onClick={() => {
-              return;
-            }}
-          >
-            Print label
-          </Button>
-        </Paper>
-      </AccordionCard>
-    </>
+        <Button
+          variant="outlined"
+          type="button"
+          sx={{ width: 170, borderRadius: '50px', textTransform: 'none', mt: 3 }}
+          onClick={() => {
+            return;
+          }}
+        >
+          Print label
+        </Button>
+      </Paper>
+    </AccordionCard>
   );
 };
