@@ -125,6 +125,7 @@ export const createSampleAppointments = async ({
   demoData,
   projectId,
   paperworkAnswers,
+  serviceMode,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -136,6 +137,7 @@ export const createSampleAppointments = async ({
   demoData?: DemoAppointmentData;
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
+  serviceMode?: ServiceMode;
 }): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -152,14 +154,14 @@ export const createSampleAppointments = async ({
     // Run all appointment creations in parallel
     const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
       try {
-        const serviceMode = i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual;
+        const serviceModeToUse = serviceMode || (i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual);
 
         const randomPatientInfo = await generateRandomPatientInfo(
           oystehr,
           zambdaUrl,
           authToken,
           projectId,
-          serviceMode,
+          serviceModeToUse,
           phoneNumber,
           {
             firstNames: DEFAULT_FIRST_NAMES,
@@ -203,12 +205,12 @@ export const createSampleAppointments = async ({
           zambdaUrl,
           authToken,
           projectId,
-          serviceMode,
+          serviceModeToUse,
           paperworkAnswers
         );
 
         // If it's a virtual appointment, mark it as 'arrived'
-        if (serviceMode === ServiceMode.virtual) {
+        if (serviceModeToUse === ServiceMode.virtual) {
           await oystehr.fhir.patch<Appointment>({
             id: appointmentData.appointment!,
             resourceType: 'Appointment',

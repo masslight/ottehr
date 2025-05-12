@@ -13,6 +13,7 @@ import {
   formatPhoneNumber,
   GetPaperworkAnswers,
   RelationshipOption,
+  ServiceMode,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { fetchWithOystAuth } from './helpers/tests-utils';
@@ -138,11 +139,7 @@ export class ResourceHandler {
 
     this.#initPromise = this.initApi();
 
-    if (flow === 'telemed' || flow === 'in-person') {
-      this.#createAppointmentZambdaId = 'create-appointment';
-    } else {
-      throw new Error('❌ Invalid flow name');
-    }
+    this.#createAppointmentZambdaId = 'create-appointment';
   }
 
   private async initApi(): Promise<void> {
@@ -203,6 +200,7 @@ export class ResourceHandler {
         phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
         createAppointmentZambdaId: this.#createAppointmentZambdaId,
         zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+        serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
         selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
         locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
         demoData: patientData,
