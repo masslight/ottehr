@@ -673,6 +673,12 @@ export default function AppointmentPage(): ReactElement {
         });
 
         const bundleEntries = docRefBundle?.entry;
+        console.log(
+          'bundleEntries',
+          bundleEntries,
+          'from request',
+          `/DocumentReference?status=current&subject=Patient/${patientID}&related=Appointment/${appointmentID}`
+        );
         bundleEntries?.forEach((bundleEntry: BundleEntry) => {
           const bundleResource = bundleEntry.resource as Bundle;
           bundleResource.entry?.forEach((entry) => {
@@ -684,10 +690,8 @@ export default function AppointmentPage(): ReactElement {
         // Get document info
         const allZ3Documents: DocumentInfo[] = [];
 
-        console.log('documentReferenceResources', documentReferenceResources);
         for (const docRef of documentReferenceResources) {
           const docRefCode = docRef.type?.coding?.[0].code;
-          console.log('docRefCode', docRefCode);
 
           if (
             docRefCode &&
@@ -742,6 +746,15 @@ export default function AppointmentPage(): ReactElement {
         return documents;
       }
 
+      console.log('if z3Documents is empty, no get pdf buttons show up', z3Documents);
+      console.log(
+        'consent',
+        z3Documents.find((doc) => doc.type === DocumentType.CttConsent || doc.type === DocumentType.CttConsent2)
+      );
+      console.log(
+        'hipaa',
+        z3Documents.find((doc) => doc.type === DocumentType.HipaaConsent)
+      );
       if (z3Documents.length) {
         documents.photoIdCards = z3Documents
           .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
@@ -915,7 +928,7 @@ export default function AppointmentPage(): ReactElement {
 
   function pdfButton(pdfUrl: string): ReactElement {
     return (
-      <MUILink href={pdfUrl || 'https://www.ottehr.com/'} target="_blank" style={{ marginRight: '10px' }}>
+      <MUILink href={pdfUrl} target="_blank" style={{ marginRight: '10px' }}>
         <Button
           variant="outlined"
           sx={{
@@ -993,27 +1006,6 @@ export default function AppointmentPage(): ReactElement {
     return complaints.map((complaint) => complaint.trim()).join(', ');
   }, [appointment?.description]);
 
-  useEffect(() => {
-    console.group('AppointmentPage useEffect');
-    console.log('flattenedItems', flattenedItems);
-    console.log('tool, consent-forms-page', getAnswerBooleanFor('consent-forms-page', flattenedItems));
-    console.log('hipaa-acknowledgement', getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems));
-    console.log('consent-to-treat', getAnswerBooleanFor('consent-to-treat', flattenedItems));
-    console.log('signature', getAnswerStringFor('signature', flattenedItems));
-    console.log('full-name', getAnswerStringFor('full-name', flattenedItems));
-    console.log(
-      'consent-form-signer-relationship',
-      getAnswerStringFor('consent-form-signer-relationship', flattenedItems)
-    );
-    console.log('authored', formatDateUsingSlashes(questionnaireResponse?.authored));
-    console.log(
-      'ip-address',
-      questionnaireResponse?.extension?.find(
-        (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
-      )?.valueString
-    );
-    console.groupEnd();
-  }, [flattenedItems]);
   return (
     <PageContainer>
       <>

@@ -75,14 +75,18 @@ export default function PatientInformation({
                   'I have reviewed and accept HIPAA Acknowledgement',
                   'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement',
                   'I have reviewed and accept Consent to Treat and Guarantee of Payment',
-                ].includes(patientDetailsKey)
+                ].includes(patientDetailsKey) &&
+                patientDetails[patientDetailsKey] === 'Signed'
               ) {
-                console.group('PatientInformation');
                 // todo so why doesn't this work in deployed envs?
-                console.log('editValue', editValue);
-                console.log('patientDetails[patientDetailsKey]', patientDetails[patientDetailsKey]);
-                console.log('editValue?.[patientDetailsKey]', editValue?.[patientDetailsKey]);
-                console.groupEnd();
+                console.log(
+                  '\neditValue',
+                  editValue,
+                  '\npatientDetails[patientDetailsKey]',
+                  patientDetails[patientDetailsKey],
+                  '\neditValue?.[patientDetailsKey]',
+                  editValue?.[patientDetailsKey]
+                );
               }
               return (
                 <Fragment key={patientDetailsKey}>
