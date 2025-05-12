@@ -403,7 +403,7 @@ const generateRandomPatientInfo = async (
     (loc) => (selectedLocationId && loc.id === selectedLocationId) || loc.name === process.env.LOCATION
   );
 
-  if (locationState) {
+  if (serviceMode === ServiceMode.virtual && locationState) {
     selectedLocation = activeOffices.find(
       (loc) => locationState && loc.address?.state?.toLowerCase() === locationState.toLowerCase()
     );
