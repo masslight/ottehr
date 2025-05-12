@@ -1,7 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { Button } from '@mui/material';
-import { FC, ReactElement, useState } from 'react';
+import { FC, ReactElement, useEffect, useState } from 'react';
 import { CONSENT_CODE, getIpAddress, getQuestionnaireResponseByLinkId, mdyStringFromISOString } from 'utils';
 import { getPresignedFileUrl } from '../../../../helpers/files.helper';
 import { InformationCard } from './InformationCard';
@@ -9,6 +9,7 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
 import { otherColors } from '@theme/colors';
 const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
+  console.log('PdfButton');
   return (
     <Button
       variant="outlined"
@@ -85,6 +86,17 @@ export const CompletedFormsContainer: FC = () => {
   const signDate = questionnaireResponse?.authored && mdyStringFromISOString(questionnaireResponse?.authored);
   const ipAddress = getIpAddress(questionnaireResponse);
 
+  useEffect(() => {
+    console.group('CompletedFormsContainer useEffect');
+    console.log('hipaaAcknowledgement', hipaaAcknowledgement);
+    console.log('consentToTreat', consentToTreat);
+    console.log('signature', signature);
+    console.log('fullName', fullName);
+    console.log('relationship', relationship);
+    console.log('signDate', signDate);
+    console.log('ipAddress', ipAddress);
+    console.groupEnd();
+  }, []);
   return (
     <InformationCard
       title="Completed consent forms"
@@ -92,12 +104,12 @@ export const CompletedFormsContainer: FC = () => {
         {
           label: 'I have reviewed and accept HIPAA Acknowledgement',
           value: hipaaAcknowledgement ? 'Signed' : 'Not signed',
-          button: <PdfButton pdfUrl={hipaaPdfUrl} />,
+          button: <PdfButton pdfUrl={hipaaPdfUrl || 'https://www.ottehr.com/'} />,
         },
         {
           label: 'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement',
           value: consentToTreat ? 'Signed' : 'Not signed',
-          button: <PdfButton pdfUrl={consentPdfUrl} />,
+          button: <PdfButton pdfUrl={consentPdfUrl || 'https://www.ottehr.com/'} />,
         },
         {
           label: 'Signature',

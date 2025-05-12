@@ -684,8 +684,10 @@ export default function AppointmentPage(): ReactElement {
         // Get document info
         const allZ3Documents: DocumentInfo[] = [];
 
+        console.log('documentReferenceResources', documentReferenceResources);
         for (const docRef of documentReferenceResources) {
           const docRefCode = docRef.type?.coding?.[0].code;
+          console.log('docRefCode', docRefCode);
 
           if (
             docRefCode &&
@@ -698,6 +700,7 @@ export default function AppointmentPage(): ReactElement {
 
               if (z3Url && title && Object.values<string>(DocumentType).includes(title)) {
                 const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
+                console.log('presignedUrl', presignedUrl);
                 presignedUrl &&
                   allZ3Documents.push({
                     z3Url: z3Url,
@@ -754,7 +757,9 @@ export default function AppointmentPage(): ReactElement {
         documents.fullCardPdfs = z3Documents.filter((doc) =>
           [DocumentType.FullInsurance, DocumentType.FullInsuranceSecondary, DocumentType.FullPhotoId].includes(doc.type)
         );
-        documents.consentPdfUrl = z3Documents.find((doc) => doc.type === DocumentType.CttConsent)?.presignedUrl;
+        documents.consentPdfUrl = z3Documents.find(
+          (doc) => doc.type === DocumentType.CttConsent || doc.type === DocumentType.CttConsent2
+        )?.presignedUrl;
         documents.hipaaPdfUrl = z3Documents.find((doc) => doc.type === DocumentType.HipaaConsent)?.presignedUrl;
       }
 
@@ -988,6 +993,27 @@ export default function AppointmentPage(): ReactElement {
     return complaints.map((complaint) => complaint.trim()).join(', ');
   }, [appointment?.description]);
 
+  useEffect(() => {
+    console.group('AppointmentPage useEffect');
+    console.log('flattenedItems', flattenedItems);
+    console.log('tool, consent-forms-page', getAnswerBooleanFor('consent-forms-page', flattenedItems));
+    console.log('hipaa-acknowledgement', getAnswerBooleanFor('hipaa-acknowledgement', flattenedItems));
+    console.log('consent-to-treat', getAnswerBooleanFor('consent-to-treat', flattenedItems));
+    console.log('signature', getAnswerStringFor('signature', flattenedItems));
+    console.log('full-name', getAnswerStringFor('full-name', flattenedItems));
+    console.log(
+      'consent-form-signer-relationship',
+      getAnswerStringFor('consent-form-signer-relationship', flattenedItems)
+    );
+    console.log('authored', formatDateUsingSlashes(questionnaireResponse?.authored));
+    console.log(
+      'ip-address',
+      questionnaireResponse?.extension?.find(
+        (e) => e.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/ip-address'
+      )?.valueString
+    );
+    console.groupEnd();
+  }, [flattenedItems]);
   return (
     <PageContainer>
       <>

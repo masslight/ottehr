@@ -70,6 +70,19 @@ export default function PatientInformation({
           <TableBody>
             {Object.keys(patientDetails).map((patientDetailsKey) => {
               const lastMod = lastModifiedBy && lastModifiedBy[patientDetailsKey];
+              if (
+                [
+                  'I have reviewed and accept HIPAA Acknowledgement',
+                  'I have reviewed and accept Consent to Treat and Guarantee of Payment',
+                ].includes(patientDetailsKey)
+              ) {
+                console.group('PatientInformation');
+                // todo so why doesn't this work in deployed envs?
+                console.log('editValue', editValue);
+                console.log('patientDetails[patientDetailsKey]', patientDetails[patientDetailsKey]);
+                console.log('editValue?.[patientDetailsKey]', editValue?.[patientDetailsKey]);
+                console.groupEnd();
+              }
               return (
                 <Fragment key={patientDetailsKey}>
                   <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
