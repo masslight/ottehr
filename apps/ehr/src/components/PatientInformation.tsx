@@ -73,6 +73,7 @@ export default function PatientInformation({
               if (
                 [
                   'I have reviewed and accept HIPAA Acknowledgement',
+                  'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement',
                   'I have reviewed and accept Consent to Treat and Guarantee of Payment',
                 ].includes(patientDetailsKey)
               ) {

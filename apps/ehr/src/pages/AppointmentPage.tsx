@@ -915,7 +915,7 @@ export default function AppointmentPage(): ReactElement {
 
   function pdfButton(pdfUrl: string): ReactElement {
     return (
-      <MUILink href={pdfUrl} target="_blank" style={{ marginRight: '10px' }}>
+      <MUILink href={pdfUrl || 'https://www.ottehr.com/'} target="_blank" style={{ marginRight: '10px' }}>
         <Button
           variant="outlined"
           sx={{
