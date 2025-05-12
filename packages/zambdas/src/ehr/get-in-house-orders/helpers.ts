@@ -1,5 +1,9 @@
-import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { InHouseOrderDetailedPageDTO, InHouseOrderListPageDTO, InHouseOrdersSearchBy } from 'utils';
+// import Oystehr, { SearchParam } from '@oystehr/sdk';
+import {
+  // InHouseOrderDetailedPageDTO,
+  //  InHouseOrderListPageDTO,
+  InHouseOrdersSearchBy,
+} from 'utils';
 import { InHouseOrderDTO } from 'utils';
 
 // // cache for the service request context: contains parsed tasks and results
@@ -13,32 +17,32 @@ import { InHouseOrderDTO } from 'utils';
 //   diagnosticReportId: string;
 // };
 
-export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSearchBy>(
-  searchBy: SearchBy
-): InHouseOrderDTO<SearchBy>[] => {
-  return serviceRequests.map((serviceRequest) => {
-    return parseOrderData({
-      searchBy,
-    });
-  });
-};
+// export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSearchBy>(
+//   searchBy: SearchBy
+// ): InHouseOrderDTO<SearchBy>[] => {
+//   return serviceRequests.map((serviceRequest) => {
+//     return parseOrderData({
+//       searchBy,
+//     });
+//   });
+// };
 
 export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
-  searchBy,
+  _searchBy,
 }: {
-  searchBy: SearchBy;
+  _searchBy: SearchBy;
 }): InHouseOrderDTO<SearchBy> => {
-  if (!serviceRequest.id) {
-    throw new Error('ServiceRequest ID is required');
-  }
+  // if (!serviceRequest.id) {
+  //   throw new Error('ServiceRequest ID is required');
+  // }
 
-  const listPageDTO: InHouseOrderListPageDTO = {};
+  // const listPageDTO: InHouseOrderListPageDTO = {};
 
-  if (searchBy.searchBy.field === 'serviceRequestId') {
-    const detailedPageDTO: InHouseOrderDetailedPageDTO = {};
+  // if (searchBy.searchBy.field === 'serviceRequestId') {
+  //   const detailedPageDTO: InHouseOrderDetailedPageDTO = {};
 
-    return detailedPageDTO as InHouseOrderDTO<SearchBy>;
-  }
+  //   return detailedPageDTO as InHouseOrderDTO<SearchBy>;
+  // }
 
-  return listPageDTO as InHouseOrderDTO<SearchBy>;
+  return {} as InHouseOrderDTO<SearchBy>;
 };

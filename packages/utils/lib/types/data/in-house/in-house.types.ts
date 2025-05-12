@@ -73,7 +73,7 @@ export type CreateInHouseLabOrderParameters = {
   serviceRequestId: string;
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = Record<string, never>;
+export type GetCreateInHouseLabOrderResourcesParameters = { serviceRequestId: string };
 
 export type GetCreateInHouseLabOrderResourcesResponse = {
   labs: TestItemsType;

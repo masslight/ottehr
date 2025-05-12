@@ -1,9 +1,9 @@
-import { Secrets, GetCreateInHouseLabOrderResourcesParameters } from 'utils';
+import { Secrets, HandleInHouseLabResultsParameters } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput
-): GetCreateInHouseLabOrderResourcesParameters & { secrets: Secrets | null; userToken: string } {
+): HandleInHouseLabResultsParameters & { secrets: Secrets | null; userToken: string } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -11,7 +11,7 @@ export function validateRequestParameters(
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const secrets = input.secrets;
 
-  let params: GetCreateInHouseLabOrderResourcesParameters;
+  let params: HandleInHouseLabResultsParameters;
 
   try {
     params = JSON.parse(input.body);

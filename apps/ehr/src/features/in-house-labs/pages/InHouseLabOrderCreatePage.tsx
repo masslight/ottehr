@@ -14,7 +14,7 @@ import {
   Stack,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
@@ -23,6 +23,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { getCreateInHouseLabOrderResources } from 'src/api/api';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
+  const { serviceRequestID } = useParams<{ serviceRequestID: string }>();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -45,7 +46,9 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     const fetchLabs = async (): Promise<void> => {
       try {
         setLoading(true);
-        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {});
+        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {
+          serviceRequestId: serviceRequestID!,
+        }); // todo: use actual serviceRequestId
         const testItems = Object.values(response.labs || {});
         setAvailableTests(testItems);
         setProviderName(response.providerName);
@@ -57,7 +60,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     };
 
     void fetchLabs();
-  }, [oystehrZambda]);
+  }, [oystehrZambda, serviceRequestID]);
 
   // TODO: implement diagnosis
   // Uncomment this in real implementation to use actual diagnoses from the store

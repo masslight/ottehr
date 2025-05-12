@@ -1,7 +1,6 @@
 import { useCallback, useState, useEffect, useMemo } from 'react';
 import {
   EMPTY_PAGINATION,
-  LabOrderDTO,
   DEFAULT_LABS_ITEMS_PER_PAGE,
   GetLabOrdersParameters,
   LabOrdersSearchBy,
@@ -10,26 +9,29 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import { getLabOrders } from '../../../../api/api';
 import { DateTime } from 'luxon';
 
-interface UseInHouseLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
-  labOrders: LabOrderDTO<SearchBy>[];
-  loading: boolean;
-  error: Error | null;
-  totalPages: number;
-  page: number;
-  setPage: (page: number) => void;
-  testTypeFilter: string;
-  setTestTypeFilter: (filter: string) => void;
-  visitDateFilter: DateTime | null;
-  setVisitDateFilter: (date: DateTime | null) => void;
-  fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
-  showPagination: boolean;
-}
+// interface UseInHouseLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
+// interface UseInHouseLabOrdersResult {
+//   labOrders: any; // todo: use actual type
+//   loading: boolean;
+//   error: Error | null;
+//   totalPages: number;
+//   page: number;
+//   setPage: (page: number) => void;
+//   testTypeFilter: string;
+//   setTestTypeFilter: (filter: string) => void;
+//   visitDateFilter: DateTime | null;
+//   setVisitDateFilter: (date: DateTime | null) => void;
+//   fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
+//   showPagination: boolean;
+// }
 
 export const useInHouseLabOrders = <SearchBy extends LabOrdersSearchBy>(
   _searchBy: SearchBy
-): UseInHouseLabOrdersResult<SearchBy> => {
+  // ): UseInHouseLabOrdersResult<SearchBy> => {
+): any => {
+  // totdo: use UseInHouseLabOrdersResult<SearchBy> for return type
   const { oystehrZambda } = useApiClients();
-  const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
+  const [labOrders, setLabOrders] = useState<any[]>([]); // todo: use LabOrderDTO<SearchBy>[]
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -106,7 +108,7 @@ export const useInHouseLabOrders = <SearchBy extends LabOrdersSearchBy>(
         }
 
         if (response?.data) {
-          setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
+          setLabOrders(response.data as any[]); // todo: use LabOrderDTO<SearchBy>[]
 
           if (response.pagination) {
             setTotalPages(response.pagination.totalPages || 1);
@@ -189,7 +191,7 @@ export const useInHouseLabOrders = <SearchBy extends LabOrdersSearchBy>(
           accessionNumbers: ['789012'],
           isPSC: false,
         },
-      ] as LabOrderDTO<SearchBy>[];
+      ] as any[]; // todo: use LabOrderDTO<SearchBy>[]
 
       setLabOrders(mockData);
       setTotalPages(10); // For pagination demonstration

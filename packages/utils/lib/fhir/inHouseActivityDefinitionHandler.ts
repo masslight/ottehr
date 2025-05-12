@@ -30,7 +30,7 @@ type ResultType = CodeableConceptType | QuantityType;
 interface UrinalysisComponent {
   results: string;
   abnormal: string;
-  dataType: ResultType['dataType'];
+  dataType: 'CodeableConcept' | 'Quantity'; // Using literal types instead of ResultType['dataType']
   valueSet?: string[];
   abnormalValues?: string[];
   normalRange?: QuantityRange;
@@ -50,15 +50,25 @@ interface BaseTestItem {
   components?: Record<string, UrinalysisComponent>;
 }
 
-interface CodeableConceptTestItem extends BaseTestItem, CodeableConceptType {}
+interface CodeableConceptTestItem extends BaseTestItem {
+  dataType: 'CodeableConcept';
+  valueSet: string[];
+  abnormalValues: string[];
+}
 
-interface QuantityTestItem extends BaseTestItem, QuantityType {}
+interface QuantityTestItem extends BaseTestItem {
+  dataType: 'Quantity';
+  unit: string;
+  normalRange: QuantityRange;
+}
 
 export type TestItem = CodeableConceptTestItem | QuantityTestItem;
 
-export type TestItemsType = Record<string, TestItem>;
+export type TestItemKey = keyof typeof testItemsData;
 
-export const testItems: TestItemsType = {
+export type TestItemsType = Record<TestItemKey, TestItem>;
+
+const testItemsData = {
   'Rapid Strep A': {
     name: 'Rapid Strep A',
     method: 'Manual',
@@ -67,7 +77,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87880'],
     repeatTest: true,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -79,7 +89,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87804'],
     repeatTest: false,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -91,7 +101,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87804'],
     repeatTest: false,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -103,7 +113,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87807'],
     repeatTest: false,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -115,7 +125,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87426'],
     repeatTest: false,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -127,7 +137,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87428'],
     repeatTest: false,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -139,7 +149,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['82270'],
     repeatTest: true,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -151,7 +161,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['86308'],
     repeatTest: false,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -163,7 +173,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Values below 70 mg/dL or above 140 mg/dL',
     cptCode: ['82962'],
     repeatTest: true,
-    dataType: 'Quantity',
+    dataType: 'Quantity' as const,
     unit: 'mg/dL',
     normalRange: {
       low: 70,
@@ -179,14 +189,14 @@ export const testItems: TestItemsType = {
     repeatTest: true,
     results: '',
     abnormal: '',
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: [], // empty value set, because the test itself has no values, only components
     abnormalValues: [],
     components: {
       Glucose: {
         results: 'Negative, Trace, 1+ (100 mg/dL), 2+ (250 mg/dL), 3+ (500 mg/dL), or 4+ (≥1000 mg/dL)',
         abnormal: 'Any results beside negative is abnormal (so trace etc)',
-        dataType: 'CodeableConcept',
+        dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
         quantitativeReference: {
@@ -200,7 +210,7 @@ export const testItems: TestItemsType = {
       Bilirubin: {
         results: 'Negative, 1+ (small), 2+ (moderate), or 3+ (large)',
         abnormal: 'Any results beside negative is abnormal (so 1+ (small) etc)',
-        dataType: 'CodeableConcept',
+        dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', '1+', '2+', '3+'],
         abnormalValues: ['1+', '2+', '3+'],
         quantitativeReference: {
@@ -212,7 +222,7 @@ export const testItems: TestItemsType = {
       Ketone: {
         results: 'Negative, Trace (5 mg/dL), Small (15 mg/dL), Moderate (40 mg/dL), or Large (80-160 mg/dL)',
         abnormal: 'Any results beside negative is abnormal',
-        dataType: 'CodeableConcept',
+        dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         quantitativeReference: {
@@ -225,7 +235,7 @@ export const testItems: TestItemsType = {
       'Specific gravity': {
         results: 'numerical value, typically between 1.000-1.030',
         abnormal: 'Abnormally low: <1.005, Abnormally high: >1.030',
-        dataType: 'Quantity',
+        dataType: 'Quantity' as const,
         normalRange: {
           low: 1.005,
           high: 1.03,
@@ -235,14 +245,14 @@ export const testItems: TestItemsType = {
       Blood: {
         results: 'Negative, Trace, Small (+), Moderate (++), or Large (+++)',
         abnormal: 'Any results beside negative is abnormal',
-        dataType: 'CodeableConcept',
+        dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
       },
       pH: {
         results: 'numerical value, usually between 5.0-8.5',
         abnormal: 'Abnormally acidic: <5.0 ; Abnormally alkaline: >8.0',
-        dataType: 'Quantity',
+        dataType: 'Quantity' as const,
         normalRange: {
           low: 5.0,
           high: 8.0,
@@ -252,7 +262,7 @@ export const testItems: TestItemsType = {
       Protein: {
         results: 'Negative, Trace (10 mg/dL), 1+ (30 mg/dL), 2+ (100 mg/dL), 3+ (300 mg/dL), or 4+ (≥2000 mg/dL)',
         abnormal: 'Any results beside negative is abnormal',
-        dataType: 'CodeableConcept',
+        dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
         quantitativeReference: {
@@ -266,7 +276,7 @@ export const testItems: TestItemsType = {
       Urobilinogen: {
         results: 'Normal (0.2-1.0 EU/dL) / also reported 2 (2 mg/dL), 4 (4 mg/dL), or 8 (8 mg/dL)',
         abnormal: 'Any results beside normal is abnormal (Below normal: <0.2 mg/dL or Above normal: >1.0 mg/dL)',
-        dataType: 'Quantity',
+        dataType: 'Quantity' as const,
         normalRange: {
           low: 0.2,
           high: 1.0,
@@ -276,14 +286,14 @@ export const testItems: TestItemsType = {
       Nitrite: {
         results: 'Positive/Negative',
         abnormal: 'Positive',
-        dataType: 'CodeableConcept',
+        dataType: 'CodeableConcept' as const,
         valueSet: ['Positive', 'Negative'],
         abnormalValues: ['Positive'],
       },
       Leukocytes: {
         results: 'Negative, Trace, Small, Moderate, or Large',
         abnormal: 'Any results beside negative is abnormal',
-        dataType: 'CodeableConcept',
+        dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
       },
@@ -297,7 +307,7 @@ export const testItems: TestItemsType = {
     abnormal: 'No abnormal - either pregnant or not',
     cptCode: ['81025'],
     repeatTest: false,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: [], // empty array, because both results are normal in the context of the test
   },
@@ -309,7 +319,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87651'],
     repeatTest: true,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -322,7 +332,7 @@ export const testItems: TestItemsType = {
     cptCode: ['87501'],
     repeatTest: true,
     note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -335,7 +345,7 @@ export const testItems: TestItemsType = {
     cptCode: ['87501'],
     repeatTest: true,
     note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -347,7 +357,7 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87634'],
     repeatTest: true,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
@@ -359,11 +369,13 @@ export const testItems: TestItemsType = {
     abnormal: 'Positive',
     cptCode: ['87635'],
     repeatTest: true,
-    dataType: 'CodeableConcept',
+    dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
   },
-} as const;
+};
+
+export const testItems: TestItemsType = testItemsData;
 
 function isCodeableConceptResult(result: ResultType): result is CodeableConceptType {
   return result.dataType === 'CodeableConcept';
@@ -373,17 +385,17 @@ function isQuantityResult(result: ResultType): result is QuantityType {
   return result.dataType === 'Quantity';
 }
 
-function isCodeableConceptTest(testItem: TestItem): testItem is CodeableConceptTestItem {
-  return testItem.dataType === 'CodeableConcept';
-}
+// function isCodeableConceptTest(testItem: TestItem): testItem is CodeableConceptTestItem {
+//   return testItem.dataType === 'CodeableConcept';
+// }
 
 function isQuantityTest(testItem: TestItem): testItem is QuantityTestItem {
   return testItem.dataType === 'Quantity';
 }
 
-export function getHL7Interpretation(testType: string, value: string | number): InterpretationCoding {
+export function getHL7Interpretation(testType: TestItemKey, value: string | number): InterpretationCoding {
   const testItem = testItems[testType];
-  let code: ObservationInterpretationCode = 'N'; // По умолчанию нормальный
+  let code: ObservationInterpretationCode = 'N';
 
   const resultType = isQuantityTest(testItem)
     ? {
