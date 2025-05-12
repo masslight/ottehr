@@ -9,12 +9,12 @@ import {
   BookableItem,
   CreateSlotParams,
   getAppointmentDurationFromSlot,
-  //getAppointmentDurationFromSlot,
   GetScheduleResponse,
   getServiceModeFromSlot,
   isApiError,
   ScheduleType,
   ServiceMode,
+  SlotListItem,
 } from 'utils';
 import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
@@ -33,6 +33,25 @@ import { Slot } from 'fhir/r4b';
 import ottehrApi from '../api/ottehrApi';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
+
+const findSelectedSlotFromAvailable = (available: SlotListItem[], selectedSlotId?: string): Slot | undefined => {
+  if (!selectedSlotId) {
+    return undefined;
+  }
+
+  // todo: test needed to ensure an existing tentative-busy slot is included in the list of available
+  // slots whenever this page is being used to update a previously selected slot time
+  return available.find((si) => {
+    const { slot, owner } = si;
+    const { id: slotId, start: slotStart } = slot;
+
+    if (owner.id && selectedSlotId.startsWith(owner.id)) {
+      return `${owner.id}|${slotStart}` === selectedSlotId;
+    } else {
+      return slotId === selectedSlotId;
+    }
+  })?.slot;
+};
 
 const useBookingParams = (
   selectedLocation: BookableItem | null
@@ -157,9 +176,6 @@ const PrebookVisit: FC = () => {
   const { bookingOn, scheduleType, selectedSlot, slugToFetch } = useBookingParams(selectedLocation);
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  // const [specificScheduleId] = bookingOn?.split('Schedule/') ?? [];
-
   const {
     bookableItems,
     isCategorized,
@@ -168,7 +184,7 @@ const PrebookVisit: FC = () => {
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType);
 
-  console.log('slotData', slotData);
+  // console.log('slotData', slotData);
 
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;
@@ -193,6 +209,8 @@ const PrebookVisit: FC = () => {
         const basePath = generatePath(bookingBasePath, {
           slotId: slot.id!,
         });
+        // todo: it would be nice to navigate right back to the review page for the "edit time slot" use case
+        // we can just take take a query param for the patient id and pass it through here to make that happen
         navigate(`${basePath}/patients`);
       } catch (error) {
         let errorMessage = 'Sorry, this time slot may no longer be available. Please select another time.';
@@ -274,7 +292,7 @@ const PrebookVisit: FC = () => {
               customOnSubmit={handleSlotSelection}
               slotData={(slotData?.available ?? []).map((sli) => sli.slot)}
               slotsLoading={false}
-              existingSelectedSlot={slotData?.available?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
+              existingSelectedSlot={findSelectedSlotFromAvailable(slotData?.available ?? [], selectedSlot)}
               timezone={selectedLocation?.timezone ?? 'America/New_York'}
               forceClosedToday={false}
               forceClosedTomorrow={false}
