@@ -16,7 +16,7 @@ import { useGetFullName } from '../hooks/useGetFullName';
 import i18n from '../lib/i18n';
 import { useBookingContext } from './BookingHome';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
-import { intakeFlowPageRoute } from 'src/App';
+import { intakeFlowPageRoute } from '../App';
 
 interface ReviewItem {
   name: string;
