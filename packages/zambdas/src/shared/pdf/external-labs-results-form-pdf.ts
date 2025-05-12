@@ -3,7 +3,7 @@ import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo, rgbNormalized } from './pdf-utils';
-import { LabResultsData } from './types';
+import { LabResultsData, LabResult } from './types';
 import {
   createFilesDocumentReferences,
   LAB_ORDER_DOC_REF_CODING_CODE,
@@ -158,6 +158,23 @@ export async function createLabResultPDF(
     : undefined;
   const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
+  const resultInterpretationDisplays: string[] = [];
+  const results: LabResult[] = [];
+  observations.forEach((observation) => {
+    const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
+    const labResult: LabResult = {
+      resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+      resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
+      resultInterpretation: observation.interpretation?.[0].coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+      resultInterpretationDisplay: interpretationDisplay || ORDER_RESULT_ITEM_UNKNOWN,
+      resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
+        observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
+      }`,
+    };
+    results.push(labResult);
+    if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
+  });
+
   const pdfDetail = await createExternalLabsResultsFormPDF(
     {
       locationName: location?.name,
@@ -206,7 +223,6 @@ export async function createLabResultPDF(
       // reportDate: '10/10/2024',
       // specimenSource: 'Throat',
       // specimenDescription: 'Throat culture',
-      specimenValue: undefined,
       specimenReferenceRange: undefined,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
       reviewed,
@@ -214,15 +230,8 @@ export async function createLabResultPDF(
       reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
       reviewDate: reviewDate,
-      results: observations.map((observation) => ({
-        resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
-        resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
-        resultInterpretation: observation.interpretation?.[0].coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
-        resultInterpretationDisplay: observation.interpretation?.[0].coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
-        resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
-          observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
-        }`,
-      })),
+      resultInterpretations: resultInterpretationDisplays.length > 0 ? resultInterpretationDisplays : undefined,
+      results,
       testItemCode:
         diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
         diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
@@ -484,6 +493,11 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     const font = columnFont || styles.regularText.font;
     const fontSize = columnFontSize || styles.regularText.fontSize;
     const fontColor = color || styles.colors.black;
+
+    // test name potentially maps to column two, and this might be quite long
+    const columnTwoMaxWidth = pageTextWidth / 2 - pageTextWidth / 10 - 8; // 8 is padding between columns
+    const columnTwoWrappedText = splitTextIntoLines(columnTwoName, font, fontSize, columnTwoMaxWidth);
+
     page.drawText(columnOneName, {
       font: font,
       size: fontSize,
@@ -491,12 +505,14 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
       y: currYPos,
       color: styles.colors.black,
     });
-    page.drawText(columnTwoName, {
-      font: font,
-      size: fontSize,
-      x: pageTextWidth / 10,
-      y: currYPos,
-      color: fontColor,
+    columnTwoWrappedText.forEach((line, index) => {
+      page.drawText(line, {
+        font: font,
+        size: fontSize,
+        x: pageTextWidth / 10,
+        y: currYPos - index * (fontSize * 1.2), // Stack lines vertically
+        color: fontColor,
+      });
     });
     page.drawText(columnThreeName, {
       font: font,
@@ -521,29 +537,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     });
   };
 
-  const drawFreeText = (freeText: string): void => {
+  const drawFreeText = (freeText: string, textColor?: Color): void => {
     const font = styles.regularText.font;
     const size = styles.regularText.fontSize;
     const maxWidth = pageTextWidth - styles.margin.x * 2;
-
-    const splitTextIntoLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
-      const words = text.split(' ');
-      const lines: string[] = [];
-      let currentLine = '';
-
-      words.forEach((word) => {
-        const lineWithWord = currentLine ? `${currentLine} ${word}` : word;
-        if (font.widthOfTextAtSize(lineWithWord, size) <= maxWidth) {
-          currentLine = lineWithWord;
-        } else {
-          lines.push(currentLine);
-          currentLine = word;
-        }
-      });
-
-      if (currentLine) lines.push(currentLine);
-      return lines;
-    };
 
     const lines = splitTextIntoLines(freeText, font, size, maxWidth);
     lines.forEach((line, index) => {
@@ -552,6 +549,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
         size,
         x: currXPos + styles.margin.x,
         y: currYPos - index * regularLineHeight,
+        color: textColor || styles.colors.black,
       });
     });
 
@@ -704,12 +702,12 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   drawFiveColumnText(
     data.resultPhase,
     data.testName.toUpperCase(),
-    data.specimenValue?.toUpperCase() || '',
+    getResultValueToDiplay(data.resultInterpretations),
     referenceRangeText(),
     data.testItemCode,
     styles.regularTextBold.font,
     14,
-    styles.colors.red
+    getResultRowDisplayColor(data.resultInterpretations, styles.colors)
   );
   addNewLine(undefined, 1);
   for (const labResult of data.results) {
@@ -718,7 +716,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     addNewLine();
     drawFreeText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`);
     addNewLine(undefined, 1.5);
-    drawFreeText(`Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`);
+    drawFreeText(
+      `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
+      getResultRowDisplayColor([labResult.resultInterpretationDisplay], styles.colors)
+    );
     addNewLine(undefined, 1.5);
     drawFreeText(`Value: ${labResult.resultValue}`);
   }
@@ -749,6 +750,30 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   }
 
   return await pdfDoc.save();
+}
+
+function getResultValueToDiplay(resultInterpretations: string[] | undefined): string {
+  const resultInterpretationsLen = resultInterpretations?.length;
+  if (!resultInterpretations || resultInterpretationsLen === 0) return '';
+  if (resultInterpretationsLen === 1) {
+    return resultInterpretations[0].toUpperCase();
+  } else {
+    return 'See below for details';
+  }
+}
+
+function getResultRowDisplayColor(
+  resultInterpretations: string[] | undefined,
+  colors: { [key: string]: Color }
+): Color {
+  if (
+    resultInterpretations &&
+    resultInterpretations.every((interpretation) => interpretation.toUpperCase() === 'NORMAL')
+  ) {
+    return colors.black;
+  } else {
+    return colors.red;
+  }
 }
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
@@ -849,3 +874,22 @@ export async function makeLabPdfDocumentReference({
   });
   return docRefs[0];
 }
+
+const splitTextIntoLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  words.forEach((word) => {
+    const lineWithWord = currentLine ? `${currentLine} ${word}` : word;
+    if (font.widthOfTextAtSize(lineWithWord, size) <= maxWidth) {
+      currentLine = lineWithWord;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  });
+
+  if (currentLine) lines.push(currentLine);
+  return lines;
+};
