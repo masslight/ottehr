@@ -1,7 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
-import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import {
   getAdditionalQuestionsAnswers,
   getAllergiesStepAnswers,
@@ -19,7 +17,9 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../src/constants';
-import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 async function checkDropdownHasOptionAndSelectIt(page: Page, dropdownTestId: string, pattern: string): Promise<void> {
   await page.getByTestId(dropdownTestId).locator('input').fill(pattern);
@@ -630,12 +630,12 @@ test.describe("Additional questions. Check cases where patient didn't answered o
   const resourceHandlerWithoutAdditionalAnswers = new ResourceHandler('telemed', async ({ patientInfo }) => {
     return [
       getContactInformationAnswers({
-        firstName: patientInfo.patient.firstName,
-        lastName: patientInfo.patient.lastName,
-        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
-        email: patientInfo.patient.email,
-        phoneNumber: patientInfo.patient.phoneNumber,
-        birthSex: patientInfo.patient.sex,
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
       }),
       getPatientDetailsStepAnswers({}),
       getMedicationsStepAnswers(),

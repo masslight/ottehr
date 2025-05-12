@@ -7,6 +7,7 @@ import {
   CreateAppointmentResponse,
   CreateSlotParams,
   PatchPaperworkParameters,
+  PatientInfo,
   PersonSex,
   ServiceMode,
   SubmitPaperworkParameters,
@@ -107,7 +108,7 @@ export type GetPaperworkAnswers = ({
   projectId,
   appointmentId,
 }: {
-  patientInfo: CreateAppointmentInputParams;
+  patientInfo: PatientInfo;
   zambdaUrl: string;
   authToken: string;
   projectId: string;
@@ -201,7 +202,7 @@ export const createSampleAppointments = async ({
 
         await processPaperwork(
           appointmentData,
-          randomPatientInfo,
+          randomPatientInfo.patient,
           zambdaUrl,
           authToken,
           projectId,
@@ -250,7 +251,7 @@ export const createSampleAppointments = async ({
 
 const processPaperwork = async (
   appointmentData: CreateAppointmentResponse,
-  patientInfo: any,
+  patientInfo: PatientInfo,
   zambdaUrl: string,
   authToken: string,
   projectId: string,
@@ -262,19 +263,19 @@ const processPaperwork = async (
 
     if (!questionnaireResponseId) return;
 
-    const birthDate = isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined;
+    const birthDate = isoToDateObject(patientInfo.dateOfBirth || '') || undefined;
 
     // Determine the paperwork patches based on service mode
     let paperworkPatches: QuestionnaireResponseItem[] = [];
 
     const telemedWalkinAnswers = [
       getContactInformationAnswers({
-        firstName: patientInfo.patient.firstName,
-        lastName: patientInfo.patient.lastName,
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
         birthDate,
-        email: patientInfo.patient.email,
-        phoneNumber: patientInfo.patient.phoneNumber,
-        birthSex: patientInfo.patient.sex,
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
       }),
       getPatientDetailsStepAnswers({}),
       getPrimaryCarePhysicianStepAnswers({}),
@@ -296,12 +297,12 @@ const processPaperwork = async (
       ? telemedWalkinAnswers
       : [
           getContactInformationAnswers({
-            firstName: patientInfo.patient.firstName,
-            lastName: patientInfo.patient.lastName,
+            firstName: patientInfo.firstName,
+            lastName: patientInfo.lastName,
             ...(birthDate ? { birthDate } : {}),
-            email: patientInfo.patient.email,
-            phoneNumber: patientInfo.patient.phoneNumber,
-            birthSex: patientInfo.patient.sex,
+            email: patientInfo.email,
+            phoneNumber: patientInfo.phoneNumber,
+            birthSex: patientInfo.sex,
           }),
           getPatientDetailsStepAnswers({}),
           getPrimaryCarePhysicianStepAnswers({}),
@@ -416,8 +417,12 @@ const generateRandomPatientInfo = async (
       throw new Error(`Location ${process.env.LOCATION} not found in search results`);
     }
     locationId = selectedLocation.id;
-  } else if (serviceMode === ServiceMode.virtual && !selectedLocation?.id) {
-    locationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id;
+  } else if (serviceMode === ServiceMode.virtual) {
+    if (!selectedLocation?.id) {
+      locationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id;
+    } else {
+      locationId = selectedLocation.id;
+    }
     if (!locationId) {
       throw new Error('No telemed location found in search results');
     }
@@ -462,7 +467,6 @@ const generateRandomPatientInfo = async (
       },
       body: JSON.stringify(createSlotInput),
     }).then((res) => res.json());
-    console.log('persistedSlotResult', persistedSlotResult);
     persistedSlot = await chooseJson(persistedSlotResult);
   } catch (error) {
     console.error('Error creating slot:', error);
