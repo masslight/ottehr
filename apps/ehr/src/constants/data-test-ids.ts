@@ -67,6 +67,7 @@ export const dataTestIds = {
   patientInformationPage: {
     saveChangesButton: 'save-changes-button',
     addInsuranceButton: 'add-insurance-button',
+    breadcrumb: 'breadcrumb',
   },
   patientHeader: {
     patientId: 'header-patient-id',
@@ -75,7 +76,8 @@ export const dataTestIds = {
     patientBirthday: 'header-patient-birthday',
     patientAddress: 'header-patient-address',
     patientPhoneNumber: 'header-patient-phone-number',
-    emergencyContact: 'header-emergency-contact',
+    emergencyContact: 'header-patient-emergency-contact',
+    closeButton: 'header-patient-close-button',
   },
   patientInformationContainer: {
     patientLastName: 'patient-last-name',
@@ -160,8 +162,10 @@ export const dataTestIds = {
     slot: 'slot',
   },
   dialog: {
-    closeButton: 'close-button',
-    proceedButton: 'proceed-button',
+    closeButton: 'dialog-close-button',
+    cancelButton: 'dialog-cancel-button',
+    proceedButton: 'dialog-proceed-button',
+    title: 'dialog-title',
   },
   statesPage: {
     statesSearch: 'states-search',

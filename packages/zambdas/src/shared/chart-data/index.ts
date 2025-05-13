@@ -1058,13 +1058,13 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history')
   ) {
     const cptDto = makeCPTCodeDTO(resource);
-    if (cptDto) data.procedures?.push(cptDto);
+    if (cptDto) data.surgicalHistory?.push(cptDto);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Procedure' &&
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history-note')
   ) {
-    data.proceduresNote = makeFreeTextNoteDTO(resource);
+    data.surgicalHistoryNote = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Observation' &&
