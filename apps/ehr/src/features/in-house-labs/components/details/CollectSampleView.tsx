@@ -16,11 +16,12 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { LabTest } from '../../labTypes';
+import { inHouseLabsTestStatuses } from '../../labConstants';
 
 interface CollectSampleViewProps {
   testDetails: LabTest;
   onBack: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: any) => void; // todo: type this (TestStatus)
 }
 
 export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetails, onBack, onSubmit }) => {
@@ -37,7 +38,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
 
   const handleMarkAsCollected = (): void => {
     onSubmit({
-      status: 'COLLECTED',
+      status: inHouseLabsTestStatuses.COLLECTED,
       specimen: {
         source: sourceType,
         collectedBy,
@@ -165,6 +166,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                       Collection time
                     </Typography>
                     <FormControl fullWidth>
+                      {/* todo: add date picker here */}
                       <Select
                         value={collectionTime}
                         onChange={(e) => setCollectionTime(e.target.value)}

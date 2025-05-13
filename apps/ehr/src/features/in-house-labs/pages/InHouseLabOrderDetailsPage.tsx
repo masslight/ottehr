@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, Button, CircularProgress } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { CollectSampleView } from '../comonents/details/CollectSampleView';
-import { PerformTestView } from '../comonents/details/PerformTestView';
-import { FinalResultView } from '../comonents/details/FinalResultView';
+import { CollectSampleView } from '../components/details/CollectSampleView';
+import { PerformTestView } from '../components/details/PerformTestView';
+import { FinalResultView } from '../components/details/FinalResultView';
 import { LabTest } from '../labTypes';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
@@ -95,7 +95,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
         } else if (testId === 'urinalysis-pending') {
           testData = {
             id: 'urinalysis-pending',
-            type: 'URINALYSIS',
+            type: 'MIXED',
             name: 'Urinalysis (UA)',
             status: 'COLLECTED',
             diagnosis: 'J02.0 Streptococcal pharyngitis',
@@ -115,7 +115,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
         } else if (testId === 'urinalysis-final') {
           testData = {
             id: 'urinalysis-final',
-            type: 'URINALYSIS',
+            type: 'MIXED',
             name: 'Urinalysis (UA)',
             status: 'FINAL',
             diagnosis: 'J02.0 Streptococcal pharyngitis',

@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Box } from '@mui/material';
-import { InHouseLabsTable, InHouseLabsTableColumn } from '../features/in-house-labs/comonents/orders/InHouseLabsTable';
+import { InHouseLabsTable, InHouseLabsTableColumn } from '../features/in-house-labs/components/orders/InHouseLabsTable';
 
 interface PatientInHouseLabsTabProps {
   patientId: string;
