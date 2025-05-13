@@ -25,6 +25,7 @@ import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken, saveOrUpdateResourceRequest } from '../../shared';
 import {
   createDispositionServiceRequest,
+  createProcedureServiceRequest,
   followUpToPerformerMap,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
@@ -92,6 +93,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       vitalsObservations,
       birthHistory,
       userToken,
+      procedures,
     } = validateRequestParameters(input);
 
     console.time('time');
@@ -423,6 +425,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
       const request = saveOrUpdateResourceRequest(birthHistoryElement);
       saveOrUpdateRequests.push(request);
+    });
+
+    procedures?.forEach((procedure) => {
+      saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
     });
 
     console.log('Starting a transaction update of chart data...');

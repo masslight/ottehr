@@ -233,6 +233,6 @@ export async function convertSearchResultsToResponse(
 export const configProceduresRequestsForGetChartData = (encounterId: string): BatchInputGetRequest => {
   return {
     method: 'GET',
-    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=active&category=http://snomed.info/sct|71388002`,
+    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=completed`,
   };
 };

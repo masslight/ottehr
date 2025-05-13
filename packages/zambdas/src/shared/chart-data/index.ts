@@ -10,6 +10,7 @@ import {
   DocumentReference,
   Encounter,
   EpisodeOfCare,
+  Extension,
   FhirResource,
   List,
   MedicationRequest,
@@ -1349,3 +1350,69 @@ export function makeProceduresDTOFromFhirResources(
     };
   });
 }
+
+export const createProcedureServiceRequest = (
+  procedure: ProcedureDTO,
+  encounterId: string,
+  patientId: string
+): BatchInputPutRequest<ServiceRequest> | BatchInputPostRequest<ServiceRequest> => {
+  const extensions: Extension[] = [
+    {
+      url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url,
+      valueString: procedure.medicationUsed,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.bodySide.url,
+      valueString: procedure.bodySide,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.technique.url,
+      valueString: procedure.technique,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.suppliesUsed.url,
+      valueString: procedure.suppliesUsed,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.procedureDetails.url,
+      valueString: procedure.procedureDetails,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.specimenSent.url,
+      valueBoolean: procedure.specimenSent,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.complications.url,
+      valueString: procedure.complications,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.patientResponse.url,
+      valueString: procedure.patientResponse,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.postInstructions.url,
+      valueString: procedure.postInstructions,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.timeSpent.url,
+      valueString: procedure.timeSpent,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.documentedBy.url,
+      valueString: procedure.documentedBy,
+    },
+  ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
+  return saveOrUpdateResourceRequest<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    status: 'completed',
+    intent: 'original-order',
+    category: [{}], // todo procedureType
+    occurrenceDateTime: '', // todo procedureDate procedureTime
+    performerType: {}, //todo performer
+    bodySite: [{}], //todo site
+    meta: fillMeta('procedure', 'procedure'),
+    extension: extensions.length > 0 ? extensions : undefined,
+  });
+};
