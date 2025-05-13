@@ -8,7 +8,17 @@ import {
   ObservationDefinitionQualifiedInterval,
 } from 'fhir/r4b';
 import * as readline from 'readline';
-import { testItems, TestItem, UrinalysisComponent, QuantityTestItem } from 'utils';
+import {
+  testItems,
+  TestItem,
+  UrinalysisComponent,
+  QuantityTestItem,
+  IN_HOUSE_TEST_CODE_SYSTEM,
+  IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
+  IN_HOUSE_TAG_DEFINITION,
+  IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+  IN_HOUSE_RESULTS_VALUESET_SYSTEM,
+} from 'utils';
 
 function askQuestion(rl: readline.Interface, question: string): Promise<string> {
   return new Promise((resolve) => {
@@ -35,7 +45,7 @@ const makeValueSet = (
     compose: {
       include: [
         {
-          system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+          system: IN_HOUSE_RESULTS_VALUESET_SYSTEM,
           concept: values.map((valueStr) => {
             return {
               code: valueStr,
@@ -64,7 +74,7 @@ const makeQuantitativeDetails = (
       ? {
           coding: [
             {
-              system: 'http://unitsofmeasure.org/',
+              system: IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
               code: item.normalRange.unit,
             },
           ],
@@ -257,7 +267,7 @@ function getObservationRequirement(item: TestItem): {
   } else {
     // made typescript happy to have this
     const components = item.components;
-    // need to go through each component
+
     Object.keys(item.components).forEach((key: string) => {
       const { obsDef, contained: componentContained } = getComponentObservationDefinition(key, components[key]);
 
@@ -298,9 +308,6 @@ async function main(): Promise<void> {
   const activityDefinitions: ActivityDefinition[] = [];
 
   for (const [_key, testData] of Object.entries(testItems)) {
-    // const testData: TestItem = testItems[key];
-
-    // TODO: gets the observationdefinitions out here because they will be contained resources (and themselves have contained valuesets)
     const { obsDefReferences, contained } = getObservationRequirement(testData);
 
     const activityDef: ActivityDefinition = {
@@ -310,7 +317,7 @@ async function main(): Promise<void> {
       code: {
         coding: [
           {
-            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code', // TODO: make constant
+            system: IN_HOUSE_TEST_CODE_SYSTEM,
             code: testData.name,
           },
           ...testData.cptCode.map((cptCode: string) => {
@@ -331,7 +338,7 @@ async function main(): Promise<void> {
               ...Object.entries(testData.methods)
                 .filter((entry): entry is [string, { device: string }] => entry[1] !== undefined)
                 .map(([key, value]) => ({
-                  system: 'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role',
+                  system: IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
                   code: key,
                   display: value.device,
                 })),
@@ -345,8 +352,8 @@ async function main(): Promise<void> {
       meta: {
         tag: [
           {
-            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes',
-            code: 'in-house-lab-test-definition',
+            system: IN_HOUSE_TAG_DEFINITION.system,
+            code: IN_HOUSE_TAG_DEFINITION.code,
           },
         ],
       },
@@ -355,11 +362,9 @@ async function main(): Promise<void> {
     activityDefinitions.push(activityDef);
   }
 
-  const tempADs = activityDefinitions;
+  console.log('ActivityDefinitions: ', JSON.stringify(activityDefinitions, undefined, 2));
 
-  console.log('ActivityDefinitions: ', JSON.stringify(tempADs, undefined, 2));
-
-  const requests: BatchInputRequest<ActivityDefinition>[] = tempADs.map((activityDefinition) => {
+  const requests: BatchInputRequest<ActivityDefinition>[] = activityDefinitions.map((activityDefinition) => {
     return {
       method: 'POST',
       url: '/ActivityDefinition',
