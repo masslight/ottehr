@@ -662,12 +662,12 @@ export default function AppointmentPage(): ReactElement {
             {
               // Consent
               method: 'GET',
-              url: `/DocumentReference?status=current&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
+              url: `/DocumentReference?status=active&subject=Patient/${patientID}&related=Appointment/${appointmentID}`,
             },
             {
               // Photo ID & Insurance Cards
               method: 'GET',
-              url: `/DocumentReference?status=current&related=Patient/${patientID}`,
+              url: `/DocumentReference?status=active&related=Patient/${patientID}`,
             },
           ],
         });
@@ -677,7 +677,7 @@ export default function AppointmentPage(): ReactElement {
           'bundleEntries',
           bundleEntries,
           'from request',
-          `/DocumentReference?status=current&subject=Patient/${patientID}&related=Appointment/${appointmentID}`
+          `/DocumentReference?status=active&subject=Patient/${patientID}&related=Appointment/${appointmentID}`
         );
         bundleEntries?.forEach((bundleEntry: BundleEntry) => {
           const bundleResource = bundleEntry.resource as Bundle;
