@@ -1,4 +1,4 @@
-import { SearchParam } from '@oystehr/sdk';
+import { BundleEntry, SearchParam } from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
@@ -347,37 +347,53 @@ export const useUpdatePatientAccount = (onSuccess?: () => void) => {
 export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) => void) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['insurance-plans'],
-    async () => {
-      if (oystehr) {
-        return oystehr.fhir.search<InsurancePlan>({
-          resourceType: 'InsurancePlan',
-          params: [
-            {
-              name: '_tag',
-              value: INSURANCE_PLAN_PAYER_META_TAG_CODE,
-            },
-            {
-              name: 'status',
-              value: 'active',
-            },
-            {
-              name: '_include',
-              value: 'InsurancePlan:owned-by',
-            },
-          ],
-        });
-      }
+  const fetchAllInsurancePlans = async (): Promise<Bundle<InsurancePlan>> => {
+    if (!oystehr) {
       throw new Error('FHIR client not defined');
-    },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching insurance plans: ', err);
-      },
     }
-  );
+
+    const searchParams = [
+      { name: '_tag', value: INSURANCE_PLAN_PAYER_META_TAG_CODE },
+      { name: 'status', value: 'active' },
+      { name: '_include', value: 'InsurancePlan:owned-by' },
+      { name: '_count', value: '1000' },
+    ];
+
+    let offset = 0;
+    let allEntries: BundleEntry<InsurancePlan>[] = [];
+
+    let bundle = await oystehr.fhir.search<InsurancePlan>({
+      resourceType: 'InsurancePlan',
+      params: [...searchParams, { name: '_offset', value: offset }],
+    });
+
+    allEntries = allEntries.concat(bundle.entry || []);
+    const serverTotal = bundle.total;
+
+    while (bundle.link?.find((link) => link.relation === 'next')) {
+      offset += 1000;
+
+      bundle = await oystehr.fhir.search<InsurancePlan>({
+        resourceType: 'InsurancePlan',
+        params: [...searchParams.filter((param) => param.name !== '_offset'), { name: '_offset', value: offset }],
+      });
+
+      allEntries = allEntries.concat(bundle.entry || []);
+    }
+
+    return {
+      ...bundle,
+      entry: allEntries,
+      total: serverTotal !== undefined ? serverTotal : allEntries.length,
+    };
+  };
+
+  return useQuery(['insurance-plans'], fetchAllInsurancePlans, {
+    onSuccess,
+    onError: (err) => {
+      console.error('Error during fetching insurance plans: ', err);
+    },
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
