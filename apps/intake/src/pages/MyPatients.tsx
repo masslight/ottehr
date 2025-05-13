@@ -9,6 +9,7 @@ import { useQuery } from 'react-query';
 import { CircularProgress } from '@mui/material';
 import { useMemo, useState } from 'react';
 import ottehrApi from '../api/ottehrApi';
+import { DateTime } from 'luxon';
 
 const MyPatients = (): JSX.Element => {
   const navigate = useNavigate();
@@ -43,7 +44,16 @@ const MyPatients = (): JSX.Element => {
   const { selectedPatient, patientFullName, formattedPatientBirthDay } = useMemo(() => {
     const selectedPatient = patientsData?.patients.find((patient) => patient.id === params.patientId);
     const patientFullName = selectedPatient ? getPatientInfoFullName(selectedPatient) : 'Unknown Patient';
-    const formattedPatientBirthDay = selectedPatient?.dateOfBirth ?? '';
+    let formattedPatientBirthDay = '';
+    if (selectedPatient?.dateOfBirth) {
+      const bday = DateTime.fromISO(selectedPatient.dateOfBirth);
+      bday.setLocale('en-US');
+      if (bday.isValid) {
+        const dateString = bday.toLocaleString({ year: 'numeric', month: 'long', day: 'numeric' });
+        formattedPatientBirthDay = `Birthday: ${dateString}`;
+      }
+    }
+
     return {
       selectedPatient,
       patientFullName,
