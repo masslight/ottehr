@@ -7,7 +7,7 @@ import { ottehrApi } from '../api';
 import { PageContainer } from '../components';
 import { t } from 'i18next';
 import { useQuery } from 'react-query';
-import { APIError, CreateSlotParams, isApiError, ServiceMode } from 'utils';
+import { APIError, CreateSlotParams, isApiError, PROJECT_NAME, ServiceMode } from 'utils';
 import { DateTime } from 'luxon';
 import { bookingBasePath } from '../App';
 import { ottehrLightBlue } from '@theme/icons';
@@ -114,7 +114,7 @@ export const WalkinLanding: FC = () => {
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
               <Link to="https://ottehr.com" aria-label="Ottehr website" target="_blank">
                 <Button variant="contained" color="primary" data-testid="loadin-button">
-                  {t('welcome.goToWebsite')}
+                  {t('welcome.goToWebsite', { PROJECT_NAME })}
                 </Button>
               </Link>
             </Box>
