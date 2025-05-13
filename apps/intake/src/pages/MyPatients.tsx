@@ -81,6 +81,7 @@ const MyPatients = (): JSX.Element => {
         <PatientList
           patients={patientsData?.patients ?? []}
           subtitle="Choose a patient to see their past visits"
+          pastVisits={true}
           onSubmit={onSubmit}
           onBack={onBack}
         />
