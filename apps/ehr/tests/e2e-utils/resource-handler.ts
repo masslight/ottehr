@@ -345,7 +345,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 6000));
       }
 
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
