@@ -235,7 +235,7 @@ export const NavigationProvider: React.FC<{ children: ReactNode }> = ({ children
         case 'medical-conditions':
           return chartData?.conditions?.length ? 'Medical Conditions Confirmed' : 'Confirmed No Medical Conditions';
         case 'surgical-history':
-          return chartData?.procedures?.length ? 'Surgical History Confirmed' : 'Confirmed No Surgical History';
+          return chartData?.surgicalHistory?.length ? 'Surgical History Confirmed' : 'Confirmed No Surgical History';
         case 'hospitalization':
           return `${
             chartData?.episodeOfCare?.length ? 'Hospitalization Confirmed' : 'Confirmed No Hospitalization'

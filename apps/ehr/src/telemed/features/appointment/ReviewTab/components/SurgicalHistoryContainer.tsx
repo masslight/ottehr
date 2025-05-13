@@ -8,8 +8,8 @@ export const SurgicalHistoryContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const theme = useTheme();
 
-  const procedures = chartData?.procedures;
-  const proceduresNote = chartData?.proceduresNote?.text;
+  const procedures = chartData?.surgicalHistory;
+  const surgicalHistoryNote = chartData?.surgicalHistoryNote?.text;
 
   return (
     <Box
@@ -28,7 +28,7 @@ export const SurgicalHistoryContainer: FC = () => {
       ) : (
         <Typography color={theme.palette.text.secondary}>No surgical history</Typography>
       )}
-      <Typography>{proceduresNote}</Typography>
+      <Typography>{surgicalHistoryNote}</Typography>
     </Box>
   );
 };
