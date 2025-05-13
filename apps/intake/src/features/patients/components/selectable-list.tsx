@@ -26,7 +26,7 @@ const PatientList: React.FC<PatientListProps> = ({
   onSubmit,
   onBack,
 }) => {
-  const hasNoPatients = pastVisits && patients.length === 0;
+  const hasNoPatients = patients.length === 0;
 
   const formElements: FormInputType[] = useMemo(() => {
     return [
