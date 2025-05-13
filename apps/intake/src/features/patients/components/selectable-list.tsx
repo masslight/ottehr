@@ -13,6 +13,7 @@ interface PatientListProps {
   selectedPatient?: PatientInfo;
   buttonLoading?: boolean;
   pastVisits?: boolean;
+  bottomMessage?: string;
   onSubmit: (data: FieldValues) => Promise<void>;
   onBack?: () => void;
 }
@@ -23,6 +24,7 @@ const PatientList: React.FC<PatientListProps> = ({
   subtitle,
   buttonLoading,
   pastVisits,
+  bottomMessage,
   onSubmit,
   onBack,
 }) => {
@@ -66,12 +68,8 @@ const PatientList: React.FC<PatientListProps> = ({
     <PageForm
       formElements={formElements}
       onSubmit={onSubmit}
-      controlButtons={{ onBack, loading: buttonLoading, submitDisabled: hasNoPatients }}
-      bottomComponent={
-        hasNoPatients ? (
-          <Box sx={{ pt: 2, color: 'text.primary' }}>No patients are found for this user.</Box>
-        ) : undefined
-      }
+      controlButtons={{ onBack, loading: buttonLoading, submitDisabled: pastVisits && hasNoPatients }}
+      bottomComponent={bottomMessage ? <Box sx={{ pt: 2, color: 'text.primary' }}>{bottomMessage}</Box> : undefined}
     />
   );
 };
