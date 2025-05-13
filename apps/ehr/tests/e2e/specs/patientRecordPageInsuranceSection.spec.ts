@@ -352,6 +352,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 
     await patientInformationPage.reloadPatientInformationPage();
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+
     await primaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clickShowMoreButton();
 
