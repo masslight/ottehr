@@ -416,10 +416,6 @@ export const listScheduleOwners = async (
   oystehr: Oystehr
 ): Promise<ListScheduleOwnersResponse> => {
   try {
-    if (LIST_SCHEDULE_OWNERS_ZAMBDA_ID == null) {
-      throw new Error('list-schedule-owners zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: LIST_SCHEDULE_OWNERS_ZAMBDA_ID,
       ...params,
@@ -433,10 +429,6 @@ export const listScheduleOwners = async (
 
 export const getSchedule = async (params: GetScheduleParams, oystehr: Oystehr): Promise<ScheduleDTO> => {
   try {
-    if (EHR_GET_SCHEDULE_ZAMBDA_ID == null) {
-      throw new Error('ehr-get-schedule zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: EHR_GET_SCHEDULE_ZAMBDA_ID,
       ...params,
@@ -450,10 +442,6 @@ export const getSchedule = async (params: GetScheduleParams, oystehr: Oystehr): 
 
 export const updateSchedule = async (params: UpdateScheduleParams, oystehr: Oystehr): Promise<Schedule> => {
   try {
-    if (UPDATE_SCHEDULE_ZAMBDA_ID == null) {
-      throw new Error('update-schedule zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: UPDATE_SCHEDULE_ZAMBDA_ID,
       ...params,
@@ -467,10 +455,6 @@ export const updateSchedule = async (params: UpdateScheduleParams, oystehr: Oyst
 
 export const createSchedule = async (params: CreateScheduleParams, oystehr: Oystehr): Promise<Schedule> => {
   try {
-    if (CREATE_SCHEDULE_ZAMBDA_ID == null) {
-      throw new Error('create-schedule zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: CREATE_SCHEDULE_ZAMBDA_ID,
       ...params,
