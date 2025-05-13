@@ -5,7 +5,7 @@ import { FormInputType, PageForm } from 'ui-components';
 import { getPatientInfoFullName, PatientInfo } from 'utils';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { Box } from '@mui/system';
-import { DIFFERENT_FAMILY_MEMBER_DATA } from 'src/telemed/utils';
+import { DIFFERENT_FAMILY_MEMBER_DATA } from '../../../telemed/utils/constants';
 
 interface PatientListProps {
   patients: PatientInfo[];
