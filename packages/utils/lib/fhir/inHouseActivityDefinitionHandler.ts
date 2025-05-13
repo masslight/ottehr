@@ -11,6 +11,7 @@ interface QuantityRange {
   low: number;
   high: number;
   unit: string;
+  precision?: number;
 }
 
 interface CodeableConceptType {
@@ -27,7 +28,7 @@ interface QuantityType {
 
 type ResultType = CodeableConceptType | QuantityType;
 
-interface UrinalysisComponent {
+export interface UrinalysisComponent {
   loincCode: string[];
   results: string;
   abnormal: string;
@@ -59,7 +60,7 @@ interface CodeableConceptTestItem extends BaseTestItem {
   abnormalValues: string[];
 }
 
-interface QuantityTestItem extends BaseTestItem {
+export interface QuantityTestItem extends BaseTestItem {
   dataType: 'Quantity';
   unit: string;
   normalRange: QuantityRange;
@@ -297,6 +298,7 @@ const testItemsData = {
           low: 1.005,
           high: 1.03,
           unit: '', // specific gravity has no unit
+          precision: 3,
         },
       },
       Blood: {
@@ -316,6 +318,7 @@ const testItemsData = {
           low: 5.0,
           high: 8.0,
           unit: '', // ph has no unit
+          precision: 1,
         },
       },
       Protein: {
@@ -342,6 +345,7 @@ const testItemsData = {
           low: 0.2,
           high: 1.0,
           unit: 'EU/dL',
+          precision: 1,
         },
       },
       Nitrite: {

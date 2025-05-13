@@ -1,7 +1,14 @@
 import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
-import { ActivityDefinition, ObservationDefinition, Reference, ValueSet } from 'fhir/r4b';
+import {
+  ActivityDefinition,
+  ObservationDefinition,
+  Reference,
+  ValueSet,
+  ObservationDefinitionQuantitativeDetails,
+  ObservationDefinitionQualifiedInterval,
+} from 'fhir/r4b';
 import * as readline from 'readline';
-import { testItems, TestItem } from '../packages/utils/lib/fhir/inHouseActivityDefinitionHandler';
+import { testItems, TestItem, UrinalysisComponent, QuantityTestItem } from 'utils';
 
 function askQuestion(rl: readline.Interface, question: string): Promise<string> {
   return new Promise((resolve) => {
@@ -9,17 +16,87 @@ function askQuestion(rl: readline.Interface, question: string): Promise<string> 
   });
 }
 
-const getCodeableConceptObservationDefinition = (
+const sanitizeForId = (str: string): string => {
+  /* eslint-disable-next-line  no-useless-escape */
+  return str.replace(/[ ()\/\\]/g, '');
+};
+
+const makeValueSet = (
+  itemName: string,
+  values: string[],
+  isAbnormal: boolean
+): { valueSetId: string; valueSet: ValueSet } => {
+  const valueSetId = `contained-${sanitizeForId(itemName)}-${isAbnormal ? 'abnormal' : 'normal'}-valueSet`;
+
+  const valueSet: ValueSet = {
+    id: valueSetId,
+    resourceType: 'ValueSet',
+    status: 'active',
+    compose: {
+      include: [
+        {
+          system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+          concept: values.map((valueStr) => {
+            return {
+              code: valueStr,
+            };
+          }),
+        },
+      ],
+    },
+  };
+
+  return {
+    valueSetId,
+    valueSet,
+  };
+};
+
+const makeQuantitativeDetails = (
+  item: QuantityTestItem | UrinalysisComponent
+): ObservationDefinitionQuantitativeDetails => {
+  if (!item.normalRange) {
+    throw new Error(`Cannot make quantitativeDetails for ${JSON.stringify(item)}`);
+  }
+  return {
+    decimalPrecision: item.normalRange.precision,
+    unit: item.normalRange.unit
+      ? {
+          coding: [
+            {
+              system: 'http://unitsofmeasure.org/',
+              code: item.normalRange.unit,
+            },
+          ],
+        }
+      : undefined,
+  };
+};
+
+const makeQualifiedInterval = (
+  item: QuantityTestItem | UrinalysisComponent
+): ObservationDefinitionQualifiedInterval => {
+  if (!item.normalRange) {
+    throw new Error(`Cannot make QualifiedInterval for ${JSON.stringify(item)}`);
+  }
+  return {
+    category: 'reference',
+    range: {
+      low: item.normalRange.low !== undefined ? { value: item.normalRange.low } : undefined,
+      high: item.normalRange.high !== undefined ? { value: item.normalRange.high } : undefined,
+    },
+  };
+};
+
+const getQuantityObservationDefinition = (
   item: TestItem
-): { obsDef: ObservationDefinition; contained: ValueSet[] } => {
-  if (item.dataType !== 'CodeableConcept') {
-    throw new Error('Cannot get codeable concept obs def from non-codeable concept test item');
+): { obsDef: ObservationDefinition; contained: ObservationDefinition[] } => {
+  if (item.dataType !== 'Quantity') {
+    throw new Error('Cannot get quantity obs def from non-quantity test item');
   }
 
-  const containedItems: ValueSet[] = [];
-
-  const codeableObsDef: ObservationDefinition = {
-    id: `contained-${item.name}-obs-def-id`,
+  const obsDef: ObservationDefinition = {
+    id: `contained-${sanitizeForId(item.name)}-quantity-observationDef-id`,
     resourceType: 'ObservationDefinition',
     code: {
       coding: [
@@ -29,36 +106,177 @@ const getCodeableConceptObservationDefinition = (
       ],
       text: item.name,
     },
-    permittedDataType: ['CodeableConcept'],
-    validCodedValueSet: {
-      type: 'ValueSet',
-      reference: 'TODO: add validCodedValueSet',
-    }, // TODO: these need to be references to contained valuesets
-    normalCodedValueSet: {
-      type: 'ValueSet',
-      reference: 'TODO: add normalCodedValueSet',
-    },
+    permittedDataType: [item.dataType],
+    quantitativeDetails: makeQuantitativeDetails(item),
+    qualifiedInterval: [makeQualifiedInterval(item)],
   };
 
   return {
-    obsDef: codeableObsDef,
+    obsDef,
+    contained: [obsDef],
+  };
+};
+
+const getCodeableConceptObservationDefinition = (
+  item: TestItem
+): { obsDef: ObservationDefinition; contained: (ValueSet | ObservationDefinition)[] } => {
+  if (item.dataType !== 'CodeableConcept') {
+    throw new Error('Cannot get codeable concept obs def from non-codeable concept test item');
+  }
+
+  const { valueSetId: normalValueSetId, valueSet: normalValueSet } = makeValueSet(item.name, item.valueSet, false);
+  const { valueSetId: abnormalValueSetId, valueSet: abnormalValueSet } = makeValueSet(
+    item.name,
+    item.abnormalValues,
+    true
+  );
+
+  const containedItems: (ValueSet | ObservationDefinition)[] = [normalValueSet, abnormalValueSet];
+
+  const obsDef: ObservationDefinition = {
+    id: `contained-${sanitizeForId(item.name)}-codeableConcept-observationDef-id`,
+    resourceType: 'ObservationDefinition',
+    code: {
+      coding: [
+        ...item.loincCode.map((loincCode) => {
+          return { system: 'http://loinc.org', code: loincCode };
+        }),
+      ],
+      text: item.name,
+    },
+    permittedDataType: [item.dataType],
+    validCodedValueSet: {
+      type: 'ValueSet',
+      reference: `#${normalValueSetId}`,
+    },
+    abnormalCodedValueSet: {
+      type: 'ValueSet',
+      reference: `#${abnormalValueSetId}`,
+    },
+  };
+
+  containedItems.push(obsDef);
+
+  return {
+    obsDef,
     contained: containedItems,
   };
 };
 
-function getObservationReq(item: TestItem): {
-  references: Reference[];
-  observationDefinitions: ObservationDefinition[];
+const getComponentObservationDefinition = (
+  componentName: string,
+  item: UrinalysisComponent
+): { obsDef: ObservationDefinition; contained: (ValueSet | ObservationDefinition)[] } => {
+  const obsDef: ObservationDefinition = {
+    id: `contained-${sanitizeForId(
+      componentName.toLowerCase()
+    )}-component-${item.dataType.toLowerCase()}-observationDef-id`,
+    resourceType: 'ObservationDefinition',
+    code: {
+      coding: [
+        ...item.loincCode.map((loincCode) => {
+          return { system: 'http://loinc.org', code: loincCode };
+        }),
+      ],
+      text: componentName,
+    },
+    permittedDataType: [item.dataType],
+  };
+
+  const contained: (ValueSet | ObservationDefinition)[] = [];
+
+  if (item.dataType === 'CodeableConcept') {
+    if (!item.valueSet?.length || !item.abnormalValues?.length) {
+      throw new Error(
+        `valueSet or abnormalValues not defined on codeableConcept component ${componentName} ${JSON.stringify(item)}`
+      );
+    }
+
+    const { valueSetId: normalValueSetId, valueSet: normalValueSet } = makeValueSet(
+      componentName,
+      item.valueSet,
+      false
+    );
+
+    const { valueSetId: abnormalValueSetId, valueSet: abnormalValueSet } = makeValueSet(
+      componentName,
+      item.abnormalValues,
+      true
+    );
+
+    obsDef.validCodedValueSet = {
+      type: 'ValueSet',
+      reference: `#${normalValueSetId}`,
+    };
+
+    obsDef.abnormalCodedValueSet = {
+      type: 'ValueSet',
+      reference: `#${abnormalValueSetId}`,
+    };
+
+    contained.push(normalValueSet, abnormalValueSet, obsDef);
+  } else {
+    if (!item.normalRange) {
+      throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
+    }
+
+    obsDef.quantitativeDetails = makeQuantitativeDetails(item);
+
+    obsDef.qualifiedInterval = [makeQualifiedInterval(item)];
+    contained.push(obsDef);
+  }
+  return {
+    obsDef,
+    contained,
+  };
+};
+
+function getObservationRequirement(item: TestItem): {
+  obsDefReferences: Reference[];
+  contained: (ValueSet | ObservationDefinition)[];
 } {
+  const obsDefReferences: Reference[] = [];
+  const contained: (ValueSet | ObservationDefinition)[] = [];
+
   if (!item.components) {
-    const { obsDef: _obsDef, contained: _contained } =
+    const { obsDef, contained: containedItems } =
       item.dataType === 'CodeableConcept'
         ? getCodeableConceptObservationDefinition(item)
-        : { obsDef: undefined, contained: undefined };
-    // : getQuantityObservationDefinition(item);
+        : getQuantityObservationDefinition(item);
+
+    if (!obsDef.id) {
+      throw new Error('Error in obsDef generation, no id found');
+    }
+
+    obsDefReferences.push({
+      type: 'ObservationDefinition',
+      reference: `#${obsDef.id}`,
+    });
+
+    contained.push(...containedItems);
+  } else {
+    // made typescript happy to have this
+    const components = item.components;
+    // need to go through each component
+    Object.keys(item.components).forEach((key: string) => {
+      const { obsDef, contained: componentContained } = getComponentObservationDefinition(key, components[key]);
+
+      if (!obsDef.id) {
+        throw new Error(`Error in obsDef generation, no id found for component ${JSON.stringify(components[key])}`);
+      }
+      obsDefReferences.push({
+        type: 'ObservationDefinition',
+        reference: `#${obsDef.id}`,
+      });
+
+      contained.push(...componentContained);
+    });
   }
 
-  return { references: [], observationDefinitions: [] };
+  return {
+    obsDefReferences,
+    contained,
+  };
 }
 
 async function main(): Promise<void> {
@@ -72,20 +290,18 @@ async function main(): Promise<void> {
 
   rl.close();
 
-  console.log('Project id: ', projectId);
-  console.log('Access Token: ', accessToken);
-
   const oysterClient = new Oystehr({
     accessToken: accessToken,
     projectId: projectId,
   });
 
-  const actividtyDefinitions: ActivityDefinition[] = [];
+  const activityDefinitions: ActivityDefinition[] = [];
 
-  for (const key of Object.keys(testItems)) {
-    const testData: TestItem = testItems[key];
+  for (const [_key, testData] of Object.entries(testItems)) {
+    // const testData: TestItem = testItems[key];
 
     // TODO: gets the observationdefinitions out here because they will be contained resources (and themselves have contained valuesets)
+    const { obsDefReferences, contained } = getObservationRequirement(testData);
 
     const activityDef: ActivityDefinition = {
       resourceType: 'ActivityDefinition',
@@ -112,18 +328,20 @@ async function main(): Promise<void> {
           type: 'device',
           role: {
             coding: [
-              ...Object.keys(testData.methods).map((key: string) => {
-                return {
+              ...Object.entries(testData.methods)
+                .filter((entry): entry is [string, { device: string }] => entry[1] !== undefined)
+                .map(([key, value]) => ({
                   system: 'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role',
                   code: key,
-                  display: testData.methods[key].device,
-                };
-              }),
+                  display: value.device,
+                })),
             ],
           },
         },
       ],
       // specimenRequirement -- nothing in the test reqs describes this
+      observationRequirement: obsDefReferences,
+      contained: contained,
       meta: {
         tag: [
           {
@@ -132,18 +350,25 @@ async function main(): Promise<void> {
           },
         ],
       },
-      observationRequirement: getObservationReq(testData).references,
     };
 
-    actividtyDefinitions.push(activityDef);
+    activityDefinitions.push(activityDef);
   }
 
-  const requests: BatchInputRequest<ActivityDefinition>[] = [];
+  const tempADs = activityDefinitions;
 
-  // TODO: make the create requests
+  console.log('ActivityDefinitions: ', JSON.stringify(tempADs, undefined, 2));
+
+  const requests: BatchInputRequest<ActivityDefinition>[] = tempADs.map((activityDefinition) => {
+    return {
+      method: 'POST',
+      url: '/ActivityDefinition',
+      resource: activityDefinition,
+    };
+  });
 
   try {
-    const oystehrResponse = await oysterClient.fhir.batch<ActivityDefinition>({ requests });
+    const oystehrResponse = await oysterClient.fhir.transaction<ActivityDefinition>({ requests });
     console.log(JSON.stringify(oystehrResponse));
   } catch (error) {
     console.error(error);
