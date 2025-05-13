@@ -431,8 +431,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 1000 },
         { "hour": 21, "capacity": 1000 },
         { "hour": 22, "capacity": 1000 },
-        { "hour": 23, "capacity": 1000 },
-        { "hour": 24, "capacity": 1000 }
+        { "hour": 23, "capacity": 1000 }
       ]
     },
     "tuesday": {
@@ -465,8 +464,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 1000 },
         { "hour": 21, "capacity": 1000 },
         { "hour": 22, "capacity": 1000 },
-        { "hour": 23, "capacity": 1000 },
-        { "hour": 24, "capacity": 1000 }
+        { "hour": 23, "capacity": 1000 }
       ]
     },
     "wednesday": {
@@ -499,8 +497,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 1000 },
         { "hour": 21, "capacity": 1000 },
         { "hour": 22, "capacity": 1000 },
-        { "hour": 23, "capacity": 1000 },
-        { "hour": 24, "capacity": 1000 }
+        { "hour": 23, "capacity": 1000 }
       ]
     },
     "thursday": {
@@ -533,8 +530,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 1000 },
         { "hour": 21, "capacity": 1000 },
         { "hour": 22, "capacity": 1000 },
-        { "hour": 23, "capacity": 1000 },
-        { "hour": 24, "capacity": 1000 }
+        { "hour": 23, "capacity": 1000 }
       ]
     },
     "friday": {
@@ -567,8 +563,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 1000 },
         { "hour": 21, "capacity": 1000 },
         { "hour": 22, "capacity": 1000 },
-        { "hour": 23, "capacity": 1000 },
-        { "hour": 24, "capacity": 1000 }
+        { "hour": 23, "capacity": 1000 }
       ]
     },
     "saturday": {
@@ -601,8 +596,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 1000 },
         { "hour": 21, "capacity": 1000 },
         { "hour": 22, "capacity": 1000 },
-        { "hour": 23, "capacity": 1000 },
-        { "hour": 24, "capacity": 1000 }
+        { "hour": 23, "capacity": 1000 }
       ]
     },
     "sunday": {
@@ -636,7 +630,6 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 21, "capacity": 1000 },
         { "hour": 22, "capacity": 1000 },
         { "hour": 23, "capacity": 1000 },
-        { "hour": 24, "capacity": 1000 }
       ]
     }
   },
