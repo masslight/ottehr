@@ -3,24 +3,23 @@ import { Operation } from 'fast-json-patch';
 import { Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { useMutation, useQuery } from 'react-query';
 import {
+  getFullestAvailableName,
+  getPatchOperationForNewMetaTag,
+  getPatchOperationToUpdateExtension,
+  getPractitionerNPIIdentitifier,
+  initialsFromName,
   PHOTON_PRACTITIONER_ENROLLED,
   PHOTON_PRESCRIBER_SYSTEM_URL,
   PROJECT_NAME,
   RoleType,
   SyncUserResponse,
   User,
-  getFullestAvailableName,
-  getPatchOperationForNewMetaTag,
-  getPatchOperationToUpdateExtension,
-  getPractitionerNPIIdentitifier,
-  initialsFromName,
 } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getUser } from '../api/api';
-import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { useApiClients } from './useAppClients';
 import { useAuthToken } from './useAuthToken';
 
@@ -47,8 +46,8 @@ export const useProviderPhotonStateStore = create<{
 // extracting it here, cause even if we use store - it will still initiate requests as much as we have usages of this hook,
 // so just to use this var as a synchronization mechanism - lifted it here
 let _practitionerLoginUpdateStarted = false;
-let _practitionerSyncStarted = false;
-let _practitionerSyncFinished = false;
+// let _practitionerSyncStarted = false; // For Credentials Sync
+// let _practitionerSyncFinished = false; // For Credentials Sync
 let _practitionerERXEnrollmentStarted = false;
 
 export default function useEvolveUser(): EvolveUser | undefined {
@@ -128,7 +127,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
     if (
       !isPractitionerEnrolledInPhoton &&
       hasRole([RoleType.Provider]) &&
-      _practitionerSyncFinished &&
+      // _practitionerSyncFinished &&
       isProviderHasEverythingToBeEnrolled &&
       !_practitionerERXEnrollmentStarted
     ) {
@@ -185,8 +184,8 @@ export default function useEvolveUser(): EvolveUser | undefined {
   }, [hasRole, isPhotonPrescriber, isPractitionerEnrolledInPhoton, lastLogin, profile, user, userInitials, userName]);
 }
 
-const MINUTE = 1000 * 60;
-const DAY = MINUTE * 60 * 24;
+// const MINUTE = 1000 * 60; // For Credentials Sync
+// const DAY = MINUTE * 60 * 24; // For Credentials Sync
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const useGetUser = () => {
@@ -241,7 +240,11 @@ const useGetProfile = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useSyncPractitioner = (onSuccess: (data: SyncUserResponse) => void) => {
+const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
+  console.log('Credentials sync is not enabled');
+  /**
+   * Credentials sync functionality -- Uncomment if you are synchronizing credentials from an external system
+  
   const client = useZapEHRAPIClient();
   const token = useAuthToken();
   const { oystehr } = useApiClients();
@@ -267,6 +270,7 @@ const useSyncPractitioner = (onSuccess: (data: SyncUserResponse) => void) => {
       enabled: Boolean(token && oystehr && oystehr.config.accessToken && !_practitionerSyncStarted),
     }
   );
+  */
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
