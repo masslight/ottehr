@@ -3,7 +3,7 @@ import { LoadingButton } from '@mui/lab';
 import { Alert, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
 import React, { ReactElement, useState } from 'react';
-import { createSamplePrebookAppointments } from 'utils/lib/helpers';
+import { createSampleAppointments } from 'utils/lib/helpers';
 import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '@theme/colors';
 import { createDemoVisits } from '@theme/icons';
@@ -44,7 +44,7 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      await createSamplePrebookAppointments({
+      await createSampleAppointments({
         oystehr,
         authToken,
         phoneNumber: formattedPhoneNumber,
