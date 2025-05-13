@@ -43,6 +43,8 @@ export interface GetSlotDetailsParams {
 
 export interface GetSlotDetailsResponse {
   slotId: string;
+  status: Slot['status'];
+  scheduleId: string;
   startISO: string;
   endISO: string;
   serviceMode: ServiceMode;
@@ -53,4 +55,6 @@ export interface GetSlotDetailsResponse {
   appointmentId?: string;
   comment?: string;
   timezoneForDisplay?: Timezone;
+  bookingGroupId?: string;
+  bookingGroupSlug?: string;
 }

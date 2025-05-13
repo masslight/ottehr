@@ -1,7 +1,6 @@
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 import { FormInputType, PageForm } from 'ui-components';
 import { getPatientInfoFullName, PatientInfo } from 'utils';
 import { otherColors } from '../../../IntakeThemeProvider';
@@ -27,8 +26,6 @@ const PatientList: React.FC<PatientListProps> = ({
   onSubmit,
   onBack,
 }) => {
-  const { t } = useTranslation();
-
   const hasNoPatients = pastVisits && patients.length === 0;
 
   const formElements: FormInputType[] = useMemo(() => {
@@ -63,7 +60,7 @@ const PatientList: React.FC<PatientListProps> = ({
               .concat(pastVisits ? [] : DIFFERENT_FAMILY_MEMBER_DATA),
       },
     ];
-  }, [patients, selectedPatient, t]);
+  }, [patients, selectedPatient, subtitle]);
 
   return (
     <PageForm
