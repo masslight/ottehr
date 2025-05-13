@@ -1,15 +1,19 @@
 import { ReactElement } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { AccordionCard } from 'src/telemed';
+import { AccordionCard, useAppointmentStore } from 'src/telemed';
 import { Box, Stack } from '@mui/system';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import AddIcon from '@mui/icons-material/Add';
 import { ROUTER_PATH } from '../routing/routesCSS';
+import { getSelectors } from 'utils';
+import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 
 export default function Procedures(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
+  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
   };
@@ -22,7 +26,67 @@ export default function Procedures(): ReactElement {
         </RoundedButton>
       </Box>
       <AccordionCard>
-        <Stack spacing={2} style={{ padding: '24px' }}></Stack>
+        <Table sx={{ width: '100%' }}>
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <Typography sx={{ fontSize: '14px', fontWeight: '500' }}>Procedure</Typography>
+              </TableCell>
+              <TableCell>
+                <Typography sx={{ fontSize: '14px', fontWeight: '500' }}>Dx</Typography>
+              </TableCell>
+              <TableCell>
+                <Typography sx={{ fontSize: '14px', fontWeight: '500' }}>Performed</Typography>
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {chartData?.procedures?.map((procedure) => {
+              return (
+                <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                  <TableCell>
+                    <Stack>
+                      {procedure.cptCodes.map((cptCode) => {
+                        return (
+                          <Typography sx={{ fontSize: '14px' }}>
+                            {cptCode.code}-{cptCode.display}
+                          </Typography>
+                        );
+                      })}
+                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.procedureType}</Typography>
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Stack>
+                      {procedure.diagnoses.map((diagnosis) => {
+                        return (
+                          <Typography sx={{ fontSize: '14px' }}>
+                            {diagnosis.code}-{diagnosis.display}
+                          </Typography>
+                        );
+                      })}
+                    </Stack>
+                  </TableCell>
+                  <TableCell>
+                    <Stack>
+                      <Typography sx={{ fontSize: '14px' }}>
+                        {procedure.procedureDate} {procedure.procedureTime}
+                      </Typography>
+                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.performer}</Typography>
+                    </Stack>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {chartData?.procedures == null || chartData?.procedures.length === 0 ? (
+              <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                <TableCell colSpan={3} align="center">
+                  <Typography sx={{ fontSize: '14px', color: '#00000099' }}>No procedures</Typography>
+                </TableCell>
+              </TableRow>
+            ) : undefined}
+          </TableBody>
+        </Table>
       </AccordionCard>
     </>
   );
