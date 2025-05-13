@@ -673,12 +673,6 @@ export default function AppointmentPage(): ReactElement {
         });
 
         const bundleEntries = docRefBundle?.entry;
-        console.log(
-          'bundleEntries',
-          bundleEntries,
-          'from request',
-          `/DocumentReference?status=current&subject=Patient/${patientID}&related=Appointment/${appointmentID}`
-        );
         bundleEntries?.forEach((bundleEntry: BundleEntry) => {
           const bundleResource = bundleEntry.resource as Bundle;
           bundleResource.entry?.forEach((entry) => {
@@ -704,7 +698,6 @@ export default function AppointmentPage(): ReactElement {
 
               if (z3Url && title && Object.values<string>(DocumentType).includes(title)) {
                 const presignedUrl = await getPresignedFileUrl(z3Url, authToken);
-                console.log('presignedUrl', presignedUrl);
                 presignedUrl &&
                   allZ3Documents.push({
                     z3Url: z3Url,
@@ -746,15 +739,6 @@ export default function AppointmentPage(): ReactElement {
         return documents;
       }
 
-      console.log('if z3Documents is empty, no get pdf buttons show up', z3Documents);
-      console.log(
-        'consent',
-        z3Documents.find((doc) => doc.type === DocumentType.CttConsent || doc.type === DocumentType.CttConsent2)
-      );
-      console.log(
-        'hipaa',
-        z3Documents.find((doc) => doc.type === DocumentType.HipaaConsent)
-      );
       if (z3Documents.length) {
         documents.photoIdCards = z3Documents
           .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))

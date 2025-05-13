@@ -70,24 +70,6 @@ export default function PatientInformation({
           <TableBody>
             {Object.keys(patientDetails).map((patientDetailsKey) => {
               const lastMod = lastModifiedBy && lastModifiedBy[patientDetailsKey];
-              if (
-                [
-                  'I have reviewed and accept HIPAA Acknowledgement',
-                  'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement',
-                  'I have reviewed and accept Consent to Treat and Guarantee of Payment',
-                ].includes(patientDetailsKey) &&
-                patientDetails[patientDetailsKey] === 'Signed'
-              ) {
-                // todo so why doesn't this work in deployed envs?
-                console.log(
-                  '\neditValue',
-                  editValue,
-                  '\npatientDetails[patientDetailsKey]',
-                  patientDetails[patientDetailsKey],
-                  '\neditValue?.[patientDetailsKey]',
-                  editValue?.[patientDetailsKey]
-                );
-              }
               return (
                 <Fragment key={patientDetailsKey}>
                   <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
