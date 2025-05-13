@@ -704,8 +704,8 @@ export default function AppointmentTableRow({
           </Typography>
           {appointment.needsDOBConfirmation ? (
             <GenericToolTip title="Date of birth for returning patient was not confirmed" customWidth="170px">
-              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>{`${
+              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
+                <Typography variant="body2" sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
                   appointment.patient?.sex && capitalize(appointment.patient?.sex)
                 } | `}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap' }}>
@@ -715,8 +715,8 @@ export default function AppointmentTableRow({
               </Box>
             </GenericToolTip>
           ) : (
-            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography sx={{ color: theme.palette.text.secondary }}>{`${
+            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
+              <Typography sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
                 appointment.patient?.sex && capitalize(appointment.patient?.sex)
               } |`}</Typography>
               <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
@@ -743,37 +743,39 @@ export default function AppointmentTableRow({
           <IntakeCheckmark providerName={admitterName} />
         )}
       </TableCell>
-      <TableCell
-        sx={{
-          verticalAlign: 'center',
-        }}
-      >
-        {tab === ApptTab['in-office'] ? (
-          rooms &&
-          rooms.length > 0 && (
-            <TextField
-              select
-              fullWidth
-              variant="standard"
-              disabled={roomSaving}
-              value={room}
-              onChange={(e) => {
-                setRoom(e.target.value);
-                void changeRoom(e.target.value);
-              }}
-            >
-              <MenuItem value={''}>None</MenuItem>
-              {rooms?.map((room) => (
-                <MenuItem key={room} value={room}>
-                  {room}
-                </MenuItem>
-              ))}
-            </TextField>
-          )
-        ) : (
-          <Typography sx={{ fontSize: 14, display: 'inline' }}>{room}</Typography>
-        )}
-      </TableCell>
+      {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
+        <TableCell
+          sx={{
+            verticalAlign: 'center',
+          }}
+        >
+          {tab === ApptTab['in-office'] ? (
+            rooms &&
+            rooms.length > 0 && (
+              <TextField
+                select
+                fullWidth
+                variant="standard"
+                disabled={roomSaving}
+                value={room}
+                onChange={(e) => {
+                  setRoom(e.target.value);
+                  void changeRoom(e.target.value);
+                }}
+              >
+                <MenuItem value={''}>None</MenuItem>
+                {rooms?.map((room) => (
+                  <MenuItem key={room} value={room}>
+                    {room}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )
+          ) : (
+            <Typography sx={{ fontSize: 14, display: 'inline' }}>{room}</Typography>
+          )}
+        </TableCell>
+      )}
       <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
