@@ -189,20 +189,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               sampleCollectionDates.push(DateTime.fromISO(specimenDateTime));
             }
 
-            // temp hard coding to eliminate submission errors and allow for testing the sepciment ui
-            // we have a ticket to add a field and accept this value from the front end
-            requests.push({
-              path: '/container',
-              op: 'add',
-              value: [
-                {
-                  specimenQuantity: {
-                    value: 1,
-                  },
-                },
-              ],
-            });
-
             acc.push(
               getPatchBinary({
                 resourceType: 'Specimen',
