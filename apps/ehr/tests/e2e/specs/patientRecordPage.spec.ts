@@ -92,10 +92,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
 
   test.beforeAll(async () => {
     await resourceHandler.setResources();
-    await Promise.all([
-      resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
-      resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
-    ]);
+    await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
   });
 
   test.afterAll(async () => {
@@ -221,10 +218,7 @@ test.describe('Patient Record Page mutating tests', () => {
 
   test.beforeEach(async () => {
     await resourceHandler.setResources();
-    await Promise.all([
-      resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
-      resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
-    ]);
+    await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
   });
 
   test.afterEach(async () => {
