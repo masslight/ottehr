@@ -1024,6 +1024,7 @@ export const parseLabOrderStatus = (
         pendingStatusConditions,
         sentStatusConditions,
         prelimStatusConditions,
+        correctedResultConditions,
         receivedStatusConditions,
         reviewedStatusConditions,
       },
