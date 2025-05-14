@@ -164,7 +164,7 @@ export interface LabResultsData extends ExternalLabsData {
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
   reviewDate: string | undefined;
-  resultInterpretations?: string[];
+  resultInterpretations: string[];
   results: LabResult[];
   testItemCode: string;
   performingLabName: string;

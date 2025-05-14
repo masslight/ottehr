@@ -230,7 +230,7 @@ export async function createLabResultPDF(
       reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
       reviewDate: reviewDate,
-      resultInterpretations: resultInterpretationDisplays.length > 0 ? resultInterpretationDisplays : undefined,
+      resultInterpretations: resultInterpretationDisplays,
       results,
       testItemCode:
         diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
@@ -493,9 +493,14 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     const font = columnFont || styles.regularText.font;
     const fontSize = columnFontSize || styles.regularText.fontSize;
     const fontColor = color || styles.colors.black;
+    const PADDING_PX = 8;
+    const COL_TWO_WIDTH = 10;
+    const COL_THREE_WIDTH = 2;
+    const COL_FOUR_WIDTH = 1.5;
+    const COL_FIVE_WIDTH = 1.1;
 
     // test name potentially maps to column two, and this might be quite long
-    const columnTwoMaxWidth = pageTextWidth / 2 - pageTextWidth / 10 - 8; // 8 is padding between columns
+    const columnTwoMaxWidth = pageTextWidth / COL_THREE_WIDTH - pageTextWidth / COL_TWO_WIDTH - PADDING_PX;
     const columnTwoWrappedText = splitTextIntoLines(columnTwoName, font, fontSize, columnTwoMaxWidth);
 
     page.drawText(columnOneName, {
@@ -509,7 +514,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
       page.drawText(line, {
         font: font,
         size: fontSize,
-        x: pageTextWidth / 10,
+        x: pageTextWidth / COL_TWO_WIDTH,
         y: currYPos - index * (fontSize * 1.2), // Stack lines vertically
         color: fontColor,
       });
@@ -517,21 +522,21 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     page.drawText(columnThreeName, {
       font: font,
       size: fontSize,
-      x: pageTextWidth / 2,
+      x: pageTextWidth / COL_THREE_WIDTH,
       y: currYPos,
       color: fontColor,
     });
     page.drawText(columnFourName, {
       font: font,
       size: fontSize,
-      x: pageTextWidth / 1.5,
+      x: pageTextWidth / COL_FOUR_WIDTH,
       y: currYPos,
       color: fontColor,
     });
     page.drawText(columnFiveName, {
       font: font,
       size: fontSize,
-      x: pageTextWidth / 1.1,
+      x: pageTextWidth / COL_FIVE_WIDTH,
       y: currYPos,
       color: fontColor,
     });
@@ -752,9 +757,11 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   return await pdfDoc.save();
 }
 
-function getResultValueToDiplay(resultInterpretations: string[] | undefined): string {
+function getResultValueToDiplay(resultInterpretations: string[]): string {
   const resultInterpretationsLen = resultInterpretations?.length;
-  if (!resultInterpretations || resultInterpretationsLen === 0) return '';
+  if (resultInterpretationsLen === 0) {
+    return '';
+  }
   if (resultInterpretationsLen === 1) {
     return resultInterpretations[0].toUpperCase();
   } else {
@@ -762,14 +769,8 @@ function getResultValueToDiplay(resultInterpretations: string[] | undefined): st
   }
 }
 
-function getResultRowDisplayColor(
-  resultInterpretations: string[] | undefined,
-  colors: { [key: string]: Color }
-): Color {
-  if (
-    resultInterpretations &&
-    resultInterpretations.every((interpretation) => interpretation.toUpperCase() === 'NORMAL')
-  ) {
+function getResultRowDisplayColor(resultInterpretations: string[], colors: { [key: string]: Color }): Color {
+  if (resultInterpretations.every((interpretation) => interpretation.toUpperCase() === 'NORMAL')) {
     return colors.black;
   } else {
     return colors.red;
