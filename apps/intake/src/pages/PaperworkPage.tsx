@@ -591,13 +591,13 @@ const performComplexValidation = async (
       client
     );
     const { primary, secondary } = eligibilityRes;
-    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary }];
-    if (secondary != undefined) {
-      valueEntryValues.push({ valueString: secondary });
+    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary!.status }];
+    if (secondary?.status != undefined) {
+      valueEntryValues.push({ valueString: secondary?.status });
     }
     if (
-      primary === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
-      primary === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
     ) {
       return {
         type: 'success',
@@ -609,12 +609,12 @@ const performComplexValidation = async (
       let message = '';
       let title = '';
       let attemptCureAction: string | undefined;
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
         title = 'Coverage could not be verified';
         message =
           'System not responding; unable to verify eligibility. Proceed to the next screen to continue as self-pay.';
       }
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
         title = 'Coverage not found';
         message =
           'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or continue as self-pay';

@@ -309,6 +309,14 @@
           ]
         },
         {
+          "linkId": "insurance-additional-information",
+          "answer": [
+            {
+              "valueString": "Additional info to primary insurance"
+            }
+          ]
+        },
+        {
           "linkId": "insurance-card-front",
           "answer": [
             {
@@ -467,6 +475,14 @@
               "answer": [
                 {
                   "valueString": "Child"
+                }
+              ]
+            },
+            {
+              "linkId": "insurance-additional-information-2",
+              "answer": [
+                {
+                  "valueString": "Additional info to secondary insurance"
                 }
               ]
             },

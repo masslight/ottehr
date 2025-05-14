@@ -306,7 +306,7 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   drawRegularTextLeft(`${data.patientSex},`);
   currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientSex, styles.regularText.fontSize) + regularTextWidth;
   drawRegularTextLeft(`${data.patientDOB},`);
-  drawFieldLineRight(`Today's date:`, data.todayDate);
+  drawFieldLineRight(`Today's Date: `, data.todayDate);
   addNewLine();
   currXPos = styles.margin.x;
   drawFieldLineLeft('ID:', data.patientId);
@@ -320,7 +320,11 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   await drawImage(callIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientPhone);
-  drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
+  if (data.sampleCollectionDate) {
+    drawFieldLineRight('Sample Collection Date:  ', data.sampleCollectionDate);
+    addNewLine();
+  }
+  drawFieldLineRight('Order Submit Date: ', data.orderSubmitDate);
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();

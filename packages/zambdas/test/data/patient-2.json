@@ -1,0 +1,93 @@
+{
+  "id": "f22d7f91-2a36-4cd6-a1ad-b97dddcb4ff3",
+  "meta": {
+    "versionId": "155bd470-a73c-4a23-8403-556ca694fa75",
+    "lastUpdated": "2025-04-18T08:51:42.667Z"
+  },
+  "name": [
+    {
+      "use": "official",
+      "given": ["Olha"],
+      "family": "Test0418"
+    }
+  ],
+  "active": true,
+  "gender": "female",
+  "address": [
+    {
+      "city": "Pembroke Pine",
+      "line": ["street address new"],
+      "state": "CA",
+      "country": "US",
+      "postalCode": "06001"
+    }
+  ],
+  "contact": [
+    {
+      "telecom": [
+        {
+          "value": "+12027139680",
+          "system": "phone",
+          "extension": [
+            {
+              "url": "https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx",
+              "valueString": "erx"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "telecom": [
+    {
+      "value": "okovalenko+testnew@masslight.com",
+      "system": "email"
+    },
+    {
+      "value": "+12027139680",
+      "system": "phone"
+    }
+  ],
+  "birthDate": "2005-07-18",
+  "extension": [
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "code": "2135-2",
+            "system": "http://terminology.hl7.org/CodeSystem/v3-Ethnicity",
+            "display": "Hispanic or Latino"
+          }
+        ]
+      }
+    },
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/race",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "code": "1002-5",
+            "system": "http://terminology.hl7.org/CodeSystem/v3-Race",
+            "display": "American Indian or Alaska Native"
+          }
+        ]
+      }
+    }
+  ],
+  "resourceType": "Patient",
+  "communication": [
+    {
+      "language": {
+        "coding": [
+          {
+            "code": "en",
+            "system": "urn:ietf:bcp:47",
+            "display": "English"
+          }
+        ]
+      },
+      "preferred": true
+    }
+  ]
+}

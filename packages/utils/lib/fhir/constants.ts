@@ -25,6 +25,7 @@ export const SCHEDULE_EXTENSION_URL = 'https://fhir.zapehr.com/r4/StructureDefin
 const RCM_TERMINOLOGY_BASE_URL = 'https://terminology.zapehr.com/rcm/cms1500';
 
 export const TIMEZONE_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/timezone';
+export const ROOM_EXTENSION_URL = 'http://hl7.org/fhir/StructureDefinition/room';
 
 export const FHIR_BASE_URL = 'https://fhir.ottehr.com';
 

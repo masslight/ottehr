@@ -14,7 +14,7 @@ import {
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 import { getPatchBinary, PROVENANCE_ACTIVITY_CODING_ENTITY, Secrets, UpdateLabOrderResourcesParameters } from 'utils';
 import { Operation } from 'fast-json-patch';
-import { BatchInputPostRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputPatchRequest } from '@oystehr/sdk';
 import {
   ZambdaInput,
   topLevelCatch,
@@ -85,6 +85,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           serviceRequestId,
           specimenId,
           date,
+          practitionerIdFromCurrentUser,
         });
 
         return {
@@ -246,12 +247,14 @@ const handleSpecimenDateChangedEvent = async ({
   serviceRequestId,
   specimenId,
   date,
+  practitionerIdFromCurrentUser,
 }: {
   oystehr: Oystehr;
   serviceRequestId: string;
   specimenId: string;
   date: string;
-}): Promise<Bundle<FhirResource>> => {
+  practitionerIdFromCurrentUser: string;
+}): Promise<Bundle<Specimen>> => {
   if (!DateTime.fromISO(date).isValid) {
     throw new Error(`Invalid date value: ${date}`);
   }
@@ -272,21 +275,44 @@ const handleSpecimenDateChangedEvent = async ({
     throw new Error(`Specimen/${specimenId} not found in ServiceRequest/${serviceRequestId}`);
   }
 
+  const hasSpecimeCollection = specimen.collection;
   const hasSpecimenDateTime = specimen.collection?.collectedDateTime;
+  const hasSpecimenCollector = specimen.collection?.collector;
+  const specimenCollector = { reference: `Practitioner/${practitionerIdFromCurrentUser}` };
 
-  const specimenPatchRequest = getPatchBinary({
-    resourceType: 'Specimen',
-    resourceId: specimen.id,
-    patchOperations: [
+  const operations: Operation[] = [];
+
+  if (hasSpecimeCollection) {
+    operations.push(
+      {
+        op: hasSpecimenCollector ? 'replace' : 'add',
+        path: '/collection/collector',
+        value: specimenCollector,
+      },
       {
         op: hasSpecimenDateTime ? 'replace' : 'add',
         path: '/collection/collectedDateTime',
         value: date,
+      }
+    );
+  } else {
+    operations.push({
+      path: '/collection',
+      op: 'add',
+      value: {
+        collectedDateTime: date,
+        collector: specimenCollector,
       },
-    ],
-  });
+    });
+  }
 
-  const updateTransactionRequest = await oystehr.fhir.transaction({
+  const specimenPatchRequest: BatchInputPatchRequest<Specimen> = {
+    method: 'PATCH',
+    url: `Specimen/${specimen.id}`,
+    operations: operations,
+  };
+
+  const updateTransactionRequest = await oystehr.fhir.transaction<Specimen>({
     requests: [specimenPatchRequest],
   });
 

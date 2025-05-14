@@ -20,6 +20,7 @@ import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-resu
 import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -137,67 +138,68 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
+    const sampleCollectionDates: DateTime[] = [];
 
-    const specimenPatchOperations = specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
-      if (!specimen.id) {
-        return acc;
-      }
+    const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
+      specimens.length > 0
+        ? specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+            if (!specimen.id) {
+              return acc;
+            }
 
-      const specimenDateTime = specimen.collection?.collectedDateTime;
-      console.log('specimenDateTime', specimenDateTime);
+            /**
+             * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
+             * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
+             * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
+             * upon submission we should set the current date.
+             */
+            const specimenDateTime = specimen.collection?.collectedDateTime;
+            console.log('specimenDateTime', specimenDateTime);
 
-      if (specimenDateTime) {
-        /**
-         * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
-         * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
-         * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
-         * upon submission we should set the current date.
-         */
-        return acc;
-      }
+            const specimenCollector = { reference: currentUser?.profile };
 
-      const specimenCollector = { reference: currentUser?.profile };
+            const requests: Operation[] = [];
 
-      if (specimen.collection) {
-        acc.push(
-          getPatchBinary({
-            resourceType: 'Specimen',
-            resourceId: specimen.id,
-            patchOperations: [
-              {
-                path: '/collection/collectedDateTime',
-                op: 'add',
-                value: now, // todo this needs to come from the frontend
-              },
-              {
-                path: '/collection/collector',
-                op: 'add',
-                value: specimenCollector,
-              },
-            ],
-          })
-        );
-      } else {
-        acc.push(
-          getPatchBinary({
-            resourceType: 'Specimen',
-            resourceId: specimen.id,
-            patchOperations: [
-              {
-                path: '/collection',
-                op: 'add',
-                value: {
-                  collectedDateTime: now, // todo this needs to come from the frontend
-                  collector: specimenCollector,
-                },
-              },
-            ],
-          })
-        );
-      }
+            if (!specimenDateTime) {
+              sampleCollectionDates.push(now);
+              if (specimen.collection) {
+                requests.push(
+                  {
+                    path: '/collection/collectedDateTime',
+                    op: 'add',
+                    value: now,
+                  },
+                  {
+                    path: '/collection/collector',
+                    op: 'add',
+                    value: specimenCollector,
+                  }
+                );
+              } else {
+                requests.push({
+                  path: '/collection',
+                  op: 'add',
+                  value: {
+                    collectedDateTime: now,
+                    collector: specimenCollector,
+                  },
+                });
+              }
+            } else {
+              sampleCollectionDates.push(DateTime.fromISO(specimenDateTime));
+            }
 
-      return acc;
-    }, []);
+            acc.push(
+              getPatchBinary({
+                resourceType: 'Specimen',
+                resourceId: specimen.id,
+                patchOperations: requests,
+              })
+            );
+
+            return acc;
+          }, [])
+        : [];
 
     // Specimen.collection.collected is required at time of order so we must make this patch before submitting to oystehr
     const preSumbissionWriteRequests = [...specimenPatchOperations];
@@ -339,6 +341,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
+    const mostRecentSampleCollectionDate =
+      sampleCollectionDates.length > 0
+        ? sampleCollectionDates.reduce((latest, current) => {
+            return current > latest ? current : latest;
+          })
+        : undefined;
+
     const pdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -368,6 +377,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         todayDate: now.toFormat('MM/dd/yy hh:mm a'),
         orderSubmitDate: now.toFormat('MM/dd/yy hh:mm a'),
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
+        sampleCollectionDate: mostRecentSampleCollectionDate?.toFormat('MM/dd/yy hh:mm a') || undefined,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])
