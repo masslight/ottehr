@@ -825,6 +825,7 @@ export async function makeLabPdfDocumentReference({
   } else {
     throw new Error('Invalid type of lab document');
   }
+  // this function is also called for creating order pdfs which will not have a DR
   const searchParams = diagnosticReportID ? [{ name: 'related', value: `DiagnosticReport/${diagnosticReportID}` }] : [];
   const { docRefs } = await createFilesDocumentReferences({
     files: [
