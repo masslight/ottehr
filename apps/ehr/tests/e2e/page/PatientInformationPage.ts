@@ -840,6 +840,12 @@ export class InsuranceCard {
     this.#container = container;
   }
 
+  async waitUntilInsuranceCarrierIsRendered(): Promise<void> {
+    await expect(
+      this.#container.getByTestId(dataTestIds.insuranceContainer.insuranceCarrier).locator('input')
+    ).not.toHaveValue('');
+  }
+
   async verifyInsuranceType(type: string): Promise<void> {
     await expect(this.#container.getByTestId(dataTestIds.insuranceContainer.type).locator('input')).toHaveValue(type);
   }
