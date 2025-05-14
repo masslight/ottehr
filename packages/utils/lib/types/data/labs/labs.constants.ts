@@ -54,7 +54,7 @@ export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefin
 export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/related-specimen-definition';
 
-export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm-';
+export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
 
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems

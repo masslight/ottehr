@@ -255,7 +255,6 @@ export async function createLabResultPDF(
       //   ? oystehr.fhir.formatHumanName(organization.contact?.[0].name)
       //   : ORDER_RESULT_ITEM_UNKNOWN,
     },
-    diagnosticReport.id,
     patient.id,
     secrets,
     token
@@ -764,7 +763,6 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsResultsFormPDF(
   input: LabResultsData,
-  diagnosticReportID: string,
   patientID: string,
   secrets: Secrets | null,
   token: string
@@ -776,7 +774,7 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${diagnosticReportID}-${input.resultStatus}${
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}-${input.resultStatus}${
     input.resultStatus === 'preliminary' ? '' : input.reviewed ? '-reviewed' : '-unreviewed'
   }.pdf`;
   console.log('Creating base file url');
@@ -827,6 +825,7 @@ export async function makeLabPdfDocumentReference({
   } else {
     throw new Error('Invalid type of lab document');
   }
+  const searchParams = diagnosticReportID ? [{ name: 'related', value: `DiagnosticReport/${diagnosticReportID}` }] : [];
   const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
@@ -853,7 +852,7 @@ export async function makeLabPdfDocumentReference({
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [{ name: 'encounter', value: `Encounter/${encounterID}` }],
+    searchParams,
     listResources,
   });
   return docRefs[0];
