@@ -167,9 +167,10 @@ export const makeLocation = (operationHours: LocationHoursOfOperation[]): Locati
 };
 
 interface MakeTestScheduleInput {
-  scheduleJson: string;
   processId: string;
   locationRef?: string;
+  scheduleJsonString?: string;
+  scheduleObject?: ScheduleExtension;
 }
 
 export const DELETABLE_RESOURCE_CODE_PREFIX = 'DELETE_ME-';
@@ -179,7 +180,16 @@ export const tagForProcessId = (processId: string): string => {
 };
 
 export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
-  const { scheduleJson: json, processId, locationRef } = input;
+  const { scheduleJsonString, scheduleObject, processId, locationRef } = input;
+  let json = '';
+  if (!scheduleJsonString && !scheduleObject) {
+    throw new Error('scheduleJsonString or scheduleObject must be provided');
+  } else if (scheduleJsonString) {
+    json = scheduleJsonString;
+  } else if (scheduleObject) {
+    json = JSON.stringify(scheduleObject);
+  }
+
   return {
     resourceType: 'Schedule',
     id: randomUUID(),
@@ -304,8 +314,751 @@ export const makeLocationWithSchedule = (
   const location = makeLocation(operationHours);
   const schedule = makeSchedule({
     locationRef: `Location/${location.id}`,
-    scheduleJson: scheduleString,
+    scheduleJsonString: scheduleString,
     processId: randomUUID(),
   });
   return { location, schedule };
+};
+
+// 4 slots per hour, 24 hours a day
+export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
+  schedule: {
+    monday: {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    tuesday: {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    wednesday: {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    thursday: {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    friday: {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    saturday: {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    sunday: {
+      open: 0,
+      close: 0,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+  },
+  scheduleOverrides: {},
+  closures: [],
 };

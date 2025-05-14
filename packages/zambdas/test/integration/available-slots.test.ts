@@ -5,7 +5,8 @@ import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
 import { Schedule } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
-import { makeSchedule, tagForProcessId } from '../helpers/testScheduleUtils';
+import { DEFAULT_SCHEDULE_JSON, makeSchedule, tagForProcessId } from '../helpers/testScheduleUtils';
+import { ScheduleExtension } from 'utils';
 
 describe('slot availability tests', () => {
   let oystehr: Oystehr | null = null;
@@ -13,14 +14,14 @@ describe('slot availability tests', () => {
   let processId: string | null = null;
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
-  const persistSchedule = async (scheduleJson: string, oystehr: Oystehr): Promise<Schedule> => {
+  const persistSchedule = async (scheduleExtension: ScheduleExtension, oystehr: Oystehr): Promise<Schedule> => {
     if (processId === null) {
       throw new Error('processId is null');
     }
     const resource = {
       ...makeSchedule({
         processId,
-        scheduleJson,
+        scheduleObject: scheduleExtension,
       }),
       id: undefined,
     };
@@ -76,16 +77,7 @@ describe('slot availability tests', () => {
     if (!oystehr) {
       throw new Error('oystehr is null');
     }
-    const scheduleJson = JSON.stringify({
-      Monday: [
-        {
-          start: '2023-10-02T08:00:00-04:00',
-          end: '2023-10-02T17:00:00-04:00',
-          capacity: 5,
-        },
-      ],
-    });
-    const schedule = await persistSchedule(scheduleJson, oystehr);
+    const schedule = await persistSchedule(DEFAULT_SCHEDULE_JSON, oystehr);
     expect(schedule).toBeDefined();
     expect(schedule.id).toBeDefined();
   });
