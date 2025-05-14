@@ -269,16 +269,8 @@ export async function createFilesDocumentReferences(
         if (!isLabsResultDoc) {
           return doc.content[0]?.attachment.title === file.title;
         } else {
-          // unreviewed lab result docs should be superseeded by reviewed lab result docs
-          // only the beginning of these file names will match, logic for
-          // const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
           console.log('isLabsResultDoc');
-          console.log('oldDoc attachment title', doc.content[0]?.attachment.title);
-          console.log('file to be created title', file.title);
-          const labsResultDocIsNewVersion =
-            doc.content[0]?.attachment.title?.startsWith(LAB_RESTULT_PDF_BASE_NAME) &&
-            file.title.startsWith(LAB_RESTULT_PDF_BASE_NAME);
-          return labsResultDocIsNewVersion;
+          return compareNewAndOldLabResultDocNames(doc.content[0]?.attachment.title || '', file.title);
         }
       });
       if (oldDoc) {
@@ -389,6 +381,21 @@ export async function createFilesDocumentReferences(
     throw new Error(`Failed to create DocumentReference resource: ${JSON.stringify(error)}`);
   }
 }
+
+// unreviewed lab result docs should be superseded by reviewed lab result docs
+// only the beginning of these file names will match, logic for
+// const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${diagnosticReportID}-${input.resultStatus}${input.resultStatus === 'preliminary' ? '' : input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
+const compareNewAndOldLabResultDocNames = (oldTitle: string, newTitle: string): boolean => {
+  console.log('oldDoc attachment title', oldTitle);
+  console.log('file to be created title', newTitle);
+  const BASE_LEN = LAB_RESTULT_PDF_BASE_NAME.length;
+  const UUID_LEN = 36;
+  const SUBSTRING_LEN = BASE_LEN + UUID_LEN;
+  console.log('SUBSTRING_LEN', SUBSTRING_LEN);
+  const oldTitleBase = oldTitle.substring(0, SUBSTRING_LEN);
+  const newTitleBase = newTitle.substring(0, SUBSTRING_LEN);
+  return oldTitleBase === newTitleBase;
+};
 
 export interface DocRefSyncTaskInput {
   context: { patientId: string; encounterId?: string };

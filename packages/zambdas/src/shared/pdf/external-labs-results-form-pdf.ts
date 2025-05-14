@@ -66,6 +66,10 @@ export async function createLabResultPDF(
     throw new Error('patient.id is undefined');
   }
 
+  if (!diagnosticReport.id) {
+    throw new Error('diagnosticReport id is undefined');
+  }
+
   const provenanceRequestTemp = (
     await oystehr.fhir.search<Provenance | Practitioner>({
       resourceType: 'Provenance',
@@ -251,6 +255,7 @@ export async function createLabResultPDF(
       //   ? oystehr.fhir.formatHumanName(organization.contact?.[0].name)
       //   : ORDER_RESULT_ITEM_UNKNOWN,
     },
+    diagnosticReport.id,
     patient.id,
     secrets,
     token
@@ -759,6 +764,7 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsResultsFormPDF(
   input: LabResultsData,
+  diagnosticReportID: string,
   patientID: string,
   secrets: Secrets | null,
   token: string
@@ -770,7 +776,7 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}-${input.resultStatus}${
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${diagnosticReportID}-${input.resultStatus}${
     input.resultStatus === 'preliminary' ? '' : input.reviewed ? '-reviewed' : '-unreviewed'
   }.pdf`;
   console.log('Creating base file url');
