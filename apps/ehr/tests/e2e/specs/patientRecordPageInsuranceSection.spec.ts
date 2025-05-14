@@ -352,6 +352,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 
     await patientInformationPage.reloadPatientInformationPage();
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+
     await primaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clickShowMoreButton();
 
@@ -404,12 +407,12 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
     return [
       getContactInformationAnswers({
-        firstName: patientInfo.patient.firstName,
-        lastName: patientInfo.patient.lastName,
-        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
-        email: patientInfo.patient.email,
-        phoneNumber: patientInfo.patient.phoneNumber,
-        birthSex: patientInfo.patient.sex,
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
       }),
       getPatientDetailsStepAnswers({}),
       getPaymentOptionInsuranceAnswers({

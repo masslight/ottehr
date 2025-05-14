@@ -1,33 +1,35 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { LocationHoursOfOperation, PractitionerRole, Schedule } from 'fhir/r4b';
+import { PractitionerRole, Schedule } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   applyOverridesToOperatingHours,
   Closure,
   createOystehrClient,
   FHIR_RESOURCE_NOT_FOUND,
+  getClosingTime,
   getLocationHoursFromScheduleExtension,
+  getOpeningTime,
   getScheduleDetails,
   getSecret,
   getServiceModeFromScheduleOwner,
   getTimezone,
-  WalkinAvailabilityCheckParams,
   INVALID_INPUT_ERROR,
+  isClosureOverride,
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_SCHEDULE_EXTENSION_ERROR,
-  OVERRIDE_DATE_FORMAT,
   ScheduleExtension,
   ScheduleOwnerFhirResource,
   SecretsKeys,
   ServiceMode,
   Timezone,
   TIMEZONES,
+  WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
 } from 'utils';
-import { ZambdaInput, getAuth0Token, topLevelCatch } from '../../../shared';
-import { DateTime } from 'luxon';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
+import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 
 let zapehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -239,63 +241,6 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   return { scheduleExtension, timezone, serviceMode, scheduleOwnerName, scheduleId: resolvedScheduleId };
 };
 
-function getOpeningTime(
-  hoursOfOperation: LocationHoursOfOperation[],
-  timezone: Timezone,
-  currentDate: DateTime
-): DateTime | undefined {
-  const currentHoursOfOperation = getCurrentHoursOfOperation(hoursOfOperation, currentDate);
-  console.log('currentHoursOfOperation', currentHoursOfOperation?.openingTime);
-  const parsedInt = parseInt(currentHoursOfOperation?.openingTime ?? '');
-  if (isNaN(parsedInt)) {
-    return undefined;
-  }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: parsedInt });
-  return dt.set({
-    year: currentDate.year,
-    month: currentDate.month,
-    day: currentDate.day,
-  });
-}
-
-export function getClosingTime(
-  hoursOfOperation: LocationHoursOfOperation[],
-  timezone: Timezone,
-  currentDate: DateTime
-): DateTime | undefined {
-  const currentHoursOfOperation = getCurrentHoursOfOperation(hoursOfOperation, currentDate);
-  const parsedInt = parseInt(currentHoursOfOperation?.closingTime ?? '');
-  if (isNaN(parsedInt)) {
-    return undefined;
-  }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: parsedInt });
-  const formattedClosingTime = dt.set({
-    year: currentDate.year,
-    month: currentDate.month,
-    day: currentDate.day,
-  });
-  // if time is midnight, add 1 day to closing time
-  if (
-    formattedClosingTime !== undefined &&
-    formattedClosingTime.hour === 0 &&
-    formattedClosingTime.minute === 0 &&
-    formattedClosingTime.second === 0
-  ) {
-    return formattedClosingTime.plus({ day: 1 });
-  }
-  return formattedClosingTime;
-}
-
-export function getCurrentHoursOfOperation(
-  hoursOfOperation: LocationHoursOfOperation[],
-  currentDate: DateTime
-): LocationHoursOfOperation | undefined {
-  const weekdayShort = currentDate.toLocaleString({ weekday: 'short' }, { locale: 'en-US' }).toLowerCase();
-  return hoursOfOperation?.find((item) => {
-    return item.daysOfWeek?.[0] === weekdayShort;
-  });
-}
-
 interface CheckWalkinOpenInput {
   openingTime: DateTime | undefined;
   closingTime: DateTime | undefined;
@@ -316,19 +261,4 @@ function isWalkinOpen(input: CheckWalkinOpenInput): boolean {
     (closingTime === undefined || closingTime > timeNow) &&
     !officeHasClosureOverrideToday
   );
-}
-
-export function isClosureOverride(closures: Closure[], timezone: Timezone, currentDate: DateTime): boolean {
-  const result = closures.some((closure) => {
-    const { start, end } = closure;
-    const closureStart = DateTime.fromFormat(start, OVERRIDE_DATE_FORMAT, { zone: timezone });
-    if (closureStart.ordinal === currentDate.ordinal) {
-      return true;
-    } else if (end) {
-      const closureEnd = DateTime.fromFormat(end, OVERRIDE_DATE_FORMAT, { zone: timezone });
-      return currentDate.ordinal >= closureStart.ordinal && currentDate.ordinal <= closureEnd.ordinal;
-    }
-    return false;
-  });
-  return result;
 }
