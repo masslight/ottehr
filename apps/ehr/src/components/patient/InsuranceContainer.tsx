@@ -71,6 +71,8 @@ interface SimpleStatusCheckWithDate {
   dateISO: string;
 }
 
+const ELIGIBILITY_CHECK_FLAG: 'OFF' | 'ON' = 'OFF';
+
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
@@ -181,6 +183,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRecheckEligibility = async (): Promise<void> => {
     console.log('recheck eligibility', recheckEligibility);
     try {
@@ -209,7 +212,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   };
 
   return (
-    <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
+    <Section
+      title="Insurance information"
+      dataTestId="insuranceContainer"
+      titleWidget={ELIGIBILITY_CHECK_FLAG !== 'OFF' ? <TitleWidget /> : undefined}
+    >
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
