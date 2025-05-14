@@ -125,11 +125,11 @@ async function getLocationsForTesting(
       },
       {
         name: '_include',
-        value: 'HealcareService:location',
+        value: 'HealthcareService:location',
       },
       {
         name: '_revinclude',
-        value: 'PraactitionerRole:service',
+        value: 'PractitionerRole:service',
       },
       {
         name: '_include:iterate',
