@@ -19,7 +19,7 @@ export function validateRequestParameters(input: ZambdaInput): ReviewLabResultSu
 
   // TODO: in the future, this should probably also include 'corrected'. Corrected results only come in for final results,
   // so it can still make a RFRT or we can another task type for corrected results
-  if (!['preliminary', 'final'].includes(diagnosticReport.status))
+  if (!['preliminary', 'final', 'corrected'].includes(diagnosticReport.status))
     throw new Error(
       `Triggering DiagnosticReport.status was not preliminary or final. ${JSON.stringify(diagnosticReport)}`
     );
