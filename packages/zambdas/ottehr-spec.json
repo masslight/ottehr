@@ -477,7 +477,7 @@
       "name": "CREATE-APPOINTMENT",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/appointment/prebook-create-appointment/index",
+      "src": "src/patient/appointment/create-appointment/index",
       "zip": ".dist/zips/create-appointment.zip"
     },
     "INTAKE-GET-APPOINTMENTS": {

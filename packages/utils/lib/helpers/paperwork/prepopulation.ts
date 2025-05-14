@@ -8,6 +8,7 @@ import {
   QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
+  Address,
 } from 'fhir/r4b';
 import {
   getFirstName,
@@ -245,6 +246,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
           coverages: accountInfo?.coverages ?? {},
+          patient,
           documents,
         });
       } else if (item.linkId === 'photo-id-page') {
@@ -333,7 +335,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
   input: PrepopulationFromPatientRecordInput
 ): QuestionnaireResponseItem[] => {
   const { patient, questionnaire, primaryCarePhysician, coverages, guarantorResource } = input;
-  // console.log('making prepopulated items from patient record', coverages);
+  console.log('making prepopulated items from patient record', coverages);
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
       const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
@@ -354,6 +356,7 @@ export const makePrepopulatedItemsFromPatientRecord = (
         return mapCoveragesToQuestionnaireResponseItems({
           items: itemItems,
           coverages,
+          patient,
         });
       }
       if (GUARANTOR_ITEMS.includes(item.linkId)) {
@@ -584,10 +587,13 @@ const COVERAGE_ITEMS = ['insurance-section', 'insurance-section-2', 'payment-opt
 interface MapCoverageItemsInput {
   items: QuestionnaireItem[];
   coverages: PatientAccountResponse['coverages'];
+  patient: Patient;
   documents?: DocumentReference[];
 }
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
-  const { items, coverages, documents } = input;
+  const { items, coverages, patient, documents } = input;
+
+  const patientAddress = patient.address?.[0];
 
   const insuranceCardFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'insurance-card-front')
@@ -679,6 +685,7 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primarySubscriberMiddleName = '';
   const relationshipToInsured = primary?.relationship?.coding?.[0].display;
   const policyHolderAddress = primarySubscriber?.address?.[0];
+  const policyHolderAddressAsPatient = patientAddress && areAddressesEqual(policyHolderAddress, patientAddress);
   const policyHolderZip = policyHolderAddress?.postalCode;
   const policyHolderState = policyHolderAddress?.state;
   const policyHolderCity = policyHolderAddress?.city;
@@ -703,6 +710,8 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let secondarySubscriberMiddleName: string | undefined;
   const secondaryRelationshipToInsured = secondary?.relationship?.coding?.[0].display;
   const secondaryPolicyHolderAddress = secondarySubscriber?.address?.[0];
+  const secondaryPolicyHolderAddressAsPatient =
+    patientAddress && areAddressesEqual(secondaryPolicyHolderAddress, patientAddress);
   const secondaryPolicyHolderZip = secondaryPolicyHolderAddress?.postalCode;
   const secondaryPolicyHolderState = secondaryPolicyHolderAddress?.state;
   const secondaryPolicyHolderCity = secondaryPolicyHolderAddress?.city;
@@ -771,6 +780,12 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       }
       if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
         answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
+      }
+      if (linkId === 'policy-holder-address-as-patient' && policyHolderAddressAsPatient) {
+        answer = makeAnswer(policyHolderAddressAsPatient, 'Boolean');
+      }
+      if (linkId === 'policy-holder-address-as-patient-2' && secondaryPolicyHolderAddressAsPatient) {
+        answer = makeAnswer(secondaryPolicyHolderAddressAsPatient, 'Boolean');
       }
       if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
         answer = makeAnswer(relationshipToInsured);
@@ -930,3 +945,44 @@ const mapGuarantorToQuestionnaireResponseItems = (input: MapGuantorItemsInput): 
     };
   });
 };
+
+function areAddressesEqual(address1?: Address, address2?: Address): boolean {
+  if (!address1 && !address2) return true;
+  if (!address1 || !address2) return false;
+
+  if (!areArraysEqual(address1.line, address2.line)) {
+    return false;
+  }
+
+  const stringProps: (keyof Address)[] = [
+    'city',
+    'state',
+    'postalCode',
+    // 'country',
+  ];
+
+  for (const prop of stringProps) {
+    if (address1[prop] !== address2[prop]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function areArraysEqual(arr1?: string[], arr2?: string[]): boolean {
+  if (!arr1 && !arr2) return true;
+  if (!arr1 || !arr2) return false;
+
+  if (arr1.length !== arr2.length) {
+    return false;
+  }
+
+  for (let i = 0; i < arr1.length; i++) {
+    if (arr1[i] !== arr2[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}

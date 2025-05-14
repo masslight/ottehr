@@ -77,6 +77,8 @@ const MyPatients = (): JSX.Element => {
     navigate(destination);
   };
 
+  const bottomMessage = patientsData?.patients.length === 0 ? 'No patients are found for this user.' : undefined;
+
   if (patientsLoadingInSomeWay) {
     return (
       <PageContainer title="Loading patients...">
@@ -90,8 +92,9 @@ const MyPatients = (): JSX.Element => {
       {isRoot && (
         <PatientList
           patients={patientsData?.patients ?? []}
-          showNewPatientOption={false}
           subtitle="Choose a patient to see their past visits"
+          pastVisits={true}
+          bottomMessage={bottomMessage}
           onSubmit={onSubmit}
           onBack={onBack}
         />
