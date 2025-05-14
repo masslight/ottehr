@@ -160,6 +160,7 @@ export interface LabResultsData extends ExternalLabsData {
   specimenValue?: string;
   specimenReferenceRange?: string;
   resultPhase: string;
+  resultStatus: string;
   reviewed: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
