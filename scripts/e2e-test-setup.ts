@@ -471,7 +471,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 200 },
         { "hour": 21, "capacity": 200 },
         { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
       ]
     },
     "tuesday": {
@@ -504,7 +504,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 200 },
         { "hour": 21, "capacity": 200 },
         { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
       ]
     },
     "wednesday": {
@@ -538,7 +538,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 200 },
         { "hour": 21, "capacity": 200 },
         { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
       ]
     },
     "thursday": {
@@ -571,7 +571,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 200 },
         { "hour": 21, "capacity": 200 },
         { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
       ]
     },
     "friday": {
@@ -604,7 +604,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 200 },
         { "hour": 21, "capacity": 200 },
         { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
       ]
     },
     "saturday": {
@@ -637,7 +637,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 200 },
         { "hour": 21, "capacity": 200 },
         { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
       ]
     },
     "sunday": {
@@ -670,7 +670,7 @@ const FULL_DAY_SCHEDULE = `{
         { "hour": 20, "capacity": 200 },
         { "hour": 21, "capacity": 200 },
         { "hour": 22, "capacity": 200 },
-        { "hour": 23, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
       ]
     }
   },
