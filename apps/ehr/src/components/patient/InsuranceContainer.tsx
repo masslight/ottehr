@@ -25,7 +25,7 @@ import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
 import { LoadingButton } from '@mui/lab';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { StatusStyleObject } from '../RefreshableStatusWidget';
+import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useMutation } from 'react-query';
 import { DateTime } from 'luxon';
@@ -71,6 +71,8 @@ interface SimpleStatusCheckWithDate {
   dateISO: string;
 }
 
+const ELIGIBILITY_CHECK_FLAG: 'OFF' | 'ON' = 'OFF';
+
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
@@ -85,7 +87,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
     mapInitialStatus(initialEligibilityCheck)
   );
@@ -198,10 +199,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   };
 
-  // todo: return the commented out code when eligibility check bug is fixed
   const TitleWidget = (): ReactElement | undefined => {
-    return undefined;
-    /*return (
+    return (
       <RefreshableStatusChip
         status={eligibilityStatus?.status ?? 'UNKNOWN'}
         lastRefreshISO={eligibilityStatus?.dateISO ?? ''}
@@ -209,11 +208,15 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         isRefreshing={recheckEligibility.isLoading}
         handleRefresh={handleRecheckEligibility}
       />
-    );*/
+    );
   };
 
   return (
-    <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
+    <Section
+      title="Insurance information"
+      dataTestId="insuranceContainer"
+      titleWidget={ELIGIBILITY_CHECK_FLAG !== 'OFF' ? <TitleWidget /> : undefined}
+    >
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
