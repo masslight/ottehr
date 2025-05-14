@@ -12,7 +12,12 @@ export const NeurologicalCard: FC = () => {
       collapsed={isCollapsed}
       onSwitch={onSwitch}
       dataTestId={dataTestIds.telemedEhrFlow.examTabCards('neurological')}
-      rightComponent={<ExamCommentField name="neurological-comment" />}
+      rightComponent={
+        <ExamCommentField
+          name="neurological-comment"
+          dataTestId={dataTestIds.telemedEhrFlow.examTabCardsComments('neurological')}
+        />
+      }
       grid={[
         {
           Normal: <ExamFieldsFactory card="neurological" group="normal" />,

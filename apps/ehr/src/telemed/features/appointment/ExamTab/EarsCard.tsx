@@ -12,7 +12,9 @@ export const EarsCard: FC = () => {
       collapsed={isCollapsed}
       onSwitch={onSwitch}
       dataTestId={dataTestIds.telemedEhrFlow.examTabCards('ears')}
-      rightComponent={<ExamCommentField name="ears-comment" />}
+      rightComponent={
+        <ExamCommentField name="ears-comment" dataTestId={dataTestIds.telemedEhrFlow.examTabCardsComments('ears')} />
+      }
       grid={[
         {
           'Right ear': <ExamFieldsFactory card="ears" group="rightEar" radio />,

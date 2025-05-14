@@ -12,7 +12,9 @@ export const SkinCard: FC = () => {
       collapsed={isCollapsed}
       onSwitch={onSwitch}
       dataTestId={dataTestIds.telemedEhrFlow.examTabCards('skin')}
-      rightComponent={<ExamCommentField name="skin-comment" />}
+      rightComponent={
+        <ExamCommentField name="skin-comment" dataTestId={dataTestIds.telemedEhrFlow.examTabCardsComments('skin')} />
+      }
       grid={[
         {
           Normal: <ExamFieldsFactory card="skin" group="normal" />,

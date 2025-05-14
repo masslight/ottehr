@@ -12,7 +12,12 @@ export const MusculoskeletalCard: FC = () => {
       collapsed={isCollapsed}
       onSwitch={onSwitch}
       dataTestId={dataTestIds.telemedEhrFlow.examTabCards('musculoskeletal')}
-      rightComponent={<ExamCommentField name="extremities-musculoskeletal-comment" />}
+      rightComponent={
+        <ExamCommentField
+          name="extremities-musculoskeletal-comment"
+          dataTestId={dataTestIds.telemedEhrFlow.examTabCardsComments('musculoskeletal')}
+        />
+      }
       grid={[
         {
           Normal: <ExamFieldsFactory card="musculoskeletal" group="normal" />,

@@ -6,6 +6,7 @@ import {
   ExamObservationFieldItem,
   ExamObservationFieldsDetails,
   examObservationFieldsDetailsArray,
+  ExamTabCardNames,
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
@@ -45,7 +46,7 @@ async function checkValuesInRadioButtons(page: Page, examObservationFields: Exam
   }
 }
 
-test.describe('Exam tab', async () => {
+test.describe('Fields tests', async () => {
   const resourceHandler = new ResourceHandler('telemed');
   let page: Page;
   // this color i've found in the palette
@@ -72,7 +73,6 @@ test.describe('Exam tab', async () => {
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
     await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
     await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
-    // todo unchecked some field to check it's working
   });
 
   test.afterAll(async () => {
@@ -103,6 +103,98 @@ test.describe('Exam tab', async () => {
       await checkValuesInRadioButtons(
         page,
         filteredFields.filter((field) => ['rightEye', 'leftEye'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Nose' card", async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('nose')).click();
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'nose');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Ears' card", async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('ears')).click();
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'ears');
+      await checkValuesInRadioButtons(
+        page,
+        filteredFields.filter((field) => ['rightEar', 'leftEar'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Mouth' card", async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('mouth')).click();
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'mouth');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Neck' card", async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('neck')).click();
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'neck');
+      await checkValuesInCheckboxes(page, filteredFields);
+    });
+
+    await test.step("Check 'Chest' card", async () => {
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'chest');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Back' card", async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('back')).click();
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'back');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Skin' card", async () => {
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'skin');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Abdomen' card", async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('abdomen')).click();
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'abdomen');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Musculoskeletal' card", async () => {
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'musculoskeletal');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Neurological' card", async () => {
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'neurological');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal'].includes(field.group))
+      );
+    });
+
+    await test.step("Check 'Psych' card", async () => {
+      await page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards('psych')).click();
+      const filteredFields = examObservationFieldsDetailsArray.filter((field) => field.card === 'psych');
+      await checkValuesInCheckboxes(
+        page,
+        filteredFields.filter((field) => ['normal', 'abnormal'].includes(field.group))
       );
     });
   });
@@ -246,5 +338,52 @@ test.describe('Exam tab', async () => {
 
     await expect(examinationsContainer).not.toHaveText(rashWithDescriptionDropdownOption);
     await expect(examinationsContainer).not.toHaveText(rashDescription);
+  });
+});
+
+test.describe('Cards tests', () => {
+  const resourceHandler = new ResourceHandler('telemed');
+  const collapsedSections: ExamTabCardNames[] = ['nose', 'ears', 'mouth', 'neck', 'abdomen', 'back', 'psych'];
+  const expandedSections: ExamTabCardNames[] = [
+    'general',
+    'head',
+    'eyes',
+    'chest',
+    'skin',
+    'musculoskeletal',
+    'neurological',
+  ];
+
+  test.beforeAll(async () => {
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  });
+
+  test.afterAll(async () => {
+    await resourceHandler.cleanupResources();
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
+    await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionColumn)).toBeVisible();
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiFieldListLoadingSkeleton).first()).not.toBeVisible();
+    await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.exam)).click();
+  });
+
+  test('Check that sections are collapsed by default', async ({ page }) => {
+    for (const section of collapsedSections) {
+      const cardLocator = page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards(section));
+      await expect(cardLocator).toBeVisible();
+      await expect(cardLocator.getByTestId(dataTestIds.telemedEhrFlow.examTabCardsComments(section))).not.toBeVisible();
+    }
+  });
+
+  test('Check that sections are expanded by default', async ({ page }) => {
+    for (const section of expandedSections) {
+      const cardLocator = page.getByTestId(dataTestIds.telemedEhrFlow.examTabCards(section));
+      await expect(cardLocator).toBeVisible();
+      await expect(cardLocator.getByTestId(dataTestIds.telemedEhrFlow.examTabCardsComments(section))).toBeVisible();
+    }
   });
 });
