@@ -35,6 +35,8 @@ export const allPhysicalDefaultLocations: { state: string; city: string; name: s
     name: 'Los Angeles',
   },
 ];
+
+export const defaultGroup = 'Visit Followup Group';
 export type PhysicalLocation = (typeof allPhysicalDefaultLocations)[number];
 
 export const checkLocations = async (oystehr: Oystehr): Promise<void> => {

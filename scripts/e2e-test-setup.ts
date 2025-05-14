@@ -12,6 +12,7 @@ import {
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import {
   allPhysicalDefaultLocations,
+  defaultGroup,
   virtualDefaultLocations,
 } from '../packages/zambdas/src/scripts/setup-default-locations';
 
@@ -115,6 +116,42 @@ async function getLocationsForTesting(
     ],
   });
 
+  const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<Location | Practitioner | Schedule>({
+    resourceType: 'HealthcareService',
+    params: [
+      {
+        name: 'name',
+        value: defaultGroup,
+      },
+      {
+        name: '_include',
+        value: 'HealcareService:location',
+      },
+      {
+        name: '_revinclude',
+        value: 'PraactitionerRole:service',
+      },
+      {
+        name: '_include:iterate',
+        value: 'PractitionerRole:practitioner',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor:Location',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor:Practitioner',
+      },
+    ],
+  });
+
+  const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
+  const defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
+    (res) => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
+  );
+  const defaultGroupSchedules = defaultGroupRelatedResources.filter((res) => res.resourceType === 'Schedule');
+
   const locationsAndSchedules = locationsResponse.unbundle();
   const locations = locationsAndSchedules.filter((res) => res.resourceType === 'Location');
   const schedules = locationsAndSchedules.filter((res) => res.resourceType === 'Schedule');
@@ -168,8 +205,11 @@ async function getLocationsForTesting(
 
   console.group('Ensure test location schedules and slots');
   await Promise.all([
-    ensureLocationSchedulesAndSlots(locationResource, schedules, oystehr),
-    ensureLocationSchedulesAndSlots(virtualLocation, schedules, oystehr),
+    ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
+    ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
+    defaultGroupLocationsAndPractitioners.map((owner) =>
+      ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
+    ),
   ]);
   console.groupEnd();
 
@@ -643,23 +683,23 @@ const FULL_DAY_SCHEDULE = `{
   "scheduleOverrides": {}
 }`;
 
-async function ensureLocationSchedulesAndSlots(
-  location: Location,
+async function ensureOwnerResourceSchedulesAndSlots(
+  owner: Location | Practitioner,
   schedules: Schedule[],
   oystehr: Oystehr
 ): Promise<void> {
-  const locationSchedules = schedules.filter(
-    (schedule) => schedule.actor?.[0]?.reference === `Location/${location.id}`
+  const ownerSchedules = schedules.filter(
+    (schedule) => schedule.actor?.[0]?.reference === `${owner.resourceType}/${owner.id}`
   );
 
   const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
-  const locationUpdateRequests: BatchInputPutRequest<Location>[] = [];
+  const ownerUpdateRequests: BatchInputPutRequest<Location | Practitioner>[] = [];
   const scheduleUpdateRequests: BatchInputPutRequest<Schedule>[] = [];
 
-  if (locationSchedules.length === 0) {
-    schedulePostRequests.push(createScheduleRequest(location));
+  if (ownerSchedules.length === 0) {
+    schedulePostRequests.push(createScheduleRequest(owner));
   } else {
-    locationSchedules.forEach((schedule) => {
+    ownerSchedules.forEach((schedule) => {
       const extension = schedule.extension ?? [];
       const existingScheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
       const existingTimezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
@@ -685,36 +725,34 @@ async function ensureLocationSchedulesAndSlots(
     });
   }
 
-  const extension = location.extension ?? [];
+  const extension = owner.extension ?? [];
 
-  const scheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
   const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
 
-  if (!scheduleExtension || scheduleExtension.valueString !== FULL_DAY_SCHEDULE || !timezoneExtension) {
-    locationUpdateRequests.push({
+  if (!timezoneExtension) {
+    ownerUpdateRequests.push({
       method: 'PUT',
-      url: `/Location/${location.id}`,
+      url: `/${owner.resourceType}/${owner.id}`,
       resource: {
-        ...location,
+        ...owner,
         extension: [
-          ...extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL),
-          { url: SCHEDULE_EXTENSION_URL, valueString: FULL_DAY_SCHEDULE },
+          ...extension.filter((ext) => ext.url !== TIMEZONE_EXTENSION_URL),
           { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
         ],
       },
     });
   }
 
-  const response = await oystehr.fhir.transaction<FhirResource>({
-    requests: [...schedulePostRequests, ...locationUpdateRequests, ...scheduleUpdateRequests],
+  await oystehr.fhir.transaction<FhirResource>({
+    requests: [...schedulePostRequests, ...ownerUpdateRequests, ...scheduleUpdateRequests],
   });
   console.log(
-    `Updated/created resources for ensuring schedules for location ${location.id}: ${JSON.stringify(response, null, 2)}`
+    `Updated/created resources for ensuring schedules for owner resource ${owner.resourceType} ${owner.id}}`
   );
 }
 
-function createScheduleRequest(location: Location): BatchInputPostRequest<Schedule> {
-  const locationSchedule: Schedule = {
+function createScheduleRequest(owner: Location | Practitioner): BatchInputPostRequest<Schedule> {
+  const ownerSchedule: Schedule = {
     resourceType: 'Schedule',
     active: true,
     extension: [
@@ -729,7 +767,7 @@ function createScheduleRequest(location: Location): BatchInputPostRequest<Schedu
     ],
     actor: [
       {
-        reference: `Location/${location.id}`,
+        reference: `${owner.resourceType}/${owner.id}`,
       },
     ],
   };
@@ -737,7 +775,7 @@ function createScheduleRequest(location: Location): BatchInputPostRequest<Schedu
   const createScheduleRequest: BatchInputPostRequest<Schedule> = {
     method: 'POST',
     url: '/Schedule',
-    resource: locationSchedule,
+    resource: ownerSchedule,
   };
   return createScheduleRequest;
 }
