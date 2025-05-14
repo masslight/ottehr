@@ -1415,7 +1415,7 @@ export const parseLabOrdersHistory = (
     history.push(...parseTaskReceivedAndReviewedAndCorrectedHistory(task, practitioners, provenances));
   });
 
-  return history;
+  return history.sort((a, b) => compareDates(b.date, a.date));
 };
 
 export const parseAccountNumber = (serviceRequest: ServiceRequest, organizations: Organization[]): string => {
