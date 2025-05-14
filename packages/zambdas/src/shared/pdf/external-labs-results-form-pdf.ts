@@ -66,6 +66,10 @@ export async function createLabResultPDF(
     throw new Error('patient.id is undefined');
   }
 
+  if (!diagnosticReport.id) {
+    throw new Error('diagnosticReport id is undefined');
+  }
+
   const provenanceRequestTemp = (
     await oystehr.fhir.search<Provenance | Practitioner>({
       resourceType: 'Provenance',
@@ -821,6 +825,8 @@ export async function makeLabPdfDocumentReference({
   } else {
     throw new Error('Invalid type of lab document');
   }
+  // this function is also called for creating order pdfs which will not have a DR
+  const searchParams = diagnosticReportID ? [{ name: 'related', value: `DiagnosticReport/${diagnosticReportID}` }] : [];
   const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
@@ -847,7 +853,7 @@ export async function makeLabPdfDocumentReference({
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [{ name: 'encounter', value: `Encounter/${encounterID}` }],
+    searchParams,
     listResources,
   });
   return docRefs[0];

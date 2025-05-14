@@ -43,7 +43,6 @@ import {
   TaskCoding,
   TELEMED_VIDEO_ROOM_CODE,
   LAB_RESULT_DOC_REF_CODING_CODE,
-  LAB_RESTULT_PDF_BASE_NAME,
 } from 'utils';
 import {
   BookableResource,
@@ -269,16 +268,10 @@ export async function createFilesDocumentReferences(
         if (!isLabsResultDoc) {
           return doc.content[0]?.attachment.title === file.title;
         } else {
-          // unreviewed lab result docs should be superseeded by reviewed lab result docs
-          // only the beginning of these file names will match, logic for
-          // const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
           console.log('isLabsResultDoc');
-          console.log('oldDoc attachment title', doc.content[0]?.attachment.title);
-          console.log('file to be created title', file.title);
-          const labsResultDocIsNewVersion =
-            doc.content[0]?.attachment.title?.startsWith(LAB_RESTULT_PDF_BASE_NAME) &&
-            file.title.startsWith(LAB_RESTULT_PDF_BASE_NAME);
-          return labsResultDocIsNewVersion;
+          // any docRefs for the related DR should be superseded
+          // there should only be one current docRef per DR
+          return true;
         }
       });
       if (oldDoc) {
