@@ -166,13 +166,26 @@ export const makeLocation = (operationHours: LocationHoursOfOperation[]): Locati
   };
 };
 
-export const makeSchedule = (locationRef: string, json: string): Schedule => {
+interface MakeTestScheduleInput {
+  scheduleJson: string;
+  processId: string;
+  locationRef?: string;
+}
+
+export const DELETABLE_RESOURCE_CODE_PREFIX = 'DELETE_ME-';
+
+export const tagForProcessId = (processId: string): string => {
+  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId}`;
+};
+
+export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
+  const { scheduleJson: json, processId, locationRef } = input;
   return {
     resourceType: 'Schedule',
     id: randomUUID(),
     actor: [
       {
-        reference: locationRef,
+        reference: locationRef ?? `Location/${randomUUID()}`,
       },
     ],
     extension: [
@@ -185,6 +198,15 @@ export const makeSchedule = (locationRef: string, json: string): Schedule => {
         valueString: json,
       },
     ],
+    meta: {
+      tag: [
+        {
+          system: 'OTTEHR_AUTOMATED_TEST',
+          code: tagForProcessId(processId),
+          display: 'a test resource that should be cleaned up',
+        },
+      ],
+    },
   };
 };
 
@@ -280,6 +302,10 @@ export const makeLocationWithSchedule = (
   const scheduleComplete = { schedule: scheduleDTO, scheduleOverrides, closures };
   const scheduleString = JSON.stringify(scheduleComplete);
   const location = makeLocation(operationHours);
-  const schedule = makeSchedule(`Location/${location.id}`, scheduleString);
+  const schedule = makeSchedule({
+    locationRef: `Location/${location.id}`,
+    scheduleJson: scheduleString,
+    processId: randomUUID(),
+  });
   return { location, schedule };
 };

@@ -132,7 +132,7 @@ const makeSlots = (input: MakeSlotsInput): Slot[] => {
   });
 };
 
-describe.skip('nearest 15 minute mark', () => {
+describe('nearest 15 minute mark', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
   test('40 = 45', async () => {
@@ -437,7 +437,7 @@ describe.skip('test front end slot display: different capacities, no buffers, no
   });
 });
 
-describe.skip('test front end slot display: straight forward opening and closing buffers, capacity 4, no busy slots, no appointments', () => {
+describe('test front end slot display: straight forward opening and closing buffers, capacity 4, no busy slots, no appointments', () => {
   test('1: opening buffer 15', async () => {
     const time = DateTime.now().startOf('day').set({ hour: 8 });
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
