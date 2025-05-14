@@ -140,7 +140,7 @@ export const makePrepopulatedItemsForPatient = (input: PrepopulationInput): Ques
 
   const item: QuestionnaireResponseItem[] = (questionnaire.item ?? []).map((item) => {
     const populatedItem: QuestionnaireResponseItem[] = (() => {
-      const itemItems = item.item ?? [].filter((i: QuestionnaireItem) => i.type !== 'display');
+      const itemItems = (item.item ?? []).filter((i: QuestionnaireItem) => i.type !== 'display');
       if (item.linkId === 'contact-information-page') {
         // todo: consolidate this with mapPatientItemsToQuestionnaireResponseItems
         return itemItems.map((item) => {
@@ -727,130 +727,132 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
     secondary?.extension?.find((e: { url: string }) => e.url === COVERAGE_ADDITIONAL_INFORMATION_URL)?.valueString ??
     '';
 
-  return items.map((item) => {
-    let answer: QuestionnaireResponseItemAnswer[] | undefined;
-    const { linkId } = item;
+  return items
+    .filter((i: QuestionnaireItem) => i.type !== 'display')
+    .map((item) => {
+      let answer: QuestionnaireResponseItemAnswer[] | undefined;
+      const { linkId } = item;
 
-    if (linkId === 'secondary-insurance' && item.type === 'group') {
+      if (linkId === 'secondary-insurance' && item.type === 'group') {
+        return {
+          linkId,
+          item: mapCoveragesToQuestionnaireResponseItems({ ...input, items: item.item ?? [] }),
+        };
+      }
+      if (linkId === 'insurance-carrier' && primaryInsurancePlanReference) {
+        answer = makeAnswer(primaryInsurancePlanReference, 'Reference');
+      }
+      if (linkId === 'insurance-carrier-2' && secondaryInsurancePlanReference) {
+        answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
+      }
+      if (linkId === 'insurance-member-id' && primaryMemberId) {
+        answer = makeAnswer(primaryMemberId);
+      }
+      if (linkId === 'insurance-member-id-2' && secondaryMemberId) {
+        answer = makeAnswer(secondaryMemberId);
+      }
+      if (linkId === 'policy-holder-first-name' && primarySubscriberFirstName) {
+        answer = makeAnswer(primarySubscriberFirstName);
+      }
+      if (linkId === 'policy-holder-first-name-2' && secondarySubscriberFirstName) {
+        answer = makeAnswer(secondarySubscriberFirstName);
+      }
+      if (linkId === 'policy-holder-last-name' && primarySubscriberLastName) {
+        answer = makeAnswer(primarySubscriberLastName);
+      }
+      if (linkId === 'policy-holder-last-name-2' && secondarySubscriberLastName) {
+        answer = makeAnswer(secondarySubscriberLastName);
+      }
+      if (linkId === 'policy-holder-middle-name' && primarySubscriberMiddleName) {
+        answer = makeAnswer(primarySubscriberMiddleName);
+      }
+      if (linkId === 'policy-holder-middle-name-2' && secondarySubscriberMiddleName) {
+        answer = makeAnswer(secondarySubscriberMiddleName);
+      }
+      if (linkId === 'policy-holder-date-of-birth' && primarySubscriberDoB) {
+        answer = makeAnswer(primarySubscriberDoB);
+      }
+      if (linkId === 'policy-holder-date-of-birth-2' && secondarySubscriberDoB) {
+        answer = makeAnswer(secondarySubscriberDoB);
+      }
+      if (linkId === 'policy-holder-birth-sex' && primarySubscriberBirthSex) {
+        answer = makeAnswer(primarySubscriberBirthSex);
+      }
+      if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
+        answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
+      }
+      if (linkId === 'policy-holder-address-as-patient') {
+        answer = makeAnswer(policyHolderAddressAsPatient, 'Boolean');
+      }
+      if (linkId === 'policy-holder-address-as-patient-2') {
+        answer = makeAnswer(secondaryPolicyHolderAddressAsPatient, 'Boolean');
+      }
+      if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
+        answer = makeAnswer(relationshipToInsured);
+      }
+      if (linkId === 'policy-holder-zip' && policyHolderZip) {
+        answer = makeAnswer(policyHolderZip);
+      }
+      if (linkId === 'policy-holder-state' && policyHolderState) {
+        answer = makeAnswer(policyHolderState);
+      }
+      if (linkId === 'policy-holder-city' && policyHolderCity) {
+        answer = makeAnswer(policyHolderCity);
+      }
+      if (linkId === 'policy-holder-address-additional-line' && policyHolderAddressAdditionalLine) {
+        answer = makeAnswer(policyHolderAddressAdditionalLine);
+      }
+      if (linkId === 'policy-holder-address' && policyHolderAddressLine) {
+        answer = makeAnswer(policyHolderAddressLine);
+      }
+      if (linkId === 'insurance-additional-information' && primaryAdditionalInformation) {
+        answer = makeAnswer(primaryAdditionalInformation);
+      }
+      if (linkId === 'insurance-priority') {
+        answer = primary ? makeAnswer('Primary') : undefined;
+      }
+      if (linkId === 'patient-relationship-to-insured-2' && secondaryRelationshipToInsured) {
+        answer = makeAnswer(secondaryRelationshipToInsured);
+      }
+      if (linkId === 'policy-holder-zip-2' && secondaryPolicyHolderZip) {
+        answer = makeAnswer(secondaryPolicyHolderZip);
+      }
+      if (linkId === 'policy-holder-state-2' && secondaryPolicyHolderState) {
+        answer = makeAnswer(secondaryPolicyHolderState);
+      }
+      if (linkId === 'policy-holder-city-2' && secondaryPolicyHolderCity) {
+        answer = makeAnswer(secondaryPolicyHolderCity);
+      }
+      if (linkId === 'policy-holder-address-additional-line-2' && secondaryPolicyHolderAddressAdditionalLine) {
+        answer = makeAnswer(secondaryPolicyHolderAddressAdditionalLine);
+      }
+      if (linkId === 'policy-holder-address-2' && secondaryPolicyHolderAddressLine) {
+        answer = makeAnswer(secondaryPolicyHolderAddressLine);
+      }
+      if (linkId === 'insurance-additional-information-2' && secondaryAdditionalInformation) {
+        answer = makeAnswer(secondaryAdditionalInformation);
+      }
+      if (linkId === 'insurance-priority-2') {
+        answer = secondary ? makeAnswer('Secondary') : undefined;
+      }
+      if (linkId === 'insurance-card-front' && insuranceCardFrontDocumentReference) {
+        answer = makeAnswer(insuranceCardFront, 'Attachment');
+      }
+      if (linkId === 'insurance-card-back' && insuranceCardBackDocumentReference) {
+        answer = makeAnswer(insuranceCardBack, 'Attachment');
+      }
+      if (linkId === 'insurance-card-front-2' && secondaryInsuranceCardFrontDocumentReference) {
+        answer = makeAnswer(secondaryInsuranceCardFront, 'Attachment');
+      }
+      if (linkId === 'insurance-card-back-2' && secondaryInsuranceCardBackDocumentReference) {
+        answer = makeAnswer(secondaryInsuranceCardBack, 'Attachment');
+      }
+
       return {
         linkId,
-        item: mapCoveragesToQuestionnaireResponseItems({ ...input, items: item.item ?? [] }),
+        answer,
       };
-    }
-    if (linkId === 'insurance-carrier' && primaryInsurancePlanReference) {
-      answer = makeAnswer(primaryInsurancePlanReference, 'Reference');
-    }
-    if (linkId === 'insurance-carrier-2' && secondaryInsurancePlanReference) {
-      answer = makeAnswer(secondaryInsurancePlanReference, 'Reference');
-    }
-    if (linkId === 'insurance-member-id' && primaryMemberId) {
-      answer = makeAnswer(primaryMemberId);
-    }
-    if (linkId === 'insurance-member-id-2' && secondaryMemberId) {
-      answer = makeAnswer(secondaryMemberId);
-    }
-    if (linkId === 'policy-holder-first-name' && primarySubscriberFirstName) {
-      answer = makeAnswer(primarySubscriberFirstName);
-    }
-    if (linkId === 'policy-holder-first-name-2' && secondarySubscriberFirstName) {
-      answer = makeAnswer(secondarySubscriberFirstName);
-    }
-    if (linkId === 'policy-holder-last-name' && primarySubscriberLastName) {
-      answer = makeAnswer(primarySubscriberLastName);
-    }
-    if (linkId === 'policy-holder-last-name-2' && secondarySubscriberLastName) {
-      answer = makeAnswer(secondarySubscriberLastName);
-    }
-    if (linkId === 'policy-holder-middle-name' && primarySubscriberMiddleName) {
-      answer = makeAnswer(primarySubscriberMiddleName);
-    }
-    if (linkId === 'policy-holder-middle-name-2' && secondarySubscriberMiddleName) {
-      answer = makeAnswer(secondarySubscriberMiddleName);
-    }
-    if (linkId === 'policy-holder-date-of-birth' && primarySubscriberDoB) {
-      answer = makeAnswer(primarySubscriberDoB);
-    }
-    if (linkId === 'policy-holder-date-of-birth-2' && secondarySubscriberDoB) {
-      answer = makeAnswer(secondarySubscriberDoB);
-    }
-    if (linkId === 'policy-holder-birth-sex' && primarySubscriberBirthSex) {
-      answer = makeAnswer(primarySubscriberBirthSex);
-    }
-    if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
-      answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
-    }
-    if (linkId === 'policy-holder-address-as-patient') {
-      answer = makeAnswer(policyHolderAddressAsPatient, 'Boolean');
-    }
-    if (linkId === 'policy-holder-address-as-patient-2') {
-      answer = makeAnswer(secondaryPolicyHolderAddressAsPatient, 'Boolean');
-    }
-    if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
-      answer = makeAnswer(relationshipToInsured);
-    }
-    if (linkId === 'policy-holder-zip' && policyHolderZip) {
-      answer = makeAnswer(policyHolderZip);
-    }
-    if (linkId === 'policy-holder-state' && policyHolderState) {
-      answer = makeAnswer(policyHolderState);
-    }
-    if (linkId === 'policy-holder-city' && policyHolderCity) {
-      answer = makeAnswer(policyHolderCity);
-    }
-    if (linkId === 'policy-holder-address-additional-line' && policyHolderAddressAdditionalLine) {
-      answer = makeAnswer(policyHolderAddressAdditionalLine);
-    }
-    if (linkId === 'policy-holder-address' && policyHolderAddressLine) {
-      answer = makeAnswer(policyHolderAddressLine);
-    }
-    if (linkId === 'insurance-additional-information' && primaryAdditionalInformation) {
-      answer = makeAnswer(primaryAdditionalInformation);
-    }
-    if (linkId === 'insurance-priority') {
-      answer = primary ? makeAnswer('Primary') : undefined;
-    }
-    if (linkId === 'patient-relationship-to-insured-2' && secondaryRelationshipToInsured) {
-      answer = makeAnswer(secondaryRelationshipToInsured);
-    }
-    if (linkId === 'policy-holder-zip-2' && secondaryPolicyHolderZip) {
-      answer = makeAnswer(secondaryPolicyHolderZip);
-    }
-    if (linkId === 'policy-holder-state-2' && secondaryPolicyHolderState) {
-      answer = makeAnswer(secondaryPolicyHolderState);
-    }
-    if (linkId === 'policy-holder-city-2' && secondaryPolicyHolderCity) {
-      answer = makeAnswer(secondaryPolicyHolderCity);
-    }
-    if (linkId === 'policy-holder-address-additional-line-2' && secondaryPolicyHolderAddressAdditionalLine) {
-      answer = makeAnswer(secondaryPolicyHolderAddressAdditionalLine);
-    }
-    if (linkId === 'policy-holder-address-2' && secondaryPolicyHolderAddressLine) {
-      answer = makeAnswer(secondaryPolicyHolderAddressLine);
-    }
-    if (linkId === 'insurance-additional-information-2' && secondaryAdditionalInformation) {
-      answer = makeAnswer(secondaryAdditionalInformation);
-    }
-    if (linkId === 'insurance-priority-2') {
-      answer = secondary ? makeAnswer('Secondary') : undefined;
-    }
-    if (linkId === 'insurance-card-front' && insuranceCardFrontDocumentReference) {
-      answer = makeAnswer(insuranceCardFront, 'Attachment');
-    }
-    if (linkId === 'insurance-card-back' && insuranceCardBackDocumentReference) {
-      answer = makeAnswer(insuranceCardBack, 'Attachment');
-    }
-    if (linkId === 'insurance-card-front-2' && secondaryInsuranceCardFrontDocumentReference) {
-      answer = makeAnswer(secondaryInsuranceCardFront, 'Attachment');
-    }
-    if (linkId === 'insurance-card-back-2' && secondaryInsuranceCardBackDocumentReference) {
-      answer = makeAnswer(secondaryInsuranceCardBack, 'Attachment');
-    }
-
-    return {
-      linkId,
-      answer,
-    };
-  });
+    });
 };
 
 const GUARANTOR_ITEMS = ['responsible-party-section', 'responsible-party-page'];
