@@ -25,7 +25,7 @@ import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
 import { LoadingButton } from '@mui/lab';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
+import { StatusStyleObject } from '../RefreshableStatusWidget';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useMutation } from 'react-query';
 import { DateTime } from 'luxon';
@@ -85,6 +85,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   const [showMoreInfo, setShowMoreInfo] = useState(false);
   const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
     mapInitialStatus(initialEligibilityCheck)
   );
@@ -181,6 +182,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRecheckEligibility = async (): Promise<void> => {
     console.log('recheck eligibility', recheckEligibility);
     try {
@@ -196,8 +198,10 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   };
 
-  const TitleWidget = (): ReactElement => {
-    return (
+  // todo: return the commented out code when eligibility check bug is fixed
+  const TitleWidget = (): ReactElement | undefined => {
+    return undefined;
+    /*return (
       <RefreshableStatusChip
         status={eligibilityStatus?.status ?? 'UNKNOWN'}
         lastRefreshISO={eligibilityStatus?.dateISO ?? ''}
@@ -205,7 +209,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
         isRefreshing={recheckEligibility.isLoading}
         handleRefresh={handleRecheckEligibility}
       />
-    );
+    );*/
   };
 
   return (
