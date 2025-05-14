@@ -622,6 +622,7 @@ export function makeDispositionDTO(
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;
+  console.log('followUp', JSON.stringify(followUp));
   console.log('followUpTime', followUpTime);
 
   return {
