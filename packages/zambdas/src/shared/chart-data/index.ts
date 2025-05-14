@@ -8,6 +8,7 @@ import {
   Communication,
   Condition,
   DocumentReference,
+  DomainResource,
   Encounter,
   EpisodeOfCare,
   Extension,
@@ -77,6 +78,9 @@ import {
   removeOperation,
   ADDED_VIA_LAB_ORDER_SYSTEM,
   ProcedureDTO,
+  PROCEDURE_TYPE_SYSTEM,
+  PERFORMER_TYPE_SYSTEM,
+  BODY_SITE_SYSTEM,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
@@ -1312,11 +1316,11 @@ export function makeProceduresDTOFromFhirResources(
 
   return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
     return {
-      id: serviceRequests.id ?? '',
-      procedureType: 'todo',
+      resourceId: serviceRequests.id,
+      procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM) ?? '',
       cptCodes: cptCodeProcedures
         .filter(
-          (procedure) => procedure.basedOn?.find((ref) => ref.reference === `ServiceRequest/${serviceRequests.id}`)
+          (procedure) => serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)
         )
         .flatMap((procedure) => {
           const cptDto = makeCPTCodeDTO(procedure);
@@ -1332,21 +1336,20 @@ export function makeProceduresDTOFromFhirResources(
         .map((condition) => {
           return makeDiagnosisDTO(condition, false);
         }),
-      procedureDate: 'todo',
-      procedureTime: 'todo',
-      performer: 'todo',
-      medicationUsed: 'todo',
-      site: 'todo',
-      bodySide: 'todo',
-      technique: 'todo',
-      suppliesUsed: 'todo',
-      procedureDetails: 'todo',
-      specimenSent: false,
-      complications: 'todo',
-      patientResponse: 'todo',
-      postInstructions: 'todo',
-      timeSpent: 'todo',
-      documentedBy: 'todo',
+      procedureDateTime: serviceRequests.occurrenceDateTime ?? '',
+      performerType: getCode(serviceRequests.performerType, PERFORMER_TYPE_SYSTEM) ?? '',
+      medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
+      bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM) ?? '',
+      bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
+      technique: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)?.valueString,
+      suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
+      procedureDetails: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
+      specimenSent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
+      complications: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
+      patientResponse: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
+      postInstructions: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
+      timeSpent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
+      documentedBy: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
     };
   });
 }
@@ -1408,11 +1411,61 @@ export const createProcedureServiceRequest = (
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'completed',
     intent: 'original-order',
-    category: [{}], // todo procedureType
-    occurrenceDateTime: '', // todo procedureDate procedureTime
-    performerType: {}, //todo performer
-    bodySite: [{}], //todo site
+    category: [
+      {
+        coding: [
+          {
+            system: PROCEDURE_TYPE_SYSTEM,
+            code: procedure.procedureType,
+          },
+        ],
+      },
+    ],
+    occurrenceDateTime: procedure.procedureDateTime,
+    performerType: {
+      coding: [
+        {
+          system: PERFORMER_TYPE_SYSTEM,
+          code: procedure.performerType,
+        },
+      ],
+    },
+    bodySite: [
+      {
+        coding: [
+          {
+            system: BODY_SITE_SYSTEM,
+            code: procedure.bodySite,
+          },
+        ],
+      },
+    ],
     meta: fillMeta('procedure', 'procedure'),
+    reasonReference: procedure.diagnoses.map((diagnosis) => {
+      return {
+        reference: 'Condition/' + diagnosis.resourceId,
+      };
+    }),
+    supportingInfo: procedure.cptCodes.map((cptCode) => {
+      return {
+        reference: 'Procedure/' + cptCode.resourceId,
+      };
+    }),
     extension: extensions.length > 0 ? extensions : undefined,
   });
 };
+
+function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefined, system: string): string | undefined {
+  const array = Array.isArray(codeableConcept) ? codeableConcept : [codeableConcept];
+  for (const codeableConcept of array) {
+    const code = codeableConcept?.coding?.find((coding) => coding.system === system)?.code;
+    if (code != null) {
+      return code;
+    }
+  }
+  return undefined;
+}
+
+function getExtension(resource: DomainResource, url: string): Extension | undefined {
+  return resource.extension?.find((extension) => extension.url === url);
+}

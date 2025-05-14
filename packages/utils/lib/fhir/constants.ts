@@ -516,3 +516,8 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
     ],
   },
 };
+
+const PROCEDURES_TERMINOLOGY_BASE_URL = FHIR_BASE_URL + '/CodeSystem/Procedure';
+export const PROCEDURE_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/procedure-type';
+export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/performer-type';
+export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';

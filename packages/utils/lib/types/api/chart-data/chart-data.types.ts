@@ -521,16 +521,14 @@ export const followUpInOptions = [
   },
 ];
 
-export interface ProcedureDTO {
-  id: string;
+export interface ProcedureDTO extends SaveableDTO {
   procedureType: string;
   cptCodes: CPTCodeDTO[];
   diagnoses: DiagnosisDTO[];
-  procedureDate: string;
-  procedureTime: string;
-  performer: string;
+  procedureDateTime: string;
+  performerType: string;
   medicationUsed?: string;
-  site?: string;
+  bodySite?: string;
   bodySide?: string;
   technique?: string;
   suppliesUsed?: string;
