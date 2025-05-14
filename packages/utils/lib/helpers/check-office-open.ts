@@ -1,6 +1,6 @@
 import { LocationHoursOfOperation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { Closure, HOURS_OF_OPERATION_FORMAT, OVERRIDE_DATE_FORMAT, Timezone } from '../types/common';
+import { Closure, OVERRIDE_DATE_FORMAT, Timezone } from '../types/common';
 
 export function isClosureOverride(closures: Closure[], timezone: Timezone, currentDate: DateTime): boolean {
   const result = closures.some((closure) => {
