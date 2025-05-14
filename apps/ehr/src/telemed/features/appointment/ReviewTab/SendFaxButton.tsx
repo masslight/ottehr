@@ -75,7 +75,7 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
           <ConfirmationDialog
             title="Send Fax"
             description={
-              <FormControl variant="outlined" fullWidth error={faxError} sx={{ mt: 2, mb: -3 }}>
+              <FormControl variant="outlined" fullWidth error={faxError} sx={{ mt: 2, mb: -2 }}>
                 <InputLabel shrink required htmlFor="fax-number">
                   Fax number
                 </InputLabel>

@@ -88,6 +88,7 @@ interface BookAppointmentContext
   slotId: string;
   scheduleOwnerName: string;
   scheduleOwnerType: string;
+  scheduleOwnerId: string;
   patients: PatientInfo[];
   timezone: Timezone;
   serviceMode: ServiceMode;
@@ -96,6 +97,8 @@ interface BookAppointmentContext
   endISO: string;
   waitingMinutes: number | undefined;
   patientsLoading: boolean;
+  bookingGroupId?: string;
+  bookingGroupSlug?: string;
 }
 
 export const useBookingContext = (): BookAppointmentContext => {
@@ -163,11 +166,11 @@ const BookingHome: FC = () => {
   const slotDetailsLoadingInSomeWay = slotDetailsLoading || slotDetailsFetching || slotDetailsRefetching;
 
   if (slotDetailsData) {
-    console.log('Slot details data:', slotDetailsData);
+    // console.log('Slot details data:', slotDetailsData);
   } else if (getSlotDetailsError) {
     console.log('Slot details error:', getSlotDetailsError);
   } else {
-    console.log('Slot details loading:', slotDetailsLoadingInSomeWay);
+    // console.log('Slot details loading:', slotDetailsLoadingInSomeWay);
   }
 
   const {
@@ -212,6 +215,9 @@ const BookingHome: FC = () => {
       endISO,
       ownerName,
       ownerType,
+      ownerId,
+      bookingGroupId,
+      bookingGroupSlug,
     } = slotDetailsData;
     let scheduleOwnerType = 'Location';
     if (ownerType === 'Practitioner') {
@@ -235,6 +241,9 @@ const BookingHome: FC = () => {
       unconfirmedDateOfBirth,
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
+      scheduleOwnerId: ownerId,
+      bookingGroupId,
+      bookingGroupSlug,
       setPatientInfo,
       setUnconfirmedDateOfBirth,
       completeBooking,

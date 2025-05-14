@@ -1,7 +1,6 @@
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { useTranslation } from 'react-i18next';
 import { FormInputType, PageForm } from 'ui-components';
 import { getPatientInfoFullName, PatientInfo } from 'utils';
 import { otherColors } from '../../../IntakeThemeProvider';
@@ -9,6 +8,7 @@ import { otherColors } from '../../../IntakeThemeProvider';
 interface PatientListProps {
   patients: PatientInfo[];
   subtitle: string;
+  showNewPatientOption?: boolean;
   selectedPatient?: PatientInfo;
   buttonLoading?: boolean;
   onSubmit: (data: FieldValues) => Promise<void>;
@@ -20,11 +20,10 @@ const PatientList: React.FC<PatientListProps> = ({
   selectedPatient,
   subtitle,
   buttonLoading,
+  showNewPatientOption = true,
   onSubmit,
   onBack,
 }) => {
-  const { t } = useTranslation();
-
   const formElements: FormInputType[] = useMemo(() => {
     return [
       {
@@ -52,15 +51,21 @@ const PatientList: React.FC<PatientListProps> = ({
               color: otherColors.lightBlue,
             };
           })
-          .concat({
-            label: 'Different family member',
-            description: '',
-            value: 'new-patient',
-            color: otherColors.lightBlue,
-          }),
+          .concat(
+            ...(showNewPatientOption
+              ? [
+                  {
+                    label: 'Different family member',
+                    description: '',
+                    value: 'new-patient',
+                    color: otherColors.lightBlue,
+                  },
+                ]
+              : [])
+          ),
       },
     ];
-  }, [patients, selectedPatient, t]);
+  }, [patients, selectedPatient, showNewPatientOption, subtitle]);
 
   return (
     <PageForm formElements={formElements} onSubmit={onSubmit} controlButtons={{ onBack, loading: buttonLoading }} />

@@ -7,6 +7,7 @@ import {
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
   getSlotIsWalkin,
+  getSlugForBookableResource,
   getTimezone,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -18,7 +19,7 @@ import {
   ServiceMode,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, HealthcareService, Schedule, Slot } from 'fhir/r4b';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 
 let m2mtoken: string;
@@ -47,7 +48,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
-  const { slot, schedule, scheduleOwner, appointmentId } = input;
+  const { slot, schedule, scheduleOwner, appointmentId, bookingGroupId, bookingGroupSlug } = input;
 
   const startISO = slot.start;
   const endISO = slot.end;
@@ -66,6 +67,8 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
 
   return {
     slotId: slot.id!,
+    status: slot.status,
+    scheduleId: schedule.id!,
     startISO,
     endISO,
     serviceMode,
@@ -76,6 +79,8 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
     comment: slot.comment,
     timezoneForDisplay,
     ownerName,
+    bookingGroupId,
+    bookingGroupSlug,
   };
 };
 
@@ -107,6 +112,8 @@ interface EffectInput {
   schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
   appointmentId?: string;
+  bookingGroupId?: string;
+  bookingGroupSlug?: string;
 }
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
@@ -146,5 +153,43 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
   const appointment = slotAndChainedResources.find((s): s is Appointment => s.resourceType === 'Appointment');
 
-  return { slot, schedule, scheduleOwner, appointmentId: appointment?.id };
+  // Ottehr uses the HealthcareService resource https://build.fhir.org/healthcareservice.html
+  // to represent scheduling "groups". if a schedule owner belongs to a single such group, we'll return its identifying
+  // details, which may be useful in directing the user back to the root scheduling page that was originally used
+  // to book the appointment.
+
+  let bookingGroupId: string | undefined;
+  let bookingGroupSlug: string | undefined;
+  if (scheduleOwner.resourceType === 'HealthcareService') {
+    bookingGroupId = scheduleOwner.id;
+    bookingGroupSlug = getSlugForBookableResource(scheduleOwner);
+  }
+  if (scheduleOwner.resourceType === 'Location') {
+    const associatedServices = (
+      await oystehr.fhir.search<HealthcareService>({
+        resourceType: 'HealthcareService',
+        params: [{ name: 'location', value: `Location/${scheduleOwnerId}` }],
+      })
+    ).unbundle();
+
+    if (associatedServices.length === 1) {
+      bookingGroupId = associatedServices[0].id;
+      bookingGroupSlug = getSlugForBookableResource(associatedServices[0]);
+    }
+  }
+  if (scheduleOwner.resourceType === 'Practitioner') {
+    const associatedServices = (
+      await oystehr.fhir.search<HealthcareService>({
+        resourceType: 'HealthcareService',
+        params: [{ name: '_has:PractitionerRole:service:practitioner:Practitioner:_id', value: scheduleOwnerId }],
+      })
+    ).unbundle();
+
+    if (associatedServices.length === 1) {
+      bookingGroupId = associatedServices[0].id;
+      bookingGroupSlug = getSlugForBookableResource(associatedServices[0]);
+    }
+  }
+
+  return { slot, schedule, scheduleOwner, appointmentId: appointment?.id, bookingGroupId, bookingGroupSlug };
 };
