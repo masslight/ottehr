@@ -199,7 +199,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   };
 
-  const TitleWidget = (): ReactElement | undefined => {
+  const TitleWidget = (): ReactElement => {
     return (
       <RefreshableStatusChip
         status={eligibilityStatus?.status ?? 'UNKNOWN'}
