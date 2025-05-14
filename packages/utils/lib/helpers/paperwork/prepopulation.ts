@@ -593,6 +593,8 @@ interface MapCoverageItemsInput {
 const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput): QuestionnaireResponseItem[] => {
   const { items, coverages, patient, documents } = input;
 
+  const patientAddress = patient.address?.[0];
+
   const insuranceCardFrontDocumentReference = documents?.find((doc) =>
     doc.content.some((item) => item.attachment.title === 'insurance-card-front')
   );
@@ -682,8 +684,8 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let primarySubscriberLastName = '';
   let primarySubscriberMiddleName = '';
   const relationshipToInsured = primary?.relationship?.coding?.[0].display;
-  const policyHolderAddressAsPatient = areAddressesEqual(primarySubscriber?.address?.[0], patient.address?.[0]);
   const policyHolderAddress = primarySubscriber?.address?.[0];
+  const policyHolderAddressAsPatient = patientAddress && areAddressesEqual(policyHolderAddress, patientAddress);
   const policyHolderZip = policyHolderAddress?.postalCode;
   const policyHolderState = policyHolderAddress?.state;
   const policyHolderCity = policyHolderAddress?.city;
@@ -707,11 +709,9 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
   let secondarySubscriberLastName: string | undefined;
   let secondarySubscriberMiddleName: string | undefined;
   const secondaryRelationshipToInsured = secondary?.relationship?.coding?.[0].display;
-  const secondaryPolicyHolderAddressAsPatient = areAddressesEqual(
-    secondarySubscriber?.address?.[0],
-    patient.address?.[0]
-  );
   const secondaryPolicyHolderAddress = secondarySubscriber?.address?.[0];
+  const secondaryPolicyHolderAddressAsPatient =
+    patientAddress && areAddressesEqual(secondaryPolicyHolderAddress, patientAddress);
   const secondaryPolicyHolderZip = secondaryPolicyHolderAddress?.postalCode;
   const secondaryPolicyHolderState = secondaryPolicyHolderAddress?.state;
   const secondaryPolicyHolderCity = secondaryPolicyHolderAddress?.city;
@@ -781,10 +781,10 @@ const mapCoveragesToQuestionnaireResponseItems = (input: MapCoverageItemsInput):
       if (linkId === 'policy-holder-birth-sex-2' && secondarySubscriberBirthSex) {
         answer = makeAnswer(capitalize(secondarySubscriberBirthSex));
       }
-      if (linkId === 'policy-holder-address-as-patient') {
+      if (linkId === 'policy-holder-address-as-patient' && policyHolderAddressAsPatient) {
         answer = makeAnswer(policyHolderAddressAsPatient, 'Boolean');
       }
-      if (linkId === 'policy-holder-address-as-patient-2') {
+      if (linkId === 'policy-holder-address-as-patient-2' && secondaryPolicyHolderAddressAsPatient) {
         answer = makeAnswer(secondaryPolicyHolderAddressAsPatient, 'Boolean');
       }
       if (linkId === 'patient-relationship-to-insured' && relationshipToInsured) {
