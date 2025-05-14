@@ -263,7 +263,7 @@ export enum DocumentType {
   FullPhotoId = 'fullPhotoIDCard',
   HipaaConsent = 'HIPAA Acknowledgement',
   CttConsent = 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
-  CttConsent2 = 'Consent to Treat and Guarantee of Payment',
+  CttConsentOld = 'Consent to Treat and Guarantee of Payment',
 }
 export interface DocumentInfo {
   type: DocumentType;
