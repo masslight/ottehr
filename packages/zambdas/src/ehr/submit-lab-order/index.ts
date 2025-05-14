@@ -140,77 +140,66 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const now = DateTime.now();
     const sampleCollectionDates: DateTime[] = [];
 
-    const specimenPatchOperations = specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
-      if (!specimen.id) {
-        return acc;
-      }
-
-      /**
-       * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
-       * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
-       * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
-       * upon submission we should set the current date.
-       */
-      const specimenDateTime = specimen.collection?.collectedDateTime;
-      console.log('specimenDateTime', specimenDateTime);
-
-      const specimenCollector = { reference: currentUser?.profile };
-
-      const requests: Operation[] = [];
-
-      if (!specimenDateTime) {
-        sampleCollectionDates.push(now);
-        if (specimen.collection) {
-          requests.push(
-            {
-              path: '/collection/collectedDateTime',
-              op: 'add',
-              value: now,
-            },
-            {
-              path: '/collection/collector',
-              op: 'add',
-              value: specimenCollector,
+    const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
+      specimens.length > 0
+        ? specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+            if (!specimen.id) {
+              return acc;
             }
-          );
-        } else {
-          requests.push({
-            path: '/collection',
-            op: 'add',
-            value: {
-              collectedDateTime: now,
-              collector: specimenCollector,
-            },
-          });
-        }
-      } else {
-        sampleCollectionDates.push(DateTime.fromISO(specimenDateTime));
-      }
 
-      // temp hard coding to eliminate submission errors and allow for testing the sepciment ui
-      // we have a ticket to add a field and accept this value from the front end
-      requests.push({
-        path: '/container',
-        op: 'add',
-        value: [
-          {
-            specimenQuantity: {
-              value: 1,
-            },
-          },
-        ],
-      });
+            /**
+             * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
+             * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
+             * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
+             * upon submission we should set the current date.
+             */
+            const specimenDateTime = specimen.collection?.collectedDateTime;
+            console.log('specimenDateTime', specimenDateTime);
 
-      acc.push(
-        getPatchBinary({
-          resourceType: 'Specimen',
-          resourceId: specimen.id,
-          patchOperations: requests,
-        })
-      );
+            const specimenCollector = { reference: currentUser?.profile };
 
-      return acc;
-    }, []);
+            const requests: Operation[] = [];
+
+            if (!specimenDateTime) {
+              sampleCollectionDates.push(now);
+              if (specimen.collection) {
+                requests.push(
+                  {
+                    path: '/collection/collectedDateTime',
+                    op: 'add',
+                    value: now,
+                  },
+                  {
+                    path: '/collection/collector',
+                    op: 'add',
+                    value: specimenCollector,
+                  }
+                );
+              } else {
+                requests.push({
+                  path: '/collection',
+                  op: 'add',
+                  value: {
+                    collectedDateTime: now,
+                    collector: specimenCollector,
+                  },
+                });
+              }
+            } else {
+              sampleCollectionDates.push(DateTime.fromISO(specimenDateTime));
+            }
+
+            acc.push(
+              getPatchBinary({
+                resourceType: 'Specimen',
+                resourceId: specimen.id,
+                patchOperations: requests,
+              })
+            );
+
+            return acc;
+          }, [])
+        : [];
 
     // Specimen.collection.collected is required at time of order so we must make this patch before submitting to oystehr
     const preSumbissionWriteRequests = [...specimenPatchOperations];
@@ -352,9 +341,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
-    const mostRecentSampleCollectionDate = sampleCollectionDates.reduce((latest, current) => {
-      return current > latest ? current : latest;
-    });
+    const mostRecentSampleCollectionDate =
+      sampleCollectionDates.length > 0
+        ? sampleCollectionDates.reduce((latest, current) => {
+            return current > latest ? current : latest;
+          })
+        : undefined;
 
     const pdfDetail = await createExternalLabsOrderFormPDF(
       {
@@ -385,7 +377,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         todayDate: now.toFormat('MM/dd/yy hh:mm a'),
         orderSubmitDate: now.toFormat('MM/dd/yy hh:mm a'),
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
-        sampleCollectionDate: mostRecentSampleCollectionDate.toFormat('MM/dd/yy hh:mm a') || undefined,
+        sampleCollectionDate: mostRecentSampleCollectionDate?.toFormat('MM/dd/yy hh:mm a') || undefined,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])

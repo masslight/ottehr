@@ -74,7 +74,7 @@ const UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_LAB
 const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAMBDA_ID;
 const UPDATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_SCHEDULE_ZAMBDA_ID;
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = import.meta.env.VITE_APP_LIST_SCHEDULE_OWNERS_ZAMBDA_ID;
-const CREATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_SCHEDULE_ZAMBDA_ID;
+const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 
 export const getUser = async (token: string): Promise<User> => {
@@ -467,10 +467,6 @@ export const updateSchedule = async (params: UpdateScheduleParams, oystehr: Oyst
 
 export const createSchedule = async (params: CreateScheduleParams, oystehr: Oystehr): Promise<Schedule> => {
   try {
-    if (CREATE_SCHEDULE_ZAMBDA_ID == null) {
-      throw new Error('create-schedule zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: CREATE_SCHEDULE_ZAMBDA_ID,
       ...params,
