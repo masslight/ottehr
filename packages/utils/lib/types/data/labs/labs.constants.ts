@@ -1,4 +1,4 @@
-import { Pagination } from './labs.types';
+import { Pagination } from '..';
 
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
