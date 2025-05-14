@@ -18,6 +18,7 @@ import {
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
   getCriticalUpdateTagOp,
+  getLocationInformation,
   getPatchBinary,
   getPatientContactEmail,
   getPatientFirstName,
@@ -27,17 +28,16 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
+  ZambdaInput,
   captureSentryException,
   configSentry,
   createAuditEvent,
   createOystehrClient,
   getAuth0Token,
   getEncounterDetails,
-  getLocationInformation,
   getUser,
   topLevelCatch,
   validateBundleAndExtractAppointment,
-  ZambdaInput,
 } from '../../../shared';
 import { sendInPersonCancellationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';

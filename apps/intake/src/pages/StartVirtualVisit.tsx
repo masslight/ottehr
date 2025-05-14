@@ -1,6 +1,7 @@
 import { InfoOutlined } from '@mui/icons-material';
 import { Autocomplete, Skeleton, TextField, Typography } from '@mui/material';
 import { Box, useTheme } from '@mui/system';
+import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
 import {
@@ -13,23 +14,42 @@ import {
 } from 'ui-components';
 import {
   APIError,
-  checkTelemedLocationAvailability,
   CreateSlotParams,
+  getHoursOfOperationForToday,
+  getTimezone,
   isApiError,
+  isLocationOpen,
   ServiceMode,
   stateCodeToFullName,
   TelemedLocation,
-  telemedStateWorkingSchedule,
 } from 'utils';
+import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
+import { PageContainer } from '../components';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedStates } from '../telemed/features/appointments';
 import { useZapEHRAPIClient } from '../telemed/utils';
-import { PageContainer } from '../components';
-import { DateTime } from 'luxon';
-import ottehrApi from '../api/ottehrApi';
 
 const emptyArray: [] = [];
+
+const currentWorkingHoursText = (location: TelemedLocation | undefined): string | null => {
+  if (!location?.schedule) {
+    return null;
+  }
+  const schedule = location.schedule;
+  const hoursOfOperation = getHoursOfOperationForToday(schedule);
+  const timezone = getTimezone(schedule);
+  if (!hoursOfOperation) {
+    return null;
+  }
+  const { open, close } = hoursOfOperation;
+  const openTime = DateTime.fromISO(open).setZone(timezone);
+  const closeTime = DateTime.fromISO(close).setZone(timezone);
+  if (openTime.isValid && closeTime.isValid) {
+    return openTime.toFormat('h:mm a') + ' - ' + closeTime.toFormat('h:mm a');
+  }
+  return null;
+};
 
 const StartVirtualVisit = (): JSX.Element => {
   const navigate = useNavigate();
@@ -56,7 +76,7 @@ const StartVirtualVisit = (): JSX.Element => {
       }
 
       const createSlotInput: CreateSlotParams = {
-        scheduleId: selectedLocation.scheduleId,
+        scheduleId: selectedLocation.schedule.id!,
         startISO: DateTime.now().toISO(),
         serviceModality: ServiceMode.virtual,
         lengthInMinutes: 15,
@@ -95,10 +115,7 @@ const StartVirtualVisit = (): JSX.Element => {
   const sortedStates = useMemo(() => {
     const allStates = new Set([...Object.keys(stateCodeToFullName), ...telemedStates.map((s) => s.state)]);
 
-    const getPriority = (state: {
-      available: boolean;
-      workingHours: null | (typeof telemedStateWorkingSchedule)[string];
-    }): number => {
+    const getPriority = (state: { available: boolean; workingHours: null | string }): number => {
       if (state.available) return 0;
       if (state.workingHours) return 1;
       return 2;
@@ -108,12 +125,22 @@ const StartVirtualVisit = (): JSX.Element => {
       .map((stateCode) => {
         const serverState = telemedStates.find((s) => s.state === stateCode);
 
+        const currentWorkingHours = currentWorkingHoursText(serverState);
         return {
           state: stateCode,
-          available: serverState ? checkTelemedLocationAvailability(serverState) : false,
-          workingHours: (Boolean(serverState?.available) && telemedStateWorkingSchedule[stateCode]) || null,
+          available: serverState
+            ? isLocationOpen(
+                serverState.locationInformation.hoursOfOperation ?? [],
+                serverState.locationInformation.timezone ?? '',
+                serverState.locationInformation.closures ?? [],
+                DateTime.now().setZone(serverState.locationInformation.timezone ?? '')
+              )
+            : false,
+          workingHours: (Boolean(serverState?.available) && currentWorkingHours) || null,
           fullName: stateCodeToFullName[stateCode] || stateCode,
-          scheduleId: serverState?.scheduleId || '',
+          scheduleId: serverState?.schedule.id || '',
+          schedule: serverState?.schedule,
+          locationInformation: serverState?.locationInformation,
         };
       })
       .sort((a, b) => {
@@ -144,7 +171,9 @@ const StartVirtualVisit = (): JSX.Element => {
             id="states-autocomplete"
             options={sortedStates}
             getOptionLabel={(option) => option.fullName || option.state || ''}
-            onChange={handleStateChange}
+            onChange={(_e, newValue) =>
+              newValue?.schedule ? handleStateChange(_e, newValue as TelemedLocation) : null
+            }
             value={sortedStates.find((state) => state.state === selectedLocation?.state) || null}
             isOptionEqualToValue={(option, value) => option.state === value.state}
             renderOption={(props, option) => {
@@ -162,10 +191,7 @@ const StartVirtualVisit = (): JSX.Element => {
                     {option.workingHours && (
                       <>
                         <Typography variant="body2" color="text.secondary">
-                          Mon - Fri: {option.workingHours?.weekdays}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Weekends & Federal Holidays: {option.workingHours?.weekends}
+                          Working hours today: {option.workingHours}
                         </Typography>
                       </>
                     )}
@@ -175,7 +201,7 @@ const StartVirtualVisit = (): JSX.Element => {
             }}
             renderInput={(params) => (
               <>
-                <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap' }}>
+                <BoldPurpleInputLabel required shrink sx={{ whiteSpace: 'pre-wrap', mt: 3 }}>
                   Current location (State)
                 </BoldPurpleInputLabel>
                 <TextField
