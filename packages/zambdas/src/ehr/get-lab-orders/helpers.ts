@@ -138,7 +138,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   const appointmentId = parseAppointmentId(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
-  // TODO: remove DONE
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
 
   const listPageDTO: LabOrderListPageDTO = {
@@ -147,9 +146,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     fillerLab,
     serviceRequestId: serviceRequest.id,
     accessionNumbers: parseAccessionNumbers(serviceRequest, results),
-    // TODO remove: Done
     lastResultReceivedDate: parseLabOrderLastResultReceivedDate(serviceRequest, results, tasks, cache),
-    // TODO remove: Done
     orderAddedDate: parseLabOrderAddedDate(serviceRequest, tasks, results, cache),
     orderStatus: orderStatus,
     visitDate: parseVisitDate(appointment),
@@ -164,7 +161,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   if (searchBy.searchBy.field === 'serviceRequestId') {
     const detailedPageDTO: LabOrderDetailedPageDTO = {
       ...listPageDTO,
-      // TODO remove: done
       history: parseLabOrdersHistory(
         serviceRequest,
         orderStatus,
@@ -176,7 +172,6 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         cache
       ),
       accountNumber: parseAccountNumber(serviceRequest, organizations),
-      // // TODO remove: Done
       resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
@@ -958,7 +953,6 @@ export const parseLabOrderStatus = (
     return ExternalLabsStatus.prelim;
   }
 
-  // Athena TODO: corrected logic probably needs to get evaluated here
   // 'corrected': DR.status == 'corrected', Task(RCT).status == 'ready'
   const hasReadyRCRTWithCorrectedResult = finalAndCorrectedTasks.some((task) => {
     if (
@@ -1637,7 +1631,6 @@ export const parseResultDetails = (
     testItem: result.code?.text || result.code?.coding?.[0]?.display || 'Unknown Test',
     labStatus:
       // todo: move status checkers to helper
-      // Athena TODO: we check lab status here AND somewhere else????
       result.status === 'final' && task.status === 'ready'
         ? ExternalLabsStatus.received
         : result.status === 'corrected' && task.status === 'ready'
