@@ -8,6 +8,8 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   formatPhoneNumberDisplay,
   getCriticalUpdateTagOp,
+  getEncounterStatusHistoryIdx,
+  getLocationInformation,
   getPatchBinary,
   getTaskResource,
   Secrets,
@@ -20,8 +22,6 @@ import {
   configSentry,
   createOystehrClient,
   getAuth0Token,
-  getEncounterStatusHistoryIdx,
-  getLocationInformation,
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';

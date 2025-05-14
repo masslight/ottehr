@@ -7,6 +7,7 @@ import {
   AvailableLocationInformation,
   GetAppointmentDetailsResponse,
   getAvailableSlotsForSchedules,
+  getLocationInformation,
   getSecret,
   SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
@@ -17,7 +18,6 @@ import {
   configSentry,
   createOystehrClient,
   getAuth0Token,
-  getLocationInformation,
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
