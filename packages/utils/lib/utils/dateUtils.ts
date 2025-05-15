@@ -25,6 +25,7 @@ export const convertCapacityListToBucketedTimeSlots = (
 ): SlotCapacityMap => {
   const startOfDate = startDate.startOf('day');
   const timeSlots: { [slot: string]: number } = {};
+  // console.log('scheduleCapcityList', scheduleCapcityList);
   scheduleCapcityList.forEach((entry) => {
     const { capacity, hour } = entry;
     const bucketedCapacity = divideHourlyCapacityBySlotInterval(capacity);
@@ -36,51 +37,25 @@ export const convertCapacityListToBucketedTimeSlots = (
   return timeSlots;
 };
 
-const divideHourlyCapacityBySlotInterval = (capacity: number): { [slot: number]: number } => {
+// todo: get rid of magic numbers...
+const divideHourlyCapacityBySlotInterval = (capacity: number, slotLength = 15): { [slot: number]: number } => {
   const minutesToDistributeInHour = 60;
+  const numBuckets = Math.floor(minutesToDistributeInHour / slotLength);
   const timeSlots: { [slot: number]: number } = {};
-  const minutesPerSlot = Math.ceil(minutesToDistributeInHour / capacity);
+  const highUnitsPerBucket = Math.ceil(capacity / numBuckets);
+  const lowUnitsPerBucket = Math.floor(capacity / numBuckets);
 
-  for (let i = 0; i < minutesToDistributeInHour; i += minutesPerSlot) {
-    timeSlots[i] = 1;
-  }
-  //console.log('timeSlots pre-bucketing', timeSlots);
-
-  // the capacity is less than the number of times an hour is divisible by the slot length
-  const undercapacity = Object.entries(timeSlots).length < 4; // 60 / slot length - todo: get rid of magic numbers
-
-  const bucketedTimeSlots: { [slot: string]: number } = Object.entries(timeSlots).reduce(
-    (acc, [key, value]) => {
-      const bucketedKey = findNearestBucketForSlotStart(parseInt(key), 15, undercapacity);
-      const currentCount = acc[bucketedKey] ?? 0;
-      acc[bucketedKey] = currentCount + value;
-      return acc;
-    },
-    {} as { [slot: string]: number }
-  );
-  //console.log('bucketedTimeSlots', bucketedTimeSlots);
-  return bucketedTimeSlots;
-};
-
-const findNearestBucketForSlotStart = (minute: number, slotLength: number, undercapacity: boolean): number => {
-  const minuteMod = minute % slotLength;
-  if (minuteMod === 0) {
-    return minute;
-  } else {
-    // the capacity is less than the number of times an hour is divisible by the slot length
-    if (undercapacity) {
-      return minute - minuteMod;
-    }
-    if (minuteMod > slotLength / 2) {
-      if (minute + (slotLength - minuteMod) === 60) {
-        return 0;
-      } else {
-        return minute + (slotLength - minuteMod);
-      }
+  // todo: handle full distribution strategy for under capacity situations
+  for (let i = 0; i < minutesToDistributeInHour; i += slotLength) {
+    if (i + slotLength >= minutesToDistributeInHour) {
+      timeSlots[i] = lowUnitsPerBucket;
     } else {
-      return minute - minuteMod;
+      timeSlots[i] = highUnitsPerBucket;
     }
   }
+  console.log('timeSlots pre-bucketing', timeSlots);
+
+  return timeSlots;
 };
 
 export const convertCapacityMapToSlotList = (timeSlots: { [slot: string]: number }): string[] => {

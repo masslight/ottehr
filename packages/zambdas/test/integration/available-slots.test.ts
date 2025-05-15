@@ -412,4 +412,65 @@ describe('slot availability tests', () => {
     expect(expectedList2.length).toEqual(96);
     expect(availableSlots2).toEqual(expectedList2);
   });
+
+  it('huge capacity test', async () => {
+    // if we have capacity = 3 and need to distribute those slots in 15 minute windows accross a single hour
+    if (!oystehr) {
+      throw new Error('oystehr is null');
+    }
+    const scheduleAdjusted = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1000);
+    const schedule = await persistSchedule(scheduleAdjusted, oystehr);
+    expect(schedule).toBeDefined();
+    expect(schedule.id).toBeDefined();
+
+    const scheduleExtension = getScheduleExtension(schedule);
+    expect(scheduleExtension).toBeDefined();
+    assert(scheduleExtension);
+    expect(JSON.stringify(scheduleExtension)).toEqual(JSON.stringify(scheduleAdjusted));
+    const timezone = getTimezone(schedule);
+    expect(timezone).toBeDefined();
+
+    const startDate = DateTime.now().setZone(timezone).startOf('day');
+
+    const getSlotsInput: GetAvailableSlotsInput = {
+      now: startDate,
+      schedule: schedule,
+      numDays: 1,
+      busySlots: [],
+    };
+
+    // this gives us a list of strings representing the start time of some 15 minute slots
+    const availableSlots = getAvailableSlots(getSlotsInput);
+    expect(availableSlots).toBeDefined();
+    expect(availableSlots.length).toEqual(96); // 24 hours * 3 slots per hour
+    const tomorrow = startDate.plus({ days: 1 });
+    let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+
+    const expectedList = [];
+
+    while (now < tomorrow) {
+      expectedList.push(now.toISO());
+      now = now.plus({ minutes: 15 });
+    }
+
+    expect(expectedList.length).toEqual(96);
+    expect(availableSlots).toEqual(expectedList);
+
+    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // to verify that the number of slots in each time slot is correct
+    const capacityMap = getAllSlotsAsCapacityMap({
+      now: startDate,
+      finishDate: startDate.plus({ days: 1 }),
+      scheduleExtension,
+      timezone,
+    });
+    console.log('capacity map', capacityMap);
+    now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+    while (now < tomorrow) {
+      const capacity = capacityMap[now.toISO()!];
+      expect(capacity).toBeDefined();
+      expect(capacity).toEqual(250);
+      now = now.plus({ minutes: 15 });
+    }
+  });
 });
