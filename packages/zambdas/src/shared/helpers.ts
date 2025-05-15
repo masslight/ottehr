@@ -19,7 +19,7 @@ import {
   AvailableLocationInformation,
   EncounterVirtualServiceExtension,
   findQuestionnaireResponseItemLinkId,
-  getScheduleDetails,
+  getScheduleExtension,
   getSecret,
   getTimezone,
   HOURS_OF_OPERATION_FORMAT,
@@ -236,7 +236,7 @@ export function getLocationInformation(
   const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
   const timezone = getTimezone(scheduleResource);
 
-  const schedule = getScheduleDetails(scheduleResource);
+  const schedule = getScheduleExtension(scheduleResource);
   const scheduleOverrides = schedule?.scheduleOverrides || {};
 
   let scheduleType: ScheduleType;

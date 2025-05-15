@@ -4,7 +4,7 @@ import {
   Closure,
   ClosureType,
   DOW,
-  getScheduleDetails,
+  getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
@@ -182,7 +182,7 @@ const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHou
   const tz = getTimezone(item) ?? TIMEZONES[0];
   const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
 
-  const scheduleTemp = getScheduleDetails(item);
+  const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {
     return undefined;
   }
@@ -218,7 +218,7 @@ const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHou
 };
 
 function getItemOverrideInformation(item: Schedule): string | undefined {
-  const scheduleTemp = getScheduleDetails(item);
+  const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {
     return undefined;
   }

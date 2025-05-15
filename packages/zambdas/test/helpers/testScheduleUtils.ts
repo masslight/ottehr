@@ -327,7 +327,7 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
       open: 0,
       close: 0,
       openingBuffer: 0,
-      closingBuffer: 0,
+      closingBuffer: 24,
       workingDay: true,
       hours: [
         {
@@ -432,7 +432,7 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
       open: 0,
       close: 0,
       openingBuffer: 0,
-      closingBuffer: 0,
+      closingBuffer: 24,
       workingDay: true,
       hours: [
         {
@@ -535,7 +535,7 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     wednesday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
       closingBuffer: 0,
       workingDay: true,
@@ -640,7 +640,7 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     thursday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
       closingBuffer: 0,
       workingDay: true,
@@ -745,7 +745,7 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     friday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
       closingBuffer: 0,
       workingDay: true,
@@ -850,7 +850,7 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     saturday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
       closingBuffer: 0,
       workingDay: true,
@@ -955,7 +955,7 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     sunday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
       closingBuffer: 0,
       workingDay: true,
@@ -1061,4 +1061,46 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
   },
   scheduleOverrides: {},
   closures: [],
+};
+
+interface BufferDef {
+  openingBuffer?: number;
+  closingBuffer?: number;
+}
+
+export const applyBuffersToScheduleExtension = (
+  scheduleExt: ScheduleExtension,
+  bufferDef: BufferDef
+): ScheduleExtension => {
+  const { openingBuffer, closingBuffer } = bufferDef;
+  const schedule = scheduleExt.schedule;
+
+  const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
+    const newOpeningBuffer = openingBuffer ?? daySchedule.openingBuffer;
+    const newClosingBuffer = closingBuffer ?? daySchedule.closingBuffer;
+
+    return [day, { ...daySchedule, openingBuffer: newOpeningBuffer, closingBuffer: newClosingBuffer }];
+  });
+  const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
+  return {
+    ...scheduleExt,
+    schedule: scheduleNew,
+  };
+};
+
+export const changeAllCapacities = (scheduleExt: ScheduleExtension, newCapacity: number): ScheduleExtension => {
+  const schedule = scheduleExt.schedule;
+
+  const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
+    const { hours } = daySchedule;
+    const updatedHours = hours.map((hourObj) => {
+      return { ...hourObj, capacity: newCapacity };
+    });
+    return [day, { ...daySchedule, hours: updatedHours }];
+  });
+  const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
+  return {
+    ...scheduleExt,
+    schedule: scheduleNew,
+  };
 };

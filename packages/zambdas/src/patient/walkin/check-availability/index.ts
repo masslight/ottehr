@@ -7,7 +7,7 @@ import {
   createOystehrClient,
   FHIR_RESOURCE_NOT_FOUND,
   getLocationHoursFromScheduleExtension,
-  getScheduleDetails,
+  getScheduleExtension,
   getSecret,
   getServiceModeFromScheduleOwner,
   getTimezone,
@@ -212,7 +212,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     serviceMode = getServiceModeFromScheduleOwner(scheduleOwner);
   }
 
-  const scheduleExtension = getScheduleDetails(schedule);
+  const scheduleExtension = getScheduleExtension(schedule);
 
   if (!scheduleExtension) {
     throw MISSING_SCHEDULE_EXTENSION_ERROR;
