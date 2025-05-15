@@ -437,6 +437,7 @@ export interface GetAvailableSlotsInput {
 
 // returns a list of available slots for the next numDays
 export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
+  console.time('getAvailableSlots');
   const { now, numDays, schedule, busySlots } = input;
   const timezone = getTimezone(schedule);
   const scheduleDetails = getScheduleExtension(schedule);
@@ -456,6 +457,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
     slotCapacityMap,
     busySlots,
   });
+  console.timeEnd('getAvailableSlots');
 
   return availableSlots;
 }
