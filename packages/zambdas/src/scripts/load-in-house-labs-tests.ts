@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import {
   ActivityDefinition,
   ObservationDefinition,
@@ -7,7 +7,6 @@ import {
   ObservationDefinitionQuantitativeDetails,
   ObservationDefinitionQualifiedInterval,
 } from 'fhir/r4b';
-import * as readline from 'readline';
 import {
   testItems,
   TestItem,
@@ -19,12 +18,16 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   IN_HOUSE_RESULTS_VALUESET_SYSTEM,
 } from 'utils';
+import fs from 'fs';
+import { getAuth0Token, createOystehrClient } from '../shared';
 
-function askQuestion(rl: readline.Interface, question: string): Promise<string> {
-  return new Promise((resolve) => {
-    rl.question(question, resolve);
-  });
-}
+const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging'];
+const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
+
+const checkEnvPassedIsValid = (env: string | undefined): boolean => {
+  if (!env) return false;
+  return VALID_ENVS.includes(env);
+};
 
 const sanitizeForId = (str: string): string => {
   /* eslint-disable-next-line  no-useless-escape */
@@ -290,20 +293,40 @@ function getObservationRequirement(item: TestItem): {
 }
 
 async function main(): Promise<void> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  if (process.argv.length !== 3) {
+    console.error(`exiting, incorrect number of arguemnts passed\n`);
+    console.log(USAGE_STR);
+    process.exit(1);
+  }
 
-  const projectId = (await askQuestion(rl, 'Enter project id: ')).trim();
-  const accessToken = (await askQuestion(rl, 'Enter access token: ')).trim();
+  let ENV = process.argv[2].toLowerCase();
+  ENV = ENV === 'dev' ? 'development' : ENV;
 
-  rl.close();
+  if (!checkEnvPassedIsValid(ENV)) {
+    console.error(`exiting, ENV variable passed is not valid: ${ENV}`);
+    console.log(USAGE_STR);
+    process.exit(2);
+  }
 
-  const oysterClient = new Oystehr({
-    accessToken: accessToken,
-    projectId: projectId,
-  });
+  let envConfig: any | undefined = undefined;
+
+  try {
+    envConfig = JSON.parse(fs.readFileSync(`.env/${ENV}.json`, 'utf8'));
+  } catch (e) {
+    console.error(`Unable to read env file. Error: ${JSON.stringify(e)}`);
+    process.exit(3);
+  }
+
+  const token = await getAuth0Token(envConfig);
+
+  if (!token) {
+    console.error('Failed to fetch auth token.');
+    process.exit(4);
+  }
+
+  console.log(`Creating ActivityDefinitions on ${ENV} environment\n`);
+
+  const oystehrClient = createOystehrClient(token, envConfig);
 
   const activityDefinitions: ActivityDefinition[] = [];
 
@@ -364,16 +387,44 @@ async function main(): Promise<void> {
 
   console.log('ActivityDefinitions: ', JSON.stringify(activityDefinitions, undefined, 2));
 
-  const requests: BatchInputRequest<ActivityDefinition>[] = activityDefinitions.map((activityDefinition) => {
-    return {
+  const requests: BatchInputRequest<ActivityDefinition>[] = [];
+
+  activityDefinitions.map((activityDefinition) => {
+    requests.push({
       method: 'POST',
       url: '/ActivityDefinition',
       resource: activityDefinition,
-    };
+    });
   });
 
+  // make the requests to retire the pre-existing ActivityDefinitions
+  (
+    await oystehrClient.fhir.search<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      params: [
+        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+        { name: 'status', value: 'active' },
+      ],
+    })
+  )
+    .unbundle()
+    .map((activityDef) => {
+      if (activityDef.id)
+        requests.push({
+          url: `/ActivityDefinition/${activityDef.id}`,
+          method: 'PATCH',
+          operations: [
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'retired',
+            },
+          ],
+        });
+    });
+
   try {
-    const oystehrResponse = await oysterClient.fhir.transaction<ActivityDefinition>({ requests });
+    const oystehrResponse = await oystehrClient.fhir.transaction<ActivityDefinition>({ requests });
     console.log(JSON.stringify(oystehrResponse));
   } catch (error) {
     console.error(error);

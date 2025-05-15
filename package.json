@@ -43,8 +43,7 @@
     "zambdas:start": "turbo start --filter=zambdas",
     "apps:start": "turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "test": "turbo test",
-    "prepare": "husky",
-    "make-in-house-test-items": "tsx scripts/load-in-house-labs-tests.ts"
+    "prepare": "husky"
   },
   "workspaces": [
     "packages/**/*",
