@@ -1,28 +1,64 @@
 import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import {
+  Address,
+  Appointment,
+  Encounter,
+  Location,
+  Patient,
+  Practitioner,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  Schedule,
+  Slot,
+} from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
+  AppointmentData,
+  CreateAppointmentInputParams,
   CreateAppointmentResponse,
   createSampleAppointments,
+  DEFAULT_FIRST_NAMES,
+  DEFAULT_LAST_NAMES,
+  DEFAULT_REASONS_FOR_VISIT,
+  DemoAppointmentData,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
+  getAdditionalQuestionsAnswers,
+  getAllergiesStepAnswers,
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getInviteParticipantStepAnswers,
+  getMedicalConditionsStepAnswers,
+  getMedicationsStepAnswers,
   GetPaperworkAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionSelfPayAnswers,
+  getPrimaryCarePhysicianStepAnswers,
+  getResponsiblePartyStepAnswers,
+  getSchoolWorkNoteStepAnswers,
+  getSurgicalHistoryStepAnswers,
+  isoToDateObject,
+  makeSequentialPaperworkPatches,
+  PatientInfo,
+  PersonSex,
   RelationshipOption,
   ServiceMode,
+  SlotServiceCategory,
+  SubmitPaperworkParameters,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { fetchWithOystAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
+  TestEmployee,
   TEST_EMPLOYEE_1,
   TEST_EMPLOYEE_2,
-  TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
 
@@ -154,7 +190,9 @@ export class ResourceHandler {
     });
   }
 
-  private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
+  private async createAppointmentWithSampleGenerator(
+    inputParams?: CreateTestAppointmentInput
+  ): Promise<CreateAppointmentResponse> {
     await this.#initPromise;
 
     try {
@@ -228,8 +266,20 @@ export class ResourceHandler {
     }
   }
 
+  // public async setResources(params?: CreateTestAppointmentInput): Promise<void> {
+  //   const response = await this.createAppointmentWithSampleGenerator(params);
+  //   this.#resources = {
+  //     ...response.resources,
+  //     // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
+  //     relatedPerson: {
+  //       id: response.relatedPersonId,
+  //       resourceType: 'RelatedPerson',
+  //     },
+  //   };
+  // }
+
   public async setResources(params?: CreateTestAppointmentInput): Promise<void> {
-    const response = await this.createAppointment(params);
+    const response = await this.createAppointmentWithDirectFHIRBatch(params);
     this.#resources = {
       ...response.resources,
       // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
@@ -457,4 +507,425 @@ export class ResourceHandler {
       practitioner,
     };
   }
+
+  private async createAppointmentWithDirectFHIRBatch(
+    inputParams?: CreateTestAppointmentInput
+  ): Promise<CreateAppointmentResponse> {
+    await this.#initPromise;
+
+    try {
+      const address: Address = {
+        city: inputParams?.city ?? PATIENT_CITY,
+        line: [inputParams?.line ?? PATIENT_LINE],
+        state: inputParams?.state ?? PATIENT_STATE,
+        postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
+      };
+
+      const patientData = {
+        firstNames: [inputParams?.firstName ?? PATIENT_FIRST_NAME],
+        lastNames: [inputParams?.lastName ?? PATIENT_LAST_NAME],
+        numberOfAppointments: 1,
+        reasonsForVisit: [inputParams?.reasonsForVisit ?? PATIENT_REASON_FOR_VISIT],
+        phoneNumbers: [inputParams?.phoneNumber ?? PATIENT_PHONE_NUMBER],
+        emails: [inputParams?.email ?? PATIENT_EMAIL],
+        gender: inputParams?.gender ?? PATIENT_GENDER.toLowerCase(),
+        birthDate: inputParams?.birthDate ?? PATIENT_BIRTHDAY,
+        address: [address],
+      };
+
+      if (!process.env.PROJECT_API_ZAMBDA_URL) {
+        throw new Error('PROJECT_API_ZAMBDA_URL is not set');
+      }
+
+      if (!process.env.LOCATION_ID) {
+        throw new Error('LOCATION_ID is not set');
+      }
+
+      if (!process.env.STATE_ONE) {
+        throw new Error('STATE_ONE is not set');
+      }
+
+      if (!process.env.PROJECT_ID) {
+        throw new Error('PROJECT_ID is not set');
+      }
+
+      // Create appointment and related resources using zambda
+      const appointmentData = await this.createAppointmentHarvestAndPrefillWithSingleBatch({
+        oystehr: this.#apiClient,
+        authToken: getAccessToken(),
+        phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+        serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
+        selectedLocationId: process.env.LOCATION_ID,
+        locationState: process.env.STATE_ONE,
+        demoData: patientData,
+        projectId: process.env.PROJECT_ID!,
+        paperworkAnswers: this.#paperworkAnswers,
+      });
+      if (!appointmentData?.resources) {
+        throw new Error('Appointment not created');
+      }
+
+      appointmentData.resources;
+
+      Object.values(appointmentData.resources).forEach((resource) => {
+        console.log(`✅ created ${resource.resourceType}: ${resource.id}`);
+      });
+
+      if (appointmentData.relatedPersonId) {
+        console.log(`✅ created relatedPerson: ${appointmentData.relatedPersonId}`);
+      }
+
+      return appointmentData as CreateAppointmentResponse;
+    } catch (error) {
+      console.error('❌ Failed to create resources:', error);
+      throw error;
+    }
+  }
+
+  private createAppointmentHarvestAndPrefillWithSingleBatch = async ({
+    oystehr,
+    authToken,
+    phoneNumber,
+    selectedLocationId,
+    locationState,
+    demoData,
+    projectId,
+    paperworkAnswers,
+    serviceMode,
+  }: {
+    oystehr: Oystehr | undefined;
+    authToken: string;
+    phoneNumber: string;
+    selectedLocationId: string;
+    locationState: string;
+    demoData?: DemoAppointmentData;
+    projectId: string;
+    paperworkAnswers?: GetPaperworkAnswers;
+    serviceMode: ServiceMode;
+  }): Promise<CreateAppointmentResponse> => {
+    if (!projectId) {
+      throw new Error('PROJECT_ID is not set');
+    }
+
+    if (!oystehr) {
+      console.log('oystehr client is not defined');
+      throw new Error('oystehr client is not defined');
+    }
+
+    try {
+      const numberOfAppointments = demoData?.numberOfAppointments || 10;
+
+      // Run all appointment creations in parallel
+      const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
+        try {
+          const serviceModeToUse = serviceMode || (i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual);
+
+          const randomPatientInfo = await this.generateRandomPatientInfo(
+            oystehr,
+            authToken,
+            projectId,
+            serviceModeToUse,
+            selectedLocationId,
+            locationState,
+            phoneNumber,
+            {
+              firstNames: DEFAULT_FIRST_NAMES,
+              lastNames: DEFAULT_LAST_NAMES,
+              reasonsForVisit: DEFAULT_REASONS_FOR_VISIT,
+              ...demoData,
+            }
+          );
+
+          const createAppointmentResponse = await fetch(
+            `${process.env.PROJECT_API_ZAMBDA_URL}/zambda/create-appointment/execute`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${authToken}`,
+              },
+              body: JSON.stringify(randomPatientInfo),
+            }
+          );
+
+          if (!createAppointmentResponse.ok) {
+            throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
+          }
+
+          console.log(`Appointment ${i + 1} created successfully.`);
+
+          let appointmentData = await createAppointmentResponse.json();
+
+          if ((appointmentData as any)?.output) {
+            appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+          }
+
+          if (!appointmentData) {
+            console.error('Error: appointment data is null');
+            throw new Error('Error: appointment data is null');
+          }
+
+          await this.processPaperworkFast(
+            appointmentData,
+            randomPatientInfo.patient,
+            process.env.PROJECT_API_ZAMBDA_URL!,
+            authToken,
+            projectId,
+            serviceModeToUse,
+            paperworkAnswers
+          );
+
+          // If it's a virtual appointment, mark it as 'arrived'
+          if (serviceModeToUse === ServiceMode.virtual) {
+            await oystehr.fhir.patch<Appointment>({
+              id: appointmentData.appointment!,
+              resourceType: 'Appointment',
+              operations: [{ op: 'replace', path: '/status', value: 'arrived' }],
+            });
+          }
+
+          return appointmentData;
+        } catch (error) {
+          console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
+          throw error;
+        }
+      });
+
+      // Wait for all appointments to complete
+      const results = await Promise.all(appointmentPromises);
+
+      // Filter out failed attempts
+      const successfulAppointments = results.filter((data) => data.error === undefined) as CreateAppointmentResponse[];
+
+      if (successfulAppointments.length > 0) {
+        return successfulAppointments[0]; // Return the first successful appointment
+      }
+
+      throw new Error(
+        `All appointment creation attempts failed. ${JSON.stringify(
+          results.find((r) => r.error !== undefined),
+          null,
+          2
+        )}`
+      );
+    } catch (error) {
+      console.error('Error creating appointments:', error);
+      throw error;
+    }
+  };
+
+  private generateRandomPatientInfo = async (
+    oystehr: Oystehr,
+    authToken: string,
+    projectId: string,
+    serviceMode: ServiceMode,
+    selectedLocationId: string,
+    locationState: string,
+    phoneNumber?: string,
+    demoData?: AppointmentData
+  ): Promise<CreateAppointmentInputParams> => {
+    const {
+      firstNames = DEFAULT_FIRST_NAMES,
+      lastNames = DEFAULT_LAST_NAMES,
+      reasonsForVisit = DEFAULT_REASONS_FOR_VISIT,
+      emails = [],
+      phoneNumbers = [],
+      gender,
+      birthDate,
+      address,
+      telecom,
+    } = demoData || {};
+
+    const sexes: PersonSex[] = [PersonSex.Male, PersonSex.Female, PersonSex.Intersex];
+    const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const randomEmail =
+      emails.length > 0
+        ? emails[Math.floor(Math.random() * emails.length)]
+        : `${randomFirstName.toLowerCase()}.${randomLastName.toLowerCase()}@example.com`;
+    const randomPhoneNumber =
+      phoneNumbers.length > 0 ? phoneNumbers[Math.floor(Math.random() * phoneNumbers.length)] : phoneNumber;
+    const randomDateOfBirth =
+      birthDate ||
+      DateTime.now()
+        .minus({ years: 7 + Math.floor(Math.random() * 16) })
+        .toISODate();
+    const randomSex = (gender as Patient['gender']) || sexes[Math.floor(Math.random() * sexes.length)];
+    const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
+
+    // Get Location ID if virtual
+    let locationId = selectedLocationId;
+    if (serviceMode === ServiceMode.virtual) {
+      const locationsFound = (
+        await oystehr.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [{ name: 'address-state', value: locationState }],
+        })
+      ).unbundle();
+      if (locationsFound.length === 0) {
+        console.log('No locations found for the given state');
+        throw new Error(`No matching location found for state: ${locationState}`);
+      }
+      locationId = locationsFound[0].id!;
+    }
+    console.log('alex location id,', locationId);
+
+    // Get Schedule resource for the location.
+    const schedulesFound = (
+      await oystehr.fhir.search<Schedule>({
+        resourceType: 'Schedule',
+        params: [{ name: 'actor', value: `Location/${locationId}` }],
+      })
+    ).unbundle();
+    if (schedulesFound.length === 0) {
+      console.log('No schedules found for the given location');
+      throw new Error(`No matching schedule found for location ID: ${locationId}`);
+    }
+    const scheduleId = schedulesFound[0].id!;
+    console.log('alex schedule id,', scheduleId);
+
+    const now = DateTime.now();
+    const startTime =
+      serviceMode === ServiceMode['in-person'] ? now.startOf('hour').plus({ hours: 2 }).toISO() : now.toISO();
+    const startDate = DateTime.fromISO(startTime);
+    const endTime = startDate.plus({ minutes: 15 }).toISO()!;
+
+    const slot = await oystehr.fhir.create<Slot>({
+      resourceType: 'Slot',
+      status: 'busy',
+      start: startTime,
+      end: endTime,
+      serviceCategory:
+        serviceMode === ServiceMode['in-person']
+          ? [SlotServiceCategory.inPersonServiceMode]
+          : [SlotServiceCategory.virtualServiceMode],
+      schedule: {
+        reference: `Schedule/${scheduleId}`,
+      },
+    });
+    console.log('alex slot id,', slot.id);
+
+    const patientData = {
+      newPatient: true,
+      firstName: randomFirstName,
+      lastName: randomLastName,
+      dateOfBirth: randomDateOfBirth,
+      sex: randomSex,
+      email: randomEmail,
+      phoneNumber: randomPhoneNumber,
+      reasonForVisit: randomReason,
+      ...(address ? { address } : {}),
+      ...(telecom ? { telecom } : {}),
+    };
+
+    if (serviceMode === 'virtual') {
+      return {
+        patient: patientData,
+        unconfirmedDateOfBirth: randomDateOfBirth,
+        slotId: slot.id!,
+        language: 'en',
+        locationState,
+      };
+    }
+
+    return {
+      patient: patientData,
+      slotId: slot.id!,
+      language: 'en',
+    };
+  };
+
+  processPaperworkFast = async (
+    appointmentData: CreateAppointmentResponse,
+    patientInfo: PatientInfo,
+    zambdaUrl: string,
+    authToken: string,
+    projectId: string,
+    serviceMode: ServiceMode,
+    paperworkAnswers?: GetPaperworkAnswers
+  ): Promise<void> => {
+    try {
+      const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
+
+      if (!questionnaireResponseId) return;
+
+      const birthDate = isoToDateObject(patientInfo.dateOfBirth || '') || undefined;
+
+      // Determine the paperwork patches based on service mode
+      let paperworkPatches: QuestionnaireResponseItem[] = [];
+
+      const telemedWalkinAnswers = [
+        getContactInformationAnswers({
+          firstName: patientInfo.firstName,
+          lastName: patientInfo.lastName,
+          birthDate,
+          email: patientInfo.email,
+          phoneNumber: patientInfo.phoneNumber,
+          birthSex: patientInfo.sex,
+        }),
+        getPatientDetailsStepAnswers({}),
+        getPrimaryCarePhysicianStepAnswers({}),
+        getMedicationsStepAnswers(),
+        getAllergiesStepAnswers(),
+        getMedicalConditionsStepAnswers(),
+        getSurgicalHistoryStepAnswers(),
+        getAdditionalQuestionsAnswers(),
+        getPaymentOptionSelfPayAnswers(),
+        getResponsiblePartyStepAnswers({}),
+        getSchoolWorkNoteStepAnswers(),
+        getConsentStepAnswers({}),
+        getInviteParticipantStepAnswers(),
+      ];
+
+      paperworkPatches = paperworkAnswers
+        ? await paperworkAnswers({ patientInfo, appointmentId: appointmentId!, authToken, zambdaUrl, projectId })
+        : serviceMode === ServiceMode.virtual
+        ? telemedWalkinAnswers
+        : [
+            getContactInformationAnswers({
+              firstName: patientInfo.firstName,
+              lastName: patientInfo.lastName,
+              ...(birthDate ? { birthDate } : {}),
+              email: patientInfo.email,
+              phoneNumber: patientInfo.phoneNumber,
+              birthSex: patientInfo.sex,
+            }),
+            getPatientDetailsStepAnswers({}),
+            getPrimaryCarePhysicianStepAnswers({}),
+            getPaymentOptionSelfPayAnswers(),
+            getResponsiblePartyStepAnswers({}),
+            getConsentStepAnswers({}),
+          ];
+
+      // Execute the paperwork patches
+      await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
+
+      // Submit the paperwork
+      const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+          'x-zapehr-project-id': projectId,
+        },
+        body: JSON.stringify(<SubmitPaperworkParameters>{
+          answers: [],
+          questionnaireResponseId,
+          appointmentId,
+        }),
+      });
+
+      if (!response.ok) {
+        // This may be an error if some paperwork required answers were not provided.
+        // Check QuestionnaireResponse resource if it corresponds to all Questionnaire requirements
+        throw new Error(
+          `Error submitting paperwork, response: ${response}, body: ${JSON.stringify(await response.json())}`
+        );
+      }
+
+      console.log(`Paperwork submitted for appointment: ${appointmentId}`);
+    } catch (error) {
+      console.error(`Error processing paperwork:`, error);
+    }
+  };
 }

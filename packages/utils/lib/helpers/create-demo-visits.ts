@@ -30,7 +30,7 @@ import {
 } from './helpers';
 import { chooseJson } from './zapEHRApi';
 
-interface AppointmentData {
+export interface AppointmentData {
   firstNames?: string[];
   lastNames?: string[];
   reasonsForVisit?: string[];
@@ -49,9 +49,9 @@ interface DemoConfig {
   numberOfAppointments?: number;
 }
 
-type DemoAppointmentData = AppointmentData & DemoConfig;
+export type DemoAppointmentData = AppointmentData & DemoConfig;
 
-const DEFAULT_FIRST_NAMES = [
+export const DEFAULT_FIRST_NAMES = [
   'Alice',
   'Bob',
   'Charlie',
@@ -69,7 +69,7 @@ const DEFAULT_FIRST_NAMES = [
   'Olivia',
   'William',
 ];
-const DEFAULT_LAST_NAMES = [
+export const DEFAULT_LAST_NAMES = [
   'Smith',
   'Johnson',
   'Williams',
@@ -82,7 +82,7 @@ const DEFAULT_LAST_NAMES = [
   'Garcia',
   'Hernandez',
 ];
-const DEFAULT_REASONS_FOR_VISIT = [
+export const DEFAULT_REASONS_FOR_VISIT = [
   'Cough and/or congestion',
   'Fever',
   'Throat pain',
