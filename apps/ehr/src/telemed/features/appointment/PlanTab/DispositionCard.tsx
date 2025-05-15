@@ -70,11 +70,11 @@ export const DispositionCard: FC = () => {
     onSuccess: (data) => {
       setPartialChartData({ disposition: data?.disposition });
       isResetting.current = true;
+      reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
+      setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
       if (data?.disposition?.note) {
         setNoteCache(data.disposition.note);
       }
-      reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
-      setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
       isResetting.current = false;
     },
   });
