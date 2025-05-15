@@ -60,6 +60,7 @@ export enum ExternalLabsStatus {
   received = 'received',
   reviewed = 'reviewed',
   cancelled = 'cancelled',
+  corrected = 'corrected',
   unknown = 'unknown', // for debugging purposes
 }
 
@@ -70,7 +71,7 @@ export type LabOrderUnreceivedHistoryRow = {
 };
 
 export type LabOrderReceivedHistoryRow = {
-  action: 'received' | 'reviewed';
+  action: 'received' | 'reviewed' | 'corrected';
   testType: 'reflex' | 'ordered';
   performer: string;
   date: string;
@@ -135,7 +136,7 @@ export type Pagination = {
   totalPages: number;
 };
 
-export type PaginatedLabOrderResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
+export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
 };

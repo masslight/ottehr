@@ -1,15 +1,5 @@
-import { DateTime } from 'luxon';
 import { useMemo } from 'react';
-import { AvailableLocationInformation } from 'utils';
-import { isClosureOverride, getOpeningTime, getClosingTime } from 'utils';
-
-interface CheckOfficeOpenOutput {
-  officeOpen: boolean;
-  walkinOpen: boolean;
-  prebookStillOpenForToday: boolean;
-  officeHasClosureOverrideToday: boolean;
-  officeHasClosureOverrideTomorrow: boolean;
-}
+import { AvailableLocationInformation, checkOfficeOpen, CheckOfficeOpenOutput } from 'utils';
 
 export const useCheckOfficeOpen = (
   selectedLocation: AvailableLocationInformation | undefined
@@ -25,27 +15,8 @@ export const useCheckOfficeOpen = (
         prebookStillOpenForToday: false,
       };
     }
-
-    const timeNow = DateTime.now().setZone(selectedLocation.timezone);
-    const tomorrowDate = timeNow.plus({ days: 1 });
-    const tomorrowOpeningTime = getOpeningTime(selectedLocation, tomorrowDate);
-
-    const officeHasClosureOverrideToday = isClosureOverride(selectedLocation, timeNow);
-    const officeHasClosureOverrideTomorrow =
-      isClosureOverride(selectedLocation, tomorrowDate) && tomorrowOpeningTime !== undefined;
-
-    const todayOpeningTime = getOpeningTime(selectedLocation, timeNow);
-    const todayClosingTime = getClosingTime(selectedLocation, timeNow);
-
-    const prebookStillOpenForToday =
-      todayOpeningTime !== undefined &&
-      (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));
-
-    const officeOpen =
-      todayOpeningTime !== undefined &&
-      todayOpeningTime <= timeNow &&
-      (todayClosingTime === undefined || todayClosingTime > timeNow) &&
-      !officeHasClosureOverrideToday;
+    const { officeOpen, prebookStillOpenForToday, officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow } =
+      checkOfficeOpen(selectedLocation);
 
     /*
     const walkinOpen = isWalkinOpen(selectedLocation, timeNow);
