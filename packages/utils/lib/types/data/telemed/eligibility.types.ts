@@ -37,24 +37,39 @@ export interface BillingProviderResourceReference extends Omit<Reference, 'type'
 }
 export interface InsuranceEligibilityPrevalidationInput {
   responseItems: QuestionnaireResponseItem[];
-}
-export interface GetEligibilityParameters {
-  patientId: string;
-  appointmentId: string;
   primaryInsuranceData?: GetEligibilityInsuranceData;
   primaryPolicyHolder?: GetEligibilityPolicyHolder;
   secondaryInsuranceData?: GetEligibilityInsuranceData;
   secondaryPolicyHolder?: GetEligibilityPolicyHolder;
+}
+export interface GetEligibilityParameters {
+  patientId: string;
+  appointmentId?: string;
   coveragePrevalidationInput?: InsuranceEligibilityPrevalidationInput;
+  billingProvider?: string;
 }
 
-export interface GetEligibilityInput
-  extends Omit<GetEligibilityParameters, 'primaryInsuranceData' | 'primaryPolicyHolder' | 'responseItems'> {
-  primaryInsuranceData: GetEligibilityInsuranceData;
-  primaryPolicyHolder: GetEligibilityPolicyHolder;
+export interface InsuranceCheckStatusWithDate {
+  status: InsuranceEligibilityCheckStatus;
+  dateISO: string;
 }
 
 export type GetEligibilityResponse = {
-  primary: InsuranceEligibilityCheckStatus;
-  secondary?: InsuranceEligibilityCheckStatus;
+  primary?: InsuranceCheckStatusWithDate;
+  secondary?: InsuranceCheckStatusWithDate;
+};
+
+export type EligibilityCheckSimpleStatus = 'ELIGIBLE' | 'NOT ELIGIBLE' | 'UNKNOWN';
+
+export const mapEligibilityCheckResultToSimpleStatus = (
+  result: InsuranceCheckStatusWithDate
+): { status: EligibilityCheckSimpleStatus; dateISO: string } => {
+  switch (result.status) {
+    case InsuranceEligibilityCheckStatus.eligibilityConfirmed:
+      return { status: 'ELIGIBLE', dateISO: result.dateISO };
+    case InsuranceEligibilityCheckStatus.eligibilityNotConfirmed:
+      return { status: 'NOT ELIGIBLE', dateISO: result.dateISO };
+    default:
+      return { status: 'UNKNOWN', dateISO: result.dateISO };
+  }
 };

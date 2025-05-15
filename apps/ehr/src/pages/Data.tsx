@@ -33,7 +33,7 @@ import {
   Title,
   Tooltip,
 } from 'chart.js';
-import { Appointment, Location, Encounter } from 'fhir/r4b';
+import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar, Line } from 'react-chartjs-2';
@@ -51,6 +51,7 @@ import LocationSelect from '../components/LocationSelect';
 import { getTimezone } from '../helpers/formatDateTime';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
+import { LocationWithWalkinSchedule } from './AddPatient';
 
 interface AppointmentCount {
   date: DateTime;
@@ -98,7 +99,7 @@ export default function Data(): React.ReactElement {
   const [avgMinutesToProvider, setAvgMinutesToProvider] = React.useState<number | undefined>(undefined);
   const [totalVisits, setTotalVisits] = React.useState<number | undefined>(undefined);
   const [timeRange, setTimeRange] = React.useState<TimeRange>(TimeRange.Today);
-  const [locationSelected, setLocationSelected] = React.useState<Location | undefined>(undefined);
+  const [locationSelected, setLocationSelected] = React.useState<LocationWithWalkinSchedule | undefined>(undefined);
   const [visitType, setVisitType] = React.useState<FhirAppointmentType | VisitTypeAll>(VisitTypeAll.All);
   const [filterStartDate, setStartFilterDate] = React.useState<DateTime | null>(DateTime.now());
   const [filterEndDate, setEndFilterDate] = React.useState<DateTime | null>(DateTime.now());

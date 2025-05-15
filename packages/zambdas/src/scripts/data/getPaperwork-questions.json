@@ -976,7 +976,7 @@
         },
         {
           "id": "consent-to-treat",
-          "text": "I have reviewed and accept [Consent to Treat and Guarantee of Payment](/CTT.and.Guarantee.of.Payment-S.pdf)",
+          "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf)",
           "type": "Checkbox",
           "multiline": false,
           "required": true

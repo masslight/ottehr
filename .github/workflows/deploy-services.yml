@@ -1,4 +1,5 @@
 name: Deploy Services
+run-name: Deploy ${{ github.ref_name }} to ${{ inputs.environment }}
 
 env:
   CI: false
@@ -53,6 +54,13 @@ jobs:
           - "20"
 
     steps:
+      - name: Log Input
+        run: >
+          echo "Environment: ${{ github.event.inputs.environment }}" &&
+          echo "Branch: ${{ github.ref }}" &&
+          echo "Increment Version: ${{ github.event.inputs.incrementVersion == 'true' && github.event.inputs.versionType || 'no' }}" &&
+          echo "Confirm Production: ${{ github.event.inputs.confirmProduction }}"
+
       - name: Install SSH Client
         uses: webfactory/ssh-agent@836c84ec59a0e7bc0eabc79988384eb567561ee2 # v0.7.0
         with:

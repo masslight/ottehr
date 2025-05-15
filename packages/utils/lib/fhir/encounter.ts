@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { Operation } from 'fast-json-patch';
 import { FHIR_BASE_URL } from './constants';
+import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;
@@ -184,4 +185,12 @@ export const getEncounterStatusHistoryUpdateOp = (encounter: Encounter, newStatu
   };
 
   return statusHistoryUpdate;
+};
+
+export const checkEncounterIsVirtual = (encounter: Encounter): boolean => {
+  const encounterClass = encounter.class;
+  if (!encounterClass) {
+    return false;
+  }
+  return encounterClass.system === CODE_SYSTEM_ACT_CODE_V3 && encounterClass.code === 'VR';
 };

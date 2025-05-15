@@ -34,6 +34,7 @@ test.beforeAll(async ({ browser }) => {
   uploadPhoto = new UploadDocs(page);
   commonLocators = new CommonLocatorsHelper(page);
   bookingData = await flowClass.startVisit();
+  expect.soft(bookingData.slotDetails).toBeDefined();
 });
 test.afterAll(async () => {
   await page.close();
@@ -108,7 +109,8 @@ test.describe('Paperwork.Review and Submit - Check values', () => {
     );
   });
   test('PRS-7 Check location', async () => {
-    await expect(locator.locationNamePaperworkReviewScreen).toHaveText(`${bookingData.location}`);
+    expect.soft(bookingData.slotDetails?.ownerName).toBeDefined();
+    await expect(locator.locationNamePaperworkReviewScreen).toHaveText(`${bookingData.slotDetails?.ownerName}`);
   });
   test('PRS-8 Check check in time', async () => {
     await expect(locator.checkInTimePaperworkReviewScreen).toHaveText(`${bookingData.selectedSlot}`);

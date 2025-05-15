@@ -5,7 +5,7 @@ import Oystehr, {
   BatchInputRequest,
 } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Operation } from 'fast-json-patch';
+import { Operation, RemoveOperation } from 'fast-json-patch';
 import {
   Account,
   AccountGuarantor,
@@ -64,13 +64,9 @@ import {
   OTTEHR_MODULE,
   PATIENT_PHOTO_CODE,
   PATIENT_PHOTO_ID_PREFIX,
-  PatientEthnicity,
-  PatientEthnicityCode,
   patientFieldPaths,
   PatientMasterRecordResource,
   PatientMasterRecordResourceType,
-  PatientRace,
-  PatientRaceCode,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
@@ -109,6 +105,8 @@ import {
   getEmailForIndividual,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   getPatchOperationToAddOrUpdatePreferredName,
+  getPatchOperationToRemovePreferredLanguage,
+  COVERAGE_ADDITIONAL_INFORMATION_URL,
 } from 'utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
@@ -161,389 +159,6 @@ interface CreateConsentResourcesInput {
   secrets: Secrets | null;
   listResources?: List[];
 }
-
-export const getPatientAddressPatchOps = (
-  paperwork: QuestionnaireResponseItem[],
-  patientResource: Patient
-): Operation[] => {
-  const patientPatchOps: Operation[] = [];
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    paperwork as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-  console.log('patientResource for patching', JSON.stringify(patientResource, null, 2));
-  const addressLine1 = flattenedPaperwork.find((item) => item.linkId === 'patient-street-address')?.answer?.[0]
-    ?.valueString;
-  const addressLine2 = flattenedPaperwork.find((item) => item.linkId === 'patient-street-address-2')?.answer?.[0]
-    ?.valueString;
-  const city = flattenedPaperwork.find((item) => item.linkId === 'patient-city')?.answer?.[0]?.valueString;
-  const state = flattenedPaperwork.find((item) => item.linkId === 'patient-state')?.answer?.[0]?.valueString;
-  const zip = flattenedPaperwork.find((item) => item.linkId === 'patient-zip')?.answer?.[0]?.valueString;
-
-  if (patientResource.address == undefined) {
-    console.log('building patient patch operations: add address');
-    // no existing address, add new address info
-    const address: any = {};
-    if (addressLine1) address['line'] = [addressLine1];
-    if (addressLine2) address['line'].push(addressLine2);
-    if (city) address['city'] = city;
-    if (state) address['state'] = state;
-    if (zip) address['postalCode'] = zip;
-    patientPatchOps.push({
-      op: 'add',
-      path: '/address',
-      value: [address],
-    });
-  } else {
-    if (addressLine1 !== patientResource.address?.[0].line?.[0]) {
-      console.log('addressLine1 changed');
-      patientPatchOps.push({
-        op: patientResource.address?.[0].line?.[0] ? 'replace' : 'add',
-        path: patientResource.address?.[0].line?.[0] ? '/address/0/line/0' : '/address/0/line',
-        value: patientResource.address?.[0].line?.[0] ? addressLine1 : [addressLine1],
-      });
-    }
-    if (addressLine2 !== patientResource.address?.[0].line?.[1]) {
-      console.log('addressLine2 changed');
-      let op: 'replace' | 'add' | 'remove' | undefined = undefined;
-      if (addressLine2) {
-        op = patientResource.address?.[0].line?.[1] ? 'replace' : 'add';
-      } else {
-        op = patientResource.address?.[0].line?.[1] ? 'remove' : undefined;
-      }
-      if (op) {
-        patientPatchOps.push({
-          op: op,
-          path: '/address/0/line/1',
-          value: addressLine2,
-        });
-      }
-    }
-    if (city !== patientResource.address?.[0].city) {
-      console.log('city changed');
-      patientPatchOps.push({
-        op: patientResource.address?.[0].city ? 'replace' : 'add',
-        path: '/address/0/city',
-        value: city,
-      });
-    }
-    if (state !== patientResource.address?.[0].state) {
-      console.log('state changed');
-      patientPatchOps.push({
-        op: patientResource.address?.[0].state ? 'replace' : 'add',
-        path: '/address/0/state',
-        value: state,
-      });
-    }
-    if (zip !== patientResource.address?.[0].postalCode) {
-      console.log('zip changed');
-      patientPatchOps.push({
-        op: patientResource.address?.[0].postalCode ? 'replace' : 'add',
-        path: '/address/0/postalCode',
-        value: zip,
-      });
-    }
-  }
-  return patientPatchOps;
-};
-
-export const getPatientTelecomPatchOps = (
-  paperwork: QuestionnaireResponseItem[],
-  patientResource: Patient
-): Operation[] => {
-  console.log('reviewing patient telecom');
-  const patientPatchOps: Operation[] = [];
-  // if any information changes in telecom, flag to be added to the patient patch op array
-  let updatePatientTelecom = false;
-  // get any telecom data that exists
-  const telecom = patientResource?.telecom || [];
-  // find existing email info to check against incoming and it's index so that the telecom array can be updated
-  const patientResourceEmail = patientResource.telecom?.find((telecom) => telecom.system === 'email')?.value;
-  const patientResourceEmailIdx = patientResource.telecom?.findIndex((telecom) => telecom.system === 'email');
-
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    paperwork as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-  const patientEmail = flattenedPaperwork.find((item) => item.linkId === 'patient-email')?.answer?.[0]?.valueString;
-  const patientNumber = flattenedPaperwork.find((item) => item.linkId === 'patient-number')?.answer?.[0]?.valueString;
-  const guardianEmail = flattenedPaperwork.find((item) => item.linkId === 'guardian-email')?.answer?.[0]?.valueString;
-  const guardianNumber = flattenedPaperwork.find((item) => item.linkId === 'guardian-number')?.answer?.[0]?.valueString;
-
-  if (patientEmail !== patientResourceEmail) {
-    console.log('building telecom patch: patient email');
-    if (patientResourceEmailIdx && patientResourceEmail && patientEmail && patientEmail !== '') {
-      // there is an existing email within patient telecom and an incoming email
-      // since both exist, update the telecom array
-      console.log('building telecom patch: patient email branch 1');
-      telecom[patientResourceEmailIdx] = { system: 'email', value: patientEmail };
-      updatePatientTelecom = true;
-    } else if (patientResourceEmailIdx !== undefined && patientResourceEmailIdx > -1) {
-      // confirm that the email does exist / was found
-      // remove from telecom
-      console.log('building telecom patch: patient email branch 2');
-      if (patientEmail !== '' && patientEmail) {
-        telecom.splice(patientResourceEmailIdx, 1, { system: 'email', value: patientEmail });
-      } else {
-        telecom.splice(patientResourceEmailIdx, 1);
-      }
-      updatePatientTelecom = true;
-    } else if (patientEmail !== '' && patientEmail) {
-      // confirm that incoming email exists / not blank
-      // add to telecom array
-      console.log('building telecom patch: patient email branch 3');
-      telecom.push({ system: 'email', value: patientEmail });
-      updatePatientTelecom = true;
-    }
-  }
-  // find existing phone number info to check against incoming and it's index so that the telecom array can be updated
-  const patientResourcePhone = telecom?.find((telecom) => telecom.system === 'phone')?.value;
-  const patientResourcePhoneIdx = telecom?.findIndex((telecom) => telecom.system === 'phone');
-  if (patientNumber !== patientResourcePhone) {
-    console.log('building telecom patch: patient phone');
-    if (patientResourcePhoneIdx && patientResourcePhone && patientNumber && patientNumber !== '') {
-      // there is an existing number within patient telecom and an incoming number
-      // since both exist, update the telecom array
-      telecom[patientResourcePhoneIdx] = { system: 'phone', value: patientNumber };
-      updatePatientTelecom = true;
-    } else if (patientResourcePhoneIdx !== undefined && patientResourcePhoneIdx > -1) {
-      // confirm that the number does exist / was found
-      // remove from telecom
-      if (patientNumber && patientNumber !== '') {
-        telecom.splice(patientResourcePhoneIdx, 1, { system: 'phone', value: patientNumber });
-      } else {
-        telecom.splice(patientResourcePhoneIdx, 1);
-      }
-      updatePatientTelecom = true;
-    } else if (patientNumber !== '' && patientNumber) {
-      // confirm that incoming number exists / not blank
-      // add to telecom array
-      telecom.push({ system: 'phone', value: patientNumber });
-      updatePatientTelecom = true;
-    }
-  }
-  // update patch ops for telecom
-  if (updatePatientTelecom) {
-    console.log('updating patient telecom', JSON.stringify(telecom));
-    if (telecom.length > 0) {
-      console.log('building patient patch operations: update telecom');
-      patientPatchOps.push({
-        op: patientResource?.telecom ? 'replace' : 'add',
-        path: `/telecom`,
-        value: telecom,
-      });
-    } else {
-      console.log('building patient patch operations: remove telecom');
-      patientPatchOps.push({
-        op: 'remove',
-        path: `/telecom`,
-      });
-    }
-  }
-
-  console.log('reviewing guardian telecom');
-  // if any information changes in contact telecom, flag to be added to the patient patch op array
-  let updateGuardianTelecom;
-  // find existing guardian contact info and it's index so that the contact array can be updated
-  const guardianContact = patientResource?.contact?.find(
-    (contact) => contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
-  );
-  const guardianContactIdx = patientResource?.contact?.findIndex(
-    (contact) => contact.relationship?.find((relationship) => relationship?.coding?.[0].code === 'Parent/Guardian')
-  );
-  // within the guardian's contact, find the telecom array to compare against incoming information
-  const guardianContactTelecom = guardianContact?.telecom || [];
-  // grab the guardian's email information from the telecom array
-  const guardianResourceEmail = guardianContactTelecom?.find((telecom) => telecom.system === 'email')?.value;
-  const guardianResourceEmailIdx = guardianContactTelecom?.findIndex((telecom) => telecom.system === 'email');
-  if (guardianEmail !== guardianResourceEmail) {
-    console.log('building guardian telecom patch: guardian email');
-    // if email exists and is changing
-    if (guardianResourceEmailIdx !== undefined && guardianResourceEmailIdx > -1 && guardianEmail) {
-      guardianContactTelecom[guardianResourceEmailIdx] = { system: 'email', value: guardianEmail };
-    } else if (guardianResourceEmailIdx !== undefined && guardianResourceEmailIdx > -1) {
-      // information is being removed
-      guardianContactTelecom.splice(guardianResourceEmailIdx, 1);
-    } else if (guardianEmail) {
-      // email does not exist, it is being added
-      guardianContactTelecom.push({ system: 'email', value: guardianEmail });
-    }
-    updateGuardianTelecom = true;
-  }
-  // grab guardian's phone info
-  const guardianPhone = guardianContact?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
-  const guardianPhoneIdx = guardianContact?.telecom?.findIndex((telecom) => telecom.system === 'phone');
-  if (guardianNumber !== guardianPhone) {
-    console.log('building guardian telecom patch: guardian phone');
-    // if phone exists and is changing
-    if (guardianPhoneIdx !== undefined && guardianPhoneIdx > -1 && guardianNumber) {
-      guardianContactTelecom[guardianPhoneIdx] = { system: 'phone', value: guardianNumber };
-    } else if (guardianPhoneIdx !== undefined && guardianPhoneIdx > -1) {
-      // phone information is being removed
-      guardianContactTelecom.splice(guardianPhoneIdx, 1);
-    } else if (guardianNumber) {
-      // phone does not exist, it is being added
-      guardianContactTelecom.push({ system: 'phone', value: guardianNumber });
-    }
-    updateGuardianTelecom = true;
-  }
-  if (updateGuardianTelecom) {
-    if (guardianContactTelecom.length > 0) {
-      if (guardianContact?.telecom) {
-        console.log('building patient patch operations: update guardian telecom');
-        patientPatchOps.push({
-          op: 'replace',
-          path: `/contact/${guardianContactIdx}/telecom`,
-          value: guardianContactTelecom,
-        });
-      } else {
-        console.log('building patient patch operations: add guardian telecom');
-        patientPatchOps.push({
-          op: 'add',
-          path: `/contact`,
-          value: [
-            {
-              relationship: [
-                {
-                  coding: [
-                    {
-                      system: `${PRIVATE_EXTENSION_BASE_URL}/relationship`,
-                      code: 'Parent/Guardian',
-                      display: 'Parent/Guardian',
-                    },
-                  ],
-                },
-              ],
-              telecom: guardianContactTelecom,
-            },
-          ],
-        });
-      }
-    } else if (guardianContactIdx) {
-      console.log('building patient patch operations: remove guardian telecom');
-      patientPatchOps.push({
-        op: 'remove',
-        path: `/contact/${guardianContactIdx}`,
-      });
-    }
-  }
-  return patientPatchOps;
-};
-
-export const getPatientExtensionPatchOps = (
-  paperwork: QuestionnaireResponseItem[],
-  patientResource: Patient
-): Operation[] => {
-  const patientPatchOps: Operation[] = [];
-
-  console.log('reviewing patient extension');
-  // if any information changes in patient extension, flag to be added to the patient patch op array
-  let updatePatientExtension = false;
-  // grab any information currently stored in patient extension
-  const patientExtension = patientResource?.extension || [];
-  // check if ethnicity is stored in extension
-  const patientEthnicity = patientExtension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`)
-    ?.valueCodeableConcept?.coding?.[0].display;
-  // index is needed to specifically update just the ethnicity
-  const patientEthnicityIdx = patientExtension?.findIndex(
-    (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`
-  );
-
-  const flattenedPaperwork = flattenIntakeQuestionnaireItems(
-    paperwork as IntakeQuestionnaireItem[]
-  ) as QuestionnaireResponseItem[];
-  const ethnicity = flattenedPaperwork.find((item) => item.linkId === 'patient-ethnicity')?.answer?.[0]?.valueString;
-
-  const patientEthnicityExt = {
-    url: `${PRIVATE_EXTENSION_BASE_URL}/ethnicity`,
-    valueCodeableConcept: {
-      coding: [
-        {
-          system: 'http://hl7.org/fhir/v3/Ethnicity',
-          code: ethnicity ? PatientEthnicityCode[ethnicity as PatientEthnicity] : undefined,
-          display: ethnicity,
-        },
-      ],
-    },
-  };
-
-  if (ethnicity !== patientEthnicity) {
-    console.log('building extension patch: patient ethnicity');
-    if (patientEthnicityIdx !== undefined && patientEthnicityIdx > -1 && ethnicity) {
-      patientExtension[patientEthnicityIdx] = patientEthnicityExt;
-    } else if (patientEthnicityIdx !== undefined && patientEthnicityIdx > -1) {
-      patientExtension.splice(patientEthnicityIdx, 1);
-    } else if (ethnicity) {
-      patientExtension.push(patientEthnicityExt);
-    }
-    updatePatientExtension = true;
-  }
-  // check if race is stored in extension
-  const patientRace = patientResource?.extension?.find((ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/race`)
-    ?.valueCodeableConcept?.coding?.[0].display;
-  // index is needed to specifically update just the race
-  const patientRaceIdx = patientResource?.extension?.findIndex(
-    (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/race`
-  );
-  const race = flattenedPaperwork.find((item) => item.linkId === 'patient-race')?.answer?.[0]?.valueString;
-  const patientRaceExt = {
-    url: `${PRIVATE_EXTENSION_BASE_URL}/race`,
-    valueCodeableConcept: {
-      coding: [
-        {
-          system: 'http://hl7.org/fhir/v3/Race',
-          code: race ? PatientRaceCode[race as PatientRace] : undefined,
-          display: race,
-        },
-      ],
-    },
-  };
-  if (race !== patientRace) {
-    console.log('building extension patch: patient race');
-    if (patientRaceIdx !== undefined && patientRaceIdx > -1 && race) {
-      patientExtension[patientRaceIdx] = patientRaceExt;
-    } else if (patientRaceIdx !== undefined && patientRaceIdx > -1) {
-      patientExtension.splice(patientRaceIdx, 1);
-    } else if (race) {
-      patientExtension.push(patientRaceExt);
-    }
-    updatePatientExtension = true;
-  }
-
-  const pointOfDiscovery = flattenedPaperwork.find((item) => item.linkId === 'patient-point-of-discovery')?.answer?.[0];
-  if (pointOfDiscovery) {
-    console.log('patient point-of-discovery field passed');
-    const existingPatientPointOfDiscoveryExt = patientExtension.find(
-      (ext) => ext.url === `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`
-    );
-
-    if (!existingPatientPointOfDiscoveryExt) {
-      console.log('setting patient point-of-discovery field');
-      patientExtension.push({
-        url: `${PRIVATE_EXTENSION_BASE_URL}/point-of-discovery`,
-        valueString: pointOfDiscovery.valueString,
-      });
-    }
-
-    updatePatientExtension = true;
-  }
-
-  if (updatePatientExtension) {
-    if (patientExtension.length > 0) {
-      console.log('building patient patch operations: update patient extension');
-      patientPatchOps.push({
-        op: patientResource.extension ? 'replace' : 'add',
-        path: `/extension`,
-        value: patientExtension,
-      });
-    } else {
-      console.log('building patient patch operations: remove patient extension');
-      patientPatchOps.push({
-        op: 'remove',
-        path: `/extension`,
-      });
-    }
-  }
-  return patientPatchOps;
-};
 
 export async function createConsentResources(input: CreateConsentResourcesInput): Promise<void> {
   const {
@@ -670,13 +285,13 @@ export async function createConsentResources(input: CreateConsentResourcesInput)
   }/${Date.now()}`;
   const consentDocument =
     locationState === 'IL'
-      ? './assets/CTT.and.Guarantee.of.Payment.Illinois-S.pdf'
-      : './assets/CTT.and.Guarantee.of.Payment-S.pdf';
+      ? './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement.Illinois-S.pdf'
+      : './assets/CTT.and.Guarantee.of.Payment.and.Credit.Card.Agreement-S.pdf';
   const pdfsToCreate = [
     {
       uploadURL: `${baseUploadURL}-consent-to-treat.pdf`,
       copyFromPath: consentDocument,
-      formTitle: 'Consent to Treat and Guarantee of Payment',
+      formTitle: 'Consent to Treat, Guarantee of Payment & Card on File Agreement',
       resourceTitle: 'Consent forms',
       type: {
         coding: [
@@ -1099,6 +714,7 @@ const paperworkToPatientFieldMap: Record<string, string> = {
   'common-well-consent': patientFieldPaths.commonWellConsent,
   'insurance-carrier': coverageFieldPaths.carrier,
   'insurance-member-id': coverageFieldPaths.memberId,
+  'insurance-additional-information': coverageFieldPaths.additionalInformation,
   'policy-holder-first-name': relatedPersonFieldPaths.firstName,
   'policy-holder-middle-name': relatedPersonFieldPaths.middleName,
   'policy-holder-last-name': relatedPersonFieldPaths.lastName,
@@ -1180,10 +796,13 @@ export function createMasterRecordPatchOperations(
   };
 
   const pcpItems: QuestionnaireResponseItem[] = [];
+  let isUseMissedInPatientName = false;
 
   flattenedPaperwork.forEach((item) => {
     const value = extractValueFromItem(item);
-    if (value === undefined) return;
+
+    const isAnswerEmpty = value === undefined || value === '';
+
     if (PCP_FIELDS.includes(item.linkId)) {
       pcpItems.push(item);
       return;
@@ -1197,7 +816,13 @@ export function createMasterRecordPatchOperations(
 
     // Change index if path is changeable
     if (['patient-first-name', 'patient-last-name'].includes(baseFieldId)) {
-      const nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+      let nameIndex = patient.name?.findIndex((name) => name.use === 'official');
+      isUseMissedInPatientName = nameIndex === -1;
+
+      if (isUseMissedInPatientName) {
+        nameIndex = 0;
+      }
+
       fullPath = fullPath.replace(/name\/\d+/, `name/${nameIndex}`);
     }
 
@@ -1213,7 +838,13 @@ export function createMasterRecordPatchOperations(
         // Handle telecom fields
         const contactTelecomConfig = contactTelecomConfigs[item.linkId];
         if (contactTelecomConfig) {
-          const operation = createPatchOperationForTelecom(value as string, contactTelecomConfig, patient, path);
+          if (isAnswerEmpty) {
+            const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, undefined);
+            if (operation) tempOperations.patient.push(operation);
+            return;
+          }
+
+          const operation = createPatchOperationForTelecom(contactTelecomConfig, patient, path, value as string);
           if (operation) tempOperations.patient.push(operation);
           return;
         }
@@ -1224,7 +855,7 @@ export function createMasterRecordPatchOperations(
           const currentValue = getCurrentValue(patient, path);
           if (value !== currentValue) {
             let operation: Operation | undefined;
-            if (value === '') {
+            if (isAnswerEmpty) {
               if (currentValue !== undefined && currentValue !== null) {
                 operation = getPatchOperationToRemoveExtension(patient, { url });
               }
@@ -1239,12 +870,18 @@ export function createMasterRecordPatchOperations(
         // Special handler for preferred-language
         if (item.linkId === 'preferred-language') {
           const currentValue = patient.communication?.find((lang) => lang.preferred)?.language.coding?.[0].display;
-          if (value !== currentValue) {
+          if (isAnswerEmpty) {
+            if (currentValue) {
+              const operation = getPatchOperationToRemovePreferredLanguage(patient);
+              if (operation) tempOperations.patient.push(operation);
+            }
+            return;
+          } else if (value !== currentValue) {
             const operation = getPatchOperationToAddOrUpdatePreferredLanguage(
               value as LanguageOption,
               path,
               patient,
-              currentValue as LanguageOption
+              currentValue as LanguageOption | undefined
             );
 
             if (operation) tempOperations.patient.push(operation);
@@ -1276,14 +913,13 @@ export function createMasterRecordPatchOperations(
             | string[]
             | undefined;
 
+          if (isAnswerEmpty) {
+            if (!effectiveArrayValue) return undefined;
+          }
+
           if (effectiveArrayValue === undefined) {
             const currentParentValue = getCurrentValue(patient, parentPath);
-            const operation = createBasicPatchOperation([value], parentPath, currentParentValue);
-            // looks like there is a bug here when there is a patient name but not patient name contains the 'use: official' desgination
-            // todo: a better fix here is needed, along with some kind of unit/integration tests
-            if (fullPath.includes('name/-1/')) {
-              return;
-            }
+            const operation = createBasicPatchOperation([value as PatchValueBase], parentPath, currentParentValue);
             if (operation) tempOperations.patient.push(operation);
             return;
           }
@@ -1326,14 +962,35 @@ export function createMasterRecordPatchOperations(
 
         // Handle regular fields
         const currentValue = getCurrentValue(patient, path);
-        if (value !== currentValue && !fullPath.includes('name/-1/')) {
-          const operation = createBasicPatchOperation(value, path, currentValue);
-          if (operation) tempOperations.patient.push(operation);
+        if (value !== currentValue) {
+          if (isAnswerEmpty) {
+            if (currentValue !== undefined && currentValue !== null) {
+              const removeOp: RemoveOperation = {
+                op: 'remove',
+                path,
+              };
+              tempOperations.patient.push(removeOp);
+            }
+          } else {
+            const operation = createBasicPatchOperation(value, path, currentValue);
+            if (operation) tempOperations.patient.push(operation);
+          }
         }
-        break;
+        return;
+      }
+      default: {
+        return;
       }
     }
   });
+
+  if (isUseMissedInPatientName) {
+    tempOperations.patient.push({
+      op: 'add',
+      path: '/name/0/use',
+      value: 'official',
+    });
+  }
 
   // Separate operations for each resource
   // Separate Patient operations
@@ -1359,9 +1016,15 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
 
   console.log('pcp patch inputs', isActive, firstName, lastName, practiceName, pcpAddress, phone);
 
+  const pcpActiveFieldExists = flattenedItems.some((field) => field.linkId === 'pcp-active');
+  const shouldDeactivate = isActive === false || (pcpActiveFieldExists && isActive === undefined);
+
   const hasSomeValue = (firstName && lastName) || practiceName || pcpAddress || phone;
 
-  if (isActive === undefined && !hasSomeValue) {
+  const hasAnyPCPFields = flattenedItems.some((field) => PCP_FIELDS.includes(field.linkId));
+  const shouldClearAllData = hasAnyPCPFields && !hasSomeValue;
+
+  if (!shouldDeactivate && !hasSomeValue) {
     return [];
   }
 
@@ -1374,7 +1037,7 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       )
     : undefined;
 
-  if (isActive === false) {
+  if (shouldClearAllData) {
     if (currentPCPRef) {
       operations.push({
         op: 'remove',
@@ -1410,7 +1073,7 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
     }
 
     if (phone) {
-      telecom = [{ system: 'phone', value: phone }];
+      telecom = [{ system: 'phone', value: formatPhoneNumber(phone) }];
     }
     if (pcpAddress) {
       address = [{ text: pcpAddress }];
@@ -1432,7 +1095,7 @@ const getPCPPatchOps = (flattenedItems: QuestionnaireResponseItem[], patient: Pa
       telecom,
       address,
       extension,
-      active: true,
+      active: !shouldDeactivate,
     };
 
     if (_.isEqual(newPCP, currentContainedPCP)) {
@@ -1912,11 +1575,15 @@ export const getSecondaryPolicyHolderFromAnswers = (items: QuestionnaireResponse
 
 // EHR design calls for teritary insurance to be handled in addition to secondary - will need some changes to support this
 const checkIsSecondaryOnly = (items: QuestionnaireResponseItem[]): boolean => {
-  const priorityAnswer = items.find((item) => item.linkId === 'insurance-priority')?.answer?.[0]?.valueString;
-  if (priorityAnswer && priorityAnswer !== 'Primary') {
-    return true;
+  const priorities = items.filter(
+    (item) => item.linkId === 'insurance-priority' || item.linkId === 'insurance-priority-2'
+  );
+
+  if (priorities.length === 0) {
+    return false;
   }
-  return false;
+
+  return !priorities.some((item) => item.answer?.[0]?.valueString === 'Primary');
 };
 
 // note: this function assumes items have been flattened before being passed in
@@ -2013,6 +1680,7 @@ export function extractAccountGuarantor(items: QuestionnaireResponseItem[]): Res
 interface InsuranceDetails {
   plan: InsurancePlan;
   org: Organization;
+  additionalInformation?: string;
 }
 function getInsuranceDetailsFromAnswers(
   answers: QuestionnaireResponseItem[],
@@ -2032,7 +1700,10 @@ function getInsuranceDetailsFromAnswers(
   const org = organizations.find((org) => org.id === orgReference?.split('/')[1]);
   if (!org) return undefined;
 
-  return { plan, org };
+  const additionalInformation = answers.find((item) => item.linkId === `insurance-additional-information${suffix}`)
+    ?.answer?.[0]?.valueString;
+
+  return { plan, org, additionalInformation };
 }
 
 interface CreateCoverageResourceInput {
@@ -2042,11 +1713,12 @@ interface CreateCoverageResourceInput {
     org: Organization;
     plan: InsurancePlan;
     policyHolder: PolicyHolder;
+    additionalInformation?: string;
   };
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
   const { patientId, insurance } = input;
-  const { org, plan, policyHolder } = insurance;
+  const { org, plan, policyHolder, additionalInformation } = insurance;
   const memberId = policyHolder.memberId;
 
   const policyHolderId = 'coverageSubscriber';
@@ -2115,6 +1787,15 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
       },
     ],
   };
+
+  if (additionalInformation) {
+    coverage.extension = [
+      {
+        url: COVERAGE_ADDITIONAL_INFORMATION_URL,
+        valueString: additionalInformation,
+      },
+    ];
+  }
 
   return coverage;
 };
@@ -2243,7 +1924,7 @@ export const getAccountOperations = (input: GetAccountOperationsInput): GetAccou
     questionnaireResponse: {
       item: flattenedItems,
     } as QuestionnaireResponse,
-    patientId: patient.id!,
+    patientId: patient.id,
     insurancePlanResources,
     organizationResources,
   });
@@ -2466,6 +2147,7 @@ export const resolveCoverageUpdates = (input: CompareCoverageInput): CompareCove
         coverage: { reference: `Coverage/${existingPrimaryCoverage?.id}` },
         priority: 1,
       });
+
       if (
         existingPrimarySubscriber?.id &&
         existingPrimarySubscriberIsPersisted &&
@@ -2911,6 +2593,40 @@ const patchOpsForCoverage = (input: GetCoveragePatchOpsInput): Operation[] => {
     }
   }
 
+  const targetKeys = Object.keys(target).filter((k) => !keysToExclude.includes(k));
+  console.log('targetKeys', targetKeys);
+  if (target.extension && Array.isArray(target.extension)) {
+    const additionalInfoExtensionUrls = [COVERAGE_ADDITIONAL_INFORMATION_URL];
+
+    const sourceExtensions = source.extension || [];
+    const sourceExtensionUrls = sourceExtensions.map((ext) => ext.url);
+
+    target.extension.forEach((ext, index) => {
+      if (additionalInfoExtensionUrls.includes(ext.url) && !sourceExtensionUrls.includes(ext.url)) {
+        ops.push({
+          op: 'remove',
+          path: `/extension/${index}`,
+        });
+      }
+    });
+  } else {
+    for (const key of targetKeys) {
+      const additionalInfoFields: string[] = [];
+
+      if (
+        additionalInfoFields.includes(key) &&
+        !keysToCheck.includes(key) &&
+        key !== 'contained' &&
+        (target as any)[key] !== undefined
+      ) {
+        ops.push({
+          op: 'remove',
+          path: `/${key}`,
+        });
+      }
+    }
+  }
+
   return ops;
 };
 
@@ -2991,7 +2707,6 @@ interface UnbundledAccountResourceWithInsuranceResources {
   resources: UnbundledAccountResources;
 }
 // this function is exported for testing purposes
-// todo: rename this function to something more descriptive
 export const getCoverageUpdateResourcesFromUnbundled = (
   input: UnbundledAccountResourceWithInsuranceResources
 ): PatientAccountAndCoverageResources => {

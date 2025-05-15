@@ -1,10 +1,11 @@
 import { ReactElement } from 'react';
 import { TableCell, TableRow, Box, Button, Typography, Tooltip, useTheme } from '@mui/material';
-import { formatDate, LabOrderListPageDTO } from 'utils';
+import { LabOrderListPageDTO } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { otherColors } from '@theme/colors';
+import { DateTime } from 'luxon';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
@@ -22,12 +23,16 @@ export const LabsTableRow = ({
   onRowClick,
 }: LabsTableRowProps): ReactElement => {
   const theme = useTheme();
-
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
     if (onDeleteOrder) {
       onDeleteOrder();
     }
+  };
+
+  const formatDate = (datetime: string): string => {
+    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
+    return DateTime.fromISO(datetime).setZone(labOrderData.encounterTimezone).toFormat('MM/dd/yyyy hh:mm a');
   };
 
   const renderCellContent = (column: LabsTableColumn): React.ReactNode => {
@@ -44,28 +49,30 @@ export const LabsTableRow = ({
           </Box>
         );
       case 'visit':
-        return <DateTimeDisplay dateTimeString={labOrderData.visitDate} />;
+        return <Box>{formatDate(labOrderData.visitDate)}</Box>;
       case 'orderAdded':
-        return <DateTimeDisplay dateTimeString={labOrderData.orderAddedDate} />;
+        return <Box>{formatDate(labOrderData.orderAddedDate)}</Box>;
       case 'provider':
         return labOrderData.orderingPhysician || '';
       case 'dx': {
         const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
-        const fullDxText = labOrderData.diagnosesDTO.map((dx) => dx.display).join('; ');
+        const firstDxCode = labOrderData.diagnosesDTO[0]?.code || '';
+        const firstDxText = `${firstDxCode} ${firstDx}`;
+        const fullDxText = labOrderData.diagnosesDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
         const dxCount = labOrderData.diagnosesDTO.length;
         if (dxCount > 1) {
           return (
             <Tooltip title={fullDxText} arrow placement="top">
               <Typography variant="body2">
-                {firstDx}; <span style={{ color: theme.palette.text.secondary }}>+ {dxCount - 1} more</span>
+                {firstDxText}; <span style={{ color: theme.palette.text.secondary }}>+ {dxCount - 1} more</span>
               </Typography>
             </Tooltip>
           );
         }
-        return <Typography variant="body2">{firstDx}</Typography>;
+        return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <DateTimeDisplay dateTimeString={labOrderData.lastResultReceivedDate} />;
+        return <Box>{formatDate(labOrderData.lastResultReceivedDate)}</Box>;
       case 'accessionNumber':
         return labOrderData.accessionNumbers.join(', ');
       case 'status':
@@ -105,24 +112,5 @@ export const LabsTableRow = ({
         <TableCell key={column}>{renderCellContent(column)}</TableCell>
       ))}
     </TableRow>
-  );
-};
-
-const DateTimeDisplay = ({ dateTimeString }: { dateTimeString: string }): ReactElement => {
-  const dateTimeRegex = /^(\d{2}\/\d{2}\/\d{4}) (\d{2}:\d{2} [AP]M)$/;
-  const formattedDate = formatDate(dateTimeString, 'MM/dd/yyyy hh:mm a');
-  const match = formattedDate.match(dateTimeRegex);
-
-  if (!match) {
-    return <Box>{formattedDate}</Box>;
-  }
-
-  const [, dateStr, timeStr] = match;
-
-  return (
-    <Box>
-      <Typography variant="body2">{dateStr}</Typography>
-      <Typography variant="body2">{timeStr}</Typography>
-    </Box>
   );
 };

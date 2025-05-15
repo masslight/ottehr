@@ -4,7 +4,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { Autocomplete, Box, Button, Grid, IconButton, Paper, TextField, Typography, useTheme } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { HealthcareService, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
@@ -24,6 +24,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { useDebounce } from '../telemed/hooks';
 import { VisitType, VisitTypeToLabel } from '../types/types';
+import { LocationWithWalkinSchedule } from './AddPatient';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -39,7 +40,7 @@ type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: a
 
 export default function Appointments(): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [locationSelected, setLocationSelected] = useState<Location | undefined>(undefined);
+  const [locationSelected, setLocationSelected] = useState<LocationWithWalkinSchedule | undefined>(undefined);
   const [loadingState, setLoadingState] = useState<LoadingState>({ status: 'initial' });
   const [practitioners, setPractitioners] = useState<Practitioner[] | undefined>(undefined);
   const [healthcareServices, setHealthcareServices] = useState<HealthcareService[] | undefined>(undefined);
@@ -274,13 +275,13 @@ interface AppointmentsBodyProps {
   cancelledAppointments: InPersonAppointmentInformation[];
   inOfficeAppointments: InPersonAppointmentInformation[];
   appointmentDate: DateTime | null;
-  locationSelected: Location | undefined;
+  locationSelected: LocationWithWalkinSchedule | undefined;
   handleSubmit: CustomFormEventHandler;
   queryParams?: URLSearchParams;
   visitType: string[];
   providers: string[];
   groups: string[];
-  setLocationSelected: (location: Location | undefined) => void;
+  setLocationSelected: (location: LocationWithWalkinSchedule | undefined) => void;
   practitioners: Practitioner[] | undefined;
   healthcareServices: HealthcareService[] | undefined;
   setAppointmentDate: (date: DateTime | null) => void;

@@ -150,12 +150,12 @@ test.describe('Tests interacting with appointment state', () => {
       });
       return [
         getContactInformationAnswers({
-          firstName: patientInfo.patient.firstName,
-          lastName: patientInfo.patient.lastName,
-          birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
-          email: patientInfo.patient.email,
-          phoneNumber: patientInfo.patient.phoneNumber,
-          birthSex: patientInfo.patient.sex,
+          firstName: patientInfo.firstName,
+          lastName: patientInfo.lastName,
+          birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+          email: patientInfo.email,
+          phoneNumber: patientInfo.phoneNumber,
+          birthSex: patientInfo.sex,
         }),
         getPatientDetailsStepAnswers({}),
         getMedicationsStepAnswers(),
@@ -345,7 +345,7 @@ test.describe('Tests interacting with appointment state', () => {
 
   test('Should test appointment hpi fields', async () => {
     const medicalConditionsPattern = 'Z3A';
-    const knownAllergiePattern = '10-undecenal';
+    // const knownAllergiePattern = '10-undecenal';
     const surgicalHistoryPattern = '44950';
     const surgicalNote = 'surgical note';
     const chiefComplaintNotes = 'chief complaint';
@@ -370,7 +370,8 @@ test.describe('Tests interacting with appointment state', () => {
         medicalConditionsPattern
       );
 
-      await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergiePattern);
+      // TODO: uncomment when erx is enabled
+      // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergiePattern);
 
       await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgicalHistoryPattern);
 
@@ -435,12 +436,13 @@ test.describe('Tests interacting with appointment state', () => {
       );
     });
 
-    await test.step('check known allergies list', async () => {
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible();
-      await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
-        RegExp(knownAllergiePattern)
-      );
-    });
+    // TODO: uncomment when erx is enabled
+    // await test.step('check known allergies list', async () => {
+    //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible();
+    //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
+    //     RegExp(knownAllergiePattern)
+    //   );
+    // });
 
     await test.step('check surgical history list and note', async () => {
       await expect(

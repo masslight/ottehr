@@ -33,7 +33,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { intakeFlowPageRoute, visitBasePath } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
-import zapehrApi from '../api/zapehrApi';
+import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -42,7 +42,7 @@ import i18n from '../lib/i18n';
 import { ottehrLightBlue } from '@theme/icons';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { LoadingButton } from '@mui/lab';
-import api from '../api/zapehrApi';
+import api from '../api/ottehrApi';
 import { ottehrAiLogo } from '@theme/index';
 
 const MODAL_STYLE = {
@@ -153,8 +153,6 @@ const ThankYou = (): JSX.Element => {
   }, [appointmentId, loading, pathname]);
 
   const { appointmentData, clear: clearAppointmentStore } = getSelectors(useVisitStore, ['appointmentData', 'clear']);
-  // todo: there's probably some cool and better zustand way to replace all these useMemos
-  // this perhaps: const appointmentID = useAppointmentStore((state) => state.appointmentData.appointmentId);
   const { location: selectedLocation } = useMemo(() => {
     const location = appointmentData?.appointment?.location;
     if (location) {
@@ -200,7 +198,7 @@ const ThankYou = (): JSX.Element => {
       setLoading(true);
       let paperworkResponse: UCGetPaperworkResponse | undefined = undefined;
       try {
-        paperworkResponse = await zapehrApi.getPaperwork(tokenlessZambdaClient, {
+        paperworkResponse = await ottehrApi.getPaperwork(tokenlessZambdaClient, {
           appointmentID: appointmentID,
         });
       } catch (error: any) {

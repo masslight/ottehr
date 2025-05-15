@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
   chooseJson,
   ConversationMessage,
@@ -24,10 +24,13 @@ import {
   GetLabOrdersParameters,
   DeleteLabOrderParams,
   SubmitLabOrderDTO,
+  CreateSlotParams,
+  apiErrorToThrow,
+  CreateAppointmentInputParams,
+  UpdateLabOrderResourcesParameters,
 } from 'utils';
 import {
   CancelAppointmentParameters,
-  CreateAppointmentParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
@@ -71,7 +74,8 @@ const UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_LAB
 const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAMBDA_ID;
 const UPDATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_SCHEDULE_ZAMBDA_ID;
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = import.meta.env.VITE_APP_LIST_SCHEDULE_OWNERS_ZAMBDA_ID;
-const CREATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_SCHEDULE_ZAMBDA_ID;
+const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
+const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -98,7 +102,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw new Error(JSON.stringify(error));
+    throw error;
   }
 };
 
@@ -118,22 +122,15 @@ export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointme
   }
 };
 
-export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppointmentParameters): Promise<any> => {
+export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppointmentInputParams): Promise<any> => {
   try {
     if (CREATE_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('create appointment environment variable could not be loaded');
     }
 
-    // we currently have two different visit type conventions on telemed and ehr, one with '-'
-    // separating the distinct words / prefix adn word and one where it's just continuous chars
-    const translatedParams = {
-      ...parameters,
-      visitType: parameters.visitType?.replace('-', ''),
-    };
-
     const response = await oystehr.zambda.execute({
       id: CREATE_APPOINTMENT_ZAMBDA_ID,
-      ...translatedParams,
+      ...parameters,
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -470,10 +467,6 @@ export const updateSchedule = async (params: UpdateScheduleParams, oystehr: Oyst
 
 export const createSchedule = async (params: CreateScheduleParams, oystehr: Oystehr): Promise<Schedule> => {
   try {
-    if (CREATE_SCHEDULE_ZAMBDA_ID == null) {
-      throw new Error('create-schedule zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: CREATE_SCHEDULE_ZAMBDA_ID,
       ...params,
@@ -641,13 +634,6 @@ export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrde
   }
 };
 
-export type UpdateLabOrderResourcesParameters = {
-  taskId: string;
-  serviceRequestId: string;
-  diagnosticReportId: string;
-  event: 'reviewed';
-};
-
 export const updateLabOrderResources = async (
   oystehr: Oystehr,
   parameters: UpdateLabOrderResourcesParameters
@@ -664,5 +650,15 @@ export const updateLabOrderResources = async (
   } catch (error: unknown) {
     console.log(error);
     throw error;
+  }
+};
+
+export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Promise<Slot> => {
+  try {
+    const response = await oystehr.zambda.executePublic({ id: CREATE_SLOT_ZAMBDA_ID, ...input });
+    const jsonToUse = chooseJson(response);
+    return jsonToUse;
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
   }
 };

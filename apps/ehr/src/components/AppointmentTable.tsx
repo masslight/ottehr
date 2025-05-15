@@ -32,6 +32,7 @@ import {
   ACTION_WIDTH,
   PROVIDER_WIDTH,
   GROUP_WIDTH,
+  ROOM_WIDTH,
 } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 
@@ -92,6 +93,13 @@ export default function AppointmentTable({
                     Intake
                   </Typography>
                 </TableCell>
+                {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
+                  <TableCell style={{ width: ROOM_WIDTH }}>
+                    <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                      Room
+                    </Typography>
+                  </TableCell>
+                )}
                 <TableCell style={{ width: PROVIDER_WIDTH }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Provider
@@ -209,6 +217,7 @@ export default function AppointmentTable({
                   {showTime && <TableCell style={{ width: TIME_WIDTH }}></TableCell>}
                   <TableCell style={{ width: PATIENT_AND_REASON_WIDTH }}></TableCell>
                   <TableCell style={{ width: INTAKE_WIDTH }}></TableCell>
+                  <TableCell style={{ width: ROOM_WIDTH }}></TableCell>
                   <TableCell style={{ width: PROVIDER_WIDTH }}></TableCell>
                   <TableCell style={{ width: GROUP_WIDTH }}></TableCell>
                   <TableCell style={{ width: VISIT_ICONS_WIDTH }}></TableCell>

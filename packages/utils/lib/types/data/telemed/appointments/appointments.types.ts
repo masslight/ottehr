@@ -43,6 +43,7 @@ export interface PrescribedMedication {
 export interface GetVisitDetailsResponse {
   files: FileURLs;
   medications: PrescribedMedication[];
+  appointmentTime: string;
   charge: {
     amount: number;
     currency: string;

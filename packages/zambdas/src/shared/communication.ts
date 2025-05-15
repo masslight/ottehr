@@ -16,6 +16,7 @@ import {
   getSecret,
 } from 'utils';
 import { sendErrors } from './errors';
+import { getNameForOwner } from '../ehr/schedules/shared';
 
 export interface InPersonCancellationEmailSettings {
   email: string;
@@ -146,7 +147,9 @@ export async function sendInPersonMessages(
     console.log('email undefined');
   }
   const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
-  const messageAll = `Your check-in time for ${firstName} at ${scheduleResource.name} is ${startTime}. Please save time at check-in by completing your pre-visit paperwork`;
+  const messageAll = `Your check-in time for ${firstName} at ${getNameForOwner(
+    scheduleResource
+  )} is ${startTime}. Please save time at check-in by completing your pre-visit paperwork`;
   const message =
     appointmentType === 'walkin' || appointmentType === 'posttelemed'
       ? `${messageAll}: ${WEBSITE_URL}/paperwork/${appointmentID}`

@@ -94,7 +94,6 @@ async function createApplication(oystehr: Oystehr, applicationName: string): Pro
         resource: [
           'Zambda:Function:telemed-get-patients',
           'Zambda:Function:telemed-get-appointments',
-          'Zambda:Function:telemed-create-appointment',
           'Zambda:Function:telemed-get-paperwork',
           'Zambda:Function:telemed-create-paperwork',
           'Zambda:Function:telemed-cancel-telemed-appointment',
