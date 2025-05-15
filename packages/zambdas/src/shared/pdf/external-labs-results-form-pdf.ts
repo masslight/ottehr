@@ -66,6 +66,10 @@ export async function createLabResultPDF(
     throw new Error('patient.id is undefined');
   }
 
+  if (!diagnosticReport.id) {
+    throw new Error('diagnosticReport id is undefined');
+  }
+
   const provenanceRequestTemp = (
     await oystehr.fhir.search<Provenance | Practitioner>({
       resourceType: 'Provenance',
@@ -209,6 +213,7 @@ export async function createLabResultPDF(
       specimenValue: undefined,
       specimenReferenceRange: undefined,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
+      resultStatus: diagnosticReport.status.toUpperCase(),
       reviewed,
       reviewingProviderFirst: taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
@@ -656,7 +661,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
   drawRegularTextLeft(data.patientPhone);
   addNewLine(undefined, 2);
-  drawHeader('FINAL RESULT');
+  drawHeader(`${data.resultStatus} RESULT`);
   addNewLine();
   drawSeparatorLine();
   addNewLine();
@@ -769,7 +774,9 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}-${input.resultStatus}${
+    input.resultStatus === 'preliminary' ? '' : input.reviewed ? '-reviewed' : '-unreviewed'
+  }.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
@@ -818,6 +825,8 @@ export async function makeLabPdfDocumentReference({
   } else {
     throw new Error('Invalid type of lab document');
   }
+  // this function is also called for creating order pdfs which will not have a DR
+  const searchParams = diagnosticReportID ? [{ name: 'related', value: `DiagnosticReport/${diagnosticReportID}` }] : [];
   const { docRefs } = await createFilesDocumentReferences({
     files: [
       {
@@ -844,7 +853,7 @@ export async function makeLabPdfDocumentReference({
     dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
     oystehr,
     generateUUID: randomUUID,
-    searchParams: [{ name: 'encounter', value: `Encounter/${encounterID}` }],
+    searchParams,
     listResources,
   });
   return docRefs[0];

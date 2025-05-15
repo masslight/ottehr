@@ -400,9 +400,7 @@ const generateRandomPatientInfo = async (
 
   const telemedOffices = activeOffices.filter((loc) => isLocationVirtual(loc));
 
-  let selectedLocation = activeOffices.find(
-    (loc) => (selectedLocationId && loc.id === selectedLocationId) || loc.name === process.env.LOCATION
-  );
+  let selectedLocation = activeOffices.find((loc) => selectedLocationId && loc.id === selectedLocationId);
 
   if (serviceMode === ServiceMode.virtual && locationState) {
     selectedLocation = activeOffices.find(
@@ -420,6 +418,7 @@ const generateRandomPatientInfo = async (
   } else if (serviceMode === ServiceMode.virtual) {
     if (!selectedLocation?.id) {
       locationId = telemedOffices[Math.floor(Math.random() * telemedOffices.length)].id;
+      locationState = telemedOffices.find((loc) => loc.id === locationId)?.address?.state;
     } else {
       locationId = selectedLocation.id;
     }
@@ -492,6 +491,7 @@ const generateRandomPatientInfo = async (
       unconfirmedDateOfBirth: randomDateOfBirth,
       slotId: persistedSlot.id!,
       language: 'en',
+      locationState,
     };
   }
 
