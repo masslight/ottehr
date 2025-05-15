@@ -2,11 +2,14 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { LoadingButton } from '@mui/lab';
 import { Alert, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import React, { ReactElement, useState } from 'react';
-import { createSampleAppointments } from 'utils/lib/helpers';
-import { useApiClients } from '../hooks/useAppClients';
 import { otherColors } from '@theme/colors';
 import { createDemoVisits } from '@theme/icons';
+import { Location } from 'fhir/r4b';
+import React, { ReactElement, useState } from 'react';
+import { ServiceMode } from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
+import { createSampleAppointments } from 'utils/lib/helpers';
+import { useApiClients } from '../hooks/useAppClients';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
 const intakeZambdaUrl = import.meta.env.VITE_APP_PROJECT_API_ZAMBDA_URL;
@@ -33,6 +36,14 @@ const CreateDemoVisits = (): ReactElement => {
     event: React.MouseEvent<HTMLButtonElement> | React.FormEvent<HTMLFormElement>
   ): Promise<void> => {
     event.preventDefault();
+    if (!selectedLocation || JSON.stringify(selectedLocation) === '{}') {
+      setSnackbar({
+        open: true,
+        message: 'No location selected in filters, please select a location first',
+        severity: 'error',
+      });
+      return;
+    }
     const formattedPhoneNumber = formatPhoneNumber(phoneNumber);
     if (!formattedPhoneNumber) {
       setInputError(true);
@@ -44,15 +55,43 @@ const CreateDemoVisits = (): ReactElement => {
       setLoading(true);
       setInputError(false);
       const authToken = await getAccessTokenSilently();
-      await createSampleAppointments({
-        oystehr,
-        authToken,
-        phoneNumber: formattedPhoneNumber,
-        createAppointmentZambdaId,
-        zambdaUrl: intakeZambdaUrl,
-        selectedLocationId: selectedLocation.id,
-        projectId: import.meta.env.VITE_APP_PROJECT_ID,
-      });
+      const telemedLocations = (
+        await oystehr?.fhir.search<Location>({
+          resourceType: 'Location',
+          params: [
+            { name: 'status', value: 'active' },
+            { name: 'address-state:missing', value: 'false' },
+          ],
+        })
+      )?.unbundle();
+      const telemedLocation = telemedLocations?.find((loc) => isLocationVirtual(loc));
+      await Promise.all([
+        createSampleAppointments({
+          oystehr,
+          authToken,
+          phoneNumber: formattedPhoneNumber,
+          serviceMode: ServiceMode['in-person'],
+          createAppointmentZambdaId,
+          zambdaUrl: intakeZambdaUrl,
+          selectedLocationId: selectedLocation.id,
+          projectId: import.meta.env.VITE_APP_PROJECT_ID,
+          demoData: { numberOfAppointments: 5 },
+        }),
+        telemedLocation
+          ? createSampleAppointments({
+              oystehr,
+              serviceMode: ServiceMode.virtual,
+              authToken,
+              phoneNumber: formattedPhoneNumber,
+              createAppointmentZambdaId,
+              zambdaUrl: intakeZambdaUrl,
+              selectedLocationId: telemedLocation?.id,
+              projectId: import.meta.env.VITE_APP_PROJECT_ID,
+              demoData: { numberOfAppointments: 5 },
+              locationState: telemedLocation?.address?.state,
+            })
+          : Promise.resolve(),
+      ]);
       setSnackbar({
         open: true,
         message: 'Appointments created successfully!',

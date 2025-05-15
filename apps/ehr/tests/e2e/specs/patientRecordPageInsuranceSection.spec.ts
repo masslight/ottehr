@@ -339,9 +339,6 @@ test.describe('Insurance Information Section mutating tests', () => {
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
 
-    //todo: remove extra selectInsuranceCarrier once issue #1965 is resolved
-    await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
-
     await primaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clickShowMoreButton();
 
