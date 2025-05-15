@@ -420,7 +420,12 @@ export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCa
     console.log('all slots', JSON.stringify(slots, null, 2));
   }
 
-  return slots;
+  return Object.fromEntries(
+    // normalize the timezone of the keys
+    Object.entries(slots).map(([key, value]) => {
+      return [DateTime.fromISO(key).setZone(timezone).toISO()!, value];
+    })
+  ) as SlotCapacityMap;
 };
 
 export interface GetAvailableSlotsInput {
