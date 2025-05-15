@@ -353,7 +353,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ],
     };
 
-    const transactionResponsePromise = oystehr.fhir.transaction({
+    const transactionResponse = await oystehr.fhir.transaction({
       requests: [
         {
           method: 'POST',
@@ -379,18 +379,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ] as BatchInputRequest<FhirResource>[],
     });
 
-    const [transactionResponse, saveChartDataResponse] = await Promise.all([
-      transactionResponsePromise,
-      ...(diagnoses.length
-        ? [
-            oystehr.zambda.execute({
-              id: 'save-chart-data',
-              encounterId,
-              diagnosis: diagnoses,
-            }),
-          ]
-        : []),
-    ]);
+    if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
+      throw Error('Error creating in-house lab order in transaction');
+    }
+
+    const saveChartDataResponse = await oystehrCurrentUser.zambda.execute({
+      id: 'save-chart-data',
+      encounterId,
+      diagnosis: diagnoses,
+    });
 
     return {
       statusCode: 200,

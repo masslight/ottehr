@@ -17,7 +17,6 @@ import {
   Chip,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
@@ -38,12 +37,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [selectedCptCode, setSelectedCptCode] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [providerName, setProviderName] = useState<string>('');
-  // const { mutate: saveChartData } = useSaveChartData();
   const [error, setError] = useState<string[] | undefined>(undefined);
 
-  const { chartData, patient, encounter, appointment } = getSelectors(useAppointmentStore, [
+  const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
     'chartData',
-    'patient',
     'encounter',
     'appointment',
   ]);
@@ -81,45 +78,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
   );
 
-  // TODO: place it in the zambda
-  // const addAdditionalDxToEncounter = async (): Promise<void> => {
-  //   const dxToAdd: DiagnosisDTO[] = [];
-  //   selectedDiagnoses.forEach((dx) => {
-  //     const alreadyExistsOnEncounter = selectedDiagnoses?.find((d) => d.code === dx.code);
-  //     if (!alreadyExistsOnEncounter) {
-  //       dxToAdd.push({
-  //         ...dx,
-  //         isPrimary: false,
-  //         addedViaLabOrder: true,
-  //       });
-  //     }
-  //   });
-  //   if (dxToAdd.length > 0) {
-  //     await new Promise<void>((resolve, reject) => {
-  //       saveChartData(
-  //         {
-  //           diagnosis: dxToAdd,
-  //         },
-  //         {
-  //           onSuccess: (data) => {
-  //             const returnedDiagnosis = data.chartData.diagnosis || [];
-  //             const allDx = [...returnedDiagnosis, ...(diagnosis || [])];
-  //             if (allDx) {
-  //               setPartialChartData({
-  //                 diagnosis: [...allDx],
-  //               });
-  //             }
-  //             resolve();
-  //           },
-  //           onError: (error) => {
-  //             reject(error);
-  //           },
-  //         }
-  //       );
-  //     });
-  //   }
-  // };
-
   useEffect(() => {
     if (!oystehrZambda) {
       return;
@@ -152,7 +110,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     navigate(-1);
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldOpenPdf = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
     const encounterId = encounter.id;
@@ -160,8 +118,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
     if (oystehrZambda && canBeSubmitted) {
       try {
-        // await addAdditionalDxToEncounter(); // place in the zambda
-
         await createInHouseLabOrder(oystehrZambda, {
           encounterId,
           testItem: selectedTest,
@@ -179,12 +135,14 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           notes: notes,
         });
 
+        // todo: open pdf
+        if (shouldOpenPdf) {
+          // todo: open pdf
+        }
+
         navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);
       } catch (e) {
-        const oyError = e as OystehrSdkError;
-        console.log('error creating in-house lab order', oyError.code, oyError.message);
-        const errorMessage = [oyError.message];
-        setError(errorMessage);
+        setError(['There was an error creating this lab order']);
       } finally {
         setLoading(false);
       }
@@ -195,37 +153,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
       setError(errorMessage);
-    }
-  };
-
-  const handleOrderAndPrint = async (event: React.FormEvent): Promise<void> => {
-    event.preventDefault();
-    setLoading(true);
-
-    try {
-      // Submit the order first
-      console.log('Order submitted with print:', {
-        testType: selectedTest,
-        cptCode: selectedCptCode,
-        diagnoses: selectedDiagnoses,
-        notes: notes,
-        patientId: patient?.id,
-        encounterId: encounter?.id,
-        provider: providerName,
-        printLabel: true,
-      });
-
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // In a real implementation, this would trigger a print job for the label
-
-      // Navigate back to the lab orders list
-      navigate(-1);
-    } catch (error) {
-      console.error('Error submitting order and printing:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -513,7 +440,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                   <Box>
                     <Button
                       variant="contained"
-                      onClick={handleOrderAndPrint}
+                      onClick={(e) => handleSubmit(e, true)}
                       disabled={!selectedTest || !selectedCptCode || selectedDiagnoses.length === 0}
                       sx={{
                         borderRadius: '50px',
