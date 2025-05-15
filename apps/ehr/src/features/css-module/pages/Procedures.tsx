@@ -8,15 +8,19 @@ import AddIcon from '@mui/icons-material/Add';
 import { ROUTER_PATH } from '../routing/routesCSS';
 import { getSelectors } from 'utils';
 import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
+import { DATE_FORMAT } from 'src/helpers/formatDateTime';
+import { CSSLoader } from '../components/CSSLoader';
 
 export default function Procedures(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
-  const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
+  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
 
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
   };
+  if (isChartDataLoading) return <CSSLoader />;
   return (
     <>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -42,6 +46,7 @@ export default function Procedures(): ReactElement {
           </TableHead>
           <TableBody>
             {chartData?.procedures?.map((procedure) => {
+              const procedureDateTime = DateTime.fromISO(procedure.procedureDateTime);
               return (
                 <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
                   <TableCell>
@@ -69,7 +74,9 @@ export default function Procedures(): ReactElement {
                   </TableCell>
                   <TableCell>
                     <Stack>
-                      <Typography sx={{ fontSize: '14px' }}>{procedure.procedureDateTime}</Typography>
+                      <Typography sx={{ fontSize: '14px' }}>
+                        {procedureDateTime.toFormat(DATE_FORMAT)} at {procedureDateTime.toFormat('HH:mm a')}
+                      </Typography>
                       <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.documentedBy}</Typography>
                     </Stack>
                   </TableCell>
