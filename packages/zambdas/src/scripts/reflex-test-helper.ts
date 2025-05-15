@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 // Creates a DiagnosticReport and Observation(s) to mock a relfex test
 // npm run mock-reflex-test ['local' | 'dev' | 'development' | 'testing' | 'staging'] [serviceRequest Id]
 
-const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging'];
+const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
 const REFLEX_TEST_CODE: CodeableConcept = {
   coding: [
     {

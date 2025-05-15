@@ -79,8 +79,9 @@ export const MOBILE_MODAL_STYLE = {
 export const NEXT_WIDTH = '1%';
 export const TYPE_WIDTH = '13%';
 export const TIME_WIDTH = '12%';
-export const PATIENT_AND_REASON_WIDTH = '21%';
+export const PATIENT_AND_REASON_WIDTH = '26%';
 export const INTAKE_WIDTH = '8%';
+export const ROOM_WIDTH = '12%';
 export const PROVIDER_WIDTH = '14%';
 export const GROUP_WIDTH = '14%';
 export const VISIT_ICONS_WIDTH = '19%';
@@ -600,6 +601,7 @@ export const FormFields = {
       lastName: { key: 'policy-holder-last-name', type: 'String' },
       birthDate: { key: 'policy-holder-date-of-birth', type: 'String' },
       birthSex: { key: 'policy-holder-birth-sex', type: 'String' },
+      policyHolderAddressAsPatient: { key: 'policy-holder-address-as-patient', type: 'Boolean' },
       streetAddress: { key: 'policy-holder-address', type: 'String' },
       addressLine2: { key: 'policy-holder-address-additional-line', type: 'String' },
       city: { key: 'policy-holder-city', type: 'String' },
@@ -617,6 +619,7 @@ export const FormFields = {
       lastName: { key: 'policy-holder-last-name-2', type: 'String' },
       birthDate: { key: 'policy-holder-date-of-birth-2', type: 'String' },
       birthSex: { key: 'policy-holder-birth-sex-2', type: 'String' },
+      policyHolderAddressAsPatient: { key: 'policy-holder-address-as-patient-2', type: 'Boolean' },
       streetAddress: { key: 'policy-holder-address-2', type: 'String' },
       addressLine2: { key: 'policy-holder-address-additional-line-2', type: 'String' },
       city: { key: 'policy-holder-city-2', type: 'String' },

@@ -1,21 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import React from 'react';
 import {
   AvailableLocationInformation,
   getAvailableSlots,
   getScheduleExtension,
+  getLocationInformation,
   getSlotCapacityMapForDayAndSchedule,
 } from 'utils';
+import { vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
 import { getNextOpeningDateTime } from '../src/patient/get-schedule';
-import { getLocationInformation } from '../src/shared';
 import * as overrideData from './data/override-constants';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotTimes } from './data/slot-constants';
 import { HoursOfOpConfig, makeLocationWithSchedule, OverrideScheduleConfig } from './helpers/testScheduleUtils';
-import Oystehr from '@oystehr/sdk';
-import { vi } from 'vitest';
 
 const oystehr = new Oystehr({});
 

@@ -477,7 +477,7 @@
       "name": "CREATE-APPOINTMENT",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/patient/appointment/prebook-create-appointment/index",
+      "src": "src/patient/appointment/create-appointment/index",
       "zip": ".dist/zips/create-appointment.zip"
     },
     "INTAKE-GET-APPOINTMENTS": {
@@ -899,6 +899,48 @@
       "runtime": "nodejs20.x",
       "src": "src/patient/walkin/check-availability/index",
       "zip": ".dist/zips/walkin-check-availability.zip"
+    },
+    "GET-IN-HOUSE-ORDERS": {
+      "name": "GET-IN-HOUSE-ORDERS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-in-house-orders/index",
+      "zip": ".dist/zips/get-in-house-orders.zip"
+    },
+    "CREATE-IN-HOUSE-LAB-ORDER": {
+      "name": "CREATE-IN-HOUSE-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/create-in-house-lab-order/index",
+      "zip": ".dist/zips/create-in-house-lab-order.zip"
+    },
+    "GET-CREATE-IN-HOUSE-LAB-ORDER-RESOURCES": {
+      "name": "GET-CREATE-IN-HOUSE-LAB-ORDER-RESOURCES",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-create-in-house-lab-order-resources/index",
+      "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
+    },
+    "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
+      "name": "COLLECT-IN-HOUSE-LAB-SPECIMEN",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/collect-in-house-lab-specimen/index",
+      "zip": ".dist/zips/collect-in-house-lab-specimen.zip"
+    },
+    "HANDLE-IN-HOUSE-LAB-RESULTS": {
+      "name": "HANDLE-IN-HOUSE-LAB-RESULTS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/handle-in-house-lab-results/index",
+      "zip": ".dist/zips/handle-in-house-lab-results.zip"
+    },
+    "DELETE-IN-HOUSE-LAB-ORDER": {
+      "name": "DELETE-IN-HOUSE-LAB-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/delete-in-house-lab-order/index",
+      "zip": ".dist/zips/delete-in-house-lab-order.zip"
     }
   },
   "fhirResources": {

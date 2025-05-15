@@ -1,5 +1,7 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   Closure,
   ClosureType,
@@ -13,14 +15,12 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_CHANGES_DATE_FORMAT,
-  ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
+  ScheduleListItem,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mtoken: string;

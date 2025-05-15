@@ -189,13 +189,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               sampleCollectionDates.push(DateTime.fromISO(specimenDateTime));
             }
 
-            acc.push(
-              getPatchBinary({
-                resourceType: 'Specimen',
-                resourceId: specimen.id,
-                patchOperations: requests,
-              })
-            );
+            if (requests.length) {
+              acc.push({
+                method: 'PATCH',
+                url: `Specimen/${specimen.id}`,
+                operations: requests,
+              });
+            }
 
             return acc;
           }, [])
@@ -212,24 +212,22 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       questionsAndAnswers = questionsAndAnswersForFormDisplay;
 
-      preSumbissionWriteRequests.push(
-        getPatchBinary({
-          resourceType: 'QuestionnaireResponse',
-          resourceId: questionnaireResponse.id,
-          patchOperations: [
-            {
-              op: 'add',
-              path: '/item',
-              value: questionnaireResponseItems,
-            },
-            {
-              op: 'replace',
-              path: '/status',
-              value: 'completed',
-            },
-          ],
-        })
-      );
+      preSumbissionWriteRequests.push({
+        method: 'PATCH',
+        url: `QuestionnaireResponse/${questionnaireResponse.id}`,
+        operations: [
+          {
+            op: 'add',
+            path: '/item',
+            value: questionnaireResponseItems,
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'completed',
+          },
+        ],
+      });
     }
 
     if (preSumbissionWriteRequests.length > 0) {
