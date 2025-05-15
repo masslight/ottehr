@@ -1405,6 +1405,16 @@ export const createProcedureServiceRequest = (
       valueString: procedure.documentedBy,
     },
   ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
+  const diagnosesReferences = procedure.diagnoses.map((diagnosis) => {
+    return {
+      reference: 'Condition/' + diagnosis.resourceId,
+    };
+  });
+  const cptCodesReferences = procedure.cptCodes.map((cptCode) => {
+    return {
+      reference: 'Procedure/' + cptCode.resourceId,
+    };
+  });
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',
     subject: { reference: `Patient/${patientId}` },
@@ -1441,16 +1451,8 @@ export const createProcedureServiceRequest = (
       },
     ],
     meta: fillMeta('procedure', 'procedure'),
-    reasonReference: procedure.diagnoses.map((diagnosis) => {
-      return {
-        reference: 'Condition/' + diagnosis.resourceId,
-      };
-    }),
-    supportingInfo: procedure.cptCodes.map((cptCode) => {
-      return {
-        reference: 'Procedure/' + cptCode.resourceId,
-      };
-    }),
+    reasonReference: diagnosesReferences.length > 0 ? diagnosesReferences : undefined,
+    supportingInfo: cptCodesReferences.length > 0 ? cptCodesReferences : undefined,
     extension: extensions.length > 0 ? extensions : undefined,
   });
 };

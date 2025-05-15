@@ -190,7 +190,7 @@ export async function getChartData(
     chartDataRequests.push(...labRequests);
   }
 
-  if (requestedFields?.procedures && encounter.id) {
+  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
     chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
   }
 

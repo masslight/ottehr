@@ -29,7 +29,14 @@ import {
 } from '@mui/material';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { CPTCodeDTO, DiagnosisDTO, getSelectors, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import {
+  ChartDataWithResources,
+  CPTCodeDTO,
+  DiagnosisDTO,
+  getSelectors,
+  IcdSearchResponse,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+} from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
@@ -85,17 +92,17 @@ interface State {
   procedureDateError?: boolean;
   procedureTime?: DateTime | null;
   procedureTimeError?: boolean;
-  performer?: string;
-  performerError?: boolean;
+  performerType?: string;
+  performerTypeError?: boolean;
   medicationUsed?: string;
-  site?: string;
-  otherSite?: string;
+  bodySite?: string;
+  otherBodySite?: string;
   bodySide?: string;
   technique?: string;
   suppliesUsed?: string;
   otherSuppliesUsed?: string;
   procedureDetails?: string;
-  specimenSent?: string;
+  specimenSent?: boolean;
   complications?: string;
   otherComplications?: string;
   patientResponse?: string;
@@ -109,8 +116,10 @@ export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
-  const cptCodes = chartData?.cptCodes || [];
-  const { mutate: saveCPTChartData } = useSaveChartData();
+  const chartCptCodes = chartData?.cptCodes || [];
+  const chartDiagnoses = chartData?.diagnosis || [];
+  const chartProcedures = chartData?.procedures || [];
+  const { mutate: saveChartData } = useSaveChartData();
   const [state, setState] = useState<State>({});
 
   const updateState = (stateMutator: (state: State) => void): void => {
@@ -144,8 +153,8 @@ export default function ProceduresNew(): ReactElement {
       state.procedureTimeError = true;
       valid = false;
     }
-    if (isNullOrEmpty(state.performer)) {
-      state.performerError = true;
+    if (isNullOrEmpty(state.performerType)) {
+      state.performerTypeError = true;
       valid = false;
     }
     if (!valid) {
@@ -154,30 +163,88 @@ export default function ProceduresNew(): ReactElement {
     return valid;
   };
 
-  const onSave = (): void => {
-    const valid = validateState();
-    if (valid) {
-      saveCPTChartData(
+  const saveCptAndDiagnoses = (cptCodes: CPTCodeDTO[], diagnoses: DiagnosisDTO[]): Promise<ChartDataWithResources> => {
+    return new Promise<ChartDataWithResources>((resolve, reject) => {
+      saveChartData(
         {
-          cptCodes: state.cptCodes,
+          cptCodes: cptCodes,
+          diagnosis: diagnoses,
         },
         {
-          onSuccess: (data) => {
-            const savedCptCodes = data.chartData?.cptCodes;
-            if (savedCptCodes) {
-              setPartialChartData({
-                cptCodes: [...cptCodes, ...savedCptCodes],
-              });
-            }
-            enqueueSnackbar('Procedure saved!', { variant: 'success' });
-            navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
-          },
-          onError: () => {
-            enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
-          },
+          onSuccess: resolve,
+          onError: reject,
         }
       );
+    });
+  };
+
+  const onSave = async (): Promise<void> => {
+    if (!validateState()) {
+      return;
     }
+    const cptAndDiagnosesResponse = await saveCptAndDiagnoses(state.cptCodes ?? [], state.diagnoses ?? []);
+    const savedCptCodes = cptAndDiagnosesResponse.chartData?.cptCodes;
+    if (savedCptCodes) {
+      setPartialChartData({
+        cptCodes: [...chartCptCodes, ...savedCptCodes],
+      });
+    }
+    const savedDiagnoses = cptAndDiagnosesResponse.chartData?.diagnosis;
+    if (savedDiagnoses) {
+      setPartialChartData({
+        diagnosis: [...chartDiagnoses, ...savedDiagnoses],
+      });
+    }
+    saveChartData(
+      {
+        procedures: [
+          {
+            procedureType: state.procedureType ?? '',
+            cptCodes: savedCptCodes ?? [],
+            diagnoses: savedDiagnoses ?? [],
+            procedureDateTime: (state.procedureDate ?? DateTime.now())
+              .set({ hour: state.procedureTime?.hour, minute: state.procedureTime?.minute })
+              .toUTC()
+              .toString(),
+            performerType: state.performerType ?? '',
+            medicationUsed: state.medicationUsed,
+            bodySite: state.bodySite,
+            bodySide: state.bodySide,
+            technique: state.technique,
+            suppliesUsed: state.suppliesUsed,
+            procedureDetails: state.procedureDetails,
+            specimenSent: state.specimenSent,
+            complications: state.complications,
+            patientResponse: state.patientResponse,
+            postInstructions: state.postInstructions,
+            timeSpent: state.timeSpent,
+            documentedBy: state.documentedBy,
+          },
+        ],
+      },
+      {
+        onSuccess: (data) => {
+          const savedProcedure = data.chartData?.procedures?.[0];
+          if (savedProcedure) {
+            setPartialChartData({
+              procedures: [
+                ...chartProcedures,
+                {
+                  ...savedProcedure,
+                  cptCodes: savedCptCodes ?? [],
+                  diagnoses: savedDiagnoses ?? [],
+                },
+              ],
+            });
+          }
+          enqueueSnackbar('Procedure saved!', { variant: 'success' });
+          navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+        },
+        onError: () => {
+          enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
+        },
+      }
+    );
   };
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -431,17 +498,22 @@ export default function ProceduresNew(): ReactElement {
               />
             </LocalizationProvider>
           </Stack>
-          {radio('Performed by *', PERFORMED_BY, (value, state) => (state.performer = value), state.performerError)}
+          {radio(
+            'Performed by *',
+            PERFORMED_BY,
+            (value, state) => (state.performerType = value),
+            state.performerTypeError
+          )}
           {dropdown(
             'Anaesthesia / medication used',
             MEDICATIONS_USED,
             (value, state) => (state.medicationUsed = value)
           )}
           {dropdown('Site/location', SITES, (value, state) => {
-            state.site = value;
-            state.otherSite = undefined;
+            state.bodySite = value;
+            state.otherBodySite = undefined;
           })}
-          {otherTextInput('Site/location', state.site, (value, state) => (state.otherSite = value))}
+          {otherTextInput('Site/location', state.bodySite, (value, state) => (state.otherBodySite = value))}
           {dropdown('Side of body', SIDES_OF_BODY, (value, state) => (state.bodySide = value))}
           {dropdown('Technique', TECHNIQUES, (value, state) => (state.technique = value))}
           {dropdown('Instruments / supplies used', SUPPLIES, (value, state) => {
@@ -459,7 +531,7 @@ export default function ProceduresNew(): ReactElement {
             rows={4}
             onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
           />
-          {radio('Specimen sent', SPECIMEN_SENT, (value, state) => (state.specimenSent = value))}
+          {radio('Specimen sent', SPECIMEN_SENT, (value, state) => (state.specimenSent = value === 'Yes'))}
           {dropdown('Complications', COMPLICATIONS, (value, state) => {
             state.complications = value;
             state.otherComplications = undefined;

@@ -29,14 +29,14 @@ export default function Procedures(): ReactElement {
         <Table sx={{ width: '100%' }}>
           <TableHead>
             <TableRow>
-              <TableCell>
+              <TableCell sx={{ width: '55%' }}>
                 <Typography sx={{ fontSize: '14px', fontWeight: '500' }}>Procedure</Typography>
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: '25%' }}>
                 <Typography sx={{ fontSize: '14px', fontWeight: '500' }}>Dx</Typography>
               </TableCell>
-              <TableCell>
-                <Typography sx={{ fontSize: '14px', fontWeight: '500' }}>Performed</Typography>
+              <TableCell sx={{ width: '20%' }}>
+                <Typography sx={{ fontSize: '14px', fontWeight: '500' }}>Documented by</Typography>
               </TableCell>
             </TableRow>
           </TableHead>
@@ -69,10 +69,8 @@ export default function Procedures(): ReactElement {
                   </TableCell>
                   <TableCell>
                     <Stack>
-                      <Typography sx={{ fontSize: '14px' }}>
-                        {procedure.procedureDate} {procedure.procedureTime}
-                      </Typography>
-                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.performer}</Typography>
+                      <Typography sx={{ fontSize: '14px' }}>{procedure.procedureDateTime}</Typography>
+                      <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.documentedBy}</Typography>
                     </Stack>
                   </TableCell>
                 </TableRow>

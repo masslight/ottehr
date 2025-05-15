@@ -427,9 +427,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       saveOrUpdateRequests.push(request);
     });
 
-    procedures?.forEach((procedure) => {
-      saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
-    });
+    if (procedures) {
+      procedures?.forEach((procedure) => {
+        saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
+      });
+      additionalResourcesForResponse.push(encounter);
+    }
 
     console.log('Starting a transaction update of chart data...');
 
