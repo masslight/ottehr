@@ -44,7 +44,7 @@ const divideHourlyCapacityBySlotInterval = (capacity: number): { [slot: number]:
   for (let i = 0; i < minutesToDistributeInHour; i += minutesPerSlot) {
     timeSlots[i] = 1;
   }
-  console.log('timeSlots pre-bucketing', timeSlots);
+  //console.log('timeSlots pre-bucketing', timeSlots);
 
   // the capacity is less than the number of times an hour is divisible by the slot length
   const undercapacity = Object.entries(timeSlots).length < 4; // 60 / slot length - todo: get rid of magic numbers
@@ -52,23 +52,18 @@ const divideHourlyCapacityBySlotInterval = (capacity: number): { [slot: number]:
   const bucketedTimeSlots: { [slot: string]: number } = Object.entries(timeSlots).reduce(
     (acc, [key, value]) => {
       const bucketedKey = findNearestBucketForSlotStart(parseInt(key), 15, undercapacity);
-      if (bucketedKey === 45) {
-        console.log('bucketedKey = 45, originalKey =, minute mod =; ', key, parseInt(key) % 15);
-      }
       const currentCount = acc[bucketedKey] ?? 0;
       acc[bucketedKey] = currentCount + value;
       return acc;
     },
     {} as { [slot: string]: number }
   );
-  console.log('bucketedTimeSlots', bucketedTimeSlots);
+  //console.log('bucketedTimeSlots', bucketedTimeSlots);
   return bucketedTimeSlots;
 };
 
 const findNearestBucketForSlotStart = (minute: number, slotLength: number, undercapacity: boolean): number => {
   const minuteMod = minute % slotLength;
-  const bucketSize = 60 / slotLength;
-  console.log('bucketSize', bucketSize);
   if (minuteMod === 0) {
     return minute;
   } else {

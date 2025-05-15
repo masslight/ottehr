@@ -279,13 +279,13 @@ export function getSlotCapacityMapForDayAndSchedule(
   if (closures) {
     for (const closure of closures) {
       if (closure.type === ClosureType.OneDay && closure.start === dayString) {
-        console.log('closing day', dayString);
+        //console.log('closing day', dayString);
         return {};
       } else if (closure.type === ClosureType.Period) {
         const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).startOf('day');
         const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).endOf('day');
         if (now >= startClosure && now <= endClosure) {
-          console.log('closing day', dayString);
+          //console.log('closing day', dayString);
           return {};
         }
       }
@@ -327,7 +327,7 @@ export function getSlotCapacityMapForDayAndSchedule(
     throw Error('error getting available time slots, location has no opening time');
   }
   let timeSlots: SlotCapacityMap = {};
-  console.log('scheudle capacity list', scheduleCapacityList);
+  //console.log('scheudle capacity list', scheduleCapacityList);
 
   timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now);
 
