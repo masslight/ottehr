@@ -5,32 +5,22 @@ import {
   Attachment,
   Encounter,
   FhirResource,
-  HealthcareService,
   Location,
-  LocationHoursOfOperation,
   Meta,
-  Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  AvailableLocationInformation,
   EncounterVirtualServiceExtension,
   findQuestionnaireResponseItemLinkId,
-  getScheduleDetails,
   getSecret,
-  getTimezone,
-  HOURS_OF_OPERATION_FORMAT,
-  OVERRIDE_DATE_FORMAT,
   pickFirstValueFromAnswerItem,
   PRIVATE_EXTENSION_BASE_URL,
   PUBLIC_EXTENSION_BASE_URL,
-  ScheduleType,
   Secrets,
   SecretsKeys,
-  SLUG_SYSTEM,
   TELEMED_VIDEO_ROOM_CODE,
 } from 'utils';
 import { ZambdaInput } from './types';
@@ -224,99 +214,6 @@ export function getOtherOfficesForLocation(location: Location): { display: strin
   }
 
   return parsedExtValue;
-}
-
-// todo 1.8: this needs to take a schedule (or be async and go get a schedule), have a better name
-// also check that this data is truly needed everywhere it is used
-export function getLocationInformation(
-  oystehr: Oystehr,
-  scheduleResource: Location | Practitioner | HealthcareService,
-  currentDate: DateTime = DateTime.now()
-): AvailableLocationInformation {
-  const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
-  const timezone = getTimezone(scheduleResource);
-
-  const schedule = getScheduleDetails(scheduleResource);
-  const scheduleOverrides = schedule?.scheduleOverrides || {};
-
-  let scheduleType: ScheduleType;
-  switch (scheduleResource?.resourceType) {
-    case 'Location':
-      scheduleType = ScheduleType['location'];
-      break;
-    case 'HealthcareService':
-      scheduleType = ScheduleType['group'];
-      break;
-    case 'Practitioner':
-      scheduleType = ScheduleType['provider'];
-      break;
-  }
-
-  // Modify hours of operation returned based on schedule overrides
-  let hoursOfOperation: LocationHoursOfOperation[] | undefined = undefined;
-  if (scheduleResource.resourceType === 'Location') {
-    hoursOfOperation = scheduleResource.hoursOfOperation;
-    currentDate = currentDate.setZone(timezone);
-    const overrideDate = Object.keys(scheduleOverrides).find((date) => {
-      return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
-    });
-    if (overrideDate) {
-      const dayOfWeek = currentDate.toFormat('EEE').toLowerCase();
-      const override = scheduleOverrides[overrideDate];
-      const dayIndex = hoursOfOperation?.findIndex((hour) => (hour.daysOfWeek as string[])?.includes(dayOfWeek));
-      if (hoursOfOperation && typeof dayIndex !== 'undefined' && dayIndex >= 0) {
-        hoursOfOperation[dayIndex].openingTime = DateTime.fromFormat(override.open.toString(), 'h')
-          .set({
-            year: currentDate.year,
-            month: currentDate.month,
-            day: currentDate.day,
-          })
-          .toFormat(HOURS_OF_OPERATION_FORMAT);
-        hoursOfOperation[dayIndex].closingTime = DateTime.fromFormat(override.close.toString(), 'h')
-          .set({
-            year: currentDate.year,
-            month: currentDate.month,
-            day: currentDate.day,
-          })
-          .toFormat(HOURS_OF_OPERATION_FORMAT);
-      }
-    }
-  }
-
-  return {
-    id: scheduleResource.id,
-    slug: slug,
-    name: getName(oystehr, scheduleResource),
-    description: undefined,
-    address: undefined,
-    telecom: scheduleResource.telecom,
-    hoursOfOperation: hoursOfOperation,
-    timezone: timezone,
-    closures: schedule?.closures ?? [],
-    otherOffices: [], // todo
-    scheduleType,
-  };
-}
-
-function getName(oystehrClient: Oystehr, item: Location | Practitioner | HealthcareService): string {
-  if (!item.name) {
-    return 'Unknown';
-  }
-  if (item.resourceType === 'Location') {
-    return item.name;
-  }
-  if (item.resourceType === 'HealthcareService') {
-    return item.name;
-  }
-  return oystehrClient.fhir.formatHumanName(item.name[0]);
-}
-
-export function getEncounterStatusHistoryIdx(encounter: Encounter, status: string): number {
-  if (encounter.statusHistory) {
-    return encounter.statusHistory.findIndex((history) => history.status === status && !history.period.end);
-  } else {
-    throw new Error('Encounter status history not found');
-  }
 }
 
 export function checkPaperworkComplete(questionnaireResponse: QuestionnaireResponse): boolean {

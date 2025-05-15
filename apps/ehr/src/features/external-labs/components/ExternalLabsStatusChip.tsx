@@ -50,6 +50,14 @@ export const ExternalLabsStatusPalette: {
       primary: '#1B5E20',
     },
   },
+  corrected: {
+    background: {
+      primary: '#BBDEFB',
+    },
+    color: {
+      primary: '#01579B',
+    },
+  },
   cancelled: {
     background: {
       primary: '#FFCDD2',
