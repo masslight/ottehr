@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, IcdSearchResponse, SecretsKeys } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { getSecret, IcdSearchResponse, MISSING_NLM_API_KEY_ERROR, SecretsKeys } from 'utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -12,6 +12,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.debug('validateRequestParameters success');
 
     const apiKey = getSecret(SecretsKeys.NLM_API_KEY, secrets);
+
+    if (!apiKey) {
+      throw MISSING_NLM_API_KEY_ERROR;
+    }
 
     const response: IcdSearchResponse = { codes: [] };
     // search codes
@@ -47,9 +51,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
+    return await topLevelCatch('ehr-icd-search', error, input.secrets);
   }
 };

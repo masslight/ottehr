@@ -42,6 +42,7 @@ import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../..
 import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
 import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
+import { CompleteConfiguration } from '../../../components/CompleteConfiguration';
 
 enum Gender {
   'male' = 'Male',
@@ -75,10 +76,13 @@ export const AppointmentSidePanel: FC = () => {
 
   const user = useEvolveUser();
 
+  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
+
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isERXOpen, setIsERXOpen] = useState(false);
   const [isERXLoading, setIsERXLoading] = useState(false);
+  const [isErxPopupOpen, setIsErxPopupOpen] = useState(true);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
@@ -137,17 +141,26 @@ export const AppointmentSidePanel: FC = () => {
   const interpreterString =
     preferredLanguage && isSpanish(preferredLanguage) ? `Interpreter: ${INTERPRETER_PHONE_NUMBER}` : '';
 
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  };
+
   return (
     <Drawer
       variant="permanent"
       sx={{
         width: '350px',
         flexShrink: 0,
-        [`& .MuiDrawer-paper`]: { width: '350px', boxSizing: 'border-box', top: adjustTopForBannerHeight(-7) },
+        [`& .MuiDrawer-paper`]: {
+          width: '350px',
+          boxSizing: 'border-box',
+          top: adjustTopForBannerHeight(-7),
+          overflow: 'visible ',
+        },
       }}
     >
       <Toolbar />
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'auto' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 3, overflow: 'visible' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             {getAppointmentStatusChip(mapStatusToTelemed(encounter.status, appointment?.status))}
@@ -232,7 +245,7 @@ export const AppointmentSidePanel: FC = () => {
           <Typography variant="body2">{formattedReasonForVisit}</Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, position: 'relative' }}>
           <LoadingButton
             size="small"
             variant="outlined"
@@ -285,22 +298,47 @@ export const AppointmentSidePanel: FC = () => {
           </Button>
 
           {user?.isPractitionerEnrolledInPhoton && (
-            <LoadingButton
-              size="small"
-              variant="outlined"
-              sx={{
-                textTransform: 'none',
-                fontSize: '14px',
-                fontWeight: 500,
-                borderRadius: 10,
-              }}
-              startIcon={<MedicationOutlinedIcon />}
-              onClick={() => setIsERXOpen(true)}
-              loading={isERXLoading}
-              disabled={appointmentAccessibility.isAppointmentReadOnly}
-            >
-              RX
-            </LoadingButton>
+            <Box sx={{ position: 'relative', zIndex: 10000 }}>
+              <Box
+                onMouseEnter={() => {
+                  if (appointmentAccessibility.isAppointmentReadOnly) {
+                    setIsErxPopupOpen(false);
+                  }
+                }}
+                onMouseLeave={() => setIsErxPopupOpen(true)}
+              >
+                {!isErxPopupOpen && !erxEnvVariable && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      zIndex: 10000,
+                      bottom: '100%',
+                      left: -5,
+                      width: '350px',
+                      pb: 1,
+                    }}
+                  >
+                    <CompleteConfiguration handleSetup={handleSetup} />
+                  </Box>
+                )}
+                <LoadingButton
+                  size="small"
+                  variant="outlined"
+                  sx={{
+                    textTransform: 'none',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    borderRadius: 10,
+                  }}
+                  startIcon={<MedicationOutlinedIcon />}
+                  onClick={() => setIsERXOpen(true)}
+                  loading={isERXLoading}
+                  disabled={appointmentAccessibility.isAppointmentReadOnly}
+                >
+                  RX
+                </LoadingButton>
+              </Box>
+            </Box>
           )}
         </Box>
 
