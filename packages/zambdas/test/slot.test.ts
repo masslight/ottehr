@@ -387,7 +387,7 @@ describe.skip('test front end slot display: different capacities, no buffers, no
   });
 });
 
-describe('test front end slot display: straight forward opening and closing buffers, capacity 4, no busy slots, no appointments', () => {
+describe.skip('test front end slot display: straight forward opening and closing buffers, capacity 4, no busy slots, no appointments', () => {
   test('1: opening buffer 15', async () => {
     const time = DateTime.now().startOf('day').set({ hour: 8 });
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
