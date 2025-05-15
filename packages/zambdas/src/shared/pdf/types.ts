@@ -140,7 +140,7 @@ export interface ExternalLabsData {
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
-interface LabResult {
+export interface LabResult {
   resultCode: string;
   resultCodeDisplay: string;
   resultInterpretation: string;
@@ -157,7 +157,6 @@ export interface LabResultsData extends ExternalLabsData {
   // specimenSource: string;
   testName: string;
   // specimenDescription: string;
-  specimenValue?: string;
   specimenReferenceRange?: string;
   resultPhase: string;
   resultStatus: string;
@@ -166,6 +165,7 @@ export interface LabResultsData extends ExternalLabsData {
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
   reviewDate: string | undefined;
+  resultInterpretations: string[];
   results: LabResult[];
   testItemCode: string;
   performingLabName: string;

@@ -374,7 +374,6 @@ export const getLabResources = async (
     resourceType: 'ServiceRequest',
     params: labServiceRequestSearchParams,
   });
-  console.log('labOrdersResponse', labOrdersResponse);
 
   const labResources =
     labOrdersResponse.entry
@@ -768,6 +767,10 @@ export const fetchDocumentReferencesForDiagnosticReports = async (
       {
         name: 'related',
         value: reportIds.map((id) => `DiagnosticReport/${id}`).join(','),
+      },
+      {
+        name: 'status',
+        value: 'current',
       },
     ],
   });
