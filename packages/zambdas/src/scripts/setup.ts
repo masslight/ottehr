@@ -2,10 +2,11 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { exec } from 'child_process';
 import { FhirResource, HealthcareService, Organization, PractitionerRole, Schedule } from 'fhir/r4b';
 import fs from 'fs';
-import path from 'path';
-import {PROJECT_NAME, PROJECT_NAME_LOWER, FHIR_BASE_URL, PROJECT_DOMAIN, ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL, SCHEDULE_EXTENSION_URL } from 'utils';
-import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
+import path from 'path';
+import { FHIR_BASE_URL, PROJECT_DOMAIN, PROJECT_NAME, PROJECT_NAME_LOWER, SCHEDULE_EXTENSION_URL, ScheduleStrategyCoding, TIMEZONE_EXTENSION_URL } from 'utils';
+import { inviteUser } from './invite-user';
+import { defaultGroup } from './setup-default-locations';
 
 export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
 
@@ -196,7 +197,7 @@ export async function setupEHR(
   const healthcareServicePostRequests: BatchInputPostRequest<FhirResource>[] = [];
   const healthcareServiceResource: HealthcareService = {
     resourceType: 'HealthcareService',
-    name: 'Visit Followup Group',
+    name: defaultGroup,
     active: true,
     identifier: [
       {
