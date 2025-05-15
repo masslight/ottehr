@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
-import { InHouseLabsTable, InHouseLabsTableColumn } from '../comonents/orders/InHouseLabsTable';
+import { InHouseLabsTable, InHouseLabsTableColumn } from '../components/orders/InHouseLabsTable';
 import { getInHouseLabOrderCreateUrl } from 'src/features/css-module/routing/helpers';
 
 const inHouseLabsColumns: InHouseLabsTableColumn[] = [

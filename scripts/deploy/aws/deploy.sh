@@ -1,3 +1,7 @@
+#!/bin/bash
+
+set -eo pipefail
+
 project_id=$(grep '"project_id"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 access_token=$(grep '"access_token"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
 provider_email=$(grep '"provider_email"' "$(dirname "$0")/../deploy-config.json" | sed 's/.*: "\(.*\)".*/\1/')
@@ -20,8 +24,8 @@ fi
 
 pushd packages/zambdas
 ENV=$environment npm run deploy-zambdas $environment
-ENV=$environment npm run setup-secrets $environment
 ENV=$environment npm run setup-deployed-resources $environment
+ENV=$environment npm run setup-secrets $environment
 popd
 
 pushd apps/intake

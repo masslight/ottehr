@@ -209,6 +209,7 @@ export async function createLabResultPDF(
       specimenValue: undefined,
       specimenReferenceRange: undefined,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
+      resultStatus: diagnosticReport.status.toUpperCase(),
       reviewed,
       reviewingProviderFirst: taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
@@ -656,7 +657,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
   drawRegularTextLeft(data.patientPhone);
   addNewLine(undefined, 2);
-  drawHeader('FINAL RESULT');
+  drawHeader(`${data.resultStatus} RESULT`);
   addNewLine();
   drawSeparatorLine();
   addNewLine();
@@ -769,7 +770,9 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}${input.reviewed ? '-reviewed' : '-unreviewed'}.pdf`;
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}-${input.resultStatus}${
+    input.resultStatus === 'preliminary' ? '' : input.reviewed ? '-reviewed' : '-unreviewed'
+  }.pdf`;
   console.log('Creating base file url');
   const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');

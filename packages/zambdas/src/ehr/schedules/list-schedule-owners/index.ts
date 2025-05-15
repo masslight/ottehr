@@ -1,9 +1,11 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   Closure,
   ClosureType,
-  DOW,
+  getHoursOfOperationForToday,
   getScheduleDetails,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -13,14 +15,11 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_CHANGES_DATE_FORMAT,
-  ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mtoken: string;
@@ -176,45 +175,6 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
     };
   });
   return { list };
-};
-
-const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHoursISO'] => {
-  const tz = getTimezone(item) ?? TIMEZONES[0];
-  const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
-
-  const scheduleTemp = getScheduleDetails(item);
-  if (!scheduleTemp) {
-    return undefined;
-  }
-  const scheduleDays = scheduleTemp.schedule;
-  const scheduleDay = scheduleDays[dayOfWeek as DOW];
-  let open: number = scheduleDay.open;
-  let close: number = scheduleDay.close;
-  const scheduleOverrides = scheduleTemp.scheduleOverrides;
-  if (scheduleTemp.scheduleOverrides) {
-    for (const dateKey in scheduleOverrides) {
-      if (Object.hasOwnProperty.call(scheduleOverrides, dateKey)) {
-        const date = DateTime.fromFormat(dateKey, OVERRIDE_DATE_FORMAT).setZone(tz).toISODate();
-        const todayDate = DateTime.now().setZone(tz).toISODate();
-        if (date === todayDate) {
-          open = scheduleOverrides[dateKey].open;
-          close = scheduleOverrides[dateKey].close;
-        }
-      }
-    }
-  }
-  if (open !== undefined && close !== undefined) {
-    const openTime = DateTime.now().setZone(tz).startOf('day').plus({ hours: open }).toISO();
-    const closeTime = DateTime.now().setZone(tz).startOf('day').plus({ hours: close }).toISO();
-    if (!openTime || !closeTime) {
-      return undefined;
-    }
-    return {
-      open: openTime,
-      close: closeTime,
-    };
-  }
-  return undefined;
 };
 
 function getItemOverrideInformation(item: Schedule): string | undefined {

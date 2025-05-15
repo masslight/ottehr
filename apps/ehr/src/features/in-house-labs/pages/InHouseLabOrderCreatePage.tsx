@@ -48,7 +48,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         setLoading(true);
         const response = await getCreateInHouseLabOrderResources(oystehrZambda, {
           serviceRequestId: serviceRequestID!,
-        }); // todo: use actual serviceRequestId
+        });
         const testItems = Object.values(response.labs || {});
         setAvailableTests(testItems);
         setProviderName(response.providerName);
