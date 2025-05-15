@@ -21,7 +21,7 @@ import {
 import fs from 'fs';
 import { getAuth0Token, createOystehrClient } from '../shared';
 
-const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging'];
+const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
 const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
 
 const checkEnvPassedIsValid = (env: string | undefined): boolean => {
