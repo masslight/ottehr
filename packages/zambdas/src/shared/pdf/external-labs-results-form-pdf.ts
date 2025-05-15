@@ -213,7 +213,7 @@ export async function createLabResultPDF(
       reviewed,
       reviewingProviderFirst: taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
       reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
-      reviewingProviderTitle: ORDER_RESULT_ITEM_UNKNOWN,
+      reviewingProviderTitle: '', // todo where should this come from ??
       reviewDate: reviewDate,
       results: observations.map((observation) => ({
         resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,

@@ -769,6 +769,10 @@ export const fetchDocumentReferencesForDiagnosticReports = async (
         name: 'related',
         value: reportIds.map((id) => `DiagnosticReport/${id}`).join(','),
       },
+      {
+        name: 'status',
+        value: 'current',
+      },
     ],
   });
 
