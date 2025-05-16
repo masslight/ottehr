@@ -229,3 +229,10 @@ export async function convertSearchResultsToResponse(
     chartResources: chartDataResources,
   };
 }
+
+export const configProceduresRequestsForGetChartData = (encounterId: string): BatchInputGetRequest => {
+  return {
+    method: 'GET',
+    url: `/ServiceRequest?encounter=Encounter/${encounterId}&status=completed`,
+  };
+};

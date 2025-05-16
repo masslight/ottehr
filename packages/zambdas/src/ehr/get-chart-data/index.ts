@@ -5,6 +5,7 @@ import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 
 import { checkOrCreateM2MClientToken, getPatientEncounter, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import {
+  configProceduresRequestsForGetChartData,
   convertSearchResultsToResponse,
   createFindResourceRequest,
   createFindResourceRequestById,
@@ -187,6 +188,10 @@ export async function getChartData(
   if (requestedFields?.labResults && encounter.id) {
     const labRequests = configLabRequestsForGetChartData(encounter.id);
     chartDataRequests.push(...labRequests);
+  }
+
+  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+    chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
   }
 
   console.timeLog('check', 'before resources fetch');

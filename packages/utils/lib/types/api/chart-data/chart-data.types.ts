@@ -65,6 +65,7 @@ export interface ChartDataFields {
   birthHistory?: BirthHistoryDTO[];
   aiChat?: QuestionnaireResponse;
   labResults?: EncounterLabResult;
+  procedures?: ProcedureDTO[];
 }
 
 export type ChartDataFieldsKeys = keyof ChartDataFields;
@@ -519,3 +520,23 @@ export const followUpInOptions = [
     value: 0,
   },
 ];
+
+export interface ProcedureDTO extends SaveableDTO {
+  procedureType: string;
+  cptCodes: CPTCodeDTO[];
+  diagnoses: DiagnosisDTO[];
+  procedureDateTime: string;
+  performerType: string;
+  medicationUsed?: string;
+  bodySite?: string;
+  bodySide?: string;
+  technique?: string;
+  suppliesUsed?: string;
+  procedureDetails?: string;
+  specimenSent?: boolean;
+  complications?: string;
+  patientResponse?: string;
+  postInstructions?: string;
+  timeSpent?: string;
+  documentedBy?: string;
+}
