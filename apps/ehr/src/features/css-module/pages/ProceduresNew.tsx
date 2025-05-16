@@ -80,7 +80,7 @@ const POST_PROCEDURE_INSTRUCTIONS = ['Wound Care', 'F/U with PCP', 'Return if wo
 const TIME_SPENT = ['< 5 min', '5-10 min', '10-20 min', '20-30 min', '> 30 min'];
 const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
 
-interface State {
+interface PageState {
   consentObtained?: boolean;
   procedureType?: string;
   procedureTypeError?: boolean;
@@ -120,9 +120,9 @@ export default function ProceduresNew(): ReactElement {
   const chartDiagnoses = chartData?.diagnosis || [];
   const chartProcedures = chartData?.procedures || [];
   const { mutate: saveChartData } = useSaveChartData();
-  const [state, setState] = useState<State>({});
+  const [state, setState] = useState<PageState>({});
 
-  const updateState = (stateMutator: (state: State) => void): void => {
+  const updateState = (stateMutator: (state: PageState) => void): void => {
     stateMutator(state);
     setState({ ...state });
   };
@@ -364,7 +364,7 @@ export default function ProceduresNew(): ReactElement {
   const dropdown = (
     label: string,
     options: string[],
-    stateMutator: (value: string, state: State) => void,
+    stateMutator: (value: string, state: PageState) => void,
     error = false
   ): ReactElement => {
     return (
@@ -395,7 +395,7 @@ export default function ProceduresNew(): ReactElement {
   const otherTextInput = (
     parentLabel: string,
     parentValue: string | undefined,
-    stateMutator: (value: string, state: State) => void
+    stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
     if (parentValue !== 'Other') {
       return <></>;
@@ -412,7 +412,7 @@ export default function ProceduresNew(): ReactElement {
   const radio = (
     label: string,
     options: string[],
-    stateMutator: (value: string, state: State) => void,
+    stateMutator: (value: string, state: PageState) => void,
     error = false
   ): ReactElement => {
     return (
