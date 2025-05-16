@@ -10,7 +10,7 @@ import {
 import {
   testItems,
   TestItem,
-  UrinalysisComponent,
+  MixedComponent,
   QuantityTestItem,
   IN_HOUSE_TEST_CODE_SYSTEM,
   IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
@@ -65,9 +65,7 @@ const makeValueSet = (
   };
 };
 
-const makeQuantitativeDetails = (
-  item: QuantityTestItem | UrinalysisComponent
-): ObservationDefinitionQuantitativeDetails => {
+const makeQuantitativeDetails = (item: QuantityTestItem | MixedComponent): ObservationDefinitionQuantitativeDetails => {
   if (!item.normalRange) {
     throw new Error(`Cannot make quantitativeDetails for ${JSON.stringify(item)}`);
   }
@@ -86,9 +84,7 @@ const makeQuantitativeDetails = (
   };
 };
 
-const makeQualifiedInterval = (
-  item: QuantityTestItem | UrinalysisComponent
-): ObservationDefinitionQualifiedInterval => {
+const makeQualifiedInterval = (item: QuantityTestItem | MixedComponent): ObservationDefinitionQualifiedInterval => {
   if (!item.normalRange) {
     throw new Error(`Cannot make QualifiedInterval for ${JSON.stringify(item)}`);
   }
@@ -178,7 +174,7 @@ const getCodeableConceptObservationDefinition = (
 
 const getComponentObservationDefinition = (
   componentName: string,
-  item: UrinalysisComponent
+  item: MixedComponent
 ): { obsDef: ObservationDefinition; contained: (ValueSet | ObservationDefinition)[] } => {
   const obsDef: ObservationDefinition = {
     id: `contained-${sanitizeForId(
