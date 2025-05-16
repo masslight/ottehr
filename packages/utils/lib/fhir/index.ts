@@ -19,4 +19,3 @@ export * from './patientMasterRecord';
 export * from './billing';
 export * from './questionnaires';
 export * from './practitioners';
-export * from './inHouseActivityDefinitionHandler';

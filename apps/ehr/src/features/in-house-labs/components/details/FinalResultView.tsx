@@ -11,7 +11,7 @@ import {
   Checkbox,
   Chip,
 } from '@mui/material';
-import { LabTest, TestResult } from '../../labTypes';
+import { LabTest, TestResult } from 'utils';
 
 interface FinalResultViewProps {
   testDetails: LabTest;

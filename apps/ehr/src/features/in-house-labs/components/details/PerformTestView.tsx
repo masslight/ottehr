@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { LabTest, TestResult } from '../../labTypes';
+import { LabTest, TestResult } from 'utils';
 import { History } from './History';
 
 interface PerformTestViewProps {

@@ -5,7 +5,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { PerformTestView } from '../components/details/PerformTestView';
 import { FinalResultView } from '../components/details/FinalResultView';
-import { LabTest } from '../labTypes';
+import { LabTest } from 'utils';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();

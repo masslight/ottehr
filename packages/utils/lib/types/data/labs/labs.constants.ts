@@ -49,7 +49,7 @@ export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '26
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';
 
-export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/added-via-lab-order';
+export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/added-via-lab-order'; // used also for in-house labs
 
 export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/related-specimen-definition';
