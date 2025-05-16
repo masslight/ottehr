@@ -36,3 +36,15 @@ export const IN_HOUSE_UNIT_OF_MEASURE_SYSTEM = 'http://unitsofmeasure.org/';
 
 export const IN_HOUSE_RESULTS_VALUESET_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet';
+
+const IN_HOUSE_LAB_OD_DISPLAY_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/valueset-display';
+
+export const OD_DISPLAY_CONFIG = {
+  url: IN_HOUSE_LAB_OD_DISPLAY_SYSTEM,
+  valueString: {
+    radio: 'Radio',
+    select: 'Select',
+  },
+} as const;
+
+export const IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/allow-null-value';

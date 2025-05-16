@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, Button, CircularProgress } from '@mui/material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { PerformTestView } from '../components/details/PerformTestView';
@@ -9,10 +9,13 @@ import { LabTest } from 'utils';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
-  const { testId } = useParams<{ testId: string }>();
+  // const { testId } = useParams<{ testId: string }>();
   const [loading, setLoading] = useState(true);
   const [testDetails, setTestDetails] = useState<LabTest | null>(null);
   const { oystehrZambda } = useApiClients();
+
+  // eslint-disable-next-line @typescript-eslint/no-inferrable-types
+  const testId: string = 'perform-test-pending';
 
   // Fetch the test details based on the current view/status
   useEffect(() => {
@@ -220,9 +223,15 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   return (
     <>
-      <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
-      <PerformTestView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
-      <FinalResultView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
+      {testDetails.status === 'ORDERED' && (
+        <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
+      )}
+      {testDetails.status === 'COLLECTED' && (
+        <PerformTestView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
+      )}
+      {testDetails.status === 'FINAL' && (
+        <FinalResultView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
+      )}
     </>
   );
 

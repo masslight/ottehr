@@ -13,3 +13,4 @@ export * from './states';
 export * from './visit-note';
 export * from './vitals';
 export * from './zapEHRApi';
+export * from './in-house-labs';
