@@ -9,7 +9,6 @@ import { ROUTER_PATH } from '../routing/routesCSS';
 import { getSelectors } from 'utils';
 import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { CSSLoader } from '../components/CSSLoader';
 
 export default function Procedures(): ReactElement {
@@ -46,12 +45,13 @@ export default function Procedures(): ReactElement {
           </TableHead>
           <TableBody>
             {chartData?.procedures?.map((procedure) => {
-              const procedureDateTime = DateTime.fromISO(procedure.procedureDateTime);
+              const procedureDateTime =
+                procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
               return (
                 <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
                   <TableCell>
                     <Stack>
-                      {procedure.cptCodes.map((cptCode) => {
+                      {procedure.cptCodes?.map((cptCode) => {
                         return (
                           <Typography sx={{ fontSize: '14px' }}>
                             {cptCode.code}-{cptCode.display}
@@ -63,7 +63,7 @@ export default function Procedures(): ReactElement {
                   </TableCell>
                   <TableCell>
                     <Stack>
-                      {procedure.diagnoses.map((diagnosis) => {
+                      {procedure.diagnoses?.map((diagnosis) => {
                         return (
                           <Typography sx={{ fontSize: '14px' }}>
                             {diagnosis.code}-{diagnosis.display}
@@ -75,7 +75,7 @@ export default function Procedures(): ReactElement {
                   <TableCell>
                     <Stack>
                       <Typography sx={{ fontSize: '14px' }}>
-                        {procedureDateTime.toFormat(DATE_FORMAT)} at {procedureDateTime.toFormat('HH:mm a')}
+                        {procedureDateTime != null ? procedureDateTime.toFormat('MM/dd/yyyy at HH:mm a') : undefined}
                       </Typography>
                       <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.documentedBy}</Typography>
                     </Stack>

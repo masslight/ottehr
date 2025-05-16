@@ -83,17 +83,11 @@ const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
 interface PageState {
   consentObtained?: boolean;
   procedureType?: string;
-  procedureTypeError?: boolean;
   cptCodes?: CPTCodeDTO[];
-  cptCodesError?: boolean;
   diagnoses?: DiagnosisDTO[];
-  diagnosesError?: boolean;
   procedureDate?: DateTime | null;
-  procedureDateError?: boolean;
   procedureTime?: DateTime | null;
-  procedureTimeError?: boolean;
   performerType?: string;
-  performerTypeError?: boolean;
   medicationUsed?: string;
   bodySite?: string;
   otherBodySite?: string;
@@ -120,7 +114,10 @@ export default function ProceduresNew(): ReactElement {
   const chartDiagnoses = chartData?.diagnosis || [];
   const chartProcedures = chartData?.procedures || [];
   const { mutate: saveChartData } = useSaveChartData();
-  const [state, setState] = useState<PageState>({});
+  const [state, setState] = useState<PageState>({
+    procedureDate: DateTime.now(),
+    procedureTime: DateTime.now(),
+  });
 
   const updateState = (stateMutator: (state: PageState) => void): void => {
     stateMutator(state);
@@ -129,38 +126,6 @@ export default function ProceduresNew(): ReactElement {
 
   const onCancel = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
-  };
-
-  const validateState = (): boolean => {
-    let valid = true;
-    if (isNullOrEmpty(state.procedureType)) {
-      state.procedureTypeError = true;
-      valid = false;
-    }
-    if (state.cptCodes == null || state.cptCodes.length === 0) {
-      state.cptCodesError = true;
-      valid = false;
-    }
-    if (state.diagnoses == null || state.diagnoses.length === 0) {
-      state.diagnosesError = true;
-      valid = false;
-    }
-    if (state.procedureDate == null) {
-      state.procedureDateError = true;
-      valid = false;
-    }
-    if (state.procedureTime == null) {
-      state.procedureTimeError = true;
-      valid = false;
-    }
-    if (isNullOrEmpty(state.performerType)) {
-      state.performerTypeError = true;
-      valid = false;
-    }
-    if (!valid) {
-      setState({ ...state });
-    }
-    return valid;
   };
 
   const saveCptAndDiagnoses = (cptCodes: CPTCodeDTO[], diagnoses: DiagnosisDTO[]): Promise<ChartDataWithResources> => {
@@ -179,9 +144,6 @@ export default function ProceduresNew(): ReactElement {
   };
 
   const onSave = async (): Promise<void> => {
-    if (!validateState()) {
-      return;
-    }
     const cptAndDiagnosesResponse = await saveCptAndDiagnoses(state.cptCodes ?? [], state.diagnoses ?? []);
     const savedCptCodes = cptAndDiagnosesResponse.chartData?.cptCodes;
     if (savedCptCodes) {
@@ -199,14 +161,14 @@ export default function ProceduresNew(): ReactElement {
       {
         procedures: [
           {
-            procedureType: state.procedureType ?? '',
-            cptCodes: savedCptCodes ?? [],
-            diagnoses: savedDiagnoses ?? [],
-            procedureDateTime: (state.procedureDate ?? DateTime.now())
-              .set({ hour: state.procedureTime?.hour, minute: state.procedureTime?.minute })
-              .toUTC()
-              .toString(),
-            performerType: state.performerType ?? '',
+            procedureType: state.procedureType,
+            cptCodes: savedCptCodes,
+            diagnoses: savedDiagnoses,
+            procedureDateTime: state.procedureDate
+              ?.set({ hour: state.procedureTime?.hour, minute: state.procedureTime?.minute })
+              ?.toUTC()
+              ?.toString(),
+            performerType: state.performerType,
             medicationUsed: state.medicationUsed,
             bodySite: state.bodySite,
             bodySide: state.bodySide,
@@ -279,7 +241,6 @@ export default function ProceduresNew(): ReactElement {
             updateState((state) => {
               if (data != null) {
                 state.cptCodes = [...(state.cptCodes ?? []), data];
-                state.cptCodesError = false;
               }
             });
           }}
@@ -288,11 +249,9 @@ export default function ProceduresNew(): ReactElement {
             <TextField
               {...params}
               size="small"
-              label="CPT code *"
+              label="CPT code"
               placeholder="Search CPT code"
               onChange={(e) => debouncedHandleInputChange(e.target.value)}
-              error={state.cptCodesError}
-              helperText={state.cptCodesError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined}
             />
           )}
         />
@@ -322,15 +281,13 @@ export default function ProceduresNew(): ReactElement {
     return (
       <>
         <DiagnosesField
-          label="Dx *"
+          label="Dx"
           onChange={(value: IcdSearchResponse['codes'][number]): void => {
             const preparedValue = { ...value, isPrimary: false };
             updateState((state) => {
               state.diagnoses = [...(state.diagnoses ?? []), preparedValue];
-              state.diagnosesError = false;
             });
           }}
-          error={state.diagnosesError ? { type: 'required', message: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
           disableForPrimary={false}
         />
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -364,11 +321,10 @@ export default function ProceduresNew(): ReactElement {
   const dropdown = (
     label: string,
     options: string[],
-    stateMutator: (value: string, state: PageState) => void,
-    error = false
+    stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" error={error}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small">
         <InputLabel id={label}>{label}</InputLabel>
         <Select
           label={label}
@@ -387,7 +343,6 @@ export default function ProceduresNew(): ReactElement {
             );
           })}
         </Select>
-        {error ? <FormHelperText>{REQUIRED_FIELD_ERROR_MESSAGE}</FormHelperText> : undefined}
       </FormControl>
     );
   };
@@ -447,63 +402,38 @@ export default function ProceduresNew(): ReactElement {
             />
             <Typography>I have obtained the Consent for Procedure *</Typography>
           </Box>
-          {dropdown(
-            'Procedure type *',
-            PROCEDURE_TYPES,
-            (value, state) => {
-              state.procedureType = value;
-              state.procedureTypeError = false;
-            },
-            state.procedureTypeError
-          )}
+          {dropdown('Procedure type', PROCEDURE_TYPES, (value, state) => (state.procedureType = value))}
           {cptWidget()}
           {diagnosesWidget()}
           <Stack direction="row" spacing={2}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <DatePicker
-                label="Date of the procedure *"
+                label="Date of the procedure"
                 slotProps={{
                   textField: {
                     InputLabelProps: { shrink: true },
                     InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                    helperText: state.procedureDateError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined,
-                    error: state.procedureDateError,
                   },
                 }}
-                onChange={(date: DateTime | null, _e: any) =>
-                  updateState((state) => {
-                    state.procedureDate = date;
-                    state.procedureDateError = false;
-                  })
-                }
+                value={state.procedureDate}
+                onChange={(date: DateTime | null, _e: any) => updateState((state) => (state.procedureDate = date))}
               />
             </LocalizationProvider>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <TimePicker
-                label="Time of the procedure *"
+                label="Time of the procedure"
                 slotProps={{
                   textField: {
                     InputLabelProps: { shrink: true },
                     InputProps: { size: 'small' },
-                    helperText: state.procedureTimeError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined,
-                    error: state.procedureTimeError,
                   },
                 }}
-                onChange={(time: DateTime | null, _e: any) =>
-                  updateState((state) => {
-                    state.procedureTime = time;
-                    state.procedureTimeError = false;
-                  })
-                }
+                value={state.procedureTime}
+                onChange={(time: DateTime | null, _e: any) => updateState((state) => (state.procedureTime = time))}
               />
             </LocalizationProvider>
           </Stack>
-          {radio(
-            'Performed by *',
-            PERFORMED_BY,
-            (value, state) => (state.performerType = value),
-            state.performerTypeError
-          )}
+          {radio('Performed by', PERFORMED_BY, (value, state) => (state.performerType = value))}
           {dropdown(
             'Anaesthesia / medication used',
             MEDICATIONS_USED,
@@ -562,8 +492,4 @@ export default function ProceduresNew(): ReactElement {
       </AccordionCard>
     </Stack>
   );
-}
-
-function isNullOrEmpty(str: string | undefined): boolean {
-  return str == null || str === '';
 }
