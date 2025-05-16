@@ -110,7 +110,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     navigate(-1);
   };
 
-  const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldOpenPdf = false): Promise<void> => {
+  const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
     const encounterId = encounter.id;
@@ -135,9 +135,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           notes: notes,
         });
 
-        // todo: open pdf
-        if (shouldOpenPdf) {
-          // todo: open pdf
+        if (shouldPrintLabel) {
+          // todo: print label
         }
 
         navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);

@@ -106,7 +106,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
         return await getMyPractitionerId(oystehrCurrentUser);
       } catch (e) {
-        // todo: should we throw an error here?
         throw Error(
           'Resource configuration error - user creating this lab order must have a Practitioner resource linked'
         );
@@ -202,30 +201,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const coverage = getPrimaryInsurance(account, coverageSearchResults);
 
-    const location: Location | undefined = (() => {
-      // todo: should we uncomment this lines?:
-      // if (locationsSearchResults.length !== 1) {
-      //   throw Error(`Location not found, results contain ${locationsSearchResults.length} locations`);
-      // }
-
-      return locationsSearchResults[0];
-    })();
-
-    // TODO: commented because it will be implemented in the submit zambda, delete after submit zambda is implemented
-    // const specimenFullUrlArr: string[] = activityDefinition.observationRequirement?.map(
-    //   () => `urn:uuid:${randomUUID()}`
-    // ) || [`urn:uuid:${randomUUID()}`];
-    // const specimenConfig: Specimen = {
-    //   resourceType: 'Specimen',
-    //   request: [{ reference: `ServiceRequest/${serviceRequestConfig.id}` }],
-    //   subject: { reference: `Patient/${patient.id}` },
-    // };
-    // const specimensRequest = specimenFullUrlArr.map((url) => ({
-    //   method: 'POST',
-    //   url: '/Specimen',
-    //   resource: specimenConfig,
-    //   fullUrl: url,
-    // }));
+    const location: Location | undefined = locationsSearchResults[0];
 
     const serviceRequestFullUrl = `urn:uuid:${randomUUID()}`;
 
@@ -260,10 +236,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           text: diagnosis?.display,
         };
       }),
-      // specimen: specimenFullUrlArr.map((url) => ({
-      //   type: 'Specimen',
-      //   reference: url,
-      // })),
       ...(location && {
         locationReference: [
           {
@@ -281,15 +253,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       status: 'ready',
       code: {
         coding: [
-          // todo: is it valid?
           {
             system: IN_HOUSE_LAB_TASK.system,
             code: IN_HOUSE_LAB_TASK.code.collectSampleTask,
-          },
-          // todo: is it valid?
-          {
-            system: IN_HOUSE_LAB_TASK.system,
-            code: IN_HOUSE_LAB_TASK.code.inputResultsTask,
           },
         ],
       },
