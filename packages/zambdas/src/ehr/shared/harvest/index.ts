@@ -1759,36 +1759,15 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
       ? { policyHolder: secondPolicyHolder, ...secondInsuranceDetails }
       : undefined;
 
-  let primaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
-  let secondaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
-
   const priority1 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority')?.answer?.[0].valueString;
   const priority2 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority-2')?.answer?.[0].valueString;
 
-  const firstIsSecondary = priority1 === 'Secondary';
-  const secondIsPrimary = priority2 === 'Primary';
-
-  if (firstInsurance && secondInsurance) {
-    if (firstIsSecondary && secondIsPrimary) {
-      primaryInsurance = secondInsurance;
-      secondaryInsurance = firstInsurance;
-    } else {
-      primaryInsurance = firstInsurance;
-      secondaryInsurance = secondInsurance;
-    }
-  } else if (firstInsurance) {
-    if (firstIsSecondary) {
-      secondaryInsurance = firstInsurance;
-    } else {
-      primaryInsurance = firstInsurance;
-    }
-  } else if (secondInsurance) {
-    if (secondIsPrimary) {
-      primaryInsurance = secondInsurance;
-    } else {
-      secondaryInsurance = secondInsurance;
-    }
-  }
+  const { primaryInsurance, secondaryInsurance } = resolveInsurancePriorities(
+    firstInsurance,
+    secondInsurance,
+    priority1,
+    priority2
+  );
 
   if (primaryInsurance) {
     const primaryCoverage = createCoverageResource({
@@ -1829,6 +1808,46 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   }
   return { orderedCoverages: newCoverages, accountCoverage: coverage };
 };
+
+function resolveInsurancePriorities(
+  firstInsurance?: CreateCoverageResourceInput['insurance'],
+  secondInsurance?: CreateCoverageResourceInput['insurance'],
+  priority1?: string,
+  priority2?: string
+): {
+  primaryInsurance?: CreateCoverageResourceInput['insurance'];
+  secondaryInsurance?: CreateCoverageResourceInput['insurance'];
+} {
+  const firstIsSecondary = priority1 === 'Secondary';
+  const secondIsPrimary = priority2 === 'Primary';
+
+  let primaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
+  let secondaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
+
+  if (firstInsurance && secondInsurance) {
+    if (firstIsSecondary && secondIsPrimary) {
+      primaryInsurance = secondInsurance;
+      secondaryInsurance = firstInsurance;
+    } else {
+      primaryInsurance = firstInsurance;
+      secondaryInsurance = secondInsurance;
+    }
+  } else if (firstInsurance) {
+    if (firstIsSecondary) {
+      secondaryInsurance = firstInsurance;
+    } else {
+      primaryInsurance = firstInsurance;
+    }
+  } else if (secondInsurance) {
+    if (secondIsPrimary) {
+      primaryInsurance = secondInsurance;
+    } else {
+      secondaryInsurance = secondInsurance;
+    }
+  }
+
+  return { primaryInsurance, secondaryInsurance };
+}
 
 export async function searchInsuranceInformation(
   oystehr: Oystehr,
