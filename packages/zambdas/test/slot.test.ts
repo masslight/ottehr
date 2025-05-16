@@ -7,10 +7,9 @@ import {
   ClosureType,
   convertCapacityMapToSlotList,
   DOW,
-  findNearest15Minute,
   getAllSlotsAsCapacityMap,
   getAvailableSlots,
-  getScheduleDetails,
+  getScheduleExtension,
   getSlotCapacityMapForDayAndSchedule,
   getTimezone,
   OVERRIDE_DATE_FORMAT,
@@ -132,55 +131,6 @@ const makeSlots = (input: MakeSlotsInput): Slot[] => {
   });
 };
 
-describe.skip('nearest 15 minute mark', () => {
-  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
-
-  test('40 = 45', async () => {
-    const fortyFive = findNearest15Minute(40);
-    expect(fortyFive).toEqual(45);
-  });
-  test('30 = 30', async () => {
-    const thirty = findNearest15Minute(30);
-    expect(thirty).toEqual(30);
-  });
-  test('3 = 0', async () => {
-    const three = findNearest15Minute(3);
-    expect(three).toEqual(0);
-  });
-  test('12 = 15', async () => {
-    const num = findNearest15Minute(12);
-    expect(num).toEqual(15);
-  });
-  test('8 = 15', async () => {
-    const num = findNearest15Minute(8);
-    expect(num).toEqual(15);
-  });
-  test('7 = 0', async () => {
-    const num = findNearest15Minute(7);
-    expect(num).toEqual(0);
-  });
-  test('19 = 15', async () => {
-    const num = findNearest15Minute(19);
-    expect(num).toEqual(15);
-  });
-  test('44 = 45', async () => {
-    const num = findNearest15Minute(44);
-    expect(num).toEqual(45);
-  });
-  test('55 = 0', async () => {
-    const num = findNearest15Minute(55);
-    expect(num).toEqual(0);
-  });
-  test('38 = 45', async () => {
-    const num = findNearest15Minute(38);
-    expect(num).toEqual(45);
-  });
-  test('23 = 30', async () => {
-    const num = findNearest15Minute(23);
-    expect(num).toEqual(30);
-  });
-});
-
 describe.skip('test front end slot display: different capacities, no buffers, no busy slots, no appointments', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
@@ -195,7 +145,7 @@ describe.skip('test front end slot display: different capacities, no buffers, no
     ];
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 4, 0, 0);
 
-    const scheduleDTO = getScheduleDetails(schedule);
+    const scheduleDTO = getScheduleExtension(schedule);
 
     if (!scheduleDTO) throw new Error('location does not have schedule');
 
@@ -870,7 +820,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     const { schedule } = makeLocationWithSchedule(hoursInfo, 4, 30, 30);
 
     // set specific hourly capacities
-    const scheduleDeets = getScheduleDetails(schedule);
+    const scheduleDeets = getScheduleExtension(schedule);
 
     if (!scheduleDeets) throw new Error('location does not have schedule');
 
@@ -900,7 +850,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     const { schedule } = makeLocationWithSchedule(hoursInfo, 4, 15, 0);
 
     // set specific hourly capacity
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -974,7 +924,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 3, 15, 15);
 
     // set specific hourly capacities
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -1005,7 +955,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     const { schedule } = makeLocationWithSchedule(hoursInfo, 1, 15, 15);
 
     // set specific hourly capacities
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -1037,7 +987,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     ];
     const { schedule } = makeLocationWithSchedule(hoursInfo, 1, 15, 15);
     // set specific hourly capacities
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -1070,7 +1020,7 @@ describe.skip('test front end slot display: opening and closing buffers, varied 
     ];
     const { schedule } = makeLocationWithSchedule(hoursInfo, 1, 15, 15);
     // set specific hourly capacities
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -1391,7 +1341,7 @@ describe.skip('test back end slot generation', () => {
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 10, close: 15, workingDay: true }];
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 

@@ -5,8 +5,8 @@ import { DateTime } from 'luxon';
 import {
   Closure,
   ClosureType,
-  getHoursOfOperationForToday,
-  getScheduleDetails,
+  DOW,
+  getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
@@ -18,6 +18,7 @@ import {
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
+  ScheduleListItem,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
@@ -177,8 +178,47 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
   return { list };
 };
 
+const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHoursISO'] => {
+  const tz = getTimezone(item) ?? TIMEZONES[0];
+  const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
+
+  const scheduleTemp = getScheduleExtension(item);
+  if (!scheduleTemp) {
+    return undefined;
+  }
+  const scheduleDays = scheduleTemp.schedule;
+  const scheduleDay = scheduleDays[dayOfWeek as DOW];
+  let open: number = scheduleDay.open;
+  let close: number = scheduleDay.close;
+  const scheduleOverrides = scheduleTemp.scheduleOverrides;
+  if (scheduleTemp.scheduleOverrides) {
+    for (const dateKey in scheduleOverrides) {
+      if (Object.hasOwnProperty.call(scheduleOverrides, dateKey)) {
+        const date = DateTime.fromFormat(dateKey, OVERRIDE_DATE_FORMAT).setZone(tz).toISODate();
+        const todayDate = DateTime.now().setZone(tz).toISODate();
+        if (date === todayDate) {
+          open = scheduleOverrides[dateKey].open;
+          close = scheduleOverrides[dateKey].close;
+        }
+      }
+    }
+  }
+  if (open !== undefined && close !== undefined) {
+    const openTime = DateTime.now().setZone(tz).startOf('day').plus({ hours: open }).toISO();
+    const closeTime = DateTime.now().setZone(tz).startOf('day').plus({ hours: close }).toISO();
+    if (!openTime || !closeTime) {
+      return undefined;
+    }
+    return {
+      open: openTime,
+      close: closeTime,
+    };
+  }
+  return undefined;
+};
+
 function getItemOverrideInformation(item: Schedule): string | undefined {
-  const scheduleTemp = getScheduleDetails(item);
+  const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {
     return undefined;
   }

@@ -5,8 +5,8 @@ import React from 'react';
 import {
   AvailableLocationInformation,
   getAvailableSlots,
+  getScheduleExtension,
   getLocationInformation,
-  getScheduleDetails,
   getSlotCapacityMapForDayAndSchedule,
 } from 'utils';
 import { vi } from 'vitest';
@@ -149,7 +149,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 10, close: 15, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.overrideScheduleA;
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -169,7 +169,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 10, close: 15, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.pastScheduleOverride1;
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -189,7 +189,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 10, close: 15, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.futureScheduleOverride1;
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -209,7 +209,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 20, close: 24, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = [];
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
