@@ -436,7 +436,7 @@ export default function ProceduresNew(): ReactElement {
     <Stack spacing={1}>
       <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
       <InfoAlert
-        text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type
+        text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
               and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
       />
       <AccordionCard>
