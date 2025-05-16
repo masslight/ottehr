@@ -142,6 +142,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
   const [showDetails, setShowDetails] = useState(false);
   const [notes, setNotes] = useState(testDetails.notes || '');
 
+  // temp for testing
   const testItem = convertActivityDefinitionToTestItem(STREP_ACTIVITY_DEFINTION);
   console.log('testDetails', testDetails);
   console.log('testItem', testItem);
