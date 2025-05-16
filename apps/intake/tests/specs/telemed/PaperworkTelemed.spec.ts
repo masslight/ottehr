@@ -66,7 +66,6 @@ test.describe('Contact information screen - Check and fill all fields', () => {
     await page.goto(bookingData.bookingURL);
     await paperwork.clickProceedToPaperwork();
     await paperwork.checkCorrectPageOpens('Contact information');
-    await paperwork.checkContactInformationPageOpens();
   });
   test('PCI-2 Fill Contact Information all fields', async () => {
     await paperwork.fillContactInformationAllFields();
