@@ -1726,45 +1726,41 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     questionnaireResponse.item as IntakeQuestionnaireItem[]
   ) as QuestionnaireResponseItem[];
   const isSecondaryOnly = checkIsSecondaryOnly(flattenedPaperwork);
-  // Check primary insurance
-  let primaryPolicyHolder: PolicyHolder | undefined;
-  let primaryInsuranceDetails: InsuranceDetails | undefined;
-  let secondaryPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
-  let secondaryInsuranceDetails = getInsuranceDetailsFromAnswers(
+  let firstPolicyHolder: PolicyHolder | undefined;
+  let firstInsuranceDetails: InsuranceDetails | undefined;
+  let secondPolicyHolder = getSecondaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
+  let secondInsuranceDetails = getInsuranceDetailsFromAnswers(
     flattenedPaperwork,
     insurancePlanResources,
     organizationResources,
     '-2'
   );
   if (!isSecondaryOnly) {
-    primaryPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
-    primaryInsuranceDetails = getInsuranceDetailsFromAnswers(
+    firstPolicyHolder = getPrimaryPolicyHolderFromAnswers(questionnaireResponse.item ?? []);
+    firstInsuranceDetails = getInsuranceDetailsFromAnswers(
       flattenedPaperwork,
       insurancePlanResources,
       organizationResources
     );
-  } else if (secondaryPolicyHolder === undefined || secondaryInsuranceDetails === undefined) {
-    secondaryPolicyHolder = secondaryPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
-    secondaryInsuranceDetails =
-      secondaryInsuranceDetails ??
+  } else if (secondPolicyHolder === undefined || secondInsuranceDetails === undefined) {
+    secondPolicyHolder = secondPolicyHolder ?? getPrimaryPolicyHolderFromAnswers(flattenedPaperwork);
+    secondInsuranceDetails =
+      secondInsuranceDetails ??
       getInsuranceDetailsFromAnswers(flattenedPaperwork, insurancePlanResources, organizationResources);
   }
 
+  const firstInsurance =
+    firstPolicyHolder && firstInsuranceDetails
+      ? { policyHolder: firstPolicyHolder, ...firstInsuranceDetails }
+      : undefined;
+
+  const secondInsurance =
+    secondPolicyHolder && secondInsuranceDetails
+      ? { policyHolder: secondPolicyHolder, ...secondInsuranceDetails }
+      : undefined;
+
   let primaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
   let secondaryInsurance: CreateCoverageResourceInput['insurance'] | undefined;
-
-  if (primaryPolicyHolder && primaryInsuranceDetails) {
-    primaryInsurance = {
-      policyHolder: primaryPolicyHolder,
-      ...primaryInsuranceDetails,
-    };
-  }
-  if (secondaryPolicyHolder && secondaryInsuranceDetails) {
-    secondaryInsurance = {
-      policyHolder: secondaryPolicyHolder,
-      ...secondaryInsuranceDetails,
-    };
-  }
 
   const priority1 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority')?.answer?.[0].valueString;
   const priority2 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority-2')?.answer?.[0].valueString;
@@ -1772,16 +1768,26 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
   const firstIsSecondary = priority1 === 'Secondary';
   const secondIsPrimary = priority2 === 'Primary';
 
-  if (primaryInsurance && secondaryInsurance) {
+  if (firstInsurance && secondInsurance) {
     if (firstIsSecondary && secondIsPrimary) {
-      [primaryInsurance, secondaryInsurance] = [secondaryInsurance, primaryInsurance];
+      primaryInsurance = secondInsurance;
+      secondaryInsurance = firstInsurance;
+    } else {
+      primaryInsurance = firstInsurance;
+      secondaryInsurance = secondInsurance;
     }
-  } else if (primaryInsurance && firstIsSecondary) {
-    secondaryInsurance = primaryInsurance;
-    primaryInsurance = undefined;
-  } else if (secondaryInsurance && secondIsPrimary) {
-    primaryInsurance = secondaryInsurance;
-    secondaryInsurance = undefined;
+  } else if (firstInsurance) {
+    if (firstIsSecondary) {
+      secondaryInsurance = firstInsurance;
+    } else {
+      primaryInsurance = firstInsurance;
+    }
+  } else if (secondInsurance) {
+    if (secondIsPrimary) {
+      primaryInsurance = secondInsurance;
+    } else {
+      secondaryInsurance = secondInsurance;
+    }
   }
 
   if (primaryInsurance) {
