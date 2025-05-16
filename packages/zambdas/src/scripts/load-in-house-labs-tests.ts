@@ -635,6 +635,7 @@ const testItems: TestItemsType = {
         dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
+        // i dont think quantitativeReference is being mapped anywhere when pushed into fhir?
         quantitativeReference: {
           Trace: '<100 mg/dL',
           '1+': '100 mg/dL',

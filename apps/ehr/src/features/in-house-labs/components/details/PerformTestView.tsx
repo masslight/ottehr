@@ -1,20 +1,135 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Grid,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
-  Checkbox,
-  Collapse,
-} from '@mui/material';
+import { Box, Paper, Typography, Button, Collapse } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { LabTest, TestResult } from 'utils';
+import { LabTest, convertActivityDefinitionToTestItem } from 'utils';
 import { History } from './History';
+import { ResultEntryRadioButton } from './ResultEntryRadioButton';
+import { ActivityDefinition } from 'fhir/r4b';
+
+// temp for testing
+const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
+  id: '6302b66e-3f2f-4e36-af42-e0c80eebc608',
+  resourceType: 'ActivityDefinition',
+  status: 'active',
+  kind: 'ServiceRequest',
+  code: {
+    coding: [
+      {
+        system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code',
+        code: 'Rapid Strep A',
+      },
+      {
+        system: 'http://www.ama-assn.org/go/cpt',
+        code: '87880',
+      },
+    ],
+  },
+  title: 'Rapid Strep A',
+  name: 'Rapid Strep A',
+  participant: [
+    {
+      type: 'device',
+      role: {
+        coding: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role',
+            code: 'manual',
+            display: 'Strip Test (reagent strip)',
+          },
+        ],
+      },
+    },
+  ],
+  observationRequirement: [
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-RapidStrepA-codeableConcept-observationDef-id',
+    },
+  ],
+  contained: [
+    {
+      id: 'contained-RapidStrepA-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Positive',
+              },
+              {
+                code: 'Negative',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-RapidStrepA-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Positive',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-RapidStrepA-codeableConcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '78012-2',
+          },
+        ],
+        text: 'Rapid Strep A',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-RapidStrepA-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-RapidStrepA-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Radio',
+        },
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/allow-null-value',
+          valueCode: 'Unknown',
+          valueString: 'Indeterminate / inconclusive / error',
+        },
+      ],
+    },
+  ],
+  meta: {
+    tag: [
+      {
+        system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes',
+        code: 'in-house-lab-test-definition',
+      },
+    ],
+    versionId: 'a40e5989-b16e-44ca-b2b6-9b17a8d6392b',
+    lastUpdated: '2025-05-16T16:07:17.757Z',
+  },
+};
 
 interface PerformTestViewProps {
   testDetails: LabTest;
@@ -23,10 +138,13 @@ interface PerformTestViewProps {
 }
 
 export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, onBack, onSubmit }) => {
-  const [result, setResult] = useState<TestResult>(testDetails.result || null);
-  const [indeterminate, setIndeterminate] = useState(false);
+  const [result, setResult] = useState<string | null>(testDetails.result || null);
   const [showDetails, setShowDetails] = useState(false);
   const [notes, setNotes] = useState(testDetails.notes || '');
+
+  const testItem = convertActivityDefinitionToTestItem(STREP_ACTIVITY_DEFINTION);
+  console.log('testDetails', testDetails);
+  console.log('testItem', testItem);
 
   const handleToggleDetails = (): void => {
     setShowDetails(!showDetails);
@@ -36,10 +154,11 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
     console.log('Reprinting label for test:', testDetails.id);
   };
 
+  // todo handleWrites
   const handleSubmit = (): void => {
     onSubmit({
       status: 'FINAL',
-      result: indeterminate ? 'INDETERMINATE' : result,
+      result,
       notes,
     });
   };
@@ -75,87 +194,14 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
             </Box>
           </Box>
 
-          <RadioGroup value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  value="NOT_DETECTED"
-                  control={
-                    <Radio
-                      checked={result === 'NOT_DETECTED'}
-                      sx={{
-                        color: result === 'NOT_DETECTED' ? '#4CAF50' : undefined,
-                        '&.Mui-checked': {
-                          color: '#4CAF50',
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <Typography
-                      sx={{
-                        color: result === 'NOT_DETECTED' ? '#4CAF50' : 'text.secondary',
-                        fontWeight: result === 'NOT_DETECTED' ? 'bold' : 'regular',
-                      }}
-                    >
-                      Not detected
-                    </Typography>
-                  }
-                  sx={{
-                    margin: 0,
-                    padding: 2,
-                    width: '100%',
-                    border: '1px solid #E0E0E0',
-                    borderRadius: 1,
-                    backgroundColor: result === 'NOT_DETECTED' ? '#E8F5E9' : 'transparent',
-                  }}
-                />
-              </Grid>
+          {testItem.components.radioComponents.map((component) => {
+            return <ResultEntryRadioButton testItemComponent={component} result={result} setResult={setResult} />;
+          })}
 
-              <Grid item xs={6}>
-                <FormControlLabel
-                  value="DETECTED"
-                  control={
-                    <Radio
-                      checked={result === 'DETECTED'}
-                      sx={{
-                        color: result === 'DETECTED' ? '#F44336' : undefined,
-                        '&.Mui-checked': {
-                          color: '#F44336',
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <Typography
-                      sx={{
-                        color: result === 'DETECTED' ? '#F44336' : 'text.secondary',
-                        fontWeight: result === 'DETECTED' ? 'bold' : 'regular',
-                      }}
-                    >
-                      Detected
-                    </Typography>
-                  }
-                  sx={{
-                    margin: 0,
-                    padding: 2,
-                    width: '100%',
-                    border: '1px solid #E0E0E0',
-                    borderRadius: 1,
-                    backgroundColor: result === 'DETECTED' ? '#FFEBEE' : 'transparent',
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </RadioGroup>
-
-          <Box mt={2}>
-            <FormControlLabel
-              control={<Checkbox checked={indeterminate} onChange={(e) => setIndeterminate(e.target.checked)} />}
-              label="Indeterminate / inconclusive / error"
-              sx={{ color: 'text.secondary' }}
-            />
-          </Box>
+          {/* todo write this component */}
+          {testItem.components.selectComponents.map((component) => {
+            return <div>nothing should be here yet but it is??? {component.componentName}</div>;
+          })}
 
           <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
             <Button
@@ -186,7 +232,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
               variant="contained"
               color="primary"
               onClick={handleSubmit}
-              disabled={!result && !indeterminate}
+              disabled={!result}
               sx={{ borderRadius: '50px', px: 4 }}
             >
               Submit
