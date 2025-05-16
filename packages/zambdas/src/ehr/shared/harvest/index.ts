@@ -1766,6 +1766,24 @@ export const getCoverageResources = (input: GetCoveragesInput): GetCoverageResou
     };
   }
 
+  const priority1 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority')?.answer?.[0].valueString;
+  const priority2 = flattenedPaperwork.find((item) => item.linkId === 'insurance-priority-2')?.answer?.[0].valueString;
+
+  const firstIsSecondary = priority1 === 'Secondary';
+  const secondIsPrimary = priority2 === 'Primary';
+
+  if (primaryInsurance && secondaryInsurance) {
+    if (firstIsSecondary && secondIsPrimary) {
+      [primaryInsurance, secondaryInsurance] = [secondaryInsurance, primaryInsurance];
+    }
+  } else if (primaryInsurance && firstIsSecondary) {
+    secondaryInsurance = primaryInsurance;
+    primaryInsurance = undefined;
+  } else if (secondaryInsurance && secondIsPrimary) {
+    primaryInsurance = secondaryInsurance;
+    secondaryInsurance = undefined;
+  }
+
   if (primaryInsurance) {
     const primaryCoverage = createCoverageResource({
       patientId,
