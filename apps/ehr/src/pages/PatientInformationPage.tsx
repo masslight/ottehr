@@ -4,6 +4,8 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
+  checkCoverageMatchesDetails,
+  CoverageCheckWithDetails,
   extractFirstValueFromAnswer,
   flattenItems,
   getFullName,
@@ -34,7 +36,7 @@ import {
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
 import CloseIcon from '@mui/icons-material/Close';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
 import { enqueueSnackbar } from 'notistack';
@@ -42,6 +44,7 @@ import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import { useQueryClient } from 'react-query';
 import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
 import _ from 'lodash';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;
@@ -53,6 +56,15 @@ const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
     index++;
   } while (answer === undefined && index < types.length);
   return answer;
+};
+
+const getEligibilityCheckDetailsForCoverage = (
+  coverage: Coverage,
+  coverageChecks: CoverageCheckWithDetails[]
+): CoverageCheckWithDetails | undefined => {
+  return coverageChecks.find((check) => {
+    return checkCoverageMatchesDetails(coverage, check);
+  });
 };
 
 const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any => {
@@ -75,7 +87,6 @@ const PatientInformationPage: FC = () => {
   // data queries
   const { isFetching: accountFetching, data: accountData } = useGetPatientAccount({ apiClient, patientId: id ?? null });
   const { isFetching: questionnaireFetching, data: questionnaire } = useGetPatientDetailsUpdateForm();
-
   // data mutations
   const queryClient = useQueryClient();
   const submitQR = useUpdatePatientAccount(() => {
@@ -264,7 +275,7 @@ const PatientInformationPage: FC = () => {
                   <Typography
                     variant="body2"
                     color={otherColors.closeCross}
-                    sx={{ m: 1.25, maxWidth: 850, fontWeight: 700 }}
+                    sx={{ m: 1.25, maxWidth: 850, fontWeight: 500 }}
                   >
                     There are another patients with this name in our database. Please confirm by the DOB that you are
                     viewing the right patient.
@@ -286,7 +297,12 @@ const PatientInformationPage: FC = () => {
                   {coverages.map((coverage) => (
                     <InsuranceContainer
                       key={coverage.resource.id}
+                      patientId={patient.id ?? ''}
                       ordinal={coverage.startingPriority}
+                      initialEligibilityCheck={getEligibilityCheckDetailsForCoverage(
+                        coverage.resource,
+                        accountData?.coverageChecks ?? []
+                      )}
                       removeInProgress={removeCoverage.isLoading}
                       handleRemoveClick={
                         coverage.resource.id !== undefined
@@ -299,6 +315,7 @@ const PatientInformationPage: FC = () => {
                   ))}
                   {coverages.length < 2 && (
                     <Button
+                      data-testid={dataTestIds.patientInformationPage.addInsuranceButton}
                       variant="outlined"
                       color="primary"
                       onClick={() => setOpenAddInsuranceModal(true)}

@@ -28,7 +28,7 @@ export function createDocumentReference({
   backUrl = 'https://testing.project-api.zapehr.com/v1/z3/local-insurance-cards/2bc5ab8d-c1c2-4ca3-804b-c61066a62cb4/1721330518576-insurance-card-back.jpeg',
   frontContentType = 'image/jpeg',
   backContentType = 'image/jpeg',
-  tagCode = 'OTTEHR-IP',
+  tagCode = 'IN-PERSON',
   type = {
     system: 'http://loinc.org',
     code: '64290-0',

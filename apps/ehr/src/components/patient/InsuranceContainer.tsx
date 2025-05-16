@@ -1,7 +1,14 @@
-import { Autocomplete, Box, Checkbox, TextField, Typography, useTheme } from '@mui/material';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { Autocomplete, Box, Checkbox, FormControlLabel, TextField, Typography, useTheme } from '@mui/material';
+import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import {
+  chooseJson,
+  CoverageCheckWithDetails,
+  EligibilityCheckSimpleStatus,
+  isPostalCodeValid,
+  mapEligibilityCheckResultToSimpleStatus,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+} from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
 import {
   INSURANCE_COVERAGE_OPTIONS,
@@ -17,20 +24,71 @@ import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
 import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
 import { LoadingButton } from '@mui/lab';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { useMutation } from 'react-query';
+import { DateTime } from 'luxon';
 
 type InsuranceContainerProps = {
   ordinal: number;
+  patientId: string;
+  initialEligibilityCheck?: CoverageCheckWithDetails;
   removeInProgress?: boolean;
   handleRemoveClick?: () => void;
 };
 
-export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, removeInProgress, handleRemoveClick }) => {
+export const STATUS_TO_STYLE_MAP: Record<EligibilityCheckSimpleStatus, StatusStyleObject> = {
+  ELIGIBLE: {
+    bgColor: '#C8E6C9',
+    textColor: '#1B5E20',
+  },
+  'NOT ELIGIBLE': {
+    bgColor: '#FECDD2',
+    textColor: '#B71C1C',
+  },
+  UNKNOWN: {
+    bgColor: '#FECDD2',
+    textColor: '#B71C1C',
+  },
+};
+
+function mapInitialStatus(
+  initialCheckResult: CoverageCheckWithDetails | undefined
+): SimpleStatusCheckWithDate | undefined {
+  if (initialCheckResult) {
+    const status = mapEligibilityCheckResultToSimpleStatus(initialCheckResult);
+    return {
+      status: status.status,
+      dateISO: DateTime.fromISO(status.dateISO).toFormat('MM/dd/yyyy'),
+    };
+  }
+  return undefined;
+}
+
+interface SimpleStatusCheckWithDate {
+  status: EligibilityCheckSimpleStatus;
+  dateISO: string;
+}
+
+const ELIGIBILITY_CHECK_FLAG: 'OFF' | 'ON' = 'OFF';
+
+export const InsuranceContainer: FC<InsuranceContainerProps> = ({
+  ordinal,
+  patientId,
+  removeInProgress,
+  initialEligibilityCheck,
+  handleRemoveClick,
+}) => {
   //console.log('insuranceId', insuranceId);
   const theme = useTheme();
   const { insurancePlans } = usePatientStore();
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
-  const [sameAsPatientAddress, setSameAsPatientAddress] = useState(false);
+
+  const [eligibilityStatus, setEligibilityStatus] = useState<SimpleStatusCheckWithDate | undefined>(
+    mapInitialStatus(initialEligibilityCheck)
+  );
 
   const { control, setValue, watch } = useFormContext();
 
@@ -60,6 +118,8 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
   const localAddressData = watch(LocalAddressFields);
   const localIdentifyingData = watch(LocalIdentifyingFields);
   const selfSelected = watch(FormFields.relationship.key) === 'Self';
+  const insurancePriority = watch(FormFields.insurancePriority.key);
+  const sameAsPatientAddress = watch(FormFields.policyHolderAddressAsPatient.key, false);
 
   useEffect(() => {
     if (sameAsPatientAddress || selfSelected) {
@@ -96,9 +156,68 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
     handleRemoveClick?.();
   };
 
+  const { oystehrZambda } = useApiClients();
+
+  const recheckEligibility = useMutation(async () => {
+    // todo: show an alert when form has unsaved changes?
+    console.log('patient id', patientId);
+    const coverageToCheck = insurancePriority?.toLowerCase();
+    try {
+      return oystehrZambda?.zambda
+        .execute({
+          id: 'get-eligibility',
+          patientId,
+          coverageToCheck: coverageToCheck,
+        })
+        .then((res) => {
+          console.log('eligibility check result');
+          const json = chooseJson(res);
+          if (coverageToCheck === 'secondary') {
+            return mapEligibilityCheckResultToSimpleStatus(json.secondary);
+          } else {
+            return mapEligibilityCheckResultToSimpleStatus(json.primary);
+          }
+        });
+    } catch (error: any) {
+      throw new Error(error.message);
+    }
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleRecheckEligibility = async (): Promise<void> => {
+    console.log('recheck eligibility', recheckEligibility);
+    try {
+      const result = await recheckEligibility.mutateAsync();
+      if (result) {
+        setEligibilityStatus(result);
+      } else {
+        console.error('Error rechecking eligibility:', 'No result returned');
+      }
+      console.log('Eligibility check result:', result);
+    } catch (error) {
+      console.error('Error rechecking eligibility:', error);
+    }
+  };
+
+  const TitleWidget = (): ReactElement => {
+    return (
+      <RefreshableStatusChip
+        status={eligibilityStatus?.status ?? 'UNKNOWN'}
+        lastRefreshISO={eligibilityStatus?.dateISO ?? ''}
+        styleMap={STATUS_TO_STYLE_MAP}
+        isRefreshing={recheckEligibility.isLoading}
+        handleRefresh={handleRecheckEligibility}
+      />
+    );
+  };
+
   return (
-    <Section title="Insurance information">
-      <Row label="Type" required>
+    <Section
+      title="Insurance information"
+      dataTestId="insuranceContainer"
+      titleWidget={ELIGIBILITY_CHECK_FLAG !== 'OFF' ? <TitleWidget /> : undefined}
+    >
+      <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
           control={control}
@@ -121,7 +240,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           }}
         />
       </Row>
-      <Row label="Insurance carrier" required>
+      <Row label="Insurance carrier" required dataTestId={dataTestIds.insuranceContainer.insuranceCarrier}>
         <Controller
           name={FormFields.insuranceCarrier.key}
           control={control}
@@ -164,7 +283,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           }}
         />
       </Row>
-      <Row label="Member ID" required inputId={FormFields.memberId.key}>
+      <Row
+        label="Member ID"
+        required
+        inputId={FormFields.memberId.key}
+        dataTestId={dataTestIds.insuranceContainer.memberId}
+      >
         <FormTextField
           id={FormFields.memberId.key}
           name={FormFields.memberId.key}
@@ -173,11 +297,20 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
         />
       </Row>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <ShowMoreButton onClick={toggleMoreInfo} isOpen={showMoreInfo} />
+        <ShowMoreButton
+          onClick={toggleMoreInfo}
+          isOpen={showMoreInfo}
+          dataTestId={dataTestIds.insuranceContainer.showMoreButton}
+        />
       </Box>
       {showMoreInfo && (
         <>
-          <Row label="Policy holder's first name" required inputId={FormFields.firstName.key}>
+          <Row
+            label="Policy holder's first name"
+            required
+            inputId={FormFields.firstName.key}
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersFirstName}
+          >
             <FormTextField
               id={FormFields.firstName.key}
               name={FormFields.firstName.key}
@@ -186,7 +319,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Policy holder's middle name" inputId={FormFields.middleName.key}>
+          <Row
+            label="Policy holder's middle name"
+            inputId={FormFields.middleName.key}
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersMiddleName}
+          >
             <FormTextField
               id={FormFields.middleName.key}
               name={FormFields.middleName.key}
@@ -194,7 +331,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               disabled={selfSelected}
             />
           </Row>
-          <Row label="Policy holder's last name" required inputId={FormFields.lastName.key}>
+          <Row
+            label="Policy holder's last name"
+            required
+            inputId={FormFields.lastName.key}
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersLastName}
+          >
             <FormTextField
               id={FormFields.lastName.key}
               name={FormFields.lastName.key}
@@ -203,7 +345,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Policy holder's date of birth" required>
+          <Row
+            label="Policy holder's date of birth"
+            required
+            dataTestId={dataTestIds.insuranceContainer.policyHoldersDateOfBirth}
+          >
             <DatePicker
               name={FormFields.birthDate.key}
               control={control}
@@ -211,7 +357,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               disabled={selfSelected}
             />
           </Row>
-          <Row label="Policy holder's sex" required>
+          <Row label="Policy holder's sex" required dataTestId={dataTestIds.insuranceContainer.policyHoldersSex}>
             <FormSelect
               name={FormFields.birthSex.key}
               control={control}
@@ -222,17 +368,35 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           </Row>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
-              <Checkbox
-                checked={sameAsPatientAddress || selfSelected}
-                onChange={() => {
-                  setSameAsPatientAddress((currentVal) => !currentVal);
-                }}
-                disabled={selfSelected}
+              <Controller
+                name={FormFields.policyHolderAddressAsPatient.key}
+                control={control}
+                render={({ field: { value, ...field } }) => (
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        {...field}
+                        data-testid={dataTestIds.insuranceContainer.policyHolderAdrressCheckbox}
+                        checked={value}
+                        onChange={(e) => {
+                          const checked = (e.target as HTMLInputElement).checked;
+                          setValue(FormFields.policyHolderAddressAsPatient.key, checked, { shouldDirty: true });
+                        }}
+                        disabled={selfSelected}
+                      />
+                    }
+                    label={<Typography>Policy holder address is the same as patient's address</Typography>}
+                  />
+                )}
               />
-              <Typography>Policy holder address is the same as patient's address</Typography>
             </Box>
           </Box>
-          <Row label="Street address" inputId={FormFields.streetAddress.key} required>
+          <Row
+            label="Street address"
+            inputId={FormFields.streetAddress.key}
+            required
+            dataTestId={dataTestIds.insuranceContainer.streetAddress}
+          >
             <FormTextField
               id={FormFields.streetAddress.key}
               name={FormFields.streetAddress.key}
@@ -241,7 +405,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Address line 2" inputId={FormFields.addressLine2.key}>
+          <Row
+            label="Address line 2"
+            inputId={FormFields.addressLine2.key}
+            dataTestId={dataTestIds.insuranceContainer.addressLine2}
+          >
             <FormTextField
               id={FormFields.addressLine2.key}
               name={FormFields.addressLine2.key}
@@ -252,6 +420,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
           <Row label="City, State, ZIP" required>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <FormTextField
+                data-testid={dataTestIds.insuranceContainer.city}
                 name={FormFields.city.key}
                 disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[2])}
                 control={control}
@@ -280,6 +449,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
                       fullWidth
                       renderInput={(params) => (
                         <TextField
+                          data-testid={dataTestIds.insuranceContainer.state}
                           {...params}
                           variant="standard"
                           error={!!error}
@@ -292,6 +462,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
                 }}
               />
               <FormTextField
+                data-testid={dataTestIds.insuranceContainer.zip}
                 name={FormFields.zip.key}
                 control={control}
                 disabled={(sameAsPatientAddress || selfSelected) && Boolean(patientAddressData[4])}
@@ -302,7 +473,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               />
             </Box>
           </Row>
-          <Row label="Patient’s relationship to insured" required>
+          <Row
+            label="Patient’s relationship to insured"
+            required
+            dataTestId={dataTestIds.insuranceContainer.relationship}
+          >
             <FormSelect
               name={FormFields.relationship.key}
               control={control}
@@ -310,7 +485,11 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
             />
           </Row>
-          <Row label="Additional insurance information" inputId={FormFields.additionalInformation.key}>
+          <Row
+            label="Additional insurance information"
+            inputId={FormFields.additionalInformation.key}
+            dataTestId={dataTestIds.insuranceContainer.additionalInformation}
+          >
             <FormTextField
               id={FormFields.additionalInformation.key}
               name={FormFields.additionalInformation.key}
@@ -318,6 +497,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
             />
           </Row>
           <LoadingButton
+            data-testid={dataTestIds.insuranceContainer.removeButton}
             onClick={handleRemoveInsurance}
             variant="text"
             loading={removeInProgress}
@@ -325,7 +505,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({ ordinal, remov
               color: theme.palette.error.main,
               textTransform: 'none',
               fontSize: '13px',
-              fontWeight: 700,
+              fontWeight: 500,
               display: handleRemoveClick !== undefined ? 'flex' : 'none',
               alignItems: 'center',
               justifyContent: 'flex-start',

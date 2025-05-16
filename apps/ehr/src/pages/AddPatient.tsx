@@ -18,22 +18,26 @@ import {
   useTheme,
 } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { Location, Patient, Person, RelatedPerson, Slot } from 'fhir/r4b';
+import { Location, Patient, Person, RelatedPerson, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { useNavigate } from 'react-router-dom';
 import {
+  CreateAppointmentInputParams,
+  CreateSlotParams,
+  getAppointmentDurationFromSlot,
   getContactEmailForPatientAccount,
   getFullName,
   GetScheduleRequestParams,
   GetScheduleResponse,
-  OTTEHR_SLUG_ID_SYSTEM,
+  getTimezone,
   PRIVATE_EXTENSION_BASE_URL,
   ScheduleType,
   ServiceMode,
+  SLUG_SYSTEM,
 } from 'utils';
-import { createAppointment, getLocations } from '../api/api';
+import { createAppointment, createSlot, getLocations } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
 import { CustomDialog } from '../components/dialogs/CustomDialog';
@@ -43,13 +47,8 @@ import { MAXIMUM_CHARACTER_LIMIT, REASON_FOR_VISIT_OPTIONS } from '../constants'
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import {
-  CreateAppointmentParameters,
-  EmailUserValue,
-  getFhirAppointmentTypeForVisitType,
-  PersonSex,
-  VisitType,
-} from '../types/types';
+import { EmailUserValue, PersonSex, VisitType } from '../types/types';
+import { enqueueSnackbar } from 'notistack';
 
 const mapSelectedPatientEmailUser = (selectedPatientEmailUser: string | undefined): EmailUserValue | undefined => {
   if (!selectedPatientEmailUser) {
@@ -74,9 +73,13 @@ type SlotLoadingState =
   | { status: 'loading'; input: undefined }
   | { status: 'loaded'; input: string };
 
+export interface LocationWithWalkinSchedule extends Location {
+  walkinSchedule: Schedule | undefined;
+}
+
 export default function AddPatient(): JSX.Element {
   const storedLocation = localStorage?.getItem('selectedLocation');
-  const [selectedLocation, setSelectedLocation] = useState<Location | undefined>(
+  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
     storedLocation ? JSON.parse(storedLocation) : undefined
   );
   const [firstName, setFirstName] = useState<string>('');
@@ -115,7 +118,7 @@ export default function AddPatient(): JSX.Element {
   const navigate = useNavigate();
   const { oystehr, oystehrZambda } = useApiClients();
   const reasonForVisitErrorMessage = `Input cannot be more than ${MAXIMUM_CHARACTER_LIMIT} characters`;
-  const phoneNumberErrorMessage = 'Phone number must be 10 digits';
+  const phoneNumberErrorMessage = 'Phone number must be 10 digits in the format (xxx) xxx-xxxx';
 
   const handleAdditionalReasonForVisitChange = (newValue: string): void => {
     setValidReasonForVisit(newValue.length <= MAXIMUM_CHARACTER_LIMIT);
@@ -134,9 +137,8 @@ export default function AddPatient(): JSX.Element {
         setLoadingSlotState({ status: 'loaded', input: `${params.slug}` });
       }
     };
-    const locationSlug = selectedLocation?.identifier?.find(
-      (identifierTemp) => identifierTemp.system === OTTEHR_SLUG_ID_SYSTEM
-    )?.value;
+    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
+      ?.value;
     if (!locationSlug) {
       console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
       return;
@@ -200,8 +202,42 @@ export default function AddPatient(): JSX.Element {
       if (emailUser == undefined && emailToUse) {
         emailUser = 'Parent/Guardian';
       }
+      console.log('slot', slot);
       if (!oystehrZambda) throw new Error('Zambda client not found');
-      const zambdaParams: CreateAppointmentParameters = {
+      let createSlotInput: CreateSlotParams;
+      if (visitType === VisitType.WalkIn) {
+        if (!selectedLocation) {
+          enqueueSnackbar('Please select a location', { variant: 'error' });
+          setLoading(false);
+          return;
+        }
+        const timezone = getTimezone(selectedLocation?.walkinSchedule ?? selectedLocation);
+        createSlotInput = {
+          scheduleId: selectedLocation?.walkinSchedule?.id ?? '',
+          startISO: DateTime.now().setZone(timezone).toISO() ?? '',
+          lengthInMinutes: 15,
+          serviceModality: ServiceMode['in-person'],
+          walkin: true,
+        };
+      } else {
+        if (!slot) {
+          enqueueSnackbar('Please select a time slot', { variant: 'error' });
+          setLoading(false);
+          return;
+        }
+        const scheduleId = slot?.schedule?.reference?.split('/')?.[1] ?? '';
+        createSlotInput = {
+          scheduleId: scheduleId,
+          startISO: slot?.start ?? '',
+          lengthInMinutes: getAppointmentDurationFromSlot(slot),
+          serviceModality: ServiceMode['in-person'],
+          walkin: false,
+          postTelemedLabOnly: visitType === VisitType.PostTelemed,
+        };
+      }
+      console.log('slot input: ', createSlotInput);
+      const persistedSlot = await createSlot(createSlotInput, oystehrZambda);
+      const zambdaParams: CreateAppointmentInputParams = {
         patient: {
           id: selectedPatient?.id,
           newPatient: !selectedPatient,
@@ -211,15 +247,10 @@ export default function AddPatient(): JSX.Element {
           sex: (selectedPatient?.gender as PersonSex) || sex || undefined,
           phoneNumber: mobilePhone,
           email: emailToUse,
-          emailUser,
           reasonForVisit: reasonForVisit,
           reasonAdditional: reasonForVisitAdditional !== '' ? reasonForVisitAdditional : undefined,
         },
-        slot,
-        visitType: getFhirAppointmentTypeForVisitType(visitType),
-        locationID: selectedLocation?.id,
-        scheduleType: ScheduleType.location,
-        serviceType: ServiceMode['in-person'],
+        slotId: persistedSlot.id!,
       };
 
       let response;

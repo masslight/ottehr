@@ -26,6 +26,7 @@ export interface TextStyle extends PageElementStyle {
   spacing: number;
   color?: Color;
   newLineAfter?: boolean;
+  weight?: number;
 }
 
 export interface ImageStyle extends PageElementStyle {
@@ -104,19 +105,20 @@ export interface ExaminationBlockData {
 }
 
 export interface ExternalLabsData {
-  locationName: string;
-  locationStreetAddress: string;
-  locationCity: string;
-  locationState: string;
-  locationZip: string;
-  locationPhone: string;
-  locationFax: string;
+  locationName?: string;
+  locationStreetAddress?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationZip?: string;
+  locationPhone?: string;
+  locationFax?: string;
+  labOrganizationName: string;
   reqId: string;
   providerName: string;
   providerTitle: string;
   providerNPI: string;
   patientFirstName: string;
-  patientMiddleName: string;
+  patientMiddleName: string | undefined;
   patientLastName: string;
   patientSex: string;
   patientDOB: string;
@@ -124,49 +126,59 @@ export interface ExternalLabsData {
   patientAddress: string;
   patientPhone: string;
   todayDate: string;
-  orderDate: string;
+  orderSubmitDate: string;
+  orderCreateDate: string;
+  sampleCollectionDate?: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;
   insuredName?: string;
   insuredAddress?: string;
-  aoeAnswers: { question: string; answer: any }[];
-  orderName: string;
-  assessmentCode: string;
-  assessmentName: string;
+  aoeAnswers?: { question: string; answer: any }[];
+  orderName?: string | undefined;
+  orderAssessments: { code: string; name: string }[];
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
+export interface LabResult {
+  resultCode: string;
+  resultCodeDisplay: string;
+  resultInterpretation: string;
+  resultInterpretationDisplay: string;
+  resultValue: string;
+}
+
 export interface LabResultsData extends ExternalLabsData {
   accessionNumber: string;
-  requisitionNumber: string;
-  orderReceived: string;
-  specimenReceived: string;
-  reportDate: string;
-  specimenSource: string;
-  Dx: string;
-  labType: string;
-  specimenDescription: string;
-  specimenValue: string;
-  specimenReferenceRange: string;
-  resultBody: string;
+  requisitionNumber?: string;
+  // orderReceived: string;
+  // specimenReceived: string;
+  // reportDate: string;
+  // specimenSource: string;
+  testName: string;
+  // specimenDescription: string;
+  specimenReferenceRange?: string;
   resultPhase: string;
+  resultStatus: string;
+  reviewed: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
-  reviewDate: string;
-  performingLabCode: string;
+  reviewDate: string | undefined;
+  resultInterpretations: string[];
+  results: LabResult[];
+  testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
   performingLabCity: string;
   performingLabState: string;
   performingLabZip: string;
-  performingLabDirector: string;
+  performingLabDirector?: string;
   performingLabPhone: string;
-  performingLabProviderFirstName: string;
-  performingLabProviderLastName: string;
-  performingLabProviderTitle: string;
-  abnormalResult: boolean;
+  performingLabDirectorFirstName: string;
+  performingLabDirectorLastName: string;
+  performingLabDirectorTitle: string;
+  abnormalResult?: boolean;
 } // TODO: change this based on the actual data brought in by the DORN webhook
 
 export interface VisitNoteData extends ExaminationBlockData {
@@ -218,6 +230,8 @@ export interface VisitNoteData extends ExaminationBlockData {
     [NOTHING_TO_EAT_OR_DRINK_FIELD]?: boolean;
     labService: string;
     virusTest: string;
+    followUpIn?: number;
+    reason?: string;
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];

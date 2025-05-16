@@ -5,7 +5,7 @@ import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -105,25 +105,25 @@ export default function AppointmentTabs({
                 data-testid={dataTestIds.dashboard.prebookedTab}
                 label={`Pre-booked${preBookedAppointments ? ` – ${preBookedAppointments?.length}` : ''}`}
                 value={ApptTab.prebooked}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
               />
               <Tab
                 data-testid={dataTestIds.dashboard.inOfficeTab}
                 label={`In Office${inOfficeAppointments ? ` – ${inOfficeAppointments?.length}` : ''}`}
                 value={ApptTab['in-office']}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
               />
               <Tab
                 data-testid={dataTestIds.dashboard.dischargedTab}
                 label={`Discharged${completedAppointments ? ` – ${completedAppointments?.length}` : ''}`}
                 value={ApptTab.completed}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
               />
               <Tab
                 data-testid={dataTestIds.dashboard.cancelledTab}
                 label="Cancelled"
                 value={ApptTab.cancelled}
-                sx={{ textTransform: 'none', fontWeight: 700 }}
+                sx={{ textTransform: 'none', fontWeight: 500 }}
               />
               {loading && <Loading />}
             </TabList>

@@ -120,7 +120,7 @@ export const EditPatientBirthDateDialog = ({ modalOpen, onClose }: EditPatientBi
             variant="contained"
             color="primary"
             size="medium"
-            sx={{ fontWeight: '700', textTransform: 'none', borderRadius: 6, ml: 1, mb: 1, px: 4 }}
+            sx={{ fontWeight: 500, textTransform: 'none', borderRadius: 6, ml: 1, mb: 1, px: 4 }}
             disabled={!formState.isValid}
           >
             Update Date of Birth

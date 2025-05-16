@@ -6,21 +6,22 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
   GetAppointmentDetailsResponse,
+  getAvailableSlotsForSchedules,
+  getLocationInformation,
+  getSecret,
   SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
   SecretsKeys,
-  getAvailableSlotsForSchedules,
-  getSecret,
 } from 'utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import '../../shared/instrument.mjs';
 import {
   captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
-  getLocationInformation,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
+import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {
@@ -146,13 +147,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
 
     console.log('current appointment slot: ', fhirSlot);
-    // todo: consider whether we really need to be getting avaialble slots when getting appointment details
+    // todo 1.8-9: consider whether we really need to be getting avaialble slots when getting appointment details
     // why do we need to do this?
-    const { availableSlots } = await getAvailableSlotsForSchedules({
-      now: DateTime.now(),
-      scheduleList: [{ schedule: fhirSchedule, owner: scheduleOwner }],
-      busySlots: [],
-    });
+    const { availableSlots } = await getAvailableSlotsForSchedules(
+      {
+        now: DateTime.now(),
+        scheduleList: [{ schedule: fhirSchedule, owner: scheduleOwner }],
+      },
+      oystehr
+    );
 
     const response: GetAppointmentDetailsResponse = {
       appointment,

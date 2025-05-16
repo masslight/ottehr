@@ -29,15 +29,22 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
     (extensionTemp) =>
       extensionTemp.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/formatted-input-requirement'
   )?.valueString;
+  if (!numberType) {
+    throw new Error('numberType is not defined');
+  }
+  const maxNumber = +numberType.replaceAll('#', '9'); // replace #s with 9s, example ###.## -> 999.99
+  if (!maxNumber) {
+    throw new Error('maxNumber is not a number');
+  }
   // if numberType is ###.## then `decimals` will be 2
   let decimals = null;
   if (numberType?.includes('.')) {
     decimals = numberType?.split('.')[1].length;
   }
-
   return (
     <TextField
-      type="number"
+      type="text"
+      placeholder={numberType.replace(/#/g, '0')}
       {...otherField}
       inputRef={fieldRef}
       id={idString}
@@ -49,8 +56,13 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
       InputProps={{
         inputComponent: InputMask as any,
         inputProps: {
-          mask: numberType?.replaceAll('#', '0'),
-          step: decimals ? `0.${'0'.padStart(decimals - 1, '0')}1` : null,
+          mask: Number,
+          radix: '.',
+          min: -maxNumber,
+          max: maxNumber,
+          padFractionalZeros: true,
+          scale: decimals,
+          // step: decimals ? `0.${'0'.padStart(decimals - 1, '0')}1` : null,
           readOnly: answer !== undefined,
         },
       }}

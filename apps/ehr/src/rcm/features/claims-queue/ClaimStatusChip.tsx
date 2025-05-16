@@ -33,7 +33,7 @@ export const ClaimStatusChip: FC<ClaimStatusChipProps> = (props) => {
         '& .MuiChip-label': {
           display: 'block',
           whiteSpace: 'normal',
-          fontWeight: 700,
+          fontWeight: 500,
           fontSize: '12px',
           color: mapStatusToDisplay[status].color,
           textTransform: 'uppercase',

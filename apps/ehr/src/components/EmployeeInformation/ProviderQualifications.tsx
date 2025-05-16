@@ -19,11 +19,11 @@ import { Autocomplete, TextField } from '@mui/material';
 import { PractitionerLicense, PractitionerQualificationCodesLabels, AllStates } from 'utils';
 import { FormErrors } from './types';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { otherColors } from '../../CustomThemeProvider';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { RoundedButton } from '../RoundedButton';
 import { DateTime } from 'luxon';
+import { otherColors } from '@theme/colors';
 
 const displaystates = AllStates.map((state) => state.value);
 

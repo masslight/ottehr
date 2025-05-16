@@ -22,7 +22,7 @@ export default function DeleteDialog({
 }: DeleteDialogProps): ReactElement {
   const theme = useTheme();
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

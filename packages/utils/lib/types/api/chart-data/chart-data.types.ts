@@ -45,8 +45,8 @@ export interface ChartDataFields {
   medications?: MedicationDTO[];
   prescribedMedications?: PrescribedMedicationDTO[];
   allergies?: AllergyDTO[];
-  procedures?: CPTCodeDTO[];
-  proceduresNote?: FreeTextNoteDTO;
+  surgicalHistory?: CPTCodeDTO[];
+  surgicalHistoryNote?: FreeTextNoteDTO;
   observations?: ObservationDTO[];
   examObservations?: ExamObservationDTO[];
   medicalDecision?: ClinicalImpressionDTO;
@@ -65,6 +65,7 @@ export interface ChartDataFields {
   birthHistory?: BirthHistoryDTO[];
   aiChat?: QuestionnaireResponse;
   labResults?: EncounterLabResult;
+  procedures?: ProcedureDTO[];
 }
 
 export type ChartDataFieldsKeys = keyof ChartDataFields;
@@ -484,3 +485,58 @@ const defaultNotes: Record<DispositionType, string> = {
 export const getDefaultNote = (dispositionType: DispositionType): string => {
   return defaultNotes[dispositionType];
 };
+
+export const followUpInOptions = [
+  {
+    label: '1 day',
+    value: 1,
+  },
+  {
+    label: '2 days',
+    value: 2,
+  },
+  {
+    label: '3 days',
+    value: 3,
+  },
+  {
+    label: '4 days',
+    value: 4,
+  },
+  {
+    label: '5 days',
+    value: 5,
+  },
+  {
+    label: '1 week',
+    value: 7,
+  },
+  {
+    label: '2 weeks',
+    value: 14,
+  },
+  {
+    label: 'as needed',
+    value: 0,
+  },
+];
+
+export interface ProcedureDTO extends SaveableDTO {
+  procedureType: string;
+  cptCodes: CPTCodeDTO[];
+  diagnoses: DiagnosisDTO[];
+  procedureDateTime: string;
+  performerType: string;
+  medicationUsed?: string;
+  bodySite?: string;
+  bodySide?: string;
+  technique?: string;
+  suppliesUsed?: string;
+  procedureDetails?: string;
+  specimenSent?: boolean;
+  complications?: string;
+  patientResponse?: string;
+  postInstructions?: string;
+  timeSpent?: string;
+  documentedBy?: string;
+}

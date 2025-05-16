@@ -8,9 +8,9 @@ import {
   Practitioner,
   QuestionnaireResponse,
   RelatedPerson,
+  Coding,
 } from 'fhir/r4b';
 
-import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
 import {
   AppointmentMessaging,
   AppointmentType,
@@ -18,7 +18,8 @@ import {
   VisitStatusHistoryEntry,
   VisitStatusLabel,
 } from '../../api';
-import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../telemed';
+import { OTTEHR_MODULE } from '../../../fhir/moduleIdentification';
+import { TelemedAppointmentStatusEnum, TelemedCallStatuses, TelemedStatusHistoryElement } from '../../../main';
 
 export interface GetPastVisitsResponse {
   appointments: AppointmentInformationIntake[];
@@ -104,6 +105,7 @@ export interface InPersonAppointmentInformation
   status: VisitStatusLabel;
   provider?: string;
   group?: string;
+  room?: string;
   paperwork: {
     demographics: boolean;
     photoID: boolean;
@@ -149,6 +151,23 @@ export interface GetTelemedAppointmentsInput {
 export const PARTICIPANT_TYPE = {
   ADMITTER: 'ADM',
   ATTENDER: 'ATND',
+};
+
+export const PRACTITIONER_CODINGS = {
+  Admitter: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      code: 'ADM',
+      display: 'admitter',
+    },
+  ] as Coding[],
+  Attender: [
+    {
+      system: 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
+      code: 'ATND',
+      display: 'attender',
+    },
+  ] as Coding[],
 };
 
 export type AppointmentRelatedResources =

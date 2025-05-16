@@ -131,7 +131,7 @@ export const PatientDocumentsExplorerTable: FC<PatientDocumentsExplorerTableProp
       sx={{
         border: 0,
         '.MuiDataGrid-columnHeaderTitle': {
-          fontWeight: 700,
+          fontWeight: 500,
         },
       }}
     />

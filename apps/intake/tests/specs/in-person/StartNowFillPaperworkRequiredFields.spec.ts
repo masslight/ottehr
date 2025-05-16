@@ -2,15 +2,16 @@ import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { cleanAppointment } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
-import { StartInPersonFlow } from '../../utils/in-person/StartInPersonFlow';
+// import { StartInPersonFlow } from '../../utils/in-person/StartInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork } from '../../utils/Paperwork';
+import { FillingInfo } from '../../utils/telemed/FillingInfo';
 
 let page: Page;
 let context: BrowserContext;
-let flowClass: StartInPersonFlow;
+// let flowClass: StartInPersonFlow;
 let locator: Locators;
-let bookingURL: Awaited<ReturnType<StartInPersonFlow['startVisit']>>;
+// let bookingURL: Awaited<ReturnType<StartInPersonFlow['startVisit']>>;
 let paperwork: Paperwork;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
@@ -26,11 +27,10 @@ test.beforeAll(async ({ browser }) => {
       }
     }
   });
-  flowClass = new StartInPersonFlow(page);
+  // flowClass = new StartInPersonFlow(page);
   paperwork = new Paperwork(page);
   locator = new Locators(page);
   commonLocatorsHelper = new CommonLocatorsHelper(page);
-  bookingURL = await flowClass.startVisit();
 });
 test.afterAll(async () => {
   await page.close();
@@ -44,8 +44,17 @@ test.afterAll(async () => {
 
 test.describe.serial('Start now In person visit - Paperwork submission flow with only required fields', () => {
   test('SNPRF-1 Fill required contact information', async () => {
-    await page.goto(bookingURL.bookingURL);
-    await paperwork.clickProceedToPaperwork();
+    await page.goto('/home');
+    await locator.startInPersonVisitButton.click();
+    await locator.clickContinueButton();
+    await locator.selectDifferentFamilyMember();
+    await locator.clickContinueButton();
+    const fillingInfo = new FillingInfo(page);
+    await fillingInfo.fillNewPatientInfo();
+    await fillingInfo.fillDOBgreater18();
+    await locator.clickContinueButton();
+    await locator.confirmWalkInButton.click();
+    await locator.proceedToPaperwork.click();
     await paperwork.fillContactInformationRequiredFields();
     await commonLocatorsHelper.clickContinue();
     await expect(locator.flowHeading).toHaveText('Patient details');

@@ -1,6 +1,6 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
 import { DateTime } from 'luxon';
-import { getSecret, isFHIRError, Secrets, SecretsKeys } from 'utils';
+import { getSecret, isFHIRError, Secrets, SecretsKeys, PROJECT_NAME, SUPPORT_EMAIL } from 'utils';
 import { triggerSlackAlarm } from './lambda';
 
 export const sendErrors = async (
@@ -33,12 +33,12 @@ export const sendErrors = async (
   sendgrid.setApiKey(SENDGRID_API_KEY);
 
   // TODO confirm details
-  const email = 'support@ottehr.com';
+  const email = SUPPORT_EMAIL;
   const emailConfiguration = {
     to: email,
     from: {
       email: email,
-      name: 'Ottehr In Person',
+      name: `${PROJECT_NAME} In Person`,
     },
     replyTo: email,
     templateId: SENDGRID_ERROR_EMAIL_TEMPLATE_ID,

@@ -7,13 +7,13 @@ import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
-  CreateAppointmentUCTelemedResponse,
-  createSamplePrebookAppointments,
-  createSampleTelemedAppointments,
+  createSampleAppointments,
+  FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
   GetPaperworkAnswers,
   RelationshipOption,
+  ServiceMode,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { fetchWithOystAuth } from './helpers/tests-utils';
@@ -139,17 +139,7 @@ export class ResourceHandler {
 
     this.#initPromise = this.initApi();
 
-    if (flow === 'in-person') {
-      this.#createAppointmentZambdaId = process.env.CREATE_APPOINTMENT_ZAMBDA_ID!;
-      return;
-    }
-
-    if (flow === 'telemed') {
-      this.#createAppointmentZambdaId = process.env.CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID!;
-      return;
-    }
-
-    throw new Error('❌ Invalid flow name');
+    this.#createAppointmentZambdaId = 'create-appointment';
   }
 
   private async initApi(): Promise<void> {
@@ -160,13 +150,11 @@ export class ResourceHandler {
     this.#apiClient = new Oystehr({
       accessToken: this.#authToken,
       fhirApiUrl: process.env.FHIR_API,
-      projectApiUrl: process.env.AUTH0_AUDIENCE,
+      projectApiUrl: process.env.PROJECT_API_ZAMBDA_URL,
     });
   }
 
-  private async createAppointment(
-    inputParams?: CreateTestAppointmentInput
-  ): Promise<CreateAppointmentResponse | CreateAppointmentUCTelemedResponse> {
+  private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     await this.#initPromise;
 
     try {
@@ -206,31 +194,19 @@ export class ResourceHandler {
       }
 
       // Create appointment and related resources using zambda
-      const appointmentData =
-        this.#flow === 'in-person'
-          ? await createSamplePrebookAppointments({
-              oystehr: this.#apiClient,
-              authToken: getAccessToken(),
-              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.#createAppointmentZambdaId,
-              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
-              demoData: patientData,
-              projectId: process.env.PROJECT_ID!,
-              paperworkAnswers: this.#paperworkAnswers,
-            })
-          : await createSampleTelemedAppointments({
-              oystehr: this.#apiClient,
-              authToken: getAccessToken(),
-              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.#createAppointmentZambdaId,
-              islocal: process.env.APP_IS_LOCAL === 'true',
-              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
-              demoData: patientData,
-              projectId: process.env.PROJECT_ID!,
-              paperworkAnswers: this.#paperworkAnswers,
-            });
+      const appointmentData = await createSampleAppointments({
+        oystehr: this.#apiClient,
+        authToken: getAccessToken(),
+        phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+        createAppointmentZambdaId: this.#createAppointmentZambdaId,
+        zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+        serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
+        selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
+        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
+        demoData: patientData,
+        projectId: process.env.PROJECT_ID!,
+        paperworkAnswers: this.#paperworkAnswers,
+      });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
@@ -245,7 +221,7 @@ export class ResourceHandler {
         console.log(`✅ created relatedPerson: ${appointmentData.relatedPersonId}`);
       }
 
-      return appointmentData;
+      return appointmentData as CreateAppointmentResponse;
     } catch (error) {
       console.error('❌ Failed to create resources:', error);
       throw error;
@@ -328,6 +304,41 @@ export class ResourceHandler {
     }
   }
 
+  async waitTillHarvestingDone(appointmentId: string): Promise<void> {
+    try {
+      await this.initApi();
+
+      for (let i = 0; i < 10; i++) {
+        const appointment = (
+          await this.#apiClient.fhir.search({
+            resourceType: 'Appointment',
+            params: [
+              {
+                name: '_id',
+                value: appointmentId,
+              },
+            ],
+          })
+        ).unbundle()[0] as Appointment;
+
+        const tags = appointment.meta?.tag || [];
+        const isHarvestingDone = tags.some(
+          (tag) => tag?.code === FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG.code
+        );
+        if (isHarvestingDone) {
+          return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 6000));
+      }
+
+      throw new Error("Appointment wasn't harvested by sub-intake-harvest module");
+    } catch (e) {
+      console.error('Error during waitTillHarvestingDone', e);
+      throw e;
+    }
+  }
+
   async setEmployees(): Promise<void> {
     try {
       await this.#initPromise;
@@ -373,13 +384,13 @@ export class ResourceHandler {
   }
 
   private findResourceByType<T>(resourceType: string): T {
-    const resourse = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
+    const resource = Object.values(this.#resources).find((resource) => resource.resourceType === resourceType) as T;
 
-    if (!resourse) {
+    if (!resource) {
       throw new Error(`Resource ${resourceType} not found in the resources`);
     }
 
-    return resourse;
+    return resource;
   }
 
   async cleanupAppointmentsForPatient(patientId: string): Promise<void> {

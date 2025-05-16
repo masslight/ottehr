@@ -19,7 +19,7 @@ import { Link } from 'react-router-dom';
 import { AllStates, AllStatesToNames, AllStatesToVirtualLocationsData, State, StateType } from 'utils';
 import { BooleanStateChip } from '../..';
 import { STATES_URL } from '../../../App';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import Loading from '../../../components/Loading';
 import { STATES_ROWS_PER_PAGE } from '../../../constants';
 import { useStatesQuery } from './telemed-admin.queries';

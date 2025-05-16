@@ -1,6 +1,6 @@
 import React, { FC, ReactNode } from 'react';
 import { AccordionCard, DoubleColumnContainer, UppercaseCaptionTypography } from '../../../components';
-import { otherColors } from '../../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 
 type MedicalHistoryDoubleCardProps = {
   collapsed?: boolean;

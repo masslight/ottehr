@@ -3,13 +3,10 @@ import {
   Autocomplete,
   Box,
   Button,
-  Checkbox,
-  FormControlLabel,
   FormLabel,
   Grid,
   Paper,
   Skeleton,
-  Switch,
   TextField,
   Typography,
   useTheme,
@@ -19,32 +16,28 @@ import { enqueueSnackbar } from 'notistack';
 import { useRef, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import {
-  ENABLE_ELIGIBILITY_CHECK_KEY,
-  FHIR_EXTENSION,
-  INSURANCE_SETTINGS_DEFAULTS,
-  INSURANCE_SETTINGS_MAP,
-} from 'utils';
+import { FHIR_EXTENSION, INSURANCE_SETTINGS_MAP } from 'utils';
 import { INSURANCES_URL } from '../../../App';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
 import PageContainer from '../../../layout/PageContainer';
 import { useInsuranceMutation, useInsuranceOrganizationsQuery, useInsurancesQuery } from './telemed-admin.queries';
 
-const INSURANCE_SETTINGS_CHECKBOXES: Array<
-  Exclude<keyof typeof INSURANCE_SETTINGS_MAP, typeof ENABLE_ELIGIBILITY_CHECK_KEY>
-> = [
-  'requiresSubscriberId',
-  'requiresSubscriberName',
-  'requiresSubscriberDOB',
-  'requiresRelationshipToSubscriber',
-  'requiresInsuranceName',
-  'requiresInsuranceCardImage',
-  'requiresFacilityNPI',
-  'requiresStateUID',
-];
+// TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
+// const INSURANCE_SETTINGS_CHECKBOXES: Array<
+//   Exclude<keyof typeof INSURANCE_SETTINGS_MAP, typeof ENABLE_ELIGIBILITY_CHECK_KEY>
+// > = [
+//   'requiresSubscriberId',
+//   'requiresSubscriberName',
+//   'requiresSubscriberDOB',
+//   'requiresRelationshipToSubscriber',
+//   'requiresInsuranceName',
+//   'requiresInsuranceCardImage',
+//   'requiresFacilityNPI',
+//   'requiresStateUID',
+// ];
 
 type InsuranceSettingsBooleans = {
-  [key in keyof typeof INSURANCE_SETTINGS_MAP]: boolean;
+  [key in keyof typeof INSURANCE_SETTINGS_MAP]?: boolean;
 };
 
 interface PayorOrg {
@@ -81,7 +74,9 @@ export default function EditInsurance(): JSX.Element {
     defaultValues: {
       payor: undefined,
       displayName: '',
-      ...INSURANCE_SETTINGS_DEFAULTS,
+
+      // TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data
+      // ...INSURANCE_SETTINGS_DEFAULTS,
     },
   });
 
@@ -224,7 +219,6 @@ export default function EditInsurance(): JSX.Element {
                 >
                   Insurance settings
                 </FormLabel>
-
                 <Controller
                   name="payor"
                   control={control}
@@ -274,7 +268,8 @@ export default function EditInsurance(): JSX.Element {
                   )}
                 />
 
-                <Controller
+                {/* TODO: uncomment when insurance settings will be applied to patient paperwork step with filling insurance data */}
+                {/* <Controller
                   name={ENABLE_ELIGIBILITY_CHECK_KEY}
                   control={control}
                   render={({ field: { onChange, value } }) => (
@@ -286,9 +281,8 @@ export default function EditInsurance(): JSX.Element {
                       label={INSURANCE_SETTINGS_MAP[ENABLE_ELIGIBILITY_CHECK_KEY]}
                     />
                   )}
-                ></Controller>
-
-                {INSURANCE_SETTINGS_CHECKBOXES.map((settingName) => {
+                ></Controller> */}
+                {/* {INSURANCE_SETTINGS_CHECKBOXES.map((settingName) => {
                   const name = settingName as keyof typeof INSURANCE_SETTINGS_MAP;
                   return (
                     <Controller
@@ -307,14 +301,12 @@ export default function EditInsurance(): JSX.Element {
                       )}
                     ></Controller>
                   );
-                })}
-
+                })} */}
                 {error && (
                   <Box color="error.main" width="100%" marginTop={2}>
                     {error}
                   </Box>
                 )}
-
                 <LoadingButton
                   variant="contained"
                   color="primary"
@@ -331,7 +323,6 @@ export default function EditInsurance(): JSX.Element {
                 >
                   Save changes
                 </LoadingButton>
-
                 <Link to={INSURANCES_URL}>
                   <Button
                     variant="text"

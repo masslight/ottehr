@@ -9,17 +9,18 @@ import {
   ErrorDialog,
   ErrorDialogConfig,
   FormValidationErrorObject,
-  PageForm,
-  ReviewItem,
   getFormValidationErrors,
   getValueBoolean,
+  PageForm,
+  ReviewItem,
   usePaperworkContext,
 } from 'ui-components';
-import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { VisitType, makeValidationSchema, pickFirstValueFromAnswerItem, uuidRegex } from 'utils';
+import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
 import { ValidationError } from 'yup';
-import { otherColors } from '../IntakeThemeProvider';
-import api from '../api/zapehrApi';
+import { dataTestIds } from '../../src/helpers/data-test-ids';
+import api from '../api/ottehrApi';
+import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
 import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
@@ -27,12 +28,11 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
-import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
+import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
-import { dataTestIds } from '../../src/helpers/data-test-ids';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();
@@ -75,9 +75,6 @@ const ReviewPaperwork = (): JSX.Element => {
     return undefined;
   }, [appointmentData?.start, appointmentData?.location?.timezone]);
 
-  // Update last active time for paperwork-in-progress flag every minute
-  useSetLastActiveTime(appointmentID, true, zambdaClient);
-
   useEffect(() => {
     try {
       let errorMessage;
@@ -107,6 +104,14 @@ const ReviewPaperwork = (): JSX.Element => {
   const navigateToWaitingRoom = useCallback(
     (error: boolean): void => {
       navigate(`/visit/${appointmentID}`, {
+        state: { inviteErrorSnackbarOpen: error },
+      });
+    },
+    [appointmentID, navigate]
+  );
+  const navigateToVirtualWaitingRoom = useCallback(
+    (error: boolean): void => {
+      navigate(`${intakeFlowPageRoute.WaitingRoom.path}?appointment_id=${appointmentID}`, {
         state: { inviteErrorSnackbarOpen: error },
       });
     },
@@ -192,6 +197,15 @@ const ReviewPaperwork = (): JSX.Element => {
     }),
   ];
 
+  const serviceMode = appointmentData?.serviceMode ?? ServiceMode['in-person'];
+  const submitButtonLabel: string = (() => {
+    if (serviceMode === ServiceMode['in-person'] || visitType === VisitType.PreBook) {
+      return allComplete ? t('reviewAndSubmit.finish') : t('reviewAndSubmit.saveAndFinish');
+    } else {
+      return 'Go to the Waiting Room';
+    }
+  })();
+
   const submitPaperwork = useCallback(async (): Promise<void> => {
     const submitPaperwork = async (
       data: QuestionnaireResponseItem[],
@@ -235,7 +249,23 @@ const ReviewPaperwork = (): JSX.Element => {
           return;
         }
         if (visitType === VisitType.WalkIn) {
-          navigate(`/visit/${appointmentID}/check-in`);
+          if (serviceMode === ServiceMode['virtual']) {
+            // navigate to waiting room
+            if (inviteParams) {
+              createInviteMutation.mutate(inviteParams, {
+                onSuccess: () => {
+                  navigateToVirtualWaitingRoom(false);
+                },
+                onError: async () => {
+                  navigateToVirtualWaitingRoom(true);
+                },
+              });
+            } else {
+              navigateToVirtualWaitingRoom(false);
+            }
+          } else {
+            navigate(`/visit/${appointmentID}/check-in`);
+          }
         } else {
           // telemed logic
           if (inviteParams) {
@@ -260,14 +290,16 @@ const ReviewPaperwork = (): JSX.Element => {
     }
   }, [
     appointmentID,
-    createInviteMutation,
-    inviteParams,
     questionnaireResponseId,
     zambdaClient,
     visitType,
+    serviceMode,
     paperworkPages,
     navigate,
+    inviteParams,
+    createInviteMutation,
     navigateToWaitingRoom,
+    navigateToVirtualWaitingRoom,
   ]);
 
   const appointmentNotFoundInformation = useAppointmentNotFoundInformation();
@@ -366,7 +398,7 @@ const ReviewPaperwork = (): JSX.Element => {
       </Typography>
       <PageForm
         controlButtons={{
-          submitLabel: allComplete ? t('reviewAndSubmit.finish') : t('reviewAndSubmit.saveAndFinish'),
+          submitLabel: submitButtonLabel,
           loading: loading,
         }}
         onSubmit={submitPaperwork}

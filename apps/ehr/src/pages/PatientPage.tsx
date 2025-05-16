@@ -1,18 +1,19 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { Box, Paper, Skeleton, Typography, Tab, Stack } from '@mui/material';
+import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getFirstName, getLastName } from 'utils';
+import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from '../components/patient';
-import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
-import { RoundedButton } from '../components/RoundedButton';
-import { useGetPatient } from '../hooks/useGetPatient';
-import PageContainer from '../layout/PageContainer';
 import { PatientFollowupEncountersGrid } from '../components/patient/PatientFollowupEncountersGrid';
+import { PatientEncountersGrid } from '../components/PatientEncountersGrid';
 import { PatientLabsTab } from '../components/PatientLabsTab';
+import { RoundedButton } from '../components/RoundedButton';
 import { dataTestIds } from '../constants/data-test-ids';
 import { FEATURE_FLAGS } from '../constants/feature-flags';
+import { useGetPatient } from '../hooks/useGetPatient';
+import PageContainer from '../layout/PageContainer';
+import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
@@ -43,7 +44,7 @@ export default function PatientPage(): JSX.Element {
                   <Skeleton width={150} />
                 ) : (
                   <>
-                    <Typography component="span" sx={{ fontWeight: 700 }}>{`${lastName}, `}</Typography>
+                    <Typography component="span" sx={{ fontWeight: 500 }}>{`${lastName}, `}</Typography>
                     <Typography component="span">{`${firstName}`}</Typography>
                   </>
                 ),
@@ -87,7 +88,7 @@ export default function PatientPage(): JSX.Element {
                   target="_blank"
                   sx={{ width: '100%' }}
                   to={
-                    latestAppointment.type === 'Telemed'
+                    latestAppointment.serviceMode === ServiceMode.virtual
                       ? `/telemed/appointments/${latestAppointment.id}?tab=sign`
                       : `/in-person/${latestAppointment.id}/progress-note`
                   }
@@ -107,7 +108,7 @@ export default function PatientPage(): JSX.Element {
                 <Tab
                   value="encounters"
                   label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>
+                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
                       Visits - {appointments?.length || 0}
                     </Typography>
                   }
@@ -115,7 +116,7 @@ export default function PatientPage(): JSX.Element {
                 <Tab
                   value="followups"
                   label={
-                    <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>
+                    <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
                       Patient Follow-ups
                     </Typography>
                   }
@@ -124,7 +125,17 @@ export default function PatientPage(): JSX.Element {
                   <Tab
                     value="labs"
                     label={
-                      <Typography sx={{ textTransform: 'none', fontWeight: 700, fontSize: '14px' }}>Labs</Typography>
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Labs</Typography>
+                    }
+                  />
+                )}
+                {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
+                  <Tab
+                    value="in-house-labs"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                        In-House Labs
+                      </Typography>
                     }
                   />
                 )}
@@ -140,6 +151,11 @@ export default function PatientPage(): JSX.Element {
             {FEATURE_FLAGS.LAB_ORDERS_ENABLED && (
               <TabPanel value="labs" sx={{ p: 0 }}>
                 <PatientLabsTab patientId={id || ''} />
+              </TabPanel>
+            )}
+            {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
+              <TabPanel value="in-house-labs" sx={{ p: 0 }}>
+                <PatientInHouseLabsTab patientId={id || ''} />
               </TabPanel>
             )}
           </TabContext>

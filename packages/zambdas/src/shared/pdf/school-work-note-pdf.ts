@@ -14,19 +14,19 @@ async function createSchoolWorkNotePdfBytes(data: SchoolWorkNoteExcuseDocDTO): P
   page.setSize(PageSizes.A4[0], PageSizes.A4[1]);
   const { height, width } = page.getSize();
   const dancingSignatureFont = await pdfDoc.embedFont(fs.readFileSync('./assets/DancingScript-Regular.otf'));
-  const RobotoFont = await pdfDoc.embedFont(fs.readFileSync('./assets/Roboto-Regular.otf'));
-  const RobotoFontBold = await pdfDoc.embedFont(fs.readFileSync('./assets/Roboto-Bold.otf'));
+  const RubikFont = await pdfDoc.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
+  const RubikFontBold = await pdfDoc.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
   const styles = {
     image: {
       width: 110,
       height: 28,
     },
     header: {
-      font: RobotoFontBold,
+      font: RubikFontBold,
       fontSize: 20,
     },
     regularText: {
-      font: RobotoFont,
+      font: RubikFont,
       fontSize: 16,
     },
     digitalSign: {

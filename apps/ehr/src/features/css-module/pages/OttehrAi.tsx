@@ -5,10 +5,10 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { AccordionCard, useAppointmentStore } from '../../../telemed';
 import { CSSLoader } from '../components/CSSLoader';
 import { useAppointment } from '../hooks/useAppointment';
-import ottehrAiIcon from '../../../assets/ottehr-ai-icon.svg';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../components/AiSuggestion';
 import { AiChatHistory } from '../../../components/AiChatHistory';
+import { ottehrAiIcon } from '@theme/icons';
 
 const AI_OBSERVATION_FIELDS = [
   [AiObservationField.HistoryOfPresentIllness, 'History of Present Illness (HPI)'],

@@ -168,7 +168,7 @@ const TooltipContent: FC<{
           <AppointmentStatusChip status={element.status} />
         </Box>
       ))}
-      <Typography sx={{ fontWeight: 700, mt: 1 }}>Total: {totalTime} mins</Typography>
+      <Typography sx={{ fontWeight: 500, mt: 1 }}>Total: {totalTime} mins</Typography>
     </Box>
   );
 };

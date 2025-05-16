@@ -1,12 +1,284 @@
 import fontkit from '@pdf-lib/fontkit';
-import { Patient } from 'fhir/r4';
 import fs from 'fs';
 import { Color, PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo, rgbNormalized } from './pdf-utils';
-import { LabResultsData } from './types';
-import { Secrets } from 'utils';
+import { LabResultsData, LabResult } from './types';
+import {
+  createFilesDocumentReferences,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_ORDER_TASK,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  LAB_RESTULT_PDF_BASE_NAME,
+  Secrets,
+} from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
+import { DateTime } from 'luxon';
+import { randomUUID } from 'crypto';
+import Oystehr from '@oystehr/sdk';
+import {
+  ActivityDefinition,
+  DiagnosticReport,
+  DocumentReference,
+  List,
+  Location,
+  Practitioner,
+  Provenance,
+  Task,
+} from 'fhir/r4b';
+import { getLabOrderResources } from '../../ehr/shared/labs';
+
+export async function createLabResultPDF(
+  oystehr: Oystehr,
+  serviceRequestID: string,
+  diagnosticReport: DiagnosticReport,
+  reviewed: boolean,
+  secrets: Secrets | null,
+  token: string
+): Promise<void> {
+  const {
+    serviceRequest,
+    patient,
+    practitioner: provider,
+    task: taskPST,
+    appointment,
+    encounter,
+    organization,
+    observations,
+  } = await getLabOrderResources(oystehr, serviceRequestID);
+
+  const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
+
+  if (!appointment.id) {
+    throw new Error('appointment id is undefined');
+  }
+
+  if (!encounter.id) {
+    throw new Error('encounter id is undefined');
+  }
+  if (!serviceRequest.reasonCode) {
+    throw new Error('service request reasonCode is undefined');
+  }
+
+  if (!patient.id) {
+    throw new Error('patient.id is undefined');
+  }
+
+  if (!diagnosticReport.id) {
+    throw new Error('diagnosticReport id is undefined');
+  }
+
+  const provenanceRequestTemp = (
+    await oystehr.fhir.search<Provenance | Practitioner>({
+      resourceType: 'Provenance',
+      params: [
+        {
+          name: '_id',
+          value: taskPST.relevantHistory?.[0].reference?.replace('Provenance/', '') || '',
+        },
+        {
+          name: '_include',
+          value: 'Provenance:agent',
+        },
+      ],
+    })
+  )?.unbundle();
+
+  const taskProvenanceTemp: Provenance[] | undefined = provenanceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Provenance => resourceTemp.resourceType === 'Provenance'
+  );
+  const taskPractitionersTemp: Practitioner[] | undefined = provenanceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Practitioner => resourceTemp.resourceType === 'Practitioner'
+  );
+
+  if (taskProvenanceTemp.length !== 1) {
+    throw new Error('provenance is not found');
+  }
+
+  if (taskPractitionersTemp.length !== 1) {
+    throw new Error('practitioner is not found');
+  }
+
+  const taskProvenancePST = taskProvenanceTemp[0];
+  const taskPractitioner = taskPractitionersTemp[0];
+
+  const taskRequestTemp = (
+    await oystehr.fhir.search<Task | Provenance>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: 'based-on',
+          value: `DiagnosticReport/${diagnosticReport.id}`,
+        },
+        {
+          name: 'status',
+          value: 'completed',
+        },
+        {
+          name: 'code',
+          value: LAB_ORDER_TASK.code.reviewFinalResult,
+        },
+      ],
+    })
+  )?.unbundle();
+
+  const taskRequestsRFRT: Task[] | undefined = taskRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
+  );
+
+  const taskRFRT = taskRequestsRFRT?.[0];
+  let provenanceRFRT = undefined;
+
+  if (taskRFRT) {
+    const provenanceRFRTID = taskRFRT.relevantHistory?.[0].reference?.replace('Provenance/', '');
+    if (provenanceRFRTID) {
+      provenanceRFRT = await oystehr.fhir.get<Provenance>({
+        resourceType: 'Provenance',
+        id: provenanceRFRTID,
+      });
+    }
+  }
+
+  let location: Location | undefined;
+  if (locationID) {
+    location = await oystehr.fhir.get<Location>({
+      resourceType: 'Location',
+      id: locationID,
+    });
+  }
+
+  const now = DateTime.now();
+  const orderID = serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
+
+  const accessionNumber = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value;
+  const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).toFormat('MM/dd/yyyy hh:mm a');
+  const orderCreateDate = serviceRequest.authoredOn
+    ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+    : undefined;
+  const reviewDate = provenanceRFRT
+    ? DateTime.fromISO(provenanceRFRT.recorded).toFormat('MM/dd/yyyy hh:mm a')
+    : undefined;
+  const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
+
+  const resultInterpretationDisplays: string[] = [];
+  const results: LabResult[] = [];
+  observations.forEach((observation) => {
+    const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
+    const labResult: LabResult = {
+      resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+      resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
+      resultInterpretation: observation.interpretation?.[0].coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+      resultInterpretationDisplay: interpretationDisplay || ORDER_RESULT_ITEM_UNKNOWN,
+      resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
+        observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
+      }`,
+    };
+    results.push(labResult);
+    if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
+  });
+
+  const pdfDetail = await createExternalLabsResultsFormPDF(
+    {
+      locationName: location?.name,
+      locationStreetAddress: location?.address?.line?.join(','),
+      locationCity: location?.address?.city,
+      locationState: location?.address?.state,
+      locationZip: location?.address?.postalCode,
+      locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+      locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
+      labOrganizationName: organization.name || ORDER_RESULT_ITEM_UNKNOWN,
+      reqId: orderID || ORDER_RESULT_ITEM_UNKNOWN,
+      providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_RESULT_ITEM_UNKNOWN,
+      providerTitle:
+        provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') ||
+        ORDER_RESULT_ITEM_UNKNOWN,
+      providerNPI:
+        provider.identifier?.find((id) => id.system === 'http://hl7.org/fhir/sid/us-npi')?.value ||
+        ORDER_RESULT_ITEM_UNKNOWN,
+      patientFirstName: patient.name?.[0].given?.[0] || ORDER_RESULT_ITEM_UNKNOWN,
+      patientMiddleName: patient.name?.[0].given?.[1],
+      patientLastName: patient.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
+      patientSex: patient.gender || ORDER_RESULT_ITEM_UNKNOWN,
+      patientDOB: patient.birthDate
+        ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
+        : ORDER_RESULT_ITEM_UNKNOWN,
+      patientId: patient.id,
+      patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_RESULT_ITEM_UNKNOWN,
+      patientPhone:
+        patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      todayDate: now.toFormat('MM/dd/yy hh:mm a'),
+      orderSubmitDate: orderSubmitDate,
+      orderCreateDate: orderCreateDate || ORDER_RESULT_ITEM_UNKNOWN,
+      orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
+      testName:
+        serviceRequest.contained
+          ?.filter((item): item is ActivityDefinition => item.resourceType === 'ActivityDefinition')
+          .map((resource) => resource.title)
+          .join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
+      orderAssessments: serviceRequest.reasonCode.map((code) => ({
+        code: code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+        name: code.text || ORDER_RESULT_ITEM_UNKNOWN,
+      })),
+      accessionNumber: accessionNumber || ORDER_RESULT_ITEM_UNKNOWN,
+      // orderReceived: '10/10/2024',
+      // specimenReceived: '10/10/2024',
+      // reportDate: '10/10/2024',
+      // specimenSource: 'Throat',
+      // specimenDescription: 'Throat culture',
+      specimenReferenceRange: undefined,
+      resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
+      resultStatus: diagnosticReport.status.toUpperCase(),
+      reviewed,
+      reviewingProviderFirst: taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+      reviewingProviderLast: taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
+      reviewingProviderTitle: '', // todo where should this come from ??
+      reviewDate: reviewDate,
+      resultInterpretations: resultInterpretationDisplays,
+      results,
+      testItemCode:
+        diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
+        diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
+        ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabName: organization.name || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabStreetAddress: organization.address?.[0].line?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabCity: organization.address?.[0].city || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabState: organization.address?.[0].state || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabZip: organization.address?.[0].postalCode || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabPhone:
+        organization.contact
+          ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
+          ?.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+      // abnormalResult: true,
+      performingLabDirectorFirstName:
+        organization.contact
+          ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
+          ?.name?.given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabDirectorLastName:
+        organization.contact?.find(
+          (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
+        )?.name?.family || ORDER_RESULT_ITEM_UNKNOWN,
+      performingLabDirectorTitle: ORDER_RESULT_ITEM_UNKNOWN,
+      // performingLabDirector: organization.contact?.[0].name
+      //   ? oystehr.fhir.formatHumanName(organization.contact?.[0].name)
+      //   : ORDER_RESULT_ITEM_UNKNOWN,
+    },
+    patient.id,
+    secrets,
+    token
+  );
+
+  await makeLabPdfDocumentReference({
+    oystehr,
+    type: 'results',
+    pdfInfo: pdfDetail,
+    patientID: patient.id,
+    encounterID: encounter.id,
+    diagnosticReportID: diagnosticReport.id,
+    reviewed,
+  });
+}
 
 async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create();
@@ -18,6 +290,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const callIcon = './assets/call.png';
   const faxIcon = './assets/fax.png';
+
+  const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
+    data.locationState?.toUpperCase() || ''
+  }${data.locationState ? ' ' : ''}${data.locationZip?.toUpperCase() || ''}`;
 
   const styles = {
     image: {
@@ -222,6 +498,16 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
     const font = columnFont || styles.regularText.font;
     const fontSize = columnFontSize || styles.regularText.fontSize;
     const fontColor = color || styles.colors.black;
+    const PADDING_PX = 8;
+    const COL_TWO_WIDTH = 10;
+    const COL_THREE_WIDTH = 2;
+    const COL_FOUR_WIDTH = 1.5;
+    const COL_FIVE_WIDTH = 1.1;
+
+    // test name potentially maps to column two, and this might be quite long
+    const columnTwoMaxWidth = pageTextWidth / COL_THREE_WIDTH - pageTextWidth / COL_TWO_WIDTH - PADDING_PX;
+    const columnTwoWrappedText = splitTextIntoLines(columnTwoName, font, fontSize, columnTwoMaxWidth);
+
     page.drawText(columnOneName, {
       font: font,
       size: fontSize,
@@ -229,59 +515,42 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
       y: currYPos,
       color: styles.colors.black,
     });
-    page.drawText(columnTwoName, {
-      font: font,
-      size: fontSize,
-      x: pageTextWidth / 10,
-      y: currYPos,
-      color: fontColor,
+    columnTwoWrappedText.forEach((line, index) => {
+      page.drawText(line, {
+        font: font,
+        size: fontSize,
+        x: pageTextWidth / COL_TWO_WIDTH,
+        y: currYPos - index * (fontSize * 1.2), // Stack lines vertically
+        color: fontColor,
+      });
     });
     page.drawText(columnThreeName, {
       font: font,
       size: fontSize,
-      x: pageTextWidth / 2,
+      x: pageTextWidth / COL_THREE_WIDTH,
       y: currYPos,
       color: fontColor,
     });
     page.drawText(columnFourName, {
       font: font,
       size: fontSize,
-      x: pageTextWidth / 1.5,
+      x: pageTextWidth / COL_FOUR_WIDTH,
       y: currYPos,
       color: fontColor,
     });
     page.drawText(columnFiveName, {
       font: font,
       size: fontSize,
-      x: pageTextWidth / 1.1,
+      x: pageTextWidth / COL_FIVE_WIDTH,
       y: currYPos,
       color: fontColor,
     });
   };
 
-  const drawFreeText = (freeText: string): void => {
+  const drawFreeText = (freeText: string, textColor?: Color): void => {
     const font = styles.regularText.font;
     const size = styles.regularText.fontSize;
     const maxWidth = pageTextWidth - styles.margin.x * 2;
-
-    const splitTextIntoLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
-      const words = text.split(' ');
-      const lines: string[] = [];
-      let currentLine = '';
-
-      words.forEach((word) => {
-        const lineWithWord = currentLine ? `${currentLine} ${word}` : word;
-        if (font.widthOfTextAtSize(lineWithWord, size) <= maxWidth) {
-          currentLine = lineWithWord;
-        } else {
-          lines.push(currentLine);
-          currentLine = word;
-        }
-      });
-
-      if (currentLine) lines.push(currentLine);
-      return lines;
-    };
 
     const lines = splitTextIntoLines(freeText, font, size, maxWidth);
     lines.forEach((line, index) => {
@@ -290,6 +559,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
         size,
         x: currXPos + styles.margin.x,
         y: currYPos - index * regularLineHeight,
+        color: textColor || styles.colors.black,
       });
     });
 
@@ -350,55 +620,58 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   // ===============================
   // Main header
   addNewLine();
-  drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`);
-  drawSubHeaderRight(`Ottehr${data.locationName}`);
+  // name
+  if (data.patientMiddleName) {
+    drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`);
+  } else {
+    drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}`);
+  }
+  drawSubHeaderRight(`Ottehr${data.locationName || ''}`);
   addNewLine();
-  drawRegularTextLeft(
-    `${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}, ID: ${data.patientId}`
-  );
-  drawRegularTextRight(
-    `${data.locationStreetAddress.toUpperCase()}, ${data.locationCity.toUpperCase()}, ${data.locationState.toUpperCase()}, ${
-      data.locationZip
-    }`
-  );
+  drawRegularTextLeft(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`);
+  drawRegularTextRight(locationCityStateZip);
   addNewLine();
-  drawRegularTextLeft(data.patientPhone);
+  drawRegularTextLeft(`ID: ${data.patientId}`);
   currXPos =
     width -
     styles.margin.x -
     imageWidth * 2 -
     regularTextWidth * 3 -
-    styles.regularText.font.widthOfTextAtSize(data.locationPhone, styles.regularText.fontSize) -
-    styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  await drawImage(callIcon);
+    styles.regularText.font.widthOfTextAtSize(data?.locationPhone || '', styles.regularText.fontSize) -
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  if (data?.locationPhone) await drawImage(callIcon);
   currXPos =
     width -
     styles.margin.x -
     imageWidth -
     regularTextWidth * 2 -
-    styles.regularText.font.widthOfTextAtSize(data.locationPhone, styles.regularText.fontSize) -
-    styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  drawRegularTextLeft(data.locationPhone);
+    styles.regularText.font.widthOfTextAtSize(data?.locationPhone || '', styles.regularText.fontSize) -
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  drawRegularTextLeft(data?.locationPhone || '');
   currXPos =
     width -
     styles.margin.x -
     imageWidth -
     regularTextWidth -
-    styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  await drawImage(faxIcon);
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  if (data?.locationFax) await drawImage(faxIcon);
   currXPos =
-    width - styles.margin.x - styles.regularText.font.widthOfTextAtSize(data.locationFax, styles.regularText.fontSize);
-  drawRegularTextLeft(data.locationFax);
-  addNewLine(undefined, 2);
-  drawHeader('FINAL RESULT');
+    width -
+    styles.margin.x -
+    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
+  drawRegularTextLeft(data?.locationFax || '');
   currXPos = styles.margin.x;
+  addNewLine();
+  drawRegularTextLeft(data.patientPhone);
+  addNewLine(undefined, 2);
+  drawHeader(`${data.resultStatus} RESULT`);
   addNewLine();
   drawSeparatorLine();
   addNewLine();
 
   // Order details
-  drawFieldLineLeft('Assession ID:', data.accessionNumber);
-  drawFieldLineRight('Order Date:', data.orderDate);
+  drawFieldLineLeft('Accession ID:', data.accessionNumber);
+  drawFieldLineRight('Order Create Date:', data.orderCreateDate);
   addNewLine();
   drawFieldLineLeft('Requesting physician:', data.providerName);
   drawFieldLineRight('Collection Date:', data.todayDate);
@@ -407,25 +680,28 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   drawFieldLineRight('Order Printed:', data.todayDate);
   addNewLine();
   drawFieldLineLeft('Req ID:', data.reqId);
-  drawFieldLineRight('Order Sent:', data.orderDate);
+  drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
   addNewLine();
   drawFieldLineLeft('Order priority:', data.orderPriority.toUpperCase());
-  drawFieldLineRight('Order Received:', data.orderReceived);
+  // drawFieldLineRight('Order Received:', data.orderReceived);
   addNewLine();
-  drawFieldLineRight('Specimen Received', data.specimenReceived);
+  // drawFieldLineRight('Specimen Received', data.specimenReceived);
   addNewLine();
-  drawFieldLineRight('Reported:', data.reportDate);
+  // drawFieldLineRight('Reported:', data.reportDate);
   addNewLine();
   drawSeparatorLine();
   addNewLine();
 
   // Specimen details block
-  drawFieldLineLeft('Specimen source:', data.specimenSource.toUpperCase());
-  drawFieldLineRight('Specimen description:', data.specimenDescription);
+  // drawFieldLineLeft('Specimen source:', data.specimenSource.toUpperCase());
+  // drawFieldLineRight('Specimen description:', data.specimenDescription);
   addNewLine();
-  drawFieldLineLeft('Dx:', `${data.assessmentCode} ${`(${data.assessmentName})`}`);
+  drawFieldLineLeft(
+    'Dx:',
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+  );
   addNewLine(undefined, 3);
-  drawLargeHeader(data.labType.toUpperCase());
+  drawLargeHeader(data.testName.toUpperCase());
   addNewLine(undefined, 2);
   drawSeparatorLine(styles.margin.x, width - styles.margin.x);
   addNewLine();
@@ -435,38 +711,75 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData): Prom
   addNewLine();
   drawFiveColumnText(
     data.resultPhase,
-    data.labType.toUpperCase(),
-    data.specimenValue.toUpperCase(),
+    data.testName.toUpperCase(),
+    getResultValueToDiplay(data.resultInterpretations),
     referenceRangeText(),
-    data.performingLabCode,
+    data.testItemCode,
     styles.regularTextBold.font,
     14,
-    styles.colors.red
+    getResultRowDisplayColor(data.resultInterpretations, styles.colors)
   );
-  addNewLine(undefined, 3);
-  drawFreeText(data.resultBody);
+  addNewLine(undefined, 1);
+  for (const labResult of data.results) {
+    addNewLine(undefined, 1.5);
+    drawSeparatorLine(styles.margin.x, width - styles.margin.x);
+    addNewLine();
+    drawFreeText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`);
+    addNewLine(undefined, 1.5);
+    drawFreeText(
+      `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
+      getResultRowDisplayColor([labResult.resultInterpretationDisplay], styles.colors)
+    );
+    addNewLine(undefined, 1.5);
+    drawFreeText(`Value: ${labResult.resultValue}`);
+  }
   addNewLine(undefined, 1.5);
-  drawSeparatorLine();
+  drawSeparatorLine(styles.margin.x, width - styles.margin.x);
   addNewLine();
 
   // Performing lab details
-  drawRegularTextRight(`PERFORMING LAB: ${data.performingLabCode}, ${data.performingLabName}`);
+  drawRegularTextRight(`PERFORMING LAB: ${data.performingLabName}`);
   addNewLine();
   drawRegularTextRight(
-    `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip} Director: ${data.performingLabDirector}`
+    `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip}`
   );
   addNewLine();
   drawRegularTextRight(
-    `${data.performingLabProviderFirstName} ${data.performingLabProviderLastName}, ${data.performingLabProviderTitle}, ${data.performingLabPhone}`
+    `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`
   );
   addNewLine();
 
   // Reviewed by
-  drawSeparatorLine();
-  addNewLine();
-  drawFieldLineLeft(`Reviewed: ${data.reviewDate} by`, `${data.reviewingProviderTitle} ${data.reviewingProviderLast}`);
+  if (data.reviewed) {
+    drawSeparatorLine();
+    addNewLine();
+    drawFieldLineLeft(
+      `Reviewed: ${data.reviewDate} by`,
+      `${data.reviewingProviderTitle} ${data.reviewingProviderFirst} ${data.reviewingProviderLast}`
+    );
+  }
 
   return await pdfDoc.save();
+}
+
+function getResultValueToDiplay(resultInterpretations: string[]): string {
+  const resultInterpretationsLen = resultInterpretations?.length;
+  if (resultInterpretationsLen === 0) {
+    return '';
+  }
+  if (resultInterpretationsLen === 1) {
+    return resultInterpretations[0].toUpperCase();
+  } else {
+    return 'See below for details';
+  }
+}
+
+function getResultRowDisplayColor(resultInterpretations: string[], colors: { [key: string]: Color }): Color {
+  if (resultInterpretations.every((interpretation) => interpretation.toUpperCase() === 'NORMAL')) {
+    return colors.black;
+  } else {
+    return colors.red;
+  }
 }
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
@@ -476,14 +789,10 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 
 export async function createExternalLabsResultsFormPDF(
   input: LabResultsData,
-  patient: Patient,
+  patientID: string,
   secrets: Secrets | null,
   token: string
 ): Promise<PdfInfo> {
-  if (!patient.id) {
-    throw new Error('No patient id found for external lab order');
-  }
-
   console.log('Creating labs order form pdf bytes');
   const pdfBytes = await createExternalLabsResultsFormPdfBytes(input).catch((error) => {
     throw new Error('failed creating labs order form pdfBytes: ' + error.message);
@@ -491,9 +800,11 @@ export async function createExternalLabsResultsFormPDF(
 
   console.debug(`Created external labs order form pdf bytes`);
   const bucketName = 'visit-notes';
-  const fileName = 'ExternalLabsResultsForm.pdf';
+  const fileName = `${LAB_RESTULT_PDF_BASE_NAME}-${input.resultStatus}${
+    input.resultStatus === 'preliminary' ? '' : input.reviewed ? '-reviewed' : '-unreviewed'
+  }.pdf`;
   console.log('Creating base file url');
-  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID: patient.id });
+  const baseFileUrl = makeZ3Url({ secrets, fileName, bucketName, patientID });
   console.log('Uploading file to bucket');
   await uploadPDF(pdfBytes, token, baseFileUrl).catch((error) => {
     throw new Error('failed uploading pdf to z3: ' + error.message);
@@ -504,3 +815,91 @@ export async function createExternalLabsResultsFormPDF(
 
   return { title: fileName, uploadURL: baseFileUrl };
 }
+
+export async function makeLabPdfDocumentReference({
+  oystehr,
+  type,
+  pdfInfo,
+  patientID,
+  encounterID,
+  listResources,
+  serviceRequestID,
+  diagnosticReportID,
+  reviewed,
+}: {
+  oystehr: Oystehr;
+  type: 'order' | 'results';
+  pdfInfo: PdfInfo;
+  patientID: string;
+  encounterID: string;
+  listResources?: List[] | undefined;
+  serviceRequestID?: string;
+  diagnosticReportID?: string;
+  reviewed?: boolean;
+}): Promise<DocumentReference> {
+  let docType;
+  if (type === 'results') {
+    docType = {
+      coding: [LAB_RESULT_DOC_REF_CODING_CODE],
+      text: 'Lab result document',
+    };
+  } else if (type === 'order') {
+    docType = {
+      coding: [LAB_ORDER_DOC_REF_CODING_CODE],
+      text: 'Lab order document',
+    };
+  } else {
+    throw new Error('Invalid type of lab document');
+  }
+  // this function is also called for creating order pdfs which will not have a DR
+  const searchParams = diagnosticReportID ? [{ name: 'related', value: `DiagnosticReport/${diagnosticReportID}` }] : [];
+  const { docRefs } = await createFilesDocumentReferences({
+    files: [
+      {
+        url: pdfInfo.uploadURL,
+        title: pdfInfo.title,
+      },
+    ],
+    type: docType,
+    references: {
+      subject: {
+        reference: `Patient/${patientID}`,
+      },
+      context: {
+        related: [
+          {
+            reference:
+              type === 'order' ? `ServiceRequest/${serviceRequestID}` : `DiagnosticReport/${diagnosticReportID}`,
+          },
+        ],
+        encounter: [{ reference: `Encounter/${encounterID}` }],
+      },
+    },
+    docStatus: !reviewed ? 'preliminary' : 'final',
+    dateCreated: DateTime.now().setZone('UTC').toISO() ?? '',
+    oystehr,
+    generateUUID: randomUUID,
+    searchParams,
+    listResources,
+  });
+  return docRefs[0];
+}
+
+const splitTextIntoLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  words.forEach((word) => {
+    const lineWithWord = currentLine ? `${currentLine} ${word}` : word;
+    if (font.widthOfTextAtSize(lineWithWord, size) <= maxWidth) {
+      currentLine = lineWithWord;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  });
+
+  if (currentLine) lines.push(currentLine);
+  return lines;
+};

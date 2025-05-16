@@ -2,13 +2,12 @@
 
 interface ImportMetaEnv {
   readonly VITE_APP_IS_LOCAL: 'true' | 'false';
+  readonly VITE_APP_NAME: string;
   readonly VITE_APP_OYSTEHR_APPLICATION_CLIENT_ID: string;
   readonly VITE_APP_OYSTEHR_APPLICATION_DOMAIN: string;
   readonly VITE_APP_OYSTEHR_APPLICATION_AUDIENCE: string;
   readonly VITE_APP_OYSTEHR_APPLICATION_REDIRECT_URL: string;
   readonly VITE_APP_MUI_X_LICENSE_KEY: string;
-  readonly VITE_APP_ORGANIZATION_NAME_LONG: string;
-  readonly VITE_APP_ORGANIZATION_NAME_SHORT: string;
   readonly VITE_APP_OYSTEHR_APPLICATION_ID: string;
   readonly VITE_APP_FHIR_API_URL: string;
   readonly VITE_APP_PROJECT_API_URL: string;
@@ -43,6 +42,12 @@ interface ImportMetaEnv {
   readonly VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID?: string;
   readonly VITE_APP_GET_CREATE_LAB_ORDER_RESOURCES?: string;
   readonly VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID?: string;
+  readonly VITE_APP_GET_IN_HOUSE_ORDERS_ZAMBDA_ID?: string;
+  readonly VITE_APP_GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES?: string;
+  readonly VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN?: string;
+  readonly VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS?: string;
+  readonly VITE_APP_DELETE_IN_HOUSE_LAB_ORDER?: string;
+  readonly VITE_APP_CREATE_IN_HOUSE_LAB_ORDER?: string;
 }
 
 interface ImportMeta {

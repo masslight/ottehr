@@ -6,12 +6,11 @@ import { FC, useMemo, useState } from 'react';
 import { getQuestionnaireResponseByLinkId, INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE } from 'utils';
 import DownloadImagesButton from '../../../../components/DownloadImagesButton';
 import ImageCarousel, { ImageCarouselObject } from '../../../../components/ImageCarousel';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { getPresignedFileUrl } from '../../../../helpers/files.helper';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
 import { DocumentInfo, DocumentType } from '../../../../types/types';
-
+import { otherColors } from '@theme/colors';
 function compareCards(
   cardBackType: DocumentType.PhotoIdBack | DocumentType.InsuranceBack | DocumentType.InsuranceBackSecondary
 ) {

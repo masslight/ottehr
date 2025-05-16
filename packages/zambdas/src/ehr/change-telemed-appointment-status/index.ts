@@ -9,6 +9,7 @@ import {
   getQuestionnaireResponseByLinkId,
   getSecret,
   mapStatusToTelemed,
+  telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 
 import { getChartData } from '../get-chart-data';
@@ -97,9 +98,25 @@ export const performEffect = async (
     const createResourcesRequests: BatchInputPostRequest<ChargeItem | Task>[] = [];
     console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
 
-    const chartData = (await getChartData(oystehr, m2mtoken, visitResources.encounter.id!)).response;
+    const chartDataPromise = getChartData(oystehr, m2mtoken, visitResources.encounter.id!);
+    const additionalChartDataPromise = getChartData(
+      oystehr,
+      m2mtoken,
+      visitResources.encounter.id!,
+      telemedProgressNoteChartDataRequestedFields
+    );
+
+    const [chartData, additionalChartData] = (await Promise.all([chartDataPromise, additionalChartDataPromise])).map(
+      (promise) => promise.response
+    );
+
     console.log('Chart data received');
-    const pdfInfo = await composeAndCreateVisitNotePdf({ chartData }, visitResources, secrets, m2mtoken);
+    const pdfInfo = await composeAndCreateVisitNotePdf(
+      { chartData, additionalChartData },
+      visitResources,
+      secrets,
+      m2mtoken
+    );
     if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
     console.log(`Creating visit note pdf docRef`);
     await makeVisitNotePdfDocumentReference(oystehr, pdfInfo, patient.id, appointmentId, encounter.id!, listResources);

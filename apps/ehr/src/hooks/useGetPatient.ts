@@ -1,4 +1,4 @@
-import { SearchParam } from '@oystehr/sdk';
+import { BundleEntry, SearchParam } from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
@@ -16,21 +16,23 @@ import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'react-query';
+import { getVisitTypeLabelForAppointment } from 'src/types/types';
 import {
   getFirstName,
   getLastName,
   getVisitStatusHistory,
   getVisitTotalTime,
   INSURANCE_PLAN_PAYER_META_TAG_CODE,
+  isAppointmentVirtual,
   OTTEHR_MODULE,
   PromiseReturnType,
   RemoveCoverageZambdaInput,
+  ServiceMode,
 } from 'utils';
 import { getTimezone } from '../helpers/formatDateTime';
 import { getPatientNameSearchParams } from '../helpers/patientSearch';
 import { OystehrTelemedAPIClient } from '../telemed/data';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
-import { getVisitTypeLabelForAppointment } from '../types/types';
 import { useApiClients } from './useAppClients';
 
 const updateQRUrl = import.meta.env.VITE_APP_EHR_ACCOUNT_UPDATE_FORM;
@@ -49,7 +51,8 @@ const getTelemedLength = (history?: EncounterStatusHistory[]): number => {
 
 export type AppointmentHistoryRow = {
   id: string | undefined;
-  type: string | undefined;
+  typeLabel: string;
+  serviceMode: ServiceMode;
   office: string | undefined;
   officeTimeZone: string | undefined;
   dateTime: string | undefined;
@@ -158,19 +161,22 @@ export const useGetPatient = (
         const encounter = appointment.id
           ? encounters.find((encounter) => encounter.appointment?.[0]?.reference?.endsWith(appointment.id!))
           : undefined;
-        const type = getVisitTypeLabelForAppointment(appointment);
+        const typeLabel = getVisitTypeLabelForAppointment(appointment);
+
+        const serviceMode = isAppointmentVirtual(appointment) ? ServiceMode.virtual : ServiceMode['in-person'];
 
         return {
           id: appointment.id,
-          type,
+          typeLabel,
           office:
             location?.address?.state &&
             location?.name &&
             `${location?.address?.state?.toUpperCase()} - ${location?.name}`,
           officeTimeZone: getTimezone(location),
           dateTime: appointment.start,
+          serviceMode,
           length:
-            type === 'Telemed'
+            serviceMode === ServiceMode.virtual
               ? getTelemedLength(encounter?.statusHistory)
               : (encounter && getVisitTotalTime(appointment, getVisitStatusHistory(encounter), DateTime.now())) || 0,
           appointment,
@@ -341,37 +347,53 @@ export const useUpdatePatientAccount = (onSuccess?: () => void) => {
 export const useGetInsurancePlans = (onSuccess: (data: Bundle<InsurancePlan>) => void) => {
   const { oystehr } = useApiClients();
 
-  return useQuery(
-    ['insurance-plans'],
-    async () => {
-      if (oystehr) {
-        return oystehr.fhir.search<InsurancePlan>({
-          resourceType: 'InsurancePlan',
-          params: [
-            {
-              name: '_tag',
-              value: INSURANCE_PLAN_PAYER_META_TAG_CODE,
-            },
-            {
-              name: 'status',
-              value: 'active',
-            },
-            {
-              name: '_include',
-              value: 'InsurancePlan:owned-by',
-            },
-          ],
-        });
-      }
+  const fetchAllInsurancePlans = async (): Promise<Bundle<InsurancePlan>> => {
+    if (!oystehr) {
       throw new Error('FHIR client not defined');
-    },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching insurance plans: ', err);
-      },
     }
-  );
+
+    const searchParams = [
+      { name: '_tag', value: INSURANCE_PLAN_PAYER_META_TAG_CODE },
+      { name: 'status', value: 'active' },
+      { name: '_include', value: 'InsurancePlan:owned-by' },
+      { name: '_count', value: '1000' },
+    ];
+
+    let offset = 0;
+    let allEntries: BundleEntry<InsurancePlan>[] = [];
+
+    let bundle = await oystehr.fhir.search<InsurancePlan>({
+      resourceType: 'InsurancePlan',
+      params: [...searchParams, { name: '_offset', value: offset }],
+    });
+
+    allEntries = allEntries.concat(bundle.entry || []);
+    const serverTotal = bundle.total;
+
+    while (bundle.link?.find((link) => link.relation === 'next')) {
+      offset += 1000;
+
+      bundle = await oystehr.fhir.search<InsurancePlan>({
+        resourceType: 'InsurancePlan',
+        params: [...searchParams.filter((param) => param.name !== '_offset'), { name: '_offset', value: offset }],
+      });
+
+      allEntries = allEntries.concat(bundle.entry || []);
+    }
+
+    return {
+      ...bundle,
+      entry: allEntries,
+      total: serverTotal !== undefined ? serverTotal : allEntries.length,
+    };
+  };
+
+  return useQuery(['insurance-plans'], fetchAllInsurancePlans, {
+    onSuccess,
+    onError: (err) => {
+      console.error('Error during fetching insurance plans: ', err);
+    },
+  });
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

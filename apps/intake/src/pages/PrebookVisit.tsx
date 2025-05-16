@@ -1,16 +1,28 @@
 import { Autocomplete, Skeleton, Tab, Tabs, TextField, Typography } from '@mui/material';
 import { Box, styled } from '@mui/system';
 import { FC, useState } from 'react';
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { generatePath, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import noop from 'lodash/noop';
-import { BoldPurpleInputLabel } from 'ui-components';
-import { BookableItem, GetScheduleResponse, ScheduleType, ServiceMode, VisitType } from 'utils';
+import { BoldPurpleInputLabel, ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
+import {
+  APIError,
+  BookableItem,
+  CreateSlotParams,
+  getAppointmentDurationFromSlot,
+  GetScheduleResponse,
+  getServiceModeFromSlot,
+  isApiError,
+  ScheduleType,
+  ServiceMode,
+  SlotListItem,
+} from 'utils';
 import {
   BOOKING_SCHEDULE_ON_QUERY_PARAM,
   BOOKING_SCHEDULE_TYPE_QUERY_PARAM,
   BOOKING_SERVICE_MODE_PARAM,
   BOOKING_SCHEDULE_SELECTED_SLOT,
   intakeFlowPageRoute,
+  bookingBasePath,
 } from '../App';
 import { PageContainer, Schedule } from '../components';
 import { otherColors } from '../IntakeThemeProvider';
@@ -18,8 +30,28 @@ import { useGetBookableItems, useGetSchedule } from '../telemed/features/appoint
 import { useZapEHRAPIClient } from '../telemed/utils';
 import { dataTestIds } from '../helpers/data-test-ids';
 import { Slot } from 'fhir/r4b';
+import ottehrApi from '../api/ottehrApi';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
+
+const findSelectedSlotFromAvailable = (available: SlotListItem[], selectedSlotId?: string): Slot | undefined => {
+  if (!selectedSlotId) {
+    return undefined;
+  }
+
+  // todo: test needed to ensure an existing tentative-busy slot is included in the list of available
+  // slots whenever this page is being used to update a previously selected slot time
+  return available.find((si) => {
+    const { slot, owner } = si;
+    const { id: slotId, start: slotStart } = slot;
+
+    if (owner.id && selectedSlotId.startsWith(owner.id)) {
+      return `${owner.id}|${slotStart}` === selectedSlotId;
+    } else {
+      return slotId === selectedSlotId;
+    }
+  })?.slot;
+};
 
 const useBookingParams = (
   selectedLocation: BookableItem | null
@@ -133,6 +165,8 @@ const PrebookVisit: FC = () => {
   const [selectedInPersonLocation, setSelectedInPersonLocation] = useState<BookableItem | null>(null);
   const [selectedVirtualLocation, setSelectedVirtualLocation] = useState<BookableItem | null>(null);
 
+  const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
+
   const serviceModeFromParam = pathParams[BOOKING_SERVICE_MODE_PARAM];
   const serviceMode: ServiceMode = (serviceModeFromParam as ServiceMode | undefined) ?? SERVICE_MODES[serviceModeIndex];
 
@@ -140,9 +174,7 @@ const PrebookVisit: FC = () => {
     (serviceModeFromParam ?? serviceMode) === 'in-person' ? selectedInPersonLocation : selectedVirtualLocation;
 
   const { bookingOn, scheduleType, selectedSlot, slugToFetch } = useBookingParams(selectedLocation);
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  // const [specificScheduleId] = bookingOn?.split('Schedule/') ?? [];
+  const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
 
   const {
     bookableItems,
@@ -152,7 +184,7 @@ const PrebookVisit: FC = () => {
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType);
 
-  console.log('slotData', slotData);
+  // console.log('slotData', slotData);
 
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;
@@ -160,12 +192,37 @@ const PrebookVisit: FC = () => {
     setLocation(newValue);
   };
 
-  const handleSlotSelection = (slot?: Slot): void => {
-    console.log('slot selection', slot);
-    if (slot && slugToFetch) {
-      navigate(`/book/${slugToFetch}/${VisitType.PreBook}/${serviceMode}/patients`, {
-        state: { slot, scheduleType },
-      });
+  const handleSlotSelection = async (slot?: Slot): Promise<void> => {
+    if (slot && tokenlessZambdaClient) {
+      const createSlotInput: CreateSlotParams = {
+        scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
+        startISO: slot.start,
+        serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
+        lengthInMinutes: getAppointmentDurationFromSlot(slot),
+        status: 'busy-tentative',
+        walkin: false,
+      };
+
+      try {
+        const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
+        console.log('createSlotResponse', slot);
+        const basePath = generatePath(bookingBasePath, {
+          slotId: slot.id!,
+        });
+        // todo: it would be nice to navigate right back to the review page for the "edit time slot" use case
+        // we can just take take a query param for the patient id and pass it through here to make that happen
+        navigate(`${basePath}/patients`);
+      } catch (error) {
+        let errorMessage = 'Sorry, this time slot may no longer be available. Please select another time.';
+        if (isApiError(error)) {
+          errorMessage = (error as APIError).message;
+        }
+        setErrorDialogConfig({
+          title: 'Error reserving time',
+          description: errorMessage,
+          closeButtonText: 'Ok',
+        });
+      }
     }
   };
 
@@ -235,7 +292,7 @@ const PrebookVisit: FC = () => {
               customOnSubmit={handleSlotSelection}
               slotData={(slotData?.available ?? []).map((sli) => sli.slot)}
               slotsLoading={false}
-              existingSelectedSlot={slotData?.available?.find((si) => si.slot.id && si.slot.id === selectedSlot)?.slot}
+              existingSelectedSlot={findSelectedSlotFromAvailable(slotData?.available ?? [], selectedSlot)}
               timezone={selectedLocation?.timezone ?? 'America/New_York'}
               forceClosedToday={false}
               forceClosedTomorrow={false}
@@ -243,6 +300,14 @@ const PrebookVisit: FC = () => {
             />
           ))}
       </SelectionContainer>
+
+      <ErrorDialog
+        open={!!errorDialogConfig}
+        title={errorDialogConfig?.title || ''}
+        description={errorDialogConfig?.description || ''}
+        closeButtonText={errorDialogConfig?.closeButtonText || ''}
+        handleClose={() => setErrorDialogConfig(undefined)}
+      />
     </PageContainer>
   );
 };

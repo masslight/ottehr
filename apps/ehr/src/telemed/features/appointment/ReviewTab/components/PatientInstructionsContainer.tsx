@@ -12,6 +12,8 @@ import { SectionList } from '../../../../components';
 import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { followUpInOptions } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const PatientInstructionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
@@ -46,6 +48,19 @@ export const PatientInstructionsContainer: FC = () => {
 
           {disposition?.virusTest && disposition.virusTest.length > 0 && (
             <Typography>Virus Tests: {disposition.virusTest.join(', ')}</Typography>
+          )}
+
+          {typeof disposition?.followUpIn === 'number' && (
+            <Typography>
+              Follow-up visit{' '}
+              {disposition.followUpIn === 0
+                ? followUpInOptions.find((option) => option.value === disposition.followUpIn)?.label
+                : `in ${followUpInOptions.find((option) => option.value === disposition.followUpIn)?.label}`}
+            </Typography>
+          )}
+
+          {disposition?.reason && disposition.reason.length > 0 && (
+            <Typography>Reason for transfer: {disposition.reason}</Typography>
           )}
         </Box>
       </>
@@ -82,12 +97,12 @@ export const PatientInstructionsContainer: FC = () => {
   ].filter(Boolean);
 
   return (
-    <>
+    <Box data-testid={dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer}>
       <Typography variant="h5" color="primary.dark">
         Patient instructions
       </Typography>
 
       <SectionList sections={sections} sx={{ width: '100%' }} />
-    </>
+    </Box>
   );
 };

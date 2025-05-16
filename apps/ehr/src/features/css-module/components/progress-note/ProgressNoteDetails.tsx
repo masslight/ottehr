@@ -25,6 +25,7 @@ import { useChartData } from '../../hooks/useChartData';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
 import { HospitalizationContainer } from './HospitalizationContainer';
 import { PatientVitalsContainer } from './PatientVitalsContainer';
+import { ProceduresContainer } from 'src/telemed/features/appointment/ReviewTab/components/ProceduresContainer';
 
 export const ProgressNoteDetails: FC = () => {
   const { chartData, encounter, setPartialChartData } = getSelectors(useAppointmentStore, [
@@ -42,6 +43,7 @@ export const ProgressNoteDetails: FC = () => {
         vitalsObservations: data?.vitalsObservations,
         prescribedMedications: data?.prescribedMedications,
         labResults: data?.labResults,
+        disposition: data?.disposition,
       });
     },
   });
@@ -72,6 +74,7 @@ export const ProgressNoteDetails: FC = () => {
     labResults?.resultsPending ||
     (labResults?.labOrderResults && labResults?.labOrderResults.length > 0)
   );
+  const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
   const { showPatientInstructions } = usePatientInstructionsVisibility();
 
@@ -99,6 +102,7 @@ export const ProgressNoteDetails: FC = () => {
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
     showLabsResultsContainer && <LabResultsReviewContainer />,
+    showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,
     <PrivacyPolicyAcknowledgement />,

@@ -1,11 +1,10 @@
 import React from 'react';
 import { Grid, Paper, Box, Typography, useTheme } from '@mui/material';
-import { otherColors } from '../../../../CustomThemeProvider';
 import {
   AdditionalQuestionsPatientColumn,
   AdditionalQuestionsProviderColumn,
 } from '../../../../telemed/features/appointment';
-
+import { otherColors } from '@theme/colors';
 interface PatientInfoProps {
   appointmentID?: string;
 }

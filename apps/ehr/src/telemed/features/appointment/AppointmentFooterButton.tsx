@@ -24,7 +24,7 @@ import { dataTestIds } from '../../../constants/data-test-ids';
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',
   fontSize: '15px',
-  fontWeight: 700,
+  fontWeight: 500,
   borderRadius: 20,
   backgroundColor: theme.palette.primary.light,
   '&:hover': { backgroundColor: darken(theme.palette.primary.light, 0.125) },

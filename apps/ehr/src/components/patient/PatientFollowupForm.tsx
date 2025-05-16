@@ -17,7 +17,7 @@ import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import Oystehr from '@oystehr/sdk';
-import { Location, Patient } from 'fhir/r4b';
+import { Patient } from 'fhir/r4b';
 import LocationSelect from '../LocationSelect';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -31,9 +31,11 @@ import {
   TELEPHONE_REASONS,
   NONBILLABLE_REASONS,
   FollowupReason,
+  SLUG_SYSTEM,
 } from 'utils';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;
@@ -57,7 +59,7 @@ export default function PatientFollowupForm({
   const [loading, setLoading] = useState<boolean>(false);
   const storedLocation = localStorage?.getItem('selectedLocation');
   const parsedStoredLocation = storedLocation ? JSON.parse(storedLocation) : undefined;
-  const [selectedLocation, setSelectedLocation] = useState<Location | undefined>(
+  const [selectedLocation, setSelectedLocation] = useState<LocationWithWalkinSchedule | undefined>(
     followupDetails?.location ? followupDetails?.location : parsedStoredLocation
   );
   const [reasonOptions, setReasonOptions] = useState<FollowupReason[]>(
@@ -81,9 +83,8 @@ export default function PatientFollowupForm({
   const [message, setMessage] = useState<string>(followupDetails?.message || '');
 
   useEffect(() => {
-    const locationSlug = selectedLocation?.identifier?.find(
-      (identifierTemp) => identifierTemp.system === 'https://fhir.ottehr.com/r4/slug'
-    )?.value;
+    const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
+      ?.value;
     const locationState = selectedLocation?.address?.state;
     if (!locationSlug || !locationState) {
       console.log(

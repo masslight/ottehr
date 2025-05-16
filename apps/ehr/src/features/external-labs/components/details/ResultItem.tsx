@@ -9,9 +9,10 @@ interface ResultItemProps {
   labOrder: LabOrderDetailedPageDTO;
   onMarkAsReviewed: () => void;
   resultDetails: LabOrderResultDetails;
+  loading: boolean;
 }
 
-export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: ResultItemProps): ReactElement => {
+export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading }: ResultItemProps): ReactElement => {
   const theme = useTheme();
   return (
     <div style={{ marginTop: '42px' }}>
@@ -47,11 +48,17 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails }: Result
       </Box>
 
       {resultDetails.resultType === 'final' && (
-        <FinalCardView labStatus={resultDetails.labStatus} onMarkAsReviewed={onMarkAsReviewed} />
+        <FinalCardView
+          resultPdfUrl={resultDetails.resultPdfUrl}
+          labStatus={resultDetails.labStatus}
+          onMarkAsReviewed={onMarkAsReviewed}
+          loading={loading}
+        />
       )}
 
       {resultDetails.resultType === 'preliminary' && (
         <PrelimCardView
+          resultPdfUrl={resultDetails.resultPdfUrl}
           receivedDate={resultDetails.receivedDate}
           reviewedDate={resultDetails.reviewedDate}
           onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready

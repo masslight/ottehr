@@ -2,7 +2,7 @@ import { Box, useTheme } from '@mui/system';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import DoneIcon from '@mui/icons-material/Done';
 import { ReactElement } from 'react';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import { GenericToolTip } from './GenericToolTip';
 
 export const IntakeCheckmark = ({ providerName }: { providerName: string }): ReactElement => {

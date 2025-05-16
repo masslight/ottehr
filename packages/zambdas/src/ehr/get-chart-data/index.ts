@@ -5,6 +5,7 @@ import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 
 import { checkOrCreateM2MClientToken, getPatientEncounter, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import {
+  configProceduresRequestsForGetChartData,
   convertSearchResultsToResponse,
   createFindResourceRequest,
   createFindResourceRequestById,
@@ -97,7 +98,7 @@ export async function getChartData(
   addRequestIfNeeded({ field: 'medications', resourceType: 'MedicationStatement', defaultSearchBy: 'patient' });
 
   // search by patient by default
-  addRequestIfNeeded({ field: 'procedures', resourceType: 'Procedure', defaultSearchBy: 'patient' });
+  addRequestIfNeeded({ field: 'surgicalHistory', resourceType: 'Procedure', defaultSearchBy: 'patient' });
 
   // edge case for Procedures just for getting cpt codes..
   // todo: delete this and just use procedures with special tag in frontend (todo: need to pass tag here through search params most likely)
@@ -126,11 +127,13 @@ export async function getChartData(
   // instructions are just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'instructions', resourceType: 'Communication', defaultSearchBy: 'encounter' });
 
-  // disposition is just per-encounter, so no need to search by patient
-  addRequestIfNeeded({ field: 'disposition', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
-
   // for now school work notes are just per-encounter, so no need to search by patient
   addRequestIfNeeded({ field: 'schoolWorkNotes', resourceType: 'DocumentReference', defaultSearchBy: 'encounter' });
+
+  if (requestedFields?.disposition) {
+    // disposition is just per-encounter, so no need to search by patient
+    addRequestIfNeeded({ field: 'disposition', resourceType: 'ServiceRequest', defaultSearchBy: 'encounter' });
+  }
 
   if (requestedFields?.prescribedMedications) {
     // for now prescribed meds are just per-encounter, so no need to search by patient
@@ -185,6 +188,10 @@ export async function getChartData(
   if (requestedFields?.labResults && encounter.id) {
     const labRequests = configLabRequestsForGetChartData(encounter.id);
     chartDataRequests.push(...labRequests);
+  }
+
+  if ((!requestedFields || requestedFields.procedures) && encounter.id) {
+    chartDataRequests.push(configProceduresRequestsForGetChartData(encounter.id));
   }
 
   console.timeLog('check', 'before resources fetch');

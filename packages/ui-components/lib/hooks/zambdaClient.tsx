@@ -34,7 +34,7 @@ export function useOystehrClient({ tokenless }: { tokenless: boolean }): Oystehr
           setClient(clientWithToken);
         }
       } catch (e) {
-        console.error('error refreshing token');
+        console.error('error refreshing token', JSON.stringify(e), e);
       } finally {
         setRefreshingToken(false);
       }

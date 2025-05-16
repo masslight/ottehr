@@ -2,10 +2,19 @@ import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { exec } from 'child_process';
 import { FhirResource, HealthcareService, Organization, PractitionerRole, Schedule } from 'fhir/r4b';
 import fs from 'fs';
-import path from 'path';
-import { ScheduleStrategyCoding, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
-import { inviteUser } from './invite-user';
 import { promisify } from 'node:util';
+import path from 'path';
+import {
+  FHIR_BASE_URL,
+  PROJECT_DOMAIN,
+  PROJECT_NAME,
+  PROJECT_NAME_LOWER,
+  SCHEDULE_EXTENSION_URL,
+  ScheduleStrategyCoding,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils';
+import { inviteUser } from './invite-user';
+import { defaultGroup } from './setup-default-locations';
 
 export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
 
@@ -147,7 +156,7 @@ export async function setupEHR(
 ): Promise<void> {
   console.log('Starting setup of EHR...');
 
-  const applicationName = 'Ottehr EHR';
+  const applicationName = `${PROJECT_NAME} EHR`;
   const [applicationId, clientId] = await createApplication(oystehr, applicationName);
   console.log(`Created application "${applicationName}".`);
 
@@ -169,7 +178,7 @@ export async function setupEHR(
     'practitioner1'
   );
 
-  const provider2Email = 'jane.smith@ottehr.com';
+  const provider2Email = 'jane.smith@' + PROJECT_DOMAIN;
   const { userProfileId: userId2 } = await inviteUser(
     oystehr,
     provider2Email,
@@ -180,7 +189,7 @@ export async function setupEHR(
     'practitioner2'
   );
 
-  const provider3Email = 'kevin.brown@ottehr.com';
+  const provider3Email = 'kevin.brown@' + PROJECT_DOMAIN;
   const { userProfileId: userId3 } = await inviteUser(
     oystehr,
     provider3Email,
@@ -196,11 +205,11 @@ export async function setupEHR(
   const healthcareServicePostRequests: BatchInputPostRequest<FhirResource>[] = [];
   const healthcareServiceResource: HealthcareService = {
     resourceType: 'HealthcareService',
-    name: 'Visit Followup Group',
+    name: defaultGroup,
     active: true,
     identifier: [
       {
-        system: 'https://fhir.ottehr.com/r4/slug',
+        system: FHIR_BASE_URL + '/r4/slug',
         value: 'visit-followup-group',
       },
     ],
@@ -234,7 +243,6 @@ export async function setupEHR(
   };
   healthcareServicePostRequests.push(hsPostRequest);
 
-
   // create a PractitionerRole for each provider
   const userProfileIds = [userId1, userId2, userId3];
   for (const userId of userProfileIds) {
@@ -260,7 +268,7 @@ export async function setupEHR(
       fullUrl: `urn:uuid:${userId}-practitioner-role`,
     };
     healthcareServicePostRequests.push(practitionerRolePostRequest);
-    
+
     /* 
       for each practitioner in the group, create a schedule resource - 
       the set of bookable slots at any given time for the healthcare service 
@@ -280,18 +288,19 @@ export async function setupEHR(
             '{"schedule":{"monday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"tuesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"wednesday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"thursday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"friday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"saturday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]},"sunday":{"open":8,"close":15,"openingBuffer":0,"closingBuffer":0,"workingDay":true,"hours":[{"hour":8,"capacity":2},{"hour":9,"capacity":2},{"hour":10,"capacity":2},{"hour":11,"capacity":2},{"hour":12,"capacity":2},{"hour":13,"capacity":2},{"hour":14,"capacity":2},{"hour":15,"capacity":2},{"hour":16,"capacity":2},{"hour":17,"capacity":3},{"hour":18,"capacity":3},{"hour":19,"capacity":3},{"hour":20,"capacity":1}]}},"scheduleOverrides":{}}',
         },
       ],
-      actor: [{
-        reference: `Practitioner/${userId}`,
-      }],
+      actor: [
+        {
+          reference: `Practitioner/${userId}`,
+        },
+      ],
     };
     healthcareServicePostRequests.push({
       method: 'POST',
       url: '/Schedule',
-      resource: providerSchedule
+      resource: providerSchedule,
     });
-
   }
-  await oystehr.fhir.transaction<FhirResource>({requests: healthcareServicePostRequests});
+  await oystehr.fhir.transaction<FhirResource>({ requests: healthcareServicePostRequests });
   console.log('Created healthcare service and practitioner roles.');
 
   // create a FHIR Group resource, for issue report email recipients
@@ -304,14 +313,14 @@ export async function setupEHR(
       resourceType: 'Group',
       identifier: [
         {
-          system: 'ottehr-internal',
+          system: `${PROJECT_NAME_LOWER}-internal`,
           value: 'intake-issue-reports',
         },
       ],
       active: true,
       type: 'practitioner',
       code: {
-        text: 'ottehr-admins',
+        text: `${PROJECT_NAME_LOWER}-admins`,
       },
       name: 'Issue Report Recipients',
       member: [

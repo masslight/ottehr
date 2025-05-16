@@ -231,13 +231,13 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     },
     subtitle1: {
       fontSize: 16,
-      fontWeight: 700,
+      fontWeight: 500,
       fontFamily: textFonts.join(','),
       lineHeight: '140%',
     },
     subtitle2: {
       fontSize: 14,
-      fontWeight: 700,
+      fontWeight: 500,
       fontFamily: textFonts.join(','),
       lineHeight: '140%',
     },
@@ -262,7 +262,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
     },
     overline: {
       fontSize: 12,
-      fontWeight: 700,
+      fontWeight: 500,
       fontFamily: textFonts.join(','),
       lineHeight: '140%',
     },

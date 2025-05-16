@@ -2,6 +2,7 @@ import { FC } from 'react';
 import { Chip } from '@mui/material';
 import { Appointment, CoverageEligibilityResponse } from 'fhir/r4b';
 
+// todo: delete this file?
 type EligibilityStatusChipProps = {
   eligibilityResponse?: CoverageEligibilityResponse;
   appointment: Appointment;
@@ -68,7 +69,7 @@ export const EligibilityStatusChip: FC<EligibilityStatusChipProps> = (props) => 
         '& .MuiChip-label': {
           display: 'block',
           whiteSpace: 'normal',
-          fontWeight: 700,
+          fontWeight: 500,
           fontSize: '12px',
           color: mapStatusToDisplay[status].color,
           textTransform: 'uppercase',

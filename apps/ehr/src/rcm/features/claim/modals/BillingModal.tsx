@@ -17,12 +17,11 @@ import AddIcon from '@mui/icons-material/Add';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { DeleteIconButton } from '../../../../telemed';
 import { TextFieldController, DateRangePickerController, EditModal, CheckboxController } from './components';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ClaimState, useClaimStore, useEditClaimInformationMutation } from '../../../state';
 import { BillingFormValues, mapBillingToClaimResource } from '../../../utils';
 import { DateTime } from 'luxon';
-
+import { otherColors } from '@theme/colors';
 const getDefaultValues = (claimData: ClaimState['claimData']): BillingFormValues => ({
   items: claimData?.billingItems || [],
   payment: claimData?.patientPaid || NaN,

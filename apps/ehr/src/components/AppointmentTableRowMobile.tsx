@@ -1,6 +1,6 @@
 import { Box, Grid, TableCell, TableRow, Typography, capitalize, Modal } from '@mui/material';
 import { ReactElement, CSSProperties, useState } from 'react';
-import { otherColors } from '../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import ReasonsForVisit from './ReasonForVisit';
 import { InPersonAppointmentInformation } from 'utils';
 import { ApptTab } from './AppointmentTabs';
@@ -108,7 +108,7 @@ export default function AppointmentTableRowMobile({
                     )}
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center' }} gap={1}>
-                    <Typography variant="body1" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
                       {patientName}
                     </Typography>{' '}
                     <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />

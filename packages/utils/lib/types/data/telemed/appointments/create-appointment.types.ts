@@ -28,7 +28,6 @@ export enum VisitType {
   PreBook = 'prebook',
   Reschedule = 'reschedule',
   PostTelemed = 'posttelemed',
-  Virtual = 'virtual',
 }
 
 export type PatientInfo = PatientBaseInfo & {

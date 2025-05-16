@@ -6,6 +6,7 @@ import {
   diffInMinutes,
   EncounterVirtualServiceExtension,
   FHIR_APPOINTMENT_TYPE_MAP,
+  OTTEHR_MODULE,
   PUBLIC_EXTENSION_BASE_URL,
   TELEMED_VIDEO_ROOM_CODE,
   TelemedAppointmentStatusEnum,
@@ -45,6 +46,10 @@ export async function cancelAppointmentResource(
     throw new Error(`Failed to cancel Appointment: ${JSON.stringify(error)}`);
   }
 }
+
+export const isAppointmentVirtual = (appointment: Appointment): boolean => {
+  return appointment.meta?.tag?.some((tag) => tag.code === OTTEHR_MODULE.TM) || false;
+};
 
 export const getAppointmentWaitingTime = (statuses?: TelemedStatusHistoryElement[]): number | undefined => {
   if (!statuses) {

@@ -15,6 +15,7 @@ import * as fs from 'fs';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   isValidUUID,
+  OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
   unbundleBatchPostOutput,
 } from 'utils';
@@ -433,6 +434,13 @@ describe('Harvest Module Integration Tests', () => {
         fullUrl: appointmentFullUrl,
         resource: {
           resourceType: 'Appointment',
+          meta: {
+            tag: [
+              {
+                code: OTTEHR_MODULE.IP,
+              },
+            ],
+          },
           status: 'proposed',
           participant: [
             {
@@ -2819,6 +2827,9 @@ describe('Harvest Module Integration Tests', () => {
       const dummyAppt = await oystehrClient.fhir.create<Appointment>({
         resourceType: 'Appointment',
         status: 'booked',
+        meta: {
+          tag: [{ code: OTTEHR_MODULE.IP }],
+        },
         participant: [
           {
             actor: {

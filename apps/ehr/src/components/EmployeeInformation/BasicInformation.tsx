@@ -77,7 +77,7 @@ export function BasicInformation({ control, existingUser, errors }: BasicInforma
             InputProps={{
               inputComponent: InputMask as any,
             }}
-            helperText={errors.phoneNumber ? 'Phone number must be 10 digits' : ''}
+            helperText={errors.phoneNumber ? 'Phone number must be 10 digits in the format (xxx) xxx-xxxx' : ''}
             FormHelperTextProps={{
               sx: { ml: 0, mt: 1 },
             }}

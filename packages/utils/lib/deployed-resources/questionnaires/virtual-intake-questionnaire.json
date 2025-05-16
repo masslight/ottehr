@@ -3,7 +3,7 @@
   "resource": {
     "resourceType": "Questionnaire",
     "url": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-virtual",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "name": "virtual_pre-visit_paperwork (please_do_not_delete)",
     "title": "virtual pre-visit paperwork",
     "status": "active",
@@ -4067,7 +4067,7 @@
           },
           {
             "linkId": "consent-to-treat",
-            "text": "I have reviewed and accept [Consent to Treat and Guarantee of Payment](/consent_to_treat_template.pdf)",
+            "text": "I have reviewed and accept [Consent to Treat, Guarantee of Payment & Card on File Agreement](/consent_to_treat_template.pdf)",
             "type": "boolean",
             "required": true
           },

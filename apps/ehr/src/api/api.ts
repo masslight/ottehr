@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
   chooseJson,
   ConversationMessage,
@@ -13,8 +13,7 @@ import {
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
-  OrderDetails,
-  PaginatedLabOrderResponse,
+  PaginatedResponse,
   CreateLabOrderParameters,
   GetCreateLabOrderResources,
   LabOrderResourcesRes,
@@ -24,10 +23,21 @@ import {
   UpdateScheduleParams,
   GetLabOrdersParameters,
   DeleteLabOrderParams,
+  SubmitLabOrderDTO,
+  CreateSlotParams,
+  apiErrorToThrow,
+  CreateAppointmentInputParams,
+  UpdateLabOrderResourcesParameters,
+  GetInHouseOrdersParameters,
+  CollectInHouseLabSpecimenParameters,
+  GetCreateInHouseLabOrderResourcesParameters,
+  HandleInHouseLabResultsParameters,
+  DeleteInHouseLabOrderParameters,
+  GetCreateInHouseLabOrderResourcesResponse,
+  CreateInHouseLabOrderParameters,
 } from 'utils';
 import {
   CancelAppointmentParameters,
-  CreateAppointmentParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
@@ -71,7 +81,14 @@ const UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_LAB
 const EHR_GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_EHR_GET_SCHEDULE_ZAMBDA_ID;
 const UPDATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_SCHEDULE_ZAMBDA_ID;
 const LIST_SCHEDULE_OWNERS_ZAMBDA_ID = import.meta.env.VITE_APP_LIST_SCHEDULE_OWNERS_ZAMBDA_ID;
-const CREATE_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_SCHEDULE_ZAMBDA_ID;
+const CREATE_SCHEDULE_ZAMBDA_ID = 'create-schedule';
+const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
+const CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID;
+const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_IN_HOUSE_ORDERS_ZAMBDA_ID;
+const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES;
+const COLLECT_IN_HOUSE_LAB_SPECIMEN = import.meta.env.VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN;
+const HANDLE_IN_HOUSE_LAB_RESULTS = import.meta.env.VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS;
+const DELETE_IN_HOUSE_LAB_ORDER = import.meta.env.VITE_APP_DELETE_IN_HOUSE_LAB_ORDER;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -85,7 +102,7 @@ if (!VITE_APP_IS_LOCAL) {
   throw new Error('VITE_APP_IS_LOCAL is not defined');
 }
 
-export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<OrderDetails> => {
+export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<SubmitLabOrderDTO> => {
   try {
     if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('submit lab order zambda environment variable could not be loaded');
@@ -98,7 +115,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
-    throw new Error(JSON.stringify(error));
+    throw error;
   }
 };
 
@@ -118,22 +135,15 @@ export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointme
   }
 };
 
-export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppointmentParameters): Promise<any> => {
+export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppointmentInputParams): Promise<any> => {
   try {
     if (CREATE_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('create appointment environment variable could not be loaded');
     }
 
-    // we currently have two different visit type conventions on telemed and ehr, one with '-'
-    // separating the distinct words / prefix adn word and one where it's just continuous chars
-    const translatedParams = {
-      ...parameters,
-      visitType: parameters.visitType?.replace('-', ''),
-    };
-
     const response = await oystehr.zambda.execute({
       id: CREATE_APPOINTMENT_ZAMBDA_ID,
-      ...translatedParams,
+      ...parameters,
     });
     return chooseJson(response);
   } catch (error: unknown) {
@@ -470,10 +480,6 @@ export const updateSchedule = async (params: UpdateScheduleParams, oystehr: Oyst
 
 export const createSchedule = async (params: CreateScheduleParams, oystehr: Oystehr): Promise<Schedule> => {
   try {
-    if (CREATE_SCHEDULE_ZAMBDA_ID == null) {
-      throw new Error('create-schedule zambda environment variable could not be loaded');
-    }
-
     const response = await oystehr.zambda.execute({
       id: CREATE_SCHEDULE_ZAMBDA_ID,
       ...params,
@@ -601,7 +607,7 @@ export const getCreateLabOrderResources = async (
 export const getLabOrders = async <RequestParameters extends GetLabOrdersParameters>(
   oystehr: Oystehr,
   parameters: RequestParameters
-): Promise<PaginatedLabOrderResponse<RequestParameters>> => {
+): Promise<PaginatedResponse<RequestParameters>> => {
   try {
     if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get lab orders zambda environment variable could not be loaded');
@@ -641,13 +647,6 @@ export const deleteLabOrder = async (oystehr: Oystehr, parameters: DeleteLabOrde
   }
 };
 
-export type UpdateLabOrderResourcesParameters = {
-  taskId: string;
-  serviceRequestId: string;
-  diagnosticReportId: string;
-  event: 'reviewed';
-};
-
 export const updateLabOrderResources = async (
   oystehr: Oystehr,
   parameters: UpdateLabOrderResourcesParameters
@@ -658,6 +657,138 @@ export const updateLabOrderResources = async (
     }
     const response = await oystehr.zambda.execute({
       id: UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Promise<Slot> => {
+  try {
+    const response = await oystehr.zambda.executePublic({ id: CREATE_SLOT_ZAMBDA_ID, ...input });
+    const jsonToUse = chooseJson(response);
+    return jsonToUse;
+  } catch (error: unknown) {
+    throw apiErrorToThrow(error);
+  }
+};
+
+export const createInHouseLabOrder = async (
+  oystehr: Oystehr,
+  parameters: CreateInHouseLabOrderParameters
+): Promise<any> => {
+  try {
+    if (CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID == null) {
+      throw new Error('create in house lab order zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getInHouseOrders = async <RequestParameters extends GetInHouseOrdersParameters>(
+  oystehr: Oystehr,
+  parameters: RequestParameters
+): Promise<PaginatedResponse<RequestParameters>> => {
+  try {
+    if (GET_IN_HOUSE_ORDERS_ZAMBDA_ID == null) {
+      throw new Error('get in house orders zambda environment variable could not be loaded');
+    }
+    const { searchBy } = parameters;
+    if (!searchBy) {
+      throw new Error(
+        `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
+          parameters
+        )}`
+      );
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_IN_HOUSE_ORDERS_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getCreateInHouseLabOrderResources = async (
+  oystehr: Oystehr,
+  parameters: GetCreateInHouseLabOrderResourcesParameters
+): Promise<GetCreateInHouseLabOrderResourcesResponse> => {
+  try {
+    if (GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES == null) {
+      throw new Error('get create in house lab order resources zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const collectInHouseLabSpecimen = async (
+  oystehr: Oystehr,
+  parameters: CollectInHouseLabSpecimenParameters
+): Promise<any> => {
+  try {
+    if (COLLECT_IN_HOUSE_LAB_SPECIMEN == null) {
+      throw new Error('collect in house lab specimen zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: COLLECT_IN_HOUSE_LAB_SPECIMEN,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const handleInHouseLabResults = async (
+  oystehr: Oystehr,
+  parameters: HandleInHouseLabResultsParameters
+): Promise<any> => {
+  try {
+    if (HANDLE_IN_HOUSE_LAB_RESULTS == null) {
+      throw new Error('handle in house lab results zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: HANDLE_IN_HOUSE_LAB_RESULTS,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const deleteInHouseLabOrder = async (
+  oystehr: Oystehr,
+  parameters: DeleteInHouseLabOrderParameters
+): Promise<any> => {
+  try {
+    if (DELETE_IN_HOUSE_LAB_ORDER == null) {
+      throw new Error('delete in house lab order zambda environment variable could not be loaded');
+    }
+    const response = await oystehr.zambda.execute({
+      id: DELETE_IN_HOUSE_LAB_ORDER,
       ...parameters,
     });
     return chooseJson(response);

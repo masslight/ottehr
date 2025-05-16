@@ -12,19 +12,17 @@ import {
 } from '@mui/material';
 import { FC, MouseEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getFullestAvailableName, RoleType } from 'utils';
+import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
 import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { dataTestIds } from '../../constants/data-test-ids';
-
-const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 
 export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);
   const user = useEvolveUser();
   const userIsProvider = user?.hasRole([RoleType.Provider]);
 
-  const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? 'Ottehr Team');
+  const name = user?.profileResource && (getFullestAvailableName(user.profileResource, true) ?? `${PROJECT_NAME} Team`);
   const suffix = user?.profileResource?.name?.[0]?.suffix?.[0];
 
   return (
@@ -51,7 +49,7 @@ export const UserMenu: FC = () => {
       >
         <MenuItem>
           <Box>
-            <Typography variant="body1">{ORGANIZATION_NAME_SHORT} Admin</Typography>
+            <Typography variant="body1">{PROJECT_NAME} Admin</Typography>
             <Typography variant="caption">{user?.email}</Typography>
           </Box>
         </MenuItem>

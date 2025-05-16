@@ -48,7 +48,7 @@ export default function LogoutWarning({
   };
 
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

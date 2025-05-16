@@ -2,7 +2,7 @@
 
 ## EHR E2E Tests
 
-For E2E testing documentation and guide please check the [E2E Testing Guide](./test/e2e-readme/README.md)
+For E2E testing documentation and guide please check the [E2E Testing Guide](./tests/e2e-readme/README.md)
 
 ## FEATURE FLAGS
 
@@ -11,5 +11,6 @@ For feature flag configuration, application environment variables are used. For 
 ```
 export const FEATURE_FLAGS = {
   LAB_ORDERS_ENABLED: import.meta.env.VITE_APP_IS_LAB_ORDERS_ENABLED_FEATURE_FLAG === 'true',
+  IN_HOUSE_LABS_ENABLED: import.meta.env.VITE_APP_IS_IN_HOUSE_LABS_ENABLED_FEATURE_FLAG === 'true',
 };
 ```

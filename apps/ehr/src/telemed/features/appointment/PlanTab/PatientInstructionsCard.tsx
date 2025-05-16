@@ -2,7 +2,7 @@ import React, { FC, useState } from 'react';
 import { Box, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
-import { CommunicationDTO } from 'utils';
+import { CommunicationDTO, PROJECT_NAME } from 'utils';
 import { AccordionCard, ActionsList, DeleteIconButton } from '../../../components';
 import { PatientInstructionsTemplatesDialog } from './components';
 import { useAppointmentStore, useDeleteChartData, useSaveChartData, useSavePatientInstruction } from '../../../state';
@@ -15,7 +15,7 @@ export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);
 
   const [myTemplatesOpen, setMyTemplatesOpen] = useState(false);
-  const [ottehrTemplatesOpen, setOttehrTemplatesOpen] = useState(false);
+  const [defaultTemplatesOpen, setDefaultTemplatesOpen] = useState(false);
 
   const [instruction, setInstruction] = useState('');
 
@@ -110,7 +110,7 @@ export const PatientInstructionsCard: FC = () => {
                   onChange={(e) => setInstruction(e.target.value)}
                   size="small"
                   label="Instruction"
-                  placeholder="Enter a new instruction of select from own saved or Ottehr template"
+                  placeholder={`Enter a new instruction of select from own saved or ${PROJECT_NAME} template`}
                   multiline
                   fullWidth
                 />
@@ -127,7 +127,7 @@ export const PatientInstructionsCard: FC = () => {
               </Box>
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
                 <RoundedButton onClick={() => setMyTemplatesOpen(true)}>My templates</RoundedButton>
-                <RoundedButton onClick={() => setOttehrTemplatesOpen(true)}>Ottehr templates</RoundedButton>
+                <RoundedButton onClick={() => setDefaultTemplatesOpen(true)}>{PROJECT_NAME} templates</RoundedButton>
               </Box>
             </>
           )}
@@ -161,10 +161,10 @@ export const PatientInstructionsCard: FC = () => {
           onSelect={(value) => setInstruction(value.text!)}
         />
       )}
-      {ottehrTemplatesOpen && (
+      {defaultTemplatesOpen && (
         <PatientInstructionsTemplatesDialog
-          open={ottehrTemplatesOpen}
-          onClose={() => setOttehrTemplatesOpen(false)}
+          open={defaultTemplatesOpen}
+          onClose={() => setDefaultTemplatesOpen(false)}
           type="organization"
           onSelect={(value) => setInstruction(value.text!)}
         />

@@ -13,5 +13,5 @@ export const ExamReviewComment: FC<ExamReviewCommentProps> = (props) => {
     return null;
   }
 
-  return <Typography fontWeight={700}>{item.note}</Typography>;
+  return <Typography fontWeight={500}>{item.note}</Typography>;
 };

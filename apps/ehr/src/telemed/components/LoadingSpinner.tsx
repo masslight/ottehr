@@ -1,7 +1,7 @@
 import { Box, useTheme } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
+import { otherColors } from '@theme/colors';
 import { FC } from 'react';
-import { otherColors } from '../../CustomThemeProvider';
 import { dataTestIds } from '../../constants/data-test-ids';
 
 interface LoadingSpinnerProps {

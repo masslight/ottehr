@@ -50,6 +50,14 @@ export const ExternalLabsStatusPalette: {
       primary: '#1B5E20',
     },
   },
+  corrected: {
+    background: {
+      primary: '#BBDEFB',
+    },
+    color: {
+      primary: '#01579B',
+    },
+  },
   cancelled: {
     background: {
       primary: '#FFCDD2',
@@ -66,7 +74,7 @@ export const ExternalLabsStatusPalette: {
       primary: '#01579B',
     },
   },
-  unparsed: {
+  unknown: {
     background: {
       primary: '#e3c254',
     },
@@ -84,7 +92,7 @@ export function LabsOrderStatusChip({ status }: LabsOrderStatusChipProps): React
       sx={{
         borderRadius: '4px',
         border: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: '12px',
         textTransform: 'uppercase',
         background: ExternalLabsStatusPalette[status].background.primary,

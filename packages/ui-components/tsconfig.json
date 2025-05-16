@@ -1,4 +1,11 @@
 {
   "extends": "tsconfig/react.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@theme/*": ["../../apps/intake/src/themes/ottehr/*"],
+      "@defaultTheme/*": ["../../apps/intake/src/themes/ottehr/*"]
+    }
+  },
   "include": ["lib", "test", "../../apps/intake/src/features/paperwork"]
 }

@@ -62,7 +62,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
   const { questionnaireItems, fieldId, parentItem } = input;
   const { formValues, allFields } = useQRState();
   // console.log('all fields', allFields);
-  const [replacedValues, setReplacedValues] = useState<string[]>([]);
+  const [replacedValues, setReplacedValues] = useState<{ id: string; value: string }[]>([]);
 
   const itemsToFill = useMemo(() => {
     return questionnaireItems.filter((qi) => {
@@ -81,9 +81,8 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
   return useEffect(() => {
     // console.log('autofill effect fired', itemsToFill, Object.entries(replacedValues.current));
     if (itemsToFill.length === 0) {
-      // console.log('autofill clearing values', Object.entries(replacedValues.current));
-      replacedValues.forEach((key) => {
-        const pathNodes = key.split('.');
+      replacedValues.forEach((val) => {
+        const pathNodes = val.id.split('.');
         const currentVal = pathNodes.reduce((accum, current) => {
           if (accum === undefined) {
             return undefined;
@@ -99,9 +98,9 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
         // console.log('new val, current val', newVal, currentVal);
         if (currentVal?.answer !== undefined || currentVal?.item !== undefined) {
           // console.log('autofill unsetting a value', val || undefined);
-          setValue(key, { linkId: key });
+          setValue(val.id, val.value);
           setReplacedValues((rp) => {
-            return rp.filter((val) => val !== key);
+            return rp.filter((v) => v.id !== val.id);
           });
         }
       });
@@ -130,7 +129,13 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
 
       if (shouldUpdateValue) {
         setReplacedValues((rp) => {
-          return [...rp, id];
+          return [
+            ...rp,
+            {
+              id,
+              value: currentValue,
+            },
+          ];
         });
         setValue(id, autoFilled, { shouldValidate: true });
       }

@@ -72,7 +72,9 @@ const MultiAnswerHeader: FC<MultiAnswerHeader> = ({ item, parentItem }) => {
           key={JSON.stringify({ item, index })}
           sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          <Typography>{`${item?.valueString}${item.category ? ' | ' + item.category : ''}`}</Typography>
+          <Typography data-testid={dataTestIds.itemAddedValue}>{`${item?.valueString}${
+            item.category ? ' | ' + item.category : ''
+          }`}</Typography>
           <IconButton
             onClick={() => {
               removeItem(index);

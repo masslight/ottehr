@@ -1,8 +1,8 @@
-import { FC } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableRow } from '@mui/material';
+import { FC } from 'react';
 import { Link } from 'react-router-dom';
+import { formatMinutes, ServiceMode } from 'utils';
 import { formatISOStringToDateAndTime } from '../helpers/formatDateTime';
-import { formatMinutes } from 'utils';
 import { AppointmentHistoryRow } from '../hooks/useGetPatient';
 
 type PastVisitsTableProps = {
@@ -45,7 +45,7 @@ export const PastVisitsTable: FC<PastVisitsTableProps> = (props) => {
             <TableCell>
               <Link
                 to={
-                  appointment.type === 'Telemed'
+                  appointment.serviceMode === ServiceMode.virtual
                     ? `/telemed/appointments/${appointment.id}`
                     : `/visit/${appointment.id}`
                 }
@@ -54,7 +54,7 @@ export const PastVisitsTable: FC<PastVisitsTableProps> = (props) => {
                 {appointment.id || '-'}
               </Link>
             </TableCell>
-            <TableCell align="left">{appointment.type || '-'}</TableCell>
+            <TableCell align="left">{appointment.typeLabel || '-'}</TableCell>
             <TableCell align="left">{appointment.office || '-'}</TableCell>
             <TableCell align="left">
               {appointment.length !== undefined

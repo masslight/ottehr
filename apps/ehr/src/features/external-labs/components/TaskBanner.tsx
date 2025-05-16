@@ -1,6 +1,6 @@
 import { Stack, Typography, Box, useTheme, Paper, IconButton } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
-import { otherColors } from '../../../CustomThemeProvider';
+import { otherColors } from '@theme/colors';
 import React, { useState } from 'react';
 import { DateTime } from 'luxon';
 import { LoadingButton } from '@mui/lab';

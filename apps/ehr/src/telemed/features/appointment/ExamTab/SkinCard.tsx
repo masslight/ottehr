@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { ExamCardContainer, ExamCommentField, ExamFieldsFactory, RashesForm } from './components';
 import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 
 export const SkinCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('skin');
@@ -10,7 +11,10 @@ export const SkinCard: FC = () => {
       label="Skin"
       collapsed={isCollapsed}
       onSwitch={onSwitch}
-      rightComponent={<ExamCommentField name="skin-comment" />}
+      dataTestId={dataTestIds.telemedEhrFlow.examTabCards('skin')}
+      rightComponent={
+        <ExamCommentField name="skin-comment" dataTestId={dataTestIds.telemedEhrFlow.examTabCardsComments('skin')} />
+      }
       grid={[
         {
           Normal: <ExamFieldsFactory card="skin" group="normal" />,

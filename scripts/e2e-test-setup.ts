@@ -1,9 +1,20 @@
 import { input, password } from '@inquirer/prompts';
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import dotenv from 'dotenv';
-import { Location } from 'fhir/r4b';
+import { FhirResource, Location, Practitioner, Schedule } from 'fhir/r4b';
 import fs from 'fs';
-import { DEFAULT_TESTING_SLUG } from '../packages/zambdas/src/scripts/setup-default-locations';
+import {
+  allLicensesForPractitioner,
+  makeQualificationForPractitioner,
+  SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils';
+import { isLocationVirtual } from 'utils/lib/fhir/location';
+import {
+  allPhysicalDefaultLocations,
+  defaultGroup,
+  virtualDefaultLocations,
+} from '../packages/zambdas/src/scripts/setup-default-locations';
 
 const getEnvironment = (): string => {
   const envFlagIndex = process.argv.findIndex((arg) => arg === '--environment');
@@ -55,17 +66,19 @@ interface IntakeConfig {
   [key: string]: any;
 }
 
-async function getLocationForTesting(
-  ehrZambdaEnv: Record<string, string>
-): Promise<{ locationId: string; locationName: string; locationSlug: string; locationState: string }> {
+async function getToken(
+  ehrZambdaEnv: Record<string, string>,
+  auth0ClientId?: string,
+  auth0ClientSecret?: string
+): Promise<Oystehr> {
   const tokenResponse = await fetch(ehrZambdaEnv.AUTH0_ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      client_id: ehrZambdaEnv.AUTH0_CLIENT,
-      client_secret: ehrZambdaEnv.AUTH0_SECRET,
+      client_id: auth0ClientId || ehrZambdaEnv.AUTH0_CLIENT,
+      client_secret: auth0ClientSecret || ehrZambdaEnv.AUTH0_SECRET,
       audience: ehrZambdaEnv.AUTH0_AUDIENCE,
       grant_type: 'client_credentials',
     }),
@@ -81,53 +94,202 @@ async function getLocationForTesting(
       projectApiUrl: ehrZambdaEnv.PROJECT_API,
     },
   });
+  return oystehr;
+}
 
-  const testingResponse = await oystehr.fhir.search<Location>({
+async function getLocationsForTesting(
+  ehrZambdaEnv: Record<string, string>
+): Promise<{ locationId: string; locationName: string; locationSlug: string; virtualLocationState: string }> {
+  console.log(`Setting up locations for testing`);
+  const oystehr = await getToken(ehrZambdaEnv);
+
+  const firstDefaultLocation = allPhysicalDefaultLocations[0];
+  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
+
+  const locationsResponse = await oystehr.fhir.search<Location | Schedule>({
     resourceType: 'Location',
     params: [
       {
-        name: 'identifier',
-        value: `https://fhir.ottehr.com/r4/slug|${DEFAULT_TESTING_SLUG}`,
+        name: '_revinclude',
+        value: 'Schedule:actor:Location',
       },
     ],
   });
 
-  if (testingResponse.entry && testingResponse.entry.length > 0) {
-    const locationResource = testingResponse.entry[0].resource;
+  const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<Location | Practitioner | Schedule>({
+    resourceType: 'HealthcareService',
+    params: [
+      {
+        name: 'name',
+        value: defaultGroup,
+      },
+      {
+        name: '_include',
+        value: 'HealthcareService:location',
+      },
+      {
+        name: '_revinclude',
+        value: 'PractitionerRole:service',
+      },
+      {
+        name: '_include:iterate',
+        value: 'PractitionerRole:practitioner',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor:Location',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor:Practitioner',
+      },
+    ],
+  });
 
-    const locationId = locationResource?.id;
-    const locationName = locationResource?.name;
-    const locationSlug = locationResource?.identifier?.[0]?.value;
-    const locationState = (locationResource?.address?.state || '').toLowerCase();
+  const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
+  const defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
+    (res) => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
+  );
+  const defaultGroupSchedules = defaultGroupRelatedResources.filter((res) => res.resourceType === 'Schedule');
 
-    if (!locationId) {
-      throw Error('Required locationId not found  ');
-    }
+  const locationsAndSchedules = locationsResponse.unbundle();
+  const locations = locationsAndSchedules.filter((res) => res.resourceType === 'Location');
+  const schedules = locationsAndSchedules.filter((res) => res.resourceType === 'Schedule');
 
-    if (!locationName) {
-      throw Error('Required locationName not found');
-    }
+  const virtualLocations = locations.filter(isLocationVirtual);
 
-    if (!locationSlug) {
-      throw Error('Required locationSlug not found');
-    }
-
-    if (!locationState) {
-      throw Error('Required locationState not found');
-    }
-
-    console.log(`Found location by slug '${DEFAULT_TESTING_SLUG}' with ID: ${locationId}`);
-    console.log(`Location name: ${locationName}, slug: ${locationSlug}, state: ${locationState}`);
-
-    return {
-      locationId,
-      locationName,
-      locationSlug,
-      locationState,
-    };
+  if (locations.length === 0) {
+    throw Error('No locations found in FHIR API');
   }
 
-  throw Error('No locations found in FHIR API');
+  if (virtualLocations.length === 0) {
+    throw Error('No virtual locations found in FHIR API');
+  }
+
+  const locationResource = locations.find((location) => location.name === firstDefaultLocation.name);
+
+  const locationId = locationResource?.id;
+  const locationName = locationResource?.name;
+  const locationSlug = locationResource?.identifier?.[0]?.value;
+
+  const virtualLocation = virtualLocations.find(
+    (location) => location.address?.state === firstDefaultVirtualLocation.state
+  );
+  const virtualLocationState = (virtualLocation?.address?.state || '').toLowerCase();
+
+  if (!virtualLocation) {
+    throw Error('Required virtual location not found');
+  }
+
+  if (!locationId) {
+    throw Error('Required locationId not found  ');
+  }
+
+  if (!locationName) {
+    throw Error('Required locationName not found');
+  }
+
+  if (!locationSlug) {
+    throw Error('Required locationSlug not found');
+  }
+
+  if (!virtualLocationState) {
+    throw Error('Required virtual location state not found');
+  }
+
+  console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
+  console.log(`Location name: ${locationName}, slug: ${locationSlug}`);
+
+  console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
+  console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
+
+  console.group('Ensure test location schedules and slots');
+  await Promise.all([
+    ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
+    ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
+    defaultGroupLocationsAndPractitioners.map((owner) =>
+      ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
+    ),
+  ]);
+  console.groupEnd();
+
+  return {
+    locationId,
+    locationName,
+    locationSlug,
+    virtualLocationState: virtualLocationState,
+  };
+}
+
+async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
+  console.log(`Setting up test EHR provider credentials`);
+  console.log(ehrConfig);
+  const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
+
+  console.log(`Getting e2e test user by email: ${ehrConfig.TEXT_USERNAME}`);
+  const users = await oystehr.user.listV2({ email: ehrConfig.TEXT_USERNAME! });
+  const user = users.data.find((user) => user.email === ehrConfig.TEXT_USERNAME!);
+
+  if (!user) {
+    throw Error('e2e test user not found');
+  }
+
+  const practitionersResponse = await oystehr.fhir.search<Practitioner>({
+    resourceType: 'Practitioner',
+    params: [
+      {
+        name: '_id',
+        value: user.profile.replace(`Practitioner/`, ''),
+      },
+    ],
+  });
+
+  const practitioners = practitionersResponse.unbundle();
+
+  const practitioner = practitioners.at(0);
+
+  if (!practitioner) {
+    throw Error('e2e test user profile practitioner not found');
+  }
+  const locationsResponse = await oystehr.fhir.search<Location>({
+    resourceType: 'Location',
+    params: [
+      {
+        name: 'address-state:missing',
+        value: 'false',
+      },
+    ],
+  });
+
+  const virtualLocations = locationsResponse.unbundle().filter(isLocationVirtual);
+
+  if (virtualLocations.length === 0) {
+    throw Error('No virtual locations found in FHIR API');
+  }
+  const firstDefaultVirtualLocation = virtualDefaultLocations[0];
+
+  const licenses = allLicensesForPractitioner(practitioner);
+  const qualification = practitioner.qualification || [];
+  if (!licenses.find((license) => license.state === firstDefaultVirtualLocation.state)) {
+    qualification.push(
+      makeQualificationForPractitioner({
+        state: firstDefaultVirtualLocation.state,
+        number: '1234567890',
+        code: 'MD',
+        active: true,
+      })
+    );
+
+    try {
+      await oystehr.fhir.update<Practitioner>({
+        id: practitioner.id!,
+        ...practitioner,
+        qualification,
+      });
+    } catch (error) {
+      console.error('Error updating e2e test practitioner qualifications', error);
+    }
+  }
 }
 
 export async function createTestEnvFiles(): Promise<void> {
@@ -144,7 +306,7 @@ export async function createTestEnvFiles(): Promise<void> {
       fs.readFileSync(`apps/intake/env/.env.${environment}`, 'utf8')
     );
 
-    const { locationId, locationName, locationSlug, locationState } = await getLocationForTesting(zambdaEnv);
+    const { locationId, locationName, locationSlug, virtualLocationState } = await getLocationsForTesting(zambdaEnv);
 
     let existingEhrConfig: EhrConfig = {};
     let existingIntakeConfig: IntakeConfig = {};
@@ -220,14 +382,13 @@ export async function createTestEnvFiles(): Promise<void> {
       FHIR_API: zambdaEnv.FHIR_API,
       AUTH0_ENDPOINT: zambdaEnv.AUTH0_ENDPOINT,
       AUTH0_AUDIENCE: zambdaEnv.AUTH0_AUDIENCE,
-      PROJECT_API: intakeUiEnv.VITE_APP_PROJECT_API_URL,
+      PROJECT_API: ehrUiEnv.VITE_APP_PROJECT_API_URL,
       PROJECT_API_ZAMBDA_URL: ehrUiEnv.VITE_APP_PROJECT_API_ZAMBDA_URL,
       CREATE_APPOINTMENT_ZAMBDA_ID: ehrUiEnv.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID,
-      CREATE_TELEMED_APPOINTMENT_ZAMBDA_ID: intakeUiEnv.VITE_APP_TELEMED_CREATE_APPOINTMENT_ZAMBDA_ID,
       GET_ANSWER_OPTIONS_ZAMBDA_ID: intakeUiEnv.VITE_APP_GET_ANSWER_OPTIONS_ZAMBDA_ID,
       PROJECT_ID: ehrUiEnv.VITE_APP_PROJECT_ID,
       SLUG_ONE: locationSlug,
-      STATE_ONE: locationState,
+      STATE_ONE: virtualLocationState,
       EHR_APPLICATION_ID: ehrUiEnv.VITE_APP_OYSTEHR_APPLICATION_ID,
       ...(environment === 'local' && { APP_IS_LOCAL: 'true' }),
     };
@@ -237,7 +398,7 @@ export async function createTestEnvFiles(): Promise<void> {
       TEXT_USERNAME: textUsername,
       TEXT_PASSWORD: textPassword,
       SLUG_ONE: locationSlug,
-      STATE_ONE: locationState,
+      STATE_ONE: virtualLocationState,
       AUTH0_CLIENT: zambdaEnv.AUTH0_CLIENT,
       AUTH0_SECRET: zambdaEnv.AUTH0_SECRET,
       AUTH0_CLIENT_TESTS: existingIntakeConfig.AUTH0_CLIENT_TESTS,
@@ -263,9 +424,354 @@ export async function createTestEnvFiles(): Promise<void> {
     fs.writeFileSync(`apps/intake/env/tests.${environment}.json`, JSON.stringify(intakeConfig, null, 2));
 
     console.log('Env files for tests created successfully');
+
+    if (!ehrConfig.AUTH0_CLIENT_TESTS) {
+      console.warn(
+        'Missing AUTH0_CLIENT_TESTS env variable that should be set up manually to alter e2e ehr user credentials'
+      );
+    } else {
+      await setTestEhrUserCredentials(ehrConfig);
+    }
   } catch (e) {
-    console.error('Error creating env files for tests', e);
+    console.error('Error creating env files for tests', e, JSON.stringify(e));
   }
 }
 
 createTestEnvFiles().catch(() => process.exit(1));
+
+const FULL_DAY_SCHEDULE = `{
+  "schedule": {
+    "monday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "tuesday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "wednesday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "thursday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "friday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "saturday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "sunday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    }
+  },
+  "scheduleOverrides": {}
+}`;
+
+async function ensureOwnerResourceSchedulesAndSlots(
+  owner: Location | Practitioner,
+  schedules: Schedule[],
+  oystehr: Oystehr
+): Promise<void> {
+  const ownerSchedules = schedules.filter(
+    (schedule) => schedule.actor?.[0]?.reference === `${owner.resourceType}/${owner.id}`
+  );
+
+  const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
+  const ownerUpdateRequests: BatchInputPutRequest<Location | Practitioner>[] = [];
+  const scheduleUpdateRequests: BatchInputPutRequest<Schedule>[] = [];
+
+  if (ownerSchedules.length === 0) {
+    schedulePostRequests.push(createScheduleRequest(owner));
+  } else {
+    ownerSchedules.forEach((schedule) => {
+      const extension = schedule.extension ?? [];
+      const existingScheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
+      const existingTimezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+
+      if (
+        !existingScheduleExtension ||
+        existingScheduleExtension.valueString !== FULL_DAY_SCHEDULE ||
+        !existingTimezoneExtension
+      ) {
+        scheduleUpdateRequests.push({
+          method: 'PUT',
+          url: `/Schedule/${schedule.id}`,
+          resource: {
+            ...schedule,
+            extension: [
+              ...extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL),
+              { url: SCHEDULE_EXTENSION_URL, valueString: FULL_DAY_SCHEDULE },
+              { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+            ],
+          },
+        });
+      }
+    });
+  }
+
+  const extension = owner.extension ?? [];
+
+  const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+
+  if (!timezoneExtension) {
+    ownerUpdateRequests.push({
+      method: 'PUT',
+      url: `/${owner.resourceType}/${owner.id}`,
+      resource: {
+        ...owner,
+        extension: [
+          ...extension.filter((ext) => ext.url !== TIMEZONE_EXTENSION_URL),
+          { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+        ],
+      },
+    });
+  }
+
+  if (schedulePostRequests.length > 0 || ownerUpdateRequests.length > 0 || scheduleUpdateRequests.length > 0) {
+    await oystehr.fhir.transaction<FhirResource>({
+      requests: [...schedulePostRequests, ...ownerUpdateRequests, ...scheduleUpdateRequests],
+    });
+    console.log(
+      `Updated/created resources for ensuring schedules for owner resource ${owner.resourceType} ${owner.id}}`
+    );
+  }
+}
+
+function createScheduleRequest(owner: Location | Practitioner): BatchInputPostRequest<Schedule> {
+  const ownerSchedule: Schedule = {
+    resourceType: 'Schedule',
+    active: true,
+    extension: [
+      {
+        url: SCHEDULE_EXTENSION_URL,
+        valueString: FULL_DAY_SCHEDULE,
+      },
+      {
+        url: TIMEZONE_EXTENSION_URL,
+        valueString: 'America/New_York',
+      },
+    ],
+    actor: [
+      {
+        reference: `${owner.resourceType}/${owner.id}`,
+      },
+    ],
+  };
+
+  const createScheduleRequest: BatchInputPostRequest<Schedule> = {
+    method: 'POST',
+    url: '/Schedule',
+    resource: ownerSchedule,
+  };
+  return createScheduleRequest;
+}

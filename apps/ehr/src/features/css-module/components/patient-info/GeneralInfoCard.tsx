@@ -92,7 +92,7 @@ const GeneralInfoCard: React.FC = (): JSX.Element => {
                   sx={{
                     color: theme.palette.primary.dark,
                     fontSize: '18px',
-                    fontWeight: 700,
+                    fontWeight: 500,
                   }}
                 >
                   {getPatientDisplayedName(patientData)}

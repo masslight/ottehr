@@ -15,6 +15,7 @@ import {
   createOystehrClient,
   getAppointmentResourceById,
   getPatchBinary,
+  getPatientContactEmail,
   getRelatedPersonForPatient,
   getSecret,
 } from 'utils';
@@ -28,7 +29,6 @@ import {
   validateBundleAndExtractAppointment,
   ZambdaInput,
 } from '../../../shared';
-import { getPatientContactEmail } from '../telemed-create-appointment';
 import { validateRequestParameters } from './validateRequestParameters';
 export interface CancelAppointmentInput {
   appointmentID: string;

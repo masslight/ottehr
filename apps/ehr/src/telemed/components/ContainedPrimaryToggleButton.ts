@@ -5,7 +5,7 @@ export const ContainedPrimaryToggleButton = styled(ToggleButton)(({ theme }) => 
   borderColor: theme.palette.primary.main,
   textTransform: 'none',
   padding: '6px 16px',
-  fontWeight: 700,
+  fontWeight: 500,
   transition: 'background .25s, color .25s',
   '&.Mui-selected': {
     color: 'white',

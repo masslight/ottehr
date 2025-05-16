@@ -1,21 +1,21 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import Oystehr from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import React from 'react';
 import {
   AvailableLocationInformation,
   getAvailableSlots,
-  getScheduleDetails,
+  getScheduleExtension,
+  getLocationInformation,
   getSlotCapacityMapForDayAndSchedule,
 } from 'utils';
+import { vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
 import { getNextOpeningDateTime } from '../src/patient/get-schedule';
-import { getLocationInformation } from '../src/shared';
 import * as overrideData from './data/override-constants';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotTimes } from './data/slot-constants';
 import { HoursOfOpConfig, makeLocationWithSchedule, OverrideScheduleConfig } from './helpers/testScheduleUtils';
-import Oystehr from '@oystehr/sdk';
-import { vi } from 'vitest';
 
 const oystehr = new Oystehr({});
 
@@ -149,7 +149,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 10, close: 15, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.overrideScheduleA;
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -169,7 +169,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 10, close: 15, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.pastScheduleOverride1;
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -189,7 +189,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 10, close: 15, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.futureScheduleOverride1;
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 
@@ -209,7 +209,7 @@ describe.skip('test schedule override for getSlotCapacityMapForDayAndSchedule fu
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 20, close: 24, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = [];
     const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const scheduleDetails = getScheduleDetails(schedule);
+    const scheduleDetails = getScheduleExtension(schedule);
 
     if (!scheduleDetails) throw new Error('location does not have schedule');
 

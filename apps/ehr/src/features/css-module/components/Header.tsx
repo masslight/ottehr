@@ -5,9 +5,8 @@ import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { VisitStatusLabel } from 'utils';
+import { VisitStatusLabel, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { practitionerType } from '../../../helpers/practitionerUtils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
 import { useNavigationContext } from '../context/NavigationContext';
@@ -85,7 +84,8 @@ export const Header = (): JSX.Element => {
   const [_status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
   const { interactionMode, setInteractionMode } = useNavigationContext();
   const nextMode = interactionMode === 'intake' ? 'provider' : 'intake';
-  const practitionerTypeFromMode = interactionMode === 'intake' ? practitionerType.Attender : practitionerType.Admitter;
+  const practitionerTypeFromMode =
+    interactionMode === 'intake' ? PRACTITIONER_CODINGS.Attender : PRACTITIONER_CODINGS.Admitter;
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'start',
@@ -141,7 +141,7 @@ export const Header = (): JSX.Element => {
             <Grid item xs>
               <PatientInfoWrapper>
                 <PatientName data-testid={dataTestIds.cssHeader.patientName}>{patientName}</PatientName>
-                <PatientMetadata sx={{ fontWeight: 700 }}>{dob}</PatientMetadata> |
+                <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                 <PatientMetadata
                   noWrap
                   sx={{ fontWeight: chartData?.allergies?.length ? 700 : 400, maxWidth: '250px' }}

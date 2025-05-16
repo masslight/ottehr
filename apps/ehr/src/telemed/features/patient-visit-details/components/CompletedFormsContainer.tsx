@@ -3,12 +3,11 @@ import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { Button } from '@mui/material';
 import { FC, ReactElement, useState } from 'react';
 import { CONSENT_CODE, getIpAddress, getQuestionnaireResponseByLinkId, mdyStringFromISOString } from 'utils';
-import { otherColors } from '../../../../CustomThemeProvider';
 import { getPresignedFileUrl } from '../../../../helpers/files.helper';
 import { InformationCard } from './InformationCard';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
-
+import { otherColors } from '@theme/colors';
 const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
   return (
     <Button
@@ -17,7 +16,7 @@ const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
         borderColor: otherColors.consentBorder,
         borderRadius: 100,
         textTransform: 'none',
-        fontWeight: 700,
+        fontWeight: 500,
         fontSize: 14,
         minWidth: 'max-content',
       }}
@@ -96,7 +95,7 @@ export const CompletedFormsContainer: FC = () => {
           button: <PdfButton pdfUrl={hipaaPdfUrl} />,
         },
         {
-          label: 'I have reviewed and accept Consent to Treat and Guarantee of Payment',
+          label: 'I have reviewed and accept Consent to Treat, Guarantee of Payment & Card on File Agreement',
           value: consentToTreat ? 'Signed' : 'Not signed',
           button: <PdfButton pdfUrl={consentPdfUrl} />,
         },

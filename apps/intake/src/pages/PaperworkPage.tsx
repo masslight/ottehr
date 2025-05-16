@@ -1,4 +1,5 @@
-import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
+import { Close } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -12,43 +13,41 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { create } from 'zustand';
-import { PaperworkContext, usePaperworkContext } from 'ui-components';
-import {
-  getSelectors,
-  isApiError,
-  APIError,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  uuidRegex,
-  UCGetPaperworkResponse,
-  IntakeQuestionnaireItem,
-  flattenIntakeQuestionnaireItems,
-  QuestionnaireFormFields,
-  findQuestionnaireResponseItemLinkId,
-  ComplexValidationResult,
-  InsuranceEligibilityCheckStatus,
-  ComplexValidationResultFailureCase,
-  evalComplexValidationTrigger,
-  evalEnableWhen,
-  convertQuesitonnaireItemToQRLinkIdMap,
-  convertQRItemToLinkIdMap,
-} from 'utils';
-import { zapehrApi } from '../api';
-import useAppointmentNotFoundInformation from '../helpers/information';
-import { PageContainer } from '../components';
-import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
-import { useAuth0 } from '@auth0/auth0-react';
-import { persist } from 'zustand/middleware';
-import { DateTime } from 'luxon';
-import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { useGetFullName } from '../hooks/useGetFullName';
-import api from '../api/zapehrApi';
 import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
-import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
-import { Close } from '@mui/icons-material';
+import { DateTime } from 'luxon';
+import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { PaperworkContext, usePaperworkContext } from 'ui-components';
+import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import {
+  APIError,
+  ComplexValidationResult,
+  ComplexValidationResultFailureCase,
+  convertQRItemToLinkIdMap,
+  convertQuesitonnaireItemToQRLinkIdMap,
+  evalComplexValidationTrigger,
+  evalEnableWhen,
+  findQuestionnaireResponseItemLinkId,
+  flattenIntakeQuestionnaireItems,
+  getSelectors,
+  InsuranceEligibilityCheckStatus,
+  IntakeQuestionnaireItem,
+  isApiError,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  QuestionnaireFormFields,
+  UCGetPaperworkResponse,
+  uuidRegex,
+} from 'utils';
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { ottehrApi } from '../api';
+import api from '../api/ottehrApi';
+import { PageContainer } from '../components';
+import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
+import useAppointmentNotFoundInformation from '../helpers/information';
+import { useGetFullName } from '../hooks/useGetFullName';
 
 enum AuthedLoadingState {
   initial,
@@ -182,7 +181,7 @@ export const PaperworkHome: FC = () => {
     const fetchAuthedPaperwork = async (apptId: string, zambdaClient: ZambdaClient): Promise<void> => {
       try {
         setAuthedFetchState(AuthedLoadingState.loading);
-        const paperworkResponse = await zapehrApi.getPaperwork(zambdaClient, {
+        const paperworkResponse = await ottehrApi.getPaperwork(zambdaClient, {
           appointmentID: apptId,
         });
         setResponse(paperworkResponse);
@@ -387,9 +386,6 @@ export const PaperworkPage: FC = () => {
 
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Update last active time for paperwork-in-progress flag every minute
-  useSetLastActiveTime(appointmentID, !!slug, zambdaClient);
-
   const controlButtons = useMemo(
     () => ({
       backButton: currentIndex !== 0,
@@ -591,13 +587,13 @@ const performComplexValidation = async (
       client
     );
     const { primary, secondary } = eligibilityRes;
-    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary }];
-    if (secondary != undefined) {
-      valueEntryValues.push({ valueString: secondary });
+    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary!.status }];
+    if (secondary?.status != undefined) {
+      valueEntryValues.push({ valueString: secondary?.status });
     }
     if (
-      primary === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
-      primary === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
     ) {
       return {
         type: 'success',
@@ -609,12 +605,12 @@ const performComplexValidation = async (
       let message = '';
       let title = '';
       let attemptCureAction: string | undefined;
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
         title = 'Coverage could not be verified';
         message =
           'System not responding; unable to verify eligibility. Proceed to the next screen to continue as self-pay.';
       }
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
         title = 'Coverage not found';
         message =
           'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or continue as self-pay';

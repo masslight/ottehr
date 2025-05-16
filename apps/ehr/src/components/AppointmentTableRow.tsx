@@ -11,15 +11,17 @@ import {
   Box,
   Grid,
   IconButton,
+  MenuItem,
   TableCell,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
   capitalize,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { Location } from 'fhir/r4b';
+import { Appointment, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
@@ -29,11 +31,14 @@ import {
   VisitStatusLabel,
   formatMinutes,
   getDurationOfStatus,
+  PROJECT_NAME,
   getVisitTotalTime,
+  PRACTITIONER_CODINGS,
+  getPatchBinary,
+  ROOM_EXTENSION_URL,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
-import { otherColors } from '../CustomThemeProvider';
 import ChatModal from '../features/chat/ChatModal';
 import { CSSButton } from '../features/css-module/components/CSSButton';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
@@ -42,7 +47,6 @@ import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
 import { handleChangeInPersonVisitStatus } from '../helpers/inPersonVisitStatusUtils';
-import { practitionerType } from '../helpers/practitionerUtils';
 import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import AppointmentNote from './AppointmentNote';
@@ -51,8 +55,10 @@ import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
+import { otherColors } from 'src/themes/ottehr/colors';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
+import { Operation } from 'fast-json-patch';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -234,11 +240,16 @@ export default function AppointmentTableRow({
   const { encounter } = appointment;
   const [statusTime, setStatusTime] = useState<string>('');
   const [arrivedStatusSaving, setArrivedStatusSaving] = useState<boolean>(false);
+  const [room, setRoom] = useState<string>(appointment.room || '');
+  const [roomSaving, setRoomSaving] = useState<boolean>(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
   const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
-  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', practitionerType.Admitter);
+  const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
+  const rooms = useMemo(() => {
+    return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
+  }, [location]);
 
   const handleCSSButton = async (): Promise<void> => {
     setCSSButtonIsLoading(true);
@@ -299,6 +310,76 @@ export default function AppointmentTableRow({
     setArrivedStatusSaving(false);
     await updateAppointments();
   };
+
+  const changeRoom = async (room?: string): Promise<void> => {
+    if (!oystehr) {
+      throw new Error('error getting fhir client');
+    }
+    if (!appointment.id) {
+      throw new Error('error getting appointment id');
+    }
+    setRoomSaving(true);
+
+    const appointmentToUpdate = await oystehr.fhir.get<Appointment>({
+      resourceType: 'Appointment',
+      id: appointment.id,
+    });
+
+    let patchOp: Operation;
+
+    if (!room) {
+      const extension = (appointmentToUpdate.extension || []).filter((ext) => ext.url !== ROOM_EXTENSION_URL);
+
+      if (extension?.length === 0) {
+        patchOp = {
+          op: 'remove',
+          path: '/extension',
+        };
+      } else {
+        patchOp = {
+          op: 'replace',
+          path: '/extension',
+          value: extension,
+        };
+      }
+    } else {
+      if (appointmentToUpdate.extension?.find((ext) => ext.url === ROOM_EXTENSION_URL)) {
+        patchOp = {
+          op: 'replace',
+          path: '/extension',
+          value: appointmentToUpdate.extension.map((ext) => {
+            if (ext.url === ROOM_EXTENSION_URL) {
+              return { url: ROOM_EXTENSION_URL, valueString: room };
+            }
+            return ext;
+          }),
+        };
+      } else {
+        if ((appointmentToUpdate.extension || []).length === 0) {
+          patchOp = {
+            op: 'add',
+            path: '/extension',
+            value: [{ url: ROOM_EXTENSION_URL, valueString: room }],
+          };
+        } else {
+          patchOp = {
+            op: 'replace',
+            path: '/extension',
+            value: [...(appointmentToUpdate.extension || []), { url: ROOM_EXTENSION_URL, valueString: room }],
+          };
+        }
+      }
+    }
+
+    await oystehr.fhir.batch({
+      requests: [
+        getPatchBinary({ resourceId: appointment.id, resourceType: 'Appointment', patchOperations: [patchOp] }),
+      ],
+    });
+
+    setRoomSaving(false);
+  };
+
   const recentStatus = appointment?.visitStatusHistory[appointment.visitStatusHistory.length - 1];
   const { totalMinutes, waitingMinutesEstimate } = useMemo(() => {
     const totalMinutes = getVisitTotalTime(appointment, appointment.visitStatusHistory, now);
@@ -363,7 +444,7 @@ export default function AppointmentTableRow({
       <Typography
         variant="body2"
         color={theme.palette.getContrastText(theme.palette.background.default)}
-        style={{ display: 'inline', fontWeight: 700 }}
+        style={{ display: 'inline', fontWeight: 500 }}
       >
         Long wait: Please check on patient
       </Typography>
@@ -398,14 +479,14 @@ export default function AppointmentTableRow({
         <Typography
           variant="body2"
           color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 700 }}
+          style={{ display: 'inline', fontWeight: 500 }}
         >
           Total LOS: {formatMinutes(totalMinutes)} mins
         </Typography>
         <Typography
           variant="body2"
           color={theme.palette.getContrastText(theme.palette.background.default)}
-          style={{ display: 'inline', fontWeight: 700 }}
+          style={{ display: 'inline', fontWeight: 500 }}
           sx={{ whiteSpace: { md: 'nowrap', sm: 'normal' } }}
         >
           Estimated wait time at check-in:
@@ -468,12 +549,12 @@ export default function AppointmentTableRow({
         spanish: 'Estamos listos para atender al paciente; ingrese al centro.',
       },
       {
-        english: `Ottehr is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
-        spanish: `Ottehr está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
+        english: `${PROJECT_NAME} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
+        spanish: `${PROJECT_NAME} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
       },
       {
-        english: `Ottehr hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
-        spanish: `Ottehr espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
+        english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
+        spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
     ];
   }, [appointment.id, appointment.patient.firstName, officePhoneNumber]);
@@ -623,8 +704,8 @@ export default function AppointmentTableRow({
           </Typography>
           {appointment.needsDOBConfirmation ? (
             <GenericToolTip title="Date of birth for returning patient was not confirmed" customWidth="170px">
-              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ color: theme.palette.text.secondary }}>{`${
+              <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
+                <Typography variant="body2" sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
                   appointment.patient?.sex && capitalize(appointment.patient?.sex)
                 } | `}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap' }}>
@@ -634,8 +715,8 @@ export default function AppointmentTableRow({
               </Box>
             </GenericToolTip>
           ) : (
-            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography sx={{ color: theme.palette.text.secondary }}>{`${
+            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
+              <Typography sx={{ color: theme.palette.text.secondary, whiteSpace: 'nowrap' }}>{`${
                 appointment.patient?.sex && capitalize(appointment.patient?.sex)
               } |`}</Typography>
               <PatientDateOfBirth dateOfBirth={patientDateOfBirth} />
@@ -662,6 +743,39 @@ export default function AppointmentTableRow({
           <IntakeCheckmark providerName={admitterName} />
         )}
       </TableCell>
+      {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
+        <TableCell
+          sx={{
+            verticalAlign: 'center',
+          }}
+        >
+          {tab === ApptTab['in-office'] ? (
+            rooms &&
+            rooms.length > 0 && (
+              <TextField
+                select
+                fullWidth
+                variant="standard"
+                disabled={roomSaving}
+                value={room}
+                onChange={(e) => {
+                  setRoom(e.target.value);
+                  void changeRoom(e.target.value);
+                }}
+              >
+                <MenuItem value={''}>None</MenuItem>
+                {rooms?.map((room) => (
+                  <MenuItem key={room} value={room}>
+                    {room}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )
+          ) : (
+            <Typography sx={{ fontSize: 14, display: 'inline' }}>{room}</Typography>
+          )}
+        </TableCell>
+      )}
       <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
@@ -769,7 +883,7 @@ export default function AppointmentTableRow({
               borderRadius: 8,
               textTransform: 'none',
               fontSize: '15px',
-              fontWeight: '700',
+              fontWeight: 500,
             }}
           >
             Arrived

@@ -196,7 +196,7 @@ const SlotPicker = ({
           type="button"
           className="first-button"
         >
-          <span style={{ fontWeight: 700 }}>First available time:&nbsp;</span>
+          <span style={{ fontWeight: 500 }}>First available time:&nbsp;</span>
           {firstAvailableDay?.toFormat(DATETIME_FULL_NO_YEAR)}
         </Button>
       ) : (
@@ -239,7 +239,7 @@ const SlotPicker = ({
                       color: currentTab == 0 ? theme.palette.secondary.main : theme.palette.text.secondary,
                       opacity: 1,
                       textTransform: 'capitalize',
-                      fontWeight: 700,
+                      fontWeight: 500,
                     }}
                   />
                   {secondAvailableDay && (
@@ -250,7 +250,7 @@ const SlotPicker = ({
                         color: currentTab == 1 ? theme.palette.secondary.main : theme.palette.text.secondary,
                         opacity: 1,
                         textTransform: 'capitalize',
-                        fontWeight: 700,
+                        fontWeight: 500,
                       }}
                     />
                   )}

@@ -23,7 +23,7 @@ interface ActivityLogDialogProps {
 
 export default function ActivityLogDialog({ open, handleClose, logs }: ActivityLogDialogProps): ReactElement {
   const buttonSx = {
-    fontWeight: '700',
+    fontWeight: 500,
     textTransform: 'none',
     borderRadius: 6,
   };

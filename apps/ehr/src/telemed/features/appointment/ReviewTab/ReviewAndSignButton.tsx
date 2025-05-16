@@ -1,6 +1,7 @@
+import CheckIcon from '@mui/icons-material/Check';
 import { Box, Tooltip, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
-import { getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
+import { getVisitStatus, TelemedAppointmentStatusEnum, PRACTITIONER_CODINGS } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../../components';
@@ -14,7 +15,6 @@ import {
 import { getPatientName } from '../../../utils';
 import { useFeatureFlags } from '../../../../features/css-module/context/featureFlags';
 import { useAppointment } from '../../../../features/css-module/hooks/useAppointment';
-import { practitionerType } from '../../../../helpers/practitionerUtils';
 import { usePractitionerActions } from '../../../../features/css-module/hooks/usePractitioner';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../../constants/data-test-ids';
@@ -51,7 +51,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const { isEncounterUpdatePending, handleUpdatePractitioner } = usePractitionerActions(
     encounter,
     'end',
-    practitionerType.Attender
+    PRACTITIONER_CODINGS.Attender
   );
 
   const handleCompleteProvider = async (): Promise<void> => {
@@ -66,8 +66,19 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const isLoading = isChangeLoading || isSignLoading || isEncounterUpdatePending;
   const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
 
+  const completed = useMemo(() => {
+    if (css) {
+      return inPersonStatus === 'completed';
+    }
+    return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
+  }, [css, inPersonStatus, appointmentAccessibility.status]);
+
   const errorMessage = useMemo(() => {
-    const messages = [];
+    const messages: string[] = [];
+
+    if (completed) {
+      return messages;
+    }
 
     if (css && inPersonStatus) {
       if (!['provider', 'ready for discharge'].includes(inPersonStatus)) {
@@ -94,6 +105,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     return messages;
   }, [
     css,
+    completed,
     inPersonStatus,
     primaryDiagnosis,
     medicalDecision,
@@ -139,11 +151,6 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     onSigned && onSigned();
   };
 
-  // TODO: remove after actualizing isAppointmentReadOnly logic
-  if (css && inPersonStatus === 'completed') {
-    return null;
-  }
-
   return (
     <Box sx={{ display: 'flex', justifyContent: 'end' }}>
       <Tooltip
@@ -169,12 +176,13 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
           >
             {(showDialog) => (
               <RoundedButton
-                disabled={errorMessage.length > 0 || isLoading}
+                disabled={errorMessage.length > 0 || isLoading || completed}
                 variant="contained"
                 onClick={showDialog}
+                startIcon={completed ? <CheckIcon color="inherit" /> : undefined}
                 data-testid={dataTestIds.progressNotePage.reviewAndSignButton}
               >
-                Review & Sign
+                {completed ? 'Signed' : 'Review & Sign'}
               </RoundedButton>
             )}
           </ConfirmationDialog>
