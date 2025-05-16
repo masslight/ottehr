@@ -31,27 +31,47 @@ import {
   RelatedPerson,
   Task,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import {
-  CONSENT_CODE,
   ConsentSigner,
+  CONSENT_CODE,
   consolidateOperations,
   ContactTelecomConfig,
   coverageFieldPaths,
+  COVERAGE_ADDITIONAL_INFORMATION_URL,
   createConsentResource,
+  createCoverageMemberIdentifier,
+  createFhirHumanName,
   createFilesDocumentReferences,
   createPatchOperationForTelecom,
   DateComponents,
+  deduplicateContactPoints,
+  deduplicateIdentifiers,
+  deduplicateObjectsByStrictKeyValEquality,
   extractResourceTypeAndPath,
+  FHIR_BASE_URL,
   FHIR_EXTENSION,
   FileDocDataForDocReference,
   flattenIntakeQuestionnaireItems,
+  flattenItems,
+  formatPhoneNumber,
+  getAccountAndCoverageResourcesForPatient,
   getArrayInfo,
   getCurrentValue,
+  getEmailForIndividual,
+  getFullName,
+  getMemberIdFromCoverage,
   getPatchOperationToAddOrUpdateExtension,
+  getPatchOperationToAddOrUpdatePreferredLanguage,
+  getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemoveExtension,
+  getPatchOperationToRemovePreferredLanguage,
   getPhoneNumberForIndividual,
   getResourcesFromBatchInlineRequests,
+  getSecret,
+  getStripeCustomerIdFromAccount,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_CODE,
@@ -60,13 +80,18 @@ import {
   INSURANCE_COVERAGE_CODING,
   IntakeQuestionnaireItem,
   isoStringFromDateComponents,
-  FHIR_BASE_URL,
+  isValidUUID,
+  LanguageOption,
+  mapBirthSexToGender,
+  OrderedCoverages,
+  OrderedCoveragesWithSubscribers,
   OTTEHR_MODULE,
-  PATIENT_PHOTO_CODE,
-  PATIENT_PHOTO_ID_PREFIX,
   patientFieldPaths,
   PatientMasterRecordResource,
   PatientMasterRecordResourceType,
+  PATIENT_BILLING_ACCOUNT_TYPE,
+  PATIENT_PHOTO_CODE,
+  PATIENT_PHOTO_ID_PREFIX,
   PHOTO_ID_BACK_ID,
   PHOTO_ID_CARD_CODE,
   PHOTO_ID_FRONT_ID,
@@ -76,42 +101,14 @@ import {
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   SCHOOL_WORK_NOTE_WORK_ID,
-  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
-  uploadPDF,
-  LanguageOption,
-  getPatchOperationToAddOrUpdatePreferredLanguage,
-  createFhirHumanName,
-  mapBirthSexToGender,
-  createCoverageMemberIdentifier,
-  getMemberIdFromCoverage,
-  getFullName,
-  deduplicateContactPoints,
-  isValidUUID,
-  deduplicateIdentifiers,
-  deduplicateObjectsByStrictKeyValEquality,
-  deduplicateUnbundledResources,
-  takeContainedOrFind,
-  PATIENT_NOT_FOUND_ERROR,
-  OrderedCoverages,
-  OrderedCoveragesWithSubscribers,
-  PatientAccountAndCoverageResources,
-  flattenItems,
-  PATIENT_BILLING_ACCOUNT_TYPE,
-  formatPhoneNumber,
-  getSecret,
   Secrets,
   SecretsKeys,
-  getStripeCustomerIdFromAccount,
-  getEmailForIndividual,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-  getPatchOperationToAddOrUpdatePreferredName,
-  getPatchOperationToRemovePreferredLanguage,
-  COVERAGE_ADDITIONAL_INFORMATION_URL,
+  SUBSCRIBER_RELATIONSHIP_CODE_MAP,
+  uploadPDF,
 } from 'utils';
-import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
 import { createPdfBytes } from '../../../shared';
-import Stripe from 'stripe';
 
 const IGNORE_CREATING_TASKS_FOR_REVIEW = true;
 
@@ -2701,190 +2698,10 @@ const replaceCurrentGuarantor = (
   });
 };
 
-type UnbundledAccountResources = (Account | Coverage | RelatedPerson | Patient | InsurancePlan | Organization)[];
-interface UnbundledAccountResourceWithInsuranceResources {
-  patient: Patient;
-  resources: UnbundledAccountResources;
-}
-// this function is exported for testing purposes
-export const getCoverageUpdateResourcesFromUnbundled = (
-  input: UnbundledAccountResourceWithInsuranceResources
-): PatientAccountAndCoverageResources => {
-  const { patient, resources: unfilteredResources } = input;
-  const resources = deduplicateUnbundledResources(unfilteredResources);
-  const accountResources = resources.filter((res): res is Account => res.resourceType === 'Account');
-  const coverageResources = resources.filter((res): res is Coverage => res.resourceType === 'Coverage');
-
-  let existingAccount: Account | undefined;
-  let existingGuarantorResource: RelatedPerson | Patient | undefined;
-
-  if (accountResources.length >= 0) {
-    existingAccount = accountResources[0];
-  }
-
-  const existingCoverages: OrderedCoveragesWithSubscribers = {};
-  if (existingAccount) {
-    const guarantorReference = existingAccount.guarantor?.find((gref) => {
-      return gref.period?.end === undefined;
-    })?.party?.reference;
-    if (guarantorReference) {
-      existingGuarantorResource = takeContainedOrFind(guarantorReference, resources, existingAccount);
-    }
-    existingAccount.coverage?.forEach((cov) => {
-      const coverage = coverageResources.find((c) => c.id === cov.coverage?.reference?.split('/')[1]);
-      if (coverage) {
-        if (cov.priority === 1) {
-          existingCoverages.primary = coverage;
-        } else if (cov.priority === 2) {
-          existingCoverages.secondary = coverage;
-        }
-      }
-    });
-  } else {
-    // find the free-floating existing coverages
-    const primaryCoverages = coverageResources
-      .filter((cov) => cov.order === 1 && cov.status === 'active')
-      .sort((cova, covb) => {
-        const covALastUpdate = cova.meta?.lastUpdated;
-        const covBLastUpdate = covb.meta?.lastUpdated;
-        if (covALastUpdate && covBLastUpdate) {
-          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
-          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
-          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
-            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
-          }
-        }
-        return 0;
-      });
-    const secondaryCoverages = coverageResources
-      .filter((cov) => cov.order === 2 && cov.status === 'active')
-      .sort((cova, covb) => {
-        const covALastUpdate = cova.meta?.lastUpdated;
-        const covBLastUpdate = covb.meta?.lastUpdated;
-        if (covALastUpdate && covBLastUpdate) {
-          const covALastUpdateDate = DateTime.fromISO(covALastUpdate);
-          const covBLastUpdateDate = DateTime.fromISO(covBLastUpdate);
-          if (covALastUpdateDate.isValid && covBLastUpdateDate.isValid) {
-            return covALastUpdateDate.diff(covBLastUpdateDate).milliseconds;
-          }
-        }
-        return 0;
-      });
-
-    if (primaryCoverages.length) {
-      existingCoverages.primary = primaryCoverages[0];
-    }
-    if (secondaryCoverages.length) {
-      existingCoverages.secondary = secondaryCoverages[0];
-    }
-  }
-
-  const primarySubscriberReference = existingCoverages.primary?.subscriber?.reference;
-  if (primarySubscriberReference && existingCoverages.primary) {
-    const subscriberResult = takeContainedOrFind<RelatedPerson>(
-      primarySubscriberReference,
-      resources,
-      existingCoverages.primary
-    );
-    // console.log('checked primary subscriber reference:', subscriberResult);
-    existingCoverages.primarySubscriber = subscriberResult;
-  }
-
-  const secondarySubscriberReference = existingCoverages.secondary?.subscriber?.reference;
-  if (secondarySubscriberReference && existingCoverages.secondary) {
-    const subscriberResult = takeContainedOrFind<RelatedPerson>(
-      secondarySubscriberReference,
-      resources,
-      existingCoverages.secondary
-    );
-    // console.log('checked secondary subscriber reference:', subscriberResult);
-    existingCoverages.secondarySubscriber = subscriberResult;
-  }
-
-  const insurancePlans: InsurancePlan[] = resources.filter(
-    (res): res is InsurancePlan => res.resourceType === 'InsurancePlan'
-  );
-  const insuranceOrgs: Organization[] = resources.filter(
-    (res): res is Organization => res.resourceType === 'Organization'
-  );
-
-  return {
-    patient,
-    account: existingAccount,
-    coverages: existingCoverages,
-    insuranceOrgs,
-    insurancePlans,
-    guarantorResource: existingGuarantorResource,
-  };
-};
-
 enum InsuanceCarrierKeys {
   primary = 'insurance-carrier',
   secondary = 'insurance-carrier-2',
 }
-
-export const getAccountAndCoverageResourcesForPatient = async (
-  patientId: string,
-  oystehr: Oystehr
-): Promise<PatientAccountAndCoverageResources> => {
-  console.time('querying for Patient account resources');
-  const accountAndCoverageResources = (
-    await oystehr.fhir.search<Account | Coverage | RelatedPerson | Patient | InsurancePlan | Organization>({
-      resourceType: 'Patient',
-      params: [
-        {
-          name: '_id',
-          value: patientId,
-        },
-        {
-          name: '_revinclude',
-          value: 'Account:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude',
-          value: 'Coverage:patient',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Coverage:subscriber',
-        },
-        {
-          name: '_include:iterate',
-          value: 'Coverage:payor',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'InsurancePlan:owned-by',
-        },
-      ],
-    })
-  ).unbundle();
-  console.timeEnd('querying for Patient account resources');
-
-  const patientResource = accountAndCoverageResources.find(
-    (r) => r.resourceType === 'Patient' && r.id === patientId
-  ) as Patient;
-
-  const resources = accountAndCoverageResources.filter((resource) => {
-    if (resource.resourceType === 'Account') {
-      return resource.status === 'active';
-    }
-    return true;
-  });
-
-  if (!patientResource) {
-    throw PATIENT_NOT_FOUND_ERROR;
-  }
-
-  return getCoverageUpdateResourcesFromUnbundled({
-    patient: patientResource,
-    resources: [...resources],
-  });
-};
 
 export interface UpdatePatientAccountInput {
   patientId: string;

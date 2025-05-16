@@ -312,7 +312,7 @@ const processPaperwork = async (
         ];
 
     // Execute the paperwork patches
-    await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
+    await patchPaperwork(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
 
     // Submit the paperwork
     const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {
@@ -502,7 +502,7 @@ const generateRandomPatientInfo = async (
   };
 };
 
-export async function makeSequentialPaperworkPatches(
+export async function patchPaperwork(
   questionnaireResponseId: string,
   stepAnswers: QuestionnaireResponseItem[],
   intakeZambdaUrl: string,

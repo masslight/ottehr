@@ -5,6 +5,7 @@ import {
   BillingProviderDataObject,
   BillingProviderResource,
   flattenItems,
+  getAccountAndCoverageResourcesForPatient,
   getBillingProviderData,
   GetBillingProviderInput,
   GetEligibilityInsuranceData,
@@ -20,7 +21,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import { ZambdaInput } from '../../shared';
-import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 
 interface GetEligibilityStandardInput {
   type: 'standard';

@@ -1067,3 +1067,10 @@ export function getPrimaryCarePhysicianStepAnswers({
     ],
   };
 }
+
+export function assertDefined<T>(value: T, name: string): NonNullable<T> {
+  if (value == null) {
+    throw `"${name}" is undefined`;
+  }
+  return value;
+}

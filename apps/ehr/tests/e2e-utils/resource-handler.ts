@@ -12,14 +12,17 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { readFileSync } from 'fs';
+import input from 'inquirer/lib/prompts/input';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
 import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   AppointmentData,
+  createAppointment,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
+  createOystehrClient,
   createSampleAppointments,
   DEFAULT_FIRST_NAMES,
   DEFAULT_LAST_NAMES,
@@ -41,15 +44,19 @@ import {
   getPrimaryCarePhysicianStepAnswers,
   getResponsiblePartyStepAnswers,
   getSchoolWorkNoteStepAnswers,
+  getSecret,
   getSurgicalHistoryStepAnswers,
   isoToDateObject,
-  makeSequentialPaperworkPatches,
+  patchPaperwork,
   PatientInfo,
   PersonSex,
   RelationshipOption,
+  Secrets,
+  SecretsKeys,
   ServiceMode,
   SlotServiceCategory,
   SubmitPaperworkParameters,
+  User,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { fetchWithOystAuth } from './helpers/tests-utils';
@@ -126,6 +133,11 @@ export const PATIENT_INSURANCE_POLICY_HOLDER_2_CITY = 'New York';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_STATE = 'NY';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP = '06001';
 export const PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED: RelationshipOption = 'Parent';
+
+interface CreateAppointmentInputParamsPlus extends CreateAppointmentInputParams {
+  slot: Slot;
+  location: Location;
+}
 
 export type CreateTestAppointmentInput = {
   firstName?: string;
@@ -636,34 +648,50 @@ export class ResourceHandler {
             }
           );
 
-          const createAppointmentResponse = await fetch(
-            `${process.env.PROJECT_API_ZAMBDA_URL}/zambda/create-appointment/execute`,
+          const appointmentData = await createAppointment(
             {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${authToken}`,
-              },
-              body: JSON.stringify(randomPatientInfo),
-            }
+              slot: randomPatientInfo.slot,
+              scheduleOwner: randomPatientInfo.location,
+              patient: randomPatientInfo.patient,
+              serviceMode,
+              user: await getUser(authToken),
+              language: 'en',
+              secrets,
+              visitType,
+              unconfirmedDateOfBirth,
+              questionnaireCanonical,
+            },
+            oystehr
           );
 
-          if (!createAppointmentResponse.ok) {
-            throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
-          }
+          // const createAppointmentResponse = await fetch(
+          //   `${process.env.PROJECT_API_ZAMBDA_URL}/zambda/create-appointment/execute`,
+          //   {
+          //     method: 'POST',
+          //     headers: {
+          //       'Content-Type': 'application/json',
+          //       Authorization: `Bearer ${authToken}`,
+          //     },
+          //     body: JSON.stringify(randomPatientInfo),
+          //   }
+          // );
 
-          console.log(`Appointment ${i + 1} created successfully.`);
+          // if (!createAppointmentResponse.ok) {
+          //   throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
+          // }
 
-          let appointmentData = await createAppointmentResponse.json();
+          // console.log(`Appointment ${i + 1} created successfully.`);
 
-          if ((appointmentData as any)?.output) {
-            appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
-          }
+          // let appointmentData = await createAppointmentResponse.json();
 
-          if (!appointmentData) {
-            console.error('Error: appointment data is null');
-            throw new Error('Error: appointment data is null');
-          }
+          // if ((appointmentData as any)?.output) {
+          //   appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+          // }
+
+          // if (!appointmentData) {
+          //   console.error('Error: appointment data is null');
+          //   throw new Error('Error: appointment data is null');
+          // }
 
           await this.processPaperworkFast(
             appointmentData,
@@ -691,23 +719,8 @@ export class ResourceHandler {
         }
       });
 
-      // Wait for all appointments to complete
-      const results = await Promise.all(appointmentPromises);
-
-      // Filter out failed attempts
-      const successfulAppointments = results.filter((data) => data.error === undefined) as CreateAppointmentResponse[];
-
-      if (successfulAppointments.length > 0) {
-        return successfulAppointments[0]; // Return the first successful appointment
-      }
-
-      throw new Error(
-        `All appointment creation attempts failed. ${JSON.stringify(
-          results.find((r) => r.error !== undefined),
-          null,
-          2
-        )}`
-      );
+      // Wait for all appointments to complete and then return first result
+      return (await Promise.all(appointmentPromises))[0];
     } catch (error) {
       console.error('Error creating appointments:', error);
       throw error;
@@ -723,7 +736,7 @@ export class ResourceHandler {
     locationState: string,
     phoneNumber?: string,
     demoData?: AppointmentData
-  ): Promise<CreateAppointmentInputParams> => {
+  ): Promise<CreateAppointmentInputParamsPlus> => {
     const {
       firstNames = DEFAULT_FIRST_NAMES,
       lastNames = DEFAULT_LAST_NAMES,
@@ -754,7 +767,7 @@ export class ResourceHandler {
     const randomReason = reasonsForVisit[Math.floor(Math.random() * reasonsForVisit.length)];
 
     // Get Location ID if virtual
-    let locationId = selectedLocationId;
+    let location: Location;
     if (serviceMode === ServiceMode.virtual) {
       const locationsFound = (
         await oystehr.fhir.search<Location>({
@@ -766,24 +779,33 @@ export class ResourceHandler {
         console.log('No locations found for the given state');
         throw new Error(`No matching location found for state: ${locationState}`);
       }
-      locationId = locationsFound[0].id!;
+      location = locationsFound[0];
+    } else if (serviceMode === ServiceMode['in-person']) {
+      location = await oystehr.fhir.get<Location>({
+        resourceType: 'Location',
+        id: selectedLocationId,
+      });
+    } else {
+      throw new Error(`Invalid service mode: ${serviceMode}`);
     }
-    console.log('alex location id,', locationId);
+    console.log('alex location id,', location.id);
 
     // Get Schedule resource for the location.
     const schedulesFound = (
       await oystehr.fhir.search<Schedule>({
         resourceType: 'Schedule',
-        params: [{ name: 'actor', value: `Location/${locationId}` }],
+        params: [{ name: 'actor', value: `Location/${location.id}` }],
       })
     ).unbundle();
     if (schedulesFound.length === 0) {
       console.log('No schedules found for the given location');
-      throw new Error(`No matching schedule found for location ID: ${locationId}`);
+      throw new Error(`No matching schedule found for location ID: ${location.id}`);
     }
     const scheduleId = schedulesFound[0].id!;
     console.log('alex schedule id,', scheduleId);
 
+    // If the create-slot endpoint changes, this code has to change too so...!
+    // TODO move some function from create-slot zambda into a util package, export it and use it both here and in create-slot zambda.
     const now = DateTime.now();
     const startTime =
       serviceMode === ServiceMode['in-person'] ? now.startOf('hour').plus({ hours: 2 }).toISO() : now.toISO();
@@ -823,6 +845,8 @@ export class ResourceHandler {
         patient: patientData,
         unconfirmedDateOfBirth: randomDateOfBirth,
         slotId: slot.id!,
+        slot,
+        location,
         language: 'en',
         locationState,
       };
@@ -831,6 +855,8 @@ export class ResourceHandler {
     return {
       patient: patientData,
       slotId: slot.id!,
+      slot,
+      location,
       language: 'en',
     };
   };
@@ -898,7 +924,7 @@ export class ResourceHandler {
           ];
 
       // Execute the paperwork patches
-      await makeSequentialPaperworkPatches(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
+      await patchPaperwork(questionnaireResponseId, paperworkPatches, zambdaUrl, authToken, projectId);
 
       // Submit the paperwork
       const response = await fetch(`${zambdaUrl}/zambda/submit-paperwork/execute-public`, {
@@ -928,4 +954,12 @@ export class ResourceHandler {
       console.error(`Error processing paperwork:`, error);
     }
   };
+}
+
+async function getUser(token: string): Promise<User> {
+  const fhirAPI = getSecret(SecretsKeys.FHIR_API, null);
+  const projectAPI = getSecret(SecretsKeys.PROJECT_API, null);
+  const oystehr = createOystehrClient(token, fhirAPI, projectAPI);
+  const user = await oystehr.user.me();
+  return user;
 }
