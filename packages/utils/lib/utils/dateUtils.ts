@@ -44,16 +44,32 @@ const divideHourlyCapacityBySlotInterval = (capacity: number, slotLength = 15): 
   const timeSlots: { [slot: number]: number } = {};
   const highUnitsPerBucket = Math.ceil(capacity / numBuckets);
   const lowUnitsPerBucket = Math.floor(capacity / numBuckets);
+  // this is how much slots additional capacity units we would need to fill all the buckets evenly
+  const capacityShortage = Math.max(numBuckets - (capacity % numBuckets), 0);
 
-  // todo: handle full distribution strategy for under capacity situations
-  for (let i = 0; i < minutesToDistributeInHour; i += slotLength) {
-    if (i + slotLength >= minutesToDistributeInHour) {
-      timeSlots[i] = lowUnitsPerBucket;
+  for (let i = 0; i < numBuckets; i += 1) {
+    const key = i * slotLength;
+    if (capacityShortage === 0) {
+      timeSlots[key] = highUnitsPerBucket;
+    } else if (capacityShortage === 1) {
+      // if there is a shortage of 1, we leave 1 less slot in the last bucket
+      if (i === numBuckets - 1) {
+        timeSlots[key] = lowUnitsPerBucket;
+      } else {
+        timeSlots[key] = highUnitsPerBucket;
+      }
     } else {
-      timeSlots[i] = highUnitsPerBucket;
+      // otherwise we space out the shortage across the buckets, alternating between high and low
+      // as we move through the buckets
+      // i.e. :00 = n, :15 = n-1, :30 = n, :45 = n-1, etc.
+      if (i % 2 === 0) {
+        timeSlots[key] = highUnitsPerBucket;
+      } else {
+        timeSlots[key] = lowUnitsPerBucket;
+      }
     }
   }
-  console.log('timeSlots pre-bucketing', timeSlots);
+  // console.log('timeSlots pre-bucketing', timeSlots);
 
   return timeSlots;
 };

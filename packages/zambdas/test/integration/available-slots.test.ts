@@ -41,7 +41,6 @@ describe('slot availability tests', () => {
     };
 
     const schedule = await oystehr.fhir.create<Schedule>(resource);
-    console.log('schedule', JSON.stringify(schedule, null, 2));
     return schedule;
   };
 
@@ -304,7 +303,7 @@ describe('slot availability tests', () => {
     }
   });
 
-  it('24/7 schedule with capacity % 4 = 1 will skip the slot on the 45th minute when distributing the last 3 slots', async () => {
+  it('24/7 schedule where 4 % capacity == 1 && capacity < 4 will skip the slot on the 45th minute when distributing the last 3 slots', async () => {
     // if we have capacity = 3 and need to distribute those slots in 15 minute windows accross a single hour
     if (!oystehr) {
       throw new Error('oystehr is null');
@@ -357,7 +356,7 @@ describe('slot availability tests', () => {
       scheduleExtension,
       timezone,
     });
-    console.log('capacity3map', capacityMap);
+
     now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     while (now < tomorrow) {
       if (now.minute !== 45) {
@@ -367,8 +366,18 @@ describe('slot availability tests', () => {
       }
       now = now.plus({ minutes: 15 });
     }
+  });
 
-    const scheduleExtensionCapacity7 = changeAllCapacities(scheduleExtension, 7);
+  it('24/7 schedule where 4 % capacity == 1 && capacity > 4 will skip the slot on the 45th minute when distributing the last 3 slots', async () => {
+    // if we have capacity = 3 and need to distribute those slots in 15 minute windows accross a single hour
+    if (!oystehr) {
+      throw new Error('oystehr is null');
+    }
+    const timezone = 'America/New_York';
+    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const tomorrow = startDate.plus({ days: 1 });
+    let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+    const scheduleExtensionCapacity7 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 7);
     const capacity7Map = getAllSlotsAsCapacityMap({
       now: startDate,
       finishDate: startDate.plus({ days: 1 }),
@@ -413,12 +422,122 @@ describe('slot availability tests', () => {
     expect(availableSlots2).toEqual(expectedList2);
   });
 
+  it('24/7 schedule where 4 % capacity == 2 && capacity > 4 will skip the slots on the 15th and 45th minutes when distributing the slots', async () => {
+    // if we have capacity = 3 and need to distribute those slots in 15 minute windows accross a single hour
+    if (!oystehr) {
+      throw new Error('oystehr is null');
+    }
+    const timezone = 'America/New_York';
+    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const tomorrow = startDate.plus({ days: 1 });
+    let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+    const scheduleExtensionCapacity2 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 2);
+    const capacityMap = getAllSlotsAsCapacityMap({
+      now: startDate,
+      finishDate: startDate.plus({ days: 1 }),
+      scheduleExtension: scheduleExtensionCapacity2,
+      timezone,
+    });
+    console.log('capacity7map', capacityMap);
+    now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+    while (now < tomorrow) {
+      const capacity = capacityMap[now.toISO()!];
+      expect(capacity).toBeDefined();
+      if (now.minute !== 45 && now.minute !== 15) {
+        expect(capacity).toEqual(1);
+      } else {
+        expect(capacity).toEqual(0);
+      }
+      now = now.plus({ minutes: 15 });
+    }
+    const schedule = await persistSchedule(scheduleExtensionCapacity2, oystehr);
+    expect(schedule).toBeDefined();
+
+    const getSlotsInput: GetAvailableSlotsInput = {
+      now: startDate,
+      schedule: schedule,
+      numDays: 1,
+      busySlots: [],
+    };
+
+    // available slots deduplicates, so we expect the same number of slots as before
+    const availableSlots = getAvailableSlots(getSlotsInput);
+    expect(availableSlots).toBeDefined();
+    expect(availableSlots.length).toEqual(48);
+    now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+
+    const expectedList = [];
+
+    while (now < tomorrow) {
+      if (now.minute !== 45 && now.minute !== 15) {
+        expectedList.push(now.toISO());
+      }
+      now = now.plus({ minutes: 15 });
+    }
+    expect(expectedList.length).toEqual(48);
+    expect(availableSlots).toEqual(expectedList);
+  });
+
+  it('24/7 schedule where 4 % capacity == 2 && capacity < 4 will skip the slots on the 15th and 45th minutes when distributing the slots', async () => {
+    // if we have capacity = 3 and need to distribute those slots in 15 minute windows accross a single hour
+    if (!oystehr) {
+      throw new Error('oystehr is null');
+    }
+    const timezone = 'America/New_York';
+    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const tomorrow = startDate.plus({ days: 1 });
+    let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+    const scheduleExtensionCapacity6 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 6);
+    const capacityMap = getAllSlotsAsCapacityMap({
+      now: startDate,
+      finishDate: startDate.plus({ days: 1 }),
+      scheduleExtension: scheduleExtensionCapacity6,
+      timezone,
+    });
+    console.log('capacity7map', capacityMap);
+    now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+    while (now < tomorrow) {
+      const capacity = capacityMap[now.toISO()!];
+      expect(capacity).toBeDefined();
+      if (now.minute !== 45 && now.minute !== 15) {
+        expect(capacity).toEqual(2);
+      } else {
+        expect(capacity).toEqual(1);
+      }
+      now = now.plus({ minutes: 15 });
+    }
+    const schedule2 = await persistSchedule(scheduleExtensionCapacity6, oystehr);
+    expect(schedule2).toBeDefined();
+
+    const getSlotsInput: GetAvailableSlotsInput = {
+      now: startDate,
+      schedule: schedule2,
+      numDays: 1,
+      busySlots: [],
+    };
+
+    // available slots deduplicates, so we expect the same number of slots as before
+    const availableSlots = getAvailableSlots(getSlotsInput);
+    expect(availableSlots).toBeDefined();
+    expect(availableSlots.length).toEqual(96);
+    now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
+
+    const expectedList = [];
+
+    while (now < tomorrow) {
+      expectedList.push(now.toISO());
+      now = now.plus({ minutes: 15 });
+    }
+    expect(expectedList.length).toEqual(96);
+    expect(availableSlots).toEqual(expectedList);
+  });
+
   it('huge capacity test', async () => {
     // if we have capacity = 3 and need to distribute those slots in 15 minute windows accross a single hour
     if (!oystehr) {
       throw new Error('oystehr is null');
     }
-    const scheduleAdjusted = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1000);
+    const scheduleAdjusted = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 100000);
     const schedule = await persistSchedule(scheduleAdjusted, oystehr);
     expect(schedule).toBeDefined();
     expect(schedule.id).toBeDefined();
@@ -464,12 +583,11 @@ describe('slot availability tests', () => {
       scheduleExtension,
       timezone,
     });
-    console.log('capacity map', capacityMap);
     now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     while (now < tomorrow) {
       const capacity = capacityMap[now.toISO()!];
       expect(capacity).toBeDefined();
-      expect(capacity).toEqual(250);
+      expect(capacity).toEqual(25000);
       now = now.plus({ minutes: 15 });
     }
   });
