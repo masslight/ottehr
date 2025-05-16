@@ -179,15 +179,6 @@ const processObservationDefinition = (
   }
 
   throw Error('Invalid data type');
-
-  // todo: Default fallback or throw error?
-  // return {
-  //   name,
-  //   dataType: 'CodeableConcept',
-  //   loincCode,
-  //   valueSet: [],
-  //   abnormalValues: [],
-  // };
 };
 
 const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinition): TestItem => {
@@ -218,21 +209,7 @@ const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinition): T
   const obsDefRefs = activityDef.observationRequirement || [];
 
   if (obsDefRefs.length === 0) {
-    // todo: ? throw Error('No observation definitions found');
-    return {
-      name,
-      cptCode,
-      methods,
-      method: '',
-      results: '',
-      device: '',
-      abnormal: '',
-      loincCode: [],
-      repeatTest: false,
-      dataType: 'CodeableConcept',
-      valueSet: [],
-      abnormalValues: [],
-    } as TestItem;
+    throw Error('No observation definitions found');
   }
 
   // Check if this is a test with components (like urinalysis)
@@ -266,14 +243,11 @@ const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinition): T
       name,
       methods,
       method: Object.keys(methods).join(' or '),
-      results: '',
       device: Object.values(methods)
         .map((m) => m.device)
         .join(' or '),
-      abnormal: '',
       cptCode,
-      loincCode: [], // todo: ?
-      repeatTest: true, // todo: ?
+      loincCode: [], // todo: is it correct value here is empty for component test?
       dataType: 'CodeableConcept',
       valueSet: [],
       abnormalValues: [],
@@ -287,21 +261,7 @@ const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinition): T
     ) as ObservationDefinition | undefined;
 
     if (!obsDef) {
-      // todo: ? throw Error('No observation definition found');
-      return {
-        name,
-        methods,
-        method: Object.keys(methods).join(' or '),
-        device: Object.values(methods)
-          .map((m) => m.device)
-          .join(' or '),
-        cptCode,
-        loincCode: [], // todo: ?
-        repeatTest: false,
-        dataType: 'CodeableConcept',
-        valueSet: [], // todo: ?
-        abnormalValues: [], // todo: ?
-      } as TestItem;
+      throw Error('No observation definition found');
     }
 
     const testInfo = processObservationDefinition(obsDef, containedResources as (ObservationDefinition | ValueSet)[]);
@@ -316,7 +276,6 @@ const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinition): T
           .join(' or '),
         cptCode,
         loincCode: testInfo.loincCode,
-        repeatTest: false, // Default
         dataType: 'Quantity',
         unit: testInfo.unit || '',
         normalRange: testInfo.normalRange!,
@@ -331,7 +290,6 @@ const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinition): T
           .join(' or '),
         cptCode,
         loincCode: testInfo.loincCode,
-        repeatTest: false, // todo: ? Default
         dataType: 'CodeableConcept',
         valueSet: testInfo.valueSet || [],
         abnormalValues: testInfo.abnormalValues || [],
