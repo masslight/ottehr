@@ -3,11 +3,11 @@ import { ReactElement } from 'react';
 import { ExternalLabsStatus } from 'utils';
 
 interface LabsOrderStatusChipProps {
-  status: keyof typeof ExternalLabsStatus;
+  status: keyof typeof ExternalLabsStatus | 'ordered' | 'performed';
 }
 
 export const ExternalLabsStatusPalette: {
-  [status in ExternalLabsStatus]: {
+  [status in ExternalLabsStatus | 'ordered' | 'performed']: {
     background: {
       primary: string;
       secondary?: string;
@@ -72,6 +72,22 @@ export const ExternalLabsStatusPalette: {
     },
     color: {
       primary: '#01579B',
+    },
+  },
+  ordered: {
+    background: {
+      primary: '#E6E8EE',
+    },
+    color: {
+      primary: '#616161',
+    },
+  },
+  performed: {
+    background: {
+      primary: '#D1C4E9',
+    },
+    color: {
+      primary: '#4527A0',
     },
   },
   unknown: {
