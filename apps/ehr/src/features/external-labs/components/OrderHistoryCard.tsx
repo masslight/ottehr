@@ -3,6 +3,7 @@ import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
 import { DateTime } from 'luxon';
+import { LabsOrderStatusChip } from './ExternalLabsStatusChip';
 
 interface OrderHistoryProps {
   isLoading?: boolean;
@@ -32,10 +33,12 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = fa
         <Table>
           {orderHistory.map((row) => {
             const isReviewOrReceiveAction = row.action === 'reviewed' || row.action === 'received';
-            const actionDescription = isReviewOrReceiveAction ? `${row.action} (${row.testType})` : row.action;
             return (
               <TableRow key={`${row.action}-${row.performer}-${row.date}`}>
-                <TableCell>{actionDescription}</TableCell>
+                <TableCell>
+                  {<LabsOrderStatusChip status={row.action} />}
+                  {isReviewOrReceiveAction ? ` (${row.testType})` : ''}
+                </TableCell>
                 <TableCell>{row.performer}</TableCell>
                 <TableCell>{formatDate(row.date)}</TableCell>
               </TableRow>
