@@ -13,7 +13,9 @@ import { Box, Stack } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
+  Backdrop,
   Checkbox,
+  CircularProgress,
   Divider,
   FormControl,
   FormControlLabel,
@@ -118,6 +120,7 @@ export default function ProceduresNew(): ReactElement {
     procedureDate: DateTime.now(),
     procedureTime: DateTime.now(),
   });
+  const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
 
   const updateState = (stateMutator: (state: PageState) => void): void => {
     stateMutator(state);
@@ -144,6 +147,7 @@ export default function ProceduresNew(): ReactElement {
   };
 
   const onSave = async (): Promise<void> => {
+    setSaveInProgress(true);
     const cptAndDiagnosesResponse = await saveCptAndDiagnoses(state.cptCodes ?? [], state.diagnoses ?? []);
     const savedCptCodes = cptAndDiagnosesResponse.chartData?.cptCodes;
     if (savedCptCodes) {
@@ -187,6 +191,7 @@ export default function ProceduresNew(): ReactElement {
       },
       {
         onSuccess: (data) => {
+          setSaveInProgress(false);
           const savedProcedure = data.chartData?.procedures?.[0];
           if (savedProcedure) {
             setPartialChartData({
@@ -204,6 +209,7 @@ export default function ProceduresNew(): ReactElement {
           navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
         },
         onError: () => {
+          setSaveInProgress(false);
           enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
         },
       }
@@ -390,117 +396,122 @@ export default function ProceduresNew(): ReactElement {
   };
 
   return (
-    <Stack spacing={1}>
-      <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
-      <AccordionCard>
-        <Stack spacing={2} style={{ padding: '24px' }}>
-          <Box style={{ display: 'flex', alignItems: 'center' }}>
-            <Checkbox
-              onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
-            />
-            <Typography>I have obtained the Consent for Procedure *</Typography>
-          </Box>
-          <InfoAlert
-            text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
+    <>
+      <Stack spacing={1}>
+        <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
+        <AccordionCard>
+          <Stack spacing={2} style={{ padding: '24px' }}>
+            <Box style={{ display: 'flex', alignItems: 'center' }}>
+              <Checkbox
+                onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
+              />
+              <Typography>I have obtained the Consent for Procedure *</Typography>
+            </Box>
+            <InfoAlert
+              text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
               and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
-          />
-          <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-            Procedure Type & CPT Code
-          </Typography>
-          {dropdown('Procedure type', PROCEDURE_TYPES, (value, state) => (state.procedureType = value))}
-          {cptWidget()}
-          <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-            Dx
-          </Typography>
-          {diagnosesWidget()}
-          <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
-            Procedure Details
-          </Typography>
-          <Stack direction="row" spacing={2}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <DatePicker
-                label="Date of the procedure"
-                slotProps={{
-                  textField: {
-                    InputLabelProps: { shrink: true },
-                    InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                  },
-                }}
-                value={state.procedureDate}
-                onChange={(date: DateTime | null, _e: any) => updateState((state) => (state.procedureDate = date))}
-              />
-            </LocalizationProvider>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <TimePicker
-                label="Time of the procedure"
-                slotProps={{
-                  textField: {
-                    InputLabelProps: { shrink: true },
-                    InputProps: { size: 'small' },
-                  },
-                }}
-                value={state.procedureTime}
-                onChange={(time: DateTime | null, _e: any) => updateState((state) => (state.procedureTime = time))}
-              />
-            </LocalizationProvider>
+            />
+            <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+              Procedure Type & CPT Code
+            </Typography>
+            {dropdown('Procedure type', PROCEDURE_TYPES, (value, state) => (state.procedureType = value))}
+            {cptWidget()}
+            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+              Dx
+            </Typography>
+            {diagnosesWidget()}
+            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+              Procedure Details
+            </Typography>
+            <Stack direction="row" spacing={2}>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <DatePicker
+                  label="Date of the procedure"
+                  slotProps={{
+                    textField: {
+                      InputLabelProps: { shrink: true },
+                      InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
+                    },
+                  }}
+                  value={state.procedureDate}
+                  onChange={(date: DateTime | null, _e: any) => updateState((state) => (state.procedureDate = date))}
+                />
+              </LocalizationProvider>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <TimePicker
+                  label="Time of the procedure"
+                  slotProps={{
+                    textField: {
+                      InputLabelProps: { shrink: true },
+                      InputProps: { size: 'small' },
+                    },
+                  }}
+                  value={state.procedureTime}
+                  onChange={(time: DateTime | null, _e: any) => updateState((state) => (state.procedureTime = time))}
+                />
+              </LocalizationProvider>
+            </Stack>
+            {radio('Performed by', PERFORMED_BY, (value, state) => (state.performerType = value))}
+            {dropdown(
+              'Anaesthesia / medication used',
+              MEDICATIONS_USED,
+              (value, state) => (state.medicationUsed = value)
+            )}
+            {dropdown('Site/location', SITES, (value, state) => {
+              state.bodySite = value;
+              state.otherBodySite = undefined;
+            })}
+            {otherTextInput('Site/location', state.bodySite, (value, state) => (state.otherBodySite = value))}
+            {dropdown('Side of body', SIDES_OF_BODY, (value, state) => (state.bodySide = value))}
+            {dropdown('Technique', TECHNIQUES, (value, state) => (state.technique = value))}
+            {dropdown('Instruments / supplies used', SUPPLIES, (value, state) => {
+              state.suppliesUsed = value;
+              state.otherSuppliesUsed = undefined;
+            })}
+            {otherTextInput(
+              'Instruments / supplies used',
+              state.suppliesUsed,
+              (value, state) => (state.otherSuppliesUsed = value)
+            )}
+            <TextField
+              label="Procedure details"
+              multiline
+              rows={4}
+              onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
+            />
+            {radio('Specimen sent', SPECIMEN_SENT, (value, state) => (state.specimenSent = value === 'Yes'))}
+            {dropdown('Complications', COMPLICATIONS, (value, state) => {
+              state.complications = value;
+              state.otherComplications = undefined;
+            })}
+            {otherTextInput('Complications', state.complications, (value, state) => (state.otherComplications = value))}
+            {dropdown('Patient response', PATIENT_RESPONSES, (value, state) => (state.patientResponse = value))}
+            {dropdown('Post-procedure Instructions', POST_PROCEDURE_INSTRUCTIONS, (value, state) => {
+              state.postInstructions = value;
+              state.otherPostInstructions = undefined;
+            })}
+            {otherTextInput(
+              'Post-procedure Instructions',
+              state.postInstructions,
+              (value, state) => (state.otherPostInstructions = value)
+            )}
+            {dropdown('Time spent', TIME_SPENT, (value, state) => (state.timeSpent = value))}
+            {radio('Documented by', DOCUMENTED_BY, (value, state) => (state.documentedBy = value))}
+            <Divider orientation="horizontal" />
+            <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <RoundedButton color="primary" onClick={onCancel}>
+                Cancel
+              </RoundedButton>
+              <RoundedButton color="primary" variant="contained" disabled={!state.consentObtained} onClick={onSave}>
+                Save
+              </RoundedButton>
+            </Box>
           </Stack>
-          {radio('Performed by', PERFORMED_BY, (value, state) => (state.performerType = value))}
-          {dropdown(
-            'Anaesthesia / medication used',
-            MEDICATIONS_USED,
-            (value, state) => (state.medicationUsed = value)
-          )}
-          {dropdown('Site/location', SITES, (value, state) => {
-            state.bodySite = value;
-            state.otherBodySite = undefined;
-          })}
-          {otherTextInput('Site/location', state.bodySite, (value, state) => (state.otherBodySite = value))}
-          {dropdown('Side of body', SIDES_OF_BODY, (value, state) => (state.bodySide = value))}
-          {dropdown('Technique', TECHNIQUES, (value, state) => (state.technique = value))}
-          {dropdown('Instruments / supplies used', SUPPLIES, (value, state) => {
-            state.suppliesUsed = value;
-            state.otherSuppliesUsed = undefined;
-          })}
-          {otherTextInput(
-            'Instruments / supplies used',
-            state.suppliesUsed,
-            (value, state) => (state.otherSuppliesUsed = value)
-          )}
-          <TextField
-            label="Procedure details"
-            multiline
-            rows={4}
-            onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
-          />
-          {radio('Specimen sent', SPECIMEN_SENT, (value, state) => (state.specimenSent = value === 'Yes'))}
-          {dropdown('Complications', COMPLICATIONS, (value, state) => {
-            state.complications = value;
-            state.otherComplications = undefined;
-          })}
-          {otherTextInput('Complications', state.complications, (value, state) => (state.otherComplications = value))}
-          {dropdown('Patient response', PATIENT_RESPONSES, (value, state) => (state.patientResponse = value))}
-          {dropdown('Post-procedure Instructions', POST_PROCEDURE_INSTRUCTIONS, (value, state) => {
-            state.postInstructions = value;
-            state.otherPostInstructions = undefined;
-          })}
-          {otherTextInput(
-            'Post-procedure Instructions',
-            state.postInstructions,
-            (value, state) => (state.otherPostInstructions = value)
-          )}
-          {dropdown('Time spent', TIME_SPENT, (value, state) => (state.timeSpent = value))}
-          {radio('Documented by', DOCUMENTED_BY, (value, state) => (state.documentedBy = value))}
-          <Divider orientation="horizontal" />
-          <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <RoundedButton color="primary" onClick={onCancel}>
-              Cancel
-            </RoundedButton>
-            <RoundedButton color="primary" variant="contained" disabled={!state.consentObtained} onClick={onSave}>
-              Save
-            </RoundedButton>
-          </Box>
-        </Stack>
-      </AccordionCard>
-    </Stack>
+        </AccordionCard>
+      </Stack>
+      <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
+    </>
   );
 }
