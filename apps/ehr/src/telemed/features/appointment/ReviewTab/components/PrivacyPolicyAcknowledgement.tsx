@@ -10,7 +10,7 @@ export const PrivacyPolicyAcknowledgement: FC = () => {
 
   return (
     <Typography variant="body2" color="secondary.light">
-      {`Privacy Policy and Terms and Conditions of Service were reviewed and accept on ${appointmentStart}.`}
+      {`Privacy Policy and Terms and Conditions of Service were reviewed and accepted on ${appointmentStart}.`}
     </Typography>
   );
 };
