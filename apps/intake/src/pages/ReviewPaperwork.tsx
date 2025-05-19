@@ -33,7 +33,7 @@ import i18n from '../lib/i18n';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
-import { useAppointmentStore } from 'src/telemed/features/appointments/appointment.store';
+import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();
