@@ -272,6 +272,7 @@ export default function ProceduresNew(): ReactElement {
               }
             />
           )}
+          divider
         />
       </>
     );
@@ -390,10 +391,6 @@ export default function ProceduresNew(): ReactElement {
   return (
     <Stack spacing={1}>
       <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
-      <InfoAlert
-        text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
-              and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
-      />
       <AccordionCard>
         <Stack spacing={2} style={{ padding: '24px' }}>
           <Box style={{ display: 'flex', alignItems: 'center' }}>
@@ -402,9 +399,22 @@ export default function ProceduresNew(): ReactElement {
             />
             <Typography>I have obtained the Consent for Procedure *</Typography>
           </Box>
+          <InfoAlert
+            text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
+              and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
+          />
+          <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+            Procedure Type & CPT Code
+          </Typography>
           {dropdown('Procedure type', PROCEDURE_TYPES, (value, state) => (state.procedureType = value))}
           {cptWidget()}
+          <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+            Dx
+          </Typography>
           {diagnosesWidget()}
+          <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+            Procedure Details
+          </Typography>
           <Stack direction="row" spacing={2}>
             <LocalizationProvider dateAdapter={AdapterLuxon}>
               <DatePicker
