@@ -23,7 +23,8 @@ export type ProviderChartDataFieldsNames =
   | typeof NOTHING_TO_EAT_OR_DRINK_ID
   | typeof CSS_NOTE_ID
   | 'birth-history'
-  | 'ai-potential-diagnosis';
+  | 'ai-potential-diagnosis'
+  | 'procedure';
 
 export type DispositionMetaFieldsNames = 'disposition-follow-up' | 'sub-follow-up';
 

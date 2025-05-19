@@ -10,7 +10,7 @@ import {
   getAvailableSlotsForSchedules,
   getLocationInformation,
   getOpeningTime,
-  getScheduleDetails,
+  getScheduleExtension,
   GetScheduleResponse,
   getSecret,
   getWaitingMinutesAtSchedule,
@@ -188,7 +188,7 @@ function getLocationInformationWithClosures(
     scheduleResource,
     currentDate
   );
-  const schedule = getScheduleDetails(scheduleResource);
+  const schedule = getScheduleExtension(scheduleResource);
   const scheduleInformationWithClosures: AvailableLocationInformation = {
     ...scheduleInformation,
     closures: schedule?.closures ?? [],

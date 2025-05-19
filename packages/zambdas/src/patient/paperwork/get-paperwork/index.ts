@@ -29,7 +29,7 @@ import {
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
-  getScheduleDetails,
+  getScheduleExtension,
   getUnconfirmedDOBForAppointment,
   mapQuestionnaireAndValueSetsToItemsList,
   serviceModeForHealthcareService,
@@ -423,7 +423,7 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
         loc = locations?.length === 1 ? locations[0] : undefined;
       }
       if (loc) {
-        const schedule = getScheduleDetails(loc);
+        const schedule = getScheduleExtension(loc);
         if (schedule && schedule.closures) {
           closures.push(...schedule.closures);
         }
@@ -466,7 +466,7 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
   } else {
     const closures: Closure[] = [];
     if (location) {
-      const schedule = getScheduleDetails(location);
+      const schedule = getScheduleExtension(location);
       if (schedule && schedule.closures) {
         closures.push(...schedule.closures);
       }

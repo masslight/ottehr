@@ -2,7 +2,7 @@ import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, Zambda
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
-  getScheduleDetails,
+  getScheduleExtension,
   getSlugForBookableResource,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -207,7 +207,7 @@ const getEffectInputFromSchedule = async (scheduleId: string, oystehr: Oystehr):
     throw SCHEDULE_NOT_FOUND_ERROR;
   }
 
-  const scheduleExtension = getScheduleDetails(schedule);
+  const scheduleExtension = getScheduleExtension(schedule);
   if (!scheduleExtension) {
     throw MISSING_SCHEDULE_EXTENSION_ERROR;
   }
@@ -261,7 +261,7 @@ const getEffectInputFromOwner = async (
   const schedule = scheduleAndOwner.find((sched) => sched.resourceType === 'Schedule') as Schedule;
   if (schedule && schedule.id) {
     scheduleId = schedule.id;
-    scheduleExtension = getScheduleDetails(schedule) ?? BLANK_SCHEDULE_JSON_TEMPLATE;
+    scheduleExtension = getScheduleExtension(schedule) ?? BLANK_SCHEDULE_JSON_TEMPLATE;
   }
 
   console.log('scheduleExtension', JSON.stringify(scheduleExtension, null, 2));

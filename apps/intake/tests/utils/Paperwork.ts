@@ -138,10 +138,6 @@ export class Paperwork {
   async clickProceedToPaperwork(): Promise<void> {
     await this.locator.proceedToPaperwork.click();
   }
-  async checkContactInformationPageOpens(): Promise<void> {
-    await expect(this.locator.flowHeading).toBeVisible();
-    await expect(this.locator.flowHeading).toHaveText('Contact information');
-  }
   async fillPaperworkAllFieldsInPerson(
     payment: string,
     responsibleParty: string
