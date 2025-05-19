@@ -452,6 +452,9 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   if (!scheduleExtension) {
     throw new Error('Schedule does not have schedule');
   }
+  if (!timezone) {
+    throw new Error('Schedule does not have a timezone');
+  }
   // literally all slots based on open, close, buffers and capacity
   // no appointments or busy slots have been factored in
   const slotCapacityMap = getAllSlotsAsCapacityMap({

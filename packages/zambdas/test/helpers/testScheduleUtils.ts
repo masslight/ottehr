@@ -329,9 +329,9 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
   schedule: {
     monday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
-      closingBuffer: 24,
+      closingBuffer: 0,
       workingDay: true,
       hours: [
         {
@@ -434,9 +434,9 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     tuesday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
-      closingBuffer: 24,
+      closingBuffer: 0,
       workingDay: true,
       hours: [
         {
