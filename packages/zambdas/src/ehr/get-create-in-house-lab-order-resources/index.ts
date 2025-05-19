@@ -9,10 +9,18 @@ import {
   QuantityTestItem,
   IN_HOUSE_TAG_DEFINITION,
   TestItemsType,
+  PRACTITIONER_CODINGS,
+  getFullestAvailableName,
 } from 'utils';
-import { ZambdaInput, topLevelCatch, checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
+import {
+  ZambdaInput,
+  topLevelCatch,
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ValueSet, ActivityDefinition, ObservationDefinition } from 'fhir/r4b';
+import { ValueSet, ActivityDefinition, ObservationDefinition, Encounter, Practitioner } from 'fhir/r4b';
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -39,8 +47,44 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
-    // const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    // const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+
+    const attendingPractitionerName: string = await (async () => {
+      const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
+
+      const [myPractitionerId, encounter] = await Promise.all([
+        getMyPractitionerId(oystehrCurrentUser),
+        oystehr.fhir.get<Encounter>({
+          resourceType: 'Encounter',
+          id: validatedParameters.encounterId,
+        }),
+      ]);
+
+      const practitionerId = encounter.participant
+        ?.find(
+          (participant) =>
+            participant.type?.find(
+              (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
+            )
+        )
+        ?.individual?.reference?.replace('Practitioner/', '');
+
+      if (!practitionerId) {
+        return '';
+      }
+
+      if (practitionerId === myPractitionerId) {
+        return ''; // show name only if it's not the current user
+      }
+
+      const attendingPractitioner = await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: practitionerId,
+      });
+
+      const name = getFullestAvailableName(attendingPractitioner);
+
+      return name || '';
+    })();
 
     const activityDefinitions = (
       await oystehr.fhir.search<ActivityDefinition>({
@@ -64,7 +108,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const response: GetCreateInHouseLabOrderResourcesResponse = {
       labs: testItems,
-      providerName: 'Provider Name',
+      providerName: attendingPractitionerName,
     };
 
     return {

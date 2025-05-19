@@ -417,11 +417,13 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12}>
-                <Typography variant="body1" sx={{ mt: 2 }}>
-                  Ordering provider: {providerName}
-                </Typography>
-              </Grid>
+              {providerName && (
+                <Grid item xs={12}>
+                  <Typography variant="body1" sx={{ mt: 2 }}>
+                    Ordering provider: {providerName}
+                  </Typography>
+                </Grid>
+              )}
 
               <Grid item xs={12} sx={{ mt: 3 }}>
                 <Stack direction="row" spacing={2} justifyContent="space-between">
