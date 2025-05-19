@@ -102,6 +102,7 @@ export interface ScheduleExtension {
   schedule: DailySchedule;
   scheduleOverrides: ScheduleOverrides;
   closures: Closure[] | undefined;
+  slotLength?: number;
 }
 
 export interface ScheduleDTOOwner {
@@ -228,8 +229,8 @@ export function getScheduleExtension(
 
   if (!scheduleExtension) return undefined;
 
-  const { schedule, scheduleOverrides, closures } = JSON.parse(scheduleExtension) as ScheduleExtension;
-  return { schedule, scheduleOverrides, closures };
+  const { schedule, scheduleOverrides, closures, slotLength } = JSON.parse(scheduleExtension) as ScheduleExtension;
+  return { schedule, scheduleOverrides, closures, slotLength };
 }
 
 export function getTimezone(
@@ -268,7 +269,8 @@ export function getSlotCapacityMapForDayAndSchedule(
   now: DateTime,
   schedule: DailySchedule,
   scheduleOverrides: ScheduleOverrides,
-  closures: Closure[] | undefined
+  closures: Closure[] | undefined,
+  slotLength?: number
 ): SlotCapacityMap {
   let openingTime: HourOfDay | null = null;
   let closingTime: HourOfDay | 24 | null = null;
@@ -329,7 +331,7 @@ export function getSlotCapacityMapForDayAndSchedule(
   let timeSlots: SlotCapacityMap = {};
   //console.log('scheudle capacity list', scheduleCapacityList);
 
-  timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now);
+  timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now, slotLength);
 
   const buffered = applyBuffersToSlots({
     slots: timeSlots,
@@ -406,12 +408,18 @@ interface GetSlotCapacityMapInput {
 // returns all slots given current time, schedule, and timezone, irrespective of booked/busy status of any of those slots
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
-  const { schedule, scheduleOverrides, closures } = scheduleExtension;
+  const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
   const nowForTimezone = now.setZone(timezone);
   let currentDayTemp = nowForTimezone;
   let slots = {};
   while (currentDayTemp < finishDate) {
-    const slotsTemp = getSlotCapacityMapForDayAndSchedule(currentDayTemp, schedule, scheduleOverrides, closures);
+    const slotsTemp = getSlotCapacityMapForDayAndSchedule(
+      currentDayTemp,
+      schedule,
+      scheduleOverrides,
+      closures,
+      slotLength
+    );
     slots = { ...slots, ...slotsTemp };
     currentDayTemp = currentDayTemp.plus({ days: 1 }).startOf('day');
   }
@@ -440,16 +448,19 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   console.time('getAvailableSlots');
   const { now, numDays, schedule, busySlots } = input;
   const timezone = getTimezone(schedule);
-  const scheduleDetails = getScheduleExtension(schedule);
-  if (!scheduleDetails) {
+  const scheduleExtension = getScheduleExtension(schedule);
+  if (!scheduleExtension) {
     throw new Error('Schedule does not have schedule');
+  }
+  if (!timezone) {
+    throw new Error('Schedule does not have a timezone');
   }
   // literally all slots based on open, close, buffers and capacity
   // no appointments or busy slots have been factored in
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
     finishDate: now.plus({ days: numDays }),
-    scheduleExtension: scheduleDetails,
+    scheduleExtension,
     timezone,
   });
 

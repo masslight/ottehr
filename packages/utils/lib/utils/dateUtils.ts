@@ -21,14 +21,15 @@ export const isISODateTime = (dateTimeString: string): boolean => {
 
 export const convertCapacityListToBucketedTimeSlots = (
   scheduleCapcityList: Capacity[],
-  startDate: DateTime
+  startDate: DateTime,
+  slotLength?: number
 ): SlotCapacityMap => {
   const startOfDate = startDate.startOf('day');
   const timeSlots: { [slot: string]: number } = {};
   // console.log('scheduleCapcityList', scheduleCapcityList);
   scheduleCapcityList.forEach((entry) => {
     const { capacity, hour } = entry;
-    const bucketedCapacity = divideHourlyCapacityBySlotInterval(capacity);
+    const bucketedCapacity = divideHourlyCapacityBySlotInterval(capacity, slotLength);
     Object.entries(bucketedCapacity).forEach(([key, value]) => {
       const time = DateTime.fromISO(startOfDate.toISO()!).plus({ hour: hour, minute: parseInt(key) });
       timeSlots[time.toISO()!] = value;
