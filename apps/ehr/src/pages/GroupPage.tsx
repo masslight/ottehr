@@ -63,7 +63,6 @@ function GroupPageContent(): ReactElement {
         },
       ],
     });
-    console.log(1, request);
     const groupTemp: HealthcareService = (request?.entry?.[0]?.resource as any).entry.map(
       (resourceTemp: any) => resourceTemp.resource
     )[0];
@@ -319,8 +318,8 @@ function GroupPageContent(): ReactElement {
               </Link>
             </Box>
           </Grid>
-          <Grid container item xs={6}>
-            <Grid item xs={6}>
+          <Grid container item xs={6} gap={2}>
+            <Grid item xs={3}>
               <GroupMembers
                 option="locations"
                 options={
@@ -345,7 +344,7 @@ function GroupPageContent(): ReactElement {
                 onChange={(event, value) => setSelectedLocations(value.map((valueTemp: any) => valueTemp.value))}
               />
             </Grid>
-            <Grid item xs={6}>
+            <Grid item xs={3}>
               <GroupMembers
                 option="providers"
                 options={
