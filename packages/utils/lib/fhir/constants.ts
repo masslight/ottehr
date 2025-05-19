@@ -159,6 +159,41 @@ export const FHIR_EXTENSION = {
       url: `${TERMINOLOGY_BASE_URL}/condition-clinical`,
     },
   },
+  ServiceRequest: {
+    medicationUsed: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/medication-used`,
+    },
+    bodySide: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/body-side`,
+    },
+    technique: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/technique`,
+    },
+    suppliesUsed: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/supplies-used`,
+    },
+    procedureDetails: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-details`,
+    },
+    specimenSent: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
+    },
+    complications: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/complications`,
+    },
+    patientResponse: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/patient-response`,
+    },
+    postInstructions: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/post-instructions`,
+    },
+    timeSpent: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/time-spent`,
+    },
+    documentedBy: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/documented-by`,
+    },
+  },
 } as const;
 
 export type FHIR_EXTENSION_TYPE = typeof FHIR_EXTENSION;
@@ -481,3 +516,8 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
     ],
   },
 };
+
+const PROCEDURES_TERMINOLOGY_BASE_URL = FHIR_BASE_URL + '/CodeSystem/Procedure';
+export const PROCEDURE_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/procedure-type';
+export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/performer-type';
+export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';

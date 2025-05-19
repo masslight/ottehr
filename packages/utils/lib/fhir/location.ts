@@ -19,7 +19,7 @@ import {
   TelemedLocation,
   TIMEZONES,
 } from '../types';
-import { DOW, getScheduleDetails, getTimezone } from '../utils';
+import { DOW, getScheduleExtension, getTimezone } from '../utils';
 import { PUBLIC_EXTENSION_BASE_URL, SLUG_SYSTEM } from './constants';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
@@ -194,7 +194,7 @@ export function getLocationInformation(
   const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
   const timezone = getTimezone(scheduleResource);
 
-  const schedule = getScheduleDetails(scheduleResource);
+  const schedule = getScheduleExtension(scheduleResource);
   const scheduleOverrides = schedule?.scheduleOverrides || {};
 
   let scheduleType: ScheduleType;
@@ -319,7 +319,7 @@ export const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['t
   const tz = getTimezone(item) ?? TIMEZONES[0];
   const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
 
-  const scheduleTemp = getScheduleDetails(item);
+  const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {
     return undefined;
   }
