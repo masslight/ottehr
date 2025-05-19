@@ -9,17 +9,18 @@ import {
   ErrorDialog,
   ErrorDialogConfig,
   FormValidationErrorObject,
-  PageForm,
-  ReviewItem,
   getFormValidationErrors,
   getValueBoolean,
+  PageForm,
+  ReviewItem,
   usePaperworkContext,
 } from 'ui-components';
-import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { ServiceMode, VisitType, makeValidationSchema, pickFirstValueFromAnswerItem, uuidRegex } from 'utils';
+import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
 import { ValidationError } from 'yup';
-import { otherColors } from '../IntakeThemeProvider';
+import { dataTestIds } from '../../src/helpers/data-test-ids';
 import api from '../api/ottehrApi';
+import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
 import ValidationErrorMessageContent from '../features/paperwork/components/ValidationErrorMessage';
 import { UNEXPECTED_ERROR_CONFIG } from '../helpers';
@@ -27,13 +28,11 @@ import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
 import { usePaperworkInviteParams } from '../hooks/usePaperworkInviteParams';
-import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
+import { otherColors } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
-import { dataTestIds } from '../../src/helpers/data-test-ids';
-import { intakeFlowPageRoute } from '../App';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();
@@ -75,9 +74,6 @@ const ReviewPaperwork = (): JSX.Element => {
 
     return undefined;
   }, [appointmentData?.start, appointmentData?.location?.timezone]);
-
-  // Update last active time for paperwork-in-progress flag every minute
-  useSetLastActiveTime(appointmentID, true, zambdaClient);
 
   useEffect(() => {
     try {
