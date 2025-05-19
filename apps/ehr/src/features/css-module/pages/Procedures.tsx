@@ -45,8 +45,8 @@ export default function Procedures(): ReactElement {
           </TableHead>
           <TableBody>
             {chartData?.procedures?.map((procedure) => {
-              const procedureDateTime =
-                procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
+              const documentedDateTime =
+                procedure.documentedDateTime != null ? DateTime.fromISO(procedure.documentedDateTime) : undefined;
               return (
                 <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
                   <TableCell>
@@ -75,7 +75,7 @@ export default function Procedures(): ReactElement {
                   <TableCell>
                     <Stack>
                       <Typography sx={{ fontSize: '14px' }}>
-                        {procedureDateTime != null ? procedureDateTime.toFormat('MM/dd/yyyy at HH:mm a') : undefined}
+                        {documentedDateTime != null ? documentedDateTime.toFormat('MM/dd/yyyy HH:mm a') : undefined}
                       </Typography>
                       <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.documentedBy}</Typography>
                     </Stack>

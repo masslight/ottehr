@@ -1338,6 +1338,7 @@ export function makeProceduresDTOFromFhirResources(
           return makeDiagnosisDTO(condition, false);
         }),
       procedureDateTime: serviceRequests.occurrenceDateTime,
+      documentedDateTime: serviceRequests.authoredOn,
       performerType: getCode(serviceRequests.performerType, PERFORMER_TYPE_SYSTEM),
       medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
       bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
@@ -1436,6 +1437,7 @@ export const createProcedureServiceRequest = (
           ]
         : undefined,
     occurrenceDateTime: procedure.procedureDateTime,
+    authoredOn: procedure.documentedDateTime,
     performerType:
       procedure.performerType != null
         ? {

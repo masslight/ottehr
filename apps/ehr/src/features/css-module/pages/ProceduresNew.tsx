@@ -168,6 +168,7 @@ export default function ProceduresNew(): ReactElement {
               ?.set({ hour: state.procedureTime?.hour, minute: state.procedureTime?.minute })
               ?.toUTC()
               ?.toString(),
+            documentedDateTime: DateTime.now().toUTC().toString(),
             performerType: state.performerType,
             medicationUsed: state.medicationUsed,
             bodySite: state.bodySite,

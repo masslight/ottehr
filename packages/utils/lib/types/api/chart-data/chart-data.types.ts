@@ -526,6 +526,7 @@ export interface ProcedureDTO extends SaveableDTO {
   cptCodes?: CPTCodeDTO[];
   diagnoses?: DiagnosisDTO[];
   procedureDateTime?: string;
+  documentedDateTime?: string;
   performerType?: string;
   medicationUsed?: string;
   bodySite?: string;
