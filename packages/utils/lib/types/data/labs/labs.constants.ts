@@ -1,4 +1,4 @@
-import { Pagination } from './labs.types';
+import { LabelConfig, Pagination } from './labs.types';
 
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
@@ -26,6 +26,14 @@ export const LAB_RESULT_DOC_REF_CODING_CODE = {
   system: 'http://loinc.org',
   code: '11502-2',
   display: 'Laboratory report',
+};
+
+// there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
+// so opted for something custom her
+export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-label',
+  code: 'specimen-container-label',
+  display: 'Specimen Container Label',
 };
 
 export const LAB_DR_TYPE_TAG = {
@@ -56,6 +64,20 @@ export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
 
 export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
 
+export const EXTERNAL_LAB_LABEL_PDF_BASE_NAME = 'ExternalLabsLabel';
+
+export const DYMO_550_TURBO_DPI = 300;
+
+export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
+  heightInches: 1.25,
+  widthInches: 2.25,
+  // margins determined by printing a label and empirically measuring on the DYMO 550 Turbo
+  marginTopInches: 1 / 16,
+  marginBottomInches: 1 / 4,
+  marginLeftInches: 1 / 16,
+  marginRightInches: 1 / 16,
+  printerDPI: DYMO_550_TURBO_DPI,
+};
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we dont like any of them, we have to change there too

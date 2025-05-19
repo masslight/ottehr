@@ -2,20 +2,21 @@ import { DocumentReference } from 'fhir/r4b';
 import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
+import fs from 'fs';
 
 export type PdfInfo = { uploadURL: string; title: string };
 
 // For testing needs
-// export function savePdfLocally(pdfBytes: Uint8Array): void {
-//   // Write the Uint8Array to a file
-//   fs.writeFile('myTestFile.pdf', Buffer.from(pdfBytes), (err) => {
-//     if (err) {
-//       console.error('Error saving PDF:', err);
-//     } else {
-//       console.log('PDF saved successfully!');
-//     }
-//   });
-// }
+export function savePdfLocally(pdfBytes: Uint8Array): void {
+  // Write the Uint8Array to a file
+  fs.writeFile('myTestFile.pdf', Buffer.from(pdfBytes), (err: any) => {
+    if (err) {
+      console.error('Error saving PDF:', err);
+    } else {
+      console.log('PDF saved successfully!');
+    }
+  });
+}
 
 type PdfDocumentPublishedStatusesKeys = 'published' | 'unpublished';
 export const PdfDocumentReferencePublishedStatuses: {
@@ -126,6 +127,52 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currYPos -= currentTextHeight + spacing;
       currXPos = pageLeftBound;
     }
+  };
+
+  /**
+   * Draws text starting at the specified xPos. Will default to pageLeftBound if xPos is before
+   * left bound. Adds a newline if the starting xPos is at or after the rightPageBound.
+   *
+   * Warning: does not handle newlines in long strings
+   *
+   */
+  const drawStartXPosSpecifiedText = (
+    text: string,
+    textStyle: TextStyle,
+    startingXPos: number
+  ): { endXPos: number; endYPos: number } => {
+    const { font, fontSize, color, spacing } = textStyle;
+    const textWidth = getTextDimensions(text, textStyle).width;
+
+    const currentTextHeight = font.heightAtSize(fontSize);
+    if (startingXPos < pageLeftBound) currXPos = pageLeftBound;
+    else if (startingXPos >= pageRightBound) {
+      newLine(currentTextHeight);
+      currXPos = pageLeftBound;
+    } else currXPos = startingXPos;
+
+    console.log(
+      `>>>Starting xpos was ${startingXPos},\ncurrXPos was ${currXPos},\npageLeft was ${pageLeftBound},\npageRight was ${pageRightBound}\n\n`
+    );
+    page.drawText(text, {
+      font: font,
+      size: fontSize,
+      x: currXPos,
+      y: currYPos,
+      color,
+    });
+
+    // update the x position with the width of the newly written text
+    console.log('Starting xPos was ', currXPos, ' and width of text was ', textWidth);
+    currXPos += textWidth;
+    console.log('ending xPos is ', currXPos);
+
+    if (textStyle.newLineAfter) {
+      currYPos -= currentTextHeight + spacing;
+      currXPos = pageLeftBound;
+    }
+
+    return { endXPos: currXPos, endYPos: currYPos };
   };
 
   const drawTextSequential = (text: string, textStyle: Exclude<TextStyle, 'side'>): void => {
@@ -291,6 +338,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     addNewPage,
     drawText,
     drawTextSequential,
+    drawStartXPosSpecifiedText,
     drawImage,
     newLine,
     getX,

@@ -57,6 +57,11 @@ export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
   drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawStartXPosSpecifiedText: (
+    text: string,
+    textStyle: TextStyle,
+    startingXPos: number
+  ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
   getX: () => number;
