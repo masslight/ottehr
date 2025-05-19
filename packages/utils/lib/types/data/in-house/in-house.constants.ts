@@ -44,6 +44,7 @@ export const OD_DISPLAY_CONFIG = {
   valueString: {
     radio: 'Radio',
     select: 'Select',
+    numeric: 'Numeric',
   },
 } as const;
 

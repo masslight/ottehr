@@ -5,11 +5,11 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { LabTest, convertActivityDefinitionToTestItem } from 'utils';
 import { History } from './History';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
+import { ResultEntryTable } from './ResultsEntrySelectTable';
 import { ActivityDefinition } from 'fhir/r4b';
 
 // temp for testing
-const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
-  id: '6302b66e-3f2f-4e36-af42-e0c80eebc608',
+const GLUCOSE_TEST: ActivityDefinition = {
   resourceType: 'ActivityDefinition',
   status: 'active',
   kind: 'ServiceRequest',
@@ -17,16 +17,16 @@ const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
     coding: [
       {
         system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code',
-        code: 'Rapid Strep A',
+        code: 'Glucose Finger/Heel Stick',
       },
       {
         system: 'http://www.ama-assn.org/go/cpt',
-        code: '87880',
+        code: '82962',
       },
     ],
   },
-  title: 'Rapid Strep A',
-  name: 'Rapid Strep A',
+  title: 'Glucose Finger/Heel Stick',
+  name: 'Glucose Finger/Heel Stick',
   participant: [
     {
       type: 'device',
@@ -35,7 +35,7 @@ const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
           {
             system: 'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role',
             code: 'manual',
-            display: 'Strip Test (reagent strip)',
+            display: 'Stick & glucometer',
           },
         ],
       },
@@ -44,77 +44,50 @@ const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
   observationRequirement: [
     {
       type: 'ObservationDefinition',
-      reference: '#contained-RapidStrepA-codeableConcept-observationDef-id',
+      reference: '#contained-GlucoseFingerHeelStick-quantity-observationDef-id',
     },
   ],
   contained: [
     {
-      id: 'contained-RapidStrepA-normal-valueSet',
-      resourceType: 'ValueSet',
-      status: 'active',
-      compose: {
-        include: [
-          {
-            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
-            concept: [
-              {
-                code: 'Positive',
-              },
-              {
-                code: 'Negative',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      id: 'contained-RapidStrepA-abnormal-valueSet',
-      resourceType: 'ValueSet',
-      status: 'active',
-      compose: {
-        include: [
-          {
-            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
-            concept: [
-              {
-                code: 'Positive',
-              },
-            ],
-          },
-        ],
-      },
-    },
-    {
-      id: 'contained-RapidStrepA-codeableConcept-observationDef-id',
+      id: 'contained-GlucoseFingerHeelStick-quantity-observationDef-id',
       resourceType: 'ObservationDefinition',
       code: {
         coding: [
           {
             system: 'http://loinc.org',
-            code: '78012-2',
+            code: '32016-8',
           },
         ],
-        text: 'Rapid Strep A',
+        text: 'Glucose Finger/Heel Stick',
       },
-      permittedDataType: ['CodeableConcept'],
-      validCodedValueSet: {
-        type: 'ValueSet',
-        reference: '#contained-RapidStrepA-normal-valueSet',
+      permittedDataType: ['Quantity'],
+      quantitativeDetails: {
+        unit: {
+          coding: [
+            {
+              system: 'http://unitsofmeasure.org/',
+              code: 'mg/dL',
+            },
+          ],
+        },
       },
-      abnormalCodedValueSet: {
-        type: 'ValueSet',
-        reference: '#contained-RapidStrepA-abnormal-valueSet',
-      },
+      qualifiedInterval: [
+        {
+          category: 'reference',
+          range: {
+            low: {
+              value: 70,
+            },
+            high: {
+              value: 140,
+            },
+          },
+        },
+      ],
       extension: [
         {
           url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
-          valueString: 'Radio',
-        },
-        {
-          url: 'http://ottehr.org/fhir/StructureDefinition/allow-null-value',
-          valueCode: 'Unknown',
-          valueString: 'Indeterminate / inconclusive / error',
+          valueString: 'Numeric',
         },
       ],
     },
@@ -126,9 +99,10 @@ const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
         code: 'in-house-lab-test-definition',
       },
     ],
-    versionId: 'a40e5989-b16e-44ca-b2b6-9b17a8d6392b',
-    lastUpdated: '2025-05-16T16:07:17.757Z',
+    versionId: '5666dfab-70e0-4db0-9e07-cb2d53b01cb9',
+    lastUpdated: '2025-05-14T20:28:16.472Z',
   },
+  id: 'bbdd7dbe-2359-4a77-be85-e3280683285f',
 };
 
 interface PerformTestViewProps {
@@ -137,13 +111,18 @@ interface PerformTestViewProps {
   onSubmit: (data: any) => void;
 }
 
+// interface ResultEntry {
+//   enteredValue: string;
+
+// }
+
 export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, onBack, onSubmit }) => {
   const [result, setResult] = useState<string | null>(testDetails.result || null);
   const [showDetails, setShowDetails] = useState(false);
   const [notes, setNotes] = useState(testDetails.notes || '');
 
   // temp for testing
-  const testItem = convertActivityDefinitionToTestItem(STREP_ACTIVITY_DEFINTION);
+  const testItem = convertActivityDefinitionToTestItem(GLUCOSE_TEST);
   console.log('testDetails', testDetails);
   console.log('testItem', testItem);
 
@@ -199,10 +178,13 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
             return <ResultEntryRadioButton testItemComponent={component} result={result} setResult={setResult} />;
           })}
 
-          {/* todo write this component */}
-          {testItem.components.selectComponents.map((component) => {
-            return <div>nothing should be here yet but it is??? {component.componentName}</div>;
-          })}
+          {testItem.components.groupedComponents.length && (
+            <ResultEntryTable
+              selectComponents={testItem.components.groupedComponents}
+              result={result}
+              setResult={setResult}
+            />
+          )}
 
           <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
             <Button

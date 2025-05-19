@@ -27,7 +27,7 @@ export interface QuantityComponent extends BaseComponent {
   dataType: 'Quantity';
   unit: string;
   normalRange: QuantityRange;
-  displayType: 'Select';
+  displayType: 'Numeric';
 }
 
 export type TestItemComponent = CodeableConceptComponent | QuantityComponent;
@@ -40,7 +40,7 @@ export interface TestItem {
   device: string;
   cptCode: string[];
   components: {
-    selectComponents: TestItemComponent[];
+    groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
   note?: string;

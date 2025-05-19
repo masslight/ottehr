@@ -51,12 +51,16 @@ const extractQuantityRange = (
   };
 };
 
-const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Radio' | 'Select' => {
+const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Radio' | 'Select' | 'Numeric' => {
   const ext = obsDef.extension;
   const display = ext?.find((e) => e.url === OD_DISPLAY_CONFIG.url)?.valueString;
   console.log('display', display);
   if (!display) throw Error(`no display type set for this observation definition: ${obsName}`);
-  if (display !== OD_DISPLAY_CONFIG.valueString.radio && display !== OD_DISPLAY_CONFIG.valueString.select)
+  if (
+    display !== OD_DISPLAY_CONFIG.valueString.radio &&
+    display !== OD_DISPLAY_CONFIG.valueString.select &&
+    display !== OD_DISPLAY_CONFIG.valueString.numeric
+  )
     throw Error(
       `unknown display cast to this observation definition: ${obsName} (display should be one of the follow ${Object.values(
         OD_DISPLAY_CONFIG.valueString
@@ -110,6 +114,10 @@ const processObservationDefinition = (
     const valueSet = normalValueSet ? extractValueSetValues(normalValueSet) : [];
     const abnormalValues = abnormalValueSet ? extractValueSetValues(abnormalValueSet) : [];
     const displayType = extractDisplayType(obsDef, componentName);
+    if (displayType === 'Numeric')
+      throw Error(
+        'Observation definition is flagged as Numeric, currently we are only configured to support Select or Radio for CodeableConcept obervation definitions '
+      );
     const nullOption = extractNullOption(obsDef);
 
     const component: CodeableConceptComponent = {
@@ -125,10 +133,8 @@ const processObservationDefinition = (
   } else if (dataType === 'Quantity') {
     const quantityInfo = extractQuantityRange(obsDef);
     const displayType = extractDisplayType(obsDef, componentName);
-    if (displayType === 'Radio')
-      throw Error(
-        'Quantity type observation definition is flagged as radio, currently we are only configured to supposed Quantity Select'
-      );
+    if (displayType !== 'Numeric')
+      throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     const component: QuantityComponent = {
       componentName,
       loincCode,
@@ -174,7 +180,7 @@ export const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinit
     throw Error('No observation definitions found');
   }
 
-  const selectComponents: TestItemComponent[] = [];
+  const groupedComponents: TestItemComponent[] = [];
   const radioComponents: CodeableConceptComponent[] = [];
   for (const ref of obsDefRefs) {
     const obsDefId = ref.reference?.substring(1);
@@ -187,7 +193,8 @@ export const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinit
         obsDef,
         containedResources as (ObservationDefinition | ValueSet)[]
       );
-      if (componentInfo.displayType === 'Select') selectComponents.push(componentInfo);
+      if (componentInfo.displayType === 'Select' || componentInfo.displayType === 'Numeric')
+        groupedComponents.push(componentInfo);
       if (componentInfo.displayType === 'Radio') radioComponents.push(componentInfo);
     }
   }
@@ -201,7 +208,7 @@ export const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinit
       .join(' or '),
     cptCode,
     components: {
-      selectComponents,
+      groupedComponents,
       radioComponents,
     },
   };
