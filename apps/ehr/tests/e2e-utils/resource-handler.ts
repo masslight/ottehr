@@ -284,8 +284,7 @@ export class ResourceHandler {
       /\{\{questionnaireUrl\}\}/g,
       'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.7' // TODO right place to get this?
     );
-
-    // TODO maybe replace start / end times on appointment and slot with current day at noon"
+    seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 
     // TODO do something about the DocumentReference attachments.
 
@@ -307,7 +306,7 @@ export class ResourceHandler {
           | ServiceRequest
           | ClinicalImpression
         >({
-          requests: hydratedFastSeedJSON.entry.map((entry): BatchInputPostRequest<FhirResource> => {
+          requests: hydratedFastSeedJSON.entry.map((entry: any): BatchInputPostRequest<FhirResource> => {
             if (entry.request.method !== 'POST') {
               throw new Error('Only POST method is supported in fast mode');
             }
