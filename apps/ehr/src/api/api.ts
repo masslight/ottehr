@@ -36,7 +36,7 @@ import {
   GetCreateInHouseLabOrderResourcesResponse,
   CreateInHouseLabOrderParameters,
   GetLabelPdfParameters,
-  LabelDTO,
+  LabelPdf,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -122,19 +122,20 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
   }
 };
 
-export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelDTO> => {
+export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
   try {
     if (GET_LABEL_PDF_ZAMBDA_ID == null) {
       throw new Error('get-label-pdf evironment variable could not be loaded');
     }
 
-    const response = oystehr.zambda.execute({
+    const response = await oystehr.zambda.execute({
       id: GET_LABEL_PDF_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
   } catch (error: unknown) {
     console.error(error);
+    throw error;
   }
 };
 
