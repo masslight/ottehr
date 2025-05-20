@@ -32,11 +32,21 @@ export const ProceduresContainer: FC = () => {
         procedures.map((procedure) => (
           <Stack key={procedure.resourceId}>
             <Typography sx={{ color: '#0F347C', fontWeight: '500' }}>{procedure.procedureType}</Typography>
-            {renderProperty('CPT', procedure.cptCodes.map((cptCode) => cptCode.display).join('; '))}
-            {renderProperty('Dx', procedure.diagnoses.map((diagnosis) => diagnosis.display).join('; '))}
+            {renderProperty(
+              'CPT',
+              procedure.cptCodes != null ? procedure.cptCodes.map((cptCode) => cptCode.display).join('; ') : undefined
+            )}
+            {renderProperty(
+              'Dx',
+              procedure.diagnoses != null
+                ? procedure.diagnoses.map((diagnosis) => diagnosis.display).join('; ')
+                : undefined
+            )}
             {renderProperty(
               'Date and time of the procedure',
-              DateTime.fromISO(procedure.procedureDateTime).toFormat('MM/dd/yyyy, HH:mm a')
+              procedure.procedureDateTime != null
+                ? DateTime.fromISO(procedure.procedureDateTime).toFormat('MM/dd/yyyy, HH:mm a')
+                : undefined
             )}
             {renderProperty('Performed by', procedure.performerType)}
             {renderProperty('Anaesthesia / medication used', procedure.medicationUsed)}
