@@ -32,8 +32,7 @@ interface StartOfDayParams {
 export const startOfDayWithTimezone = (input?: StartOfDayParams): DateTime => {
   const baseDate = input?.date ?? DateTime.now();
   const timezone = input?.timezone ?? DEFAULT_TEST_TIMEZONE;
-  baseDate.setZone(timezone);
-  return baseDate.startOf('day');
+  return DateTime.fromFormat(baseDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone });
 };
 
 // todo: avoid name collision with fhir resource
