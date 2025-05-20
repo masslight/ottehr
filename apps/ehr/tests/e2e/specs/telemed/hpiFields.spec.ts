@@ -43,12 +43,8 @@ test.describe('Check all hpi fields common functionality, without changing data'
   const noOptionsMessage = 'Nothing found for this search criteria';
 
   test.beforeAll(async () => {
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
-    }
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
   });
 
   test.afterAll(async () => {
@@ -120,12 +116,8 @@ test.describe('Medical conditions', async () => {
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
-    }
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
