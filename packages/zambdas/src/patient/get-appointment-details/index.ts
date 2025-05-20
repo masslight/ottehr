@@ -136,7 +136,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
 
-    const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleOwner);
+    const locationInformation: AvailableLocationInformation = getLocationInformation(scheduleOwner, fhirSchedule);
 
     const appointment: GetAppointmentDetailsResponse['appointment'] = {
       start: fhirAppointment.start || 'Unknown',
