@@ -6,16 +6,15 @@ import {
   Secrets,
   getPresignedURL,
   LabelConfig,
-  DYMO_550_TURBO_DPI,
 } from 'utils';
-import { PdfInfo, savePdfLocally, createPdfClient } from './pdf-utils';
+import { PdfInfo, createPdfClient, Y_POS_GAP as pdfClientGapSubtraction } from './pdf-utils';
 import { PdfClientStyles, TextStyle } from './types';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import fs from 'fs';
 import Oystehr from '@oystehr/sdk';
 import { DocumentReference } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
+import { StandardFonts } from 'pdf-lib';
 
 interface ExternalLabsLabelContent {
   patientLastName: string;
@@ -35,19 +34,21 @@ export interface ExternalLabsLabelConfig {
 const UPLOAD_BUCKET_NAME = 'visit-notes';
 
 const convertLabeConfigToPdfClientStyles = (labelConfig: LabelConfig): PdfClientStyles => {
-  const inchesToPixels = (sizeInches: number, dpi: number = DYMO_550_TURBO_DPI): number => {
-    return sizeInches * dpi;
+  const inchesToPoints = (sizeInches: number): number => {
+    // conversion factor is 1 point = 1/72 inches.
+    // pdf-lib uses Points not pixels
+    return sizeInches * 72;
   };
 
   const pdfClientStyles: PdfClientStyles = {
     initialPage: {
-      width: inchesToPixels(labelConfig.widthInches, labelConfig.printerDPI),
-      height: inchesToPixels(labelConfig.heightInches, labelConfig.printerDPI),
+      width: inchesToPoints(labelConfig.widthInches),
+      height: inchesToPoints(labelConfig.heightInches),
       pageMargins: {
-        left: inchesToPixels(labelConfig.marginLeftInches, labelConfig.printerDPI),
-        right: inchesToPixels(labelConfig.marginRightInches, labelConfig.printerDPI),
-        top: inchesToPixels(labelConfig.marginTopInches, labelConfig.printerDPI),
-        bottom: inchesToPixels(labelConfig.marginBottomInches, labelConfig.printerDPI),
+        left: inchesToPoints(labelConfig.marginLeftInches),
+        right: inchesToPoints(labelConfig.marginRightInches),
+        top: inchesToPoints(labelConfig.marginTopInches),
+        bottom: inchesToPoints(labelConfig.marginBottomInches),
       },
     },
   };
@@ -61,134 +62,76 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
   const pdfClientStyles = convertLabeConfigToPdfClientStyles(labelConfig);
 
   const pdfClient = await createPdfClient(pdfClientStyles);
+  // the pdf client initializes YPos to some non-zero number and it's causing huge gaps
+  pdfClient.setY(pdfClient.getY() + pdfClientGapSubtraction - 15);
+  console.log('New YPos is ', pdfClient.getY());
 
-  // TODO: add fonts?
-  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
-  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
+  const CourierBold = await pdfClient.embedStandardFont(StandardFonts.CourierBold);
+  const Courier = await pdfClient.embedStandardFont(StandardFonts.Courier);
 
-  // const RubikFont = await pdfClient.embedFont(
-  //   fs.readFileSync('/Users/abraun/Code/ottehr/packages/zambdas/assets/Rubik-Regular.otf')
-  // );
-  // const RubikFontBold = await pdfClient.embedFont(
-  //   fs.readFileSync('/Users/abraun/Code/ottehr/packages/zambdas/assets/Rubik-Bold.otf')
-  // );
-  const baseFontSize = 12;
-  const baseSpacing = 6;
-  const baseFieldText = {
-    fontSize: baseFontSize,
-    spacing: baseSpacing,
-    font: RubikFont,
-    newLineAfter: false,
-  };
-
-  const baseHeaderText = {
-    fontSize: baseFontSize,
-    font: RubikFontBold,
-    spacing: baseSpacing,
-  };
+  const baseFontSize = 7;
+  const baseSpacing = 2;
 
   const textStyles: Record<string, TextStyle> = {
-    fieldTextLeft: {
-      ...baseFieldText,
-      side: 'left',
+    fieldText: {
+      fontSize: baseFontSize,
+      spacing: baseSpacing,
+      font: Courier,
+      newLineAfter: false,
     },
-    fieldHeaderLeft: {
-      ...baseHeaderText,
-      side: 'left',
-    },
-    fieldTextRight: {
-      ...baseFieldText,
-      side: 'right',
-    },
-    fieldHeaderRight: {
-      ...baseHeaderText,
-      side: 'right',
+    fieldHeader: {
+      fontSize: baseFontSize,
+      font: CourierBold,
+      spacing: baseSpacing,
     },
   };
 
-  // const NEWLINE_Y_DROP = 3;
   const NEWLINE_Y_DROP =
-    pdfClient.getTextDimensions('Any text used to get height', textStyles.fieldHeaderLeft).height + baseSpacing;
-
-  const truncateString = (strToTruncate: string, amountToChop: number): string => {
-    if (strToTruncate.length <= amountToChop) {
-      return '';
-    }
-
-    return strToTruncate.substring(0, strToTruncate.length - amountToChop);
-  };
+    pdfClient.getTextDimensions('Any text used to get height', textStyles.fieldHeader).height + baseSpacing;
 
   interface Column {
     header?: string;
     value: string;
   }
 
-  const columnGapPixels = pdfClientStyles.initialPage.width / 11;
-  const leftColumnXEnd = pdfClientStyles.initialPage.width / 2 - columnGapPixels / 2;
-  const rightColumnXStart = pdfClientStyles.initialPage.width / 2 + columnGapPixels / 2;
-  console.log('This is columnGap: ', columnGapPixels);
+  // const columnGapPoints = pdfClientStyles.initialPage.width / 30;
+  const columnGapPoints = 0.0125;
+  const leftColumnXEnd = pdfClientStyles.initialPage.width / 2 - columnGapPoints / 2;
+  const rightColumnXStart = pdfClientStyles.initialPage.width / 2 + columnGapPoints / 2;
+  console.log('This is columnGap: ', columnGapPoints);
   console.log('This is leftColumnXEnd: ', leftColumnXEnd);
   console.log('This is rightColumnXStart: ', rightColumnXStart);
 
+  const drawHeaderAndInlineText = (header: string, text: string): void => {
+    pdfClient.drawTextSequential(`${header}: `, textStyles.fieldHeader);
+    pdfClient.drawTextSequential(text, textStyles.fieldText);
+  };
+
   const drawColumnRowAndNewline = (leftColumn: Column, rightColumn: Column): void => {
     const leftHeader = leftColumn.header ? `${leftColumn.header}: ` : '';
-    let leftValue = leftColumn.value;
-    const widthOfLeftColumn =
-      pdfClient.getTextDimensions(leftHeader, textStyles.fieldHeaderLeft).width +
-      pdfClient.getTextDimensions(leftValue, textStyles.fieldTextLeft).width;
-
-    if (widthOfLeftColumn > leftColumnXEnd) {
-      // let's try truncating?
-      // TODO maybe add ellipsis for emphasis?
-      leftValue = truncateString(leftValue, widthOfLeftColumn - leftColumnXEnd);
-    }
 
     let startXPos = pdfClient.getLeftBound();
-    startXPos = pdfClient.drawStartXPosSpecifiedText(leftHeader, textStyles.fieldHeaderLeft, startXPos).endXPos;
-    console.log('drew the left header, left off at ', startXPos);
-    console.log('drawing the left value');
-    pdfClient.drawStartXPosSpecifiedText(leftValue, textStyles.fieldTextLeft, startXPos);
-    // pdfClient.drawText(leftValue, textStyles.fieldTextLeft);
+    startXPos = pdfClient.drawStartXPosSpecifiedText(leftHeader, textStyles.fieldHeader, startXPos).endXPos;
+    pdfClient.drawStartXPosSpecifiedText(leftColumn.value, textStyles.fieldText, startXPos);
 
     console.log('After drawing left column, xPos is ', pdfClient.getX());
-
-    // This is columnGap:  61.36363636363637
-    // zambdas:start: This is leftColumnXEnd:  306.8181818181818
-    // zambdas:start: This is rightColumnXStart:  368.1818181818182
-    // zambdas:start: After drawing left column, xPos is  18.75
-
     // now start the right column
     pdfClient.setX(rightColumnXStart);
 
     const rightHeader = rightColumn.header ? `${rightColumn.header}: ` : '';
-    let rightValue = rightColumn.value;
 
-    const widthOfRightColumn =
-      pdfClient.getTextDimensions(rightHeader, textStyles.fieldHeaderRight).width +
-      pdfClient.getTextDimensions(rightValue, textStyles.fieldTextRight).width;
-
-    if (widthOfRightColumn > pdfClient.getRightBound()) {
-      rightValue = truncateString(rightValue, widthOfRightColumn - pdfClient.getRightBound());
-    }
-
-    startXPos = pdfClient.drawStartXPosSpecifiedText(
-      rightHeader,
-      textStyles.fieldHeaderRight,
-      pdfClient.getX()
-    ).endXPos;
-    pdfClient.drawStartXPosSpecifiedText(rightValue, textStyles.fieldTextRight, startXPos);
-    // pdfClient.drawText(rightHeader, textStyles.fieldHeaderRight);
-    // pdfClient.drawText(rightValue, textStyles.fieldTextRight);
-
+    startXPos = pdfClient.drawStartXPosSpecifiedText(rightHeader, textStyles.fieldHeader, pdfClient.getX()).endXPos;
+    pdfClient.drawStartXPosSpecifiedText(rightColumn.value, textStyles.fieldText, startXPos);
     pdfClient.newLine(NEWLINE_Y_DROP);
   };
 
-  // now we actually draw
+  // now we actually draw the label
   /* 
   Patient last name, first name
   PID
   DOB (in one column)       Collection date (in the next column)
-  Account number            Order number (in the next column)
+  Account number            
+  Order number
   */
   const {
     patientLastName,
@@ -199,22 +142,26 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
     accountNumber,
     orderNumber,
   } = content;
-  pdfClient.drawText(`${patientLastName}, ${patientFirstName}`, textStyles.fieldHeaderLeft);
-  pdfClient.newLine(NEWLINE_Y_DROP);
-  // pdfClient.setX(0);
 
-  pdfClient.drawText(`PID: ${patientId}`, textStyles.fieldTextLeft);
+  pdfClient.drawTextSequential(`${patientLastName}, ${patientFirstName}`, {
+    ...textStyles.fieldHeader,
+    fontSize: textStyles.fieldHeader.fontSize + 1,
+  });
   pdfClient.newLine(NEWLINE_Y_DROP);
-  // pdfClient.setX(0);
+
+  drawHeaderAndInlineText('PID', patientId);
+  pdfClient.newLine(NEWLINE_Y_DROP);
 
   drawColumnRowAndNewline(
     { header: 'DOB', value: patientDateOfBirth ? patientDateOfBirth.toFormat('MM/dd/yyyy') : '' },
-    { header: 'Collected', value: sampleCollectionDate ? sampleCollectionDate.toFormat('MM/dd/yyyy') : '' }
+    { header: 'Coll', value: sampleCollectionDate ? sampleCollectionDate.toFormat('MM/dd/yyyy') : '' }
   );
-  // pdfClient.setX(0);
 
-  drawColumnRowAndNewline({ header: 'Acct #', value: accountNumber }, { header: 'Order #', value: orderNumber });
-  // pdfClient.setX(0);
+  drawHeaderAndInlineText('Acct #', accountNumber);
+  pdfClient.newLine(NEWLINE_Y_DROP);
+
+  drawHeaderAndInlineText('Order #', orderNumber);
+  pdfClient.newLine(NEWLINE_Y_DROP);
 
   return await pdfClient.save();
 };
@@ -243,7 +190,7 @@ async function createExternalLabsLabelPDFHelper(
     patientID: input.content.patientId,
   });
 
-  console.log('Uploading file to bucket');
+  console.log('Uploading file to bucket, ', UPLOAD_BUCKET_NAME);
 
   try {
     const presignedUrl = await createPresignedUrl(token, baseFileUrl, 'upload');
@@ -253,7 +200,7 @@ async function createExternalLabsLabelPDFHelper(
   }
 
   // for testing
-  savePdfLocally(pdfBytes);
+  // savePdfLocally(pdfBytes);
 
   return { title: fileName, uploadURL: baseFileUrl };
 }
@@ -269,7 +216,7 @@ export async function createExternalLabsLabelPDF(
 ): Promise<{ docRef: DocumentReference; presignedURL: string }> {
   const pdfInfo = await createExternalLabsLabelPDFHelper(labelConfig, secrets, token);
 
-  console.log(`this is the made pdfInfo`, JSON.stringify(pdfInfo));
+  console.log(`This is the made pdfInfo`, JSON.stringify(pdfInfo));
 
   const { docRefs } = await createFilesDocumentReferences({
     files: [{ url: pdfInfo.uploadURL, title: pdfInfo.title }],

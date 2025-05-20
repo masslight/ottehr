@@ -71,11 +71,10 @@ export const DYMO_550_TURBO_DPI = 300;
 export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
   heightInches: 1.25,
   widthInches: 2.25,
-  // margins determined by printing a label and empirically measuring on the DYMO 550 Turbo
-  marginTopInches: 1 / 16,
-  marginBottomInches: 1 / 4,
-  marginLeftInches: 1 / 16,
-  marginRightInches: 1 / 16,
+  marginTopInches: 0.06,
+  marginBottomInches: 0.06,
+  marginLeftInches: 0.04,
+  marginRightInches: 0.04,
   printerDPI: DYMO_550_TURBO_DPI,
 };
 // These are oystehr dependent
