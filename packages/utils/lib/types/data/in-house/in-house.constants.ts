@@ -1,3 +1,4 @@
+import { CodeableConcept } from 'fhir/r4b';
 import { TestStatus } from './in-house.types';
 
 export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
@@ -20,6 +21,34 @@ export const IN_HOUSE_LAB_DOCREF_CATEGORY = {
     sampleLabel: 'sample-label-form',
     resultForm: 'result-form',
   },
+} as const;
+
+const OBSERVATION_INTERPRETATION_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation';
+
+export const ABNORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
+  coding: [
+    {
+      system: OBSERVATION_INTERPRETATION_SYSTEM,
+      code: 'A',
+      display: 'Abnormal',
+    },
+  ],
+} as const;
+
+export const NORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
+  coding: [
+    {
+      system: OBSERVATION_INTERPRETATION_SYSTEM,
+      code: 'N',
+      display: 'Normal',
+    },
+  ],
+} as const;
+
+export const DIAGNOSTIC_REPORT_CATEGORY_CONFIG = {
+  system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
+  code: 'LAB',
+  display: 'Laboratory',
 } as const;
 
 export const IN_HOUSE_TEST_CODE_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code';
@@ -49,3 +78,9 @@ export const OD_DISPLAY_CONFIG = {
 } as const;
 
 export const IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/allow-null-value';
+
+export const IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG = {
+  url: IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
+  valueCode: 'Unknown',
+  valueString: 'Indeterminate / inconclusive / error',
+};

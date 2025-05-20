@@ -144,10 +144,13 @@ export type CollectInHouseLabSpecimenParameters = {
   serviceRequestId: string;
 };
 
+export interface ResultEntryInput {
+  [observationDefinitionId: string]: any;
+}
+
 export type HandleInHouseLabResultsParameters = {
-  encounterId: string;
-  patientId: string;
   serviceRequestId: string;
+  data: ResultEntryInput;
 };
 
 export type DeleteInHouseLabOrderParameters = {

@@ -12,6 +12,18 @@ import {
 // TODO TEMP PUTTING THIS HERE WHILE I TEST THE FRONT END
 // when done with front end testing this can be moved to a shared file in the zambdas package (no need for the front end to have it)
 
+export const extractAbnormalValueSetValues = (
+  obsDef: ObservationDefinition,
+  containedResources: (ObservationDefinition | ValueSet)[]
+): string[] => {
+  const abnormalValueSetRef = obsDef.abnormalCodedValueSet?.reference?.substring(1);
+  const abnormalValueSet = containedResources.find(
+    (res) => res.resourceType === 'ValueSet' && res.id === abnormalValueSetRef
+  ) as ValueSet | undefined;
+  const abnormalValues = abnormalValueSet ? extractValueSetValues(abnormalValueSet) : [];
+  return abnormalValues;
+};
+
 const extractValueSetValues = (valueSet: ValueSet): string[] => {
   if (!valueSet.compose?.include?.[0]?.concept) {
     return [];
@@ -20,7 +32,7 @@ const extractValueSetValues = (valueSet: ValueSet): string[] => {
   return valueSet.compose.include[0].concept.map((concept) => concept.code || '').filter(Boolean);
 };
 
-const extractQuantityRange = (
+export const extractQuantityRange = (
   obsDef: ObservationDefinition
 ): {
   unit: string;
@@ -54,7 +66,6 @@ const extractQuantityRange = (
 const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Radio' | 'Select' | 'Numeric' => {
   const ext = obsDef.extension;
   const display = ext?.find((e) => e.url === OD_DISPLAY_CONFIG.url)?.valueString;
-  console.log('display', display);
   if (!display) throw Error(`no display type set for this observation definition: ${obsName}`);
   if (
     display !== OD_DISPLAY_CONFIG.valueString.radio &&
@@ -102,18 +113,14 @@ const processObservationDefinition = (
 
   if (dataType === 'CodeableConcept') {
     const normalValueSetRef = obsDef.validCodedValueSet?.reference?.substring(1); // Remove the '#'
-    const abnormalValueSetRef = obsDef.abnormalCodedValueSet?.reference?.substring(1);
 
     const normalValueSet = containedResources.find(
       (res) => res.resourceType === 'ValueSet' && res.id === normalValueSetRef
     ) as ValueSet | undefined;
 
-    const abnormalValueSet = containedResources.find(
-      (res) => res.resourceType === 'ValueSet' && res.id === abnormalValueSetRef
-    ) as ValueSet | undefined;
-
     const valueSet = normalValueSet ? extractValueSetValues(normalValueSet) : [];
-    const abnormalValues = abnormalValueSet ? extractValueSetValues(abnormalValueSet) : [];
+    const abnormalValues = extractAbnormalValueSetValues(obsDef, containedResources);
+
     const displayType = extractDisplayType(obsDef, componentName);
     if (displayType === 'Numeric')
       throw Error(

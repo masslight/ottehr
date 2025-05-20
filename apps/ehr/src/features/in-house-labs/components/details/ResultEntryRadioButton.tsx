@@ -23,7 +23,6 @@ const NORMAL_RADIO_COLOR_STYLING = {
 };
 
 export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent }) => {
-  console.log('check whats here', testItemComponent);
   const nullCode = testItemComponent.nullOption?.code;
   const { control } = useFormContext();
 

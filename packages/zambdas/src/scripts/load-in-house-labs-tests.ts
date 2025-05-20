@@ -16,7 +16,7 @@ import {
   IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
-  IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   OD_DISPLAY_CONFIG,
 } from 'utils';
 
@@ -105,12 +105,7 @@ const makeObsDefExtension = (item: TestItem | MixedComponent): Extension[] => {
   };
   const extension: Extension[] = [displayExt];
   if (item.display?.nullOption) {
-    const nullOptionExt = {
-      url: IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
-      valueCode: 'Unknown',
-      valueString: 'Indeterminate / inconclusive / error',
-    };
-    extension.push(nullOptionExt);
+    extension.push(IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG);
   }
 
   return extension;
