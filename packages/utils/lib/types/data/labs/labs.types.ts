@@ -1,4 +1,10 @@
-import { Questionnaire, Encounter, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  Questionnaire,
+  Encounter,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  DocumentReference,
+} from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
@@ -224,3 +230,12 @@ export interface LabelConfig {
   marginRightInches: number;
   printerDPI: number;
 }
+export type GetLabelPdfParameters = {
+  relatedResource: string;
+  searchParams: { name: string; value: string | number }[];
+};
+
+export type LabelDTO = {
+  documentReference: DocumentReference;
+  presignedUrl: string;
+};
