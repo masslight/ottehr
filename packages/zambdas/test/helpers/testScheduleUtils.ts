@@ -1,5 +1,6 @@
+import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import { FhirResource, Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   Capacity,
@@ -13,6 +14,7 @@ import {
   ScheduleOverrides,
   SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
+  ClosureType,
 } from 'utils';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -167,7 +169,7 @@ export const makeLocation = (operationHours: LocationHoursOfOperation[]): Locati
 };
 
 interface MakeTestScheduleInput {
-  processId: string;
+  processId?: string;
   locationRef?: string;
   scheduleJsonString?: string;
   scheduleObject?: ScheduleExtension;
@@ -175,8 +177,10 @@ interface MakeTestScheduleInput {
 
 export const DELETABLE_RESOURCE_CODE_PREFIX = 'DELETE_ME-';
 
-export const tagForProcessId = (processId: string): string => {
-  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId}`;
+export const DEFAULT_TEST_TIMEZONE = 'America/New_York';
+
+export const tagForProcessId = (processId?: string): string => {
+  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId ?? 'N/A'}`;
 };
 
 export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
@@ -201,7 +205,7 @@ export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
     extension: [
       {
         url: 'http://hl7.org/fhir/StructureDefinition/timezone',
-        valueString: 'America/New_York',
+        valueString: DEFAULT_TEST_TIMEZONE,
       },
       {
         url: SCHEDULE_EXTENSION_URL,
@@ -325,9 +329,9 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
   schedule: {
     monday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
-      closingBuffer: 24,
+      closingBuffer: 0,
       workingDay: true,
       hours: [
         {
@@ -430,9 +434,9 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     tuesday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
-      closingBuffer: 24,
+      closingBuffer: 0,
       workingDay: true,
       hours: [
         {
@@ -1103,4 +1107,128 @@ export const changeAllCapacities = (scheduleExt: ScheduleExtension, newCapacity:
     ...scheduleExt,
     schedule: scheduleNew,
   };
+};
+
+export const setSlotLengthInMinutes = (scheduleExt: ScheduleExtension, slotLength: number): ScheduleExtension => {
+  return {
+    ...scheduleExt,
+    slotLength,
+  };
+};
+
+export const addClosurePeriod = (
+  schedule: ScheduleExtension,
+  start: DateTime,
+  lengthInDays: number
+): ScheduleExtension => {
+  const closure: Closure = {
+    type: ClosureType.Period,
+    start: start.toFormat(OVERRIDE_DATE_FORMAT),
+    end: start.plus({ days: lengthInDays }).toFormat(OVERRIDE_DATE_FORMAT),
+  };
+  console.log('closure: ', closure);
+  return {
+    ...schedule,
+    closures: [...(schedule.closures ?? []), closure],
+  };
+};
+
+export const addClosureDay = (schedule: ScheduleExtension, start: DateTime): ScheduleExtension => {
+  const closure: Closure = {
+    type: ClosureType.OneDay,
+    start: start.toFormat(OVERRIDE_DATE_FORMAT),
+    end: start.toFormat(OVERRIDE_DATE_FORMAT),
+  };
+  console.log('closure: ', closure);
+  return {
+    ...schedule,
+    closures: [...(schedule.closures ?? []), closure],
+  };
+};
+
+export const adjustHoursOfOperation = (
+  scheduleExt: ScheduleExtension,
+  hoursOfOp: HoursOfOpConfig[]
+): ScheduleExtension => {
+  const schedule = scheduleExt.schedule;
+
+  const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
+    const hoursToSet = hoursOfOp.find((hours) => hours.dayOfWeek === day);
+    if (hoursToSet) {
+      const { open, close, workingDay } = hoursToSet;
+      return [
+        day,
+        {
+          ...daySchedule,
+          open,
+          close,
+          workingDay,
+        },
+      ];
+    }
+    return [day, daySchedule];
+  });
+  const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
+  return {
+    ...scheduleExt,
+    schedule: scheduleNew,
+  };
+};
+
+export const persistSchedule = async (
+  scheduleExtension: ScheduleExtension,
+  processId: string | null,
+  oystehr: Oystehr
+): Promise<Schedule> => {
+  if (processId === null) {
+    throw new Error('processId is null');
+  }
+  const resource = {
+    ...makeSchedule({
+      processId,
+      scheduleObject: scheduleExtension,
+    }),
+    id: undefined,
+  };
+
+  const schedule = await oystehr.fhir.create<Schedule>(resource);
+  return schedule;
+};
+
+export const cleanupTestScheduleResources = async (processId: string, oystehr: Oystehr): Promise<void> => {
+  if (!oystehr || !processId) {
+    throw new Error('oystehr or processId is null! could not clean up!');
+  }
+  const schedulesAndSuch = (
+    await oystehr.fhir.search<FhirResource>({
+      resourceType: 'Schedule',
+      params: [
+        {
+          name: '_tag',
+          value: tagForProcessId(processId),
+        },
+        {
+          name: '_include',
+          value: 'Schedule:actor',
+        },
+        {
+          name: '_revinclude',
+          value: 'Slot:schedule',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const deleteRequests: BatchInputDeleteRequest[] = schedulesAndSuch.map((res) => {
+    return {
+      method: 'DELETE',
+      url: `${res.resourceType}/${res.id}`,
+    };
+  });
+  try {
+    await oystehr.fhir.batch({ requests: deleteRequests });
+  } catch (error) {
+    console.error('Error deleting schedules', error);
+    console.log(`ProcessId ${processId} may need manual cleanup`);
+  }
 };
