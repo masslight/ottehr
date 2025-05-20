@@ -757,8 +757,8 @@ export const getAvailableSlotsForSchedules = async (
   telemedAvailable: SlotListItem[];
 }> => {
   const { now, scheduleList } = input;
-  const telemedAvailable: SlotListItem[] = [];
-  const availableSlots: SlotListItem[] = [];
+  let telemedAvailable: SlotListItem[] = [];
+  let availableSlots: SlotListItem[] = [];
 
   const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
     schedule: scheduleTemp.schedule,
@@ -814,6 +814,13 @@ export const getAvailableSlotsForSchedules = async (
         err
       );
     }
+  });
+
+  availableSlots = availableSlots.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
+  });
+  telemedAvailable = telemedAvailable.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
   });
 
   // this logic removes duplicate slots even across schedules,
