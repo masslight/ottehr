@@ -131,17 +131,45 @@ export type CreateInHouseLabOrderParameters = {
   notes?: string;
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string };
+export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string; serviceRequestId?: string };
 
 export type GetCreateInHouseLabOrderResourcesResponse = {
-  labs: TestItemsType;
+  id: string;
+  type: TestType;
+  name: string;
+  status: TestStatus;
+  diagnosis: string;
+  diagnosisDTO: DiagnosisDTO[];
+  notes: string;
+  labs: TestItem[];
+  timezone: string | undefined;
+  specimen: {
+    source: string;
+    collectedBy: string;
+    collectionDate: string;
+    collectionTime: string;
+  };
   providerName: string;
+  providerId: string;
+  currentUserName: string;
+  currentUserId: string;
+  orderInfo: {
+    diagnosis: DiagnosisDTO[];
+    testName: string;
+    notes: string | undefined;
+    status: TestStatus;
+  };
+  orderHistory: {
+    status: TestStatus;
+    providerName: string;
+    date: string;
+  }[];
 };
 
 export type CollectInHouseLabSpecimenParameters = {
   encounterId: string;
-  patientId: string;
   serviceRequestId: string;
+  data: MarkAsCollectedData;
 };
 
 export type HandleInHouseLabResultsParameters = {
@@ -160,7 +188,7 @@ export type TestType = 'QUALITATIVE' | 'QUANTITATIVE' | 'MIXED';
 
 export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
 
-// Lab test details
+// todo: should be used GetCreateInHouseLabOrderResourcesResponse instead of this type?
 export interface LabTest {
   id: string;
   type: TestType;
@@ -182,3 +210,12 @@ export interface LabTest {
   };
   parameters?: TestItem[];
 }
+
+export type MarkAsCollectedData = {
+  specimen: {
+    source: string;
+    collectedBy: { id: string; name: string };
+    collectionDate: string;
+  };
+  notes: string;
+};

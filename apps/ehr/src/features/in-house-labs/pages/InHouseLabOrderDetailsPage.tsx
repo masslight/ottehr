@@ -1,25 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, Button, CircularProgress } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { PerformTestView } from '../components/details/PerformTestView';
 import { FinalResultView } from '../components/details/FinalResultView';
-import { LabTest } from 'utils';
+import { GetCreateInHouseLabOrderResourcesResponse, getSelectors, LabTest, MarkAsCollectedData } from 'utils';
+import { useAppointmentStore } from 'src/telemed';
+import { collectInHouseLabSpecimen, getCreateInHouseLabOrderResources } from 'src/api/api';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
-  // const { testId } = useParams<{ testId: string }>();
+  const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
   const [loading, setLoading] = useState(true);
   const [testDetails, setTestDetails] = useState<LabTest | null>(null);
   const { oystehrZambda } = useApiClients();
 
   // eslint-disable-next-line @typescript-eslint/no-inferrable-types
-  const testId: string = 'perform-test-pending';
+  const testId: string = 'collect-sample';
 
   // Fetch the test details based on the current view/status
   useEffect(() => {
     const fetchTestDetails = async (): Promise<void> => {
+      if (!encounter.id || !serviceRequestID) {
+        return;
+      }
+
       setLoading(true);
 
       try {
@@ -34,15 +41,26 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
         // Determine which test data to show based on the test ID
         // In a real implementation, this would come from the API
         if (testId === 'collect-sample') {
-          testData = {
-            id: 'collect-sample',
-            type: 'QUALITATIVE',
-            name: 'Rapid Strep A',
-            status: 'ORDERED',
-            diagnosis: 'J02.0 Streptococcal pharyngitis',
-            notes:
-              'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
-          };
+          if (!oystehrZambda) {
+            return;
+          }
+
+          testData = await getCreateInHouseLabOrderResources(oystehrZambda, {
+            encounterId: encounter.id || '',
+            serviceRequestId: serviceRequestID,
+          });
+
+          console.log('data', testData);
+
+          // testData = {
+          //   id: 'collect-sample',
+          //   type: 'QUALITATIVE',
+          //   name: 'Rapid Strep A',
+          //   status: 'ORDERED',
+          //   diagnosis: 'J02.0 Streptococcal pharyngitis',
+          //   notes:
+          //     'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+          // };
         } else if (testId === 'perform-test-pending') {
           testData = {
             id: 'perform-test-pending',
@@ -167,7 +185,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     };
 
     void fetchTestDetails();
-  }, [testId, oystehrZambda]);
+  }, [testId, oystehrZambda, encounter.id, serviceRequestID]);
 
   const handleBack = (): void => {
     navigate(-1);
@@ -179,7 +197,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     try {
       // In a real implementation, this would call the API to update the test details
       console.log('Submitting test details:', {
-        testId,
         ...updatedData,
       });
 
@@ -187,6 +204,28 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Navigate back to the list view
+      // navigate(-1);
+    } catch (error) {
+      console.error('Error submitting test details:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCollectSampleSubmit = async (updatedData: MarkAsCollectedData): Promise<void> => {
+    setLoading(true);
+
+    try {
+      if (!oystehrZambda || !encounter.id || !serviceRequestID) {
+        return;
+      }
+
+      await collectInHouseLabSpecimen(oystehrZambda, {
+        encounterId: encounter.id,
+        serviceRequestId: serviceRequestID,
+        data: updatedData,
+      });
+
       navigate(-1);
     } catch (error) {
       console.error('Error submitting test details:', error);
@@ -221,7 +260,11 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   return (
     <>
       {testDetails.status === 'ORDERED' && (
-        <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
+        <CollectSampleView
+          testDetails={testDetails as GetCreateInHouseLabOrderResourcesResponse}
+          onBack={handleBack}
+          onSubmit={handleCollectSampleSubmit}
+        />
       )}
       {testDetails.status === 'COLLECTED' && (
         <PerformTestView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
@@ -230,17 +273,5 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
         <FinalResultView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
       )}
     </>
-  );
-
-  // Default view (should not happen, but just in case)
-  return (
-    <Box>
-      <Button variant="outlined" onClick={handleBack} sx={{ mb: 2, borderRadius: '50px', px: 4 }}>
-        Back
-      </Button>
-      <Paper sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h6">Unknown test type or status</Typography>
-      </Paper>
-    </Box>
   );
 };

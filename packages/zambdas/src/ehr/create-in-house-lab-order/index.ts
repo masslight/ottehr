@@ -97,6 +97,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               name: 'name',
               value: testItem.name,
             },
+            { name: 'status', value: 'active' },
           ],
         })
       ).unbundle() as ActivityDefinition[];
@@ -150,7 +151,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const activityDefinition = (() => {
       if (activeDefinitionResources.length !== 1) {
         throw Error(
-          `ActivityDefinition not found, results contain ${activeDefinitionResources.length} activity definitions`
+          `ActivityDefinition not found, results contain ${
+            activeDefinitionResources.length
+          } activity definitions, ids: ${activeDefinitionResources
+            .map((resource) => `ActivityDefinition/${resource.id}`)
+            .join(', ')}`
         );
       }
 
