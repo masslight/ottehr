@@ -1,32 +1,79 @@
 import { Select, InputLabel, FormControl, MenuItem } from '@mui/material';
 import { TestItemComponent } from 'utils';
+import { useFormContext, Controller } from 'react-hook-form';
 
 interface ResultEntrySelectProps {
   testItemComponent: TestItemComponent;
-  result: string | null;
-  setResult: React.Dispatch<React.SetStateAction<string | null>>;
+  isAbnormal: boolean;
+  assessAbnormality: (entry: string) => void;
 }
 
-export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({ testItemComponent, result }) => {
+export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
+  testItemComponent,
+  isAbnormal,
+  assessAbnormality,
+}) => {
   console.log('testItemComponent', testItemComponent);
-  console.log('result', result);
+  const { control } = useFormContext();
+  let values: string[] = [];
+  if (testItemComponent.dataType === 'CodeableConcept') {
+    values = testItemComponent.valueSet;
+  }
+
   return (
-    <FormControl sx={{ width: '80%' }} size="small">
-      <InputLabel id="result-entry-labe">Select</InputLabel>
-      <Select
-        fullWidth
-        labelId="result-entry-label"
-        id="result-entry-select"
-        label="Select"
-        onChange={(e) => console.log('selected!', e.target.value)}
-        value={result}
+    <FormControl
+      sx={{
+        width: '80%',
+        '& .MuiOutlinedInput-root': {
+          color: isAbnormal ? 'error.main' : '',
+          '& fieldset': {
+            borderColor: isAbnormal ? 'error.main' : '',
+          },
+          '&:hover fieldset': {
+            borderColor: isAbnormal ? 'error.dark' : '',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: isAbnormal ? 'error.dark' : '',
+          },
+        },
+      }}
+      size="small"
+    >
+      <InputLabel
+        id="result-entry-labe"
+        sx={{
+          color: isAbnormal ? 'error.main' : '',
+          '&.Mui-focused': {
+            color: isAbnormal ? 'error.main' : '',
+          },
+        }}
       >
-        {['test', 'hi', 'oh']?.map((d) => (
-          <MenuItem id={d} key={d} value={d}>
-            {d}
-          </MenuItem>
-        ))}
-      </Select>
+        Select
+      </InputLabel>
+      <Controller
+        name={`select-${testItemComponent.observationDefinitionId}`}
+        control={control}
+        defaultValue=""
+        render={({ field }) => (
+          <Select
+            fullWidth
+            labelId="result-entry-label"
+            id="result-entry-select"
+            label="Select"
+            {...field}
+            onChange={(e) => {
+              field.onChange(e);
+              assessAbnormality(e.target.value);
+            }}
+          >
+            {values?.map((val, idx) => (
+              <MenuItem id={`${val}-${idx}-id`} key={`${val}-${idx}-key`} value={val}>
+                {val}
+              </MenuItem>
+            ))}
+          </Select>
+        )}
+      />
     </FormControl>
   );
 };

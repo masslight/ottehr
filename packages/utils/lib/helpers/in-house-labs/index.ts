@@ -64,7 +64,7 @@ const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Ra
     throw Error(
       `unknown display cast to this observation definition: ${obsName} (display should be one of the follow ${Object.values(
         OD_DISPLAY_CONFIG.valueString
-      )})`
+      )} and recieved: ${display})`
     );
   return display;
 };
@@ -94,6 +94,7 @@ const processObservationDefinition = (
   containedResources: (ObservationDefinition | ValueSet)[]
 ): TestItemComponent => {
   const componentName = obsDef.code?.text || '';
+  const observationDefinitionId = obsDef.id || '';
   const dataType = obsDef.permittedDataType?.[0] as 'Quantity' | 'CodeableConcept';
   const loincCode =
     obsDef.code?.coding?.filter((coding) => coding.system === 'http://loinc.org').map((coding) => coding.code || '') ||
@@ -122,6 +123,7 @@ const processObservationDefinition = (
 
     const component: CodeableConceptComponent = {
       componentName,
+      observationDefinitionId,
       loincCode,
       dataType,
       valueSet,
@@ -137,6 +139,7 @@ const processObservationDefinition = (
       throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     const component: QuantityComponent = {
       componentName,
+      observationDefinitionId,
       loincCode,
       dataType,
       unit: quantityInfo.unit,

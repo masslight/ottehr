@@ -1,10 +1,9 @@
 import { Typography, Grid, FormControlLabel, Radio, RadioGroup, Checkbox, Box, SxProps, Theme } from '@mui/material';
 import { CodeableConceptComponent } from 'utils';
+import { Controller, useFormContext } from 'react-hook-form';
 
 interface ResultEntryRadioButtonProps {
   testItemComponent: CodeableConceptComponent;
-  result: string | null;
-  setResult: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 const ABNORMAL_FONT_COLOR = '#F44336';
@@ -23,32 +22,30 @@ const NORMAL_RADIO_COLOR_STYLING = {
   },
 };
 
-export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({
-  testItemComponent,
-  result,
-  setResult,
-}) => {
+export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent }) => {
   console.log('check whats here', testItemComponent);
+  const nullCode = testItemComponent.nullOption?.code;
+  const { control } = useFormContext();
 
-  const isChecked = (valueCode: string): boolean => {
-    return result === valueCode;
+  const isChecked = (curValue: string, selectedValue: string): boolean => {
+    return curValue === selectedValue;
   };
 
-  const isAbnormal = (valueCode: string): boolean => {
-    return testItemComponent.abnormalValues.includes(valueCode);
+  const isAbnormal = (curValue: string): boolean => {
+    return testItemComponent.abnormalValues.includes(curValue);
   };
 
-  const radioStylingColor = (valueCode: string): SxProps<Theme> | undefined => {
-    if (isChecked(valueCode)) {
-      return isAbnormal(valueCode) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
+  const radioStylingColor = (curValue: string, selectedValue: string): SxProps<Theme> | undefined => {
+    if (isChecked(curValue, selectedValue)) {
+      return isAbnormal(curValue) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
     }
     return undefined;
   };
 
-  const typographyStyling = (valueCode: string): SxProps<Theme> => {
-    if (result) {
-      if (isChecked(valueCode)) {
-        if (isAbnormal(valueCode)) {
+  const typographyStyling = (curValue: string, selectedValue: string): SxProps<Theme> => {
+    if (selectedValue) {
+      if (isChecked(curValue, selectedValue)) {
+        if (isAbnormal(curValue)) {
           return {
             color: ABNORMAL_FONT_COLOR,
             fontWeight: 'bold',
@@ -66,7 +63,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({
         };
       }
     } else {
-      if (isAbnormal(valueCode)) {
+      if (isAbnormal(curValue)) {
         return {
           color: ABNORMAL_FONT_COLOR,
           fontWeight: 'bold',
@@ -80,54 +77,62 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({
     }
   };
 
-  const getBackgroundColor = (valueCode: string): string => {
-    if (isChecked(valueCode)) {
-      return isAbnormal(valueCode) ? '#FFEBEE' : '#E8F5E9';
+  const getBackgroundColor = (curValue: string, selectedValue: string): string => {
+    if (isChecked(curValue, selectedValue)) {
+      return isAbnormal(curValue) ? '#FFEBEE' : '#E8F5E9';
     } else {
       return 'transparent';
     }
   };
 
   return (
-    <>
-      <RadioGroup value={result} onChange={(e) => setResult(e.target.value)}>
-        <Grid container spacing={2}>
-          {testItemComponent.valueSet.map((valueCode) => {
-            return (
-              <Grid item xs={6}>
-                <FormControlLabel
-                  value={valueCode}
-                  control={<Radio checked={isChecked(valueCode)} sx={radioStylingColor(valueCode)} />}
-                  label={<Typography sx={typographyStyling(valueCode)}>{valueCode}</Typography>}
-                  sx={{
-                    margin: 0,
-                    padding: 2,
-                    width: '100%',
-                    border: '1px solid #E0E0E0',
-                    borderRadius: 1,
-                    backgroundColor: getBackgroundColor(valueCode),
-                  }}
-                />
-              </Grid>
-            );
-          })}
-        </Grid>
-      </RadioGroup>
+    <Controller
+      name={testItemComponent.observationDefinitionId}
+      control={control}
+      defaultValue={''}
+      render={({ field }) => (
+        <>
+          <RadioGroup
+            value={field.value === nullCode ? '' : field.value}
+            onChange={(e) => field.onChange(e.target.value)}
+          >
+            <Grid container spacing={2}>
+              {testItemComponent.valueSet.map((valueCode) => (
+                <Grid item xs={6} key={valueCode}>
+                  <FormControlLabel
+                    value={valueCode}
+                    control={<Radio sx={radioStylingColor(valueCode, field.value)} />}
+                    label={<Typography sx={typographyStyling(valueCode, field.value)}>{valueCode}</Typography>}
+                    sx={{
+                      margin: 0,
+                      padding: 2,
+                      width: '100%',
+                      border: '1px solid #E0E0E0',
+                      borderRadius: 1,
+                      backgroundColor: getBackgroundColor(valueCode, field.value),
+                    }}
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          </RadioGroup>
 
-      {testItemComponent.nullOption && (
-        <Box mt={2}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={isChecked(testItemComponent.nullOption.code)}
-                onChange={() => setResult(testItemComponent.nullOption?.code || 'Unknown')}
+          {testItemComponent.nullOption && (
+            <Box mt={2}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={field.value === nullCode}
+                    onChange={() => field.onChange(field.value === nullCode ? '' : nullCode)}
+                  />
+                }
+                label={testItemComponent.nullOption.text}
+                sx={{ color: 'text.secondary' }}
               />
-            }
-            label={testItemComponent.nullOption.text}
-            sx={{ color: 'text.secondary' }}
-          />
-        </Box>
+            </Box>
+          )}
+        </>
       )}
-    </>
+    />
   );
 };

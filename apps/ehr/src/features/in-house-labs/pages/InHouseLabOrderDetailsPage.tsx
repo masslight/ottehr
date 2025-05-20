@@ -63,7 +63,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
             type: 'QUALITATIVE',
             name: 'Rapid Strep A',
             status: 'COLLECTED',
-            result: 'DETECTED',
             diagnosis: 'J02.0 Streptococcal pharyngitis',
             specimen: {
               source: 'Blood',
@@ -78,7 +77,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
             type: 'QUALITATIVE',
             name: 'Rapid Strep A',
             status: 'COLLECTED',
-            result: 'NOT_DETECTED',
             diagnosis: 'J02.0 Streptococcal pharyngitis',
             specimen: {
               source: 'Blood',
@@ -102,18 +100,18 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
             name: 'Urinalysis (UA)',
             status: 'COLLECTED',
             diagnosis: 'J02.0 Streptococcal pharyngitis',
-            parameters: [
-              { name: 'Glucose', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
-              { name: 'Bilirubin', value: null, referenceRange: 'Not detected' },
-              { name: 'Ketone', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
-              { name: 'Specific gravity', value: null, referenceRange: '1.005 - 1.030' },
-              { name: 'Blood', value: null, referenceRange: 'Not detected' },
-              { name: 'pH', value: null, referenceRange: '5.0 - 8.0' },
-              { name: 'Proteine', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
-              { name: 'Urobilinogen', value: null, units: 'mg/dL', referenceRange: '0.2 - 1.0' },
-              { name: 'Nitrite', value: null, referenceRange: 'Not detected' },
-              { name: 'Leukocytes', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
-            ],
+            // parameters: [
+            //   { name: 'Glucose', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
+            //   { name: 'Bilirubin', value: null, referenceRange: 'Not detected' },
+            //   { name: 'Ketone', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
+            //   { name: 'Specific gravity', value: null, referenceRange: '1.005 - 1.030' },
+            //   { name: 'Blood', value: null, referenceRange: 'Not detected' },
+            //   { name: 'pH', value: null, referenceRange: '5.0 - 8.0' },
+            //   { name: 'Proteine', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
+            //   { name: 'Urobilinogen', value: null, units: 'mg/dL', referenceRange: '0.2 - 1.0' },
+            //   { name: 'Nitrite', value: null, referenceRange: 'Not detected' },
+            //   { name: 'Leukocytes', value: null, units: 'mg/dL', referenceRange: 'Not detected' },
+            // ],
           };
         } else if (testId === 'urinalysis-final') {
           testData = {
@@ -122,24 +120,24 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
             name: 'Urinalysis (UA)',
             status: 'FINAL',
             diagnosis: 'J02.0 Streptococcal pharyngitis',
-            parameters: [
-              { name: 'Glucose', value: 'Not detected', units: 'mg/dL', referenceRange: 'Not detected' },
-              { name: 'Bilirubin', value: '2+ (Moderate)', referenceRange: 'Not detected', isAbnormal: true },
-              { name: 'Ketone', value: 'Small (15)', units: 'mg/dL', referenceRange: 'Not detected', isAbnormal: true },
-              { name: 'Specific gravity', value: '1.010', referenceRange: '1.005 - 1.030' },
-              { name: 'Blood', value: 'Not detected', referenceRange: 'Not detected' },
-              { name: 'pH', value: '4.5', referenceRange: '5.0 - 8.0', isAbnormal: true },
-              {
-                name: 'Proteine',
-                value: '4+ (≥2000)',
-                units: 'mg/dL',
-                referenceRange: 'Not detected',
-                isAbnormal: true,
-              },
-              { name: 'Urobilinogen', value: '0.3', units: 'mg/dL', referenceRange: '0.2 - 1.0' },
-              { name: 'Nitrite', value: 'Detected', referenceRange: 'Not detected', isAbnormal: true },
-              { name: 'Leukocytes', value: 'Not detected', units: 'mg/dL', referenceRange: 'Not detected' },
-            ],
+            // parameters: [
+            //   { name: 'Glucose', value: 'Not detected', units: 'mg/dL', referenceRange: 'Not detected' },
+            //   { name: 'Bilirubin', value: '2+ (Moderate)', referenceRange: 'Not detected', isAbnormal: true },
+            //   { name: 'Ketone', value: 'Small (15)', units: 'mg/dL', referenceRange: 'Not detected', isAbnormal: true },
+            //   { name: 'Specific gravity', value: '1.010', referenceRange: '1.005 - 1.030' },
+            //   { name: 'Blood', value: 'Not detected', referenceRange: 'Not detected' },
+            //   { name: 'pH', value: '4.5', referenceRange: '5.0 - 8.0', isAbnormal: true },
+            //   {
+            //     name: 'Proteine',
+            //     value: '4+ (≥2000)',
+            //     units: 'mg/dL',
+            //     referenceRange: 'Not detected',
+            //     isAbnormal: true,
+            //   },
+            //   { name: 'Urobilinogen', value: '0.3', units: 'mg/dL', referenceRange: '0.2 - 1.0' },
+            //   { name: 'Nitrite', value: 'Detected', referenceRange: 'Not detected', isAbnormal: true },
+            //   { name: 'Leukocytes', value: 'Not detected', units: 'mg/dL', referenceRange: 'Not detected' },
+            // ],
           };
         } else if (testId === 'final-result') {
           testData = {
@@ -147,7 +145,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
             type: 'QUALITATIVE',
             name: 'Rapid Strep A',
             status: 'FINAL',
-            result: 'DETECTED',
             diagnosis: 'J02.0 Streptococcal pharyngitis',
           };
         } else {

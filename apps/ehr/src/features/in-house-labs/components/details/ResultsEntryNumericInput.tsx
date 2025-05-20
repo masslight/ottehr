@@ -1,35 +1,55 @@
 import { TextField } from '@mui/material';
 import { TestItemComponent } from 'utils';
-import InputMask from 'src/components/InputMask';
+// import InputMask from 'src/components/InputMask';
+import { useFormContext, Controller } from 'react-hook-form';
 
 interface ResultEntryNumericInputProps {
   testItemComponent: TestItemComponent;
-  result: string | null;
-  setResult: React.Dispatch<React.SetStateAction<string | null>>;
+  isAbnormal: boolean;
+  assessAbnormality: (entry: string) => void;
 }
 
-export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = ({ testItemComponent, result }) => {
+export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = ({
+  testItemComponent,
+  isAbnormal,
+  assessAbnormality,
+}) => {
   console.log('testItemComponent', testItemComponent);
-  console.log('result', result);
+  const { control } = useFormContext();
+
   return (
-    <TextField
-      type="text"
-      //   placeholder={numberType.replace(/#/g, '0')}
-      // id={idString}
-      sx={{ width: '80%' }}
-      size="small"
-      InputProps={{
-        inputComponent: InputMask as any,
-        inputProps: {
-          mask: Number,
-          radix: '.',
-          padFractionalZeros: true,
-          // scale: decimals,
-          // step: decimals ? `0.${'0'.padStart(decimals - 1, '0')}1` : null,
-          // readOnly: answer !== undefined,
-        },
-      }}
-      defaultValue={result}
+    <Controller
+      name={testItemComponent.observationDefinitionId}
+      control={control}
+      defaultValue=""
+      render={({ field }) => (
+        <TextField
+          {...field}
+          onChange={(e) => {
+            const value = e.target.value;
+            field.onChange(value);
+            assessAbnormality(value);
+          }}
+          type="text"
+          error={isAbnormal}
+          sx={{
+            width: '80%',
+            '& .MuiInputBase-root': {
+              color: isAbnormal ? 'error.dark' : 'text.primary',
+            },
+          }}
+          size="small"
+          InputProps={{
+            // inputComponent: InputMask as any,
+            inputProps: {
+              mask: Number,
+              radix: '.',
+              padFractionalZeros: true,
+            },
+          }}
+          defaultValue={''}
+        />
+      )}
     />
   );
 };

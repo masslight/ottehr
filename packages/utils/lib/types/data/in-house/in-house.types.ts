@@ -10,6 +10,7 @@ export interface QuantityRange {
 export interface BaseComponent {
   componentName: string;
   loincCode: string[];
+  observationDefinitionId: string;
 }
 
 export interface CodeableConceptComponent extends BaseComponent {
@@ -42,6 +43,10 @@ export interface TestItem {
   components: {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
+  };
+  result?: {
+    entry: string;
+    isAbnormal?: boolean;
   };
   note?: string;
 }
@@ -155,21 +160,12 @@ export type TestType = 'QUALITATIVE' | 'QUANTITATIVE' | 'MIXED';
 
 export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
 
-export interface LabParameter {
-  name: string;
-  value: string | null;
-  units?: string;
-  referenceRange: string;
-  isAbnormal?: boolean;
-}
-
 // Lab test details
 export interface LabTest {
   id: string;
   type: TestType;
   name: string;
   status: TestStatus;
-  result?: string;
   diagnosis: string;
   specimen?: {
     source: string;
@@ -184,5 +180,5 @@ export interface LabTest {
     collectedBy?: string;
     collectedDate?: string;
   };
-  parameters?: LabParameter[];
+  parameters?: TestItem[];
 }
