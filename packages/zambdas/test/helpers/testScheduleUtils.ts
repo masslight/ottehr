@@ -1,6 +1,7 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import _ from 'lodash';
 import { DateTime } from 'luxon';
 import {
   Capacity,
@@ -1078,8 +1079,9 @@ export const applyBuffersToScheduleExtension = (
   scheduleExt: ScheduleExtension,
   bufferDef: BufferDef
 ): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
   const { openingBuffer, closingBuffer } = bufferDef;
-  const schedule = scheduleExt.schedule;
+  const schedule = scheduleExtCopy.schedule;
 
   const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
     const newOpeningBuffer = openingBuffer ?? daySchedule.openingBuffer;
@@ -1089,13 +1091,14 @@ export const applyBuffersToScheduleExtension = (
   });
   const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
   return {
-    ...scheduleExt,
+    ...scheduleExtCopy,
     schedule: scheduleNew,
   };
 };
 
 export const changeAllCapacities = (scheduleExt: ScheduleExtension, newCapacity: number): ScheduleExtension => {
-  const schedule = scheduleExt.schedule;
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
 
   const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
     const { hours } = daySchedule;
@@ -1106,23 +1109,25 @@ export const changeAllCapacities = (scheduleExt: ScheduleExtension, newCapacity:
   });
   const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
   return {
-    ...scheduleExt,
+    ...scheduleExtCopy,
     schedule: scheduleNew,
   };
 };
 
 export const setSlotLengthInMinutes = (scheduleExt: ScheduleExtension, slotLength: number): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
   return {
-    ...scheduleExt,
+    ...scheduleExtCopy,
     slotLength,
   };
 };
 
 export const addClosurePeriod = (
-  schedule: ScheduleExtension,
+  scheduleExt: ScheduleExtension,
   start: DateTime,
   lengthInDays: number
 ): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
   const closure: Closure = {
     type: ClosureType.Period,
     start: start.toFormat(OVERRIDE_DATE_FORMAT),
@@ -1130,12 +1135,13 @@ export const addClosurePeriod = (
   };
   console.log('closure: ', closure);
   return {
-    ...schedule,
-    closures: [...(schedule.closures ?? []), closure],
+    ...scheduleExtCopy,
+    closures: [...(scheduleExtCopy.closures ?? []), closure],
   };
 };
 
-export const addClosureDay = (schedule: ScheduleExtension, start: DateTime): ScheduleExtension => {
+export const addClosureDay = (scheduleExt: ScheduleExtension, start: DateTime): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
   const closure: Closure = {
     type: ClosureType.OneDay,
     start: start.toFormat(OVERRIDE_DATE_FORMAT),
@@ -1143,8 +1149,8 @@ export const addClosureDay = (schedule: ScheduleExtension, start: DateTime): Sch
   };
   console.log('closure: ', closure);
   return {
-    ...schedule,
-    closures: [...(schedule.closures ?? []), closure],
+    ...scheduleExtCopy,
+    closures: [...(scheduleExtCopy.closures ?? []), closure],
   };
 };
 
@@ -1153,6 +1159,7 @@ export const addOverrides = (
   overrides: OverrideScheduleConfig[]
 ): ScheduleExtension => {
   const overridesToAdd: ScheduleOverrides = {};
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
 
   overrides.forEach((override) => {
     const dateString = override.date.startOf('day').toFormat(OVERRIDE_DATE_FORMAT);
@@ -1173,9 +1180,9 @@ export const addOverrides = (
     };
   });
   return {
-    ...scheduleExt,
+    ...scheduleExtCopy,
     scheduleOverrides: {
-      ...(scheduleExt.scheduleOverrides || {}),
+      ...(scheduleExtCopy.scheduleOverrides || {}),
       ...overridesToAdd,
     },
   };
@@ -1185,7 +1192,8 @@ export const adjustHoursOfOperation = (
   scheduleExt: ScheduleExtension,
   hoursOfOp: HoursOfOpConfig[]
 ): ScheduleExtension => {
-  const schedule = scheduleExt.schedule;
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
 
   const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
     const hoursToSet = hoursOfOp.find((hours) => hours.dayOfWeek === day);
@@ -1205,7 +1213,7 @@ export const adjustHoursOfOperation = (
   });
   const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
   return {
-    ...scheduleExt,
+    ...scheduleExtCopy,
     schedule: scheduleNew,
   };
 };
