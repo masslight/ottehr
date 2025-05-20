@@ -6,6 +6,7 @@ import {
   ValueSet,
   ObservationDefinitionQuantitativeDetails,
   ObservationDefinitionQualifiedInterval,
+  Extension,
 } from 'fhir/r4b';
 import fs from 'fs';
 import { getAuth0Token, createOystehrClient } from '../shared';
@@ -15,6 +16,8 @@ import {
   IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+  IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
+  OD_DISPLAY_CONFIG,
 } from 'utils';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
@@ -93,6 +96,26 @@ const makeQualifiedInterval = (item: QuantityTestItem | MixedComponent): Observa
   };
 };
 
+const makeObsDefExtension = (item: TestItem | MixedComponent): Extension[] => {
+  const display = item.display?.type as string;
+  if (!display) throw new Error(`Missing display on ${item.loincCode.join(',')} item`);
+  const displayExt: Extension = {
+    url: OD_DISPLAY_CONFIG.url as string,
+    valueString: display,
+  };
+  const extension: Extension[] = [displayExt];
+  if (item.display?.nullOption) {
+    const nullOptionExt = {
+      url: IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
+      valueCode: 'Unknown',
+      valueString: 'Indeterminate / inconclusive / error',
+    };
+    extension.push(nullOptionExt);
+  }
+
+  return extension;
+};
+
 const getQuantityObservationDefinition = (
   item: TestItem
 ): { obsDef: ObservationDefinition; contained: ObservationDefinition[] } => {
@@ -114,6 +137,7 @@ const getQuantityObservationDefinition = (
     permittedDataType: [item.dataType],
     quantitativeDetails: makeQuantitativeDetails(item),
     qualifiedInterval: [makeQualifiedInterval(item)],
+    extension: makeObsDefExtension(item),
   };
 
   return {
@@ -158,6 +182,7 @@ const getCodeableConceptObservationDefinition = (
       type: 'ValueSet',
       reference: `#${abnormalValueSetId}`,
     },
+    extension: makeObsDefExtension(item),
   };
 
   containedItems.push(obsDef);
@@ -218,17 +243,15 @@ const getComponentObservationDefinition = (
       type: 'ValueSet',
       reference: `#${abnormalValueSetId}`,
     };
-
-    contained.push(normalValueSet, abnormalValueSet, obsDef);
+    (obsDef.extension = makeObsDefExtension(item)), contained.push(normalValueSet, abnormalValueSet, obsDef);
   } else {
     if (!item.normalRange) {
       throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
     }
 
     obsDef.quantitativeDetails = makeQuantitativeDetails(item);
-
     obsDef.qualifiedInterval = [makeQualifiedInterval(item)];
-    contained.push(obsDef);
+    (obsDef.extension = makeObsDefExtension(item)), contained.push(obsDef);
   }
   return {
     obsDef,
@@ -441,10 +464,16 @@ interface QuantityRange {
 interface MixedComponent {
   loincCode: string[];
   dataType: 'CodeableConcept' | 'Quantity'; // Using literal types instead of ResultType['dataType']
+  display: componentDisplay;
   valueSet?: string[];
   abnormalValues?: string[];
   normalRange?: QuantityRange;
   quantitativeReference?: Record<string, string>;
+}
+
+interface componentDisplay {
+  type: 'Numeric' | 'Radio' | 'Select';
+  nullOption?: boolean;
 }
 
 interface BaseTestItem {
@@ -455,6 +484,8 @@ interface BaseTestItem {
   cptCode: string[];
   loincCode: string[];
   // repeatTest: boolean;
+  // if components are present this display will be defined there
+  display?: componentDisplay;
   note?: string;
   components?: Record<string, MixedComponent>;
 }
@@ -495,6 +526,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Rapid Influenza A': {
     name: 'Rapid Influenza A',
@@ -510,6 +545,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Rapid Influenza B': {
     name: 'Rapid Influenza B',
@@ -525,6 +564,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Rapid RSV': {
     name: 'Rapid RSV',
@@ -540,6 +583,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Rapid COVID-19 Antigen': {
     name: 'Rapid COVID-19 Antigen',
@@ -555,6 +602,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Flu-Vid': {
     name: 'Flu-Vid',
@@ -569,6 +620,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Stool Guaiac': {
     name: 'Stool Guaiac',
@@ -583,6 +638,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Monospot test': {
     name: 'Monospot test',
@@ -597,6 +656,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Glucose Finger/Heel Stick': {
     name: 'Glucose Finger/Heel Stick',
@@ -614,6 +677,9 @@ const testItems: TestItemsType = {
       low: 70,
       high: 140,
       unit: 'mg/dL',
+    },
+    display: {
+      type: 'Numeric',
     },
   },
   'Urinalysis (UA)': {
@@ -643,6 +709,9 @@ const testItems: TestItemsType = {
           '3+': '500 mg/dL',
           '4+': '≥1000 mg/dL',
         },
+        display: {
+          type: 'Select',
+        },
       },
       Bilirubin: {
         loincCode: ['1977-8'],
@@ -653,6 +722,9 @@ const testItems: TestItemsType = {
           '1+': 'small',
           '2+': 'moderate',
           '3+': 'large',
+        },
+        display: {
+          type: 'Select',
         },
       },
       Ketone: {
@@ -666,6 +738,9 @@ const testItems: TestItemsType = {
           Moderate: '40 mg/dL',
           Large: '80-160 mg/dL',
         },
+        display: {
+          type: 'Select',
+        },
       },
       'Specific gravity': {
         loincCode: ['2965-2'],
@@ -676,12 +751,18 @@ const testItems: TestItemsType = {
           unit: '', // specific gravity has no unit
           precision: 3,
         },
+        display: {
+          type: 'Numeric',
+        },
       },
       Blood: {
         loincCode: ['105906-2'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
+        display: {
+          type: 'Select',
+        },
       },
       pH: {
         loincCode: ['2756-5'],
@@ -691,6 +772,9 @@ const testItems: TestItemsType = {
           high: 8.0,
           unit: '', // ph has no unit
           precision: 1,
+        },
+        display: {
+          type: 'Numeric',
         },
       },
       Protein: {
@@ -705,6 +789,9 @@ const testItems: TestItemsType = {
           '3+': '300 mg/dL',
           '4+': '≥2000 mg/dL',
         },
+        display: {
+          type: 'Select',
+        },
       },
       Urobilinogen: {
         loincCode: ['32727-0'],
@@ -715,18 +802,27 @@ const testItems: TestItemsType = {
           unit: 'EU/dL',
           precision: 1,
         },
+        display: {
+          type: 'Numeric',
+        },
       },
       Nitrite: {
         loincCode: ['32710-6'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Positive', 'Negative'],
         abnormalValues: ['Positive'],
+        display: {
+          type: 'Select',
+        },
       },
       Leukocytes: {
         loincCode: ['105105-1'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
+        display: {
+          type: 'Select',
+        },
       },
     },
   },
@@ -743,6 +839,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: [], // empty array, because both results are normal in the context of the test
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   Strep: {
     name: 'Strep',
@@ -757,6 +857,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Flu A': {
     name: 'Flu A',
@@ -772,6 +876,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'Flu B': {
     name: 'Flu B',
@@ -787,6 +895,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   RSV: {
     name: 'RSV',
@@ -801,6 +913,10 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
   'COVID-19 Antigen': {
     name: 'COVID-19 Antigen',
@@ -815,5 +931,9 @@ const testItems: TestItemsType = {
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
+    display: {
+      type: 'Radio',
+      nullOption: true,
+    },
   },
 };
