@@ -11,11 +11,15 @@ test.describe('Discard Changes Dialog non-mutating tests', () => {
   const resourceHandler = new ResourceHandler();
 
   test.beforeAll(async () => {
-    await resourceHandler.setResources();
-    await Promise.all([
-      resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
-      resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
-    ]);
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await Promise.all([
+        resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!),
+        resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!),
+      ]);
+    }
   });
 
   test.afterAll(async () => {

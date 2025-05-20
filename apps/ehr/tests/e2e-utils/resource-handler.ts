@@ -63,10 +63,10 @@ export function getAccessToken(): string {
   return token;
 }
 
-const EightDigitsString = DateTime.now().toFormat('yyyyMMdd');
+const EightDigitsString = '20250519';
 
-export const PATIENT_FIRST_NAME = 'Test_John_Random' + EightDigitsString;
-export const PATIENT_LAST_NAME = 'Test_Doe_Random' + EightDigitsString; // don't use real random values in parallel related tests
+export const PATIENT_FIRST_NAME = 'Jon';
+export const PATIENT_LAST_NAME = 'Snow';
 export const PATIENT_GENDER = 'Male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';

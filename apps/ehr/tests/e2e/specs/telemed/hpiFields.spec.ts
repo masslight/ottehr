@@ -43,8 +43,12 @@ test.describe('Check all hpi fields common functionality, without changing data'
   const noOptionsMessage = 'Nothing found for this search criteria';
 
   test.beforeAll(async () => {
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
+    }
   });
 
   test.afterAll(async () => {
@@ -116,8 +120,12 @@ test.describe('Medical conditions', async () => {
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
+    }
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -224,8 +232,12 @@ test.describe.skip('Current medications', () => {
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
+    }
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -378,8 +390,12 @@ test.describe.skip('Known allergies', () => {
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
+    }
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -464,7 +480,12 @@ test.describe('Surgical history', () => {
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    await resourceHandler.setResources();
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
+    }
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
@@ -580,7 +601,12 @@ test.describe('Additional questions', () => {
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
     page = await context.newPage();
-    await resourceHandler.setResources();
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
+    }
 
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });

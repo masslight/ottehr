@@ -91,8 +91,12 @@ test.describe('Patient Record Page non-mutating tests', () => {
   const resourceHandler = new ResourceHandler();
 
   test.beforeAll(async () => {
-    await resourceHandler.setResources();
-    await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillHarvestingDone(resourceHandler.appointment.id!);
+    }
   });
 
   test.afterAll(async () => {
