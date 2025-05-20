@@ -64,7 +64,6 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
   const pdfClient = await createPdfClient(pdfClientStyles);
   // the pdf client initializes YPos to some non-zero number and it's causing huge gaps
   pdfClient.setY(pdfClient.getY() + pdfClientGapSubtraction - 15);
-  console.log('New YPos is ', pdfClient.getY());
 
   const CourierBold = await pdfClient.embedStandardFont(StandardFonts.CourierBold);
   const Courier = await pdfClient.embedStandardFont(StandardFonts.Courier);
@@ -96,11 +95,7 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
 
   // const columnGapPoints = pdfClientStyles.initialPage.width / 30;
   const columnGapPoints = 0.0125;
-  const leftColumnXEnd = pdfClientStyles.initialPage.width / 2 - columnGapPoints / 2;
   const rightColumnXStart = pdfClientStyles.initialPage.width / 2 + columnGapPoints / 2;
-  console.log('This is columnGap: ', columnGapPoints);
-  console.log('This is leftColumnXEnd: ', leftColumnXEnd);
-  console.log('This is rightColumnXStart: ', rightColumnXStart);
 
   const drawHeaderAndInlineText = (header: string, text: string): void => {
     pdfClient.drawTextSequential(`${header}: `, textStyles.fieldHeader);
@@ -114,7 +109,6 @@ const createExternalLabsLabelPdfBytes = async (data: ExternalLabsLabelConfig): P
     startXPos = pdfClient.drawStartXPosSpecifiedText(leftHeader, textStyles.fieldHeader, startXPos).endXPos;
     pdfClient.drawStartXPosSpecifiedText(leftColumn.value, textStyles.fieldText, startXPos);
 
-    console.log('After drawing left column, xPos is ', pdfClient.getX());
     // now start the right column
     pdfClient.setX(rightColumnXStart);
 
