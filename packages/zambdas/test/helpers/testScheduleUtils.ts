@@ -25,6 +25,17 @@ type DayLong = (typeof DAYS_LONG)[number];
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 type DayOfWeek = (typeof DAYS)[number];
 
+interface StartOfDayParams {
+  date?: DateTime;
+  timezone?: string;
+}
+export const startOfDayWithTimezone = (input?: StartOfDayParams): DateTime => {
+  const baseDate = input?.date ?? DateTime.now();
+  const timezone = input?.timezone ?? DEFAULT_TEST_TIMEZONE;
+  baseDate.setZone(timezone);
+  return baseDate.startOf('day');
+};
+
 // todo: avoid name collision with fhir resource
 export interface ScheduleDTO {
   [day: DayLong]: {

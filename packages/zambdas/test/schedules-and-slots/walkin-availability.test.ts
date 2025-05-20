@@ -9,10 +9,10 @@ import {
   changeAllCapacities,
   cleanupTestScheduleResources,
   DEFAULT_SCHEDULE_JSON,
-  DEFAULT_TEST_TIMEZONE,
   getScheduleDay,
   makeSchedule,
   OverrideScheduleConfig,
+  startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
 import { Capacity, getAllSlotsAsCapacityMap, getAvailableSlots, GetAvailableSlotsInput, getTimezone } from 'utils';
 import { DateTime } from 'luxon';
@@ -43,7 +43,7 @@ describe('closure and override tests', () => {
   });
 
   it('dummy copy paste test to be replaced', () => {
-    const startTime = DateTime.now().startOf('day').setZone(DEFAULT_TEST_TIMEZONE);
+    const startTime = startOfDayWithTimezone();
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const scheduleExtension = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1);

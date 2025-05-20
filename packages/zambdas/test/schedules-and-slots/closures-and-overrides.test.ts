@@ -12,11 +12,11 @@ import {
   changeAllCapacities,
   cleanupTestScheduleResources,
   DEFAULT_SCHEDULE_JSON,
-  DEFAULT_TEST_TIMEZONE,
   getScheduleDay,
   HoursOfOpConfig,
   makeSchedule,
   OverrideScheduleConfig,
+  startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
 import {
   Capacity,
@@ -54,7 +54,7 @@ describe('closure and override tests', () => {
   });
 
   it('one day closure today results in no slots for today but all slots for tomorrow', () => {
-    const startDate = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startDate = startOfDayWithTimezone();
     const scheduleExtension = addClosureDay(DEFAULT_SCHEDULE_JSON, startDate);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
@@ -110,7 +110,7 @@ describe('closure and override tests', () => {
     }
   });
   it("closure starting tomorrow has no affect on today's slots, but does eliminate tomorrow's", () => {
-    const startDate = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startDate = startOfDayWithTimezone();
     const closureDate = startDate.plus({ days: 1 });
     let scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, closureDate, 1);
     scheduleExtension = addClosureDay(scheduleExtension, closureDate);
@@ -169,7 +169,7 @@ describe('closure and override tests', () => {
     }
   });
   it('period closure starting today results in no slots for either today or tomorrow (period.end is inclusive of the entire day)', () => {
-    const startDate = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startDate = startOfDayWithTimezone();
     const scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, startDate, 1);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
@@ -215,7 +215,7 @@ describe('closure and override tests', () => {
   });
 
   it("closure one week ago has no impact on today's slots", () => {
-    const startDate = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startDate = startOfDayWithTimezone();
     const closureDate = startDate.minus({ weeks: 1 });
     let scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, closureDate, 1);
     scheduleExtension = addClosureDay(scheduleExtension, closureDate);
@@ -268,7 +268,7 @@ describe('closure and override tests', () => {
   });
 
   it("closure one year ago has no impact on today's slots", () => {
-    const startDate = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startDate = startOfDayWithTimezone();
     const closureDate = startDate.minus({ years: 1 });
     let scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, closureDate, 1);
     scheduleExtension = addClosureDay(scheduleExtension, closureDate);
@@ -321,7 +321,7 @@ describe('closure and override tests', () => {
   });
   // do some override tests
   it('applies open override makes slots available where they would not otherwise be', () => {
-    const startTime = DateTime.now().startOf('day').setZone(DEFAULT_TEST_TIMEZONE).set({ hour: 11 });
+    const startTime = startOfDayWithTimezone().set({ hour: 11 });
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 16, close: 22, workingDay: true }];
@@ -403,7 +403,7 @@ describe('closure and override tests', () => {
     }
   });
   it('applies closed override to make slots unavailable where they would otherwise be available', () => {
-    const startTime = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startTime = startOfDayWithTimezone();
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
@@ -475,7 +475,7 @@ describe('closure and override tests', () => {
   });
 
   it('applies buffer overrides to make slots unavailable where they would otherwise be available', () => {
-    const startTime = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startTime = startOfDayWithTimezone();
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
@@ -553,7 +553,7 @@ describe('closure and override tests', () => {
   });
 
   it('applies capacity overrides to make slots unavailable where they would otherwise be available', () => {
-    const startTime = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
+    const startTime = startOfDayWithTimezone();
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const scheduleExtension = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1);
