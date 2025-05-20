@@ -64,7 +64,6 @@ const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
   // grab everything that is needed to perform the walkin availability check
   const timeNow = DateTime.now().setZone(timezone);
   const tomorrow = timeNow.plus({ days: 1 });
-  //const tomorrowOpeningTime = getOpeningTime(scheduleExtension.schedule, timezone, tomorrow);
   const todayOpeningTime = getOpeningTime(scheduleExtension, timezone, timeNow);
   const todayClosingTime = getClosingTime(scheduleExtension, timezone, timeNow);
 

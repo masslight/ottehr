@@ -30,7 +30,7 @@ export function getOpeningTime(
       from: currentDate,
       scheduleOverrides: scheduleDef.scheduleOverrides,
     })?.overriddenDay ?? getHoursForDate(scheduleDef, currentDate);
-
+  console.log('currentHoursOfOperation', currentHoursOfOperation);
   if (!currentHoursOfOperation) {
     return undefined;
   }
@@ -78,9 +78,9 @@ export function getClosingTime(
 }
 
 export function getHoursForDate(scheduleDef: ScheduleExtension, currentDate: DateTime): ScheduleDay | undefined {
-  const weekdayShort = currentDate.toLocaleString({ weekday: 'short' }, { locale: 'en-US' }).toLowerCase() as DOW;
+  const weekdayLong = currentDate.toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase() as DOW;
   const scheduleDays = scheduleDef.schedule;
-  return scheduleDays[weekdayShort];
+  return scheduleDays[weekdayLong];
 }
 
 export function isWalkinOpen(scheduleDef: ScheduleExtension, timezone: Timezone, timeNow: DateTime): boolean {
