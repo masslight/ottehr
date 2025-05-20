@@ -1,18 +1,8 @@
 import Oystehr from '@oystehr/sdk';
-import {
-  Encounter,
-  HealthcareService,
-  Location,
-  LocationHoursOfOperation,
-  Practitioner,
-  Resource,
-  Schedule,
-} from 'fhir/r4b';
+import { Encounter, HealthcareService, Location, Practitioner, Resource, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getClosingTime, getOpeningTime, isClosureOverride } from '../helpers';
 import {
   AvailableLocationInformation,
-  HOURS_OF_OPERATION_FORMAT,
   OVERRIDE_DATE_FORMAT,
   ScheduleListItem,
   ScheduleType,
@@ -21,6 +11,7 @@ import {
 } from '../types';
 import { DOW, getScheduleExtension, getTimezone } from '../utils';
 import { PUBLIC_EXTENSION_BASE_URL, SLUG_SYSTEM } from './constants';
+import { getFullName } from './patient';
 
 export const isLocationFacilityGroup = (location: Location): boolean => {
   return Boolean(
@@ -109,13 +100,18 @@ export async function getTelemedLocations(oystehr: Oystehr): Promise<TelemedLoca
     }
   });
 
-  const listToFilter = telemedLocations.map((location) => ({
-    state: location.address?.state || '',
-    available: location.status === 'active',
-    schedule: locationToScheduleMap.get(location.id ?? ''),
-    locationInformation: getLocationInformation(oystehr, location),
-  }));
-  const filteredLocations = listToFilter.filter((location) => location.state && location.schedule) as TelemedLocation[];
+  const listToFilter = telemedLocations.map((location) => {
+    const schedule = locationToScheduleMap.get(location.id ?? '');
+    return {
+      state: location.address?.state || '',
+      available: location.status === 'active',
+      schedule,
+      locationInformation: schedule && getLocationInformation(location, schedule),
+    };
+  });
+  const filteredLocations = listToFilter.filter(
+    (location) => location.state && location.schedule && location.locationInformation
+  ) as TelemedLocation[];
   return filteredLocations;
 }
 
@@ -187,15 +183,11 @@ export const defaultLocation: Location = {
 // todo 1.8: this needs to take a schedule (or be async and go get a schedule), have a better name
 // also check that this data is truly needed everywhere it is used
 export function getLocationInformation(
-  oystehr: Oystehr,
   scheduleResource: Location | Practitioner | HealthcareService,
-  currentDate: DateTime = DateTime.now()
+  schedule?: Schedule
 ): AvailableLocationInformation {
   const slug = scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value;
-  const timezone = getTimezone(scheduleResource);
-
-  const schedule = getScheduleExtension(scheduleResource);
-  const scheduleOverrides = schedule?.scheduleOverrides || {};
+  const timezone = schedule ? getTimezone(schedule) : getTimezone(scheduleResource);
 
   let scheduleType: ScheduleType;
   switch (scheduleResource?.resourceType) {
@@ -211,52 +203,21 @@ export function getLocationInformation(
   }
 
   // Modify hours of operation returned based on schedule overrides
-  let hoursOfOperation: LocationHoursOfOperation[] | undefined = undefined;
-  if (scheduleResource.resourceType === 'Location') {
-    hoursOfOperation = scheduleResource.hoursOfOperation;
-    currentDate = currentDate.setZone(timezone);
-    const overrideDate = Object.keys(scheduleOverrides).find((date) => {
-      return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
-    });
-    if (overrideDate) {
-      const dayOfWeek = currentDate.toFormat('EEE').toLowerCase();
-      const override = scheduleOverrides[overrideDate];
-      const dayIndex = hoursOfOperation?.findIndex((hour) => (hour.daysOfWeek as string[])?.includes(dayOfWeek));
-      if (hoursOfOperation && typeof dayIndex !== 'undefined' && dayIndex >= 0) {
-        hoursOfOperation[dayIndex].openingTime = DateTime.fromFormat(override.open.toString(), 'h')
-          .set({
-            year: currentDate.year,
-            month: currentDate.month,
-            day: currentDate.day,
-          })
-          .toFormat(HOURS_OF_OPERATION_FORMAT);
-        hoursOfOperation[dayIndex].closingTime = DateTime.fromFormat(override.close.toString(), 'h')
-          .set({
-            year: currentDate.year,
-            month: currentDate.month,
-            day: currentDate.day,
-          })
-          .toFormat(HOURS_OF_OPERATION_FORMAT);
-      }
-    }
-  }
-
   return {
     id: scheduleResource.id,
     slug: slug,
-    name: getName(oystehr, scheduleResource),
+    name: getName(scheduleResource),
     description: undefined,
     address: undefined,
     telecom: scheduleResource.telecom,
-    hoursOfOperation: hoursOfOperation,
     timezone: timezone,
-    closures: schedule?.closures ?? [],
     otherOffices: [], // todo
-    scheduleType,
+    scheduleOwnerType: scheduleType,
+    scheduleExtension: schedule && getScheduleExtension(schedule),
   };
 }
 
-function getName(oystehrClient: Oystehr, item: Location | Practitioner | HealthcareService): string {
+function getName(item: Location | Practitioner | HealthcareService): string {
   if (!item.name) {
     return 'Unknown';
   }
@@ -266,7 +227,7 @@ function getName(oystehrClient: Oystehr, item: Location | Practitioner | Healthc
   if (item.resourceType === 'HealthcareService') {
     return item.name;
   }
-  return oystehrClient.fhir.formatHumanName(item.name[0]);
+  return getFullName(item);
 }
 
 export function getEncounterStatusHistoryIdx(encounter: Encounter, status: string): number {
@@ -283,36 +244,6 @@ export interface CheckOfficeOpenOutput {
   prebookStillOpenForToday: boolean;
   officeHasClosureOverrideToday: boolean;
   officeHasClosureOverrideTomorrow: boolean;
-}
-
-export function checkOfficeOpen(location: AvailableLocationInformation): CheckOfficeOpenOutput {
-  const timeNow = DateTime.now().setZone(location.timezone);
-  const tomorrowDate = timeNow.plus({ days: 1 });
-  const tomorrowOpeningTime = getOpeningTime(location.hoursOfOperation ?? [], location.timezone ?? '', tomorrowDate);
-
-  const officeHasClosureOverrideToday = isClosureOverride(location.closures ?? [], location.timezone ?? '', timeNow);
-  const officeHasClosureOverrideTomorrow =
-    isClosureOverride(location.closures ?? [], location.timezone ?? '', tomorrowDate) &&
-    tomorrowOpeningTime !== undefined;
-
-  const todayOpeningTime = getOpeningTime(location.hoursOfOperation ?? [], location.timezone ?? '', timeNow);
-  const todayClosingTime = getClosingTime(location.hoursOfOperation ?? [], location.timezone ?? '', timeNow);
-  const prebookStillOpenForToday =
-    todayOpeningTime !== undefined && (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));
-
-  const officeOpen =
-    todayOpeningTime !== undefined &&
-    todayOpeningTime <= timeNow &&
-    (todayClosingTime === undefined || todayClosingTime > timeNow) &&
-    !officeHasClosureOverrideToday;
-
-  return {
-    officeOpen,
-    walkinOpen: officeOpen,
-    prebookStillOpenForToday,
-    officeHasClosureOverrideToday,
-    officeHasClosureOverrideTomorrow,
-  };
 }
 
 export const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHoursISO'] => {

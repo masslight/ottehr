@@ -11,6 +11,7 @@ import {
   DEFAULT_SCHEDULE_JSON,
   makeSchedule,
   setSlotLengthInMinutes,
+  startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
 import {
   getAllSlotsAsCapacityMap,
@@ -58,7 +59,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -70,7 +71,7 @@ describe('slot availability tests', () => {
     // this gives us a list of strings representing the start time of some 15 minute slots
     const availableSlots = getAvailableSlots(getSlotsInput);
     expect(availableSlots).toBeDefined();
-    // expect(availableSlots.length).toEqual(96); // 24 hours * 4 slots per hour
+    expect(availableSlots.length).toEqual(96); // 24 hours * 4 slots per hour
     let tomorrow = startDate.plus({ days: 1 });
     let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
 
@@ -81,7 +82,7 @@ describe('slot availability tests', () => {
       now = now.plus({ minutes: 15 });
     }
     expect(expectedList.length).toEqual(96);
-    //expect(availableSlots).toEqual(expectedList);
+    expect(availableSlots).toEqual(expectedList);
 
     // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
@@ -91,7 +92,6 @@ describe('slot availability tests', () => {
       scheduleExtension,
       timezone,
     });
-    console.log('capacityMap', capacityMap);
     now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     tomorrow = now.plus({ days: 1 });
     while (now < tomorrow) {
@@ -112,7 +112,6 @@ describe('slot availability tests', () => {
       timezone,
     });
     now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
-    console.log('doubleCapacityMap', doubleCapacityMap);
     while (now < tomorrow) {
       const capacity = doubleCapacityMap[now.toISO()!];
       expect(capacity).toBeDefined();
@@ -160,7 +159,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -216,7 +215,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -272,7 +271,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -323,7 +322,7 @@ describe('slot availability tests', () => {
   it('24/7 schedule where 4 % capacity == 1 && capacity > 4 will skip the slot on the 45th minute when distributing the last 3 slots', () => {
     // if we have capacity = 7 and need to distribute the last 3 slots in 15 minute windows accross a single hour
     const timezone = 'America/New_York';
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
     const tomorrow = startDate.plus({ days: 1 });
     let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     const scheduleExtensionCapacity7 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 7);
@@ -373,8 +372,8 @@ describe('slot availability tests', () => {
 
   it('24/7 schedule where 4 % capacity == 2 && capacity > 4 will skip the slots on the 15th and 45th minutes when distributing the slots', () => {
     const timezone = 'America/New_York';
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
-    const tomorrow = startDate.plus({ days: 1 });
+    const startDate = startOfDayWithTimezone();
+    const tomorrow = startDate.startOf('day').plus({ days: 1 });
     let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     const scheduleExtensionCapacity2 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 2);
     const capacityMap = getAllSlotsAsCapacityMap({
@@ -388,7 +387,10 @@ describe('slot availability tests', () => {
     while (now < tomorrow) {
       const capacity = capacityMap[now.toISO()!];
       expect(capacity).toBeDefined();
-      if (now.minute !== 45 && now.minute !== 15) {
+      if (now.minute === 0 || now.minute === 30) {
+        if (capacity !== 1) {
+          console.log('now logged', now.toISO());
+        }
         expect(capacity).toEqual(1);
       } else {
         expect(capacity).toEqual(0);
@@ -425,7 +427,7 @@ describe('slot availability tests', () => {
 
   it('24/7 schedule where 4 % capacity == 2 && capacity < 4 will skip the slots on the 15th and 45th minutes when distributing the slots', () => {
     const timezone = 'America/New_York';
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone();
     const tomorrow = startDate.plus({ days: 1 });
     let now = DateTime.fromISO(startDate.toISO()!, { zone: timezone });
     const scheduleExtensionCapacity6 = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 6);
@@ -484,7 +486,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -537,7 +539,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -591,7 +593,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone();
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -646,7 +648,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,
@@ -701,7 +703,7 @@ describe('slot availability tests', () => {
     const timezone = getTimezone(schedule);
     expect(timezone).toBeDefined();
 
-    const startDate = DateTime.now().setZone(timezone).startOf('day');
+    const startDate = startOfDayWithTimezone({ timezone });
 
     const getSlotsInput: GetAvailableSlotsInput = {
       now: startDate,

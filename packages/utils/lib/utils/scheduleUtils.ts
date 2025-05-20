@@ -32,7 +32,6 @@ import {
   ServiceMode,
   codingContainedInList,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  HOURS_OF_OPERATION_FORMAT,
   TIMEZONES,
   VisitType,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
@@ -409,10 +408,16 @@ interface GetSlotCapacityMapInput {
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
   const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
-  const nowForTimezone = now.setZone(timezone);
+  const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
+    'day'
+  );
+  const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+    zone: timezone,
+  });
+  console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
   let currentDayTemp = nowForTimezone;
   let slots = {};
-  while (currentDayTemp < finishDate) {
+  while (currentDayTemp < finishDateForTimezone) {
     const slotsTemp = getSlotCapacityMapForDayAndSchedule(
       currentDayTemp,
       schedule,
@@ -459,10 +464,12 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   // no appointments or busy slots have been factored in
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
-    finishDate: now.plus({ days: numDays }),
+    finishDate: now.startOf('day').plus({ days: numDays }),
     scheduleExtension,
     timezone,
   });
+
+  console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
 
   const availableSlots = removeBusySlots({
     slotCapacityMap,
@@ -750,8 +757,8 @@ export const getAvailableSlotsForSchedules = async (
   telemedAvailable: SlotListItem[];
 }> => {
   const { now, scheduleList } = input;
-  const telemedAvailable: SlotListItem[] = [];
-  const availableSlots: SlotListItem[] = [];
+  let telemedAvailable: SlotListItem[] = [];
+  let availableSlots: SlotListItem[] = [];
 
   const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
     schedule: scheduleTemp.schedule,
@@ -807,6 +814,13 @@ export const getAvailableSlotsForSchedules = async (
         err
       );
     }
+  });
+
+  availableSlots = availableSlots.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
+  });
+  telemedAvailable = telemedAvailable.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
   });
 
   // this logic removes duplicate slots even across schedules,
@@ -1590,37 +1604,41 @@ export const getLocationHoursFromScheduleExtension = (extension: ScheduleExtensi
 interface OverrideOperatingHoursInput {
   from: DateTime;
   scheduleOverrides: ScheduleOverrides;
-  hoursOfOperation: LocationHoursOfOperation[];
+  dailySchedule: DailySchedule;
   timezone: Timezone;
 }
-export const applyOverridesToOperatingHours = (input: OverrideOperatingHoursInput): LocationHoursOfOperation[] => {
-  const { from, scheduleOverrides, hoursOfOperation, timezone } = input;
+export const applyOverridesToDailySchedule = (
+  input: OverrideOperatingHoursInput
+): { dailySchedule: DailySchedule; overriddenDay: ScheduleDay | undefined } => {
+  const { from, scheduleOverrides, dailySchedule, timezone } = input;
   const currentDate = from.setZone(timezone);
   const overrideDate = Object.keys(scheduleOverrides).find((date) => {
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase();
+    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
-    const dayIndex = hoursOfOperation?.findIndex((hour) => (hour.daysOfWeek as string[])?.includes(dayOfWeek));
-    if (hoursOfOperation && typeof dayIndex !== 'undefined' && dayIndex >= 0) {
-      hoursOfOperation[dayIndex].openingTime = DateTime.fromFormat(override.open.toString(), 'h')
-        .set({
-          year: currentDate.year,
-          month: currentDate.month,
-          day: currentDate.day,
-        })
-        .toFormat(HOURS_OF_OPERATION_FORMAT);
-      hoursOfOperation[dayIndex].closingTime = DateTime.fromFormat(override.close.toString(), 'h')
-        .set({
-          year: currentDate.year,
-          month: currentDate.month,
-          day: currentDate.day,
-        })
-        .toFormat(HOURS_OF_OPERATION_FORMAT);
-    }
+    const dailyScheduleDay = dailySchedule[dayOfWeek];
+    const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);
+    const newDailySchedule = {
+      ...dailySchedule,
+      [dayOfWeek]: overriddenDay,
+    };
+    return { dailySchedule: newDailySchedule, overriddenDay };
   }
-  return hoursOfOperation;
+  return { dailySchedule: { ...dailySchedule }, overriddenDay: undefined };
+};
+
+const applyOverrideToDay = (override: ScheduleOverrideDay, day: ScheduleDay): ScheduleDay => {
+  const { open, close, openingBuffer, closingBuffer, hours } = override;
+  return {
+    open,
+    close,
+    openingBuffer,
+    closingBuffer,
+    workingDay: day.workingDay, // todo?: should this be overridable??
+    hours,
+  };
 };
 
 export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {

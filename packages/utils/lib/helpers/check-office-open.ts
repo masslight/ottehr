@@ -1,6 +1,6 @@
-import { LocationHoursOfOperation } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { Closure, OVERRIDE_DATE_FORMAT, Timezone } from '../types/common';
+import { applyOverridesToDailySchedule, DOW, ScheduleDay, ScheduleExtension } from '../utils';
 
 export function isClosureOverride(closures: Closure[], timezone: Timezone, currentDate: DateTime): boolean {
   const result = closures.some((closure) => {
@@ -18,17 +18,23 @@ export function isClosureOverride(closures: Closure[], timezone: Timezone, curre
 }
 
 export function getOpeningTime(
-  hoursOfOperation: LocationHoursOfOperation[],
+  scheduleDef: ScheduleExtension,
   timezone: Timezone,
   currentDate: DateTime
 ): DateTime | undefined {
-  const currentHoursOfOperation = getCurrentHoursOfOperation(hoursOfOperation, currentDate);
-  console.log('currentHoursOfOperation', currentHoursOfOperation?.openingTime);
-  const parsedInt = parseInt(currentHoursOfOperation?.openingTime ?? '');
-  if (isNaN(parsedInt)) {
+  // get the ovverriden values for the current date, if any, else get the default values for the current DOW
+  const currentHoursOfOperation =
+    applyOverridesToDailySchedule({
+      dailySchedule: scheduleDef.schedule,
+      timezone,
+      from: currentDate,
+      scheduleOverrides: scheduleDef.scheduleOverrides,
+    })?.overriddenDay ?? getHoursForDate(scheduleDef, currentDate);
+  console.log('currentHoursOfOperation', currentHoursOfOperation);
+  if (!currentHoursOfOperation) {
     return undefined;
   }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: parsedInt });
+  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.open });
   return dt.set({
     year: currentDate.year,
     month: currentDate.month,
@@ -37,16 +43,23 @@ export function getOpeningTime(
 }
 
 export function getClosingTime(
-  hoursOfOperation: LocationHoursOfOperation[],
+  scheduleDef: ScheduleExtension,
   timezone: Timezone,
   currentDate: DateTime
 ): DateTime | undefined {
-  const currentHoursOfOperation = getCurrentHoursOfOperation(hoursOfOperation, currentDate);
-  const parsedInt = parseInt(currentHoursOfOperation?.closingTime ?? '');
-  if (isNaN(parsedInt)) {
+  // get the ovverriden values for the current date, if any, else get the default values for the current DOW
+  const currentHoursOfOperation =
+    applyOverridesToDailySchedule({
+      dailySchedule: scheduleDef.schedule,
+      timezone,
+      from: currentDate,
+      scheduleOverrides: scheduleDef.scheduleOverrides,
+    })?.overriddenDay ?? getHoursForDate(scheduleDef, currentDate);
+
+  if (!currentHoursOfOperation) {
     return undefined;
   }
-  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: parsedInt });
+  const dt = DateTime.now().setZone(timezone).startOf('day').plus({ hours: currentHoursOfOperation.close });
   const formattedClosingTime = dt.set({
     year: currentDate.year,
     month: currentDate.month,
@@ -64,39 +77,27 @@ export function getClosingTime(
   return formattedClosingTime;
 }
 
-export function getCurrentHoursOfOperation(
-  hoursOfOperation: LocationHoursOfOperation[],
-  currentDate: DateTime
-): LocationHoursOfOperation | undefined {
-  const weekdayShort = currentDate.toLocaleString({ weekday: 'short' }, { locale: 'en-US' }).toLowerCase();
-  return hoursOfOperation?.find((item) => {
-    return item.daysOfWeek?.[0] === weekdayShort;
-  });
+export function getHoursForDate(scheduleDef: ScheduleExtension, currentDate: DateTime): ScheduleDay | undefined {
+  const weekdayLong = currentDate.toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase() as DOW;
+  const scheduleDays = scheduleDef.schedule;
+  return scheduleDays[weekdayLong];
 }
 
-export function isWalkinOpen(
-  hoursOfOperation: LocationHoursOfOperation[],
-  timezone: Timezone,
-  closures: Closure[],
-  timeNow: DateTime
-): boolean {
-  const officeHasClosureOverrideToday = isClosureOverride(closures, timezone, timeNow);
-  const todayOpeningTime = getOpeningTime(hoursOfOperation, timezone, timeNow);
-  const todayClosingTime = getClosingTime(hoursOfOperation, timezone, timeNow);
+export function isWalkinOpen(scheduleDef: ScheduleExtension, timezone: Timezone, timeNow: DateTime): boolean {
+  const officeHasClosureOverrideToday = isClosureOverride(scheduleDef.closures ?? [], timezone, timeNow);
+  const todayOpeningTime = getOpeningTime(scheduleDef, timezone, timeNow);
+  const todayClosingTime = getClosingTime(scheduleDef, timezone, timeNow);
   return (
     todayOpeningTime !== undefined &&
-    todayOpeningTime.minus({ minute: 15 }) <= timeNow &&
+    todayOpeningTime.minus({ minute: 0 }) <= timeNow && // todo: move this onto the schedule json
     (todayClosingTime === undefined || todayClosingTime > timeNow) &&
     !officeHasClosureOverrideToday
   );
 }
 
-export function isLocationOpen(
-  hoursOfOperation: LocationHoursOfOperation[],
-  timezone: Timezone,
-  closures: Closure[],
-  now: DateTime
-): boolean {
-  const nextOpeningDateTime = getOpeningTime(hoursOfOperation, timezone, now);
-  return nextOpeningDateTime !== undefined && !isClosureOverride(closures, timezone, nextOpeningDateTime);
+export function isLocationOpen(scheduleDef: ScheduleExtension, timezone: Timezone, now: DateTime): boolean {
+  const nextOpeningDateTime = getOpeningTime(scheduleDef, timezone, now);
+  return (
+    nextOpeningDateTime !== undefined && !isClosureOverride(scheduleDef.closures ?? [], timezone, nextOpeningDateTime)
+  );
 }
