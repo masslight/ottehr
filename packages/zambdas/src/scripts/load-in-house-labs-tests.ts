@@ -243,7 +243,8 @@ const getComponentObservationDefinition = (
       type: 'ValueSet',
       reference: `#${abnormalValueSetId}`,
     };
-    (obsDef.extension = makeObsDefExtension(item)), contained.push(normalValueSet, abnormalValueSet, obsDef);
+    obsDef.extension = makeObsDefExtension(item);
+    contained.push(normalValueSet, abnormalValueSet, obsDef);
   } else {
     if (!item.normalRange) {
       throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
@@ -251,7 +252,8 @@ const getComponentObservationDefinition = (
 
     obsDef.quantitativeDetails = makeQuantitativeDetails(item);
     obsDef.qualifiedInterval = [makeQualifiedInterval(item)];
-    (obsDef.extension = makeObsDefExtension(item)), contained.push(obsDef);
+    obsDef.extension = makeObsDefExtension(item);
+    contained.push(obsDef);
   }
   return {
     obsDef,
