@@ -403,7 +403,7 @@ describe('closure and override tests', () => {
     }
   });
   it('applies closed override to make slots unavailable where they would otherwise be available', () => {
-    const startTime = DateTime.now().startOf('day').setZone(DEFAULT_TEST_TIMEZONE);
+    const startTime = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
@@ -475,7 +475,7 @@ describe('closure and override tests', () => {
   });
 
   it('applies buffer overrides to make slots unavailable where they would otherwise be available', () => {
-    const startTime = DateTime.now().startOf('day').setZone(DEFAULT_TEST_TIMEZONE);
+    const startTime = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
@@ -553,7 +553,7 @@ describe('closure and override tests', () => {
   });
 
   it('applies capacity overrides to make slots unavailable where they would otherwise be available', () => {
-    const startTime = DateTime.now().startOf('day').setZone(DEFAULT_TEST_TIMEZONE);
+    const startTime = DateTime.now().setZone(DEFAULT_TEST_TIMEZONE).startOf('day');
     const todayDoW = startTime.weekdayLong?.toLocaleLowerCase();
     assert(todayDoW);
     const scheduleExtension = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 1);
