@@ -1,5 +1,22 @@
-import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import {
+  Address,
+  Appointment,
+  ClinicalImpression,
+  Consent,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Person,
+  Practitioner,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Schedule,
+  ServiceRequest,
+  Slot,
+} from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -20,11 +37,12 @@ import { fetchWithOystAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
+  TestEmployee,
   TEST_EMPLOYEE_1,
   TEST_EMPLOYEE_2,
-  TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
+import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -232,7 +250,7 @@ export class ResourceHandler {
     const response = await this.createAppointment(params);
     this.#resources = {
       ...response.resources,
-      // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
+      // add relatedPerson to resources to make possible to clean it up; endpoint returns only id
       relatedPerson: {
         id: response.relatedPersonId,
         resourceType: 'RelatedPerson',
@@ -241,22 +259,87 @@ export class ResourceHandler {
   }
 
   public async setResourcesFast(_params?: CreateTestAppointmentInput): Promise<void> {
-    /*
-    Preconditions:
-    * Location with id must already exist
-    * Schedule resource for Location must already exist
-    * Telemed_Location with id must already exist
-    * Canonical Questionnaire must already exist
-    * 
-    
-    // Get precondition values from env vars
-    // Fetch Person ID by searching on the patient phone number, (create person if not found can happen later)
-    // Fetch Location by name, and associated schedule
+    await this.#initPromise;
+
+    if (process.env.LOCATION_ID == null) {
+      throw new Error('LOCATION_ID is not set');
+    }
+
+    const schedule = (
+      await this.#apiClient.fhir.search<Schedule>({
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: 'actor',
+            value: `Location/${process.env.LOCATION_ID}`,
+          },
+        ],
+      })
+    ).unbundle()[0] as Schedule;
+
+    let seedDataString = JSON.stringify(fastSeedData);
+    seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
+    seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
+    seedDataString = seedDataString.replace(
+      /\{\{questionnaireUrl\}\}/g,
+      'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.7' // TODO right place to get this?
+    );
+
+    // TODO maybe replace start / end times on appointment and slot with current day at noon"
+
+    // TODO do something about the DocumentReference attachments.
+
+    const hydratedFastSeedJSON = JSON.parse(seedDataString);
+
+    const createdResources =
+      (
+        await this.#apiClient.fhir.transaction<
+          | Patient
+          | RelatedPerson
+          | Person
+          | Appointment
+          | Encounter
+          | Slot
+          | List
+          | Consent
+          | DocumentReference
+          | QuestionnaireResponse
+          | ServiceRequest
+          | ClinicalImpression
+        >({
+          requests: hydratedFastSeedJSON.entry.map((entry): BatchInputPostRequest<FhirResource> => {
+            if (entry.request.method !== 'POST') {
+              throw new Error('Only POST method is supported in fast mode');
+            }
+            return {
+              method: entry.request.method,
+              url: entry.request.url,
+              fullUrl: entry.fullUrl,
+              resource: entry.resource,
+            };
+          }),
+        })
+      ).entry
+        ?.map((entry) => entry.resource)
+        .filter((entry) => entry !== undefined) ?? [];
+    this.#resources = {
+      patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
+      relatedPerson: {
+        id: (createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson).id!,
+        resourceType: 'RelatedPerson',
+      },
+      appointment: createdResources.find((resource) => resource!.resourceType === 'Appointment') as Appointment,
+      encounter: createdResources.find((resource) => resource!.resourceType === 'Encounter') as Encounter,
+      questionnaire: createdResources.find(
+        (resource) => resource!.resourceType === 'QuestionnaireResponse'
+      ) as QuestionnaireResponse,
+    };
 
     // Create Patient, RelatedPerson, patch Person in a batch
     // Create Slot, Appointment
     // Create QR
 
+    /*
     Creates by step in workflow:
     * Step 1: Create slot + Create-appointment zambda
       * Create the Slot that will be booked
@@ -298,7 +381,6 @@ export class ResourceHandler {
         'encounter',
         this.#resources.appointment.id!
       );
-      console.log('alex inHouseMedicationsResources', JSON.stringify(inHouseMedicationsResources, null, 2));
 
       await Promise.allSettled([
         ...inHouseMedicationsResources.map((resource) => {
@@ -316,8 +398,7 @@ export class ResourceHandler {
             return Promise.resolve();
           }
         }),
-        console.log('alex appointment id,', this.#resources.appointment.id),
-        // this.cleanAppointment(this.#resources.appointment.id!),
+        this.cleanAppointment(this.#resources.appointment.id!),
       ]);
     }
   }

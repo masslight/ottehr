@@ -14,7 +14,7 @@ const awaitCSSHeaderInit = async (page: Page): Promise<void> => {
 };
 
 test.beforeAll(async () => {
-  await resourceHandler.setResources();
+  await resourceHandler.setResourcesFast();
   await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
 });
 
