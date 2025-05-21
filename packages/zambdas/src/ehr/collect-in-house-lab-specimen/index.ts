@@ -135,6 +135,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const serviceRequestUpdateConfig: ServiceRequest = {
       ...serviceRequest,
       status: 'active',
+      specimen: [{ reference: specimenFullUrl }],
     };
 
     const collectionTaskUpdateConfig: Task = {

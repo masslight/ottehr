@@ -5,15 +5,15 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { PerformTestView } from '../components/details/PerformTestView';
 import { FinalResultView } from '../components/details/FinalResultView';
-import { getSelectors, MarkAsCollectedData, InHouseLabDTO } from 'utils';
+import { getSelectors, MarkAsCollectedData, InHouseLabDTO, LoadingState } from 'utils';
 import { useAppointmentStore } from 'src/telemed';
 import { collectInHouseLabSpecimen, getInHouseLabOrderDetail } from 'src/api/api';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-  const [loading, setLoading] = useState(true);
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter', 'appointment']);
+  const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [testDetails, setTestDetails] = useState<InHouseLabDTO | null>(null);
   const { oystehrZambda } = useApiClients();
 
@@ -23,7 +23,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
         return;
       }
 
-      setLoading(true);
+      setLoadingState(LoadingState.loading);
 
       try {
         if (!oystehrZambda) {
@@ -38,19 +38,21 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
       } catch (error) {
         console.error('Error fetching test details:', error);
       } finally {
-        setLoading(false);
+        setLoadingState(LoadingState.loaded);
       }
     };
 
-    void fetchTestDetails();
-  }, [oystehrZambda, encounter.id, serviceRequestID]);
+    if (loadingState === LoadingState.initial) {
+      void fetchTestDetails();
+    }
+  }, [oystehrZambda, encounter.id, serviceRequestID, loadingState]);
 
   const handleBack = (): void => {
     navigate(-1);
   };
 
   const handleSubmit = async (updatedData: any): Promise<void> => {
-    setLoading(true);
+    setLoadingState(LoadingState.loading);
 
     try {
       // In a real implementation, this would call the API to update the test details
@@ -66,33 +68,35 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     } catch (error) {
       console.error('Error submitting test details:', error);
     } finally {
-      setLoading(false);
+      setLoadingState(LoadingState.loaded);
     }
   };
 
   const handleCollectSampleSubmit = async (updatedData: MarkAsCollectedData): Promise<void> => {
-    setLoading(true);
-
+    setLoadingState(LoadingState.loading);
+    let loadingError = false;
     try {
       if (!oystehrZambda || !encounter.id || !serviceRequestID) {
         return;
       }
-
       await collectInHouseLabSpecimen(oystehrZambda, {
         encounterId: encounter.id,
         serviceRequestId: serviceRequestID,
         data: updatedData,
       });
-
-      navigate(-1);
     } catch (error) {
       console.error('Error submitting test details:', error);
+      loadingError = true;
     } finally {
-      setLoading(false);
+      if (loadingError) {
+        setLoadingState(LoadingState.loadedWithError);
+      } else {
+        setLoadingState(LoadingState.initial);
+      }
     }
   };
 
-  if (loading) {
+  if (loadingState === LoadingState.loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
         <CircularProgress />
@@ -124,7 +128,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
               <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
             );
           case 'COLLECTED':
-            return <PerformTestView testDetails={testDetails} onBack={handleBack} />;
+            return <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
           case 'FINAL':
             return <FinalResultView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />;
           default:

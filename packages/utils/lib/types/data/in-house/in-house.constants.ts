@@ -1,6 +1,13 @@
 import { CodeableConcept } from 'fhir/r4b';
 import { TestStatus } from './in-house.types';
 
+export enum LoadingState {
+  initial,
+  loading,
+  loaded,
+  loadedWithError,
+}
+
 export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
   ORDERED: 'ORDERED',
   COLLECTED: 'COLLECTED',

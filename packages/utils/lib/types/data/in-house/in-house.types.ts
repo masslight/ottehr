@@ -139,7 +139,7 @@ export type InHouseLabDTO = {
   notes: string;
   labDetails: TestItem;
   timezone: string | undefined;
-  specimen: {
+  specimen?: {
     source: string;
     collectedBy: string;
     collectionDate: string;

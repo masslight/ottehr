@@ -118,7 +118,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
     if (oystehrZambda && canBeSubmitted) {
       try {
-        await createInHouseLabOrder(oystehrZambda, {
+        const res = await createInHouseLabOrder(oystehrZambda, {
           encounterId,
           testItem: selectedTest,
           cptCode: selectedCptCode,
@@ -139,7 +139,9 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           // todo: print label
         }
 
-        navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);
+        if (res.serviceRequestId) {
+          navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
+        }
       } catch (e) {
         setError(['There was an error creating this lab order']);
       } finally {

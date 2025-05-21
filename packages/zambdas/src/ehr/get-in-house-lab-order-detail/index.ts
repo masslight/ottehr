@@ -211,7 +211,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       orderHistory,
 
       // todo: implement specimen retrieval
-      specimen: getSpecimenDetails(sepcimen),
+      specimen: sepcimen ? getSpecimenDetails(sepcimen) : undefined,
 
       notes: notes || '',
       timezone,
@@ -297,8 +297,8 @@ const parseResources = (
 ): {
   serviceRequest: ServiceRequest;
   encounter: Encounter;
-  location: Location;
-  sepcimen: Specimen;
+  location?: Location;
+  sepcimen?: Specimen;
   timezone: string;
   tasks: Task[];
   provenances: Provenance[];
@@ -319,10 +319,16 @@ const parseResources = (
     if (r.resourceType === 'Provenance') provenances.push(r);
   });
 
-  if (!serviceRequest || !encounter || !location || !sepcimen || tasks.length === 0)
-    throw new Error('todo define error here - missing resources');
+  const missingResources: string[] = [];
+  if (!serviceRequest) missingResources.push('service request');
+  if (!encounter) missingResources.push('encounter');
+  if (tasks.length === 0) missingResources.push('task');
+  if (!serviceRequest || !encounter || tasks.length === 0) {
+    throw new Error(`Missing resources: ${missingResources.join(',')}`);
+  }
 
-  const timezone = getTimezone(location);
+  // todo figure this out
+  const timezone = location ? getTimezone(location) : 'America/New_York';
 
   return { serviceRequest, encounter, location, sepcimen, timezone, tasks, provenances };
 };

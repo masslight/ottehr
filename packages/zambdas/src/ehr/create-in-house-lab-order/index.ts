@@ -8,7 +8,13 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   IN_HOUSE_LAB_DOCREF_CATEGORY,
 } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken, createOystehrClient, getMyPractitionerId } from '../../shared';
+import {
+  ZambdaInput,
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+  parseCreatedResourcesBundle,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Account,
@@ -354,6 +360,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ] as BatchInputRequest<FhirResource>[],
     });
 
+    const resources = parseCreatedResourcesBundle(transactionResponse);
+    const newServiceRequest = resources.find((r) => r.resourceType === 'ServiceRequest');
+
     if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
       throw Error('Error creating in-house lab order in transaction');
     }
@@ -364,12 +373,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       diagnosis: diagnoses,
     });
 
+    // todo update type
+    const response: any = {
+      transactionResponse,
+      saveChartDataResponse,
+    };
+
+    if (newServiceRequest) response['serviceRequestId'] = newServiceRequest.id;
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        transactionResponse,
-        saveChartDataResponse,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error creating in-house lab order:', JSON.stringify(error));

@@ -144,7 +144,8 @@ const getResources = async (
   });
 
   if (serviceRequests.length !== 1) throw new Error('Only one service request should be returned');
-  if (specimens.length !== 1) throw new Error('Only one specimen should be returned');
+  if (specimens.length !== 1)
+    throw new Error(`Only one specimen should be returned - specimen ids: ${specimens.map((s) => s.id)}`);
   if (inputRequestTasks.length !== 1)
     throw new Error(`Only one ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
 

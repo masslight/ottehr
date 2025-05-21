@@ -11,7 +11,7 @@ export function determineOrderStatus(serviceRequest: any, tasks: any[]): TestSta
           coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.collectSampleTask
       )
   );
-  console.log('collectSampleTask', collectSampleTask.id, collectSampleTask.status);
+  console.log('collectSampleTask', collectSampleTask?.id, collectSampleTask?.status);
 
   const interpretResultsTask = tasks.find(
     (task) =>
@@ -20,7 +20,7 @@ export function determineOrderStatus(serviceRequest: any, tasks: any[]): TestSta
           coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.inputResultsTask // todo: is it valid?
       )
   );
-  console.log('interpretResultsTask', interpretResultsTask.id, interpretResultsTask.status);
+  console.log('interpretResultsTask', interpretResultsTask?.id, interpretResultsTask?.status);
 
   const documentReference = tasks.find(
     (task) =>

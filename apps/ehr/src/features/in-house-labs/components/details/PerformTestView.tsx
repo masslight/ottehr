@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Paper, Typography, Button, Collapse } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { InHouseLabDTO, getSelectors, ResultEntryInput } from 'utils';
+import { InHouseLabDTO, ResultEntryInput, LoadingState } from 'utils';
 import { History } from './History';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
@@ -11,23 +11,21 @@ import { handleInHouseLabResults } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useAppointmentStore } from 'src/telemed';
+import { useParams } from 'react-router-dom';
 
 interface PerformTestViewProps {
   testDetails: InHouseLabDTO;
+  setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
 }
 
-export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, onBack }) => {
+export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, setLoadingState, onBack }) => {
   const methods = useForm<ResultEntryInput>({ mode: 'onChange' });
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
   const {
     handleSubmit,
     formState: { isValid },
   } = methods;
-  const navigate = useNavigate();
-  const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
   const { oystehrZambda: oystehr } = useApiClients();
 
   const [showDetails, setShowDetails] = useState(false);
@@ -56,7 +54,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
         serviceRequestId: serviceRequestID,
         data: data,
       });
-      navigate(`/in-person/${appointment?.id}/in-house-lab-orders`); // todo redirect to final page
+      setLoadingState(LoadingState.initial);
     } catch (e) {
       const oyError = e as OystehrSdkError;
       console.log('error entering results', oyError.code, oyError.message);
