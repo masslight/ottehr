@@ -13,7 +13,6 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   isAbnormal,
   assessAbnormality,
 }) => {
-  console.log('testItemComponent', testItemComponent);
   const { control } = useFormContext();
   let values: string[] = [];
   if (testItemComponent.dataType === 'CodeableConcept') {

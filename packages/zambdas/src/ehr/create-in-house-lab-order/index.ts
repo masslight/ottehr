@@ -350,8 +350,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ] as BatchInputRequest<FhirResource>[],
     });
 
-    console.log('transactionResponse', JSON.stringify(transactionResponse));
-
     if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
       throw Error('Error creating in-house lab order in transaction');
     }

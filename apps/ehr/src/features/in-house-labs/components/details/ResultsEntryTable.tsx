@@ -9,8 +9,6 @@ interface ResultEntryTableProps {
 const HEADER_ROW_STYLING = { borderBottom: 'none', padding: '0 8px 6px 0' };
 
 export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComponents }) => {
-  console.log('testItemComponents', testItemComponents);
-
   return (
     <TableContainer>
       <Table
