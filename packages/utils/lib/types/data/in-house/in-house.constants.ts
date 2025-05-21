@@ -45,6 +45,16 @@ export const NORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
   ],
 } as const;
 
+export const INDETERMINATE_OBSERVATION_INTERPRETATION: CodeableConcept = {
+  coding: [
+    {
+      system: OBSERVATION_INTERPRETATION_SYSTEM,
+      code: 'IND',
+      display: 'Indeterminate',
+    },
+  ],
+} as const;
+
 export const DIAGNOSTIC_REPORT_CATEGORY_CONFIG = {
   system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
   code: 'LAB',

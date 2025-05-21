@@ -14,6 +14,7 @@ import {
   extractQuantityRange,
   ABNORMAL_OBSERVATION_INTERPRETATION,
   NORMAL_OBSERVATION_INTERPRETATION,
+  INDETERMINATE_OBSERVATION_INTERPRETATION,
   extractAbnormalValueSetValues,
   DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
@@ -299,7 +300,7 @@ const formatObsValueAndInterpretation = (
       },
     };
     const range = extractQuantityRange(obsDef).normalRange;
-    const interpretationCodeableConcept = extractQuantInterpretationCodingVals(floatVal, range);
+    const interpretationCodeableConcept = determineQuantInterpretation(floatVal, range);
     const obsInterpretation = {
       interpretation: [interpretationCodeableConcept],
     };
@@ -310,21 +311,14 @@ const formatObsValueAndInterpretation = (
     const obsValue = {
       valueString: dataEntry,
     };
-
-    let obsInterpretation = {};
-    if (dataEntry !== IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
-      console.log('wut?', dataEntry, IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode);
-      const filteredContained = activityDefContained.filter(
-        (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
-      );
-      const abonormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
-      const interpretationCodeableConcept = abonormalValues.includes(dataEntry)
-        ? ABNORMAL_OBSERVATION_INTERPRETATION
-        : NORMAL_OBSERVATION_INTERPRETATION;
-      obsInterpretation = {
-        interpretation: [interpretationCodeableConcept],
-      };
-    }
+    const filteredContained = activityDefContained.filter(
+      (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
+    );
+    const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
+    const interpretationCodeableConcept = deteremineCodeableConceptInterpretation(dataEntry, abnormalValues);
+    const obsInterpretation = {
+      interpretation: [interpretationCodeableConcept],
+    };
 
     return { obsValue, obsInterpretation };
   }
@@ -332,7 +326,7 @@ const formatObsValueAndInterpretation = (
   throw new Error('obsDef.permittedDataType should be Quantity or CodeableConcept');
 };
 
-const extractQuantInterpretationCodingVals = (
+const determineQuantInterpretation = (
   entry: number,
   range: {
     low: number;
@@ -345,6 +339,14 @@ const extractQuantInterpretationCodingVals = (
     return ABNORMAL_OBSERVATION_INTERPRETATION;
   } else {
     return NORMAL_OBSERVATION_INTERPRETATION;
+  }
+};
+
+const deteremineCodeableConceptInterpretation = (value: string, abnormalValues: string[]): CodeableConcept => {
+  if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
+    return INDETERMINATE_OBSERVATION_INTERPRETATION;
+  } else {
+    return abnormalValues.includes(value) ? ABNORMAL_OBSERVATION_INTERPRETATION : NORMAL_OBSERVATION_INTERPRETATION;
   }
 };
 
