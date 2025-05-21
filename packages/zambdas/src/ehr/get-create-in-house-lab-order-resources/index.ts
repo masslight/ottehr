@@ -335,6 +335,7 @@ function buildOrderHistory(
     date: string;
   }[] = [];
 
+  // todo: it seems that adding from provenances is enough, so we can remove this
   // Add order creation entry if we have a service request
   // if (serviceRequest?.authoredOn) {
   //   history.push({

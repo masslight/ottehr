@@ -57,21 +57,19 @@ const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Ra
   const display = ext?.find((e) => e.url === OD_DISPLAY_CONFIG.url)?.valueString;
   console.log('display', display);
 
-  // todo: uncomment
-  // if (!display) throw Error(`no display type set for this observation definition: ${obsName}`);
+  if (!display) throw Error(`no display type set for this observation definition: ${obsName}`);
 
   if (
     display !== OD_DISPLAY_CONFIG.valueString.radio &&
     display !== OD_DISPLAY_CONFIG.valueString.select &&
     display !== OD_DISPLAY_CONFIG.valueString.numeric
   )
-    // todo: uncomment
-    // throw Error(
-    //   `unknown display cast to this observation definition: ${obsName} (display should be one of the follow ${Object.values(
-    //     OD_DISPLAY_CONFIG.valueString
-    //   )} and recieved: ${display})`
-    // );
-    return display;
+    throw Error(
+      `unknown display cast to this observation definition: ${obsName} (display should be one of the follow ${Object.values(
+        OD_DISPLAY_CONFIG.valueString
+      )} and recieved: ${display})`
+    );
+  return display;
 };
 
 const extractNullOption = (
@@ -141,7 +139,7 @@ const processObservationDefinition = (
     const quantityInfo = extractQuantityRange(obsDef);
     const displayType = extractDisplayType(obsDef, componentName);
     if (displayType !== 'Numeric') {
-      // throw Error('Quantity type observation definition is misconfigured, should be Numeric'); todo: uncomment
+      throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     }
     const component: QuantityComponent = {
       componentName,
