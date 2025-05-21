@@ -36,17 +36,17 @@ export const validateBundleAndExtractAppointment = (bundle: Bundle): ValidateBun
     throw new Error('Appointment could not be found');
   }
 
-  // get schdeule resource
+  // get schedule resource
   const fhirLocation = entry.find((e) => e.resource?.resourceType === 'Location');
   const fhirHS = entry.find((e) => e.resource?.resourceType === 'HealthcareService');
   const fhirPractitioner = entry.find((e) => e.resource?.resourceType === 'Practitioner'); // todo is this right ?
   let scheduleResource: Location | HealthcareService | Practitioner | undefined;
   if (fhirLocation) {
-    scheduleResource = fhirLocation as Location;
+    scheduleResource = fhirLocation.resource as Location;
   } else if (fhirHS) {
-    scheduleResource = fhirHS as HealthcareService;
+    scheduleResource = fhirHS.resource as HealthcareService;
   } else if (fhirPractitioner) {
-    scheduleResource = fhirPractitioner as Practitioner;
+    scheduleResource = fhirPractitioner.resource as Practitioner;
   }
 
   if (!scheduleResource) {
