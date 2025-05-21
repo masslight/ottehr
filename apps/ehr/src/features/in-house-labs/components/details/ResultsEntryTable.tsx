@@ -34,7 +34,7 @@ export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComp
             </TableCell>
             <TableCell sx={{ width: '25%', ...HEADER_ROW_STYLING }}>
               <Typography variant="body2" fontSize="12px">
-                REFERENCE RANCE
+                REFERENCE RANGE
               </Typography>
             </TableCell>
           </TableRow>
