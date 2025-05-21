@@ -33,6 +33,7 @@ import {
   CodeableConcept,
   FhirResource,
   Provenance,
+  ValueSet,
 } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
@@ -322,7 +323,7 @@ const formatObsValueAndInterpretation = (
     };
     const filteredContained = activityDefContained.filter(
       (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
-    );
+    ) as (ObservationDefinition | ValueSet)[];
     const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
     const interpretationCodeableConcept = deteremineCodeableConceptInterpretation(dataEntry, abnormalValues);
     const obsInterpretation = {

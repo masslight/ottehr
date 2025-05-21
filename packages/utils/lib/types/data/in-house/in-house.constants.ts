@@ -33,7 +33,7 @@ export const ABNORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
       display: 'Abnormal',
     },
   ],
-} as const;
+};
 
 export const NORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
   coding: [
@@ -43,7 +43,7 @@ export const NORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
       display: 'Normal',
     },
   ],
-} as const;
+};
 
 export const INDETERMINATE_OBSERVATION_INTERPRETATION: CodeableConcept = {
   coding: [
@@ -53,7 +53,7 @@ export const INDETERMINATE_OBSERVATION_INTERPRETATION: CodeableConcept = {
       display: 'Indeterminate',
     },
   ],
-} as const;
+};
 
 export const DIAGNOSTIC_REPORT_CATEGORY_CONFIG = {
   system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
