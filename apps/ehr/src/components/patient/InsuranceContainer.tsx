@@ -71,8 +71,6 @@ interface SimpleStatusCheckWithDate {
   dateISO: string;
 }
 
-const ELIGIBILITY_CHECK_FLAG: 'OFF' | 'ON' = 'OFF';
-
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
   patientId,
@@ -212,11 +210,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   };
 
   return (
-    <Section
-      title="Insurance information"
-      dataTestId="insuranceContainer"
-      titleWidget={ELIGIBILITY_CHECK_FLAG !== 'OFF' ? <TitleWidget /> : undefined}
-    >
+    <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
