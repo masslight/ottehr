@@ -134,7 +134,6 @@ export default function ProceduresNew(): ReactElement {
     if (procedure == null || initialValuesSet) {
       return;
     }
-    console.log(procedure);
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
     setState({
@@ -146,23 +145,19 @@ export default function ProceduresNew(): ReactElement {
       procedureTime: procedureDateTime,
       performerType: procedure.performerType,
       medicationUsed: procedure.medicationUsed,
-      bodySite: SITES.includes(procedure.bodySite ?? '') ? procedure.bodySite : OTHER,
-      otherBodySite: SITES.includes(procedure.bodySite ?? '') ? undefined : procedure.bodySite,
+      bodySite: getValueForOtherable(procedure.bodySite, SITES),
+      otherBodySite: getOtherValueForOtherable(procedure.bodySite, SITES),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
-      suppliesUsed: SUPPLIES.includes(procedure.suppliesUsed ?? '') ? procedure.suppliesUsed : OTHER,
-      otherSuppliesUsed: SUPPLIES.includes(procedure.suppliesUsed ?? '') ? undefined : procedure.suppliesUsed,
+      suppliesUsed: getValueForOtherable(procedure.suppliesUsed, SUPPLIES),
+      otherSuppliesUsed: getOtherValueForOtherable(procedure.suppliesUsed, SUPPLIES),
       procedureDetails: procedure.procedureDetails,
       specimenSent: procedure.specimenSent,
-      complications: COMPLICATIONS.includes(procedure.complications ?? '') ? procedure.complications : OTHER,
-      otherComplications: COMPLICATIONS.includes(procedure.complications ?? '') ? undefined : procedure.complications,
+      complications: getValueForOtherable(procedure.complications, COMPLICATIONS),
+      otherComplications: getOtherValueForOtherable(procedure.complications, COMPLICATIONS),
       patientResponse: procedure.patientResponse,
-      postInstructions: POST_PROCEDURE_INSTRUCTIONS.includes(procedure.postInstructions ?? '')
-        ? procedure.postInstructions
-        : OTHER,
-      otherPostInstructions: POST_PROCEDURE_INSTRUCTIONS.includes(procedure.postInstructions ?? '')
-        ? undefined
-        : procedure.postInstructions,
+      postInstructions: getValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
+      otherPostInstructions: getOtherValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
     });
@@ -190,7 +185,10 @@ export default function ProceduresNew(): ReactElement {
 
   const onSave = async (): Promise<void> => {
     setSaveInProgress(true);
-    const cptAndDiagnosesResponse = await saveCptAndDiagnoses(state.cptCodes ?? [], state.diagnoses ?? []);
+    const cptAndDiagnosesResponse = await saveCptAndDiagnoses(
+      state.cptCodes?.filter((cptCode) => cptCode.resourceId == null) ?? [],
+      state.diagnoses?.filter((diagnosis) => diagnosis.resourceId == null) ?? []
+    );
     const savedCptCodes = cptAndDiagnosesResponse.chartData?.cptCodes;
     if (savedCptCodes) {
       setPartialChartData({
@@ -203,13 +201,22 @@ export default function ProceduresNew(): ReactElement {
         diagnosis: [...chartDiagnoses, ...savedDiagnoses],
       });
     }
+    const cptCodesToUse = [
+      ...(savedCptCodes ?? []),
+      ...(state.cptCodes?.filter((cptCode) => cptCode.resourceId != null) ?? []),
+    ];
+    const diagnosesToUse = [
+      ...(savedDiagnoses ?? []),
+      ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
+    ];
     saveChartData(
       {
         procedures: [
           {
+            resourceId: procedureId,
             procedureType: state.procedureType,
-            cptCodes: savedCptCodes,
-            diagnoses: savedDiagnoses,
+            cptCodes: cptCodesToUse,
+            diagnoses: diagnosesToUse,
             procedureDateTime: state.procedureDate
               ?.set({ hour: state.procedureTime?.hour, minute: state.procedureTime?.minute })
               ?.toUTC()
@@ -238,11 +245,11 @@ export default function ProceduresNew(): ReactElement {
           if (savedProcedure) {
             setPartialChartData({
               procedures: [
-                ...chartProcedures,
+                ...chartProcedures.filter((procedure) => procedure.resourceId !== procedureId),
                 {
                   ...savedProcedure,
-                  cptCodes: savedCptCodes ?? [],
-                  diagnoses: savedDiagnoses ?? [],
+                  cptCodes: cptCodesToUse,
+                  diagnoses: diagnosesToUse,
                 },
               ],
             });
@@ -596,4 +603,18 @@ export default function ProceduresNew(): ReactElement {
       </Backdrop>
     </>
   );
+}
+
+function getValueForOtherable(value: string | undefined, predefinedValues: string[]): string | undefined {
+  if (value != null && predefinedValues.includes(value)) {
+    return value;
+  }
+  return value != null ? OTHER : undefined;
+}
+
+function getOtherValueForOtherable(value: string | undefined, predefinedValues: string[]): string | undefined {
+  if (value != null && !predefinedValues.includes(value)) {
+    return value;
+  }
+  return undefined;
 }

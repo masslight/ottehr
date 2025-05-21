@@ -1419,6 +1419,7 @@ export const createProcedureServiceRequest = (
   });
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',
+    id: procedure.resourceId,
     subject: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'completed',
