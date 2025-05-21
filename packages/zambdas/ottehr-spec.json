@@ -921,6 +921,13 @@
       "src": "src/ehr/get-create-in-house-lab-order-resources/index",
       "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
     },
+    "GET-IN-HOUSE-LAB-ORDER-DETAIL": {
+      "name": "GET-IN-HOUSE-LAB-ORDER-DETAIL",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-in-house-lab-order-detail/index",
+      "zip": ".dist/zips/get-in-house-lab-order-detail.zip"
+    },
     "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
       "name": "COLLECT-IN-HOUSE-LAB-SPECIMEN",
       "type": "http_auth",

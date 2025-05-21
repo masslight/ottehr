@@ -16,12 +16,12 @@ import {
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { GetCreateInHouseLabOrderResourcesResponse, MarkAsCollectedData } from 'utils';
+import { InHouseLabDTO, MarkAsCollectedData } from 'utils';
 import { DateTime } from 'luxon';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 
 interface CollectSampleViewProps {
-  testDetails: GetCreateInHouseLabOrderResourcesResponse;
+  testDetails: InHouseLabDTO;
   onBack: () => void;
   onSubmit: (data: MarkAsCollectedData) => void;
 }
@@ -59,7 +59,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   };
 
   const handleReprintLabel = (): void => {
-    console.log('Reprinting label for test:', testDetails.id);
+    console.log('Reprinting label for test:', testDetails.serviceRequestId);
   };
 
   const providers =

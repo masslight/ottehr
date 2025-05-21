@@ -1,6 +1,11 @@
 import { DiagnosisDTO } from '../..';
 import { Pagination } from '../labs';
 
+export interface TestItemMethods {
+  manual?: { device: string };
+  analyzer?: { device: string };
+  machine?: { device: string };
+}
 export interface QuantityRange {
   low: number;
   high: number;
@@ -33,7 +38,6 @@ export interface QuantityComponent extends BaseComponent {
 
 export type TestItemComponent = CodeableConceptComponent | QuantityComponent;
 
-// base fields, common for all test types
 export interface TestItem {
   name: string;
   methods: TestItemMethods;
@@ -44,20 +48,8 @@ export interface TestItem {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
-  result?: {
-    entry: string;
-    isAbnormal?: boolean;
-  };
   note?: string;
 }
-
-export interface TestItemMethods {
-  manual?: { device: string };
-  analyzer?: { device: string };
-  machine?: { device: string };
-}
-
-export type TestItemsType = Record<string, TestItem>;
 
 export type InHouseOrderResultDetails = {
   status: TestStatus;
@@ -131,17 +123,21 @@ export type CreateInHouseLabOrderParameters = {
   notes?: string;
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string; serviceRequestId?: string };
+export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string };
 
 export type GetCreateInHouseLabOrderResourcesResponse = {
-  id: string;
-  type: TestType;
+  labs: TestItem[];
+  providerName: string;
+};
+
+export type InHouseLabDTO = {
+  serviceRequestId: string;
   name: string;
   status: TestStatus;
   diagnosis: string;
   diagnosisDTO: DiagnosisDTO[];
   notes: string;
-  labs: TestItem[];
+  labDetails: TestItem;
   timezone: string | undefined;
   specimen: {
     source: string;
@@ -184,32 +180,7 @@ export type DeleteInHouseLabOrderParameters = {
   serviceRequestId: string;
 };
 
-export type TestType = 'QUALITATIVE' | 'QUANTITATIVE' | 'MIXED';
-
 export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
-
-// todo: should be used GetCreateInHouseLabOrderResourcesResponse instead of this type?
-export interface LabTest {
-  id: string;
-  type: TestType;
-  name: string;
-  status: TestStatus;
-  diagnosis: string;
-  specimen?: {
-    source: string;
-    collectedBy: string;
-    collectionDate: string;
-    collectionTime: string;
-  };
-  notes?: string;
-  orderDetails?: {
-    orderedBy: string;
-    orderedDate: string;
-    collectedBy?: string;
-    collectedDate?: string;
-  };
-  parameters?: TestItem[];
-}
 
 export type MarkAsCollectedData = {
   specimen: {

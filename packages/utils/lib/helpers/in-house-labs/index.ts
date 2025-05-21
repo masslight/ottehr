@@ -9,9 +9,6 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
 } from 'utils';
 
-// TODO TEMP PUTTING THIS HERE WHILE I TEST THE FRONT END
-// when done with front end testing this can be moved to a shared file in the zambdas package (no need for the front end to have it)
-
 const extractValueSetValues = (valueSet: ValueSet): string[] => {
   if (!valueSet.compose?.include?.[0]?.concept) {
     return [];
