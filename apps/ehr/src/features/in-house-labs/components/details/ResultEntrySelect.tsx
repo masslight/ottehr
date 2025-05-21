@@ -13,7 +13,6 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   isAbnormal,
   assessAbnormality,
 }) => {
-  console.log('testItemComponent', testItemComponent);
   const { control } = useFormContext();
   let values: string[] = [];
   if (testItemComponent.dataType === 'CodeableConcept') {
@@ -51,7 +50,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
         Select
       </InputLabel>
       <Controller
-        name={`select-${testItemComponent.observationDefinitionId}`}
+        name={testItemComponent.observationDefinitionId}
         control={control}
         defaultValue=""
         render={({ field }) => (

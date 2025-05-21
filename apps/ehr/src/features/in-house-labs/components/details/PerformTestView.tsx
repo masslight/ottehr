@@ -2,27 +2,38 @@ import React, { useState } from 'react';
 import { Box, Paper, Typography, Button, Collapse } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { InHouseLabDTO } from 'utils';
+import { InHouseLabDTO, getSelectors, ResultEntryInput } from 'utils';
 import { History } from './History';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
+import { handleInHouseLabResults } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { LoadingButton } from '@mui/lab';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useAppointmentStore } from 'src/telemed';
 
 interface PerformTestViewProps {
   testDetails: InHouseLabDTO;
   onBack: () => void;
-  onSubmit: (data: any) => void;
 }
 
 export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, onBack }) => {
-  const methods = useForm<{ [key: string]: any }>();
+  const methods = useForm<ResultEntryInput>({ mode: 'onChange' });
+  const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
+  const {
+    handleSubmit,
+    formState: { isValid },
+  } = methods;
+  const navigate = useNavigate();
+  const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
+  const { oystehrZambda: oystehr } = useApiClients();
+
   const [showDetails, setShowDetails] = useState(false);
   const [notes, setNotes] = useState(testDetails.notes || '');
-
-  // // temp for testing
-  // const testItem = convertActivityDefinitionToTestItem(URINALYSIS_AD);
-  // console.log('testDetails', testDetails);
-  // console.log('testItem', testItem);
+  const [submittingResults, setSubmittingResults] = useState<boolean>(false);
+  const [error, setError] = useState<string[] | undefined>(undefined);
 
   const handleToggleDetails = (): void => {
     setShowDetails(!showDetails);
@@ -30,6 +41,29 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
 
   const handleReprintLabel = (): void => {
     console.log('Reprinting label for test:', testDetails.serviceRequestId);
+  };
+
+  const handleResultEntrySubmit: SubmitHandler<ResultEntryInput> = async (data): Promise<void> => {
+    setSubmittingResults(true);
+    if (!oystehr) {
+      console.log('no oystehr client! :o'); // todo add error handling
+      return;
+    }
+    if (!serviceRequestID) return; // todo better error handling
+    console.log('data being submitted', data);
+    try {
+      await handleInHouseLabResults(oystehr, {
+        serviceRequestId: serviceRequestID,
+        data: data,
+      });
+      navigate(`/in-person/${appointment?.id}/in-house-lab-orders`); // todo redirect to final page
+    } catch (e) {
+      const oyError = e as OystehrSdkError;
+      console.log('error entering results', oyError.code, oyError.message);
+      const errorMessage = [oyError.message];
+      setError(errorMessage);
+    }
+    setSubmittingResults(false);
   };
 
   return (
@@ -44,7 +78,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
 
       <Paper sx={{ mb: 2 }}>
         <FormProvider {...methods}>
-          <form onSubmit={methods.handleSubmit((data) => console.log('testing submit', data))}>
+          <form onSubmit={handleSubmit(handleResultEntrySubmit)}>
             <Box sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h5" color="primary.dark" fontWeight="bold">
@@ -98,17 +132,26 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
                   Back
                 </Button>
 
-                <Button
+                <LoadingButton
                   variant="contained"
                   color="primary"
-                  onClick={() => console.log('ugh')}
-                  // disabled={!result}
+                  loading={submittingResults}
+                  disabled={!isValid}
                   type="submit"
                   sx={{ borderRadius: '50px', px: 4 }}
                 >
                   Submit
-                </Button>
+                </LoadingButton>
               </Box>
+              {error &&
+                error.length > 0 &&
+                error.map((msg, idx) => (
+                  <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                    <Typography sx={{ color: 'error.dark' }}>
+                      {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                    </Typography>
+                  </Box>
+                ))}
             </Box>
           </form>
         </FormProvider>

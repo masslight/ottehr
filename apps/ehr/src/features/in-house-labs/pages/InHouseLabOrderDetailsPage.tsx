@@ -124,7 +124,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
               <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
             );
           case 'COLLECTED':
-            return <PerformTestView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />;
+            return <PerformTestView testDetails={testDetails} onBack={handleBack} />;
           case 'FINAL':
             return <FinalResultView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />;
           default:

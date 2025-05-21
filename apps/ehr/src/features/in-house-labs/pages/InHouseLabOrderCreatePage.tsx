@@ -21,8 +21,8 @@ import { useAppointmentStore } from '../../../telemed/state/appointment/appointm
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { PRACTITIONER_CODINGS, TestItem } from 'utils';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { createInHouseLabOrder, getCreateInHouseLabOrderResources } from 'src/api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { createInHouseLabOrder, getCreateInHouseLabOrderResources } from '../../../api/api';
 import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { enqueueSnackbar } from 'notistack';
 
@@ -146,7 +146,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         setLoading(false);
       }
     } else if (!canBeSubmitted) {
-      const errorMessage = [];
+      const errorMessage: string[] = [];
       if (!selectedDiagnoses.length) errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');

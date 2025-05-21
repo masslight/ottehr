@@ -15,9 +15,7 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
 
   const assessAbnormality = (entry: string): void => {
     if (component.dataType === 'Quantity' && component.normalRange.low && component.normalRange.high) {
-      console.log('entry', entry);
       const entryNum = parseFloat(entry);
-      console.log('entryNum', entryNum);
       if (component.dataType === 'Quantity') {
         const { high, low } = component.normalRange;
         if (entryNum >= high || entryNum <= low) setIsAbnormal(true);

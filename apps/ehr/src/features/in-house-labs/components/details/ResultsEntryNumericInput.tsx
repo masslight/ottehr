@@ -14,7 +14,6 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
   isAbnormal,
   assessAbnormality,
 }) => {
-  console.log('testItemComponent', testItemComponent);
   const { control } = useFormContext();
 
   return (
