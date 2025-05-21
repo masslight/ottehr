@@ -13,6 +13,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 
 // temp for testing
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
   resourceType: 'ActivityDefinition',
   status: 'active',
@@ -135,6 +136,781 @@ const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
   },
   id: '4f3df780-a0aa-41eb-aa6e-a69009afa812',
   url: 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/RapidStrepA',
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const URINALYSIS_AD: ActivityDefinition = {
+  resourceType: 'ActivityDefinition',
+  status: 'active',
+  kind: 'ServiceRequest',
+  code: {
+    coding: [
+      {
+        system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-test-code',
+        code: 'Urinalysis (UA)',
+      },
+      {
+        system: 'http://www.ama-assn.org/go/cpt',
+        code: '81003',
+      },
+    ],
+  },
+  title: 'Urinalysis (UA)',
+  name: 'Urinalysis (UA)',
+  participant: [
+    {
+      type: 'device',
+      role: {
+        coding: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-test-participant-role',
+            code: 'analyzer',
+            display: 'Clinitek / Multitsix',
+          },
+        ],
+      },
+    },
+  ],
+  observationRequirement: [
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-glucose-component-codeableconcept-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-bilirubin-component-codeableconcept-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-ketone-component-codeableconcept-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-specificgravity-component-quantity-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-blood-component-codeableconcept-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-ph-component-quantity-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-protein-component-codeableconcept-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-urobilinogen-component-quantity-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-nitrite-component-codeableconcept-observationDef-id',
+    },
+    {
+      type: 'ObservationDefinition',
+      reference: '#contained-leukocytes-component-codeableconcept-observationDef-id',
+    },
+  ],
+  contained: [
+    {
+      id: 'contained-Glucose-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Negative',
+              },
+              {
+                code: 'Trace',
+              },
+              {
+                code: '1+',
+              },
+              {
+                code: '2+',
+              },
+              {
+                code: '3+',
+              },
+              {
+                code: '4+',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-Glucose-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Trace',
+              },
+              {
+                code: '1+',
+              },
+              {
+                code: '2+',
+              },
+              {
+                code: '3+',
+              },
+              {
+                code: '4+',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-glucose-component-codeableconcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '2350-7',
+          },
+        ],
+        text: 'Glucose',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Glucose-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Glucose-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Select',
+        },
+      ],
+    },
+    {
+      id: 'contained-Bilirubin-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Negative',
+              },
+              {
+                code: '1+',
+              },
+              {
+                code: '2+',
+              },
+              {
+                code: '3+',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-Bilirubin-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: '1+',
+              },
+              {
+                code: '2+',
+              },
+              {
+                code: '3+',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-bilirubin-component-codeableconcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '1977-8',
+          },
+        ],
+        text: 'Bilirubin',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Bilirubin-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Bilirubin-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Select',
+        },
+      ],
+    },
+    {
+      id: 'contained-Ketone-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Negative',
+              },
+              {
+                code: 'Trace',
+              },
+              {
+                code: 'Small',
+              },
+              {
+                code: 'Moderate',
+              },
+              {
+                code: 'Large',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-Ketone-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Trace',
+              },
+              {
+                code: 'Small',
+              },
+              {
+                code: 'Moderate',
+              },
+              {
+                code: 'Large',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-ketone-component-codeableconcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '49779-2',
+          },
+        ],
+        text: 'Ketone',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Ketone-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Ketone-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Select',
+        },
+      ],
+    },
+    {
+      id: 'contained-specificgravity-component-quantity-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '2965-2',
+          },
+        ],
+        text: 'Specific gravity',
+      },
+      permittedDataType: ['Quantity'],
+      quantitativeDetails: {
+        decimalPrecision: 3,
+      },
+      qualifiedInterval: [
+        {
+          category: 'reference',
+          range: {
+            low: {
+              value: 1.005,
+            },
+            high: {
+              value: 1.03,
+            },
+          },
+        },
+      ],
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Numeric',
+        },
+      ],
+    },
+    {
+      id: 'contained-Blood-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Negative',
+              },
+              {
+                code: 'Trace',
+              },
+              {
+                code: 'Small',
+              },
+              {
+                code: 'Moderate',
+              },
+              {
+                code: 'Large',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-Blood-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Trace',
+              },
+              {
+                code: 'Small',
+              },
+              {
+                code: 'Moderate',
+              },
+              {
+                code: 'Large',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-blood-component-codeableconcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '105906-2',
+          },
+        ],
+        text: 'Blood',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Blood-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Blood-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Select',
+        },
+      ],
+    },
+    {
+      id: 'contained-ph-component-quantity-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '2756-5',
+          },
+        ],
+        text: 'pH',
+      },
+      permittedDataType: ['Quantity'],
+      quantitativeDetails: {
+        decimalPrecision: 1,
+      },
+      qualifiedInterval: [
+        {
+          category: 'reference',
+          range: {
+            low: {
+              value: 5,
+            },
+            high: {
+              value: 8,
+            },
+          },
+        },
+      ],
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Numeric',
+        },
+      ],
+    },
+    {
+      id: 'contained-Protein-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Negative',
+              },
+              {
+                code: 'Trace',
+              },
+              {
+                code: '1+',
+              },
+              {
+                code: '2+',
+              },
+              {
+                code: '3+',
+              },
+              {
+                code: '4+',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-Protein-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Trace',
+              },
+              {
+                code: '1+',
+              },
+              {
+                code: '2+',
+              },
+              {
+                code: '3+',
+              },
+              {
+                code: '4+',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-protein-component-codeableconcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '2888-6',
+          },
+        ],
+        text: 'Protein',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Protein-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Protein-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Select',
+        },
+      ],
+    },
+    {
+      id: 'contained-urobilinogen-component-quantity-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '32727-0',
+          },
+        ],
+        text: 'Urobilinogen',
+      },
+      permittedDataType: ['Quantity'],
+      quantitativeDetails: {
+        decimalPrecision: 1,
+        unit: {
+          coding: [
+            {
+              system: 'http://unitsofmeasure.org/',
+              code: 'EU/dL',
+            },
+          ],
+        },
+      },
+      qualifiedInterval: [
+        {
+          category: 'reference',
+          range: {
+            low: {
+              value: 0.2,
+            },
+            high: {
+              value: 1,
+            },
+          },
+        },
+      ],
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Numeric',
+        },
+      ],
+    },
+    {
+      id: 'contained-Nitrite-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Positive',
+              },
+              {
+                code: 'Negative',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-Nitrite-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Positive',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-nitrite-component-codeableconcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '32710-6',
+          },
+        ],
+        text: 'Nitrite',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Nitrite-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Nitrite-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Select',
+        },
+      ],
+    },
+    {
+      id: 'contained-Leukocytes-normal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Negative',
+              },
+              {
+                code: 'Trace',
+              },
+              {
+                code: 'Small',
+              },
+              {
+                code: 'Moderate',
+              },
+              {
+                code: 'Large',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-Leukocytes-abnormal-valueSet',
+      resourceType: 'ValueSet',
+      status: 'active',
+      compose: {
+        include: [
+          {
+            system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-result-valueSet',
+            concept: [
+              {
+                code: 'Trace',
+              },
+              {
+                code: 'Small',
+              },
+              {
+                code: 'Moderate',
+              },
+              {
+                code: 'Large',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: 'contained-leukocytes-component-codeableconcept-observationDef-id',
+      resourceType: 'ObservationDefinition',
+      code: {
+        coding: [
+          {
+            system: 'http://loinc.org',
+            code: '105105-1',
+          },
+        ],
+        text: 'Leukocytes',
+      },
+      permittedDataType: ['CodeableConcept'],
+      validCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Leukocytes-normal-valueSet',
+      },
+      abnormalCodedValueSet: {
+        type: 'ValueSet',
+        reference: '#contained-Leukocytes-abnormal-valueSet',
+      },
+      extension: [
+        {
+          url: 'http://ottehr.org/fhir/StructureDefinition/valueset-display',
+          valueString: 'Select',
+        },
+      ],
+    },
+  ],
+  meta: {
+    tag: [
+      {
+        system: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-codes',
+        code: 'in-house-lab-test-definition',
+      },
+    ],
+    versionId: '60af563b-8144-49a0-bcae-d8e5afaa8781',
+    lastUpdated: '2025-05-14T20:28:17.889Z',
+  },
+  id: 'a69430e2-ba6f-43c7-a9ed-8844f121e84e',
 };
 
 interface PerformTestViewProps {
