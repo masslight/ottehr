@@ -23,7 +23,7 @@ import {
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
 const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
 
-const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/';
+const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
 
 const checkEnvPassedIsValid = (env: string | undefined): boolean => {
   if (!env) return false;
@@ -310,7 +310,7 @@ const getUrlAndVersion = (
   item: TestItem,
   adUrlVersionMap: { [url: string]: string }
 ): { url: string; version: string } => {
-  const nameForUrl = item.name.replace(' ', '');
+  const nameForUrl = item.name.split(' ').join('');
   const url = `${AD_CANONICAL_URL_BASE}/${nameForUrl}`;
   const curVersion = adUrlVersionMap[url];
   const updatedVersion = curVersion ? parseInt(curVersion) + 1 : 1;
