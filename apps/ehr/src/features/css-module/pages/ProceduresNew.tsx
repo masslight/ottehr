@@ -1,4 +1,4 @@
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
 import {
   AccordionCard,
@@ -46,6 +46,7 @@ import { InfoAlert } from '../components/InfoAlert';
 import { enqueueSnackbar } from 'notistack';
 import { DateTime } from 'luxon';
 
+const OTHER = 'Other';
 const PROCEDURE_TYPES = [
   'Laceration Repair (Suturing/Stapling)',
   'Wound Care / Dressing Change',
@@ -71,14 +72,14 @@ const PROCEDURE_TYPES = [
 ];
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
 const MEDICATIONS_USED = ['None', 'Topical', 'Local', 'Oral', 'IV', 'IM'];
-const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', 'Other'];
+const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', OTHER];
 const SIDES_OF_BODY = ['Left', 'Right', 'Midline', 'Not Applicable'];
 const TECHNIQUES = ['Sterile', 'Clean', 'Aseptic', 'Field'];
-const SUPPLIES = ['Suture Kit', 'Splint', 'Irrigation Syringe', 'Speculum', 'Forceps', 'IV Kit', 'Other'];
+const SUPPLIES = ['Suture Kit', 'Splint', 'Irrigation Syringe', 'Speculum', 'Forceps', 'IV Kit', OTHER];
 const SPECIMEN_SENT = ['Yes', 'No'];
-const COMPLICATIONS = ['None', 'Bleeding', 'Incomplete Removal', 'Allergic Reaction', 'Other'];
+const COMPLICATIONS = ['None', 'Bleeding', 'Incomplete Removal', 'Allergic Reaction', OTHER];
 const PATIENT_RESPONSES = ['Tolerated Well', 'Mild Distress', 'Severe Distress', 'Improved', 'Stable', 'Worsened'];
-const POST_PROCEDURE_INSTRUCTIONS = ['Wound Care', 'F/U with PCP', 'Return if worsening', 'Other'];
+const POST_PROCEDURE_INSTRUCTIONS = ['Wound Care', 'F/U with PCP', 'Return if worsening', OTHER];
 const TIME_SPENT = ['< 5 min', '5-10 min', '10-20 min', '20-30 min', '> 30 min'];
 const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
 
@@ -110,7 +111,7 @@ interface PageState {
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
-  const { id: appointmentId } = useParams();
+  const { id: appointmentId, procedureId } = useParams();
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];
@@ -126,6 +127,47 @@ export default function ProceduresNew(): ReactElement {
     stateMutator(state);
     setState({ ...state });
   };
+
+  const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
+  useEffect(() => {
+    const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
+    if (procedure == null || initialValuesSet) {
+      return;
+    }
+    console.log(procedure);
+    const procedureDateTime =
+      procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
+    setState({
+      consentObtained: true,
+      procedureType: procedure.procedureType,
+      cptCodes: procedure.cptCodes,
+      diagnoses: procedure.diagnoses,
+      procedureDate: procedureDateTime,
+      procedureTime: procedureDateTime,
+      performerType: procedure.performerType,
+      medicationUsed: procedure.medicationUsed,
+      bodySite: SITES.includes(procedure.bodySite ?? '') ? procedure.bodySite : OTHER,
+      otherBodySite: SITES.includes(procedure.bodySite ?? '') ? undefined : procedure.bodySite,
+      bodySide: procedure.bodySide,
+      technique: procedure.technique,
+      suppliesUsed: SUPPLIES.includes(procedure.suppliesUsed ?? '') ? procedure.suppliesUsed : OTHER,
+      otherSuppliesUsed: SUPPLIES.includes(procedure.suppliesUsed ?? '') ? undefined : procedure.suppliesUsed,
+      procedureDetails: procedure.procedureDetails,
+      specimenSent: procedure.specimenSent,
+      complications: COMPLICATIONS.includes(procedure.complications ?? '') ? procedure.complications : OTHER,
+      otherComplications: COMPLICATIONS.includes(procedure.complications ?? '') ? undefined : procedure.complications,
+      patientResponse: procedure.patientResponse,
+      postInstructions: POST_PROCEDURE_INSTRUCTIONS.includes(procedure.postInstructions ?? '')
+        ? procedure.postInstructions
+        : OTHER,
+      otherPostInstructions: POST_PROCEDURE_INSTRUCTIONS.includes(procedure.postInstructions ?? '')
+        ? undefined
+        : procedure.postInstructions,
+      timeSpent: procedure.timeSpent,
+      documentedBy: procedure.documentedBy,
+    });
+    setInitialValuesSet(true);
+  }, [procedureId, chartData?.procedures, setState, initialValuesSet]);
 
   const onCancel = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
@@ -175,15 +217,15 @@ export default function ProceduresNew(): ReactElement {
             documentedDateTime: DateTime.now().toUTC().toString(),
             performerType: state.performerType,
             medicationUsed: state.medicationUsed,
-            bodySite: state.bodySite,
+            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite,
             bodySide: state.bodySide,
             technique: state.technique,
-            suppliesUsed: state.suppliesUsed,
+            suppliesUsed: state.suppliesUsed !== OTHER ? state.suppliesUsed : state.otherSuppliesUsed,
             procedureDetails: state.procedureDetails,
             specimenSent: state.specimenSent,
-            complications: state.complications,
+            complications: state.complications !== OTHER ? state.complications : state.otherComplications,
             patientResponse: state.patientResponse,
-            postInstructions: state.postInstructions,
+            postInstructions: state.postInstructions !== OTHER ? state.postInstructions : state.otherPostInstructions,
             timeSpent: state.timeSpent,
             documentedBy: state.documentedBy,
           },
@@ -329,6 +371,7 @@ export default function ProceduresNew(): ReactElement {
   const dropdown = (
     label: string,
     options: string[],
+    value: string | undefined,
     stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
     return (
@@ -338,7 +381,7 @@ export default function ProceduresNew(): ReactElement {
           label={label}
           labelId={label}
           variant="outlined"
-          defaultValue=""
+          value={value ?? ''}
           onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
         >
           {options.map((option) => {
@@ -358,6 +401,7 @@ export default function ProceduresNew(): ReactElement {
   const otherTextInput = (
     parentLabel: string,
     parentValue: string | undefined,
+    value: string | undefined,
     stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
     if (parentValue !== 'Other') {
@@ -367,6 +411,7 @@ export default function ProceduresNew(): ReactElement {
       <TextField
         label={'Other ' + parentLabel.toLocaleLowerCase()}
         size="small"
+        value={value ?? ''}
         onChange={(e: any) => updateState((state) => stateMutator(e.target.value, state))}
       />
     );
@@ -375,6 +420,7 @@ export default function ProceduresNew(): ReactElement {
   const radio = (
     label: string,
     options: string[],
+    value: string | undefined,
     stateMutator: (value: string, state: PageState) => void,
     error = false
   ): ReactElement => {
@@ -385,6 +431,7 @@ export default function ProceduresNew(): ReactElement {
           row
           aria-labelledby={label}
           onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
+          value={value ?? ''}
         >
           {options.map((option) => {
             return <FormControlLabel key={option} value={option} control={<Radio />} label={option} />;
@@ -403,6 +450,7 @@ export default function ProceduresNew(): ReactElement {
           <Stack spacing={2} style={{ padding: '24px' }}>
             <Box style={{ display: 'flex', alignItems: 'center' }}>
               <Checkbox
+                checked={state.consentObtained ?? false}
                 onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
               />
               <Typography>I have obtained the Consent for Procedure *</Typography>
@@ -414,7 +462,12 @@ export default function ProceduresNew(): ReactElement {
             <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Procedure Type & CPT Code
             </Typography>
-            {dropdown('Procedure type', PROCEDURE_TYPES, (value, state) => (state.procedureType = value))}
+            {dropdown(
+              'Procedure type',
+              PROCEDURE_TYPES,
+              state.procedureType,
+              (value, state) => (state.procedureType = value)
+            )}
             {cptWidget()}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
@@ -451,52 +504,81 @@ export default function ProceduresNew(): ReactElement {
                 />
               </LocalizationProvider>
             </Stack>
-            {radio('Performed by', PERFORMED_BY, (value, state) => (state.performerType = value))}
+            {radio('Performed by', PERFORMED_BY, state.performerType, (value, state) => (state.performerType = value))}
             {dropdown(
               'Anaesthesia / medication used',
               MEDICATIONS_USED,
+              state.medicationUsed,
               (value, state) => (state.medicationUsed = value)
             )}
-            {dropdown('Site/location', SITES, (value, state) => {
+            {dropdown('Site/location', SITES, state.bodySite, (value, state) => {
               state.bodySite = value;
               state.otherBodySite = undefined;
             })}
-            {otherTextInput('Site/location', state.bodySite, (value, state) => (state.otherBodySite = value))}
-            {dropdown('Side of body', SIDES_OF_BODY, (value, state) => (state.bodySide = value))}
-            {dropdown('Technique', TECHNIQUES, (value, state) => (state.technique = value))}
-            {dropdown('Instruments / supplies used', SUPPLIES, (value, state) => {
+            {otherTextInput(
+              'Site/location',
+              state.bodySite,
+              state.otherBodySite,
+              (value, state) => (state.otherBodySite = value)
+            )}
+            {dropdown('Side of body', SIDES_OF_BODY, state.bodySide, (value, state) => (state.bodySide = value))}
+            {dropdown('Technique', TECHNIQUES, state.technique, (value, state) => (state.technique = value))}
+            {dropdown('Instruments / supplies used', SUPPLIES, state.suppliesUsed, (value, state) => {
               state.suppliesUsed = value;
               state.otherSuppliesUsed = undefined;
             })}
             {otherTextInput(
               'Instruments / supplies used',
               state.suppliesUsed,
+              state.otherSuppliesUsed,
               (value, state) => (state.otherSuppliesUsed = value)
             )}
             <TextField
               label="Procedure details"
               multiline
               rows={4}
+              value={state.procedureDetails ?? ''}
               onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
             />
-            {radio('Specimen sent', SPECIMEN_SENT, (value, state) => (state.specimenSent = value === 'Yes'))}
-            {dropdown('Complications', COMPLICATIONS, (value, state) => {
+            {radio(
+              'Specimen sent',
+              SPECIMEN_SENT,
+              state.specimenSent != null ? (state.specimenSent ? 'Yes' : 'No') : undefined,
+              (value, state) => (state.specimenSent = value === 'Yes')
+            )}
+            {dropdown('Complications', COMPLICATIONS, state.complications, (value, state) => {
               state.complications = value;
               state.otherComplications = undefined;
             })}
-            {otherTextInput('Complications', state.complications, (value, state) => (state.otherComplications = value))}
-            {dropdown('Patient response', PATIENT_RESPONSES, (value, state) => (state.patientResponse = value))}
-            {dropdown('Post-procedure Instructions', POST_PROCEDURE_INSTRUCTIONS, (value, state) => {
-              state.postInstructions = value;
-              state.otherPostInstructions = undefined;
-            })}
+            {otherTextInput(
+              'Complications',
+              state.complications,
+              state.otherComplications,
+              (value, state) => (state.otherComplications = value)
+            )}
+            {dropdown(
+              'Patient response',
+              PATIENT_RESPONSES,
+              state.patientResponse,
+              (value, state) => (state.patientResponse = value)
+            )}
+            {dropdown(
+              'Post-procedure Instructions',
+              POST_PROCEDURE_INSTRUCTIONS,
+              state.postInstructions,
+              (value, state) => {
+                state.postInstructions = value;
+                state.otherPostInstructions = undefined;
+              }
+            )}
             {otherTextInput(
               'Post-procedure Instructions',
               state.postInstructions,
+              state.otherPostInstructions,
               (value, state) => (state.otherPostInstructions = value)
             )}
-            {dropdown('Time spent', TIME_SPENT, (value, state) => (state.timeSpent = value))}
-            {radio('Documented by', DOCUMENTED_BY, (value, state) => (state.documentedBy = value))}
+            {dropdown('Time spent', TIME_SPENT, state.timeSpent, (value, state) => (state.timeSpent = value))}
+            {radio('Documented by', DOCUMENTED_BY, state.documentedBy, (value, state) => (state.documentedBy = value))}
             <Divider orientation="horizontal" />
             <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
               <RoundedButton color="primary" onClick={onCancel}>
