@@ -6,6 +6,7 @@ import {
   DeleteIconButton,
   useAppointmentStore,
   useDebounce,
+  useDeleteChartData,
   useGetIcd10Search,
   useSaveChartData,
 } from 'src/telemed';
@@ -31,14 +32,7 @@ import {
 } from '@mui/material';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import {
-  ChartDataWithResources,
-  CPTCodeDTO,
-  DiagnosisDTO,
-  getSelectors,
-  IcdSearchResponse,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, getSelectors, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
@@ -116,7 +110,8 @@ export default function ProceduresNew(): ReactElement {
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];
   const chartProcedures = chartData?.procedures || [];
-  const { mutate: saveChartData } = useSaveChartData();
+  const { mutateAsync: saveChartData } = useSaveChartData();
+  const { mutateAsync: deleteChartData } = useDeleteChartData();
   const [state, setState] = useState<PageState>({
     procedureDate: DateTime.now(),
     procedureTime: DateTime.now(),
@@ -168,49 +163,34 @@ export default function ProceduresNew(): ReactElement {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
-  const saveCptAndDiagnoses = (cptCodes: CPTCodeDTO[], diagnoses: DiagnosisDTO[]): Promise<ChartDataWithResources> => {
-    return new Promise<ChartDataWithResources>((resolve, reject) => {
-      saveChartData(
-        {
-          cptCodes: cptCodes,
-          diagnosis: diagnoses,
-        },
-        {
-          onSuccess: resolve,
-          onError: reject,
-        }
-      );
-    });
-  };
-
   const onSave = async (): Promise<void> => {
     setSaveInProgress(true);
-    const cptAndDiagnosesResponse = await saveCptAndDiagnoses(
-      state.cptCodes?.filter((cptCode) => cptCode.resourceId == null) ?? [],
-      state.diagnoses?.filter((diagnosis) => diagnosis.resourceId == null) ?? []
-    );
-    const savedCptCodes = cptAndDiagnosesResponse.chartData?.cptCodes;
-    if (savedCptCodes) {
-      setPartialChartData({
-        cptCodes: [...chartCptCodes, ...savedCptCodes],
+    try {
+      const saveCptAndDiagnosesResponse = await saveChartData({
+        cptCodes: state.cptCodes?.filter((cptCode) => cptCode.resourceId == null) ?? [],
+        diagnosis: state.diagnoses?.filter((diagnosis) => diagnosis.resourceId == null) ?? [],
       });
-    }
-    const savedDiagnoses = cptAndDiagnosesResponse.chartData?.diagnosis;
-    if (savedDiagnoses) {
-      setPartialChartData({
-        diagnosis: [...chartDiagnoses, ...savedDiagnoses],
-      });
-    }
-    const cptCodesToUse = [
-      ...(savedCptCodes ?? []),
-      ...(state.cptCodes?.filter((cptCode) => cptCode.resourceId != null) ?? []),
-    ];
-    const diagnosesToUse = [
-      ...(savedDiagnoses ?? []),
-      ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
-    ];
-    saveChartData(
-      {
+      const savedCptCodes = saveCptAndDiagnosesResponse.chartData?.cptCodes;
+      if (savedCptCodes) {
+        setPartialChartData({
+          cptCodes: [...chartCptCodes, ...savedCptCodes],
+        });
+      }
+      const savedDiagnoses = saveCptAndDiagnosesResponse.chartData?.diagnosis;
+      if (savedDiagnoses) {
+        setPartialChartData({
+          diagnosis: [...chartDiagnoses, ...savedDiagnoses],
+        });
+      }
+      const cptCodesToUse = [
+        ...(savedCptCodes ?? []),
+        ...(state.cptCodes?.filter((cptCode) => cptCode.resourceId != null) ?? []),
+      ];
+      const diagnosesToUse = [
+        ...(savedDiagnoses ?? []),
+        ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
+      ];
+      const saveProcdureResponse = await saveChartData({
         procedures: [
           {
             resourceId: procedureId,
@@ -237,32 +217,39 @@ export default function ProceduresNew(): ReactElement {
             documentedBy: state.documentedBy,
           },
         ],
-      },
-      {
-        onSuccess: (data) => {
-          setSaveInProgress(false);
-          const savedProcedure = data.chartData?.procedures?.[0];
-          if (savedProcedure) {
-            setPartialChartData({
-              procedures: [
-                ...chartProcedures.filter((procedure) => procedure.resourceId !== procedureId),
-                {
-                  ...savedProcedure,
-                  cptCodes: cptCodesToUse,
-                  diagnoses: diagnosesToUse,
-                },
-              ],
-            });
-          }
-          enqueueSnackbar('Procedure saved!', { variant: 'success' });
-          navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
-        },
-        onError: () => {
-          setSaveInProgress(false);
-          enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
-        },
+      });
+      const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
+      if (oldProcedure != null) {
+        await deleteChartData({
+          cptCodes: oldProcedure.cptCodes?.filter(
+            (cptCode) => cptCodesToUse.find((cptCodeToUse) => cptCodeToUse.resourceId == cptCode.resourceId) == null
+          ),
+          diagnosis: oldProcedure.diagnoses?.filter(
+            (diagnosis) =>
+              diagnosesToUse.find((diagnosisToUse) => diagnosisToUse.resourceId == diagnosis.resourceId) == null
+          ),
+        });
       }
-    );
+      const savedProcedure = saveProcdureResponse.chartData?.procedures?.[0];
+      if (savedProcedure) {
+        setPartialChartData({
+          procedures: [
+            ...chartProcedures.filter((procedure) => procedure.resourceId !== procedureId),
+            {
+              ...savedProcedure,
+              cptCodes: cptCodesToUse,
+              diagnoses: diagnosesToUse,
+            },
+          ],
+        });
+      }
+      setSaveInProgress(false);
+      enqueueSnackbar('Procedure saved!', { variant: 'success' });
+      navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+    } catch {
+      setSaveInProgress(false);
+      enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
+    }
   };
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
