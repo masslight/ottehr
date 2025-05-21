@@ -1,12 +1,13 @@
 {
   "name": "ottehr",
-  "version": "1.8.9",
+  "version": "1.9.4",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=9.0.0"
   },
   "scripts": {
+    "build": "turbo build lint",
     "version": "npm version $npm_package_version --workspaces && git add **/package.json",
     "lint": "npm run lint:eslint && npm run lint:prettier",
     "lint:eslint": "turbo lint",

@@ -12,6 +12,7 @@ import { useExamObservations } from '../../../../hooks/useExamObservations';
 import { ActionsList } from '../../../../components';
 import { ExamReviewGroup } from './ExamReviewGroup';
 import { ExamReviewComment } from './ExamReviewComment';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 type ExaminationContainerProps = {
   noTitle?: boolean;
@@ -52,7 +53,10 @@ export const ExaminationContainer: FC<ExaminationContainerProps> = (props) => {
   //   getQuestionnaireResponseByLinkId('vitals-bp', questionnaireResponse)?.answer?.[0]?.valueString || 'N/A';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}>
+    <Box
+      sx={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%' }}
+      data-testid={dataTestIds.telemedEhrFlow.reviewTabExaminationsContainer}
+    >
       {!noTitle && (
         <Typography variant="h5" color="primary.dark">
           Examination

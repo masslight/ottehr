@@ -61,6 +61,11 @@ async function createM2M(
             effect: 'Allow',
           },
           {
+            resource: ['Fax:Fax:*'],
+            action: ['Fax:Send'],
+            effect: 'Allow',
+          },
+          {
             resource: ['IAM:M2MClient:*'],
             action: ['IAM:ListAllM2MClients', 'IAM:GetM2MClient'],
             effect: 'Allow',

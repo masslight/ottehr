@@ -1,10 +1,12 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   Closure,
   ClosureType,
   DOW,
-  getScheduleDetails,
+  getScheduleExtension,
   getTimezone,
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
@@ -13,14 +15,12 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_CHANGES_DATE_FORMAT,
-  ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
+  ScheduleListItem,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Address, HealthcareService, Location, Practitioner, Schedule } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mtoken: string;
@@ -182,7 +182,7 @@ const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHou
   const tz = getTimezone(item) ?? TIMEZONES[0];
   const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
 
-  const scheduleTemp = getScheduleDetails(item);
+  const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {
     return undefined;
   }
@@ -218,7 +218,7 @@ const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHou
 };
 
 function getItemOverrideInformation(item: Schedule): string | undefined {
-  const scheduleTemp = getScheduleDetails(item);
+  const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {
     return undefined;
   }

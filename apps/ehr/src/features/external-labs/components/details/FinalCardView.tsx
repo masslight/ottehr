@@ -18,7 +18,8 @@ export const FinalCardView: FC<FinalCardViewProps> = ({ resultPdfUrl, labStatus,
     }
   };
 
-  const isMarkAsReviewedButtonVisible = labStatus === ExternalLabsStatus.received;
+  const isMarkAsReviewedButtonVisible =
+    labStatus === ExternalLabsStatus.received || labStatus === ExternalLabsStatus.corrected;
 
   return (
     <Box sx={{ border: '1px solid #e0e0e0', borderRadius: 1, backgroundColor: '#fff' }}>

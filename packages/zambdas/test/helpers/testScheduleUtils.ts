@@ -1,5 +1,7 @@
+import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import { FhirResource, Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import _ from 'lodash';
 import { DateTime } from 'luxon';
 import {
   Capacity,
@@ -13,6 +15,8 @@ import {
   ScheduleOverrides,
   SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
+  ClosureType,
+  ScheduleDay,
 } from 'utils';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -20,6 +24,16 @@ type DayLong = (typeof DAYS_LONG)[number];
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 type DayOfWeek = (typeof DAYS)[number];
+
+interface StartOfDayParams {
+  date?: DateTime;
+  timezone?: string;
+}
+export const startOfDayWithTimezone = (input?: StartOfDayParams): DateTime => {
+  const baseDate = input?.date ?? DateTime.now();
+  const timezone = input?.timezone ?? DEFAULT_TEST_TIMEZONE;
+  return DateTime.fromFormat(baseDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone });
+};
 
 // todo: avoid name collision with fhir resource
 export interface ScheduleDTO {
@@ -54,10 +68,11 @@ interface CreateScheduleConfig {
 export interface OverrideScheduleConfig {
   date: DateTime;
   open: HourOfDay;
-  close: HourOfDay;
+  close: HourOfDay | 24;
   openingBuffer: number;
   closingBuffer: number;
   hourlyCapacity: number;
+  granularCapacityOverride?: Capacity[];
 }
 
 const getStringTime = (hour: number): string => {
@@ -166,25 +181,59 @@ export const makeLocation = (operationHours: LocationHoursOfOperation[]): Locati
   };
 };
 
-export const makeSchedule = (locationRef: string, json: string): Schedule => {
+interface MakeTestScheduleInput {
+  processId?: string;
+  locationRef?: string;
+  scheduleJsonString?: string;
+  scheduleObject?: ScheduleExtension;
+}
+
+export const DELETABLE_RESOURCE_CODE_PREFIX = 'DELETE_ME-';
+
+export const DEFAULT_TEST_TIMEZONE = 'America/New_York';
+
+export const tagForProcessId = (processId?: string): string => {
+  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId ?? 'N/A'}`;
+};
+
+export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
+  const { scheduleJsonString, scheduleObject, processId, locationRef } = input;
+  let json = '';
+  if (!scheduleJsonString && !scheduleObject) {
+    throw new Error('scheduleJsonString or scheduleObject must be provided');
+  } else if (scheduleJsonString) {
+    json = scheduleJsonString;
+  } else if (scheduleObject) {
+    json = JSON.stringify(scheduleObject);
+  }
+
   return {
     resourceType: 'Schedule',
     id: randomUUID(),
     actor: [
       {
-        reference: locationRef,
+        reference: locationRef ?? `Location/${randomUUID()}`,
       },
     ],
     extension: [
       {
         url: 'http://hl7.org/fhir/StructureDefinition/timezone',
-        valueString: 'America/New_York',
+        valueString: DEFAULT_TEST_TIMEZONE,
       },
       {
         url: SCHEDULE_EXTENSION_URL,
         valueString: json,
       },
     ],
+    meta: {
+      tag: [
+        {
+          system: 'OTTEHR_AUTOMATED_TEST',
+          code: tagForProcessId(processId),
+          display: 'a test resource that should be cleaned up',
+        },
+      ],
+    },
   };
 };
 
@@ -280,6 +329,967 @@ export const makeLocationWithSchedule = (
   const scheduleComplete = { schedule: scheduleDTO, scheduleOverrides, closures };
   const scheduleString = JSON.stringify(scheduleComplete);
   const location = makeLocation(operationHours);
-  const schedule = makeSchedule(`Location/${location.id}`, scheduleString);
+  const schedule = makeSchedule({
+    locationRef: `Location/${location.id}`,
+    scheduleJsonString: scheduleString,
+    processId: randomUUID(),
+  });
   return { location, schedule };
+};
+
+// 4 slots per hour, 24 hours a day
+export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
+  schedule: {
+    monday: {
+      open: 0,
+      close: 24,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    tuesday: {
+      open: 0,
+      close: 24,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    wednesday: {
+      open: 0,
+      close: 24,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    thursday: {
+      open: 0,
+      close: 24,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    friday: {
+      open: 0,
+      close: 24,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    saturday: {
+      open: 0,
+      close: 24,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+    sunday: {
+      open: 0,
+      close: 24,
+      openingBuffer: 0,
+      closingBuffer: 0,
+      workingDay: true,
+      hours: [
+        {
+          hour: 0,
+          capacity: 4,
+        },
+        {
+          hour: 1,
+          capacity: 4,
+        },
+        {
+          hour: 2,
+          capacity: 4,
+        },
+        {
+          hour: 3,
+          capacity: 4,
+        },
+        {
+          hour: 4,
+          capacity: 4,
+        },
+        {
+          hour: 5,
+          capacity: 4,
+        },
+        {
+          hour: 6,
+          capacity: 4,
+        },
+        {
+          hour: 7,
+          capacity: 4,
+        },
+        {
+          hour: 8,
+          capacity: 4,
+        },
+        {
+          hour: 9,
+          capacity: 4,
+        },
+        {
+          hour: 10,
+          capacity: 4,
+        },
+        {
+          hour: 11,
+          capacity: 4,
+        },
+        {
+          hour: 12,
+          capacity: 4,
+        },
+        {
+          hour: 13,
+          capacity: 4,
+        },
+        {
+          hour: 14,
+          capacity: 4,
+        },
+        {
+          hour: 15,
+          capacity: 4,
+        },
+        {
+          hour: 16,
+          capacity: 4,
+        },
+        {
+          hour: 17,
+          capacity: 4,
+        },
+        {
+          hour: 18,
+          capacity: 4,
+        },
+        {
+          hour: 19,
+          capacity: 4,
+        },
+        {
+          hour: 20,
+          capacity: 4,
+        },
+        {
+          hour: 21,
+          capacity: 4,
+        },
+        {
+          hour: 22,
+          capacity: 4,
+        },
+        {
+          hour: 23,
+          capacity: 4,
+        },
+      ],
+    },
+  },
+  scheduleOverrides: {},
+  closures: [],
+};
+
+interface BufferDef {
+  openingBuffer?: number;
+  closingBuffer?: number;
+}
+
+export const applyBuffersToScheduleExtension = (
+  scheduleExt: ScheduleExtension,
+  bufferDef: BufferDef
+): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const { openingBuffer, closingBuffer } = bufferDef;
+  const schedule = scheduleExtCopy.schedule;
+
+  const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
+    const newOpeningBuffer = openingBuffer ?? daySchedule.openingBuffer;
+    const newClosingBuffer = closingBuffer ?? daySchedule.closingBuffer;
+
+    return [day, { ...daySchedule, openingBuffer: newOpeningBuffer, closingBuffer: newClosingBuffer }];
+  });
+  const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
+  return {
+    ...scheduleExtCopy,
+    schedule: scheduleNew,
+  };
+};
+
+export const changeAllCapacities = (scheduleExt: ScheduleExtension, newCapacity: number): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
+
+  const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
+    const { hours } = daySchedule;
+    const updatedHours = hours.map((hourObj) => {
+      return { ...hourObj, capacity: newCapacity };
+    });
+    return [day, { ...daySchedule, hours: updatedHours }];
+  });
+  const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
+  return {
+    ...scheduleExtCopy,
+    schedule: scheduleNew,
+  };
+};
+
+export const setSlotLengthInMinutes = (scheduleExt: ScheduleExtension, slotLength: number): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  return {
+    ...scheduleExtCopy,
+    slotLength,
+  };
+};
+
+export const addClosurePeriod = (
+  scheduleExt: ScheduleExtension,
+  start: DateTime,
+  lengthInDays: number
+): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const closure: Closure = {
+    type: ClosureType.Period,
+    start: start.toFormat(OVERRIDE_DATE_FORMAT),
+    end: start.plus({ days: lengthInDays }).toFormat(OVERRIDE_DATE_FORMAT),
+  };
+  console.log('closure: ', closure);
+  return {
+    ...scheduleExtCopy,
+    closures: [...(scheduleExtCopy.closures ?? []), closure],
+  };
+};
+
+export const addClosureDay = (scheduleExt: ScheduleExtension, start: DateTime): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const closure: Closure = {
+    type: ClosureType.OneDay,
+    start: start.toFormat(OVERRIDE_DATE_FORMAT),
+    end: start.toFormat(OVERRIDE_DATE_FORMAT),
+  };
+  console.log('closure: ', closure);
+  return {
+    ...scheduleExtCopy,
+    closures: [...(scheduleExtCopy.closures ?? []), closure],
+  };
+};
+
+export const addOverrides = (
+  scheduleExt: ScheduleExtension,
+  overrides: OverrideScheduleConfig[]
+): ScheduleExtension => {
+  const overridesToAdd: ScheduleOverrides = {};
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+
+  overrides.forEach((override) => {
+    const dateString = override.date.startOf('day').toFormat(OVERRIDE_DATE_FORMAT);
+    const granularCapacityOverride = override.granularCapacityOverride ?? [];
+    overridesToAdd[dateString] = {
+      open: override.open,
+      close: override.close,
+      openingBuffer: override.openingBuffer,
+      closingBuffer: override.closingBuffer,
+      hours: Array.from({ length: 24 }, (_, i) => {
+        let capacity = 0;
+        if (i >= override.open && i < override.close) {
+          const granularOverride = granularCapacityOverride.find((g) => g.hour === i);
+          capacity = granularOverride?.capacity ?? override.hourlyCapacity;
+        }
+        return { hour: i, capacity } as Capacity;
+      }),
+    };
+  });
+  return {
+    ...scheduleExtCopy,
+    scheduleOverrides: {
+      ...(scheduleExtCopy.scheduleOverrides || {}),
+      ...overridesToAdd,
+    },
+  };
+};
+
+export const adjustHoursOfOperation = (
+  scheduleExt: ScheduleExtension,
+  hoursOfOp: HoursOfOpConfig[]
+): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
+
+  const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
+    const hoursToSet = hoursOfOp.find((hours) => hours.dayOfWeek === day);
+    if (hoursToSet) {
+      const { open, close, workingDay } = hoursToSet;
+      return [
+        day,
+        {
+          ...daySchedule,
+          open,
+          close,
+          workingDay,
+        },
+      ];
+    }
+    return [day, daySchedule];
+  });
+  const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
+  return {
+    ...scheduleExtCopy,
+    schedule: scheduleNew,
+  };
+};
+
+export const persistSchedule = async (
+  scheduleExtension: ScheduleExtension,
+  processId: string | null,
+  oystehr: Oystehr
+): Promise<Schedule> => {
+  if (processId === null) {
+    throw new Error('processId is null');
+  }
+  const resource = {
+    ...makeSchedule({
+      processId,
+      scheduleObject: scheduleExtension,
+    }),
+    id: undefined,
+  };
+
+  const schedule = await oystehr.fhir.create<Schedule>(resource);
+  return schedule;
+};
+
+export const getScheduleDay = (scheduleExt: ScheduleExtension, day: DateTime): ScheduleDay | undefined => {
+  const weekday = day.toFormat('cccc').toLowerCase() as DOW;
+  console.log('weekday', weekday);
+  const scheduleDay = scheduleExt.schedule[weekday as DOW];
+  console.log('scheduleDay', scheduleDay);
+  return scheduleDay;
+};
+
+export const cleanupTestScheduleResources = async (processId: string, oystehr: Oystehr): Promise<void> => {
+  if (!oystehr || !processId) {
+    throw new Error('oystehr or processId is null! could not clean up!');
+  }
+  const schedulesAndSuch = (
+    await oystehr.fhir.search<FhirResource>({
+      resourceType: 'Schedule',
+      params: [
+        {
+          name: '_tag',
+          value: tagForProcessId(processId),
+        },
+        {
+          name: '_include',
+          value: 'Schedule:actor',
+        },
+        {
+          name: '_revinclude',
+          value: 'Slot:schedule',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const deleteRequests: BatchInputDeleteRequest[] = schedulesAndSuch.map((res) => {
+    return {
+      method: 'DELETE',
+      url: `${res.resourceType}/${res.id}`,
+    };
+  });
+  try {
+    await oystehr.fhir.batch({ requests: deleteRequests });
+  } catch (error) {
+    console.error('Error deleting schedules', error);
+    console.log(`ProcessId ${processId} may need manual cleanup`);
+  }
 };

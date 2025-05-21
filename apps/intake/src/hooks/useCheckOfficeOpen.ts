@@ -1,15 +1,5 @@
-import { DateTime } from 'luxon';
 import { useMemo } from 'react';
-import { AvailableLocationInformation } from 'utils';
-import { isClosureOverride, getOpeningTime, getClosingTime } from 'utils';
-
-interface CheckOfficeOpenOutput {
-  officeOpen: boolean;
-  walkinOpen: boolean;
-  prebookStillOpenForToday: boolean;
-  officeHasClosureOverrideToday: boolean;
-  officeHasClosureOverrideTomorrow: boolean;
-}
+import { AvailableLocationInformation, CheckOfficeOpenOutput } from 'utils';
 
 export const useCheckOfficeOpen = (
   selectedLocation: AvailableLocationInformation | undefined
@@ -25,47 +15,12 @@ export const useCheckOfficeOpen = (
         prebookStillOpenForToday: false,
       };
     }
-
-    const timeNow = DateTime.now().setZone(selectedLocation.timezone);
-    const tomorrowDate = timeNow.plus({ days: 1 });
-    const tomorrowOpeningTime = getOpeningTime(selectedLocation, tomorrowDate);
-
-    const officeHasClosureOverrideToday = isClosureOverride(selectedLocation, timeNow);
-    const officeHasClosureOverrideTomorrow =
-      isClosureOverride(selectedLocation, tomorrowDate) && tomorrowOpeningTime !== undefined;
-
-    const todayOpeningTime = getOpeningTime(selectedLocation, timeNow);
-    const todayClosingTime = getClosingTime(selectedLocation, timeNow);
-
-    const prebookStillOpenForToday =
-      todayOpeningTime !== undefined &&
-      (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));
-
-    const officeOpen =
-      todayOpeningTime !== undefined &&
-      todayOpeningTime <= timeNow &&
-      (todayClosingTime === undefined || todayClosingTime > timeNow) &&
-      !officeHasClosureOverrideToday;
-
-    /*
-    const walkinOpen = isWalkinOpen(selectedLocation, timeNow);
-
-    console.log(
-      'officeOpen, walkinOpen, prebookStillOpenForToday, officeHasClosureOverrideToday, officeHasClosureOverrideTomorrow',
-      officeOpen,
-      walkinOpen,
-      prebookStillOpenForToday,
-      officeHasClosureOverrideToday,
-      officeHasClosureOverrideTomorrow
-    );
-    */
-
     return {
-      officeOpen,
-      walkinOpen: true, // hardcoding walking open for now. up for refactor in next cycle: https://github.com/masslight/ottehr/issues/1871
-      officeHasClosureOverrideTomorrow,
-      officeHasClosureOverrideToday,
-      prebookStillOpenForToday,
+      officeOpen: true,
+      walkinOpen: true,
+      officeHasClosureOverrideToday: false,
+      officeHasClosureOverrideTomorrow: false,
+      prebookStillOpenForToday: true,
     };
   }, [selectedLocation]);
 };

@@ -6,21 +6,22 @@ import {
   APPOINTMENT_NOT_FOUND_ERROR,
   AvailableLocationInformation,
   GetAppointmentDetailsResponse,
+  getAvailableSlotsForSchedules,
+  getLocationInformation,
+  getSecret,
   SCHEDULE_NOT_FOUND_ERROR,
   Secrets,
   SecretsKeys,
-  getAvailableSlotsForSchedules,
-  getSecret,
 } from 'utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import '../../shared/instrument.mjs';
 import {
   captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
-  getLocationInformation,
+  topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
+import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {
@@ -135,7 +136,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
 
-    const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleOwner);
+    const locationInformation: AvailableLocationInformation = getLocationInformation(scheduleOwner, fhirSchedule);
 
     const appointment: GetAppointmentDetailsResponse['appointment'] = {
       start: fhirAppointment.start || 'Unknown',
