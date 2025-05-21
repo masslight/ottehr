@@ -28,7 +28,6 @@ import { dataTestIds } from '../../constants/data-test-ids';
 import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useMutation } from 'react-query';
-import { DateTime } from 'luxon';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -60,7 +59,7 @@ function mapInitialStatus(
     const status = mapEligibilityCheckResultToSimpleStatus(initialCheckResult);
     return {
       status: status.status,
-      dateISO: DateTime.fromISO(status.dateISO).toFormat('MM/dd/yyyy'),
+      dateISO: status.dateISO,
     };
   }
   return undefined;
