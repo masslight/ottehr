@@ -23,6 +23,8 @@ import {
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
 const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
 
+const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition/';
+
 const checkEnvPassedIsValid = (env: string | undefined): boolean => {
   if (!env) return false;
   return VALID_ENVS.includes(env);
@@ -304,6 +306,17 @@ function getObservationRequirement(item: TestItem): {
   };
 }
 
+const getUrlAndVersion = (
+  item: TestItem,
+  adUrlVersionMap: { [url: string]: string }
+): { url: string; version: string } => {
+  const nameForUrl = item.name.replace(' ', '');
+  const url = `${AD_CANONICAL_URL_BASE}/${nameForUrl}`;
+  const curVersion = adUrlVersionMap[url];
+  const updatedVersion = curVersion ? parseInt(curVersion) + 1 : 1;
+  return { url, version: updatedVersion.toString() };
+};
+
 async function main(): Promise<void> {
   if (process.argv.length !== 3) {
     console.error(`exiting, incorrect number of arguemnts passed\n`);
@@ -340,10 +353,44 @@ async function main(): Promise<void> {
 
   const oystehrClient = createOystehrClient(token, envConfig);
 
+  const requests: BatchInputRequest<ActivityDefinition>[] = [];
+  const adUrlVersionMap: { [url: string]: string } = {};
+
+  // make the requests to retire the pre-existing ActivityDefinitions
+  (
+    await oystehrClient.fhir.search<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      params: [
+        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+        { name: 'status', value: 'active' },
+      ],
+    })
+  )
+    .unbundle()
+    .forEach((activityDef) => {
+      if (activityDef.id)
+        requests.push({
+          url: `/ActivityDefinition/${activityDef.id}`,
+          method: 'PATCH',
+          operations: [
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'retired',
+            },
+          ],
+        });
+      if (activityDef.url && activityDef.version) {
+        adUrlVersionMap[activityDef.url] = activityDef.version;
+      }
+    });
+
   const activityDefinitions: ActivityDefinition[] = [];
 
   for (const [_key, testData] of Object.entries(testItems)) {
     const { obsDefReferences, contained } = getObservationRequirement(testData);
+
+    const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(testData, adUrlVersionMap);
 
     const activityDef: ActivityDefinition = {
       resourceType: 'ActivityDefinition',
@@ -384,6 +431,8 @@ async function main(): Promise<void> {
       // specimenRequirement -- nothing in the test reqs describes this
       observationRequirement: obsDefReferences,
       contained: contained,
+      url: activityDefUrl,
+      version: activityDefVersion,
       meta: {
         tag: [
           {
@@ -399,8 +448,6 @@ async function main(): Promise<void> {
 
   console.log('ActivityDefinitions: ', JSON.stringify(activityDefinitions, undefined, 2));
 
-  const requests: BatchInputRequest<ActivityDefinition>[] = [];
-
   activityDefinitions.map((activityDefinition) => {
     requests.push({
       method: 'POST',
@@ -408,32 +455,6 @@ async function main(): Promise<void> {
       resource: activityDefinition,
     });
   });
-
-  // make the requests to retire the pre-existing ActivityDefinitions
-  (
-    await oystehrClient.fhir.search<ActivityDefinition>({
-      resourceType: 'ActivityDefinition',
-      params: [
-        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
-        { name: 'status', value: 'active' },
-      ],
-    })
-  )
-    .unbundle()
-    .map((activityDef) => {
-      if (activityDef.id)
-        requests.push({
-          url: `/ActivityDefinition/${activityDef.id}`,
-          method: 'PATCH',
-          operations: [
-            {
-              op: 'replace',
-              path: '/status',
-              value: 'retired',
-            },
-          ],
-        });
-    });
 
   try {
     const oystehrResponse = await oystehrClient.fhir.transaction<ActivityDefinition>({ requests });
