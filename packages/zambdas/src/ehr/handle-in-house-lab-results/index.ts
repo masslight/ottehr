@@ -18,6 +18,7 @@ import {
   extractAbnormalValueSetValues,
   DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils';
 import {
   ServiceRequest,
@@ -31,8 +32,11 @@ import {
   Quantity,
   CodeableConcept,
   FhirResource,
+  Provenance,
 } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
+import { DateTime } from 'luxon';
+import { Operation } from 'fast-json-patch';
 
 let m2mtoken: string;
 
@@ -69,7 +73,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     // console.log('check whats going on here!', JSON.stringify(requests));
 
-    await oystehr.fhir.transaction({ requests });
+    const res = await oystehr.fhir.transaction({ requests });
+    console.log('check the res', JSON.stringify(res));
 
     return {
       statusCode: 200,
@@ -179,6 +184,13 @@ const makeResultEntryRequests = (
   curUserPractitionerId: string,
   resultsEntryData: ResultEntryInput
 ): BatchInputRequest<FhirResource>[] => {
+  const { provenancePostRequest, provenanceFullUrl } = makeProvenancePostRequest(
+    curUserPractitionerId,
+    irtTask.id || ''
+  );
+
+  const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl);
+
   const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
     method: 'PATCH',
     url: `ServiceRequest/${serviceRequest.id}`,
@@ -190,17 +202,7 @@ const makeResultEntryRequests = (
       },
     ],
   };
-  const irtTaskPatchRequest: BatchInputPatchRequest<Task> = {
-    method: 'PATCH',
-    url: `Task/${irtTask.id}`,
-    operations: [
-      {
-        path: '/status',
-        op: 'replace',
-        value: 'completed',
-      },
-    ],
-  };
+
   const { obsRefs, obsPostRequests } = makeObservationPostRequests(
     serviceRequest,
     specimen,
@@ -208,9 +210,16 @@ const makeResultEntryRequests = (
     curUserPractitionerId,
     resultsEntryData
   );
+
   const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(serviceRequest, activityDefinition, obsRefs);
 
-  return [serviceRequestPatchRequest, irtTaskPatchRequest, ...obsPostRequests, diagnosticReportPostRequest];
+  return [
+    provenancePostRequest,
+    irtTaskPatchRequest,
+    serviceRequestPatchRequest,
+    ...obsPostRequests,
+    diagnosticReportPostRequest,
+  ];
 };
 
 // todo better errors
@@ -376,4 +385,60 @@ const makeDiagnosticReportPostRequest = (
   };
 
   return diagnosticReportPostRequest;
+};
+
+const makeProvenancePostRequest = (
+  curUserPractitionerId: string,
+  irtTaskId: string
+): { provenancePostRequest: BatchInputPostRequest<Provenance>; provenanceFullUrl: string } => {
+  const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
+  const provenanceConfig: Provenance = {
+    resourceType: 'Provenance',
+    target: [
+      {
+        reference: `Task/${irtTaskId}`,
+      },
+    ],
+    activity: {
+      coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults],
+    },
+    recorded: DateTime.now().toISO(),
+    agent: [
+      {
+        who: { reference: `Practitioner/${curUserPractitionerId}` },
+      },
+    ],
+  };
+  const provenancePostRequest: BatchInputPostRequest<Provenance> = {
+    method: 'POST',
+    fullUrl: provenanceFullUrl,
+    url: '/Provenance',
+    resource: provenanceConfig,
+  };
+  return { provenancePostRequest, provenanceFullUrl };
+};
+
+const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): BatchInputPatchRequest<Task> => {
+  const provRef = {
+    reference: provenanceFullUrl,
+  };
+  const relavantHistOp: Operation = {
+    path: '/relevantHistory',
+    op: irtTask.relevantHistory ? 'replace' : 'add',
+    value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
+  };
+
+  const irtTaskPatchRequest: BatchInputPatchRequest<Task> = {
+    method: 'PATCH',
+    url: `Task/${irtTask.id}`,
+    operations: [
+      {
+        path: '/status',
+        op: 'replace',
+        value: 'completed',
+      },
+      relavantHistOp,
+    ],
+  };
+  return irtTaskPatchRequest;
 };

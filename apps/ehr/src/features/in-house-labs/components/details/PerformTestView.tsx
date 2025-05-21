@@ -11,6 +11,10 @@ import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
 import { handleInHouseLabResults } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { useNavigate } from 'react-router-dom';
+import { getSelectors } from 'utils';
+import { useAppointmentStore } from 'src/telemed';
 
 // temp for testing
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -925,10 +929,14 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
     handleSubmit,
     formState: { isValid },
   } = methods;
+  const navigate = useNavigate();
+  const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
+  const { oystehrZambda: oystehr } = useApiClients();
+
   const [showDetails, setShowDetails] = useState(false);
   const [notes, setNotes] = useState(testDetails.notes || '');
   const [submittingResults, setSubmittingResults] = useState<boolean>(false);
-  const { oystehrZambda: oystehr } = useApiClients();
+  const [error, setError] = useState<string[] | undefined>(undefined);
 
   // temp testItem for testing
   // const testItem = convertActivityDefinitionToTestItem(URINALYSIS_AD);
@@ -949,11 +957,19 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
       return;
     }
     console.log('data being submitted', data);
-    await handleInHouseLabResults(oystehr, {
-      // serviceRequestId: 'e3c2b690-c97a-4fb0-b883-7675f61859df', // corresponds to URINALYSIS_AD
-      serviceRequestId: 'c4c58a2e-b2e3-4730-b5d1-c4a4273a40f8', // corresponds to STREP_ACTIVITY_DEFINTION
-      data: data,
-    });
+    try {
+      await handleInHouseLabResults(oystehr, {
+        // serviceRequestId: 'e3c2b690-c97a-4fb0-b883-7675f61859df', // corresponds to URINALYSIS_AD
+        serviceRequestId: 'c4c58a2e-b2e3-4730-b5d1-c4a4273a40f8', // corresponds to STREP_ACTIVITY_DEFINTION
+        data: data,
+      });
+      navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);
+    } catch (e) {
+      const oyError = e as OystehrSdkError;
+      console.log('error entering results', oyError.code, oyError.message);
+      const errorMessage = [oyError.message];
+      setError(errorMessage);
+    }
     setSubmittingResults(false);
   };
 
@@ -1034,6 +1050,15 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
                   Submit
                 </LoadingButton>
               </Box>
+              {error &&
+                error.length > 0 &&
+                error.map((msg, idx) => (
+                  <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                    <Typography sx={{ color: 'error.dark' }}>
+                      {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                    </Typography>
+                  </Box>
+                ))}
             </Box>
           </form>
         </FormProvider>
