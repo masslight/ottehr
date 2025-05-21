@@ -35,7 +35,7 @@ export const SendFaxButton: FC<SendFaxButtonProps> = ({ appointment, encounter, 
       (css && inPersonStatus && !['intake', 'completed'].includes(inPersonStatus)) ||
       appointmentAccessibility.status !== TelemedAppointmentStatusEnum.complete
     ) {
-      return "Once the visit note has been signed, you will have the option to fax a copy to the patient's Primary Care Physician. If a fax number is documented in the patient's record, it will be auto populated or you can enter a different number manually.";
+      return "Once the visit note has been signed, you will have the option to fax a copy to the patient's Primary Care Physician.";
     }
     return null;
   }, [css, inPersonStatus, appointmentAccessibility.status]);

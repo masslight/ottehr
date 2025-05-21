@@ -241,7 +241,7 @@ const useGetProfile = () => {
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 const useSyncPractitioner = (_onSuccess: (data: SyncUserResponse) => void) => {
-  console.log('Credentials sync is not enabled');
+  // console.log('Credentials sync is not enabled');
   /**
    * Credentials sync functionality -- Uncomment if you are synchronizing credentials from an external system
   

@@ -11,13 +11,11 @@ import {
 } from 'utils';
 import { vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
-import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 import * as overrideData from './data/override-constants';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotTimes } from './data/slot-constants';
 import { HoursOfOpConfig, makeLocationWithSchedule, OverrideScheduleConfig } from './helpers/testScheduleUtils';
-
-const oystehr = new Oystehr({});
+import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 
 describe.skip('test schedule override for getAvailableSlots function, i.e., front end slot display', () => {
   test('1: it should return slots between 6pm and 10pm today if opening buffer 15, capacity 3, and schedule override is applied for today open @6pm close @10pm', async () => {
@@ -253,7 +251,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 0, close: 23, workingDay: true }];
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(true);
 
@@ -268,7 +266,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 14, close: 23, workingDay: true }];
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(false);
 
@@ -284,7 +282,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.pastScheduleOverride2;
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(true);
 
@@ -300,7 +298,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.futureScheduleOverride2;
     const { location, schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(true);
 
@@ -316,7 +314,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverride;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(false);
 
@@ -332,7 +330,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 16, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverride2;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(true);
 
@@ -348,7 +346,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 12, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverride;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(true);
 
@@ -364,7 +362,7 @@ describe.skip('test schedule override for officeOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 12, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverrideMidnight;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(true);
 
@@ -395,7 +393,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 0, close: 23, workingDay: true }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -411,7 +409,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: true }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -426,7 +424,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 14, close: 17, workingDay: true }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(false);
 
@@ -442,7 +440,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.pastScheduleOverride2;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -458,7 +456,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.futureScheduleOverride2;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -474,7 +472,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverride;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(false);
 
@@ -490,7 +488,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 16, close: 22, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverride2;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -506,7 +504,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 12, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverride;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -522,7 +520,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 12, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.todayScheduleOverrideMidnight;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, overrideInfo);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -536,7 +534,7 @@ describe.skip('test schedule override for walkinOpen', () => {
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: false }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, [], []);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(false);
 
@@ -568,7 +566,7 @@ describe.skip('test closure override for officeHasClosureOverrideToday', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 8, close: 15, workingDay: true }];
     const closures = overrideData.todayClosureOverrideForOneDay;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, undefined, closures);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testResult = useCheckOfficeOpen(selectedLocation);
     expect(testResult.officeHasClosureOverrideToday).toBe(true);
 
@@ -584,7 +582,7 @@ describe.skip('test closure override for officeHasClosureOverrideToday', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 8, close: 15, workingDay: true }];
     const closures = overrideData.pastClosureOverrideForOneDay;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, undefined, closures);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testResult = useCheckOfficeOpen(selectedLocation);
     expect(testResult.officeHasClosureOverrideToday).toBe(false);
 
@@ -600,7 +598,7 @@ describe.skip('test closure override for officeHasClosureOverrideToday', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 8, close: 15, workingDay: true }];
     const closures = overrideData.futureClosureOverrideForOneDay;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, undefined, closures);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testResult = useCheckOfficeOpen(selectedLocation);
     expect(testResult.officeHasClosureOverrideToday).toBe(false);
 
@@ -632,7 +630,7 @@ describe.skip('test closure override for officeHasClosureOverrideTomorrow', () =
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 8, close: 15, workingDay: true }];
     const closures = overrideData.tomorrowClosureOverrideForOneDay;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, undefined, closures);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testResult = useCheckOfficeOpen(selectedLocation);
     expect(testResult.officeHasClosureOverrideTomorrow).toBe(true);
 
@@ -648,7 +646,7 @@ describe.skip('test closure override for officeHasClosureOverrideTomorrow', () =
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 8, close: 15, workingDay: true }];
     const closures = overrideData.pastClosureOverrideForOneDay;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, undefined, closures);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testResult = useCheckOfficeOpen(selectedLocation);
     expect(testResult.officeHasClosureOverrideTomorrow).toBe(false);
 
@@ -664,7 +662,7 @@ describe.skip('test closure override for officeHasClosureOverrideTomorrow', () =
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 8, close: 15, workingDay: true }];
     const closures = overrideData.futureClosureOverrideForOneDay;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, undefined, closures);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testResult = useCheckOfficeOpen(selectedLocation);
     expect(testResult.officeHasClosureOverrideTomorrow).toBe(false);
 
@@ -680,7 +678,7 @@ describe.skip('test closure override for officeHasClosureOverrideTomorrow', () =
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 8, close: 15, workingDay: true }];
     const closures = overrideData.closureOverrideForPeriod;
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 0, undefined, closures);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testResult = useCheckOfficeOpen(selectedLocation);
     expect(testResult.officeHasClosureOverrideTomorrow && testResult.officeHasClosureOverrideTomorrow).toBe(true);
 
@@ -711,7 +709,7 @@ describe.skip('test prebookStillOpenForToday, officeOpen, and walkinOpen when no
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: true }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testOfficeOpen = useCheckOfficeOpen(selectedLocation);
     expect(testOfficeOpen.officeOpen).toBe(true);
 
@@ -726,7 +724,7 @@ describe.skip('test prebookStillOpenForToday, officeOpen, and walkinOpen when no
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: true }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testWalkinOpen = useCheckOfficeOpen(selectedLocation);
     expect(testWalkinOpen.walkinOpen).toBe(true);
 
@@ -741,7 +739,7 @@ describe.skip('test prebookStillOpenForToday, officeOpen, and walkinOpen when no
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: true }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testPrebookOpen = useCheckOfficeOpen(selectedLocation);
     expect(testPrebookOpen.prebookStillOpenForToday).toBe(true);
 
@@ -756,7 +754,7 @@ describe.skip('test prebookStillOpenForToday, officeOpen, and walkinOpen when no
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: true }];
     const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
-    const selectedLocation: AvailableLocationInformation = getLocationInformation(oystehr, location);
+    const selectedLocation: AvailableLocationInformation = getLocationInformation(location, schedule);
     const testPrebookOpen = useCheckOfficeOpen(selectedLocation);
     expect(testPrebookOpen.prebookStillOpenForToday).toBe(false);
 
@@ -769,8 +767,8 @@ describe.skip('test getNextOpeningDateTime', () => {
     const time = DateTime.now().startOf('day').set({ hour: 9, minute: 30 });
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 18, close: 23, workingDay: true }];
-    const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
-    const testResult = getNextOpeningDateTime(oystehr, time, location);
+    const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
+    const testResult = getNextOpeningDateTime(time, schedule);
     const exptectedResult = DateTime.now().set({ hour: 18, minute: 0 }).setZone('utc').toFormat('HH:mm MM-dd-yyyy z');
     expect(testResult).toBe(exptectedResult);
   });
@@ -779,8 +777,8 @@ describe.skip('test getNextOpeningDateTime', () => {
     const time = DateTime.now().startOf('day').set({ hour: 18, minute: 30 });
     const todayDoW = time.weekdayLong.toLocaleLowerCase();
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: todayDoW, open: 9, close: 23, workingDay: true }];
-    const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
-    const testResult = getNextOpeningDateTime(oystehr, time, location);
+    const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60);
+    const testResult = getNextOpeningDateTime(time, schedule);
     const exptectedResult = DateTime.now()
       .set({ hour: 5, minute: 0 })
       .setZone('utc')
@@ -796,8 +794,8 @@ describe.skip('test getNextOpeningDateTime', () => {
       { dayOfWeek: 'friday', open: 3, close: 18, workingDay: true },
     ];
     const closures = overrideData.closureOverrideFourDays;
-    const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, undefined, closures);
-    const testResult = getNextOpeningDateTime(oystehr, time, location);
+    const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, undefined, closures);
+    const testResult = getNextOpeningDateTime(time, schedule);
     const exptectedResult = DateTime.now()
       .set({ weekday: 1, hour: 3, minute: 0 })
       .plus({ day: 4 })
@@ -811,8 +809,8 @@ describe.skip('test getNextOpeningDateTime', () => {
     const hoursInfo: HoursOfOpConfig[] = [{ dayOfWeek: 'monday', open: 7, close: 18, workingDay: true }];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.tuesdayScheduleOverride;
     const closures = overrideData.mondayClosureOverrideForOneDay;
-    const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, overrideInfo, closures);
-    const testResult = getNextOpeningDateTime(oystehr, time, location);
+    const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, overrideInfo, closures);
+    const testResult = getNextOpeningDateTime(time, schedule);
     const exptectedResult = DateTime.now()
       .set({ weekday: 1, hour: 8, minute: 0 })
       .plus({ day: 1 })
@@ -828,8 +826,8 @@ describe.skip('test getNextOpeningDateTime', () => {
       { dayOfWeek: 'wednesday', open: 7, close: 18, workingDay: true },
     ];
     const closures = overrideData.tuesdayClosureOverrideForOneDay;
-    const { schedule, location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, [], closures);
-    const testResult = getNextOpeningDateTime(oystehr, time, location);
+    const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, [], closures);
+    const testResult = getNextOpeningDateTime(time, schedule);
     const exptectedResult = DateTime.now()
       .set({ weekday: 1, hour: 7, minute: 0 })
       .plus({ day: 2 })
@@ -845,8 +843,8 @@ describe.skip('test getNextOpeningDateTime', () => {
       { dayOfWeek: 'tuesday', open: 16, close: 18, workingDay: true },
     ];
     const overrideInfo: OverrideScheduleConfig[] = overrideData.tuesdayScheduleOverride;
-    const { location } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, overrideInfo);
-    const testResult = getNextOpeningDateTime(oystehr, time, location);
+    const { schedule } = makeLocationWithSchedule(hoursInfo, 15, 0, 60, overrideInfo);
+    const testResult = getNextOpeningDateTime(time, schedule);
     const exptectedResult = DateTime.now()
       .set({ weekday: 1, hour: 8, minute: 0 })
       .plus({ day: 1 })
