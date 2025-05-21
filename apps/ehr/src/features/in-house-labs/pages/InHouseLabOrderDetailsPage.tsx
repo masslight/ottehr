@@ -223,9 +223,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
       {testDetails.status === 'ORDERED' && (
         <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
       )}
-      {testDetails.status === 'COLLECTED' && (
-        <PerformTestView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
-      )}
+      {testDetails.status === 'COLLECTED' && <PerformTestView testDetails={testDetails} onBack={handleBack} />}
       {testDetails.status === 'FINAL' && (
         <FinalResultView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />
       )}

@@ -145,7 +145,6 @@ const STREP_ACTIVITY_DEFINTION: ActivityDefinition = {
 interface PerformTestViewProps {
   testDetails: LabTest;
   onBack: () => void;
-  onSubmit: (data: any) => void;
 }
 
 export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, onBack }) => {
