@@ -308,7 +308,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     if (data.chiefComplaint && data.chiefComplaint.length > 0) {
       regularText(data.chiefComplaint);
     }
-    if (data.providerTimeSpan) {
+    if (data.providerTimeSpan && !isInPersonAppointment) {
       pdfClient.drawText(
         `Provider spent ${data.providerTimeSpan} minutes on real-time audio & video with this patient`,
         textStyles.smallGreyText
