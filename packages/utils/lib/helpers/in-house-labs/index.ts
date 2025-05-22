@@ -109,7 +109,7 @@ const extractNullOption = (
 const processObservationDefinition = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[],
-  obervation?: Observation
+  observation?: Observation
 ): TestItemComponent => {
   const componentName = obsDef.code?.text || '';
   const observationDefinitionId = obsDef.id || '';
@@ -131,11 +131,11 @@ const processObservationDefinition = (
     const displayType = extractDisplayType(obsDef, componentName);
     if (displayType === 'Numeric')
       throw Error(
-        'Observation definition is flagged as Numeric, currently we are only configured to support Select or Radio for CodeableConcept obervation definitions '
+        'Observation definition is flagged as Numeric, currently we are only configured to support Select or Radio for CodeableConcept observation definitions '
       );
     const nullOption = extractNullOption(obsDef);
 
-    const result = getResult(obervation, dataType);
+    const result = getResult(observation, dataType);
 
     const component: CodeableConceptComponent = {
       componentName,
@@ -155,7 +155,7 @@ const processObservationDefinition = (
     if (displayType !== 'Numeric') {
       throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     }
-    const result = getResult(obervation, dataType);
+    const result = getResult(observation, dataType);
     const component: QuantityComponent = {
       componentName,
       observationDefinitionId,
