@@ -234,8 +234,3 @@ export type GetLabelPdfParameters = {
   relatedResource: string;
   searchParams: { name: string; value: string | number }[];
 };
-
-export type LabelDTO = {
-  documentReference: DocumentReference;
-  presignedUrl: string;
-};
