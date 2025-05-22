@@ -54,7 +54,7 @@ const divideHourlyCapacityBySlotInterval = (capacity: number, slotLength = 15): 
       timeSlots[key] = highUnitsPerBucket;
     } else if (capacityShortage === 1) {
       // if there is a shortage of 1, we leave 1 less slot in the last bucket
-      if (i === numBuckets - 1) {
+      if (i === numBuckets - capacityShortage) {
         timeSlots[key] = lowUnitsPerBucket;
       } else {
         timeSlots[key] = highUnitsPerBucket;
@@ -63,7 +63,7 @@ const divideHourlyCapacityBySlotInterval = (capacity: number, slotLength = 15): 
       // otherwise we space out the shortage across the buckets, alternating between high and low
       // as we move through the buckets
       // i.e. :00 = n, :15 = n-1, :30 = n, :45 = n-1, etc.
-      if (i % 2 === 0) {
+      if (i % 2 === 0 && i <= numBuckets - capacityShortage) {
         timeSlots[key] = highUnitsPerBucket;
       } else {
         timeSlots[key] = lowUnitsPerBucket;

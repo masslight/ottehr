@@ -6,13 +6,13 @@ import {
   Encounter,
   HealthcareService,
   Location,
-  LocationHoursOfOperation,
   Practitioner,
   PractitionerRole,
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
 import { TIMEZONES } from './constants';
+import { ScheduleExtension } from '../utils';
 
 export interface PatientBaseInfo {
   firstName?: string;
@@ -43,11 +43,10 @@ export interface AvailableLocationInformation {
   description: string | undefined;
   address: Address | undefined;
   telecom: ContactPoint[] | undefined;
-  hoursOfOperation: LocationHoursOfOperation[] | undefined;
-  closures: Closure[];
-  timezone: string | undefined;
+  timezone: Timezone | undefined;
   otherOffices: { display: string; url: string }[];
-  scheduleType: ScheduleType;
+  scheduleOwnerType: ScheduleType;
+  scheduleExtension?: ScheduleExtension;
 }
 
 // Closure start/end format: 'M/d/yyyy'
@@ -763,3 +762,6 @@ export interface CanonicalUrl {
 }
 
 export type Timezone = (typeof TIMEZONES)[number];
+export interface GetVisitLabelInput {
+  encounterId: string;
+}

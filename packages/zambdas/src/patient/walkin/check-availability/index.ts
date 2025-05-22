@@ -3,12 +3,10 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  applyOverridesToOperatingHours,
   Closure,
   createOystehrClient,
   FHIR_RESOURCE_NOT_FOUND,
   getClosingTime,
-  getLocationHoursFromScheduleExtension,
   getScheduleExtension,
   getOpeningTime,
   getSecret,
@@ -66,16 +64,8 @@ const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
   // grab everything that is needed to perform the walkin availability check
   const timeNow = DateTime.now().setZone(timezone);
   const tomorrow = timeNow.plus({ days: 1 });
-  //const tomorrowOpeningTime = getOpeningTime(scheduleExtension.schedule, timezone, tomorrow);
-  const rawHoursOfOperation = getLocationHoursFromScheduleExtension(scheduleExtension);
-  const hoursOfOperation = applyOverridesToOperatingHours({
-    hoursOfOperation: rawHoursOfOperation,
-    timezone,
-    from: timeNow,
-    scheduleOverrides: scheduleExtension.scheduleOverrides,
-  });
-  const todayOpeningTime = getOpeningTime(hoursOfOperation, timezone, timeNow);
-  const todayClosingTime = getClosingTime(hoursOfOperation, timezone, timeNow);
+  const todayOpeningTime = getOpeningTime(scheduleExtension, timezone, timeNow);
+  const todayClosingTime = getClosingTime(scheduleExtension, timezone, timeNow);
 
   const prebookStillOpenForToday =
     todayOpeningTime !== undefined && (todayClosingTime === undefined || todayClosingTime > timeNow.plus({ hours: 1 }));

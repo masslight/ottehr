@@ -175,7 +175,7 @@ export function makeAllergyResource(
     code: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-allergy-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
           code: data.id,
           display: data.name,
         },
@@ -220,7 +220,7 @@ export function makeMedicationResource(
     medicationCodeableConcept: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-medication-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id',
           code: data.id,
           display: data.name,
         },
@@ -1419,6 +1419,7 @@ export const createProcedureServiceRequest = (
   });
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',
+    id: procedure.resourceId,
     subject: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'completed',

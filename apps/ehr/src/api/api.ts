@@ -35,6 +35,9 @@ import {
   DeleteInHouseLabOrderParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   CreateInHouseLabOrderParameters,
+  GetLabelPdfParameters,
+  LabelPdf,
+  GetVisitLabelInput,
   InHouseLabDTO,
 } from 'utils';
 import {
@@ -91,6 +94,8 @@ const GET_IN_HOUSE_LAB_ORDER_DETAIL = import.meta.env.VITE_APP_GET_IN_HOUSE_LAB_
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = import.meta.env.VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN;
 const HANDLE_IN_HOUSE_LAB_RESULTS = import.meta.env.VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS;
 const DELETE_IN_HOUSE_LAB_ORDER = import.meta.env.VITE_APP_DELETE_IN_HOUSE_LAB_ORDER;
+const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
+const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -117,6 +122,40 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
+    throw error;
+  }
+};
+
+export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
+  try {
+    if (GET_LABEL_PDF_ZAMBDA_ID == null) {
+      throw new Error('get-label-pdf evironment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: GET_LABEL_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error(error);
+    throw error;
+  }
+};
+
+export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVisitLabelInput): Promise<LabelPdf[]> => {
+  try {
+    if (GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID == null) {
+      throw new Error('get-or-create-visit-label-pdf environment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error(error);
     throw error;
   }
 };

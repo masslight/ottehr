@@ -295,7 +295,7 @@ export class FillingInfo {
     const timeSlotsButtons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
     const buttonCount = await timeSlotsButtons.count();
     expect(buttonCount).toBeGreaterThan(0);
-    const randomIndex = Math.floor(Math.random() * (buttonCount - 1)) + 1;
+    const randomIndex = Math.min(Math.floor(Math.random() * (buttonCount - 1)) + 1, buttonCount - 1);
     const selectedSlotButton = timeSlotsButtons.nth(randomIndex);
     const time = await selectedSlotButton.textContent();
     if (!time) throw new Error('No time found in selected slot button');

@@ -345,6 +345,9 @@ test.describe('Insurance Information Section mutating tests', () => {
     await primaryInsuranceCard.enterAdditionalInsuranceInformation('Primary test info');
     await secondaryInsuranceCard.enterAdditionalInsuranceInformation('Secondary test info');
 
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 

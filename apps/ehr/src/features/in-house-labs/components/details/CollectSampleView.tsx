@@ -12,12 +12,19 @@ import {
   IconButton,
   Collapse,
   Input,
+  useTheme,
+  Stack,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { InHouseLabDTO, MarkAsCollectedData } from 'utils';
 import { DateTime } from 'luxon';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
+import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { getOrCreateVisitLabel } from 'src/api/api';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import { LoadingButton } from '@mui/lab';
 
 interface CollectSampleViewProps {
   testDetails: InHouseLabDTO;
@@ -37,6 +44,20 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
 
   const [notes, setNotes] = useState(testDetails.notes || '');
   const [showDetails, setShowDetails] = useState(false);
+  const [labelButtonLoading, setLabelButtonLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const theme = useTheme();
+  const { oystehrZambda } = useApiClients();
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+
+  const providers =
+    testDetails.currentUserId !== testDetails.providerId
+      ? [
+          { name: testDetails.currentUserName, id: testDetails.currentUserId },
+          { name: testDetails.providerName, id: testDetails.providerId },
+        ]
+      : [{ name: testDetails.currentUserName, id: testDetails.currentUserId }];
 
   const handleToggleSampleCollection = (): void => {
     setShowSampleCollection(!showSampleCollection);
@@ -57,17 +78,22 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
     });
   };
 
-  const handleReprintLabel = (): void => {
-    console.log('Reprinting label for test:', testDetails.serviceRequestId);
-  };
+  const handleReprintLabel = async (): Promise<void> => {
+    if (encounter.id && oystehrZambda) {
+      setLabelButtonLoading(true);
+      console.log('Fetching visit label for encounter ', encounter.id);
+      const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id });
 
-  const providers =
-    testDetails.currentUserId !== testDetails.providerId
-      ? [
-          { name: testDetails.currentUserName, id: testDetails.currentUserId },
-          { name: testDetails.providerName, id: testDetails.providerId },
-        ]
-      : [{ name: testDetails.currentUserName, id: testDetails.currentUserId }];
+      if (labelPdfs.length !== 1) {
+        setError('Expected 1 label pdf, received unexpected number');
+        return;
+      }
+
+      const labelPdf = labelPdfs[0];
+      window.open(labelPdf.presignedURL, '_blank');
+      setLabelButtonLoading(false);
+    }
+  };
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const newValue = e.target.value;
@@ -261,42 +287,41 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
           </Box>
 
           <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
+          <Stack display="flex">
+            <Box display="flex" justifyContent="space-between" mt={3}>
+              <LoadingButton
+                loading={labelButtonLoading}
+                variant="outlined"
+                onClick={handleReprintLabel}
+                sx={{ borderRadius: '50px', px: 4 }}
+              >
+                Re-Print Label
+              </LoadingButton>
 
-          <Box display="flex" justifyContent="space-between" mt={4}>
-            <Button
-              variant="outlined"
-              onClick={handleReprintLabel}
-              sx={{
-                borderRadius: '50px',
-                px: 4,
-                py: 1.5,
-                textTransform: 'none',
-                fontSize: '1rem',
-              }}
-            >
-              Re-Print Label
-            </Button>
-
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleMarkAsCollected}
-              disabled={!sourceType || !collectedById || !date.isValid}
-              sx={{
-                borderRadius: '50px',
-                px: 4,
-                py: 1.5,
-                textTransform: 'none',
-                fontSize: '1rem',
-                backgroundColor: '#4285f4',
-                '&:hover': {
-                  backgroundColor: '#3367d6',
-                },
-              }}
-            >
-              Mark as Collected
-            </Button>
-          </Box>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleMarkAsCollected}
+                disabled={!sourceType || !collectedById || !date.isValid}
+                sx={{
+                  borderRadius: '50px',
+                  px: 4,
+                  py: 1.5,
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  backgroundColor: '#4285f4',
+                  '&:hover': {
+                    backgroundColor: '#3367d6',
+                  },
+                }}
+              >
+                Mark as Collected
+              </Button>
+            </Box>
+            <Box display="flex" justifyContent="space-between" mt={3}>
+              {!!error && <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>}
+            </Box>
+          </Stack>
         </Box>
       </Paper>
 

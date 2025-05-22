@@ -154,15 +154,15 @@ export const PatientsSearchTable: React.FC<{
                   )
                 )
               : searchResult?.patients.map((patient) => (
-                  <TableRow key={patient.id} data-testid={dataTestIds.patients.searchResultRow(patient.id)}>
-                    <TableCell
-                      data-testid={dataTestIds.patients.patientId}
-                      width={COLUMN_CONFIG.pid.width}
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => {
-                        navigate(`/patient/${patient.id}`);
-                      }}
-                    >
+                  <TableRow
+                    key={patient.id}
+                    data-testid={dataTestIds.patients.searchResultRow(patient.id)}
+                    onClick={() => {
+                      navigate(`/patient/${patient.id}`);
+                    }}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell data-testid={dataTestIds.patients.patientId} width={COLUMN_CONFIG.pid.width}>
                       {patient.id}
                     </TableCell>
                     <TableCell width={COLUMN_CONFIG.name.width} data-testid={dataTestIds.patients.patientName}>
