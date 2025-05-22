@@ -126,8 +126,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     throw new Error(`Got ${labelDocRefs.length} docRefs for Encounter/${encounterId}. Expected 0 or 1`);
   } catch (error: any) {
-    console.log(error);
-    console.log('get or create visit label pdf error:', JSON.stringify(error));
+    console.error('get or create visit label pdf error:', JSON.stringify(error));
     await topLevelCatch('admin-get-or-create-visit-label-pdf', error, input.secrets);
     let body = JSON.stringify({ message: 'Error fetching or creating visit label pdf' });
     if (isApiError(error)) {

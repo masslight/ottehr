@@ -136,15 +136,13 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         });
 
         if (shouldPrintLabel) {
-          // todo: print label
-          console.log('This is the encounterId', encounterId);
           const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
-          console.log('These are the labelPDFs plural returned', JSON.stringify(labelPdfs));
+
           if (labelPdfs.length !== 1) {
             setError(['Expected 1 label pdf, received unexpected number']);
           }
+
           const labelPdf = labelPdfs[0];
-          console.log('This is the labelPDF returned', JSON.stringify(labelPdf));
           window.open(labelPdf.presignedURL, '_blank');
         }
 
