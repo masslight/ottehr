@@ -19,6 +19,7 @@ import {
   DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
 } from 'utils';
 import {
   ServiceRequest,
@@ -273,6 +274,12 @@ const makeObservationPostRequests = (
       ...obsConfig,
       ...obsValue,
       ...obsInterpretation,
+      extension: [
+        {
+          url: IN_HOUSE_OBS_DEF_ID_SYSTEM,
+          valueString: observationDefinitionId,
+        },
+      ],
     };
     const request: BatchInputPostRequest<Observation> = {
       method: 'POST',

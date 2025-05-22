@@ -1,4 +1,4 @@
-import { ValueSet, ObservationDefinition, ActivityDefinition } from 'fhir/r4b';
+import { ValueSet, ObservationDefinition, ActivityDefinition, Observation } from 'fhir/r4b';
 import {
   TestItem,
   TestItemComponent,
@@ -7,6 +7,10 @@ import {
   CODE_SYSTEM_CPT,
   OD_DISPLAY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  OBSERVATION_INTERPRETATION_SYSTEM,
+  ObservationCode,
+  TestComponentResult,
 } from 'utils';
 
 // TODO TEMP PUTTING THIS HERE WHILE I TEST THE FRONT END
@@ -104,7 +108,8 @@ const extractNullOption = (
 
 const processObservationDefinition = (
   obsDef: ObservationDefinition,
-  containedResources: (ObservationDefinition | ValueSet)[]
+  containedResources: (ObservationDefinition | ValueSet)[],
+  obervation?: Observation
 ): TestItemComponent => {
   const componentName = obsDef.code?.text || '';
   const observationDefinitionId = obsDef.id || '';
@@ -130,6 +135,8 @@ const processObservationDefinition = (
       );
     const nullOption = extractNullOption(obsDef);
 
+    const result = getResult(obervation, dataType);
+
     const component: CodeableConceptComponent = {
       componentName,
       observationDefinitionId,
@@ -139,6 +146,7 @@ const processObservationDefinition = (
       abnormalValues,
       displayType,
       nullOption,
+      result,
     };
     return component;
   } else if (dataType === 'Quantity') {
@@ -147,6 +155,7 @@ const processObservationDefinition = (
     if (displayType !== 'Numeric') {
       throw Error('Quantity type observation definition is misconfigured, should be Numeric');
     }
+    const result = getResult(obervation, dataType);
     const component: QuantityComponent = {
       componentName,
       observationDefinitionId,
@@ -155,6 +164,7 @@ const processObservationDefinition = (
       unit: quantityInfo.unit,
       normalRange: quantityInfo.normalRange,
       displayType,
+      result,
     };
     return component;
   }
@@ -162,7 +172,10 @@ const processObservationDefinition = (
   throw Error('Invalid data type');
 };
 
-export const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinition): TestItem => {
+export const convertActivityDefinitionToTestItem = (
+  activityDef: ActivityDefinition,
+  observations: Observation[]
+): TestItem => {
   const name = activityDef.name || '';
 
   const cptCode =
@@ -193,6 +206,14 @@ export const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinit
     throw Error('No observation definitions found');
   }
 
+  const observationMap: { [obsDefId: string]: Observation } = {};
+  if (observations) {
+    observations.forEach((obs) => {
+      const obsDefIdFromExt = obs.extension?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)?.valueString;
+      if (obsDefIdFromExt) observationMap[obsDefIdFromExt] = obs;
+    });
+  }
+
   const groupedComponents: TestItemComponent[] = [];
   const radioComponents: CodeableConceptComponent[] = [];
   for (const ref of obsDefRefs) {
@@ -201,10 +222,12 @@ export const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinit
       (res) => res.resourceType === 'ObservationDefinition' && res.id === obsDefId
     ) as ObservationDefinition | undefined;
 
-    if (obsDef) {
+    if (obsDef && obsDef.id) {
+      const resultObs = observationMap[obsDef.id];
       const componentInfo = processObservationDefinition(
         obsDef,
-        containedResources as (ObservationDefinition | ValueSet)[]
+        containedResources as (ObservationDefinition | ValueSet)[],
+        resultObs
       );
       if (componentInfo.displayType === 'Select' || componentInfo.displayType === 'Numeric')
         groupedComponents.push(componentInfo);
@@ -227,4 +250,33 @@ export const convertActivityDefinitionToTestItem = (activityDef: ActivityDefinit
   };
 
   return testItem;
+};
+
+const getResult = (
+  obervation: Observation | undefined,
+  dataType: 'CodeableConcept' | 'Quantity'
+): TestComponentResult | undefined => {
+  if (!obervation) return;
+  let result: TestComponentResult | undefined;
+  let entry: string | undefined;
+  if (dataType === 'CodeableConcept') {
+    entry = obervation.valueString;
+  } else {
+    entry = obervation?.valueQuantity?.toString();
+  }
+  const interpretationCoding = obervation.interpretation?.find(
+    (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
+  )?.coding;
+  let isAbnormal: ObservationCode | undefined;
+  if (interpretationCoding) {
+    isAbnormal = interpretationCoding.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
+      ?.code as ObservationCode;
+  }
+  if (entry && isAbnormal) {
+    result = {
+      entry,
+      isAbnormal,
+    };
+  }
+  return result;
 };

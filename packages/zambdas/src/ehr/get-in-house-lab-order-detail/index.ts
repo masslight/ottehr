@@ -28,6 +28,7 @@ import {
   Location,
   FhirResource,
   Specimen,
+  Observation,
 } from 'fhir/r4b';
 import { determineOrderStatus } from '../shared/inhouse-labs';
 
@@ -64,6 +65,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       sepcimen,
       tasks,
       provenances,
+      observations,
       attendingPractitionerName,
       currentPractitionerName,
       attendingPractitionerId,
@@ -72,11 +74,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     } = await (async () => {
       const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
-      const [myPractitionerId, { serviceRequest, encounter, sepcimen, timezone, tasks, provenances }] =
+      const [myPractitionerId, { serviceRequest, encounter, sepcimen, timezone, tasks, provenances, observations }] =
         await Promise.all([
           getMyPractitionerId(oystehrCurrentUser),
           oystehr.fhir
-            .search<ServiceRequest | Encounter | Location>({
+            .search<FhirResource>({
               resourceType: 'ServiceRequest',
               params: [
                 { name: '_id', value: serviceRequestId },
@@ -85,6 +87,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 { name: '_revinclude', value: 'Task:based-on' },
                 { name: '_revinclude', value: 'Provenance:target' },
                 { name: '_include', value: 'ServiceRequest:specimen' },
+                { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+                { name: '_include:iterate', value: 'DiagnosticReport:result' },
               ],
             })
             .then((bundle) => {
@@ -139,6 +143,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         sepcimen,
         tasks,
         provenances,
+        observations,
         attendingPractitionerName,
         currentPractitionerName,
         attendingPractitionerId,
@@ -147,6 +152,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     })();
 
+    console.log('they should be here', observations);
     if (!serviceRequest || !serviceRequest.id) throw new Error('service request is missing');
 
     const adCanonicalUrl = serviceRequest?.instantiatesCanonical?.join('');
@@ -168,9 +174,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (activityDefinitionSearch.length !== 1)
       throw new Error(`Found ${activityDefinitionSearch.length} ActivityDefinition resources, there should only be 1`);
 
-    const testItem = convertActivityDefinitionToTestItem(activityDefinitionSearch[0]);
+    const testItem = convertActivityDefinitionToTestItem(activityDefinitionSearch[0], observations);
 
     // Determine order status, info, and history
+    console.log('tasks', tasks);
     const orderStatus = determineOrderStatus(serviceRequest, tasks);
 
     const diagnoses: DiagnosisDTO[] =
@@ -302,6 +309,7 @@ const parseResources = (
   timezone: string;
   tasks: Task[];
   provenances: Provenance[];
+  observations: Observation[];
 } => {
   let serviceRequest: ServiceRequest | undefined;
   let encounter: Encounter | undefined;
@@ -309,6 +317,7 @@ const parseResources = (
   let sepcimen: Specimen | undefined;
   const tasks: Task[] = [];
   const provenances: Provenance[] = [];
+  const observations: Observation[] = [];
 
   resources.forEach((r) => {
     if (r.resourceType === 'ServiceRequest') serviceRequest = r;
@@ -317,6 +326,7 @@ const parseResources = (
     if (r.resourceType === 'Location') location = r;
     if (r.resourceType === 'Task') tasks.push(r);
     if (r.resourceType === 'Provenance') provenances.push(r);
+    if (r.resourceType === 'Observation') observations.push(r);
   });
 
   const missingResources: string[] = [];
@@ -330,7 +340,7 @@ const parseResources = (
   // todo figure this out
   const timezone = location ? getTimezone(location) : 'America/New_York';
 
-  return { serviceRequest, encounter, location, sepcimen, timezone, tasks, provenances };
+  return { serviceRequest, encounter, location, sepcimen, timezone, tasks, provenances, observations };
 };
 
 // todo finish this

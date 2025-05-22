@@ -1,7 +1,7 @@
-import { TestStatus, IN_HOUSE_LAB_TASK, IN_HOUSE_LAB_DOCREF_CATEGORY } from 'utils';
-import { Coding } from 'fhir/r4b';
+import { TestStatus, IN_HOUSE_LAB_TASK } from 'utils';
+import { Coding, Task, ServiceRequest } from 'fhir/r4b';
 
-export function determineOrderStatus(serviceRequest: any, tasks: any[]): TestStatus {
+export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task[]): TestStatus {
   if (!serviceRequest) return 'ORDERED';
 
   const collectSampleTask = tasks.find(
@@ -22,14 +22,15 @@ export function determineOrderStatus(serviceRequest: any, tasks: any[]): TestSta
   );
   console.log('interpretResultsTask', interpretResultsTask?.id, interpretResultsTask?.status);
 
-  const documentReference = tasks.find(
-    (task) =>
-      task.code?.coding?.some(
-        (coding: Coding) =>
-          coding.system === IN_HOUSE_LAB_DOCREF_CATEGORY.system &&
-          coding.code === IN_HOUSE_LAB_DOCREF_CATEGORY.code.resultForm
-      )
-  );
+  // todo i don't think we need this actually
+  // const documentReference = tasks.find(
+  //   (task) =>
+  //     task.code?.coding?.some(
+  //       (coding: Coding) =>
+  //         coding.system === IN_HOUSE_LAB_DOCREF_CATEGORY.system &&
+  //         coding.code === IN_HOUSE_LAB_DOCREF_CATEGORY.code.resultForm
+  //     )
+  // );
 
   // Status Derivation:
   // Ordered: SR.status = draft & Task(CST).status = ready
@@ -48,8 +49,9 @@ export function determineOrderStatus(serviceRequest: any, tasks: any[]): TestSta
 
   // Final: SR.status = completed && DR.status = 'final'
   if (
-    serviceRequest.status === 'completed' &&
-    (documentReference?.status === 'final' || documentReference?.status === 'amended')
+    serviceRequest.status === 'completed'
+    // todo temp commenting this out while i wait on confirmation of logic
+    // (documentReference?.status === 'final' || documentReference?.status === 'amended')
   ) {
     return 'FINAL';
   }

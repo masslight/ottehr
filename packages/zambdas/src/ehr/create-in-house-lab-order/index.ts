@@ -320,14 +320,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         {
           coding: [
             {
-              // todo: check is it valid?
               system: IN_HOUSE_LAB_DOCREF_CATEGORY.system,
               code: IN_HOUSE_LAB_DOCREF_CATEGORY.code.sampleLabel,
-            },
-            {
-              // todo: check is it valid?
-              system: IN_HOUSE_LAB_DOCREF_CATEGORY.system,
-              code: IN_HOUSE_LAB_DOCREF_CATEGORY.code.resultForm,
             },
           ],
         },

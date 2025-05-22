@@ -13,13 +13,13 @@ import { LoadingButton } from '@mui/lab';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { useParams } from 'react-router-dom';
 
-interface PerformTestViewProps {
+interface ResultEntryViewProps {
   testDetails: InHouseLabDTO;
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
 }
 
-export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, setLoadingState, onBack }) => {
+export const ResultEntryView: React.FC<ResultEntryViewProps> = ({ testDetails, setLoadingState, onBack }) => {
   const methods = useForm<ResultEntryInput>({ mode: 'onChange' });
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
   const {
@@ -74,9 +74,9 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
         Perform Test & Enter Results
       </Typography>
 
-      <Paper sx={{ mb: 2 }}>
-        <FormProvider {...methods}>
-          <form onSubmit={handleSubmit(handleResultEntrySubmit)}>
+      <FormProvider {...methods}>
+        <form onSubmit={handleSubmit(handleResultEntrySubmit)}>
+          <Paper sx={{ mb: 2 }}>
             <Box sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h5" color="primary.dark" fontWeight="bold">
@@ -93,7 +93,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
                     fontSize: '0.75rem',
                   }}
                 >
-                  COLLECTED
+                  {testDetails.status}
                 </Box>
               </Box>
 
@@ -124,36 +124,35 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
                   handleReprintLabel={handleReprintLabel}
                 />
               </Collapse>
-
-              <Box display="flex" justifyContent="space-between">
-                <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4 }}>
-                  Back
-                </Button>
-
-                <LoadingButton
-                  variant="contained"
-                  color="primary"
-                  loading={submittingResults}
-                  disabled={!isValid}
-                  type="submit"
-                  sx={{ borderRadius: '50px', px: 4 }}
-                >
-                  Submit
-                </LoadingButton>
-              </Box>
-              {error &&
-                error.length > 0 &&
-                error.map((msg, idx) => (
-                  <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                    <Typography sx={{ color: 'error.dark' }}>
-                      {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
-                    </Typography>
-                  </Box>
-                ))}
             </Box>
-          </form>
-        </FormProvider>
-      </Paper>
+          </Paper>
+          <Box display="flex" justifyContent="space-between">
+            <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4 }}>
+              Back
+            </Button>
+
+            <LoadingButton
+              variant="contained"
+              color="primary"
+              loading={submittingResults}
+              disabled={!isValid}
+              type="submit"
+              sx={{ borderRadius: '50px', px: 4 }}
+            >
+              Submit
+            </LoadingButton>
+          </Box>
+          {error &&
+            error.length > 0 &&
+            error.map((msg, idx) => (
+              <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                <Typography sx={{ color: 'error.dark' }}>
+                  {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                </Typography>
+              </Box>
+            ))}
+        </form>
+      </FormProvider>
     </Box>
   );
 };

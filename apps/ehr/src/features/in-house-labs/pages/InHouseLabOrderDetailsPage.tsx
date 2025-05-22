@@ -3,7 +3,7 @@ import { Box, Paper, Typography, Button, CircularProgress } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
-import { PerformTestView } from '../components/details/PerformTestView';
+import { ResultEntryView } from '../components/details/ResultEntryView';
 import { FinalResultView } from '../components/details/FinalResultView';
 import { getSelectors, MarkAsCollectedData, InHouseLabDTO, LoadingState } from 'utils';
 import { useAppointmentStore } from 'src/telemed';
@@ -49,27 +49,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   const handleBack = (): void => {
     navigate(-1);
-  };
-
-  const handleSubmit = async (updatedData: any): Promise<void> => {
-    setLoadingState(LoadingState.loading);
-
-    try {
-      // In a real implementation, this would call the API to update the test details
-      console.log('Submitting test details:', {
-        ...updatedData,
-      });
-
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Navigate back to the list view
-      // navigate(-1);
-    } catch (error) {
-      console.error('Error submitting test details:', error);
-    } finally {
-      setLoadingState(LoadingState.loaded);
-    }
   };
 
   const handleCollectSampleSubmit = async (updatedData: MarkAsCollectedData): Promise<void> => {
@@ -128,9 +107,9 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
               <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
             );
           case 'COLLECTED':
-            return <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
+            return <ResultEntryView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
           case 'FINAL':
-            return <FinalResultView testDetails={testDetails} onBack={handleBack} onSubmit={handleSubmit} />;
+            return <FinalResultView testDetails={testDetails} onBack={handleBack} />;
           default:
             // temp for debugging
             return <p>Status could not be parsed: {testDetails.status}</p>;

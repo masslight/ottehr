@@ -1,4 +1,4 @@
-import { DiagnosisDTO } from '../..';
+import { DiagnosisDTO, OBSERVATION_CODES } from '../..';
 import { Pagination } from '../labs';
 
 export interface TestItemMethods {
@@ -12,10 +12,18 @@ export interface QuantityRange {
   unit: string;
   precision?: number;
 }
+
+export type ObservationCode = (typeof OBSERVATION_CODES)[keyof typeof OBSERVATION_CODES];
+
+export interface TestComponentResult {
+  entry: string;
+  isAbnormal: ObservationCode;
+}
 export interface BaseComponent {
   componentName: string;
   loincCode: string[];
   observationDefinitionId: string;
+  result?: TestComponentResult;
 }
 
 export interface CodeableConceptComponent extends BaseComponent {
