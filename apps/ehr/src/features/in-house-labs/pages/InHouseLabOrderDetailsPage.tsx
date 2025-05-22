@@ -15,7 +15,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   const { oystehrZambda } = useApiClients();
 
   // eslint-disable-next-line @typescript-eslint/no-inferrable-types
-  const testId: string = 'perform-test-pending';
+  const testId: string = 'collect-sample';
 
   // Fetch the test details based on the current view/status
   useEffect(() => {

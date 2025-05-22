@@ -11,11 +11,18 @@ import {
   MenuItem,
   IconButton,
   Collapse,
+  useTheme,
+  Stack,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { LabTest, inHouseLabsTestStatuses } from 'utils';
+import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { getOrCreateVisitLabel } from 'src/api/api';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import { LoadingButton } from '@mui/lab';
 
 interface CollectSampleViewProps {
   testDetails: LabTest;
@@ -30,6 +37,12 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const [collectionDate, setCollectionDate] = useState('');
   const [collectionTime, setCollectionTime] = useState('');
   const [notes, setNotes] = useState(testDetails.notes || '');
+  const [labelButtonLoading, setLabelButtonLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const theme = useTheme();
+  const { oystehrZambda } = useApiClients();
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
   const handleToggleSampleCollection = (): void => {
     setShowSampleCollection(!showSampleCollection);
@@ -48,8 +61,21 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
     });
   };
 
-  const handleReprintLabel = (): void => {
-    console.log('Reprinting label for test:', testDetails.id);
+  const handleReprintLabel = async (): Promise<void> => {
+    if (encounter.id && oystehrZambda) {
+      setLabelButtonLoading(true);
+      console.log('Fetching visit label for encounter ', encounter.id);
+      const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id });
+
+      if (labelPdfs.length !== 1) {
+        setError('Expected 1 label pdf, received unexpected number');
+        return;
+      }
+
+      const labelPdf = labelPdfs[0];
+      window.open(labelPdf.presignedURL, '_blank');
+      setLabelButtonLoading(false);
+    }
   };
 
   return (
@@ -192,21 +218,31 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
             <TextField fullWidth multiline rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Box>
 
-          <Box display="flex" justifyContent="space-between" mt={3}>
-            <Button variant="outlined" onClick={handleReprintLabel} sx={{ borderRadius: '50px', px: 4 }}>
-              Re-Print Label
-            </Button>
+          <Stack display="flex">
+            <Box display="flex" justifyContent="space-between" mt={3}>
+              <LoadingButton
+                loading={labelButtonLoading}
+                variant="outlined"
+                onClick={handleReprintLabel}
+                sx={{ borderRadius: '50px', px: 4 }}
+              >
+                Re-Print Label
+              </LoadingButton>
 
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleMarkAsCollected}
-              disabled={!sourceType || !collectedBy || !collectionDate || !collectionTime}
-              sx={{ borderRadius: '50px', px: 4 }}
-            >
-              Mark as Collected
-            </Button>
-          </Box>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleMarkAsCollected}
+                disabled={!sourceType || !collectedBy || !collectionDate || !collectionTime}
+                sx={{ borderRadius: '50px', px: 4 }}
+              >
+                Mark as Collected
+              </Button>
+            </Box>
+            <Box display="flex" justifyContent="space-between" mt={3}>
+              {!!error && <Typography sx={{ color: theme.palette.error.main }}>{error}</Typography>}
+            </Box>
+          </Stack>
         </Box>
       </Paper>
 

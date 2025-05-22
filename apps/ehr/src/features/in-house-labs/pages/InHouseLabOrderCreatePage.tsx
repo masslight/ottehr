@@ -22,7 +22,7 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
 import { PRACTITIONER_CODINGS, TestItem } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { createInHouseLabOrder, getCreateInHouseLabOrderResources } from '../../../api/api';
+import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { enqueueSnackbar } from 'notistack';
 
@@ -136,11 +136,19 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         });
 
         if (shouldPrintLabel) {
-          // todo: print label
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
+
+          if (labelPdfs.length !== 1) {
+            setError(['Expected 1 label pdf, received unexpected number']);
+          }
+
+          const labelPdf = labelPdfs[0];
+          window.open(labelPdf.presignedURL, '_blank');
         }
 
         navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);
       } catch (e) {
+        console.error(e);
         setError(['There was an error creating this lab order']);
       } finally {
         setLoading(false);
