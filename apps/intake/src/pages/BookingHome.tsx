@@ -97,8 +97,7 @@ interface BookAppointmentContext
   endISO: string;
   waitingMinutes: number | undefined;
   patientsLoading: boolean;
-  bookingGroupId?: string;
-  bookingGroupSlug?: string;
+  originalBookingUrl?: string;
 }
 
 export const useBookingContext = (): BookAppointmentContext => {
@@ -216,8 +215,7 @@ const BookingHome: FC = () => {
       ownerName,
       ownerType,
       ownerId,
-      bookingGroupId,
-      bookingGroupSlug,
+      originalBookingUrl,
     } = slotDetailsData;
     let scheduleOwnerType = 'Location';
     if (ownerType === 'Practitioner') {
@@ -242,8 +240,7 @@ const BookingHome: FC = () => {
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
       scheduleOwnerId: ownerId,
-      bookingGroupId,
-      bookingGroupSlug,
+      originalBookingUrl,
       setPatientInfo,
       setUnconfirmedDateOfBirth,
       completeBooking,

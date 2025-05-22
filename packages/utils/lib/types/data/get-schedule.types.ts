@@ -15,5 +15,6 @@ export interface GetScheduleResponse {
 export interface GetScheduleRequestParams {
   scheduleType: ScheduleType;
   slug: string;
+  originalBookingUrl?: string;
   // specificSlot?: string;
 }

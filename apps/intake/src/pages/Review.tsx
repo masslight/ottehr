@@ -40,7 +40,7 @@ const Review = (): JSX.Element => {
     timezone,
     startISO,
     serviceMode,
-    bookingGroupSlug,
+    originalBookingUrl,
     setPatientInfo,
     completeBooking,
   } = useBookingContext();
@@ -114,12 +114,13 @@ const Review = (): JSX.Element => {
     },
   ];
 
-  console.log('bookingGroupSlug', bookingGroupSlug);
+  console.log('originalBookingUrl', originalBookingUrl);
 
   if (visitType === VisitType.PreBook) {
     let path = `${intakeFlowPageRoute.PrebookVisit.path}`;
-    if (bookingGroupSlug) {
-      path = `${path}?bookingOn=${bookingGroupSlug}&scheduleType=group&slot=${scheduleOwnerId}|${startISO}`;
+    if (originalBookingUrl) {
+      const queryChar = originalBookingUrl.includes('?') ? '&' : '?';
+      path = `${originalBookingUrl}${queryChar}slot=${scheduleOwnerId}|${startISO}`;
     }
     const selectedSlotTimezoneAdjusted = DateTime.fromISO(startISO).setZone(timezone).setLocale('en-us');
     reviewItems.push({
