@@ -271,7 +271,12 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
               }}
             >
               {testDetails.orderHistory.map(({ date, providerName, status }) => (
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack
+                  key={date + providerName + status}
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
                   <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                     <InHouseLabsStatusChip status={status} />
                   </Typography>
