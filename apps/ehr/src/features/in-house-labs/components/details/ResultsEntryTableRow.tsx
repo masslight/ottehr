@@ -13,24 +13,6 @@ const ROW_STYLING = { paddingLeft: 0 };
 export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component }) => {
   const [isAbnormal, setIsAbnormal] = useState<boolean>(false);
 
-  const assessAbnormality = (entry: string): void => {
-    if (component.dataType === 'Quantity' && component.normalRange.low && component.normalRange.high) {
-      const entryNum = parseFloat(entry);
-      if (component.dataType === 'Quantity') {
-        const { high, low } = component.normalRange;
-        if (entryNum >= high || entryNum <= low) setIsAbnormal(true);
-        if (entryNum < high && entryNum > low) setIsAbnormal(false);
-      }
-    }
-    if (component.dataType === 'CodeableConcept' && component.abnormalValues) {
-      if (component.abnormalValues.includes(entry)) {
-        setIsAbnormal(true);
-      } else {
-        setIsAbnormal(false);
-      }
-    }
-  };
-
   let units = '';
   let referenceRange = '';
   let valueElement = <div>Could not parse input type</div>;
@@ -40,16 +22,12 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
   }
   if (component.displayType === 'Numeric') {
     valueElement = (
-      <ResultEntryNumericInput
-        testItemComponent={component}
-        isAbnormal={isAbnormal}
-        assessAbnormality={assessAbnormality}
-      />
+      <ResultEntryNumericInput testItemComponent={component} isAbnormal={isAbnormal} setIsAbnormal={setIsAbnormal} />
     );
   }
   if (component.displayType === 'Select') {
     valueElement = (
-      <ResultEntrySelect testItemComponent={component} isAbnormal={isAbnormal} assessAbnormality={assessAbnormality} />
+      <ResultEntrySelect testItemComponent={component} isAbnormal={isAbnormal} setIsAbnormal={setIsAbnormal} />
     );
   }
 

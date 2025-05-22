@@ -6,15 +6,30 @@ import { useFormContext, Controller } from 'react-hook-form';
 interface ResultEntryNumericInputProps {
   testItemComponent: TestItemComponent;
   isAbnormal: boolean;
-  assessAbnormality: (entry: string) => void;
+  setIsAbnormal: (bool: boolean) => void;
 }
 
 export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = ({
   testItemComponent,
   isAbnormal,
-  assessAbnormality,
+  setIsAbnormal,
 }) => {
   const { control } = useFormContext();
+
+  const assessAbnormality = (entry: string): void => {
+    if (
+      testItemComponent.dataType === 'Quantity' &&
+      testItemComponent.normalRange.low &&
+      testItemComponent.normalRange.high
+    ) {
+      const entryNum = parseFloat(entry);
+      const { high, low } = testItemComponent.normalRange;
+      // todo double chec with product team if this is inclusive on both ends
+      // meaning it would be abnormal if it is strictly greater or strictly less than (but not equal)
+      if (entryNum >= high || entryNum <= low) setIsAbnormal(true);
+      if (entryNum < high && entryNum > low) setIsAbnormal(false);
+    }
+  };
 
   return (
     <Controller
