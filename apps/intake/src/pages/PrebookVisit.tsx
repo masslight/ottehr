@@ -34,6 +34,10 @@ import ottehrApi from '../api/ottehrApi';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
 
+const getUrl = (): string => {
+  return `${window.location.pathname}${window.location.search}`;
+};
+
 const findSelectedSlotFromAvailable = (available: SlotListItem[], selectedSlotId?: string): Slot | undefined => {
   if (!selectedSlotId) {
     return undefined;
@@ -184,8 +188,6 @@ const PrebookVisit: FC = () => {
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType);
 
-  // console.log('slotData', slotData);
-
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;
     const setLocation = serviceType === 'in-person' ? setSelectedInPersonLocation : setSelectedVirtualLocation;
@@ -201,6 +203,7 @@ const PrebookVisit: FC = () => {
         lengthInMinutes: getAppointmentDurationFromSlot(slot),
         status: 'busy-tentative',
         walkin: false,
+        originalBookingUrl: getUrl(),
       };
 
       try {

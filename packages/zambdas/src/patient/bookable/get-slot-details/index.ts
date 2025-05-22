@@ -2,12 +2,12 @@ import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, Zambda
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FHIR_RESOURCE_NOT_FOUND,
+  getOriginalBookingUrlFromSlot,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   GetSlotDetailsParams,
   GetSlotDetailsResponse,
   getSlotIsWalkin,
-  getSlugForBookableResource,
   getTimezone,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -19,7 +19,7 @@ import {
   ServiceMode,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
-import { Appointment, HealthcareService, Schedule, Slot } from 'fhir/r4b';
+import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 
 let m2mtoken: string;
@@ -48,7 +48,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
-  const { slot, schedule, scheduleOwner, appointmentId, bookingGroupId, bookingGroupSlug } = input;
+  const { slot, schedule, scheduleOwner, appointmentId, originalBookingUrl } = input;
 
   const startISO = slot.start;
   const endISO = slot.end;
@@ -79,8 +79,7 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
     comment: slot.comment,
     timezoneForDisplay,
     ownerName,
-    bookingGroupId,
-    bookingGroupSlug,
+    originalBookingUrl,
   };
 };
 
@@ -112,8 +111,7 @@ interface EffectInput {
   schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
   appointmentId?: string;
-  bookingGroupId?: string;
-  bookingGroupSlug?: string;
+  originalBookingUrl?: string;
 }
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
@@ -158,38 +156,13 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   // details, which may be useful in directing the user back to the root scheduling page that was originally used
   // to book the appointment.
 
-  let bookingGroupId: string | undefined;
-  let bookingGroupSlug: string | undefined;
-  if (scheduleOwner.resourceType === 'HealthcareService') {
-    bookingGroupId = scheduleOwner.id;
-    bookingGroupSlug = getSlugForBookableResource(scheduleOwner);
-  }
-  if (scheduleOwner.resourceType === 'Location') {
-    const associatedServices = (
-      await oystehr.fhir.search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [{ name: 'location', value: `Location/${scheduleOwnerId}` }],
-      })
-    ).unbundle();
+  const originalBookingUrl = getOriginalBookingUrlFromSlot(slot);
 
-    if (associatedServices.length === 1) {
-      bookingGroupId = associatedServices[0].id;
-      bookingGroupSlug = getSlugForBookableResource(associatedServices[0]);
-    }
-  }
-  if (scheduleOwner.resourceType === 'Practitioner') {
-    const associatedServices = (
-      await oystehr.fhir.search<HealthcareService>({
-        resourceType: 'HealthcareService',
-        params: [{ name: '_has:PractitionerRole:service:practitioner:Practitioner:_id', value: scheduleOwnerId }],
-      })
-    ).unbundle();
-
-    if (associatedServices.length === 1) {
-      bookingGroupId = associatedServices[0].id;
-      bookingGroupSlug = getSlugForBookableResource(associatedServices[0]);
-    }
-  }
-
-  return { slot, schedule, scheduleOwner, appointmentId: appointment?.id, bookingGroupId, bookingGroupSlug };
+  return {
+    slot,
+    schedule,
+    scheduleOwner,
+    appointmentId: appointment?.id,
+    originalBookingUrl,
+  };
 };
