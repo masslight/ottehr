@@ -19,6 +19,7 @@ import {
   MISCONFIGURED_SCHEDULING_GROUP,
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
   SCHEDULE_NOT_FOUND_ERROR,
+  ScheduleOwnerFhirResource,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
   SLUG_SYSTEM,
@@ -35,11 +36,16 @@ export async function getPatientResource(patientID: string, oystehr: Oystehr): P
   return response;
 }
 
+interface GetScheduleResponse extends BookableScheduleData {
+  rootScheduleOwner: ScheduleOwnerFhirResource;
+}
+
 export async function getSchedules(
   oystehr: Oystehr,
   scheduleType: 'location' | 'provider' | 'group',
   slug: string
-): Promise<BookableScheduleData> {
+): Promise<GetScheduleResponse> {
+  //todo: change return type to include the owner outside the scheduleList
   const fhirType = (() => {
     if (scheduleType === 'location') {
       return 'Location';
@@ -227,7 +233,7 @@ export async function getSchedules(
       strategy: hsSchedulingStrategy,
     },
     scheduleList,
-    owner: scheduleOwner, // this probable isn't needed. just the ref can go in metadata
+    rootScheduleOwner: scheduleOwner, // this probable isn't needed. just the ref can go in metadata
   };
 }
 

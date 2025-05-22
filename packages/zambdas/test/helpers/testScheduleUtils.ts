@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { FhirResource, Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
 import _ from 'lodash';
@@ -17,6 +17,7 @@ import {
   SCHEDULE_EXTENSION_URL,
   ClosureType,
   ScheduleDay,
+  ScheduleOwnerFhirResource,
 } from 'utils';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -1228,24 +1229,62 @@ export const adjustHoursOfOperation = (
   };
 };
 
+interface PersistScheduleInput {
+  scheduleExtension: ScheduleExtension;
+  processId: string | null;
+  scheduleOwner?: ScheduleOwnerFhirResource;
+}
+
+interface PersistScheduleOutput {
+  schedule: Schedule;
+  owner?: ScheduleOwnerFhirResource;
+}
+
 export const persistSchedule = async (
-  scheduleExtension: ScheduleExtension,
-  processId: string | null,
+  input: PersistScheduleInput,
   oystehr: Oystehr
-): Promise<Schedule> => {
+): Promise<PersistScheduleOutput> => {
+  const { scheduleExtension, processId, scheduleOwner } = input;
   if (processId === null) {
     throw new Error('processId is null');
+  }
+
+  let makeOwnerRequest: BatchInputPostRequest<FhirResource> | undefined;
+  if (scheduleOwner) {
+    makeOwnerRequest = {
+      method: 'POST',
+      url: scheduleOwner.resourceType,
+      resource: scheduleOwner,
+      fullUrl: `urn:uuid:${randomUUID()}`,
+    };
   }
   const resource = {
     ...makeSchedule({
       processId,
       scheduleObject: scheduleExtension,
+      locationRef: makeOwnerRequest ? makeOwnerRequest.fullUrl : undefined,
     }),
     id: undefined,
   };
 
+  if (makeOwnerRequest) {
+    const results = await oystehr.fhir.transaction({
+      requests: [
+        makeOwnerRequest,
+        {
+          method: 'POST',
+          url: 'Schedule',
+          resource,
+        },
+      ],
+    });
+    const schedule = results.entry?.find((entry) => entry.resource?.resourceType === 'Schedule')?.resource as Schedule;
+    const owner = results.entry?.find((entry) => entry.resource?.resourceType === scheduleOwner?.resourceType)
+      ?.resource as ScheduleOwnerFhirResource;
+    return { schedule, owner };
+  }
   const schedule = await oystehr.fhir.create<Schedule>(resource);
-  return schedule;
+  return { schedule, owner: undefined };
 };
 
 export const getScheduleDay = (scheduleExt: ScheduleExtension, day: DateTime): ScheduleDay | undefined => {

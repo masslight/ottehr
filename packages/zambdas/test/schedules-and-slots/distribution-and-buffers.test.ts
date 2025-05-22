@@ -1,13 +1,8 @@
-import Oystehr from '@oystehr/sdk';
 import { assert, vi } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
-import { SECRETS } from '../data/secrets';
-import { randomUUID } from 'crypto';
 import {
   applyBuffersToScheduleExtension,
   changeAllCapacities,
-  cleanupTestScheduleResources,
   DEFAULT_SCHEDULE_JSON,
   makeSchedule,
   setSlotLengthInMinutes,
@@ -23,29 +18,7 @@ import {
 import { DateTime } from 'luxon';
 
 describe('slot availability tests', () => {
-  let oystehr: Oystehr | null = null;
-  let token = null;
-  let processId: string | null = null;
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
-
-  beforeAll(async () => {
-    processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API } = SECRETS;
-    token = await getAuth0Token({
-      AUTH0_ENDPOINT: AUTH0_ENDPOINT,
-      AUTH0_CLIENT: AUTH0_CLIENT,
-      AUTH0_SECRET: AUTH0_SECRET,
-      AUTH0_AUDIENCE: AUTH0_AUDIENCE,
-    });
-
-    oystehr = new Oystehr({ accessToken: token, fhirApiUrl: FHIR_API, projectApiUrl: PROJECT_API });
-  });
-  afterAll(async () => {
-    if (!oystehr || !processId) {
-      throw new Error('oystehr or processId is null! could not clean up!');
-    }
-    await cleanupTestScheduleResources(processId, oystehr);
-  });
 
   it('24/7 schedule with capacity divisible by 4 should make n/4 slots available every 15 minutes', () => {
     const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });

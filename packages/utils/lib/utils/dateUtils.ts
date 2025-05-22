@@ -47,9 +47,6 @@ const divideHourlyCapacityBySlotInterval = (capacity: number, slotLength = 15): 
   const lowUnitsPerBucket = Math.floor(capacity / numBuckets);
   // this is how much slots additional capacity units we would need to fill all the buckets evenly
   const capacityShortage = Math.max(numBuckets - (capacity % numBuckets), 0);
-  if (capacity === 1) {
-    console.log('capacity shortage', capacityShortage, capacity % numBuckets);
-  }
 
   for (let i = 0; i < numBuckets; i += 1) {
     const key = i * slotLength;

@@ -291,7 +291,6 @@ export interface ScheduleAndOwner {
 }
 
 interface BaseScheduleResponse {
-  owner: HealthcareService | Location | Practitioner;
   scheduleList: ScheduleAndOwner[];
 }
 interface ScheduleMetaData {

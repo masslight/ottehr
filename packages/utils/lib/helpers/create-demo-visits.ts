@@ -403,7 +403,7 @@ const generateRandomPatientInfo = async (
   let selectedLocation = activeOffices.find((loc) => selectedLocationId && loc.id === selectedLocationId);
 
   if (serviceMode === ServiceMode.virtual && locationState) {
-    selectedLocation = activeOffices.find(
+    selectedLocation = telemedOffices.find(
       (loc) => locationState && loc.address?.state?.toLowerCase() === locationState.toLowerCase()
     );
   }
