@@ -181,7 +181,7 @@ export const ERxContainer: FC = () => {
       return;
     }
     setCancellationLoading((prevState) => [...prevState, prescriptionId]);
-    await oystehr.erx.cancelPrescription({ prescriptionId });
+    await oystehr.erxV1.cancelPrescription({ prescriptionId });
     await refetch();
     setCancellationLoading((prevState) => prevState.filter((item) => item !== prescriptionId));
   };
