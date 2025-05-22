@@ -1,4 +1,3 @@
-import { Error as ErrorIcon } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
@@ -10,7 +9,6 @@ import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '@theme/colors';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -33,7 +31,6 @@ interface AppointmentSearchResultData {
   completed: InPersonAppointmentInformation[] | undefined;
   cancelled: InPersonAppointmentInformation[] | undefined;
   inOffice: InPersonAppointmentInformation[] | undefined;
-  activeApptDatesBeforeToday: string[] | undefined;
 }
 
 type CustomFormEventHandler = (event: React.FormEvent<HTMLFormElement>, value: any, field: string) => void;
@@ -98,7 +95,6 @@ export default function Appointments(): ReactElement {
     completed: completedAppointments = [],
     cancelled: cancelledAppointments = [],
     inOffice: inOfficeAppointments = [],
-    activeApptDatesBeforeToday = [],
   } = searchResults || {};
 
   useEffect(() => {
@@ -250,7 +246,6 @@ export default function Appointments(): ReactElement {
       visitType={visitType}
       providers={providers}
       groups={groups}
-      activeApptDatesBeforeToday={activeApptDatesBeforeToday}
       preBookedAppointments={preBookedAppointments}
       completedAppointments={completedAppointments}
       cancelledAppointments={cancelledAppointments}
@@ -269,7 +264,6 @@ export default function Appointments(): ReactElement {
 
 interface AppointmentsBodyProps {
   loadingState: LoadingState;
-  activeApptDatesBeforeToday: string[];
   preBookedAppointments: InPersonAppointmentInformation[];
   completedAppointments: InPersonAppointmentInformation[];
   cancelledAppointments: InPersonAppointmentInformation[];
@@ -291,7 +285,6 @@ interface AppointmentsBodyProps {
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
     loadingState,
-    activeApptDatesBeforeToday,
     preBookedAppointments,
     completedAppointments,
     cancelledAppointments,
@@ -470,24 +463,6 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               width: '100%',
             }}
           >
-            {activeApptDatesBeforeToday.length === 0 ? null : (
-              <Grid container spacing={1} justifyContent="center">
-                <Grid item>
-                  <ErrorIcon htmlColor={otherColors.priorityHighIcon} fontSize="medium" />
-                </Grid>
-                <Grid item>
-                  <Typography textAlign="center" color={otherColors.priorityHighText} fontWeight="bold">
-                    You have patients in the queue for the following dates. Please filter to each date and clear all
-                    patients out.
-                  </Typography>
-                </Grid>
-                <Grid item>
-                  <Typography color={otherColors.priorityHighText} textAlign="center">
-                    {activeApptDatesBeforeToday.join(', ')}
-                  </Typography>
-                </Grid>
-              </Grid>
-            )}
             <AppointmentTabs
               location={locationSelected}
               providers={providers}

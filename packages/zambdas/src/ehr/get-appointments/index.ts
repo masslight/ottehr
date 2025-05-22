@@ -40,7 +40,6 @@ import { ZambdaInput, checkOrCreateM2MClientToken, topLevelCatch } from '../../s
 import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
 import { sortAppointments } from '../../shared/queueingUtils';
 import {
-  encounterIdMap,
   getTimezoneResourceIdFromAppointment,
   getAppointmentQueryInput,
   makeEncounterSearchParams,
@@ -109,7 +108,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return resources;
     })();
 
-    const { appointmentResources, encounterResources, appointmentsToGroupMap } = await (async () => {
+    const { appointmentResources, appointmentsToGroupMap } = await (async () => {
       // prepare search options
       const searchOptions = await Promise.all(
         requestedTimezoneRelatedResources.map(async (resource) => {
@@ -134,7 +133,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         })
       );
 
-      // request appointments and encounters
+      // request appointments
       const resourceResults = await Promise.all(
         searchOptions.map(async (options) => {
           const appointmentRequestInput = await getAppointmentQueryInput({
@@ -151,38 +150,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
           const { group } = appointmentRequestInput;
 
-          // here is a possible optimisation, we can use `options.searchParams !== null` check like for encounterResponse
-          // because we may skip appointments search if there are no encounters, but i'm not sure bacuase we didn't use pagination
-          // and we may just didn't get all encounters. But if we ensure that encounters request works good we may use that.
           const appointmentPromise = oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
 
-          // search params will be null if it was a cached result and response returns no encounters, so we can skip that request
-          const encounterPromise =
-            options.searchParams !== null
-              ? oystehr.fhir
-                  .search<Encounter | Appointment>({ resourceType: 'Encounter', params: options.searchParams })
-                  .then((encountersBundle) => {
-                    const encounters = encountersBundle.unbundle();
-                    const encounterIds = encounters.map((e) => e.id).join(',') || null;
-
-                    // original comment:
-                    // we now know whether and which encounters are un-cleaned-up at this location for this date; we can either search for exactly those or skip
-                    // the encounter search entirely
-                    // something very odd would need to happen for an encounter to retroactively enter the unresolved state, and if it happened it would get found
-                    // tomorrow rather than today (or when this zambda context gets cleaned up). therefore it is a pretty easy cost/benefit call to forego this search
-                    // when we know it recently returned no results, or optimize to only target encounters that met the search criteria in the first execution.
-                    encounterIdMap.set(options.cacheKey, encounterIds);
-
-                    return encounters;
-                  })
-              : Promise.resolve(null);
-
-          const [appointmentResponse, encounters] = await Promise.all([appointmentPromise, encounterPromise]);
+          const [appointmentResponse] = await Promise.all([appointmentPromise]);
           const appointments = appointmentResponse
             .unbundle()
             .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 
-          return { appointments, encounters, group };
+          return { appointments, group };
         })
       );
 
@@ -198,40 +173,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
         return appointments;
       });
-      const flatEncounters = resourceResults.flatMap((result) => result.encounters || []);
 
       return {
         appointmentResources: mergeResources(flatAppointments),
-        encounterResources: mergeResources(flatEncounters),
         appointmentsToGroupMap,
       };
     })();
 
     console.timeEnd('get_active_encounters + get_appointment_data');
-
-    const encounterIds: string[] = [];
-
-    const activeAppointmentDatesBeforeToday = encounterResources
-      .filter((resource) => {
-        if (resource.resourceType === 'Encounter' && resource.id) {
-          encounterIds.push(resource.id);
-        }
-        return resource.resourceType === 'Appointment';
-      })
-      .sort((r1, r2) => {
-        const d1 = DateTime.fromISO((r1 as Appointment).start || '');
-        const d2 = DateTime.fromISO((r2 as Appointment).start || '');
-        return d1.diff(d2).toMillis();
-      })
-      .map((resource) => {
-        const timezoneResourceId = getTimezoneResourceIdFromAppointment(resource as Appointment);
-        const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
-
-        return DateTime.fromISO((resource as Appointment).start || '')
-          .setZone(appointmentTimezone)
-          .toFormat('MM/dd/yyyy');
-      })
-      .filter((date, index, array) => array.indexOf(date) === index); // filter duplicates
 
     let preBooked: InPersonAppointmentInformation[] = [];
     let inOffice: InPersonAppointmentInformation[] = [];
@@ -240,7 +189,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (appointmentResources?.length == 0) {
       const response = {
-        activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
         message: 'Successfully retrieved all appointments',
         preBooked,
         inOffice,
@@ -510,7 +458,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const response = {
-      activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
       message: 'Successfully retrieved all appointments',
       preBooked,
       inOffice,
