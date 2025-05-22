@@ -75,16 +75,25 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
   };
 
   const getAgeString = (dob: DateTime | undefined): string => {
-    if (!dob) return '';
+    if (!dob || dob.toUTC() > DateTime.utc()) return '';
 
     // get the date diff between now and the dob
-    // const ageInMonths = Math.round(dob.setZone('UTC').diffNow(['months']).as('months'));
-    const ageInMonths = Math.round(DateTime.utc().diff(dob.toUTC(), ['months']).as('months'));
-
-    if (ageInMonths <= 24) return `${ageInMonths} mo`;
-    else {
-      return `${Math.floor(ageInMonths / 12)} yo`;
+    // const ageInMonths = Math.round(DateTime.utc().diff(dob.toUTC(), ['months', 'weeks', 'days']).as('months'));
+    const { months, weeks, days } = DateTime.utc().diff(dob.toUTC(), ['months', 'weeks', 'days']).toObject();
+    if (!months && !weeks && days !== undefined) {
+      return `${days} d`;
     }
+
+    if (!months && weeks !== undefined) return `${weeks} wk`;
+
+    if (months !== undefined) {
+      if (months <= 24) return `${months} mo`;
+      else {
+        return `${Math.floor(months / 12)} yr`;
+      }
+    }
+
+    throw new Error(`Error processing age string for dob ${dob}`);
   };
 
   /**
