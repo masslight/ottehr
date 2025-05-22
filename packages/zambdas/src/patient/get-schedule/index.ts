@@ -61,10 +61,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.time('get-schedule-from-slug');
     const scheduleData = await getSchedules(oystehr, scheduleType, slug);
-    const { scheduleList, owner: scheduleOwner, metadata } = scheduleData;
+    const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = scheduleData;
     console.timeEnd('get-schedule-from-slug');
     console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
-    console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
+    //console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
     console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
 
     console.time('synchronous_data_processing');
