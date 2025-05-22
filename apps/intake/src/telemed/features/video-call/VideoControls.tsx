@@ -10,9 +10,9 @@ import { useLocalVideo, useToggleLocalMute } from 'amazon-chime-sdk-component-li
 import { CallSettings, IconButtonContained, CallSettingsTooltip, SideCardList } from '../../components';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { ConfirmEndCallDialog } from '.';
+import { intakeFlowPageRoute } from '../../../App';
 import { breakpoints, CustomDialog } from 'ui-components';
 import { useLocation } from 'react-router-dom';
-import { intakeFlowPageRoute } from 'src/App';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
