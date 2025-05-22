@@ -12,13 +12,13 @@ import { LoadingButton } from '@mui/lab';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { useParams } from 'react-router-dom';
 
-interface ResultEntryViewProps {
+interface PerformTestViewProps {
   testDetails: InHouseLabDTO;
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
 }
 
-export const ResultEntryView: React.FC<ResultEntryViewProps> = ({ testDetails, setLoadingState, onBack }) => {
+export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, setLoadingState, onBack }) => {
   const methods = useForm<ResultEntryInput>({ mode: 'onChange' });
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
   const {
