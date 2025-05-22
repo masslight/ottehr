@@ -4,11 +4,12 @@ import { ResultEntryTableRow } from './ResultsEntryTableRow';
 
 interface ResultEntryTableProps {
   testItemComponents: TestItemComponent[];
+  disabled?: boolean;
 }
 
 const HEADER_ROW_STYLING = { borderBottom: 'none', padding: '0 8px 6px 0' };
 
-export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComponents }) => {
+export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComponents, disabled }) => {
   return (
     <TableContainer>
       <Table
@@ -41,7 +42,7 @@ export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComp
         </TableHead>
         <TableBody>
           {testItemComponents.map((component) => (
-            <ResultEntryTableRow component={component} />
+            <ResultEntryTableRow component={component} disabled={disabled} />
           ))}
         </TableBody>
       </Table>

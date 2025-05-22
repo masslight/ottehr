@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { Box, Paper, Typography, Button, Chip } from '@mui/material';
-// import { LabTest } from 'utils';
 import { InHouseLabDTO, ResultEntryInput } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
-// import { ResultEntryTable } from './ResultsEntryTable';
+import { ResultEntryTable } from './ResultsEntryTable';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useForm, FormProvider } from 'react-hook-form';
@@ -57,9 +56,12 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
               return <ResultEntryRadioButton testItemComponent={component} disabled={true} />;
             })}
 
-            {/* {testDetails.labDetails.components.groupedComponents.length > 0 && (
-            <ResultEntryTable testItemComponents={testDetails.labDetails.components.groupedComponents} />
-          )} */}
+            {testDetails.labDetails.components.groupedComponents.length > 0 && (
+              <ResultEntryTable
+                testItemComponents={testDetails.labDetails.components.groupedComponents}
+                disabled={true}
+              />
+            )}
             <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
               <Button
                 variant="text"

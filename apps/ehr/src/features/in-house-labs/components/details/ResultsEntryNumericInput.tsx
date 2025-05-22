@@ -7,12 +7,14 @@ interface ResultEntryNumericInputProps {
   testItemComponent: TestItemComponent;
   isAbnormal: boolean;
   setIsAbnormal: (bool: boolean) => void;
+  disabled?: boolean;
 }
 
 export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = ({
   testItemComponent,
   isAbnormal,
   setIsAbnormal,
+  disabled,
 }) => {
   const { control } = useFormContext();
 
@@ -38,6 +40,7 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
       defaultValue=""
       render={({ field }) => (
         <TextField
+          disabled={!!disabled}
           {...field}
           onChange={(e) => {
             const value = e.target.value;
@@ -50,6 +53,17 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
             width: '80%',
             '& .MuiInputBase-root': {
               color: isAbnormal ? 'error.dark' : 'text.primary',
+            },
+            '& .Mui-disabled': {
+              color: isAbnormal ? 'error.dark' : '',
+              WebkitTextFillColor: isAbnormal ? '#C62828' : '',
+            },
+            '& .MuiOutlinedInput-root': {
+              '&.Mui-disabled': {
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: isAbnormal ? 'error.dark' : '',
+                },
+              },
             },
           }}
           size="small"

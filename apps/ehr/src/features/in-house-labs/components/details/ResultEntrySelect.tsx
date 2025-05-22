@@ -6,12 +6,14 @@ interface ResultEntrySelectProps {
   testItemComponent: TestItemComponent;
   isAbnormal: boolean;
   setIsAbnormal: (bool: boolean) => void;
+  disabled?: boolean;
 }
 
 export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   testItemComponent,
   isAbnormal,
   setIsAbnormal,
+  disabled,
 }) => {
   const { control } = useFormContext();
 
@@ -45,6 +47,16 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
           '&.Mui-focused fieldset': {
             borderColor: isAbnormal ? 'error.dark' : '',
           },
+          '&.Mui-disabled': {
+            '& fieldset': {
+              borderColor: isAbnormal ? 'error.dark' : '',
+            },
+          },
+        },
+
+        '& .MuiSelect-select.Mui-disabled': {
+          color: isAbnormal ? 'error.dark' : '',
+          WebkitTextFillColor: isAbnormal ? '#C62828' : '',
         },
       }}
       size="small"
@@ -52,9 +64,12 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
       <InputLabel
         id="result-entry-labe"
         sx={{
-          color: isAbnormal ? 'error.main' : '',
+          color: isAbnormal ? 'error.dark' : '',
           '&.Mui-focused': {
-            color: isAbnormal ? 'error.main' : '',
+            color: isAbnormal ? 'error.dark' : '',
+          },
+          '&.Mui-disabled': {
+            color: isAbnormal ? 'error.dark' : '',
           },
         }}
       >
@@ -66,6 +81,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
         defaultValue=""
         render={({ field }) => (
           <Select
+            disabled={!!disabled}
             fullWidth
             labelId="result-entry-label"
             id="result-entry-select"
