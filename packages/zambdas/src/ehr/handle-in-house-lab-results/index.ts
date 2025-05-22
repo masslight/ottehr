@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-// import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { Secrets, HandleInHouseLabResultsParameters } from 'utils';
+import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import {
   ZambdaInput,
   topLevelCatch,
@@ -9,48 +8,84 @@ import {
   getMyPractitionerId,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
+import {
+  IN_HOUSE_LAB_TASK,
+  ResultEntryInput,
+  extractQuantityRange,
+  ABNORMAL_OBSERVATION_INTERPRETATION,
+  NORMAL_OBSERVATION_INTERPRETATION,
+  INDETERMINATE_OBSERVATION_INTERPRETATION,
+  extractAbnormalValueSetValues,
+  DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+} from 'utils';
+import {
+  ServiceRequest,
+  Task,
+  Specimen,
+  DiagnosticReport,
+  Observation,
+  ActivityDefinition,
+  Reference,
+  ObservationDefinition,
+  Quantity,
+  CodeableConcept,
+  FhirResource,
+  Provenance,
+  ValueSet,
+} from 'fhir/r4b';
+import { randomUUID } from 'crypto';
+import { DateTime } from 'luxon';
+import { Operation } from 'fast-json-patch';
 
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`handle-in-house-lab-results started, input: ${JSON.stringify(input)}`);
-
-  let secrets = input.secrets;
-  let validatedParameters: HandleInHouseLabResultsParameters & { secrets: Secrets | null; userToken: string };
-
   try {
-    validatedParameters = validateRequestParameters(input);
-  } catch (error: any) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
-    };
-  }
-
-  try {
-    secrets = validatedParameters.secrets;
-
+    console.log(`handle-in-house-lab-results started, input: ${JSON.stringify(input)}`);
+    console.log('Validating input');
+    const { serviceRequestId, data: resultsEntryData, secrets, userToken } = validateRequestParameters(input);
     console.log('validateRequestParameters success');
 
+    console.log('Getting token');
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const _oystehr = createOystehrClient(m2mtoken, secrets);
-    const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+    console.log('token', m2mtoken);
 
-    // todo: Business logic would go here
+    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehrCurrentUser = createOystehrClient(userToken, secrets);
+    const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+
+    const {
+      serviceRequest,
+      inputRequestTask: irtTask,
+      specimen,
+      activityDefinition,
+    } = await getResources(serviceRequestId, oystehr);
+
+    const requests = makeResultEntryRequests(
+      serviceRequest,
+      irtTask,
+      specimen,
+      activityDefinition,
+      curUserPractitionerId,
+      resultsEntryData
+    );
+
+    // console.log('check whats going on here!', JSON.stringify(requests));
+
+    const res = await oystehr.fhir.transaction({ requests });
+    console.log('check the res', JSON.stringify(res));
 
     return {
       statusCode: 200,
       body: JSON.stringify({
         message: 'Successfully processed in-house lab results.',
-        // todo: Additional response
       }),
     };
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
-    await topLevelCatch('handle-in-house-lab-results', error, secrets);
+    await topLevelCatch('handle-in-house-lab-results', error, input.secrets);
     return {
       statusCode: 500,
       body: JSON.stringify({
@@ -58,4 +93,354 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   }
+};
+
+// todo better errors
+const getResources = async (
+  serviceRequestId: string,
+  oystehr: Oystehr
+): Promise<{
+  serviceRequest: ServiceRequest;
+  inputRequestTask: Task;
+  specimen: Specimen;
+  activityDefinition: ActivityDefinition;
+}> => {
+  const labOrderResources = (
+    await oystehr.fhir.search<ServiceRequest | Specimen | Task>({
+      resourceType: 'ServiceRequest',
+      params: [
+        {
+          name: '_id',
+          value: serviceRequestId,
+        },
+        {
+          name: '_revinclude',
+          value: 'Task:based-on',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:specimen',
+        },
+      ],
+    })
+  ).unbundle();
+
+  console.log('labOrderResources', JSON.stringify(labOrderResources));
+
+  const serviceRequests: ServiceRequest[] = [];
+  const inputRequestTasks: Task[] = []; // IRT tasks
+  const specimens: Specimen[] = [];
+
+  labOrderResources.forEach((resource) => {
+    if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
+    if (resource.resourceType === 'Specimen') specimens.push(resource);
+    if (
+      resource.resourceType === 'Task' &&
+      resource.status === 'ready' &&
+      resource.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
+    ) {
+      inputRequestTasks.push(resource);
+    }
+  });
+
+  if (serviceRequests.length !== 1) throw new Error('Only one service request should be returned');
+  if (specimens.length !== 1) throw new Error('Only one specimen should be returned');
+  if (inputRequestTasks.length !== 1)
+    throw new Error(`Only one ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
+
+  const serviceRequest = serviceRequests[0];
+
+  // todo there's a bug with _include=ServiceRequest:instantiates-canonical
+  // so doing this for now
+  const activityDefinitionSearch = (
+    await oystehr.fhir.search<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      params: [
+        {
+          name: 'url',
+          value: serviceRequest.instantiatesCanonical?.join(',') || '',
+        },
+        {
+          name: 'status',
+          value: 'active',
+        },
+      ],
+    })
+  ).unbundle();
+  if (activityDefinitionSearch.length !== 1) throw new Error('Only one active activity definition should be returned');
+
+  return {
+    serviceRequest,
+    inputRequestTask: inputRequestTasks[0],
+    specimen: specimens[0],
+    activityDefinition: activityDefinitionSearch[0],
+  };
+};
+
+const makeResultEntryRequests = (
+  serviceRequest: ServiceRequest,
+  irtTask: Task,
+  specimen: Specimen,
+  activityDefinition: ActivityDefinition,
+  curUserPractitionerId: string,
+  resultsEntryData: ResultEntryInput
+): BatchInputRequest<FhirResource>[] => {
+  const { provenancePostRequest, provenanceFullUrl } = makeProvenancePostRequest(
+    curUserPractitionerId,
+    irtTask.id || ''
+  );
+
+  const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl);
+
+  const serviceRequestPatchRequest: BatchInputPatchRequest<ServiceRequest> = {
+    method: 'PATCH',
+    url: `ServiceRequest/${serviceRequest.id}`,
+    operations: [
+      {
+        path: '/status',
+        op: 'replace',
+        value: 'completed',
+      },
+    ],
+  };
+
+  const { obsRefs, obsPostRequests } = makeObservationPostRequests(
+    serviceRequest,
+    specimen,
+    activityDefinition,
+    curUserPractitionerId,
+    resultsEntryData
+  );
+
+  const diagnosticReportPostRequest = makeDiagnosticReportPostRequest(serviceRequest, activityDefinition, obsRefs);
+
+  return [
+    provenancePostRequest,
+    irtTaskPatchRequest,
+    serviceRequestPatchRequest,
+    ...obsPostRequests,
+    diagnosticReportPostRequest,
+  ];
+};
+
+// todo better errors
+const makeObservationPostRequests = (
+  serviceRequest: ServiceRequest,
+  specimen: Specimen,
+  activityDefinition: ActivityDefinition,
+  curUserPractitionerId: string,
+  resultsEntryData: ResultEntryInput
+): { obsRefs: Reference[]; obsPostRequests: BatchInputPostRequest<Observation>[] } => {
+  if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
+
+  const activityDefContained = activityDefinition.contained;
+  if (!activityDefContained) throw new Error('activityDefinition.contained is missing and is required');
+
+  const obsConfig: Observation = {
+    resourceType: 'Observation',
+    basedOn: [
+      {
+        reference: `ServiceRequest/${serviceRequest.id}`,
+      },
+    ],
+    encounter: serviceRequest.encounter,
+    status: 'final',
+    subject: serviceRequest.subject,
+    specimen: {
+      reference: `Specimen/${specimen.id}`,
+    },
+    performer: [
+      {
+        reference: `Practitioner/${curUserPractitionerId}`,
+      },
+    ],
+    code: activityDefinition.code,
+  };
+
+  const obsRefs: Reference[] = [];
+  const obsPostRequests: BatchInputPostRequest<Observation>[] = [];
+
+  Object.keys(resultsEntryData).forEach((observationDefinitionId) => {
+    const entry = resultsEntryData[observationDefinitionId];
+    const obsFullUrl = `urn:uuid:${randomUUID()}`;
+    const obsDef = getObsDefFromActivityDef(observationDefinitionId, activityDefContained);
+    obsRefs.push({
+      reference: obsFullUrl,
+    });
+    const { obsValue, obsInterpretation } = formatObsValueAndInterpretation(entry, obsDef, activityDefContained);
+    const obsFinalConfig: Observation = {
+      ...obsConfig,
+      ...obsValue,
+      ...obsInterpretation,
+    };
+    const request: BatchInputPostRequest<Observation> = {
+      method: 'POST',
+      fullUrl: obsFullUrl,
+      url: '/Observation',
+      resource: obsFinalConfig,
+    };
+    obsPostRequests.push(request);
+  });
+
+  return { obsRefs, obsPostRequests };
+};
+
+const getObsDefFromActivityDef = (obsDefId: string, activityDefContained: FhirResource[]): ObservationDefinition => {
+  const obsDef = activityDefContained.find(
+    (resource) => resource.id === obsDefId && resource.resourceType === 'ObservationDefinition'
+  );
+  if (!obsDef)
+    throw new Error(`activityDefinition.contained does not contain an ObservationDefinition with the id ${obsDefId}`);
+  return obsDef as ObservationDefinition;
+};
+
+const formatObsValueAndInterpretation = (
+  dataEntry: string,
+  obsDef: ObservationDefinition,
+  activityDefContained: FhirResource[]
+): {
+  obsValue: { valueQuantity: Quantity } | { valueString: string };
+  obsInterpretation: { interpretation?: CodeableConcept[] };
+} => {
+  if (obsDef.permittedDataType?.includes('Quantity')) {
+    const floatVal = parseFloat(dataEntry);
+    const obsValue = {
+      valueQuantity: {
+        value: floatVal,
+      },
+    };
+    const range = extractQuantityRange(obsDef).normalRange;
+    const interpretationCodeableConcept = determineQuantInterpretation(floatVal, range);
+    const obsInterpretation = {
+      interpretation: [interpretationCodeableConcept],
+    };
+    return { obsValue, obsInterpretation };
+  }
+
+  if (obsDef.permittedDataType?.includes('CodeableConcept')) {
+    const obsValue = {
+      valueString: dataEntry,
+    };
+    const filteredContained = activityDefContained.filter(
+      (resource) => resource.resourceType === 'ObservationDefinition' || resource.resourceType === 'ValueSet'
+    ) as (ObservationDefinition | ValueSet)[];
+    const abnormalValues = extractAbnormalValueSetValues(obsDef, filteredContained);
+    const interpretationCodeableConcept = deteremineCodeableConceptInterpretation(dataEntry, abnormalValues);
+    const obsInterpretation = {
+      interpretation: [interpretationCodeableConcept],
+    };
+
+    return { obsValue, obsInterpretation };
+  }
+
+  throw new Error('obsDef.permittedDataType should be Quantity or CodeableConcept');
+};
+
+const determineQuantInterpretation = (
+  entry: number,
+  range: {
+    low: number;
+    high: number;
+    unit: string;
+    precision?: number;
+  }
+): CodeableConcept => {
+  if (entry >= range.high && entry <= range.low) {
+    return ABNORMAL_OBSERVATION_INTERPRETATION;
+  } else {
+    return NORMAL_OBSERVATION_INTERPRETATION;
+  }
+};
+
+// todo should also validate that the value passed is contained within normal values
+const deteremineCodeableConceptInterpretation = (value: string, abnormalValues: string[]): CodeableConcept => {
+  if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
+    return INDETERMINATE_OBSERVATION_INTERPRETATION;
+  } else {
+    return abnormalValues.includes(value) ? ABNORMAL_OBSERVATION_INTERPRETATION : NORMAL_OBSERVATION_INTERPRETATION;
+  }
+};
+
+const makeDiagnosticReportPostRequest = (
+  serviceRequest: ServiceRequest,
+  activityDefinition: ActivityDefinition,
+  obsRefs: Reference[]
+): BatchInputPostRequest<DiagnosticReport> => {
+  if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
+
+  const diagnosticReportConfig: DiagnosticReport = {
+    resourceType: 'DiagnosticReport',
+    basedOn: [{ reference: `ServiceRequest/${serviceRequest.id}` }],
+    status: 'final',
+    category: [{ coding: [DIAGNOSTIC_REPORT_CATEGORY_CONFIG] }],
+    code: activityDefinition.code,
+    subject: serviceRequest.subject,
+    encounter: serviceRequest.encounter,
+    specimen: serviceRequest.specimen,
+    result: obsRefs,
+  };
+
+  const diagnosticReportPostRequest: BatchInputPostRequest<DiagnosticReport> = {
+    method: 'POST',
+    url: '/DiagnosticReport',
+    resource: diagnosticReportConfig,
+  };
+
+  return diagnosticReportPostRequest;
+};
+
+const makeProvenancePostRequest = (
+  curUserPractitionerId: string,
+  irtTaskId: string
+): { provenancePostRequest: BatchInputPostRequest<Provenance>; provenanceFullUrl: string } => {
+  const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
+  const provenanceConfig: Provenance = {
+    resourceType: 'Provenance',
+    target: [
+      {
+        reference: `Task/${irtTaskId}`,
+      },
+    ],
+    activity: {
+      coding: [PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults],
+    },
+    recorded: DateTime.now().toISO(),
+    agent: [
+      {
+        who: { reference: `Practitioner/${curUserPractitionerId}` },
+      },
+    ],
+  };
+  const provenancePostRequest: BatchInputPostRequest<Provenance> = {
+    method: 'POST',
+    fullUrl: provenanceFullUrl,
+    url: '/Provenance',
+    resource: provenanceConfig,
+  };
+  return { provenancePostRequest, provenanceFullUrl };
+};
+
+const makeIrtTaskPatchRequest = (irtTask: Task, provenanceFullUrl: string): BatchInputPatchRequest<Task> => {
+  const provRef = {
+    reference: provenanceFullUrl,
+  };
+  const relavantHistOp: Operation = {
+    path: '/relevantHistory',
+    op: irtTask.relevantHistory ? 'replace' : 'add',
+    value: irtTask.relevantHistory ? [...irtTask.relevantHistory, provRef] : [provRef],
+  };
+
+  const irtTaskPatchRequest: BatchInputPatchRequest<Task> = {
+    method: 'PATCH',
+    url: `Task/${irtTask.id}`,
+    operations: [
+      {
+        path: '/status',
+        op: 'replace',
+        value: 'completed',
+      },
+      relavantHistOp,
+    ],
+  };
+  return irtTaskPatchRequest;
 };

@@ -1,68 +1,54 @@
 import { DiagnosisDTO } from '../..';
 import { Pagination } from '../labs';
 
-// base types for HL7 interpretation
-export type ObservationInterpretationCode = 'N' | 'A' | 'H' | 'L';
-
-export interface InterpretationCoding {
-  system: string;
-  code: ObservationInterpretationCode;
-  display: string;
-}
-
 export interface QuantityRange {
   low: number;
   high: number;
   unit: string;
   precision?: number;
 }
+export interface BaseComponent {
+  componentName: string;
+  loincCode: string[];
+  observationDefinitionId: string;
+}
 
-export interface CodeableConceptType {
+export interface CodeableConceptComponent extends BaseComponent {
   dataType: 'CodeableConcept';
   valueSet: string[];
   abnormalValues: string[];
+  displayType: 'Radio' | 'Select';
+  nullOption?: {
+    text: string;
+    code: string;
+  };
 }
 
-export interface QuantityType {
+export interface QuantityComponent extends BaseComponent {
   dataType: 'Quantity';
   unit: string;
   normalRange: QuantityRange;
+  displayType: 'Numeric';
 }
 
-export type ResultType = CodeableConceptType | QuantityType;
-
-export interface MixedComponent {
-  loincCode: string[];
-  dataType: 'CodeableConcept' | 'Quantity'; // Using literal types instead of ResultType['dataType']
-  valueSet?: string[];
-  abnormalValues?: string[];
-  normalRange?: QuantityRange;
-  quantitativeReference?: Record<string, string>;
-}
+export type TestItemComponent = CodeableConceptComponent | QuantityComponent;
 
 // base fields, common for all test types
-interface BaseTestItem {
+export interface TestItem {
   name: string;
   methods: TestItemMethods;
   method: string;
   device: string;
   cptCode: string[];
-  loincCode: string[];
-  // repeatTest: boolean;
+  components: {
+    groupedComponents: TestItemComponent[];
+    radioComponents: CodeableConceptComponent[];
+  };
+  result?: {
+    entry: string;
+    isAbnormal?: boolean;
+  };
   note?: string;
-  components?: Record<string, MixedComponent>;
-}
-
-export interface CodeableConceptTestItem extends BaseTestItem {
-  dataType: 'CodeableConcept';
-  valueSet: string[];
-  abnormalValues: string[];
-}
-
-export interface QuantityTestItem extends BaseTestItem {
-  dataType: 'Quantity';
-  unit: string;
-  normalRange: QuantityRange;
 }
 
 export interface TestItemMethods {
@@ -70,8 +56,6 @@ export interface TestItemMethods {
   analyzer?: { device: string };
   machine?: { device: string };
 }
-
-export type TestItem = CodeableConceptTestItem | QuantityTestItem;
 
 export type TestItemsType = Record<string, TestItem>;
 
@@ -160,10 +144,13 @@ export type CollectInHouseLabSpecimenParameters = {
   serviceRequestId: string;
 };
 
+export interface ResultEntryInput {
+  [observationDefinitionId: string]: any;
+}
+
 export type HandleInHouseLabResultsParameters = {
-  encounterId: string;
-  patientId: string;
   serviceRequestId: string;
+  data: ResultEntryInput;
 };
 
 export type DeleteInHouseLabOrderParameters = {
@@ -176,24 +163,12 @@ export type TestType = 'QUALITATIVE' | 'QUANTITATIVE' | 'MIXED';
 
 export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
 
-// todo: it's a draft, see a comment https://github.com/masslight/ottehr/pull/2166#discussion_r2085316003
-export type TestResult = 'DETECTED' | 'NOT_DETECTED' | 'INDETERMINATE' | null;
-
-export interface LabParameter {
-  name: string;
-  value: string | null;
-  units?: string;
-  referenceRange: string;
-  isAbnormal?: boolean;
-}
-
 // Lab test details
 export interface LabTest {
   id: string;
   type: TestType;
   name: string;
   status: TestStatus;
-  result?: TestResult;
   diagnosis: string;
   specimen?: {
     source: string;
@@ -208,5 +183,5 @@ export interface LabTest {
     collectedBy?: string;
     collectedDate?: string;
   };
-  parameters?: LabParameter[];
+  parameters?: TestItem[];
 }

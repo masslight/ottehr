@@ -11,7 +11,7 @@ import {
   Checkbox,
   Chip,
 } from '@mui/material';
-import { LabTest, TestResult } from 'utils';
+import { LabTest } from 'utils';
 
 interface FinalResultViewProps {
   testDetails: LabTest;
@@ -20,7 +20,7 @@ interface FinalResultViewProps {
 }
 
 export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, onBack, onSubmit }) => {
-  const [result, setResult] = useState<TestResult>(testDetails.result || null);
+  const [result, setResult] = useState<string>(''); // todo fix, this should come from the testItems
   const [indeterminate, _setIndeterminate] = useState(false);
 
   const handleSave = (): void => {
@@ -54,7 +54,7 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
             />
           </Box>
 
-          <RadioGroup value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
+          <RadioGroup value={result} onChange={(e) => setResult(e.target.value)}>
             <Grid container spacing={2}>
               <Grid item xs={6}>
                 <FormControlLabel

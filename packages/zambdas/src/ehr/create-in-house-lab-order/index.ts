@@ -97,6 +97,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               name: 'name',
               value: testItem.name,
             },
+            {
+              name: 'status',
+              value: 'active',
+            },
           ],
         })
       ).unbundle() as ActivityDefinition[];
@@ -156,9 +160,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       const activeDefinition = activeDefinitionResources[0];
 
-      if (activeDefinition.status !== 'active' || !activeDefinition.id) {
+      if (activeDefinition.status !== 'active' || !activeDefinition.id || !activeDefinition.url) {
         throw Error(
-          `ActivityDefinition is not active or has no id, status: ${activeDefinition.status}, id: ${activeDefinition.id}`
+          `ActivityDefinition is not active or has no id or is missing a canonical url, status: ${activeDefinition.status}, id: ${activeDefinition.id}, url: ${activeDefinition.url}`
         );
       }
 
@@ -246,6 +250,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
       ...(notes && { note: [{ text: notes }] }),
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
+      instantiatesCanonical: [`${activityDefinition.url}`], // todo in the future - we should add |${activityDefinition.version}
     };
 
     const taskConfig: Task = {
