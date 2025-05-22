@@ -1,4 +1,11 @@
-import { Questionnaire, Encounter, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
+import {
+  Questionnaire,
+  Encounter,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  DocumentReference,
+  Reference,
+} from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
 export interface OrderableItemSearchResult {
@@ -171,7 +178,8 @@ export type SubmitLabOrderInput = {
 };
 
 export type SubmitLabOrderDTO = {
-  pdfUrl: string;
+  orderPdfUrl: string;
+  labelPdfUrl?: string;
 };
 
 export type CreateLabOrderParameters = {
@@ -214,3 +222,21 @@ export type UpdateLabOrderResourcesParameters =
 export type DeleteLabOrderParams = {
   serviceRequestId: string;
 };
+export interface LabelConfig {
+  heightInches: number;
+  widthInches: number;
+  marginTopInches: number;
+  marginBottomInches: number;
+  marginLeftInches: number;
+  marginRightInches: number;
+  printerDPI: number;
+}
+export interface GetLabelPdfParameters {
+  contextRelatedReference: Reference;
+  searchParams: { name: string; value: string }[];
+}
+
+export interface LabelPdf {
+  documentReference: DocumentReference;
+  presignedURL: string;
+}
