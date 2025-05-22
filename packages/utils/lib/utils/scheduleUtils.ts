@@ -22,7 +22,6 @@ import {
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
-  ScheduleAndOwner,
   ScheduleOwnerFhirResource,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
@@ -44,6 +43,11 @@ export interface WaitTimeRange {
   low: number;
   high: number;
 }
+
+// this is the time in minutes after which a busy-tentative slot will be considered expired and will no longer
+// be counted against the available slots. the _lastUpdated field will be checked, so mutating the slot
+// at all will reset the timer
+const SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES = 10;
 
 export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type HourOfDay =
@@ -469,7 +473,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
     timezone,
   });
 
-  console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
+  // console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
 
   const availableSlots = removeBusySlots({
     slotCapacityMap,
@@ -747,6 +751,8 @@ export async function addWaitingMinutesToAppointment(
 interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
+  numDays?: number;
+  slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -756,37 +762,47 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList } = input;
+  const { now, scheduleList, numDays } = input;
   let telemedAvailable: SlotListItem[] = [];
   let availableSlots: SlotListItem[] = [];
 
-  const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
-    schedule: scheduleTemp.schedule,
-    owner: scheduleTemp.owner,
-  }));
-
   const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: schedules.map((scheduleTemp) => scheduleTemp.schedule.id!),
+    scheduleIds: scheduleList.map((scheduleTemp) => scheduleTemp.schedule.id!),
     fromISO: now.toISO() ?? '',
-    toISO: now.plus({ days: SCHEDULE_NUM_DAYS }).toISO() ?? '',
+    toISO:
+      now
+        .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
+        .startOf('day')
+        .toISO() ?? '',
     status: ['busy', 'busy-tentative', 'busy-unavailable'],
+    filter: (slot: Slot) => {
+      const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
+      if (slot.status === 'busy-tentative') {
+        const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+        if (!lastUpdated.isValid) {
+          return true;
+        }
+        const minutesSinceLastUpdate = lastUpdated.diff(thisMoment, 'minutes').minutes;
+        return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
+      }
+      return true;
+    },
   };
   const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
 
-  schedules.forEach((scheduleTemp) => {
+  scheduleList.forEach((scheduleTemp) => {
     try {
       // todo 1.8: find busy / busy-tentative slots
       const busySlots: Slot[] = allBusySlots.filter((slot) => {
         const scheduleId = slot.schedule?.reference?.split('/')?.[1];
         return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
       });
-      console.log('getting post telemed slots');
-      // todo: 1.8-9 check busy slots for telemed
+      // console.log('getting post telemed slots');
+      // todo: 1.9 check busy slots for telemed
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
-      console.log('getting available slots to display');
       const slotStartsForSchedule = getAvailableSlots({
         now,
-        numDays: SCHEDULE_NUM_DAYS,
+        numDays: numDays ?? SCHEDULE_NUM_DAYS,
         schedule: scheduleTemp.schedule,
         busySlots,
       });
@@ -1398,19 +1414,23 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
   return 'HealthcareService';
 };
 
-interface GetSlotsInWindowInput {
+export interface GetSlotsInWindowInput {
   scheduleIds: string[];
   fromISO: string;
   toISO: string;
   status: Slot['status'][];
+  filter?: (slot: Slot) => boolean;
 }
 
 export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oystehr): Promise<Slot[]> => {
-  const { scheduleIds, fromISO, toISO, status } = input;
-  const statusParams = status.map((statusTemp) => ({
-    name: 'status',
-    value: statusTemp,
-  }));
+  const { scheduleIds, fromISO, toISO, status, filter } = input;
+  const statusString = status.join(',');
+  const statusParams = [
+    {
+      name: 'status',
+      value: statusString,
+    },
+  ];
   const appointmentTypeParams = [
     {
       name: 'appointment-type:not',
@@ -1438,6 +1458,9 @@ export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oy
       ],
     })
   ).unbundle();
+  if (filter) {
+    return slots.filter(filter);
+  }
   return slots;
 };
 
@@ -1616,7 +1639,7 @@ export const applyOverridesToDailySchedule = (
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase() as DOW;
+    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }).toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
     const dailyScheduleDay = dailySchedule[dayOfWeek];
     const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);
