@@ -28,8 +28,8 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
       const { high, low } = testItemComponent.normalRange;
       // todo double chec with product team if this is inclusive on both ends
       // meaning it would be abnormal if it is strictly greater or strictly less than (but not equal)
-      if (entryNum >= high || entryNum <= low) setIsAbnormal(true);
-      if (entryNum < high && entryNum > low) setIsAbnormal(false);
+      if (entryNum > high || entryNum < low) setIsAbnormal(true);
+      if (entryNum <= high && entryNum >= low) setIsAbnormal(false);
     }
   };
 

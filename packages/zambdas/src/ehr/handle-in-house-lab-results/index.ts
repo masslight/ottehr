@@ -402,7 +402,7 @@ const determineQuantInterpretation = (
     precision?: number;
   }
 ): CodeableConcept => {
-  if (entry >= range.high || entry <= range.low) {
+  if (entry > range.high || entry < range.low) {
     return ABNORMAL_OBSERVATION_INTERPRETATION;
   } else {
     return NORMAL_OBSERVATION_INTERPRETATION;
