@@ -211,6 +211,10 @@ export const getActiveAppointmentsBeforeTodayQueryInput = async (input: {
         value: 'false',
       },
       {
+        name: '_include',
+        value: 'Appointment:patient',
+      },
+      {
         name: '_sort',
         value: 'date',
       },

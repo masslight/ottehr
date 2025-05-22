@@ -168,7 +168,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           const appointments = appointmentResponse
             .unbundle()
             .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
-          const activeApptsBeforeToday = activeApptsBeforeTodayResponse.unbundle();
+          const activeApptsBeforeTodayResources = activeApptsBeforeTodayResponse.unbundle();
+          let activeApptsBeforeToday = activeApptsBeforeTodayResources.filter((resource) => {
+            return resource.resourceType === 'Appointment';
+          });
+          const activeApptsBeforeTodayPatientsIds = activeApptsBeforeTodayResources
+            .filter((res) => res.resourceType === 'Patient')
+            .map((res) => res.id);
+
+          // here we are checking if appointments-before-today have patients, because this issue appears a lot
+          // and we can see date where we have appointment but nothing in waiting room because no patient for appointment
+          activeApptsBeforeToday = activeApptsBeforeToday.filter((res) => {
+            const patientRef = (res as Appointment).participant.find(
+              (participant) => participant.actor?.reference?.startsWith('Patient/')
+            )?.actor?.reference;
+            const patientId = patientRef?.replace('Patient/', '');
+            return Boolean(activeApptsBeforeTodayPatientsIds.includes(patientId));
+          });
 
           return { appointments, activeApptsBeforeToday, group };
         })
@@ -200,13 +216,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.timeEnd('get_active_encounters + get_appointment_data');
 
-    // const encounterIds: string[] = [];
-
     const activeAppointmentDatesBeforeToday = activeApptsBeforeToday
       .filter((resource) => {
-        // if (resource.resourceType === 'Encounter' && resource.id) {
-        //   encounterIds.push(resource.id);
-        // }
         return resource.resourceType === 'Appointment';
       })
       .sort((r1, r2) => {
