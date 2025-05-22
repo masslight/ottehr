@@ -35,6 +35,8 @@ export interface CodeableConceptComponent extends BaseComponent {
     text: string;
     code: string;
   };
+  unit?: string;
+  referenceRangeValues?: string[];
 }
 
 export interface QuantityComponent extends BaseComponent {

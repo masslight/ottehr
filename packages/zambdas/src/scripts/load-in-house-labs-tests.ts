@@ -7,6 +7,7 @@ import {
   ObservationDefinitionQuantitativeDetails,
   ObservationDefinitionQualifiedInterval,
   Extension,
+  CodeableConcept,
 } from 'fhir/r4b';
 import fs from 'fs';
 import { getAuth0Token, createOystehrClient } from '../shared';
@@ -35,12 +36,17 @@ const sanitizeForId = (str: string): string => {
   return str.replace(/[ ()\/\\]/g, '');
 };
 
+// why does TS not have a set difference method >:(
+const setDifference = <T>(a: Set<T>, b: Set<T>): Set<T> => {
+  return new Set([...a].filter((x) => !b.has(x)));
+};
+
 const makeValueSet = (
   itemName: string,
   values: string[],
-  isAbnormal: boolean
+  valueSetName: string
 ): { valueSetId: string; valueSet: ValueSet } => {
-  const valueSetId = `contained-${sanitizeForId(itemName)}-${isAbnormal ? 'abnormal' : 'normal'}-valueSet`;
+  const valueSetId = `contained-${sanitizeForId(itemName)}-${valueSetName.toLowerCase()}-valueSet`;
 
   const valueSet: ValueSet = {
     id: valueSetId,
@@ -66,22 +72,24 @@ const makeValueSet = (
   };
 };
 
+const makeUnitCoding = (unitStr: string): CodeableConcept => {
+  return {
+    coding: [
+      {
+        system: IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+        code: unitStr,
+      },
+    ],
+  };
+};
+
 const makeQuantitativeDetails = (item: QuantityTestItem | MixedComponent): ObservationDefinitionQuantitativeDetails => {
   if (!item.normalRange) {
     throw new Error(`Cannot make quantitativeDetails for ${JSON.stringify(item)}`);
   }
   return {
     decimalPrecision: item.normalRange.precision,
-    unit: item.normalRange.unit
-      ? {
-          coding: [
-            {
-              system: IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
-              code: item.normalRange.unit,
-            },
-          ],
-        }
-      : undefined,
+    unit: item.normalRange.unit ? makeUnitCoding(item.normalRange.unit) : undefined,
   };
 };
 
@@ -111,6 +119,13 @@ const makeObsDefExtension = (item: TestItem | MixedComponent): Extension[] => {
   }
 
   return extension;
+};
+
+const getUnitForCodeableConceptType = (item: TestItem | MixedComponent): CodeableConcept | undefined => {
+  if (item.dataType !== 'CodeableConcept') return undefined;
+  if (!item.unit) return undefined;
+
+  return makeUnitCoding(item.unit);
 };
 
 const getQuantityObservationDefinition = (
@@ -150,14 +165,23 @@ const getCodeableConceptObservationDefinition = (
     throw new Error('Cannot get codeable concept obs def from non-codeable concept test item');
   }
 
-  const { valueSetId: normalValueSetId, valueSet: normalValueSet } = makeValueSet(item.name, item.valueSet, false);
+  const { valueSetId: validValueSetId, valueSet: validValueSet } = makeValueSet(item.name, item.valueSet, 'valid');
   const { valueSetId: abnormalValueSetId, valueSet: abnormalValueSet } = makeValueSet(
     item.name,
     item.abnormalValues,
-    true
+    'abnormal'
   );
 
-  const containedItems: (ValueSet | ObservationDefinition)[] = [normalValueSet, abnormalValueSet];
+  // the normalValueSet will serve as the reference range
+  const validSet = new Set(item.valueSet);
+  const abnormalSet = new Set(item.abnormalValues);
+  const { valueSetId: refRangeValueSetId, valueSet: refRangeValueSet } = makeValueSet(
+    item.name,
+    [...setDifference(validSet, abnormalSet)],
+    'reference-range'
+  );
+
+  const containedItems: (ValueSet | ObservationDefinition)[] = [validValueSet, abnormalValueSet, refRangeValueSet];
 
   const obsDef: ObservationDefinition = {
     id: `contained-${sanitizeForId(item.name)}-codeableConcept-observationDef-id`,
@@ -173,14 +197,22 @@ const getCodeableConceptObservationDefinition = (
     permittedDataType: [item.dataType],
     validCodedValueSet: {
       type: 'ValueSet',
-      reference: `#${normalValueSetId}`,
+      reference: `#${validValueSetId}`,
     },
     abnormalCodedValueSet: {
       type: 'ValueSet',
       reference: `#${abnormalValueSetId}`,
     },
+    normalCodedValueSet: {
+      type: 'ValueSet',
+      reference: `#${refRangeValueSetId}`,
+    },
     extension: makeObsDefExtension(item),
   };
+
+  if (item.unit) {
+    obsDef.quantitativeDetails = { unit: getUnitForCodeableConceptType(item) };
+  }
 
   containedItems.push(obsDef);
 
@@ -219,29 +251,49 @@ const getComponentObservationDefinition = (
       );
     }
 
-    const { valueSetId: normalValueSetId, valueSet: normalValueSet } = makeValueSet(
+    const { valueSetId: validValueSetId, valueSet: validValueSet } = makeValueSet(
       componentName,
       item.valueSet,
-      false
+      'valid'
     );
 
     const { valueSetId: abnormalValueSetId, valueSet: abnormalValueSet } = makeValueSet(
       componentName,
       item.abnormalValues,
-      true
+      'abnormal'
+    );
+
+    // the normalValueSet will serve as the reference range
+    const validSet = new Set(item.valueSet);
+    const abnormalSet = new Set(item.abnormalValues);
+    const { valueSetId: refRangeValueSetId, valueSet: refRangeValueSet } = makeValueSet(
+      componentName,
+      [...setDifference(validSet, abnormalSet)],
+      'reference-range'
     );
 
     obsDef.validCodedValueSet = {
       type: 'ValueSet',
-      reference: `#${normalValueSetId}`,
+      reference: `#${validValueSetId}`,
     };
 
     obsDef.abnormalCodedValueSet = {
       type: 'ValueSet',
       reference: `#${abnormalValueSetId}`,
     };
+
+    obsDef.normalCodedValueSet = {
+      type: 'ValueSet',
+      reference: `#${refRangeValueSetId}`,
+    };
+
     obsDef.extension = makeObsDefExtension(item);
-    contained.push(normalValueSet, abnormalValueSet, obsDef);
+
+    if (item.unit) {
+      obsDef.quantitativeDetails = { unit: getUnitForCodeableConceptType(item) };
+    }
+
+    contained.push(validValueSet, abnormalValueSet, refRangeValueSet, obsDef);
   } else {
     if (!item.normalRange) {
       throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
@@ -487,6 +539,7 @@ interface MixedComponent {
   abnormalValues?: string[];
   normalRange?: QuantityRange;
   quantitativeReference?: Record<string, string>;
+  unit?: string;
 }
 
 interface componentDisplay {
@@ -518,6 +571,7 @@ interface CodeableConceptTestItem extends BaseTestItem {
   dataType: 'CodeableConcept';
   valueSet: string[];
   abnormalValues: string[];
+  unit?: string;
 }
 
 interface QuantityTestItem extends BaseTestItem {
@@ -719,6 +773,7 @@ const testItems: TestItemsType = {
         dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
+        unit: 'mg/dL',
         // currently quantitativeReference is not being mapped into the fhir resource
         // in the future, if we want we could map into the valueSet like "1+ 100 mg/dL" but not needed at the moment
         quantitativeReference: {
@@ -751,6 +806,7 @@ const testItems: TestItemsType = {
         dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
+        unit: 'mg/dL',
         quantitativeReference: {
           Trace: '5 mg/dL',
           Small: '15 mg/dL',
@@ -801,6 +857,7 @@ const testItems: TestItemsType = {
         dataType: 'CodeableConcept' as const,
         valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
+        unit: 'mg/dL',
         quantitativeReference: {
           Trace: '10 mg/dL',
           '1+': '30 mg/dL',
