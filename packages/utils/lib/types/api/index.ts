@@ -27,3 +27,4 @@ export * from './ai-interview.types';
 export * from './patient-account';
 export * from './schedules';
 export * from './send-fax.types';
+export * from './procedures.constants';
