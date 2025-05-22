@@ -15,14 +15,6 @@ import {
 import { DateTime } from 'luxon';
 import {
   AppointmentRelatedResources,
-  INSURANCE_CARD_CODE,
-  InPersonAppointmentInformation,
-  PHOTO_ID_CARD_CODE,
-  ROOM_EXTENSION_URL,
-  SMSModel,
-  SMSRecipient,
-  Secrets,
-  ZAP_SMS_MEDIUM_CODE,
   appointmentTypeForAppointment,
   flattenItems,
   getChatContainsUnreadMessages,
@@ -33,15 +25,24 @@ import {
   getUnconfirmedDOBForAppointment,
   getVisitStatus,
   getVisitStatusHistory,
+  InPersonAppointmentInformation,
+  INSURANCE_CARD_CODE,
   isTruthy,
+  PHOTO_ID_CARD_CODE,
+  ROOM_EXTENSION_URL,
+  Secrets,
+  SMSModel,
+  SMSRecipient,
+  ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
-import { ZambdaInput, checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
-import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
-import { sortAppointments } from '../../shared/queueingUtils';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared';
+import { sortAppointments } from '../../shared';
 import {
-  getTimezoneResourceIdFromAppointment,
+  getActiveAppointmentsBeforeTodayQueryInput,
   getAppointmentQueryInput,
+  getTimezoneResourceIdFromAppointment,
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
@@ -108,7 +109,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return resources;
     })();
 
-    const { appointmentResources, appointmentsToGroupMap } = await (async () => {
+    const { appointmentResources, activeApptsBeforeToday, appointmentsToGroupMap } = await (async () => {
       // prepare search options
       const searchOptions = await Promise.all(
         requestedTimezoneRelatedResources.map(async (resource) => {
@@ -150,14 +151,26 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
           const { group } = appointmentRequestInput;
 
-          const appointmentPromise = oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
+          const activeApptsBeforeTodayRequest = await getActiveAppointmentsBeforeTodayQueryInput({
+            oystehr,
+            resourceId: options.resourceId,
+            resourceType: options.resourceType,
+          });
 
-          const [appointmentResponse] = await Promise.all([appointmentPromise]);
+          const appointmentPromise = oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
+          const activeApptsBeforeTodayPromise =
+            oystehr.fhir.search<AppointmentRelatedResources>(activeApptsBeforeTodayRequest);
+
+          const [appointmentResponse, activeApptsBeforeTodayResponse] = await Promise.all([
+            appointmentPromise,
+            activeApptsBeforeTodayPromise,
+          ]);
           const appointments = appointmentResponse
             .unbundle()
-            .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
+            .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
+          const activeApptsBeforeToday = activeApptsBeforeTodayResponse.unbundle();
 
-          return { appointments, group };
+          return { appointments, activeApptsBeforeToday, group };
         })
       );
 
@@ -174,13 +187,42 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         return appointments;
       });
 
+      const flatActiveApptsBeforeToday = resourceResults.flatMap((result) => {
+        return result.activeApptsBeforeToday || [];
+      });
+
       return {
         appointmentResources: mergeResources(flatAppointments),
+        activeApptsBeforeToday: mergeResources(flatActiveApptsBeforeToday),
         appointmentsToGroupMap,
       };
     })();
 
     console.timeEnd('get_active_encounters + get_appointment_data');
+
+    // const encounterIds: string[] = [];
+
+    const activeAppointmentDatesBeforeToday = activeApptsBeforeToday
+      .filter((resource) => {
+        // if (resource.resourceType === 'Encounter' && resource.id) {
+        //   encounterIds.push(resource.id);
+        // }
+        return resource.resourceType === 'Appointment';
+      })
+      .sort((r1, r2) => {
+        const d1 = DateTime.fromISO((r1 as Appointment).start || '');
+        const d2 = DateTime.fromISO((r2 as Appointment).start || '');
+        return d1.diff(d2).toMillis();
+      })
+      .map((resource) => {
+        const timezoneResourceId = getTimezoneResourceIdFromAppointment(resource as Appointment);
+        const appointmentTimezone = timezoneResourceId && timezoneMap.get(timezoneResourceId);
+
+        return DateTime.fromISO((resource as Appointment).start || '')
+          .setZone(appointmentTimezone)
+          .toFormat('MM/dd/yyyy');
+      })
+      .filter((date, index, array) => array.indexOf(date) === index); // filter duplicates
 
     let preBooked: InPersonAppointmentInformation[] = [];
     let inOffice: InPersonAppointmentInformation[] = [];
@@ -189,6 +231,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (appointmentResources?.length == 0) {
       const response = {
+        activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
         message: 'Successfully retrieved all appointments',
         preBooked,
         inOffice,
@@ -458,6 +501,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const response = {
+      activeApptDatesBeforeToday: activeAppointmentDatesBeforeToday,
       message: 'Successfully retrieved all appointments',
       preBooked,
       inOffice,

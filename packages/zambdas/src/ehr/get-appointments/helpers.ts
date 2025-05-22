@@ -1,5 +1,5 @@
 import Oystehr, { Bundle, SearchParam } from '@oystehr/sdk';
-import { Appointment, Encounter, FhirResource, Practitioner, Location, HealthcareService, Extension } from 'fhir/r4b';
+import { Appointment, Encounter, Extension, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AppointmentParticipants,
@@ -125,17 +125,13 @@ interface AppointmentQueryInput {
   group?: HealthcareService;
 }
 
-export const getAppointmentQueryInput = async ({
-  oystehr,
-  resourceId,
-  resourceType,
-  searchDate,
-}: {
+export const getAppointmentQueryInput = async (input: {
   oystehr: Oystehr;
   resourceId: string;
   resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
   searchDate: string;
 }): Promise<AppointmentQueryInput> => {
+  const { oystehr, resourceId, resourceType, searchDate } = input;
   const timezone = await getTimezone({
     oystehr,
     resourceType,
@@ -145,6 +141,95 @@ export const getAppointmentQueryInput = async ({
   const searchDateInTargetTimezone = DateTime.fromISO(searchDate, { zone: timezone });
   const startDay = searchDateInTargetTimezone.startOf('day').toUTC().toISO();
   const endDay = searchDateInTargetTimezone.endOf('day').toUTC().toISO();
+
+  const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
+
+  return {
+    resourceType: 'Appointment',
+    params: [
+      {
+        name: 'date',
+        value: `ge${startDay}`,
+      },
+      {
+        name: 'date',
+        value: `le${endDay}`,
+      },
+      {
+        name: 'date:missing',
+        value: 'false',
+      },
+      {
+        name: '_sort',
+        value: 'date',
+      },
+      { name: '_count', value: '1000' },
+      {
+        name: '_include',
+        value: 'Appointment:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'RelatedPerson:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Person:link',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Encounter:participant',
+      },
+      {
+        name: '_include',
+        value: 'Appointment:location',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Encounter:appointment',
+      },
+      { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
+      { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
+      { name: '_include', value: 'Appointment:actor' },
+      ...actorParams,
+    ],
+    group: healthcareService,
+  };
+};
+
+export const getActiveAppointmentsBeforeTodayQueryInput = async (input: {
+  oystehr: Oystehr;
+  resourceId: string;
+  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
+}): Promise<AppointmentQueryInput> => {
+  const { actorParams, healthcareService } = await getActorParamsForAppointmentQueryInput(input);
+  return {
+    resourceType: 'Appointment',
+    params: [
+      {
+        name: 'date:missing',
+        value: 'false',
+      },
+      {
+        name: '_sort',
+        value: 'date',
+      },
+      { name: '_count', value: '1000' },
+      ...actorParams,
+    ],
+    group: healthcareService,
+  };
+};
+
+const getActorParamsForAppointmentQueryInput = async ({
+  oystehr,
+  resourceId,
+  resourceType,
+}: {
+  oystehr: Oystehr;
+  resourceId: string;
+  resourceType: 'Location' | 'Practitioner' | 'HealthcareService';
+}): Promise<{ actorParams: { name: string; value: string }[]; healthcareService: HealthcareService | undefined }> => {
   let healthcareService: HealthcareService | undefined;
 
   const actorParams = await (async () => {
@@ -229,55 +314,8 @@ export const getAppointmentQueryInput = async ({
   })();
 
   return {
-    resourceType: 'Appointment',
-    params: [
-      {
-        name: 'date',
-        value: `ge${startDay}`,
-      },
-      {
-        name: 'date',
-        value: `le${endDay}`,
-      },
-      {
-        name: 'date:missing',
-        value: 'false',
-      },
-      {
-        name: '_sort',
-        value: 'date',
-      },
-      { name: '_count', value: '1000' },
-      {
-        name: '_include',
-        value: 'Appointment:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'RelatedPerson:patient',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Person:link',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:participant',
-      },
-      {
-        name: '_include',
-        value: 'Appointment:location',
-      },
-      {
-        name: '_revinclude:iterate',
-        value: 'Encounter:appointment',
-      },
-      { name: '_revinclude:iterate', value: 'DocumentReference:patient' },
-      { name: '_revinclude:iterate', value: 'QuestionnaireResponse:encounter' },
-      { name: '_include', value: 'Appointment:actor' },
-      ...actorParams,
-    ],
-    group: healthcareService,
+    actorParams,
+    healthcareService,
   };
 };
 
