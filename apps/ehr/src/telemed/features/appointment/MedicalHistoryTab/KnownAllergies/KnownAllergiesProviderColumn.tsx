@@ -18,16 +18,17 @@ import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import {
-  AllergiesSearchResponse,
   useAppointmentStore,
   useDeleteChartData,
   useGetAllergiesSearch,
   useSaveChartData,
+  ExtractObjectType,
 } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { DeleteIconButton } from '../../../../components';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
@@ -228,7 +229,7 @@ const AddAllergyField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
 
-  const methods = useForm<{ value: AllergiesSearchResponse['allergens'][number] | null }>({
+  const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null }>({
     defaultValues: { value: null },
   });
   const { control, reset } = methods;
@@ -236,7 +237,7 @@ const AddAllergyField: FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   const { isFetching: isSearching, data } = useGetAllergiesSearch(debouncedSearchTerm);
-  const allergiesSearchOptions = data?.allergens || [];
+  const allergiesSearchOptions = data || [];
 
   const debouncedHandleInputChange = useMemo(
     () =>
@@ -247,11 +248,11 @@ const AddAllergyField: FC = () => {
     []
   );
 
-  const handleSelectOption = (data: AllergiesSearchResponse['allergens'][number] | null): void => {
+  const handleSelectOption = (data: ExtractObjectType<ErxSearchAllergensResponse> | null): void => {
     if (data) {
       const newValue = {
         name: data.name,
-        id: data.id,
+        id: data.id?.toString(),
         current: true,
       };
       useAppointmentStore.setState((prevState) => ({
@@ -317,7 +318,7 @@ const AddAllergyField: FC = () => {
               onChange((data || '') as any);
               handleSelectOption(data);
             }}
-            getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+            getOptionLabel={(option) => (typeof option === 'string' ? option : option.name || '')}
             fullWidth
             size="small"
             loading={isSearching}
