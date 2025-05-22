@@ -4,22 +4,23 @@ import { ZambdaInput } from '../../shared';
 export function validateRequestParameters(
   input: ZambdaInput
 ): HandleInHouseLabResultsParameters & { secrets: Secrets | null; userToken: string } {
+  // todo throw better errors here
+
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const secrets = input.secrets;
+  const { serviceRequestId, data } = JSON.parse(input.body);
 
-  let params: HandleInHouseLabResultsParameters;
-
-  try {
-    params = JSON.parse(input.body);
-  } catch (error) {
-    throw Error('Invalid JSON in request body');
+  const missingResources = [];
+  if (!serviceRequestId) missingResources.push('serviceRequestID');
+  if (!data) missingResources.push('data');
+  if (missingResources.length) {
+    // throw MISSING_REQUIRED_PARAMETERS(missingResources);
+    new Error(`missing resources: ${missingResources.join(',')}`);
   }
 
-  // throw errors ...
-
-  return { userToken, secrets, ...params };
+  return { userToken, secrets, serviceRequestId, data };
 }

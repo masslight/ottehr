@@ -29,6 +29,7 @@ export const expressLambda = async (
     } catch (_) {
       body = handlerResponse.body;
     }
+
     res.send({
       status: handlerResponse.statusCode,
       output: body,
