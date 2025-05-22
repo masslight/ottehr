@@ -11,7 +11,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { useParams } from 'react-router-dom';
-import { InHouseLabOrderHistory } from './InhouseLabOrderHistory';
+import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 
 interface PerformTestViewProps {
   testDetails: InHouseLabDTO;

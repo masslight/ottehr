@@ -17,7 +17,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { InHouseLabDTO, MarkAsCollectedData } from 'utils';
 import { DateTime } from 'luxon';
-import { InHouseLabOrderHistory } from './InhouseLabOrderHistory';
+import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 
 interface CollectSampleViewProps {
   testDetails: InHouseLabDTO;

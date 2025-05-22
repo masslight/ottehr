@@ -7,7 +7,7 @@ import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useForm, FormProvider } from 'react-hook-form';
-import { InHouseLabOrderHistory } from './InhouseLabOrderHistory';
+import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 
 interface FinalResultViewProps {
   testDetails: InHouseLabDTO;
