@@ -11,11 +11,15 @@ import { CallSettings, IconButtonContained, CallSettingsTooltip, SideCardList } 
 import { otherColors } from '../../../IntakeThemeProvider';
 import { ConfirmEndCallDialog } from '.';
 import { breakpoints, CustomDialog } from 'ui-components';
+import { useLocation } from 'react-router-dom';
+import { intakeFlowPageRoute } from 'src/App';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const { muted, toggleMute } = useToggleLocalMute();
   const isMobile = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);
+  const location = useLocation();
+  const isRegularParticipant = location.pathname === intakeFlowPageRoute.VideoCall.path;
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isTooltipOpen, setIsTooltipOpen] = useState(false);
@@ -68,7 +72,7 @@ export const VideoControls: FC = () => {
             <MicOffIcon sx={{ color: otherColors.appbarBackground }} />
           )}
         </IconButtonContained>
-        {isMobile && (
+        {isRegularParticipant && isMobile && (
           <IconButtonContained onClick={() => setIsMoreOpen(!isMoreOpen)} variant={isMoreOpen ? 'disabled' : undefined}>
             <MoreVertIcon sx={{ color: isMoreOpen ? otherColors.appbarBackground : otherColors.white }} />
           </IconButtonContained>
