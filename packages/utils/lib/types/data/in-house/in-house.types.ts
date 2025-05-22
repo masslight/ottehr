@@ -127,7 +127,8 @@ export type CreateInHouseLabOrderParameters = {
   encounterId: string;
   testItem: TestItem;
   cptCode: string;
-  diagnoses: DiagnosisDTO[];
+  diagnosesAll: DiagnosisDTO[];
+  diagnosesNew: DiagnosisDTO[];
   notes?: string;
 };
 

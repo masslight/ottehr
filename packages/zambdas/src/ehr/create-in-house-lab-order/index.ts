@@ -6,6 +6,7 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  getFullestAvailableName,
 } from 'utils';
 import {
   ZambdaInput,
@@ -26,10 +27,12 @@ import {
   Provenance,
   Task,
   FhirResource,
+  Practitioner,
+  Bundle,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPrimaryInsurance } from '../shared/labs';
-import { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest, ZambdaExecuteResult } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 
 let m2mtoken: string;
@@ -60,8 +63,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
-    const { encounterId, testItem, cptCode: _cptCode, diagnoses, notes } = validatedParameters;
+    const { encounterId, testItem, cptCode: _cptCode, diagnosesAll, diagnosesNew, notes } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -211,6 +213,22 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return practitionerId;
     })();
 
+    const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
+      oystehrCurrentUser.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: userPractitionerId,
+      }),
+      oystehrCurrentUser.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: attendingPractitionerId,
+      }),
+    ]).then(([currentUserPractitioner, attendingPractitioner]) => {
+      return {
+        currentUserPractitionerName: getFullestAvailableName(currentUserPractitioner),
+        attendingPractitionerName: getFullestAvailableName(attendingPractitioner),
+      };
+    });
+
     const coverage = getPrimaryInsurance(account, coverageSearchResults);
 
     const location: Location | undefined = locationsSearchResults[0];
@@ -236,7 +254,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: activityDefinition.code?.coding,
         text: activityDefinition.name,
       },
-      reasonCode: diagnoses.map((diagnosis) => {
+      reasonCode: [...diagnosesAll, ...diagnosesNew].map((diagnosis) => {
         return {
           coding: [
             {
@@ -289,8 +307,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       recorded: DateTime.now().toISO(),
       agent: [
         {
-          who: { reference: `Practitioner/${userPractitionerId}` },
-          onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
+          who: {
+            reference: `Practitioner/${userPractitionerId}`,
+            display: currentUserPractitionerName,
+          },
+          onBehalfOf: {
+            reference: `Practitioner/${attendingPractitionerId}`,
+            display: attendingPractitionerName,
+          },
         },
       ],
     };
@@ -323,14 +347,20 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw Error('Error creating in-house lab order in transaction');
     }
 
-    const saveChartDataResponse = await oystehrCurrentUser.zambda.execute({
-      id: 'save-chart-data',
-      encounterId,
-      diagnosis: diagnoses,
-    });
+    const saveChartDataResponse = diagnosesNew.length
+      ? await oystehrCurrentUser.zambda.execute({
+          id: 'save-chart-data',
+          encounterId,
+          diagnosis: diagnosesNew,
+        })
+      : {};
 
-    // todo update type
-    const response: any = {
+    // todo: add common response type
+    const response: {
+      transactionResponse: Bundle<FhirResource>;
+      saveChartDataResponse: ZambdaExecuteResult | Record<string, never>;
+      serviceRequestId?: string;
+    } = {
       transactionResponse,
       saveChartDataResponse,
     };
