@@ -1,5 +1,11 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Secrets, CollectInHouseLabSpecimenParameters, IN_HOUSE_LAB_TASK, PRACTITIONER_CODINGS } from 'utils';
+import {
+  Secrets,
+  CollectInHouseLabSpecimenParameters,
+  IN_HOUSE_LAB_TASK,
+  PRACTITIONER_CODINGS,
+  SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+} from 'utils';
 import {
   ZambdaInput,
   topLevelCatch,
@@ -125,8 +131,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
         collectedDateTime: data.specimen.collectionDate,
         bodySite: {
-          text: data.specimen.source,
-          // todo: we can't use code here untill we have a predefined values to select in UI and mapping to codes for these values
+          coding: [
+            {
+              // todo when we have a standardize input we should switch this system
+              system: SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+              display: data.specimen.source,
+            },
+          ],
         },
       },
       ...(data.notes && { note: [{ text: data.notes }] }),

@@ -12,13 +12,12 @@ import {
   IconButton,
   Collapse,
   Input,
-  Stack,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { InHouseLabDTO, MarkAsCollectedData } from 'utils';
 import { DateTime } from 'luxon';
-import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
+import { InHouseLabOrderHistory } from './InhouseLabOrderHistory';
 
 interface CollectSampleViewProps {
   testDetails: InHouseLabDTO;
@@ -261,35 +260,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
             </IconButton>
           </Box>
 
-          <Collapse in={showDetails}>
-            <Box
-              sx={{
-                mt: 2,
-                p: 2,
-                backgroundColor: '#F8F9FA',
-                borderRadius: '8px',
-              }}
-            >
-              {testDetails.orderHistory.map(({ date, providerName, status }) => (
-                <Stack
-                  key={date + providerName + status}
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                    <InHouseLabsStatusChip status={status} />
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                    {providerName}
-                  </Typography>
-                  <Typography variant="body2">
-                    {DateTime.fromISO(date).setZone(testDetails.timezone).toFormat('MM/dd/yyyy HH:mm')}
-                  </Typography>
-                </Stack>
-              ))}
-            </Box>
-          </Collapse>
+          <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
 
           <Box display="flex" justifyContent="space-between" mt={4}>
             <Button

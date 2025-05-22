@@ -28,7 +28,7 @@ import {
   Specimen,
   Observation,
 } from 'fhir/r4b';
-import { determineOrderStatus, buildOrderHistory } from '../shared/inhouse-labs';
+import { determineOrderStatus, buildOrderHistory, getSpecimenDetails } from '../shared/inhouse-labs';
 
 let m2mtoken: string;
 
@@ -60,7 +60,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const {
       serviceRequest,
-      sepcimen,
+      specimen,
       tasks,
       provenances,
       observations,
@@ -72,7 +72,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     } = await (async () => {
       const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
-      const [myPractitionerId, { serviceRequest, encounter, sepcimen, timezone, tasks, provenances, observations }] =
+      const [myPractitionerId, { serviceRequest, encounter, specimen, timezone, tasks, provenances, observations }] =
         await Promise.all([
           getMyPractitionerId(oystehrCurrentUser),
           oystehr.fhir
@@ -138,7 +138,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       return {
         serviceRequest,
-        sepcimen,
+        specimen,
         tasks,
         provenances,
         observations,
@@ -189,7 +189,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const notes = serviceRequest?.note?.[0]?.text;
 
-    const orderHistory = buildOrderHistory(provenances);
+    const orderHistory = buildOrderHistory(provenances, specimen);
 
     const response: InHouseLabDTO = {
       serviceRequestId,
@@ -211,7 +211,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       orderHistory,
 
       // todo: implement specimen retrieval
-      specimen: sepcimen ? getSpecimenDetails(sepcimen) : undefined,
+      specimen: specimen ? getSpecimenDetails(specimen) : undefined,
 
       notes: notes || '',
       timezone,
@@ -239,7 +239,7 @@ const parseResources = (
   serviceRequest: ServiceRequest;
   encounter: Encounter;
   location?: Location;
-  sepcimen?: Specimen;
+  specimen?: Specimen;
   timezone: string;
   tasks: Task[];
   provenances: Provenance[];
@@ -248,7 +248,7 @@ const parseResources = (
   let serviceRequest: ServiceRequest | undefined;
   let encounter: Encounter | undefined;
   let location: Location | undefined;
-  let sepcimen: Specimen | undefined;
+  let specimen: Specimen | undefined;
   const tasks: Task[] = [];
   const provenances: Provenance[] = [];
   const observations: Observation[] = [];
@@ -256,7 +256,7 @@ const parseResources = (
   resources.forEach((r) => {
     if (r.resourceType === 'ServiceRequest') serviceRequest = r;
     if (r.resourceType === 'Encounter') encounter = r;
-    if (r.resourceType === 'Specimen') sepcimen = r;
+    if (r.resourceType === 'Specimen') specimen = r;
     if (r.resourceType === 'Location') location = r;
     if (r.resourceType === 'Task') tasks.push(r);
     if (r.resourceType === 'Provenance') provenances.push(r);
@@ -274,22 +274,5 @@ const parseResources = (
   // todo figure this out
   const timezone = location ? getTimezone(location) : 'America/New_York';
 
-  return { serviceRequest, encounter, location, sepcimen, timezone, tasks, provenances, observations };
-};
-
-// todo finish this
-const getSpecimenDetails = (specimen: Specimen): InHouseLabDTO['specimen'] => {
-  const specimenCollection = specimen.collection;
-  if (specimenCollection) {
-    const specimenDetails = {
-      source:
-        specimenCollection.bodySite?.coding?.find((c) => c.system === 'https://hl7.org/fhir/R4B/valueset-body-site')
-          ?.display || '',
-      collectedBy: 'Samanta Brooks',
-      collectionDate: '2024-10-21',
-      collectionTime: '9:20 AM',
-    };
-    return specimenDetails;
-  }
-  throw new Error(`missing specimen details for specimen ${specimen.id}`);
+  return { serviceRequest, encounter, location, specimen, timezone, tasks, provenances, observations };
 };

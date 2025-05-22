@@ -111,3 +111,9 @@ export const IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG = {
 // because we are storing the obs defs as contained resources on the in house labs activity definitions,
 // there's no way to link them to the observations so will store their "id" in an extension
 export const IN_HOUSE_OBS_DEF_ID_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/contained-obs-def-id';
+
+// todo when we have a predefined list we can use this
+export const SPECIMEN_COLLECTION_SOURCE_SYSTEM = 'https://hl7.org/fhir/R4B/valueset-body-site';
+
+// todo we will use this while the entry is free text
+export const SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/specimen-source';

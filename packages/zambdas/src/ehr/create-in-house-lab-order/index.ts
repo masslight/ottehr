@@ -2,7 +2,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Secrets,
   CreateInHouseLabOrderParameters,
-  PRACTITIONER_CODINGS,
   FHIR_IDC10_VALUESET_SYSTEM,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
@@ -34,6 +33,7 @@ import { DateTime } from 'luxon';
 import { getPrimaryInsurance } from '../shared/labs';
 import { BatchInputRequest, ZambdaExecuteResult } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
+import { getAttendingPractionerId } from '../shared/inhouse-labs';
 
 let m2mtoken: string;
 
@@ -199,19 +199,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return accountSearchResults[0];
     })();
 
-    const attendingPractitionerId = (() => {
-      const practitionerId = encounter.participant
-        ?.find(
-          (participant) =>
-            participant.type?.find(
-              (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-            )
-        )
-        ?.individual?.reference?.replace('Practitioner/', '');
-
-      if (!practitionerId) throw Error('Attending practitioner not found');
-      return practitionerId;
-    })();
+    const attendingPractitionerId = getAttendingPractionerId(encounter);
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
       oystehrCurrentUser.fhir.get<Practitioner>({
