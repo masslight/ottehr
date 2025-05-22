@@ -9,7 +9,6 @@ import { ROUTER_PATH } from '../routing/routesCSS';
 import { getSelectors } from 'utils';
 import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
-import { DATE_FORMAT } from 'src/helpers/formatDateTime';
 import { CSSLoader } from '../components/CSSLoader';
 
 export default function Procedures(): ReactElement {
@@ -19,6 +18,9 @@ export default function Procedures(): ReactElement {
 
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
+  };
+  const onProcedureClick = (procedureId: string | undefined): void => {
+    navigate(`/in-person/${appointmentId}/procedures/${procedureId}`);
   };
   if (isChartDataLoading) return <CSSLoader />;
   return (
@@ -46,14 +48,19 @@ export default function Procedures(): ReactElement {
           </TableHead>
           <TableBody>
             {chartData?.procedures?.map((procedure) => {
-              const procedureDateTime = DateTime.fromISO(procedure.procedureDateTime);
+              const documentedDateTime =
+                procedure.documentedDateTime != null ? DateTime.fromISO(procedure.documentedDateTime) : undefined;
               return (
-                <TableRow sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                <TableRow
+                  sx={{ '&:last-child td': { borderBottom: 0 }, cursor: 'pointer' }}
+                  onClick={() => onProcedureClick(procedure.resourceId)}
+                  key={procedure.resourceId}
+                >
                   <TableCell>
                     <Stack>
-                      {procedure.cptCodes.map((cptCode) => {
+                      {procedure.cptCodes?.map((cptCode) => {
                         return (
-                          <Typography sx={{ fontSize: '14px' }}>
+                          <Typography sx={{ fontSize: '14px' }} key={cptCode.code}>
                             {cptCode.code}-{cptCode.display}
                           </Typography>
                         );
@@ -63,9 +70,9 @@ export default function Procedures(): ReactElement {
                   </TableCell>
                   <TableCell>
                     <Stack>
-                      {procedure.diagnoses.map((diagnosis) => {
+                      {procedure.diagnoses?.map((diagnosis) => {
                         return (
-                          <Typography sx={{ fontSize: '14px' }}>
+                          <Typography sx={{ fontSize: '14px' }} key={diagnosis.code}>
                             {diagnosis.code}-{diagnosis.display}
                           </Typography>
                         );
@@ -75,7 +82,7 @@ export default function Procedures(): ReactElement {
                   <TableCell>
                     <Stack>
                       <Typography sx={{ fontSize: '14px' }}>
-                        {procedureDateTime.toFormat(DATE_FORMAT)} at {procedureDateTime.toFormat('HH:mm a')}
+                        {documentedDateTime != null ? documentedDateTime.toFormat('MM/dd/yyyy HH:mm a') : undefined}
                       </Typography>
                       <Typography sx={{ fontSize: '14px', color: '#00000099' }}>{procedure.documentedBy}</Typography>
                     </Stack>

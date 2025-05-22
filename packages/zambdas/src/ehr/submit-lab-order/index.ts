@@ -8,6 +8,10 @@ import {
   EXTERNAL_LAB_ERROR,
   isApiError,
   APIError,
+  DYMO_30334_LABEL_CONFIG,
+  getPatientFirstName,
+  getPatientLastName,
+  isPSCOrder,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -21,6 +25,7 @@ import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
+import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -346,7 +351,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
-    const pdfDetail = await createExternalLabsOrderFormPDF(
+    const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
         locationStreetAddress: location?.address?.line?.join(','),
@@ -401,17 +406,38 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await makeLabPdfDocumentReference({
       oystehr,
       type: 'order',
-      pdfInfo: pdfDetail,
+      pdfInfo: orderFormPdfDetail,
       patientID: patient.id,
       encounterID: encounter.id,
       serviceRequestID: serviceRequest.id,
     });
 
-    const presignedURL = await getPresignedURL(pdfDetail.uploadURL, m2mtoken);
+    const presignedOrderFormURL = await getPresignedURL(orderFormPdfDetail.uploadURL, m2mtoken);
+    let presignedLabelURL: string | undefined = undefined;
+
+    if (!isPSCOrder(serviceRequest)) {
+      const labelConfig: ExternalLabsLabelConfig = {
+        labelConfig: DYMO_30334_LABEL_CONFIG,
+        content: {
+          patientId: patient.id!,
+          patientFirstName: getPatientFirstName(patient) ?? '',
+          patientLastName: getPatientLastName(patient) ?? '',
+          patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+          sampleCollectionDate: mostRecentSampleCollectionDate,
+          orderNumber: orderID ?? '',
+          accountNumber,
+        },
+      };
+
+      presignedLabelURL = (
+        await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mtoken, oystehr)
+      ).presignedURL;
+    }
 
     return {
       body: JSON.stringify({
-        pdfUrl: presignedURL,
+        orderPdfUrl: presignedOrderFormURL,
+        labelPdfUrl: presignedLabelURL,
       }),
       statusCode: 200,
     };

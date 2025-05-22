@@ -14,8 +14,9 @@ import {
   VisitType,
   PROJECT_NAME,
   PROJECT_WEBSITE,
+  AvailableLocationInformation,
 } from 'utils';
-import ottehrApi, { AppointmentBasicInfo, AvailableLocationInformation } from '../api/ottehrApi';
+import ottehrApi, { AppointmentBasicInfo } from '../api/ottehrApi';
 import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';

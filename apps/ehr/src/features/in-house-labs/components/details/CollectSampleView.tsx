@@ -15,8 +15,7 @@ import {
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import { LabTest } from '../../labTypes';
-import { inHouseLabsTestStatuses } from '../../labConstants';
+import { LabTest, inHouseLabsTestStatuses } from 'utils';
 
 interface CollectSampleViewProps {
   testDetails: LabTest;

@@ -147,7 +147,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
 
     console.log('organizing location information');
-    const locationInformation = getLocationInformation(oystehr, location);
+    const locationInformation = getLocationInformation(location);
 
     console.timeEnd('check-in-zambda');
 

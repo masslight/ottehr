@@ -43,6 +43,11 @@ export default function GroupMembers({ option, options, values, onChange }: Grou
       value={values}
       onChange={onChange}
       multiple
+      renderOption={(props, option) => (
+        <li {...props} key={option.value}>
+          {option.label}
+        </li>
+      )}
     />
   );
 }

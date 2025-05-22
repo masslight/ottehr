@@ -152,7 +152,7 @@ const getLocationTitleText = ({
   }
 
   const locationName = slotData?.location?.name || selectedLocation?.label || bookingOn;
-  const isProviderSchedule = slotData?.location?.scheduleType === ScheduleType.provider;
+  const isProviderSchedule = slotData?.location?.scheduleOwnerType === ScheduleType.provider;
   const preposition = isProviderSchedule ? 'with' : 'at';
   return `Book a visit ${preposition} ${locationName}`;
 };

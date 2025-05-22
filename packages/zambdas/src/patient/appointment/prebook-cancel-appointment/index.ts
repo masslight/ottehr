@@ -2,23 +2,22 @@ import { BatchInputGetRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
-  AvailableLocationInformation,
   CANT_CANCEL_CHECKEDIN_APT_ERROR,
   CancellationReasonCodesInPerson,
   CancellationReasonOptionsInPerson,
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
+  ScheduleOwnerFhirResource,
   Secrets,
   SecretsKeys,
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
   getCriticalUpdateTagOp,
-  getLocationInformation,
   getPatchBinary,
   getPatientContactEmail,
   getPatientFirstName,
@@ -182,7 +181,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       method: 'GET',
     };
     console.log('making transaction request for getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest');
-    const transactionBundle = await oystehr.fhir.transaction<Appointment | Encounter>({
+    const transactionBundle = await oystehr.fhir.transaction<
+      Appointment | Encounter | Schedule | ScheduleOwnerFhirResource
+    >({
       requests: [getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest],
     });
     console.log('getting appointment from transaction bundle');
@@ -197,12 +198,12 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.debug('gettingEmailProps success');
 
     console.log('building location information');
-    const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleResource);
+    //const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleResource);
 
     const response = {
       message: 'Successfully canceled an appointment',
       appointment: appointmentUpdated.id ?? null,
-      location: locationInformation,
+      //location: locationInformation,
       visitType: visitType,
     };
 

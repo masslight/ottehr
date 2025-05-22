@@ -22,6 +22,7 @@ import {
   ServiceMode,
   stateCodeToFullName,
   TelemedLocation,
+  TIMEZONES,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
@@ -128,11 +129,10 @@ const StartVirtualVisit = (): JSX.Element => {
         const currentWorkingHours = currentWorkingHoursText(serverState);
         return {
           state: stateCode,
-          available: serverState
+          available: serverState?.locationInformation?.scheduleExtension
             ? isLocationOpen(
-                serverState.locationInformation.hoursOfOperation ?? [],
-                serverState.locationInformation.timezone ?? '',
-                serverState.locationInformation.closures ?? [],
+                serverState.locationInformation.scheduleExtension,
+                serverState.locationInformation.timezone ?? TIMEZONES[0],
                 DateTime.now().setZone(serverState.locationInformation.timezone ?? '')
               )
             : false,
