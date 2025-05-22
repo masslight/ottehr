@@ -9,5 +9,5 @@
       "@defaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": ["src"]
+  "include": ["."]
 }
