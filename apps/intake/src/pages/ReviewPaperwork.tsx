@@ -33,6 +33,7 @@ import i18n from '../lib/i18n';
 import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
+import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();
@@ -44,6 +45,12 @@ const ReviewPaperwork = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const [validationErrors, setValidationErrors] = useState<FormValidationErrorObject | undefined>();
   const [errorDialogConfig, setErrorDialogConfig] = useState<ErrorDialogConfig | undefined>(undefined);
+
+  useEffect(() => {
+    if (appointmentID) {
+      useAppointmentStore.setState(() => ({ appointmentID }));
+    }
+  }, [appointmentID]);
 
   const {
     appointment: appointmentData,
