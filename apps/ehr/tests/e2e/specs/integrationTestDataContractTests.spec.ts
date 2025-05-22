@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { Appointment, Observation, Patient, Resource } from 'fhir/r4b';
+import { Appointment, Observation, Patient, Person, RelatedPerson, Resource } from 'fhir/r4b';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const e2eHandler = new ResourceHandler();
@@ -27,6 +27,8 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
 
   appointmentTests(e2eResources, integrationResources);
   patientTests(e2eResources, integrationResources);
+  relatedPersonTests(e2eResources, integrationResources);
+  personTests(e2eResources, integrationResources);
   observationTests(e2eResources, integrationResources);
 });
 
@@ -40,7 +42,7 @@ const appointmentTests = (e2eResources: Resource[], integrationResources: Resour
 
   const e2eAppointment = cleanAppointment(e2eAppointments[0]);
   const integrationAppointment = cleanAppointment(integrationAppointments[0]);
-  checkKeysAndValuesBothWays(e2eAppointment, integrationAppointment, 'appointment');
+  checkKeysAndValuesBothWays(e2eAppointment, integrationAppointment, 'Appointment');
 };
 
 const patientTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
@@ -53,7 +55,31 @@ const patientTests = (e2eResources: Resource[], integrationResources: Resource[]
 
   const e2eAppointment = cleanPatient(e2ePatients[0]);
   const integrationAppointment = cleanPatient(integrationPatients[0]);
-  checkKeysAndValuesBothWays(e2eAppointment, integrationAppointment, 'patient');
+  checkKeysAndValuesBothWays(e2eAppointment, integrationAppointment, 'Patient');
+};
+
+const relatedPersonTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eRPs = e2eResources.filter((resource) => resource.resourceType === 'RelatedPerson') as RelatedPerson[];
+  const integrationRPs = integrationResources.filter(
+    (resource) => resource.resourceType === 'RelatedPerson'
+  ) as RelatedPerson[];
+
+  expect(e2eRPs.length).toEqual(integrationRPs.length);
+
+  const e2eRP = cleanRelatedPerson(e2eRPs[0]);
+  const integrationRP = cleanRelatedPerson(integrationRPs[0]);
+  checkKeysAndValuesBothWays(e2eRP, integrationRP, 'RelatedPerson');
+};
+
+const personTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2ePersons = e2eResources.filter((resource) => resource.resourceType === 'Person') as Person[];
+  const integrationPersons = integrationResources.filter((resource) => resource.resourceType === 'Person') as Person[];
+
+  expect(e2ePersons.length).toEqual(integrationPersons.length);
+
+  const e2eP = cleanPerson(e2ePersons[0]);
+  const integrationP = cleanPerson(integrationPersons[0]);
+  checkKeysAndValuesBothWays(e2eP, integrationP, 'Person');
 };
 
 const observationTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
@@ -80,7 +106,7 @@ const observationTests = (e2eResources: Resource[], integrationResources: Resour
         )
     );
 
-    checkKeysAndValuesBothWays(e2eObservation, integrationObservation, `${e2eObservationTypeTag!.code} observation`);
+    checkKeysAndValuesBothWays(e2eObservation, integrationObservation, `${e2eObservationTypeTag!.code} Observation`);
   });
   // TODO we can't check that these are valid yet because the actual data is junk placeholder snomed codes.
 };
@@ -119,6 +145,20 @@ const cleanPatient = (patient: Patient): Patient => {
   let cleanedPatient = { ...patient };
   cleanedPatient = cleanOutMetaStuff(cleanedPatient) as Patient;
   return cleanedPatient;
+};
+
+const cleanRelatedPerson = (relatedPerson: RelatedPerson): RelatedPerson => {
+  let cleanedRelatedPerson = { ...relatedPerson };
+  cleanedRelatedPerson = cleanOutMetaStuff(cleanedRelatedPerson) as RelatedPerson;
+  cleanedRelatedPerson.patient.reference = cleanedRelatedPerson.patient.reference?.split('/')[0]; // cut off the UUID for comparison
+  return cleanedRelatedPerson;
+};
+
+const cleanPerson = (person: Person): Person => {
+  let cleanedPerson = { ...person };
+  cleanedPerson = cleanOutMetaStuff(cleanedPerson) as Person;
+  cleanedPerson.link = []; // Can't check these because Person resource gets used for many different tests and it gets littered. It is effectively a shared resource.
+  return cleanedPerson;
 };
 
 const cleanObservation = (observation: Observation): Observation => {
