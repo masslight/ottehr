@@ -68,7 +68,6 @@ export const extractQuantityRange = (
 };
 
 const extractDisplayType = (obsDef: ObservationDefinition, obsName: string): 'Radio' | 'Select' | 'Numeric' => {
-  console.log('obsDef', JSON.stringify(obsDef, null, 2));
   const ext = obsDef.extension;
   const display = ext?.find((e) => e.url === OD_DISPLAY_CONFIG.url)?.valueString;
   if (!display) throw Error(`no display type set for this observation definition: ${obsName}`);
@@ -262,7 +261,8 @@ const getResult = (
   if (dataType === 'CodeableConcept') {
     entry = observation.valueString;
   } else {
-    entry = observation?.valueQuantity?.toString();
+    const entryValue = observation?.valueQuantity?.value;
+    if (entryValue) entry = entryValue.toString();
   }
   const interpretationCoding = observation.interpretation?.find(
     (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
