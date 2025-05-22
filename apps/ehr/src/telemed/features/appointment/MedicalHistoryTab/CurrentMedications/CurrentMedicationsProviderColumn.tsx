@@ -21,13 +21,15 @@ import { MedicationDTO } from 'utils';
 import { otherColors } from '@theme/colors';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useChartDataArrayValue, useGetAppointmentAccessibility } from '../../../../hooks';
-import { MedicationSearchResponse, useAppointmentStore, useGetMedicationsSearch } from '../../../../state';
+import { ExtractObjectType, useAppointmentStore, useGetMedicationsSearch } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
+import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 
 interface CurrentMedicationsProviderColumnForm {
-  medication: MedicationSearchResponse['medications'][number] | null;
+  medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
   type: MedicationDTO['type'];
   date: DateTime | null;
   time: DateTime | null;
@@ -43,6 +45,8 @@ export const CurrentMedicationsProviderColumn: FC = () => {
 
   const { control, reset, handleSubmit } = methods;
 
+  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
+
   const {
     isLoading,
     onSubmit,
@@ -56,7 +60,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   const { isFetching: isSearching, data } = useGetMedicationsSearch(debouncedSearchTerm);
-  const medSearchOptions = data?.medications || [];
+  const medSearchOptions = data || [];
 
   const medicationsMap: { scheduled: MedicationDTO[]; asNeeded: MedicationDTO[] } = useMemo(
     () => ({
@@ -79,7 +83,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
     if (data) {
       const success = await onSubmit({
         name: data.medication?.name || '',
-        id: data.medication?.id,
+        id: data.medication?.id?.toString(),
         type: data.type,
         intakeInfo: {
           date: data
@@ -94,6 +98,10 @@ export const CurrentMedicationsProviderColumn: FC = () => {
         reset({ medication: null, date: null, time: null, dose: null, type: 'scheduled' });
       }
     }
+  };
+
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
   };
 
   return (
@@ -297,6 +305,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 )}
               ></Controller>
             </Box>
+            {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />}
             <Button
               variant="outlined"
               type="submit"

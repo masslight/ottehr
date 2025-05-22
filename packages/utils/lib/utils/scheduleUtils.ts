@@ -22,7 +22,6 @@ import {
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
-  ScheduleAndOwner,
   ScheduleOwnerFhirResource,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
@@ -32,7 +31,6 @@ import {
   ServiceMode,
   codingContainedInList,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  HOURS_OF_OPERATION_FORMAT,
   TIMEZONES,
   VisitType,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
@@ -45,6 +43,11 @@ export interface WaitTimeRange {
   low: number;
   high: number;
 }
+
+// this is the time in minutes after which a busy-tentative slot will be considered expired and will no longer
+// be counted against the available slots. the _lastUpdated field will be checked, so mutating the slot
+// at all will reset the timer
+const SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES = 10;
 
 export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type HourOfDay =
@@ -102,6 +105,7 @@ export interface ScheduleExtension {
   schedule: DailySchedule;
   scheduleOverrides: ScheduleOverrides;
   closures: Closure[] | undefined;
+  slotLength?: number;
 }
 
 export interface ScheduleDTOOwner {
@@ -228,8 +232,8 @@ export function getScheduleExtension(
 
   if (!scheduleExtension) return undefined;
 
-  const { schedule, scheduleOverrides, closures } = JSON.parse(scheduleExtension) as ScheduleExtension;
-  return { schedule, scheduleOverrides, closures };
+  const { schedule, scheduleOverrides, closures, slotLength } = JSON.parse(scheduleExtension) as ScheduleExtension;
+  return { schedule, scheduleOverrides, closures, slotLength };
 }
 
 export function getTimezone(
@@ -268,7 +272,8 @@ export function getSlotCapacityMapForDayAndSchedule(
   now: DateTime,
   schedule: DailySchedule,
   scheduleOverrides: ScheduleOverrides,
-  closures: Closure[] | undefined
+  closures: Closure[] | undefined,
+  slotLength?: number
 ): SlotCapacityMap {
   let openingTime: HourOfDay | null = null;
   let closingTime: HourOfDay | 24 | null = null;
@@ -329,7 +334,7 @@ export function getSlotCapacityMapForDayAndSchedule(
   let timeSlots: SlotCapacityMap = {};
   //console.log('scheudle capacity list', scheduleCapacityList);
 
-  timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now);
+  timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now, slotLength);
 
   const buffered = applyBuffersToSlots({
     slots: timeSlots,
@@ -406,12 +411,24 @@ interface GetSlotCapacityMapInput {
 // returns all slots given current time, schedule, and timezone, irrespective of booked/busy status of any of those slots
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
-  const { schedule, scheduleOverrides, closures } = scheduleExtension;
-  const nowForTimezone = now.setZone(timezone);
+  const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
+  const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
+    'day'
+  );
+  const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+    zone: timezone,
+  });
+  console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
   let currentDayTemp = nowForTimezone;
   let slots = {};
-  while (currentDayTemp < finishDate) {
-    const slotsTemp = getSlotCapacityMapForDayAndSchedule(currentDayTemp, schedule, scheduleOverrides, closures);
+  while (currentDayTemp < finishDateForTimezone) {
+    const slotsTemp = getSlotCapacityMapForDayAndSchedule(
+      currentDayTemp,
+      schedule,
+      scheduleOverrides,
+      closures,
+      slotLength
+    );
     slots = { ...slots, ...slotsTemp };
     currentDayTemp = currentDayTemp.plus({ days: 1 }).startOf('day');
   }
@@ -440,18 +457,23 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
   console.time('getAvailableSlots');
   const { now, numDays, schedule, busySlots } = input;
   const timezone = getTimezone(schedule);
-  const scheduleDetails = getScheduleExtension(schedule);
-  if (!scheduleDetails) {
+  const scheduleExtension = getScheduleExtension(schedule);
+  if (!scheduleExtension) {
     throw new Error('Schedule does not have schedule');
+  }
+  if (!timezone) {
+    throw new Error('Schedule does not have a timezone');
   }
   // literally all slots based on open, close, buffers and capacity
   // no appointments or busy slots have been factored in
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
-    finishDate: now.plus({ days: numDays }),
-    scheduleExtension: scheduleDetails,
+    finishDate: now.startOf('day').plus({ days: numDays }),
+    scheduleExtension,
     timezone,
   });
+
+  // console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
 
   const availableSlots = removeBusySlots({
     slotCapacityMap,
@@ -729,6 +751,8 @@ export async function addWaitingMinutesToAppointment(
 interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
+  numDays?: number;
+  slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -738,37 +762,47 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList } = input;
-  const telemedAvailable: SlotListItem[] = [];
-  const availableSlots: SlotListItem[] = [];
-
-  const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
-    schedule: scheduleTemp.schedule,
-    owner: scheduleTemp.owner,
-  }));
+  const { now, scheduleList, numDays } = input;
+  let telemedAvailable: SlotListItem[] = [];
+  let availableSlots: SlotListItem[] = [];
 
   const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: schedules.map((scheduleTemp) => scheduleTemp.schedule.id!),
+    scheduleIds: scheduleList.map((scheduleTemp) => scheduleTemp.schedule.id!),
     fromISO: now.toISO() ?? '',
-    toISO: now.plus({ days: SCHEDULE_NUM_DAYS }).toISO() ?? '',
+    toISO:
+      now
+        .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
+        .startOf('day')
+        .toISO() ?? '',
     status: ['busy', 'busy-tentative', 'busy-unavailable'],
+    filter: (slot: Slot) => {
+      const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
+      if (slot.status === 'busy-tentative') {
+        const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+        if (!lastUpdated.isValid) {
+          return true;
+        }
+        const minutesSinceLastUpdate = lastUpdated.diff(thisMoment, 'minutes').minutes;
+        return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
+      }
+      return true;
+    },
   };
   const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
 
-  schedules.forEach((scheduleTemp) => {
+  scheduleList.forEach((scheduleTemp) => {
     try {
       // todo 1.8: find busy / busy-tentative slots
       const busySlots: Slot[] = allBusySlots.filter((slot) => {
         const scheduleId = slot.schedule?.reference?.split('/')?.[1];
         return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
       });
-      console.log('getting post telemed slots');
-      // todo: 1.8-9 check busy slots for telemed
+      // console.log('getting post telemed slots');
+      // todo: 1.9 check busy slots for telemed
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
-      console.log('getting available slots to display');
       const slotStartsForSchedule = getAvailableSlots({
         now,
-        numDays: SCHEDULE_NUM_DAYS,
+        numDays: numDays ?? SCHEDULE_NUM_DAYS,
         schedule: scheduleTemp.schedule,
         busySlots,
       });
@@ -796,6 +830,13 @@ export const getAvailableSlotsForSchedules = async (
         err
       );
     }
+  });
+
+  availableSlots = availableSlots.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
+  });
+  telemedAvailable = telemedAvailable.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
   });
 
   // this logic removes duplicate slots even across schedules,
@@ -1373,19 +1414,23 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
   return 'HealthcareService';
 };
 
-interface GetSlotsInWindowInput {
+export interface GetSlotsInWindowInput {
   scheduleIds: string[];
   fromISO: string;
   toISO: string;
   status: Slot['status'][];
+  filter?: (slot: Slot) => boolean;
 }
 
 export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oystehr): Promise<Slot[]> => {
-  const { scheduleIds, fromISO, toISO, status } = input;
-  const statusParams = status.map((statusTemp) => ({
-    name: 'status',
-    value: statusTemp,
-  }));
+  const { scheduleIds, fromISO, toISO, status, filter } = input;
+  const statusString = status.join(',');
+  const statusParams = [
+    {
+      name: 'status',
+      value: statusString,
+    },
+  ];
   const appointmentTypeParams = [
     {
       name: 'appointment-type:not',
@@ -1413,6 +1458,9 @@ export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oy
       ],
     })
   ).unbundle();
+  if (filter) {
+    return slots.filter(filter);
+  }
   return slots;
 };
 
@@ -1579,37 +1627,41 @@ export const getLocationHoursFromScheduleExtension = (extension: ScheduleExtensi
 interface OverrideOperatingHoursInput {
   from: DateTime;
   scheduleOverrides: ScheduleOverrides;
-  hoursOfOperation: LocationHoursOfOperation[];
+  dailySchedule: DailySchedule;
   timezone: Timezone;
 }
-export const applyOverridesToOperatingHours = (input: OverrideOperatingHoursInput): LocationHoursOfOperation[] => {
-  const { from, scheduleOverrides, hoursOfOperation, timezone } = input;
+export const applyOverridesToDailySchedule = (
+  input: OverrideOperatingHoursInput
+): { dailySchedule: DailySchedule; overriddenDay: ScheduleDay | undefined } => {
+  const { from, scheduleOverrides, dailySchedule, timezone } = input;
   const currentDate = from.setZone(timezone);
   const overrideDate = Object.keys(scheduleOverrides).find((date) => {
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase();
+    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }).toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
-    const dayIndex = hoursOfOperation?.findIndex((hour) => (hour.daysOfWeek as string[])?.includes(dayOfWeek));
-    if (hoursOfOperation && typeof dayIndex !== 'undefined' && dayIndex >= 0) {
-      hoursOfOperation[dayIndex].openingTime = DateTime.fromFormat(override.open.toString(), 'h')
-        .set({
-          year: currentDate.year,
-          month: currentDate.month,
-          day: currentDate.day,
-        })
-        .toFormat(HOURS_OF_OPERATION_FORMAT);
-      hoursOfOperation[dayIndex].closingTime = DateTime.fromFormat(override.close.toString(), 'h')
-        .set({
-          year: currentDate.year,
-          month: currentDate.month,
-          day: currentDate.day,
-        })
-        .toFormat(HOURS_OF_OPERATION_FORMAT);
-    }
+    const dailyScheduleDay = dailySchedule[dayOfWeek];
+    const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);
+    const newDailySchedule = {
+      ...dailySchedule,
+      [dayOfWeek]: overriddenDay,
+    };
+    return { dailySchedule: newDailySchedule, overriddenDay };
   }
-  return hoursOfOperation;
+  return { dailySchedule: { ...dailySchedule }, overriddenDay: undefined };
+};
+
+const applyOverrideToDay = (override: ScheduleOverrideDay, day: ScheduleDay): ScheduleDay => {
+  const { open, close, openingBuffer, closingBuffer, hours } = override;
+  return {
+    open,
+    close,
+    openingBuffer,
+    closingBuffer,
+    workingDay: day.workingDay, // todo?: should this be overridable??
+    hours,
+  };
 };
 
 export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {

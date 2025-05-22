@@ -175,7 +175,7 @@ export function makeAllergyResource(
     code: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-allergy-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
           code: data.id,
           display: data.name,
         },
@@ -220,7 +220,7 @@ export function makeMedicationResource(
     medicationCodeableConcept: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-medication-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id',
           code: data.id,
           display: data.name,
         },
@@ -1318,7 +1318,7 @@ export function makeProceduresDTOFromFhirResources(
   return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
     return {
       resourceId: serviceRequests.id,
-      procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM) ?? '',
+      procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
       cptCodes: cptCodeProcedures
         .filter(
           (procedure) => serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)
@@ -1337,10 +1337,11 @@ export function makeProceduresDTOFromFhirResources(
         .map((condition) => {
           return makeDiagnosisDTO(condition, false);
         }),
-      procedureDateTime: serviceRequests.occurrenceDateTime ?? '',
-      performerType: getCode(serviceRequests.performerType, PERFORMER_TYPE_SYSTEM) ?? '',
+      procedureDateTime: serviceRequests.occurrenceDateTime,
+      documentedDateTime: serviceRequests.authoredOn,
+      performerType: getCode(serviceRequests.performerType, PERFORMER_TYPE_SYSTEM),
       medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
-      bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM) ?? '',
+      bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
       bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
       technique: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)?.valueString,
       suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
@@ -1406,54 +1407,65 @@ export const createProcedureServiceRequest = (
       valueString: procedure.documentedBy,
     },
   ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
-  const diagnosesReferences = procedure.diagnoses.map((diagnosis) => {
+  const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => {
     return {
       reference: 'Condition/' + diagnosis.resourceId,
     };
   });
-  const cptCodesReferences = procedure.cptCodes.map((cptCode) => {
+  const cptCodesReferences = procedure.cptCodes?.map((cptCode) => {
     return {
       reference: 'Procedure/' + cptCode.resourceId,
     };
   });
   return saveOrUpdateResourceRequest<ServiceRequest>({
     resourceType: 'ServiceRequest',
+    id: procedure.resourceId,
     subject: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
     status: 'completed',
     intent: 'original-order',
-    category: [
-      {
-        coding: [
-          {
-            system: PROCEDURE_TYPE_SYSTEM,
-            code: procedure.procedureType,
-          },
-        ],
-      },
-    ],
+    category:
+      procedure.procedureType != null
+        ? [
+            {
+              coding: [
+                {
+                  system: PROCEDURE_TYPE_SYSTEM,
+                  code: procedure.procedureType,
+                },
+              ],
+            },
+          ]
+        : undefined,
     occurrenceDateTime: procedure.procedureDateTime,
-    performerType: {
-      coding: [
-        {
-          system: PERFORMER_TYPE_SYSTEM,
-          code: procedure.performerType,
-        },
-      ],
-    },
-    bodySite: [
-      {
-        coding: [
-          {
-            system: BODY_SITE_SYSTEM,
-            code: procedure.bodySite,
-          },
-        ],
-      },
-    ],
+    authoredOn: procedure.documentedDateTime,
+    performerType:
+      procedure.performerType != null
+        ? {
+            coding: [
+              {
+                system: PERFORMER_TYPE_SYSTEM,
+                code: procedure.performerType,
+              },
+            ],
+          }
+        : undefined,
+    bodySite:
+      procedure.bodySite != null
+        ? [
+            {
+              coding: [
+                {
+                  system: BODY_SITE_SYSTEM,
+                  code: procedure.bodySite,
+                },
+              ],
+            },
+          ]
+        : undefined,
     meta: fillMeta('procedure', 'procedure'),
-    reasonReference: diagnosesReferences.length > 0 ? diagnosesReferences : undefined,
-    supportingInfo: cptCodesReferences.length > 0 ? cptCodesReferences : undefined,
+    reasonReference: (diagnosesReferences?.length ?? 0) > 0 ? diagnosesReferences : undefined,
+    supportingInfo: (cptCodesReferences?.length ?? 0) > 0 ? cptCodesReferences : undefined,
     extension: extensions.length > 0 ? extensions : undefined,
   });
 };

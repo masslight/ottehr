@@ -1,4 +1,4 @@
-import { ReactElement, useState } from 'react';
+import { ReactElement, useEffect, useState } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
 import {
   AccordionCard,
@@ -6,6 +6,7 @@ import {
   DeleteIconButton,
   useAppointmentStore,
   useDebounce,
+  useDeleteChartData,
   useGetIcd10Search,
   useSaveChartData,
 } from 'src/telemed';
@@ -13,7 +14,9 @@ import { Box, Stack } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
+  Backdrop,
   Checkbox,
+  CircularProgress,
   Divider,
   FormControl,
   FormControlLabel,
@@ -29,14 +32,7 @@ import {
 } from '@mui/material';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import {
-  ChartDataWithResources,
-  CPTCodeDTO,
-  DiagnosisDTO,
-  getSelectors,
-  IcdSearchResponse,
-  REQUIRED_FIELD_ERROR_MESSAGE,
-} from 'utils';
+import { CPTCodeDTO, DiagnosisDTO, getSelectors, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
@@ -44,6 +40,7 @@ import { InfoAlert } from '../components/InfoAlert';
 import { enqueueSnackbar } from 'notistack';
 import { DateTime } from 'luxon';
 
+const OTHER = 'Other';
 const PROCEDURE_TYPES = [
   'Laceration Repair (Suturing/Stapling)',
   'Wound Care / Dressing Change',
@@ -69,31 +66,25 @@ const PROCEDURE_TYPES = [
 ];
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
 const MEDICATIONS_USED = ['None', 'Topical', 'Local', 'Oral', 'IV', 'IM'];
-const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', 'Other'];
+const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', OTHER];
 const SIDES_OF_BODY = ['Left', 'Right', 'Midline', 'Not Applicable'];
 const TECHNIQUES = ['Sterile', 'Clean', 'Aseptic', 'Field'];
-const SUPPLIES = ['Suture Kit', 'Splint', 'Irrigation Syringe', 'Speculum', 'Forceps', 'IV Kit', 'Other'];
+const SUPPLIES = ['Suture Kit', 'Splint', 'Irrigation Syringe', 'Speculum', 'Forceps', 'IV Kit', OTHER];
 const SPECIMEN_SENT = ['Yes', 'No'];
-const COMPLICATIONS = ['None', 'Bleeding', 'Incomplete Removal', 'Allergic Reaction', 'Other'];
+const COMPLICATIONS = ['None', 'Bleeding', 'Incomplete Removal', 'Allergic Reaction', OTHER];
 const PATIENT_RESPONSES = ['Tolerated Well', 'Mild Distress', 'Severe Distress', 'Improved', 'Stable', 'Worsened'];
-const POST_PROCEDURE_INSTRUCTIONS = ['Wound Care', 'F/U with PCP', 'Return if worsening', 'Other'];
+const POST_PROCEDURE_INSTRUCTIONS = ['Wound Care', 'F/U with PCP', 'Return if worsening', OTHER];
 const TIME_SPENT = ['< 5 min', '5-10 min', '10-20 min', '20-30 min', '> 30 min'];
 const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
 
 interface PageState {
   consentObtained?: boolean;
   procedureType?: string;
-  procedureTypeError?: boolean;
   cptCodes?: CPTCodeDTO[];
-  cptCodesError?: boolean;
   diagnoses?: DiagnosisDTO[];
-  diagnosesError?: boolean;
   procedureDate?: DateTime | null;
-  procedureDateError?: boolean;
   procedureTime?: DateTime | null;
-  procedureTimeError?: boolean;
   performerType?: string;
-  performerTypeError?: boolean;
   medicationUsed?: string;
   bodySite?: string;
   otherBodySite?: string;
@@ -114,137 +105,151 @@ interface PageState {
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
-  const { id: appointmentId } = useParams();
+  const { id: appointmentId, procedureId } = useParams();
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];
   const chartProcedures = chartData?.procedures || [];
-  const { mutate: saveChartData } = useSaveChartData();
-  const [state, setState] = useState<PageState>({});
+  const { mutateAsync: saveChartData } = useSaveChartData();
+  const { mutateAsync: deleteChartData } = useDeleteChartData();
+  const [state, setState] = useState<PageState>({
+    procedureDate: DateTime.now(),
+    procedureTime: DateTime.now(),
+  });
+  const [saveInProgress, setSaveInProgress] = useState<boolean>(false);
 
   const updateState = (stateMutator: (state: PageState) => void): void => {
     stateMutator(state);
     setState({ ...state });
   };
 
+  const [initialValuesSet, setInitialValuesSet] = useState<boolean>(false);
+  useEffect(() => {
+    const procedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
+    if (procedure == null || initialValuesSet) {
+      return;
+    }
+    const procedureDateTime =
+      procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
+    setState({
+      consentObtained: true,
+      procedureType: procedure.procedureType,
+      cptCodes: procedure.cptCodes,
+      diagnoses: procedure.diagnoses,
+      procedureDate: procedureDateTime,
+      procedureTime: procedureDateTime,
+      performerType: procedure.performerType,
+      medicationUsed: procedure.medicationUsed,
+      bodySite: getValueForOtherable(procedure.bodySite, SITES),
+      otherBodySite: getOtherValueForOtherable(procedure.bodySite, SITES),
+      bodySide: procedure.bodySide,
+      technique: procedure.technique,
+      suppliesUsed: getValueForOtherable(procedure.suppliesUsed, SUPPLIES),
+      otherSuppliesUsed: getOtherValueForOtherable(procedure.suppliesUsed, SUPPLIES),
+      procedureDetails: procedure.procedureDetails,
+      specimenSent: procedure.specimenSent,
+      complications: getValueForOtherable(procedure.complications, COMPLICATIONS),
+      otherComplications: getOtherValueForOtherable(procedure.complications, COMPLICATIONS),
+      patientResponse: procedure.patientResponse,
+      postInstructions: getValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
+      otherPostInstructions: getOtherValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
+      timeSpent: procedure.timeSpent,
+      documentedBy: procedure.documentedBy,
+    });
+    setInitialValuesSet(true);
+  }, [procedureId, chartData?.procedures, setState, initialValuesSet]);
+
   const onCancel = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
   };
 
-  const validateState = (): boolean => {
-    let valid = true;
-    if (isNullOrEmpty(state.procedureType)) {
-      state.procedureTypeError = true;
-      valid = false;
-    }
-    if (state.cptCodes == null || state.cptCodes.length === 0) {
-      state.cptCodesError = true;
-      valid = false;
-    }
-    if (state.diagnoses == null || state.diagnoses.length === 0) {
-      state.diagnosesError = true;
-      valid = false;
-    }
-    if (state.procedureDate == null) {
-      state.procedureDateError = true;
-      valid = false;
-    }
-    if (state.procedureTime == null) {
-      state.procedureTimeError = true;
-      valid = false;
-    }
-    if (isNullOrEmpty(state.performerType)) {
-      state.performerTypeError = true;
-      valid = false;
-    }
-    if (!valid) {
-      setState({ ...state });
-    }
-    return valid;
-  };
-
-  const saveCptAndDiagnoses = (cptCodes: CPTCodeDTO[], diagnoses: DiagnosisDTO[]): Promise<ChartDataWithResources> => {
-    return new Promise<ChartDataWithResources>((resolve, reject) => {
-      saveChartData(
-        {
-          cptCodes: cptCodes,
-          diagnosis: diagnoses,
-        },
-        {
-          onSuccess: resolve,
-          onError: reject,
-        }
-      );
-    });
-  };
-
   const onSave = async (): Promise<void> => {
-    if (!validateState()) {
-      return;
-    }
-    const cptAndDiagnosesResponse = await saveCptAndDiagnoses(state.cptCodes ?? [], state.diagnoses ?? []);
-    const savedCptCodes = cptAndDiagnosesResponse.chartData?.cptCodes;
-    if (savedCptCodes) {
-      setPartialChartData({
-        cptCodes: [...chartCptCodes, ...savedCptCodes],
+    setSaveInProgress(true);
+    try {
+      const saveCptAndDiagnosesResponse = await saveChartData({
+        cptCodes: state.cptCodes?.filter((cptCode) => cptCode.resourceId == null) ?? [],
+        diagnosis: state.diagnoses?.filter((diagnosis) => diagnosis.resourceId == null) ?? [],
       });
-    }
-    const savedDiagnoses = cptAndDiagnosesResponse.chartData?.diagnosis;
-    if (savedDiagnoses) {
-      setPartialChartData({
-        diagnosis: [...chartDiagnoses, ...savedDiagnoses],
-      });
-    }
-    saveChartData(
-      {
+      const savedCptCodes = saveCptAndDiagnosesResponse.chartData?.cptCodes;
+      if (savedCptCodes) {
+        setPartialChartData({
+          cptCodes: [...chartCptCodes, ...savedCptCodes],
+        });
+      }
+      const savedDiagnoses = saveCptAndDiagnosesResponse.chartData?.diagnosis;
+      if (savedDiagnoses) {
+        setPartialChartData({
+          diagnosis: [...chartDiagnoses, ...savedDiagnoses],
+        });
+      }
+      const cptCodesToUse = [
+        ...(savedCptCodes ?? []),
+        ...(state.cptCodes?.filter((cptCode) => cptCode.resourceId != null) ?? []),
+      ];
+      const diagnosesToUse = [
+        ...(savedDiagnoses ?? []),
+        ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
+      ];
+      const saveProcdureResponse = await saveChartData({
         procedures: [
           {
-            procedureType: state.procedureType ?? '',
-            cptCodes: savedCptCodes ?? [],
-            diagnoses: savedDiagnoses ?? [],
-            procedureDateTime: (state.procedureDate ?? DateTime.now())
-              .set({ hour: state.procedureTime?.hour, minute: state.procedureTime?.minute })
-              .toUTC()
-              .toString(),
-            performerType: state.performerType ?? '',
+            resourceId: procedureId,
+            procedureType: state.procedureType,
+            cptCodes: cptCodesToUse,
+            diagnoses: diagnosesToUse,
+            procedureDateTime: state.procedureDate
+              ?.set({ hour: state.procedureTime?.hour, minute: state.procedureTime?.minute })
+              ?.toUTC()
+              ?.toString(),
+            documentedDateTime: DateTime.now().toUTC().toString(),
+            performerType: state.performerType,
             medicationUsed: state.medicationUsed,
-            bodySite: state.bodySite,
+            bodySite: state.bodySite !== OTHER ? state.bodySite : state.otherBodySite,
             bodySide: state.bodySide,
             technique: state.technique,
-            suppliesUsed: state.suppliesUsed,
+            suppliesUsed: state.suppliesUsed !== OTHER ? state.suppliesUsed : state.otherSuppliesUsed,
             procedureDetails: state.procedureDetails,
             specimenSent: state.specimenSent,
-            complications: state.complications,
+            complications: state.complications !== OTHER ? state.complications : state.otherComplications,
             patientResponse: state.patientResponse,
-            postInstructions: state.postInstructions,
+            postInstructions: state.postInstructions !== OTHER ? state.postInstructions : state.otherPostInstructions,
             timeSpent: state.timeSpent,
             documentedBy: state.documentedBy,
           },
         ],
-      },
-      {
-        onSuccess: (data) => {
-          const savedProcedure = data.chartData?.procedures?.[0];
-          if (savedProcedure) {
-            setPartialChartData({
-              procedures: [
-                ...chartProcedures,
-                {
-                  ...savedProcedure,
-                  cptCodes: savedCptCodes ?? [],
-                  diagnoses: savedDiagnoses ?? [],
-                },
-              ],
-            });
-          }
-          enqueueSnackbar('Procedure saved!', { variant: 'success' });
-          navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
-        },
-        onError: () => {
-          enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
-        },
+      });
+      const oldProcedure = chartData?.procedures?.find((procedure) => procedure.resourceId === procedureId);
+      if (oldProcedure != null) {
+        await deleteChartData({
+          cptCodes: oldProcedure.cptCodes?.filter(
+            (cptCode) => cptCodesToUse.find((cptCodeToUse) => cptCodeToUse.resourceId == cptCode.resourceId) == null
+          ),
+          diagnosis: oldProcedure.diagnoses?.filter(
+            (diagnosis) =>
+              diagnosesToUse.find((diagnosisToUse) => diagnosisToUse.resourceId == diagnosis.resourceId) == null
+          ),
+        });
       }
-    );
+      const savedProcedure = saveProcdureResponse.chartData?.procedures?.[0];
+      if (savedProcedure) {
+        setPartialChartData({
+          procedures: [
+            ...chartProcedures.filter((procedure) => procedure.resourceId !== procedureId),
+            {
+              ...savedProcedure,
+              cptCodes: cptCodesToUse,
+              diagnoses: diagnosesToUse,
+            },
+          ],
+        });
+      }
+      setSaveInProgress(false);
+      enqueueSnackbar('Procedure saved!', { variant: 'success' });
+      navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES}`);
+    } catch {
+      setSaveInProgress(false);
+      enqueueSnackbar('An error has occurred while saving procedure. Please try again.', { variant: 'error' });
+    }
   };
 
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -279,7 +284,6 @@ export default function ProceduresNew(): ReactElement {
             updateState((state) => {
               if (data != null) {
                 state.cptCodes = [...(state.cptCodes ?? []), data];
-                state.cptCodesError = false;
               }
             });
           }}
@@ -288,11 +292,9 @@ export default function ProceduresNew(): ReactElement {
             <TextField
               {...params}
               size="small"
-              label="CPT code *"
+              label="CPT code"
               placeholder="Search CPT code"
               onChange={(e) => debouncedHandleInputChange(e.target.value)}
-              error={state.cptCodesError}
-              helperText={state.cptCodesError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined}
             />
           )}
         />
@@ -313,6 +315,7 @@ export default function ProceduresNew(): ReactElement {
               }
             />
           )}
+          divider
         />
       </>
     );
@@ -322,15 +325,13 @@ export default function ProceduresNew(): ReactElement {
     return (
       <>
         <DiagnosesField
-          label="Dx *"
+          label="Dx"
           onChange={(value: IcdSearchResponse['codes'][number]): void => {
             const preparedValue = { ...value, isPrimary: false };
             updateState((state) => {
               state.diagnoses = [...(state.diagnoses ?? []), preparedValue];
-              state.diagnosesError = false;
             });
           }}
-          error={state.diagnosesError ? { type: 'required', message: REQUIRED_FIELD_ERROR_MESSAGE } : undefined}
           disableForPrimary={false}
         />
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -364,17 +365,17 @@ export default function ProceduresNew(): ReactElement {
   const dropdown = (
     label: string,
     options: string[],
-    stateMutator: (value: string, state: PageState) => void,
-    error = false
+    value: string | undefined,
+    stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" error={error}>
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small">
         <InputLabel id={label}>{label}</InputLabel>
         <Select
           label={label}
           labelId={label}
           variant="outlined"
-          defaultValue=""
+          value={value ?? ''}
           onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
         >
           {options.map((option) => {
@@ -387,7 +388,6 @@ export default function ProceduresNew(): ReactElement {
             );
           })}
         </Select>
-        {error ? <FormHelperText>{REQUIRED_FIELD_ERROR_MESSAGE}</FormHelperText> : undefined}
       </FormControl>
     );
   };
@@ -395,6 +395,7 @@ export default function ProceduresNew(): ReactElement {
   const otherTextInput = (
     parentLabel: string,
     parentValue: string | undefined,
+    value: string | undefined,
     stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
     if (parentValue !== 'Other') {
@@ -404,6 +405,7 @@ export default function ProceduresNew(): ReactElement {
       <TextField
         label={'Other ' + parentLabel.toLocaleLowerCase()}
         size="small"
+        value={value ?? ''}
         onChange={(e: any) => updateState((state) => stateMutator(e.target.value, state))}
       />
     );
@@ -412,6 +414,7 @@ export default function ProceduresNew(): ReactElement {
   const radio = (
     label: string,
     options: string[],
+    value: string | undefined,
     stateMutator: (value: string, state: PageState) => void,
     error = false
   ): ReactElement => {
@@ -422,6 +425,7 @@ export default function ProceduresNew(): ReactElement {
           row
           aria-labelledby={label}
           onChange={(e) => updateState((state) => stateMutator(e.target.value, state))}
+          value={value ?? ''}
         >
           {options.map((option) => {
             return <FormControlLabel key={option} value={option} control={<Radio />} label={option} />;
@@ -433,137 +437,171 @@ export default function ProceduresNew(): ReactElement {
   };
 
   return (
-    <Stack spacing={1}>
-      <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
-      <InfoAlert
-        text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
+    <>
+      <Stack spacing={1}>
+        <PageTitle label="Document Procedure" showIntakeNotesButton={false} />
+        <AccordionCard>
+          <Stack spacing={2} style={{ padding: '24px' }}>
+            <Box style={{ display: 'flex', alignItems: 'center' }}>
+              <Checkbox
+                checked={state.consentObtained ?? false}
+                onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
+              />
+              <Typography>I have obtained the Consent for Procedure *</Typography>
+            </Box>
+            <InfoAlert
+              text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
               and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
-      />
-      <AccordionCard>
-        <Stack spacing={2} style={{ padding: '24px' }}>
-          <Box style={{ display: 'flex', alignItems: 'center' }}>
-            <Checkbox
-              onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
             />
-            <Typography>I have obtained the Consent for Procedure *</Typography>
-          </Box>
-          {dropdown(
-            'Procedure type *',
-            PROCEDURE_TYPES,
-            (value, state) => {
-              state.procedureType = value;
-              state.procedureTypeError = false;
-            },
-            state.procedureTypeError
-          )}
-          {cptWidget()}
-          {diagnosesWidget()}
-          <Stack direction="row" spacing={2}>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <DatePicker
-                label="Date of the procedure *"
-                slotProps={{
-                  textField: {
-                    InputLabelProps: { shrink: true },
-                    InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
-                    helperText: state.procedureDateError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined,
-                    error: state.procedureDateError,
-                  },
-                }}
-                onChange={(date: DateTime | null, _e: any) =>
-                  updateState((state) => {
-                    state.procedureDate = date;
-                    state.procedureDateError = false;
-                  })
-                }
-              />
-            </LocalizationProvider>
-            <LocalizationProvider dateAdapter={AdapterLuxon}>
-              <TimePicker
-                label="Time of the procedure *"
-                slotProps={{
-                  textField: {
-                    InputLabelProps: { shrink: true },
-                    InputProps: { size: 'small' },
-                    helperText: state.procedureTimeError ? REQUIRED_FIELD_ERROR_MESSAGE : undefined,
-                    error: state.procedureTimeError,
-                  },
-                }}
-                onChange={(time: DateTime | null, _e: any) =>
-                  updateState((state) => {
-                    state.procedureTime = time;
-                    state.procedureTimeError = false;
-                  })
-                }
-              />
-            </LocalizationProvider>
+            <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+              Procedure Type & CPT Code
+            </Typography>
+            {dropdown(
+              'Procedure type',
+              PROCEDURE_TYPES,
+              state.procedureType,
+              (value, state) => (state.procedureType = value)
+            )}
+            {cptWidget()}
+            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+              Dx
+            </Typography>
+            {diagnosesWidget()}
+            <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
+              Procedure Details
+            </Typography>
+            <Stack direction="row" spacing={2}>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <DatePicker
+                  label="Date of the procedure"
+                  slotProps={{
+                    textField: {
+                      InputLabelProps: { shrink: true },
+                      InputProps: { size: 'small', placeholder: 'MM/DD/YYYY' },
+                    },
+                  }}
+                  value={state.procedureDate}
+                  onChange={(date: DateTime | null, _e: any) => updateState((state) => (state.procedureDate = date))}
+                />
+              </LocalizationProvider>
+              <LocalizationProvider dateAdapter={AdapterLuxon}>
+                <TimePicker
+                  label="Time of the procedure"
+                  slotProps={{
+                    textField: {
+                      InputLabelProps: { shrink: true },
+                      InputProps: { size: 'small' },
+                    },
+                  }}
+                  value={state.procedureTime}
+                  onChange={(time: DateTime | null, _e: any) => updateState((state) => (state.procedureTime = time))}
+                />
+              </LocalizationProvider>
+            </Stack>
+            {radio('Performed by', PERFORMED_BY, state.performerType, (value, state) => (state.performerType = value))}
+            {dropdown(
+              'Anaesthesia / medication used',
+              MEDICATIONS_USED,
+              state.medicationUsed,
+              (value, state) => (state.medicationUsed = value)
+            )}
+            {dropdown('Site/location', SITES, state.bodySite, (value, state) => {
+              state.bodySite = value;
+              state.otherBodySite = undefined;
+            })}
+            {otherTextInput(
+              'Site/location',
+              state.bodySite,
+              state.otherBodySite,
+              (value, state) => (state.otherBodySite = value)
+            )}
+            {dropdown('Side of body', SIDES_OF_BODY, state.bodySide, (value, state) => (state.bodySide = value))}
+            {dropdown('Technique', TECHNIQUES, state.technique, (value, state) => (state.technique = value))}
+            {dropdown('Instruments / supplies used', SUPPLIES, state.suppliesUsed, (value, state) => {
+              state.suppliesUsed = value;
+              state.otherSuppliesUsed = undefined;
+            })}
+            {otherTextInput(
+              'Instruments / supplies used',
+              state.suppliesUsed,
+              state.otherSuppliesUsed,
+              (value, state) => (state.otherSuppliesUsed = value)
+            )}
+            <TextField
+              label="Procedure details"
+              multiline
+              rows={4}
+              value={state.procedureDetails ?? ''}
+              onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
+            />
+            {radio(
+              'Specimen sent',
+              SPECIMEN_SENT,
+              state.specimenSent != null ? (state.specimenSent ? 'Yes' : 'No') : undefined,
+              (value, state) => (state.specimenSent = value === 'Yes')
+            )}
+            {dropdown('Complications', COMPLICATIONS, state.complications, (value, state) => {
+              state.complications = value;
+              state.otherComplications = undefined;
+            })}
+            {otherTextInput(
+              'Complications',
+              state.complications,
+              state.otherComplications,
+              (value, state) => (state.otherComplications = value)
+            )}
+            {dropdown(
+              'Patient response',
+              PATIENT_RESPONSES,
+              state.patientResponse,
+              (value, state) => (state.patientResponse = value)
+            )}
+            {dropdown(
+              'Post-procedure Instructions',
+              POST_PROCEDURE_INSTRUCTIONS,
+              state.postInstructions,
+              (value, state) => {
+                state.postInstructions = value;
+                state.otherPostInstructions = undefined;
+              }
+            )}
+            {otherTextInput(
+              'Post-procedure Instructions',
+              state.postInstructions,
+              state.otherPostInstructions,
+              (value, state) => (state.otherPostInstructions = value)
+            )}
+            {dropdown('Time spent', TIME_SPENT, state.timeSpent, (value, state) => (state.timeSpent = value))}
+            {radio('Documented by', DOCUMENTED_BY, state.documentedBy, (value, state) => (state.documentedBy = value))}
+            <Divider orientation="horizontal" />
+            <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <RoundedButton color="primary" onClick={onCancel}>
+                Cancel
+              </RoundedButton>
+              <RoundedButton color="primary" variant="contained" disabled={!state.consentObtained} onClick={onSave}>
+                Save
+              </RoundedButton>
+            </Box>
           </Stack>
-          {radio(
-            'Performed by *',
-            PERFORMED_BY,
-            (value, state) => (state.performerType = value),
-            state.performerTypeError
-          )}
-          {dropdown(
-            'Anaesthesia / medication used',
-            MEDICATIONS_USED,
-            (value, state) => (state.medicationUsed = value)
-          )}
-          {dropdown('Site/location', SITES, (value, state) => {
-            state.bodySite = value;
-            state.otherBodySite = undefined;
-          })}
-          {otherTextInput('Site/location', state.bodySite, (value, state) => (state.otherBodySite = value))}
-          {dropdown('Side of body', SIDES_OF_BODY, (value, state) => (state.bodySide = value))}
-          {dropdown('Technique', TECHNIQUES, (value, state) => (state.technique = value))}
-          {dropdown('Instruments / supplies used', SUPPLIES, (value, state) => {
-            state.suppliesUsed = value;
-            state.otherSuppliesUsed = undefined;
-          })}
-          {otherTextInput(
-            'Instruments / supplies used',
-            state.suppliesUsed,
-            (value, state) => (state.otherSuppliesUsed = value)
-          )}
-          <TextField
-            label="Procedure details"
-            multiline
-            rows={4}
-            onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
-          />
-          {radio('Specimen sent', SPECIMEN_SENT, (value, state) => (state.specimenSent = value === 'Yes'))}
-          {dropdown('Complications', COMPLICATIONS, (value, state) => {
-            state.complications = value;
-            state.otherComplications = undefined;
-          })}
-          {otherTextInput('Complications', state.complications, (value, state) => (state.otherComplications = value))}
-          {dropdown('Patient response', PATIENT_RESPONSES, (value, state) => (state.patientResponse = value))}
-          {dropdown('Post-procedure Instructions', POST_PROCEDURE_INSTRUCTIONS, (value, state) => {
-            state.postInstructions = value;
-            state.otherPostInstructions = undefined;
-          })}
-          {otherTextInput(
-            'Post-procedure Instructions',
-            state.postInstructions,
-            (value, state) => (state.otherPostInstructions = value)
-          )}
-          {dropdown('Time spent', TIME_SPENT, (value, state) => (state.timeSpent = value))}
-          {radio('Documented by', DOCUMENTED_BY, (value, state) => (state.documentedBy = value))}
-          <Divider orientation="horizontal" />
-          <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <RoundedButton color="primary" onClick={onCancel}>
-              Cancel
-            </RoundedButton>
-            <RoundedButton color="primary" variant="contained" disabled={!state.consentObtained} onClick={onSave}>
-              Save
-            </RoundedButton>
-          </Box>
-        </Stack>
-      </AccordionCard>
-    </Stack>
+        </AccordionCard>
+      </Stack>
+      <Backdrop sx={(theme) => ({ color: '#fff', zIndex: theme.zIndex.drawer + 1 })} open={saveInProgress}>
+        <CircularProgress color="inherit" />
+      </Backdrop>
+    </>
   );
 }
 
-function isNullOrEmpty(str: string | undefined): boolean {
-  return str == null || str === '';
+function getValueForOtherable(value: string | undefined, predefinedValues: string[]): string | undefined {
+  if (value != null && predefinedValues.includes(value)) {
+    return value;
+  }
+  return value != null ? OTHER : undefined;
+}
+
+function getOtherValueForOtherable(value: string | undefined, predefinedValues: string[]): string | undefined {
+  if (value != null && !predefinedValues.includes(value)) {
+    return value;
+  }
+  return undefined;
 }

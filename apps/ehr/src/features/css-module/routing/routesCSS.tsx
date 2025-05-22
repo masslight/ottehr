@@ -54,6 +54,7 @@ export enum ROUTER_PATH {
 
   PROCEDURES = 'procedures',
   PROCEDURES_NEW = 'procedures/new',
+  PROCEDURES_EDIT = 'procedures/:procedureId',
 
   IN_HOUSE_LAB_ORDERS = 'in-house-lab-orders',
   IN_HOUSE_LAB_ORDER_CREATE = `in-house-lab-orders/create`,
@@ -205,6 +206,14 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     isSkippedInNavigation: true,
     element: <ProceduresNew />,
     text: 'Document Procedure ',
+    iconKey: 'Procedures',
+  },
+  [ROUTER_PATH.PROCEDURES_EDIT]: {
+    path: ROUTER_PATH.PROCEDURES_EDIT,
+    modes: ['provider'],
+    isSkippedInNavigation: true,
+    element: <ProceduresNew />,
+    text: 'Edit Procedure ',
     iconKey: 'Procedures',
   },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDERS]: {

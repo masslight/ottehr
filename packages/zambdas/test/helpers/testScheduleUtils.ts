@@ -1,5 +1,7 @@
+import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import { FhirResource, Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import _ from 'lodash';
 import { DateTime } from 'luxon';
 import {
   Capacity,
@@ -13,6 +15,9 @@ import {
   ScheduleOverrides,
   SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
+  ClosureType,
+  ScheduleDay,
+  ScheduleOwnerFhirResource,
 } from 'utils';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -20,6 +25,16 @@ type DayLong = (typeof DAYS_LONG)[number];
 
 const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 type DayOfWeek = (typeof DAYS)[number];
+
+interface StartOfDayParams {
+  date?: DateTime;
+  timezone?: string;
+}
+export const startOfDayWithTimezone = (input?: StartOfDayParams): DateTime => {
+  const baseDate = input?.date ?? DateTime.now();
+  const timezone = input?.timezone ?? DEFAULT_TEST_TIMEZONE;
+  return DateTime.fromFormat(baseDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone });
+};
 
 // todo: avoid name collision with fhir resource
 export interface ScheduleDTO {
@@ -54,10 +69,11 @@ interface CreateScheduleConfig {
 export interface OverrideScheduleConfig {
   date: DateTime;
   open: HourOfDay;
-  close: HourOfDay;
+  close: HourOfDay | 24;
   openingBuffer: number;
   closingBuffer: number;
   hourlyCapacity: number;
+  granularCapacityOverride?: Capacity[];
 }
 
 const getStringTime = (hour: number): string => {
@@ -167,7 +183,7 @@ export const makeLocation = (operationHours: LocationHoursOfOperation[]): Locati
 };
 
 interface MakeTestScheduleInput {
-  processId: string;
+  processId?: string;
   locationRef?: string;
   scheduleJsonString?: string;
   scheduleObject?: ScheduleExtension;
@@ -175,8 +191,10 @@ interface MakeTestScheduleInput {
 
 export const DELETABLE_RESOURCE_CODE_PREFIX = 'DELETE_ME-';
 
-export const tagForProcessId = (processId: string): string => {
-  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId}`;
+export const DEFAULT_TEST_TIMEZONE = 'America/New_York';
+
+export const tagForProcessId = (processId?: string): string => {
+  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId ?? 'N/A'}`;
 };
 
 export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
@@ -201,7 +219,7 @@ export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {
     extension: [
       {
         url: 'http://hl7.org/fhir/StructureDefinition/timezone',
-        valueString: 'America/New_York',
+        valueString: DEFAULT_TEST_TIMEZONE,
       },
       {
         url: SCHEDULE_EXTENSION_URL,
@@ -325,9 +343,9 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
   schedule: {
     monday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
-      closingBuffer: 24,
+      closingBuffer: 0,
       workingDay: true,
       hours: [
         {
@@ -430,9 +448,9 @@ export const DEFAULT_SCHEDULE_JSON: ScheduleExtension = {
     },
     tuesday: {
       open: 0,
-      close: 0,
+      close: 24,
       openingBuffer: 0,
-      closingBuffer: 24,
+      closingBuffer: 0,
       workingDay: true,
       hours: [
         {
@@ -1072,8 +1090,9 @@ export const applyBuffersToScheduleExtension = (
   scheduleExt: ScheduleExtension,
   bufferDef: BufferDef
 ): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
   const { openingBuffer, closingBuffer } = bufferDef;
-  const schedule = scheduleExt.schedule;
+  const schedule = scheduleExtCopy.schedule;
 
   const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
     const newOpeningBuffer = openingBuffer ?? daySchedule.openingBuffer;
@@ -1083,13 +1102,14 @@ export const applyBuffersToScheduleExtension = (
   });
   const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
   return {
-    ...scheduleExt,
+    ...scheduleExtCopy,
     schedule: scheduleNew,
   };
 };
 
 export const changeAllCapacities = (scheduleExt: ScheduleExtension, newCapacity: number): ScheduleExtension => {
-  const schedule = scheduleExt.schedule;
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
 
   const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
     const { hours } = daySchedule;
@@ -1100,7 +1120,215 @@ export const changeAllCapacities = (scheduleExt: ScheduleExtension, newCapacity:
   });
   const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
   return {
-    ...scheduleExt,
+    ...scheduleExtCopy,
     schedule: scheduleNew,
   };
+};
+
+export const setSlotLengthInMinutes = (scheduleExt: ScheduleExtension, slotLength: number): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  return {
+    ...scheduleExtCopy,
+    slotLength,
+  };
+};
+
+export const addClosurePeriod = (
+  scheduleExt: ScheduleExtension,
+  start: DateTime,
+  lengthInDays: number
+): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const closure: Closure = {
+    type: ClosureType.Period,
+    start: start.toFormat(OVERRIDE_DATE_FORMAT),
+    end: start.plus({ days: lengthInDays }).toFormat(OVERRIDE_DATE_FORMAT),
+  };
+  console.log('closure: ', closure);
+  return {
+    ...scheduleExtCopy,
+    closures: [...(scheduleExtCopy.closures ?? []), closure],
+  };
+};
+
+export const addClosureDay = (scheduleExt: ScheduleExtension, start: DateTime): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const closure: Closure = {
+    type: ClosureType.OneDay,
+    start: start.toFormat(OVERRIDE_DATE_FORMAT),
+    end: start.toFormat(OVERRIDE_DATE_FORMAT),
+  };
+  console.log('closure: ', closure);
+  return {
+    ...scheduleExtCopy,
+    closures: [...(scheduleExtCopy.closures ?? []), closure],
+  };
+};
+
+export const addOverrides = (
+  scheduleExt: ScheduleExtension,
+  overrides: OverrideScheduleConfig[]
+): ScheduleExtension => {
+  const overridesToAdd: ScheduleOverrides = {};
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+
+  overrides.forEach((override) => {
+    const dateString = override.date.startOf('day').toFormat(OVERRIDE_DATE_FORMAT);
+    const granularCapacityOverride = override.granularCapacityOverride ?? [];
+    overridesToAdd[dateString] = {
+      open: override.open,
+      close: override.close,
+      openingBuffer: override.openingBuffer,
+      closingBuffer: override.closingBuffer,
+      hours: Array.from({ length: 24 }, (_, i) => {
+        let capacity = 0;
+        if (i >= override.open && i < override.close) {
+          const granularOverride = granularCapacityOverride.find((g) => g.hour === i);
+          capacity = granularOverride?.capacity ?? override.hourlyCapacity;
+        }
+        return { hour: i, capacity } as Capacity;
+      }),
+    };
+  });
+  return {
+    ...scheduleExtCopy,
+    scheduleOverrides: {
+      ...(scheduleExtCopy.scheduleOverrides || {}),
+      ...overridesToAdd,
+    },
+  };
+};
+
+export const adjustHoursOfOperation = (
+  scheduleExt: ScheduleExtension,
+  hoursOfOp: HoursOfOpConfig[]
+): ScheduleExtension => {
+  const scheduleExtCopy = _.cloneDeep(scheduleExt);
+  const schedule = scheduleExtCopy.schedule;
+
+  const updatedEntries = Object.entries(schedule).map(([day, daySchedule]) => {
+    const hoursToSet = hoursOfOp.find((hours) => hours.dayOfWeek === day);
+    if (hoursToSet) {
+      const { open, close, workingDay } = hoursToSet;
+      return [
+        day,
+        {
+          ...daySchedule,
+          open,
+          close,
+          workingDay,
+        },
+      ];
+    }
+    return [day, daySchedule];
+  });
+  const scheduleNew = Object.fromEntries(updatedEntries) as ScheduleExtension['schedule'];
+  return {
+    ...scheduleExtCopy,
+    schedule: scheduleNew,
+  };
+};
+
+interface PersistScheduleInput {
+  scheduleExtension: ScheduleExtension;
+  processId: string | null;
+  scheduleOwner?: ScheduleOwnerFhirResource;
+}
+
+interface PersistScheduleOutput {
+  schedule: Schedule;
+  owner?: ScheduleOwnerFhirResource;
+}
+
+export const persistSchedule = async (
+  input: PersistScheduleInput,
+  oystehr: Oystehr
+): Promise<PersistScheduleOutput> => {
+  const { scheduleExtension, processId, scheduleOwner } = input;
+  if (processId === null) {
+    throw new Error('processId is null');
+  }
+
+  let makeOwnerRequest: BatchInputPostRequest<FhirResource> | undefined;
+  if (scheduleOwner) {
+    makeOwnerRequest = {
+      method: 'POST',
+      url: scheduleOwner.resourceType,
+      resource: scheduleOwner,
+      fullUrl: `urn:uuid:${randomUUID()}`,
+    };
+  }
+  const resource = {
+    ...makeSchedule({
+      processId,
+      scheduleObject: scheduleExtension,
+      locationRef: makeOwnerRequest ? makeOwnerRequest.fullUrl : undefined,
+    }),
+    id: undefined,
+  };
+
+  if (makeOwnerRequest) {
+    const results = await oystehr.fhir.transaction({
+      requests: [
+        makeOwnerRequest,
+        {
+          method: 'POST',
+          url: 'Schedule',
+          resource,
+        },
+      ],
+    });
+    const schedule = results.entry?.find((entry) => entry.resource?.resourceType === 'Schedule')?.resource as Schedule;
+    const owner = results.entry?.find((entry) => entry.resource?.resourceType === scheduleOwner?.resourceType)
+      ?.resource as ScheduleOwnerFhirResource;
+    return { schedule, owner };
+  }
+  const schedule = await oystehr.fhir.create<Schedule>(resource);
+  return { schedule, owner: undefined };
+};
+
+export const getScheduleDay = (scheduleExt: ScheduleExtension, day: DateTime): ScheduleDay | undefined => {
+  const weekday = day.toFormat('cccc').toLowerCase() as DOW;
+  console.log('weekday', weekday);
+  const scheduleDay = scheduleExt.schedule[weekday as DOW];
+  console.log('scheduleDay', scheduleDay);
+  return scheduleDay;
+};
+
+export const cleanupTestScheduleResources = async (processId: string, oystehr: Oystehr): Promise<void> => {
+  if (!oystehr || !processId) {
+    throw new Error('oystehr or processId is null! could not clean up!');
+  }
+  const schedulesAndSuch = (
+    await oystehr.fhir.search<FhirResource>({
+      resourceType: 'Schedule',
+      params: [
+        {
+          name: '_tag',
+          value: tagForProcessId(processId),
+        },
+        {
+          name: '_include',
+          value: 'Schedule:actor',
+        },
+        {
+          name: '_revinclude',
+          value: 'Slot:schedule',
+        },
+      ],
+    })
+  ).unbundle();
+
+  const deleteRequests: BatchInputDeleteRequest[] = schedulesAndSuch.map((res) => {
+    return {
+      method: 'DELETE',
+      url: `${res.resourceType}/${res.id}`,
+    };
+  });
+  try {
+    await oystehr.fhir.batch({ requests: deleteRequests });
+  } catch (error) {
+    console.error('Error deleting schedules', error);
+    console.log(`ProcessId ${processId} may need manual cleanup`);
+  }
 };

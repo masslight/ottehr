@@ -18,16 +18,7 @@ import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
 import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
-import {
-  ActivityDefinition,
-  DiagnosticReport,
-  DocumentReference,
-  List,
-  Location,
-  Practitioner,
-  Provenance,
-  Task,
-} from 'fhir/r4b';
+import { DiagnosticReport, DocumentReference, List, Location, Practitioner, Provenance, Task } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
 
 export async function createLabResultPDF(
@@ -164,20 +155,26 @@ export async function createLabResultPDF(
 
   const resultInterpretationDisplays: string[] = [];
   const results: LabResult[] = [];
-  observations.forEach((observation) => {
-    const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
-    const labResult: LabResult = {
-      resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
-      resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
-      resultInterpretation: observation.interpretation?.[0].coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
-      resultInterpretationDisplay: interpretationDisplay || ORDER_RESULT_ITEM_UNKNOWN,
-      resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
-        observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
-      }`,
-    };
-    results.push(labResult);
-    if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
-  });
+  observations
+    // Get the observations that are in diagnostic report result
+    .filter(
+      (observation) =>
+        diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
+    )
+    .forEach((observation) => {
+      const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
+      const labResult: LabResult = {
+        resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+        resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
+        resultInterpretation: observation.interpretation?.[0].coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
+        resultInterpretationDisplay: interpretationDisplay || ORDER_RESULT_ITEM_UNKNOWN,
+        resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
+          observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
+        }`,
+      };
+      results.push(labResult);
+      if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
+    });
 
   const pdfDetail = await createExternalLabsResultsFormPDF(
     {
@@ -212,11 +209,7 @@ export async function createLabResultPDF(
       orderSubmitDate: orderSubmitDate,
       orderCreateDate: orderCreateDate || ORDER_RESULT_ITEM_UNKNOWN,
       orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
-      testName:
-        serviceRequest.contained
-          ?.filter((item): item is ActivityDefinition => item.resourceType === 'ActivityDefinition')
-          .map((resource) => resource.title)
-          .join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
+      testName: diagnosticReport.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
       orderAssessments: serviceRequest.reasonCode.map((code) => ({
         code: code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
         name: code.text || ORDER_RESULT_ITEM_UNKNOWN,

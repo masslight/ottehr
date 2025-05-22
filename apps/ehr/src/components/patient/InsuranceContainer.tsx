@@ -28,7 +28,6 @@ import { dataTestIds } from '../../constants/data-test-ids';
 import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useMutation } from 'react-query';
-import { DateTime } from 'luxon';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -60,7 +59,7 @@ function mapInitialStatus(
     const status = mapEligibilityCheckResultToSimpleStatus(initialCheckResult);
     return {
       status: status.status,
-      dateISO: DateTime.fromISO(status.dateISO).toFormat('MM/dd/yyyy'),
+      dateISO: status.dateISO,
     };
   }
   return undefined;
@@ -70,8 +69,6 @@ interface SimpleStatusCheckWithDate {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
 }
-
-const ELIGIBILITY_CHECK_FLAG: 'OFF' | 'ON' = 'OFF';
 
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   ordinal,
@@ -212,11 +209,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
   };
 
   return (
-    <Section
-      title="Insurance information"
-      dataTestId="insuranceContainer"
-      titleWidget={ELIGIBILITY_CHECK_FLAG !== 'OFF' ? <TitleWidget /> : undefined}
-    >
+    <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}

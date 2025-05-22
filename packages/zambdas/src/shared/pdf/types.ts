@@ -1,4 +1,4 @@
-import { Color, PDFFont, PDFImage } from 'pdf-lib';
+import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
@@ -57,6 +57,11 @@ export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
   drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawStartXPosSpecifiedText: (
+    text: string,
+    textStyle: TextStyle,
+    startingXPos: number
+  ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
   getX: () => number;
@@ -65,6 +70,7 @@ export interface PdfClient {
   setY: (y: number) => void;
   save: () => Promise<Uint8Array>;
   embedFont: (path: Buffer) => Promise<PDFFont>;
+  embedStandardFont: (font: StandardFonts) => Promise<PDFFont>;
   embedImage: (file: Buffer) => Promise<PDFImage>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
   getLeftBound: () => number;

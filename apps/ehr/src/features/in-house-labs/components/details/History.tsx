@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { Box, Button, Divider, Grid, TextField, Typography } from '@mui/material';
-import { LabTest } from '../../labTypes';
+import { LabTest } from 'utils';
 import { DateTime } from 'luxon';
 
 type HistoryProps = {

@@ -73,3 +73,22 @@ export const useSendMessagesMutation = (
     { onSuccess, onError }
   );
 };
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetMessagingConfigQuery = (onSuccess?: (data: any) => void) => {
+  const { oystehr } = useApiClients();
+  return useQuery(
+    'messaging-config',
+    async () => {
+      if (!oystehr) {
+        throw new Error('API client not available');
+      }
+
+      return await oystehr.messaging.getMessagingConfig();
+    },
+    {
+      onSuccess,
+      enabled: !!oystehr,
+    }
+  );
+};

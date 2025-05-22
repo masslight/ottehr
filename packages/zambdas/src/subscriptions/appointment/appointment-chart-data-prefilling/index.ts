@@ -22,7 +22,6 @@ import {
   Secrets,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { checkOrCreateM2MClientToken, saveResourceRequest, topLevelCatch, ZambdaInput } from '../../../shared';
 import {
   createDispositionServiceRequest,
@@ -84,9 +83,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           },
         ],
       })
-    )
-      .unbundle()
-      .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
+    ).unbundle();
     console.log('Got Appointment related resources');
 
     const isInPersonAppointment = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP);
