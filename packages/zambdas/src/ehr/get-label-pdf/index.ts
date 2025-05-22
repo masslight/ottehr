@@ -35,7 +35,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
     }
 
-    const labelPdfs: LabelPdf[] = await Promise.all(
+    const labelPdfs: LabelPdf[] = [];
+
+    await Promise.allSettled(
       labelDocRefs.map(async (labelDocRef) => {
         const url = labelDocRef.content.find((content) => content.attachment.contentType === 'application/pdf')
           ?.attachment.url;
@@ -49,7 +51,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           presignedURL: await getPresignedURL(url, m2mtoken),
         };
       })
-    );
+    ).then((results) => {
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          labelPdfs.push(result.value);
+        }
+      });
+    });
 
     return {
       body: JSON.stringify(labelPdfs),

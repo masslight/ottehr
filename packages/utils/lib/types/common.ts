@@ -769,7 +769,7 @@ export interface GetLabelPdfParameters {
   searchParams: { name: string; value: string }[];
 }
 
-export interface LabelDTO {
+export interface LabelPdf {
   documentReference: DocumentReference;
   presignedURL: string;
 }
