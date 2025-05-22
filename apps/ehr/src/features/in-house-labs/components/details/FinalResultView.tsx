@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Paper, Typography, Button, Chip } from '@mui/material';
 // import { LabTest } from 'utils';
 import { InHouseLabDTO, ResultEntryInput } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 // import { ResultEntryTable } from './ResultsEntryTable';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useForm, FormProvider } from 'react-hook-form';
+import { InHouseLabOrderHistory } from './InhouseLabOrderHistory';
 
 interface FinalResultViewProps {
   testDetails: InHouseLabDTO;
@@ -12,6 +15,8 @@ interface FinalResultViewProps {
 }
 
 export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, onBack }) => {
+  const [showDetails, setShowDetails] = useState(false);
+
   const radioResultMap = testDetails.labDetails.components.radioComponents.reduce((acc: any, item) => {
     if (item.result?.entry) acc[item.observationDefinitionId] = item.result.entry;
     return acc;
@@ -55,6 +60,17 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
             {/* {testDetails.labDetails.components.groupedComponents.length > 0 && (
             <ResultEntryTable testItemComponents={testDetails.labDetails.components.groupedComponents} />
           )} */}
+            <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
+              <Button
+                variant="text"
+                color="primary"
+                onClick={() => setShowDetails(!showDetails)}
+                endIcon={showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+              >
+                Details
+              </Button>
+            </Box>
+            <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
           </Box>
         </Paper>
         <Box display="flex" justifyContent="space-between" alignItems="center" mt={3}>

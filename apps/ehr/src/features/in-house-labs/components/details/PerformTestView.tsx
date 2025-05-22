@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Button, Collapse } from '@mui/material';
+import { Box, Paper, Typography, Button } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { InHouseLabDTO, ResultEntryInput, LoadingState } from 'utils';
@@ -11,6 +11,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { useParams } from 'react-router-dom';
+import { InHouseLabOrderHistory } from './InhouseLabOrderHistory';
 
 interface PerformTestViewProps {
   testDetails: InHouseLabDTO;
@@ -31,10 +32,6 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
   // const [notes, setNotes] = useState(testDetails.notes || '');
   const [submittingResults, setSubmittingResults] = useState<boolean>(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
-
-  const handleToggleDetails = (): void => {
-    setShowDetails(!showDetails);
-  };
 
   // const handleReprintLabel = (): void => {
   //   console.log('Reprinting label for test:', testDetails.serviceRequestId);
@@ -108,14 +105,13 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
                 <Button
                   variant="text"
                   color="primary"
-                  onClick={handleToggleDetails}
+                  onClick={() => setShowDetails(!showDetails)}
                   endIcon={showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                 >
                   Details
                 </Button>
               </Box>
-
-              <Collapse in={showDetails}>{/* todo add history here */}</Collapse>
+              <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
             </Box>
           </Paper>
           <Box display="flex" justifyContent="space-between">

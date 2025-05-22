@@ -49,7 +49,6 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
   return 'UNKNOWN' as 'ORDERED'; // todo: maybe add separate type for unknown status?
 }
 
-// todo can we use determineOrderStatus below?
 export function buildOrderHistory(
   provenances: Provenance[]
   // providerName: string,
@@ -77,6 +76,7 @@ export function buildOrderHistory(
 
   // Add entries from provenances
   provenances.forEach((provenance) => {
+    console.log('provenances here', JSON.stringify(provenances));
     const activityCode = provenance.activity?.coding?.[0]?.code;
 
     // Map activity codes to statuses
@@ -84,9 +84,9 @@ export function buildOrderHistory(
 
     if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code) {
       status = 'ORDERED';
-    } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.collectSpecimen?.code) {
+    } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.collectSpecimen.code) {
       status = 'COLLECTED';
-    } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.submit?.code) {
+    } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults.code) {
       status = 'FINAL';
     }
 

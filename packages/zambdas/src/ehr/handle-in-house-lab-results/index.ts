@@ -189,7 +189,7 @@ const makeResultEntryRequests = (
 ): BatchInputRequest<FhirResource>[] => {
   const { provenancePostRequest, provenanceFullUrl } = makeProvenancePostRequest(
     curUserPractitionerId,
-    irtTask.id || ''
+    serviceRequest.id || ''
   );
 
   const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl);
@@ -399,14 +399,14 @@ const makeDiagnosticReportPostRequest = (
 
 const makeProvenancePostRequest = (
   curUserPractitionerId: string,
-  irtTaskId: string
+  serviceRequestId: string
 ): { provenancePostRequest: BatchInputPostRequest<Provenance>; provenanceFullUrl: string } => {
   const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
   const provenanceConfig: Provenance = {
     resourceType: 'Provenance',
     target: [
       {
-        reference: `Task/${irtTaskId}`,
+        reference: `ServiceRequest/${serviceRequestId}`,
       },
     ],
     activity: {
