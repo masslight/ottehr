@@ -229,6 +229,8 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
                 </Box>
               </Box>
 
+              {/* The below logic assums that ODS with be grouped by radios and by numeric/select options  */}
+
               {testItem.components.radioComponents.map((component) => {
                 return <ResultEntryRadioButton testItemComponent={component} />;
               })}

@@ -5,15 +5,26 @@ import { useFormContext, Controller } from 'react-hook-form';
 interface ResultEntrySelectProps {
   testItemComponent: TestItemComponent;
   isAbnormal: boolean;
-  assessAbnormality: (entry: string) => void;
+  setIsAbnormal: (bool: boolean) => void;
 }
 
 export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   testItemComponent,
   isAbnormal,
-  assessAbnormality,
+  setIsAbnormal,
 }) => {
   const { control } = useFormContext();
+
+  const assessAbnormality = (entry: string): void => {
+    if (testItemComponent.dataType === 'CodeableConcept' && testItemComponent.abnormalValues) {
+      if (testItemComponent.abnormalValues.includes(entry)) {
+        setIsAbnormal(true);
+      } else {
+        setIsAbnormal(false);
+      }
+    }
+  };
+
   let values: string[] = [];
   if (testItemComponent.dataType === 'CodeableConcept') {
     values = testItemComponent.valueSet;

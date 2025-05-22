@@ -352,6 +352,7 @@ const determineQuantInterpretation = (
   }
 };
 
+// todo should also validate that the value passed is contained within normal values
 const deteremineCodeableConceptInterpretation = (value: string, abnormalValues: string[]): CodeableConcept => {
   if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
     return INDETERMINATE_OBSERVATION_INTERPRETATION;
