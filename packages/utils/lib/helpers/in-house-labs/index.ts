@@ -174,7 +174,7 @@ const processObservationDefinition = (
 
 export const convertActivityDefinitionToTestItem = (
   activityDef: ActivityDefinition,
-  observations: Observation[]
+  observations?: Observation[]
 ): TestItem => {
   const name = activityDef.name || '';
 

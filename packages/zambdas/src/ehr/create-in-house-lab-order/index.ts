@@ -6,7 +6,6 @@ import {
   FHIR_IDC10_VALUESET_SYSTEM,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  IN_HOUSE_LAB_DOCREF_CATEGORY,
 } from 'utils';
 import {
   ZambdaInput,
@@ -25,7 +24,6 @@ import {
   Location,
   ActivityDefinition,
   Provenance,
-  DocumentReference,
   Task,
   FhirResource,
 } from 'fhir/r4b';
@@ -297,37 +295,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ],
     };
 
-    const documentReferenceConfig: DocumentReference = {
-      resourceType: 'DocumentReference',
-      context: {
-        related: [{ reference: serviceRequestFullUrl }],
-      },
-      // todo: will be implemented later - https://github.com/masslight/ottehr/issues/2152
-      content: [
-        {
-          attachment: {
-            contentType: 'text/plain',
-            data: Buffer.from(
-              'Placeholder for future content https://github.com/masslight/ottehr/issues/2152'
-            ).toString('base64'),
-          },
-        },
-      ],
-      date: DateTime.now().toISO(),
-      status: 'current',
-      docStatus: 'final',
-      category: [
-        {
-          coding: [
-            {
-              system: IN_HOUSE_LAB_DOCREF_CATEGORY.system,
-              code: IN_HOUSE_LAB_DOCREF_CATEGORY.code.sampleLabel,
-            },
-          ],
-        },
-      ],
-    };
-
     const transactionResponse = await oystehr.fhir.transaction({
       requests: [
         {
@@ -345,11 +312,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           method: 'POST',
           url: '/Provenance',
           resource: provenanceConfig,
-        },
-        {
-          method: 'POST',
-          url: '/DocumentReference',
-          resource: documentReferenceConfig,
         },
       ] as BatchInputRequest<FhirResource>[],
     });

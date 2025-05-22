@@ -3,7 +3,7 @@ import { Box, Paper, Typography, Button, CircularProgress } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
-import { ResultEntryView } from '../components/details/ResultEntryView';
+import { PerformTestView } from '../components/details/PerformTestView';
 import { FinalResultView } from '../components/details/FinalResultView';
 import { getSelectors, MarkAsCollectedData, InHouseLabDTO, LoadingState } from 'utils';
 import { useAppointmentStore } from 'src/telemed';
@@ -107,7 +107,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
               <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
             );
           case 'COLLECTED':
-            return <ResultEntryView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
+            return <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
           case 'FINAL':
             return <FinalResultView testDetails={testDetails} onBack={handleBack} />;
           default:
