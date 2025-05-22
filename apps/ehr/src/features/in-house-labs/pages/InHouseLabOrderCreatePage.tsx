@@ -47,20 +47,27 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   const { diagnosis = [] } = chartData || {};
   const didPrimaryDiagnosisInit = useRef(false);
-  const [selectedDiagnoses, setSelectedDiagnoses] = useState<DiagnosisDTO[]>([]);
 
-  // init selectedDiagnoses with primary diagnosis
+  // already added diagnoses, the may have "added via lab order" flag with true and false value
+  // so, the select "select dx" will show all diagnoses which are showed in the Assessment page no matter what source they have
+  const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>([]);
+
+  // new diagnoses, the will have "added via lab order" flag with true value,
+  // and they will be linked to appointment resources in the create-in-house-lab-order zambda
+  const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>([]);
+
+  // init selectedAssessmentDiagnoses with primary diagnosis
   useEffect(() => {
     if (didPrimaryDiagnosisInit.current) {
       return;
     }
     const primaryDiagnosis = [chartData?.diagnosis?.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
 
-    if (primaryDiagnosis.length && !selectedDiagnoses.length) {
-      setSelectedDiagnoses(primaryDiagnosis);
+    if (primaryDiagnosis.length && !selectedAssessmentDiagnoses.length) {
+      setSelectedAssessmentDiagnoses(primaryDiagnosis);
       didPrimaryDiagnosisInit.current = true;
     }
-  }, [chartData?.diagnosis, selectedDiagnoses]);
+  }, [chartData?.diagnosis, selectedAssessmentDiagnoses]);
 
   // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -114,24 +121,20 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     const encounterId = encounter.id;
-    const canBeSubmitted = encounterId && selectedTest && selectedCptCode && selectedDiagnoses.length;
+    const canBeSubmitted =
+      encounterId &&
+      selectedTest &&
+      selectedCptCode &&
+      (selectedAssessmentDiagnoses.length || selectedNewDiagnoses.length);
 
     if (oystehrZambda && canBeSubmitted) {
       try {
-        await createInHouseLabOrder(oystehrZambda, {
+        const res = await createInHouseLabOrder(oystehrZambda, {
           encounterId,
           testItem: selectedTest,
           cptCode: selectedCptCode,
-
-          // filter out dx that are already on the encounter
-          diagnoses: selectedDiagnoses
-            .filter((dx) => !diagnosis.find((d) => d.code === dx.code))
-            .map((dx) => ({
-              ...dx,
-              isPrimary: false,
-              addedViaLabOrder: true,
-            })),
-
+          diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
+          diagnosesNew: selectedNewDiagnoses,
           notes: notes,
         });
 
@@ -146,7 +149,9 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           window.open(labelPdf.presignedURL, '_blank');
         }
 
-        navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);
+        if (res.serviceRequestId) {
+          navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
+        }
       } catch (e) {
         console.error(e);
         setError(['There was an error creating this lab order']);
@@ -155,7 +160,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       }
     } else if (!canBeSubmitted) {
       const errorMessage: string[] = [];
-      if (!selectedDiagnoses.length) errorMessage.push('Please enter at least one dx');
+      if (!selectedAssessmentDiagnoses.length && !selectedNewDiagnoses.length)
+        errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
       if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
@@ -313,17 +319,16 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     labelId="diagnosis-label"
                     id="diagnosis"
                     multiple
-                    value={selectedDiagnoses.filter((dx) => !dx.addedViaLabOrder).map((dx) => dx.code)}
+                    value={selectedAssessmentDiagnoses.map((dx) => dx.code)}
                     label="Select Dx"
                     onChange={(e) => {
                       const dxCodesFromSelect = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
-                      const alreadySelectedAddedViaLabOrder = selectedDiagnoses.filter((dx) => dx.addedViaLabOrder);
 
                       const diagnosesFomSelect = dxCodesFromSelect
                         .map((code) => diagnosis.find((dx) => dx.code === code))
                         .filter((dx): dx is DiagnosisDTO => Boolean(dx));
 
-                      setSelectedDiagnoses([...diagnosesFomSelect, ...alreadySelectedAddedViaLabOrder]);
+                      setSelectedAssessmentDiagnoses([...diagnosesFomSelect]);
                     }}
                     renderValue={(selected) => {
                       if (selected.length === 0) {
@@ -361,10 +366,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     if (!selectedDx) {
                       return;
                     }
-                    const alreadySelected = selectedDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
+                    const alreadySelected = selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
                     if (!alreadySelected) {
-                      setSelectedDiagnoses([
-                        ...(selectedDiagnoses || []),
+                      setSelectedNewDiagnoses((diagnoses) => [
+                        ...diagnoses,
                         { ...selectedDx, addedViaLabOrder: true, isPrimary: false },
                       ]);
                     } else {
@@ -390,11 +395,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                 />
               </Grid>
 
-              {selectedDiagnoses.length > 0 && (
+              {(selectedAssessmentDiagnoses.length > 0 || selectedNewDiagnoses.length > 0) && (
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <ActionsList
-                      data={selectedDiagnoses}
+                      data={selectedAssessmentDiagnoses}
                       getKey={(value, index) => value.resourceId || index}
                       renderItem={(value) => (
                         <Typography>
@@ -404,7 +409,27 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       renderActions={(value) => (
                         <DeleteIconButton
                           onClick={() =>
-                            setSelectedDiagnoses(() => selectedDiagnoses.filter((dxVal) => dxVal.code !== value.code))
+                            setSelectedAssessmentDiagnoses((diagnoses) =>
+                              diagnoses.filter((dxVal) => dxVal.code !== value.code)
+                            )
+                          }
+                        />
+                      )}
+                    />
+                    <ActionsList
+                      data={selectedNewDiagnoses}
+                      getKey={(value, index) => value.resourceId || index}
+                      renderItem={(value) => (
+                        <Typography>
+                          {value.display} {value.code}
+                        </Typography>
+                      )}
+                      renderActions={(value) => (
+                        <DeleteIconButton
+                          onClick={() =>
+                            setSelectedNewDiagnoses((diagnoses) =>
+                              diagnoses.filter((dxVal) => dxVal.code !== value.code)
+                            )
                           }
                         />
                       )}
@@ -450,7 +475,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     <Button
                       variant="contained"
                       onClick={(e) => handleSubmit(e, true)}
-                      disabled={!selectedTest || !selectedCptCode || selectedDiagnoses.length === 0}
+                      disabled={
+                        !selectedTest ||
+                        !selectedCptCode ||
+                        (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
+                      }
                       sx={{
                         borderRadius: '50px',
                         px: 4,
@@ -463,7 +492,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     <Button
                       variant="contained"
                       type="submit"
-                      disabled={!selectedTest || !selectedCptCode || selectedDiagnoses.length === 0}
+                      disabled={
+                        !selectedTest ||
+                        !selectedCptCode ||
+                        (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
+                      }
                       sx={{
                         borderRadius: '50px',
                         px: 4,

@@ -11,13 +11,15 @@ import {
   MenuItem,
   IconButton,
   Collapse,
+  Input,
   useTheme,
   Stack,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
-import { LabTest, inHouseLabsTestStatuses } from 'utils';
+import { InHouseLabDTO, MarkAsCollectedData } from 'utils';
+import { DateTime } from 'luxon';
+import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { getOrCreateVisitLabel } from 'src/api/api';
@@ -25,18 +27,23 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 
 interface CollectSampleViewProps {
-  testDetails: LabTest;
+  testDetails: InHouseLabDTO;
   onBack: () => void;
-  onSubmit: (data: any) => void; // todo: type this (TestStatus)
+  onSubmit: (data: MarkAsCollectedData) => void;
 }
 
 export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetails, onBack, onSubmit }) => {
   const [showSampleCollection, setShowSampleCollection] = useState(true);
   const [sourceType, setSourceType] = useState('');
-  const [collectedBy, setCollectedBy] = useState('');
-  const [collectionDate, setCollectionDate] = useState('');
-  const [collectionTime, setCollectionTime] = useState('');
+  const [collectedById, setCollectedById] = useState('');
+
+  const initialDateTime = DateTime.now();
+  const [date, setDate] = useState(initialDateTime);
+  const dateValue = date.toFormat('yyyy-MM-dd');
+  const timeValue = date.toFormat('HH:mm');
+
   const [notes, setNotes] = useState(testDetails.notes || '');
+  const [showDetails, setShowDetails] = useState(false);
   const [labelButtonLoading, setLabelButtonLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -44,18 +51,28 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const { oystehrZambda } = useApiClients();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
+  const providers =
+    testDetails.currentUserId !== testDetails.providerId
+      ? [
+          { name: testDetails.currentUserName, id: testDetails.currentUserId },
+          { name: testDetails.providerName, id: testDetails.providerId },
+        ]
+      : [{ name: testDetails.currentUserName, id: testDetails.currentUserId }];
+
   const handleToggleSampleCollection = (): void => {
     setShowSampleCollection(!showSampleCollection);
   };
 
+  const handleToggleDetails = (): void => {
+    setShowDetails(!showDetails);
+  };
+
   const handleMarkAsCollected = (): void => {
     onSubmit({
-      status: inHouseLabsTestStatuses.COLLECTED,
       specimen: {
         source: sourceType,
-        collectedBy,
-        collectionDate,
-        collectionTime,
+        collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
+        collectionDate: date.toISO(),
       },
       notes,
     });
@@ -78,6 +95,34 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
     }
   };
 
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const newValue = e.target.value;
+
+    if (newValue && newValue.length === 10) {
+      const newDate = DateTime.fromFormat(newValue, 'yyyy-MM-dd').set({
+        hour: date.hour,
+        minute: date.minute,
+      });
+
+      if (newDate.isValid) {
+        setDate(newDate);
+      }
+    }
+  };
+
+  const handleTimeChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>): void => {
+    const newValue = e.target.value;
+
+    if (newValue && newValue.length === 5) {
+      const [hour, minute] = newValue.split(':').map(Number);
+      const newDate = date.set({ hour, minute });
+
+      if (newDate.isValid) {
+        setDate(newDate);
+      }
+    }
+  };
+
   return (
     <Box>
       <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
@@ -88,10 +133,10 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
         Collect Sample
       </Typography>
 
-      <Paper sx={{ mb: 2 }}>
+      <Paper sx={{ mb: 2, borderRadius: '8px', boxShadow: '0px 1px 3px rgba(0,0,0,0.1)' }}>
         <Box sx={{ p: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h5" color="primary.dark" fontWeight="bold">
+            <Typography variant="h5" color="primary.dark" fontWeight="bold" sx={{ fontSize: '1.5rem' }}>
               {testDetails.name}
             </Typography>
             <Box
@@ -102,10 +147,10 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 px: 2,
                 py: 0.5,
                 borderRadius: '4px',
-                fontSize: '0.75rem',
+                fontSize: '0.87rem',
               }}
             >
-              ORDERED
+              {testDetails.status.toUpperCase()}
             </Box>
           </Box>
 
@@ -117,6 +162,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 backgroundColor: '#F8F9FA',
                 p: 2,
                 cursor: 'pointer',
+                borderRadius: '8px',
               }}
               onClick={handleToggleSampleCollection}
             >
@@ -136,18 +182,11 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                       Source
                     </Typography>
                     <FormControl fullWidth>
-                      <Select
+                      <Input
                         value={sourceType}
                         onChange={(e) => setSourceType(e.target.value)}
-                        displayEmpty
-                        sx={{ '& .MuiSelect-select': { py: 1.5 } }}
-                      >
-                        <MenuItem value="">Select</MenuItem>
-                        <MenuItem value="Blood">Blood</MenuItem>
-                        <MenuItem value="Urine">Urine</MenuItem>
-                        <MenuItem value="Throat">Throat</MenuItem>
-                        <MenuItem value="Nasal">Nasal</MenuItem>
-                      </Select>
+                        placeholder="Enter source"
+                      />
                     </FormControl>
                   </Grid>
 
@@ -157,15 +196,21 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                     </Typography>
                     <FormControl fullWidth>
                       <Select
-                        value={collectedBy}
-                        onChange={(e) => setCollectedBy(e.target.value)}
+                        value={collectedById}
+                        onChange={(e) => setCollectedById(e.target.value)}
                         displayEmpty
-                        sx={{ '& .MuiSelect-select': { py: 1.5 } }}
+                        sx={{
+                          '& .MuiSelect-select': { py: 1.5 },
+                          borderRadius: '4px',
+                        }}
+                        renderValue={(value) => (value ? providers.find((p) => p.id === value)?.name : 'Select')}
                       >
                         <MenuItem value="">Select</MenuItem>
-                        <MenuItem value="Samanta Brooks">Samanta Brooks</MenuItem>
-                        <MenuItem value="John Smith">John Smith</MenuItem>
-                        <MenuItem value="Jane Doe">Jane Doe</MenuItem>
+                        {providers.map((provider) => (
+                          <MenuItem key={provider.id} value={provider.id}>
+                            {provider.name}
+                          </MenuItem>
+                        ))}
                       </Select>
                     </FormControl>
                   </Grid>
@@ -176,11 +221,12 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                     </Typography>
                     <FormControl fullWidth>
                       <TextField
-                        value={collectionDate}
-                        onChange={(e) => setCollectionDate(e.target.value)}
-                        placeholder="MM/DD/YYYY"
-                        InputProps={{
-                          endAdornment: <CalendarTodayIcon color="action" />,
+                        type="date"
+                        value={dateValue}
+                        onChange={handleDateChange}
+                        sx={{
+                          '& .MuiInputBase-input': { py: 1.5 },
+                          '& .MuiOutlinedInput-root': { borderRadius: '4px' },
                         }}
                       />
                     </FormControl>
@@ -191,19 +237,15 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                       Collection time
                     </Typography>
                     <FormControl fullWidth>
-                      {/* todo: add date picker here */}
-                      <Select
-                        value={collectionTime}
-                        onChange={(e) => setCollectionTime(e.target.value)}
-                        displayEmpty
-                        sx={{ '& .MuiSelect-select': { py: 1.5 } }}
-                      >
-                        <MenuItem value="">Select</MenuItem>
-                        <MenuItem value="9:00 AM">9:00 AM</MenuItem>
-                        <MenuItem value="9:20 AM">9:20 AM</MenuItem>
-                        <MenuItem value="9:30 AM">9:30 AM</MenuItem>
-                        <MenuItem value="10:00 AM">10:00 AM</MenuItem>
-                      </Select>
+                      <TextField
+                        type="time"
+                        value={timeValue}
+                        onChange={(e) => handleTimeChange(e)}
+                        sx={{
+                          '& .MuiInputBase-input': { py: 1.5 },
+                          '& .MuiOutlinedInput-root': { borderRadius: '4px' },
+                        }}
+                      />
                     </FormControl>
                   </Grid>
                 </Grid>
@@ -211,13 +253,40 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
             </Collapse>
           </Box>
 
-          <Box sx={{ mt: 3 }}>
+          <Box sx={{ mt: 3, px: 2 }}>
             <Typography variant="body2" sx={{ mb: 1 }}>
               Notes
             </Typography>
-            <TextField fullWidth multiline rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} />
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': { borderRadius: '4px' },
+              }}
+            />
           </Box>
 
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'end',
+              alignItems: 'center',
+              mt: 3,
+              cursor: 'pointer',
+              color: '#4285f4',
+            }}
+            onClick={handleToggleDetails}
+          >
+            <Typography sx={{ fontWeight: 'medium' }}>Details</Typography>
+            <IconButton size="small" color="primary">
+              {showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+            </IconButton>
+          </Box>
+
+          <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
           <Stack display="flex">
             <Box display="flex" justifyContent="space-between" mt={3}>
               <LoadingButton
@@ -233,8 +302,18 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                 variant="contained"
                 color="primary"
                 onClick={handleMarkAsCollected}
-                disabled={!sourceType || !collectedBy || !collectionDate || !collectionTime}
-                sx={{ borderRadius: '50px', px: 4 }}
+                disabled={!sourceType || !collectedById || !date.isValid}
+                sx={{
+                  borderRadius: '50px',
+                  px: 4,
+                  py: 1.5,
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  backgroundColor: '#4285f4',
+                  '&:hover': {
+                    backgroundColor: '#3367d6',
+                  },
+                }}
               >
                 Mark as Collected
               </Button>
@@ -246,7 +325,17 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
         </Box>
       </Paper>
 
-      <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4 }}>
+      <Button
+        variant="outlined"
+        onClick={onBack}
+        sx={{
+          borderRadius: '50px',
+          px: 4,
+          py: 1.5,
+          textTransform: 'none',
+          fontSize: '1rem',
+        }}
+      >
         Back
       </Button>
     </Box>
