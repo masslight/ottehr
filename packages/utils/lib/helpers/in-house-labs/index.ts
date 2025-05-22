@@ -253,29 +253,29 @@ export const convertActivityDefinitionToTestItem = (
 };
 
 const getResult = (
-  obervation: Observation | undefined,
+  observation: Observation | undefined,
   dataType: 'CodeableConcept' | 'Quantity'
 ): TestComponentResult | undefined => {
-  if (!obervation) return;
+  if (!observation) return;
   let result: TestComponentResult | undefined;
   let entry: string | undefined;
   if (dataType === 'CodeableConcept') {
-    entry = obervation.valueString;
+    entry = observation.valueString;
   } else {
-    entry = obervation?.valueQuantity?.toString();
+    entry = observation?.valueQuantity?.toString();
   }
-  const interpretationCoding = obervation.interpretation?.find(
+  const interpretationCoding = observation.interpretation?.find(
     (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
   )?.coding;
-  let isAbnormal: ObservationCode | undefined;
+  let interpretationCode: ObservationCode | undefined;
   if (interpretationCoding) {
-    isAbnormal = interpretationCoding.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
+    interpretationCode = interpretationCoding.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
       ?.code as ObservationCode;
   }
-  if (entry && isAbnormal) {
+  if (entry && interpretationCode) {
     result = {
       entry,
-      isAbnormal,
+      interpretationCode,
     };
   }
   return result;

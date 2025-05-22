@@ -743,6 +743,8 @@ export const getCreateInHouseLabOrderResources = async (
   }
 };
 
+// todo this is temp to facilitate faster dev while the get-orders zambda that will be called by both
+// the tables and the detail page is being worked on
 export const getInHouseLabOrderDetail = async (
   oystehr: Oystehr,
   parameters: { serviceRequestId: string }

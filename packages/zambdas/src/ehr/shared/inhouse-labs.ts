@@ -1,5 +1,5 @@
-import { TestStatus, IN_HOUSE_LAB_TASK } from 'utils';
-import { Coding, Task, ServiceRequest } from 'fhir/r4b';
+import { TestStatus, IN_HOUSE_LAB_TASK, PROVENANCE_ACTIVITY_CODING_ENTITY } from 'utils';
+import { Coding, Task, ServiceRequest, Provenance } from 'fhir/r4b';
 
 export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task[]): TestStatus {
   if (!serviceRequest) return 'ORDERED';
@@ -57,4 +57,63 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
   }
 
   return 'UNKNOWN' as 'ORDERED'; // todo: maybe add separate type for unknown status?
+}
+
+// todo can we use determineOrderStatus below?
+export function buildOrderHistory(
+  provenances: Provenance[]
+  // providerName: string,
+  // currentPractitionerName: string
+): {
+  status: TestStatus;
+  providerName: string;
+  date: string;
+}[] {
+  const history: {
+    status: TestStatus;
+    providerName: string;
+    date: string;
+  }[] = [];
+
+  // todo: it seems that adding from provenances is enough, so we can remove this
+  // Add order creation entry if we have a service request
+  // if (serviceRequest?.authoredOn) {
+  //   history.push({
+  //     status: 'ORDERED',
+  //     providerName,
+  //     date: serviceRequest.authoredOn,
+  //   });
+  // }
+
+  // Add entries from provenances
+  provenances.forEach((provenance) => {
+    const activityCode = provenance.activity?.coding?.[0]?.code;
+
+    // Map activity codes to statuses
+    let status: TestStatus | undefined;
+
+    if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code) {
+      status = 'ORDERED';
+    } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.collectSpecimen?.code) {
+      status = 'COLLECTED';
+    } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.submit?.code) {
+      status = 'FINAL';
+    }
+
+    if (status && provenance.recorded) {
+      const agentName = provenance.agent?.[0]?.who?.display || '';
+
+      history.push({
+        status,
+        providerName: agentName,
+        date: provenance.recorded,
+      });
+    }
+  });
+
+  history.sort((a, b) => {
+    return new Date(a.date).getTime() - new Date(b.date).getTime();
+  });
+
+  return history;
 }

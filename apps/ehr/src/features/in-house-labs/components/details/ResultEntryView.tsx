@@ -3,7 +3,6 @@ import { Box, Paper, Typography, Button, Collapse } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { InHouseLabDTO, ResultEntryInput, LoadingState } from 'utils';
-import { History } from './History';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
 import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
@@ -29,7 +28,7 @@ export const ResultEntryView: React.FC<ResultEntryViewProps> = ({ testDetails, s
   const { oystehrZambda: oystehr } = useApiClients();
 
   const [showDetails, setShowDetails] = useState(false);
-  const [notes, setNotes] = useState(testDetails.notes || '');
+  // const [notes, setNotes] = useState(testDetails.notes || '');
   const [submittingResults, setSubmittingResults] = useState<boolean>(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
 
@@ -37,9 +36,9 @@ export const ResultEntryView: React.FC<ResultEntryViewProps> = ({ testDetails, s
     setShowDetails(!showDetails);
   };
 
-  const handleReprintLabel = (): void => {
-    console.log('Reprinting label for test:', testDetails.serviceRequestId);
-  };
+  // const handleReprintLabel = (): void => {
+  //   console.log('Reprinting label for test:', testDetails.serviceRequestId);
+  // };
 
   const handleResultEntrySubmit: SubmitHandler<ResultEntryInput> = async (data): Promise<void> => {
     setSubmittingResults(true);
@@ -116,14 +115,7 @@ export const ResultEntryView: React.FC<ResultEntryViewProps> = ({ testDetails, s
                 </Button>
               </Box>
 
-              <Collapse in={showDetails}>
-                <History
-                  testDetails={testDetails}
-                  setNotes={setNotes}
-                  notes={notes}
-                  handleReprintLabel={handleReprintLabel}
-                />
-              </Collapse>
+              <Collapse in={showDetails}>{/* todo add history here */}</Collapse>
             </Box>
           </Paper>
           <Box display="flex" justifyContent="space-between">

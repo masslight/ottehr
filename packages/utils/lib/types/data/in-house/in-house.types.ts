@@ -17,7 +17,7 @@ export type ObservationCode = (typeof OBSERVATION_CODES)[keyof typeof OBSERVATIO
 
 export interface TestComponentResult {
   entry: string;
-  isAbnormal: ObservationCode;
+  interpretationCode: ObservationCode;
 }
 export interface BaseComponent {
   componentName: string;
