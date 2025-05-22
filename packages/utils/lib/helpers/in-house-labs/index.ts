@@ -11,6 +11,7 @@ import {
   OBSERVATION_INTERPRETATION_SYSTEM,
   ObservationCode,
   TestComponentResult,
+  IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
 } from 'utils';
 
 // TODO TEMP PUTTING THIS HERE WHILE I TEST THE FRONT END
@@ -118,14 +119,24 @@ const processObservationDefinition = (
     [];
 
   if (dataType === 'CodeableConcept') {
-    const normalValueSetRef = obsDef.validCodedValueSet?.reference?.substring(1); // Remove the '#'
+    const validValueSetRef = obsDef.validCodedValueSet?.reference?.substring(1); // Remove the '#'
 
-    const normalValueSet = containedResources.find(
-      (res) => res.resourceType === 'ValueSet' && res.id === normalValueSetRef
+    const validValueSet = containedResources.find(
+      (res) => res.resourceType === 'ValueSet' && res.id === validValueSetRef
     ) as ValueSet | undefined;
 
-    const valueSet = normalValueSet ? extractValueSetValues(normalValueSet) : [];
+    const valueSet = validValueSet ? extractValueSetValues(validValueSet) : [];
     const abnormalValues = extractAbnormalValueSetValues(obsDef, containedResources);
+
+    const refRangeValueSet = containedResources.find(
+      (res) => res.resourceType === 'ValueSet' && res.id === obsDef.normalCodedValueSet?.reference?.substring(1)
+    ) as ValueSet | undefined;
+
+    const referenceRangeValues = refRangeValueSet ? extractValueSetValues(refRangeValueSet) : [];
+
+    const unit =
+      obsDef.quantitativeDetails?.unit?.coding?.find((coding) => coding.system === IN_HOUSE_UNIT_OF_MEASURE_SYSTEM)
+        ?.code ?? undefined;
 
     const displayType = extractDisplayType(obsDef, componentName);
     if (displayType === 'Numeric')
@@ -143,6 +154,8 @@ const processObservationDefinition = (
       dataType,
       valueSet,
       abnormalValues,
+      referenceRangeValues,
+      unit,
       displayType,
       nullOption,
       result,

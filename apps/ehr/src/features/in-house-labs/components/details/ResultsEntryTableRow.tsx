@@ -30,6 +30,17 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     units = component.unit;
     referenceRange = `${component.normalRange.low} - ${component.normalRange.high}`;
   }
+
+  if (component.dataType === 'CodeableConcept') {
+    units = component.unit ?? '';
+    referenceRange =
+      component.referenceRangeValues
+        ?.map((refRange) => {
+          return refRange.charAt(0).toUpperCase() + refRange.slice(1);
+        })
+        .join(', ') ?? '';
+  }
+
   if (component.displayType === 'Numeric') {
     valueElement = (
       <ResultEntryNumericInput
