@@ -33,3 +33,15 @@ export const getInHouseLabOrderCreateUrl = (appointmentId: string): string => {
 export const getInHouseLabOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
   return `/in-person/${appointmentId}/in-house-lab-orders/${serviceRequestId}/order-details`;
 };
+
+export const getNursingOrdersUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/nursing-orders`;
+};
+
+export const getNursingOrderCreateUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/nursing-orders/create`;
+};
+
+export const getNursingOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/nursing-orders/${serviceRequestId}/order-details`;
+};
