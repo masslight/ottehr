@@ -38,7 +38,7 @@ Chrome and Safari are the preferred browsers for the label printing workflow, bu
 - Select Landscape orientation
 - Scaling should be 100%
 - Ensure nothing is selected under the Layout section
-- Under the Paper Hnadling section, ensure nothing is selected. DO NOT scale to fit paper size
+- Under the Paper Handling section, ensure nothing is selected. DO NOT scale to fit paper size
 - Click Print
 
 When you next print, under "Presets" select "Last Used Settings." You can also save these settings as a preset.
@@ -49,4 +49,4 @@ Edge had odd printing behavior at times, for example only allowing a pdf to be p
 
 #### Firefox
 
-We have observed that Firefox does not correctly transmit orientation metadata to the printer and as a result labels are not printed correctly from Firefox. This is a known issue with Firefix. We do not recommend printing labels through this browser at this time.
+We have observed that Firefox does not correctly transmit orientation metadata to the printer and as a result labels are not printed correctly from Firefox. This is a known issue with Firefox. We do not recommend printing labels through this browser at this time.
