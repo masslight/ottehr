@@ -37,6 +37,7 @@ import {
   CreateInHouseLabOrderParameters,
   GetLabelPdfParameters,
   LabelPdf,
+  GetVisitLabelInput,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -92,6 +93,7 @@ const COLLECT_IN_HOUSE_LAB_SPECIMEN = import.meta.env.VITE_APP_COLLECT_IN_HOUSE_
 const HANDLE_IN_HOUSE_LAB_RESULTS = import.meta.env.VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS;
 const DELETE_IN_HOUSE_LAB_ORDER = import.meta.env.VITE_APP_DELETE_IN_HOUSE_LAB_ORDER;
 const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
+const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
 
 export const getUser = async (token: string): Promise<User> => {
   const oystehr = new Oystehr({
@@ -130,6 +132,23 @@ export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParam
 
     const response = await oystehr.zambda.execute({
       id: GET_LABEL_PDF_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.error(error);
+    throw error;
+  }
+};
+
+export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVisitLabelInput): Promise<LabelPdf[]> => {
+  try {
+    if (GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID == null) {
+      throw new Error('get-label-pdf evironment variable could not be loaded');
+    }
+
+    const response = await oystehr.zambda.execute({
+      id: GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID,
       ...parameters,
     });
     return chooseJson(response);
