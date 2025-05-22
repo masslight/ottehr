@@ -58,7 +58,7 @@ export const NursingOrdersTable = ({
   if (loading) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1">Loading lab orders...</Typography>
+        <Typography variant="body1">Loading nursing orders...</Typography>
       </Paper>
     );
   }
@@ -67,11 +67,11 @@ export const NursingOrdersTable = ({
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="error" variant="body1" gutterBottom>
-          {error.message || 'Failed to fetch lab orders. Please try again later.'}
+          {error.message || 'Failed to fetch nursing orders. Please try again later.'}
         </Typography>
         {onCreateOrder && (
           <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-            Create New Lab Order
+            Create New Nursing Order
           </Button>
         )}
       </Paper>
@@ -120,11 +120,11 @@ export const NursingOrdersTable = ({
         {!Array.isArray(nursingOrders) || nursingOrders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" gutterBottom>
-              No lab orders to display
+              No nursing orders to display
             </Typography>
             {onCreateOrder && (
               <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                Create New Lab Order
+                Create New Nursing Order
               </Button>
             )}
           </Box>

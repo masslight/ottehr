@@ -46,7 +46,7 @@ export const useNursingOrders = (): any => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchLabOrders = useCallback(async (): Promise<void> => {
+  const fetchNursingOrders = useCallback(async (): Promise<void> => {
     if (!oystehrZambda) {
       console.error('oystehrZambda is not defined');
       return;
@@ -60,7 +60,7 @@ export const useNursingOrders = (): any => {
       try {
         response = await getNursingOrders(oystehrZambda);
       } catch (err) {
-        console.error('Error fetching in-house lab orders:', err);
+        console.error('Error fetching nursing orders:', err);
         setError(err instanceof Error ? err : new Error('Unknown error occurred'));
       }
 
@@ -70,7 +70,7 @@ export const useNursingOrders = (): any => {
         setNursingOrders([]);
       }
     } catch (error) {
-      console.error('error with setting in-house lab orders:', error);
+      console.error('error with setting nursing orders:', error);
       setError(error instanceof Error ? error : new Error('Unknown error occurred'));
       setNursingOrders([]);
     } finally {
@@ -78,15 +78,15 @@ export const useNursingOrders = (): any => {
     }
   }, [oystehrZambda]);
 
-  // Initial fetch of lab orders, and when the search params change
+  // Initial fetch of nursing orders
   useEffect(() => {
-    void fetchLabOrders();
-  }, [fetchLabOrders]);
+    void fetchNursingOrders();
+  }, [fetchNursingOrders]);
 
   return {
     nursingOrders,
     loading,
     error,
-    fetchLabOrders,
+    fetchNursingOrders,
   };
 };
