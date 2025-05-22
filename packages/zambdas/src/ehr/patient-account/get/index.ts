@@ -10,7 +10,7 @@ import {
   pullCoverageIdentifyingDetails,
   Secrets,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 import { parseCoverageEligibilityResponse } from 'utils';
@@ -59,9 +59,30 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
       ],
     })
   ).unbundle();
+  const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
+    if (ecr.insurance?.[0]?.coverage?.reference) {
+      const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
+      if (resourceType === 'Coverage') {
+        return id;
+      }
+    }
+    return [];
+  });
+  const coverageRequests: BatchInputGetRequest[] = coverageIdsToFetch.map((id) => ({
+    method: 'GET',
+    url: `Coverage/${id}`,
+  }));
+  const coverages: Coverage[] =
+    (await oystehr.fhir.batch<Coverage>({ requests: coverageRequests })).entry?.flatMap((e) => e.resource ?? []) ?? [];
+
   const mapped = eligibilityCheckResults
     .map((result) => {
-      const coverage = (result.contained ?? []).find((resource) => resource.resourceType === 'Coverage') as Coverage;
+      const coverage = [...coverages, ...(result.contained ?? [])].find(
+        (resource) =>
+          resource.resourceType === 'Coverage' &&
+          result.insurance?.[0]?.coverage?.reference?.includes(resource.id ?? '')
+      ) as Coverage;
+      // console.log('coverageDetails', JSON.stringify(coverage, null, 2));
       if (!coverage) {
         return null;
       }

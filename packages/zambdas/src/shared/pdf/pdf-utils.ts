@@ -1,21 +1,24 @@
 import { DocumentReference } from 'fhir/r4b';
-import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb } from 'pdf-lib';
+import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
+import fs from 'fs';
 
 export type PdfInfo = { uploadURL: string; title: string };
 
+export const Y_POS_GAP = 30;
+
 // For testing needs
-// export function savePdfLocally(pdfBytes: Uint8Array): void {
-//   // Write the Uint8Array to a file
-//   fs.writeFile('myTestFile.pdf', Buffer.from(pdfBytes), (err) => {
-//     if (err) {
-//       console.error('Error saving PDF:', err);
-//     } else {
-//       console.log('PDF saved successfully!');
-//     }
-//   });
-// }
+export function savePdfLocally(pdfBytes: Uint8Array): void {
+  // Write the Uint8Array to a file
+  fs.writeFile('myTestFile.pdf', Buffer.from(pdfBytes), (err: any) => {
+    if (err) {
+      console.error('Error saving PDF:', err);
+    } else {
+      console.log('PDF saved successfully!');
+    }
+  });
+}
 
 type PdfDocumentPublishedStatusesKeys = 'published' | 'unpublished';
 export const PdfDocumentReferencePublishedStatuses: {
@@ -88,7 +91,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     const { height, width } = page.getSize();
     // Start at the top of the page then move down as elements are added to the PDF.
     currYPos = height - (styles.pageMargins.top ?? 0); // top of page. Content starts after this point
-    currYPos -= 30; //by default, we have some kind of gap without this subtraction
+    currYPos -= Y_POS_GAP; //by default, we have some kind of gap without this subtraction
     pageLeftBound = newLeftBound ? newLeftBound : styles.pageMargins.left ?? 0;
     pageRightBound = newRightBound ? newRightBound : width - (styles.pageMargins.right ?? 0);
     currXPos = pageLeftBound;
@@ -126,6 +129,37 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
       currYPos -= currentTextHeight + spacing;
       currXPos = pageLeftBound;
     }
+  };
+
+  /**
+   * Draws text starting at the specified xPos. Will default to pageLeftBound if xPos is before
+   * left bound. Adds a newline if the starting xPos is at or after the rightPageBound.
+   *
+   * Warning: does not handle newlines in long strings
+   *
+   */
+  const drawStartXPosSpecifiedText = (
+    text: string,
+    textStyle: TextStyle,
+    startingXPos: number
+  ): { endXPos: number; endYPos: number } => {
+    const { font, fontSize, spacing } = textStyle;
+
+    const currentTextHeight = font.heightAtSize(fontSize);
+    if (startingXPos < pageLeftBound) currXPos = pageLeftBound;
+    else if (startingXPos >= pageRightBound) {
+      newLine(currentTextHeight);
+      currXPos = pageLeftBound;
+    } else currXPos = startingXPos;
+
+    drawTextSequential(text, textStyle);
+
+    if (textStyle.newLineAfter) {
+      currYPos -= currentTextHeight + spacing;
+      currXPos = pageLeftBound;
+    }
+
+    return { endXPos: currXPos, endYPos: currYPos };
   };
 
   const drawTextSequential = (text: string, textStyle: Exclude<TextStyle, 'side'>): void => {
@@ -265,6 +299,10 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     return await pdfDoc.embedFont(file);
   };
 
+  const embedStandardFont = async (font: StandardFonts): Promise<PDFFont> => {
+    return await pdfDoc.embedFont(font);
+  };
+
   const embedImage = async (file: Buffer): Promise<PDFImage> => {
     return await pdfDoc.embedPng(file);
   };
@@ -291,6 +329,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     addNewPage,
     drawText,
     drawTextSequential,
+    drawStartXPosSpecifiedText,
     drawImage,
     newLine,
     getX,
@@ -299,6 +338,7 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     setY,
     save,
     embedFont,
+    embedStandardFont,
     embedImage,
     drawSeparatedLine,
     getLeftBound,

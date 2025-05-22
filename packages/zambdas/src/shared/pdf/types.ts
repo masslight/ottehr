@@ -1,4 +1,4 @@
-import { Color, PDFFont, PDFImage } from 'pdf-lib';
+import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
@@ -57,6 +57,11 @@ export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
   drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawStartXPosSpecifiedText: (
+    text: string,
+    textStyle: TextStyle,
+    startingXPos: number
+  ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
   getX: () => number;
@@ -65,6 +70,7 @@ export interface PdfClient {
   setY: (y: number) => void;
   save: () => Promise<Uint8Array>;
   embedFont: (path: Buffer) => Promise<PDFFont>;
+  embedStandardFont: (font: StandardFonts) => Promise<PDFFont>;
   embedImage: (file: Buffer) => Promise<PDFImage>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
   getLeftBound: () => number;
@@ -140,7 +146,7 @@ export interface ExternalLabsData {
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
-interface LabResult {
+export interface LabResult {
   resultCode: string;
   resultCodeDisplay: string;
   resultInterpretation: string;
@@ -157,14 +163,15 @@ export interface LabResultsData extends ExternalLabsData {
   // specimenSource: string;
   testName: string;
   // specimenDescription: string;
-  specimenValue?: string;
   specimenReferenceRange?: string;
   resultPhase: string;
+  resultStatus: string;
   reviewed: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
   reviewDate: string | undefined;
+  resultInterpretations: string[];
   results: LabResult[];
   testItemCode: string;
   performingLabName: string;

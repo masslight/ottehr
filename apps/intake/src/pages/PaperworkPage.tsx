@@ -1,4 +1,5 @@
-import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAuth0 } from '@auth0/auth0-react';
+import { Close } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -12,43 +13,41 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { create } from 'zustand';
-import { PaperworkContext, usePaperworkContext } from 'ui-components';
-import {
-  getSelectors,
-  isApiError,
-  APIError,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  uuidRegex,
-  UCGetPaperworkResponse,
-  IntakeQuestionnaireItem,
-  flattenIntakeQuestionnaireItems,
-  QuestionnaireFormFields,
-  findQuestionnaireResponseItemLinkId,
-  ComplexValidationResult,
-  InsuranceEligibilityCheckStatus,
-  ComplexValidationResultFailureCase,
-  evalComplexValidationTrigger,
-  evalEnableWhen,
-  convertQuesitonnaireItemToQRLinkIdMap,
-  convertQRItemToLinkIdMap,
-} from 'utils';
-import { ottehrApi } from '../api';
-import useAppointmentNotFoundInformation from '../helpers/information';
-import { PageContainer } from '../components';
-import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
-import { useAuth0 } from '@auth0/auth0-react';
-import { persist } from 'zustand/middleware';
-import { DateTime } from 'luxon';
-import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { useGetFullName } from '../hooks/useGetFullName';
-import api from '../api/ottehrApi';
 import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
-import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
-import { Close } from '@mui/icons-material';
+import { DateTime } from 'luxon';
+import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { PaperworkContext, usePaperworkContext } from 'ui-components';
+import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import {
+  APIError,
+  ComplexValidationResult,
+  ComplexValidationResultFailureCase,
+  convertQRItemToLinkIdMap,
+  convertQuesitonnaireItemToQRLinkIdMap,
+  evalComplexValidationTrigger,
+  evalEnableWhen,
+  findQuestionnaireResponseItemLinkId,
+  flattenIntakeQuestionnaireItems,
+  getSelectors,
+  InsuranceEligibilityCheckStatus,
+  IntakeQuestionnaireItem,
+  isApiError,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  QuestionnaireFormFields,
+  UCGetPaperworkResponse,
+  uuidRegex,
+} from 'utils';
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { ottehrApi } from '../api';
+import api from '../api/ottehrApi';
+import { PageContainer } from '../components';
+import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
+import useAppointmentNotFoundInformation from '../helpers/information';
+import { useGetFullName } from '../hooks/useGetFullName';
 
 enum AuthedLoadingState {
   initial,
@@ -386,9 +385,6 @@ export const PaperworkPage: FC = () => {
   }, [lastLoggedPageName, pageName]);
 
   const [loading, setLoading] = useState<boolean>(false);
-
-  // Update last active time for paperwork-in-progress flag every minute
-  useSetLastActiveTime(appointmentID, !!slug, zambdaClient);
 
   const controlButtons = useMemo(
     () => ({

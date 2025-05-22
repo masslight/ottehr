@@ -8,8 +8,10 @@ import {
   Communication,
   Condition,
   DocumentReference,
+  DomainResource,
   Encounter,
   EpisodeOfCare,
+  Extension,
   FhirResource,
   List,
   MedicationRequest,
@@ -75,6 +77,10 @@ import {
   makeVitalsObservationDTO,
   removeOperation,
   ADDED_VIA_LAB_ORDER_SYSTEM,
+  ProcedureDTO,
+  PROCEDURE_TYPE_SYSTEM,
+  PERFORMER_TYPE_SYSTEM,
+  BODY_SITE_SYSTEM,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
 import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
@@ -169,7 +175,7 @@ export function makeAllergyResource(
     code: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-allergy-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
           code: data.id,
           display: data.name,
         },
@@ -214,7 +220,7 @@ export function makeMedicationResource(
     medicationCodeableConcept: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-medication-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id',
           code: data.id,
           display: data.name,
         },
@@ -622,6 +628,7 @@ export function makeDispositionDTO(
   });
 
   const followUpTime = followUp.occurrenceTiming?.repeat?.offset;
+  console.log('followUp', JSON.stringify(followUp));
   console.log('followUpTime', followUpTime);
 
   return {
@@ -1058,13 +1065,13 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history')
   ) {
     const cptDto = makeCPTCodeDTO(resource);
-    if (cptDto) data.procedures?.push(cptDto);
+    if (cptDto) data.surgicalHistory?.push(cptDto);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Procedure' &&
     chartDataResourceHasMetaTagByCode(resource, 'surgical-history-note')
   ) {
-    data.proceduresNote = makeFreeTextNoteDTO(resource);
+    data.surgicalHistoryNote = makeFreeTextNoteDTO(resource);
     resourceMapped = true;
   } else if (
     resource?.resourceType === 'Observation' &&
@@ -1222,6 +1229,9 @@ export function handleCustomDTOExtractions(data: ChartDataFields, resources: Fhi
       data.aiPotentialDiagnosis?.push(makeDiagnosisDTO(condition as Condition, false));
     });
 
+  // 7. Procedures
+  data.procedures = makeProceduresDTOFromFhirResources(encounterResource, resources);
+
   return data;
 }
 
@@ -1279,3 +1289,198 @@ export const followUpToPerformerMap: { [field in DispositionFollowUpType]: Codea
   'lurie-ct': createCodingCode('lurie-ct', undefined, 'lurie-ct'),
   other: createCodingCode('other', 'other'),
 };
+
+export function makeProceduresDTOFromFhirResources(
+  encounter: Encounter,
+  resources: FhirResource[]
+): ProcedureDTO[] | undefined {
+  const proceduresServiceRequests: ServiceRequest[] = resources.filter(
+    (res) => res.resourceType === 'ServiceRequest' && chartDataResourceHasMetaTagByCode(res, 'procedure')
+  ) as ServiceRequest[];
+
+  if (proceduresServiceRequests.length === 0) {
+    return undefined;
+  }
+
+  const cptCodeProcedures: Procedure[] = resources.filter(
+    (resource) => resource.resourceType === 'Procedure' && chartDataResourceHasMetaTagByCode(resource, 'cpt-code')
+  ) as Procedure[];
+
+  const diagnosisConditions = (encounter.diagnosis ?? []).flatMap((encounterDiagnosis) => {
+    const conditionId = removePrefix('Condition/', encounterDiagnosis.condition.reference || '');
+    const condition = resources.find((resource) => resource.id === conditionId) as Condition | undefined;
+    if (condition) {
+      return [condition];
+    }
+    return [];
+  });
+
+  return proceduresServiceRequests.map<ProcedureDTO>((serviceRequests) => {
+    return {
+      resourceId: serviceRequests.id,
+      procedureType: getCode(serviceRequests.category, PROCEDURE_TYPE_SYSTEM),
+      cptCodes: cptCodeProcedures
+        .filter(
+          (procedure) => serviceRequests.supportingInfo?.find((ref) => ref.reference === `Procedure/${procedure.id}`)
+        )
+        .flatMap((procedure) => {
+          const cptDto = makeCPTCodeDTO(procedure);
+          if (cptDto != null) {
+            return [cptDto];
+          }
+          return [];
+        }),
+      diagnoses: diagnosisConditions
+        .filter(
+          (condition) => serviceRequests.reasonReference?.find((ref) => ref.reference === `Condition/${condition.id}`)
+        )
+        .map((condition) => {
+          return makeDiagnosisDTO(condition, false);
+        }),
+      procedureDateTime: serviceRequests.occurrenceDateTime,
+      documentedDateTime: serviceRequests.authoredOn,
+      performerType: getCode(serviceRequests.performerType, PERFORMER_TYPE_SYSTEM),
+      medicationUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.medicationUsed.url)?.valueString,
+      bodySite: getCode(serviceRequests.bodySite, BODY_SITE_SYSTEM),
+      bodySide: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.bodySide.url)?.valueString,
+      technique: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.technique.url)?.valueString,
+      suppliesUsed: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.suppliesUsed.url)?.valueString,
+      procedureDetails: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.procedureDetails.url)?.valueString,
+      specimenSent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.specimenSent.url)?.valueBoolean,
+      complications: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.complications.url)?.valueString,
+      patientResponse: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.patientResponse.url)?.valueString,
+      postInstructions: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
+      timeSpent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
+      documentedBy: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
+    };
+  });
+}
+
+export const createProcedureServiceRequest = (
+  procedure: ProcedureDTO,
+  encounterId: string,
+  patientId: string
+): BatchInputPutRequest<ServiceRequest> | BatchInputPostRequest<ServiceRequest> => {
+  const extensions: Extension[] = [
+    {
+      url: FHIR_EXTENSION.ServiceRequest.medicationUsed.url,
+      valueString: procedure.medicationUsed,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.bodySide.url,
+      valueString: procedure.bodySide,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.technique.url,
+      valueString: procedure.technique,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.suppliesUsed.url,
+      valueString: procedure.suppliesUsed,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.procedureDetails.url,
+      valueString: procedure.procedureDetails,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.specimenSent.url,
+      valueBoolean: procedure.specimenSent,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.complications.url,
+      valueString: procedure.complications,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.patientResponse.url,
+      valueString: procedure.patientResponse,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.postInstructions.url,
+      valueString: procedure.postInstructions,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.timeSpent.url,
+      valueString: procedure.timeSpent,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.documentedBy.url,
+      valueString: procedure.documentedBy,
+    },
+  ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
+  const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => {
+    return {
+      reference: 'Condition/' + diagnosis.resourceId,
+    };
+  });
+  const cptCodesReferences = procedure.cptCodes?.map((cptCode) => {
+    return {
+      reference: 'Procedure/' + cptCode.resourceId,
+    };
+  });
+  return saveOrUpdateResourceRequest<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    id: procedure.resourceId,
+    subject: { reference: `Patient/${patientId}` },
+    encounter: { reference: `Encounter/${encounterId}` },
+    status: 'completed',
+    intent: 'original-order',
+    category:
+      procedure.procedureType != null
+        ? [
+            {
+              coding: [
+                {
+                  system: PROCEDURE_TYPE_SYSTEM,
+                  code: procedure.procedureType,
+                },
+              ],
+            },
+          ]
+        : undefined,
+    occurrenceDateTime: procedure.procedureDateTime,
+    authoredOn: procedure.documentedDateTime,
+    performerType:
+      procedure.performerType != null
+        ? {
+            coding: [
+              {
+                system: PERFORMER_TYPE_SYSTEM,
+                code: procedure.performerType,
+              },
+            ],
+          }
+        : undefined,
+    bodySite:
+      procedure.bodySite != null
+        ? [
+            {
+              coding: [
+                {
+                  system: BODY_SITE_SYSTEM,
+                  code: procedure.bodySite,
+                },
+              ],
+            },
+          ]
+        : undefined,
+    meta: fillMeta('procedure', 'procedure'),
+    reasonReference: (diagnosesReferences?.length ?? 0) > 0 ? diagnosesReferences : undefined,
+    supportingInfo: (cptCodesReferences?.length ?? 0) > 0 ? cptCodesReferences : undefined,
+    extension: extensions.length > 0 ? extensions : undefined,
+  });
+};
+
+function getCode(codeableConcept: CodeableConcept | CodeableConcept[] | undefined, system: string): string | undefined {
+  const array = Array.isArray(codeableConcept) ? codeableConcept : [codeableConcept];
+  for (const codeableConcept of array) {
+    const code = codeableConcept?.coding?.find((coding) => coding.system === system)?.code;
+    if (code != null) {
+      return code;
+    }
+  }
+  return undefined;
+}
+
+function getExtension(resource: DomainResource, url: string): Extension | undefined {
+  return resource.extension?.find((extension) => extension.url === url);
+}

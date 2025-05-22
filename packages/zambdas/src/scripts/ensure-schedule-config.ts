@@ -35,7 +35,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
 
     const schedules = locationAndSchedules.filter((sched) => sched.resourceType === 'Schedule') as Schedule[];
     const locations = locationAndSchedules.filter((loc) => loc.resourceType === 'Location') as Location[];
-    console.log('telemedLocations', locations.length);
+    console.log('locations count: ', locations.length);
 
     const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
     const locationUpdateRequests: BatchInputPutRequest<Location>[] = [];

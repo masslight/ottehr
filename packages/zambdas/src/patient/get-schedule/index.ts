@@ -1,28 +1,28 @@
-import Oystehr from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
   FHIR_RESOURCE_NOT_FOUND,
-  GetScheduleResponse,
-  SecretsKeys,
-  SlotListItem,
   fhirTypeForScheduleType,
   getAvailableSlotsForSchedules,
+  getLocationInformation,
   getOpeningTime,
-  getScheduleDetails,
+  getScheduleExtension,
+  GetScheduleResponse,
   getSecret,
+  getTimezone,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
+  SecretsKeys,
+  SlotListItem,
 } from 'utils';
 import {
   captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
-  getLocationInformation,
   getSchedules,
   topLevelCatch,
   ZambdaInput,
@@ -109,10 +109,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }*/
 
     console.log('organizing location information for response');
-    const locationInformationWithClosures: AvailableLocationInformation = getLocationInformationWithClosures(
-      oystehr,
+
+    const scheduleMatch = scheduleList.find((scheduleAndOwner) => {
+      const { owner } = scheduleAndOwner;
+      return owner && `${owner.resourceType}/${owner.id}` === `${scheduleOwner.resourceType}/${scheduleOwner.id}`;
+    })?.schedule;
+
+    const locationInformationWithClosures: AvailableLocationInformation = getLocationInformation(
       scheduleOwner,
-      now
+      scheduleMatch
     );
 
     console.log('getting wait time based on longest waiting patient at location');
@@ -145,19 +150,19 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   }
 });
 
-export function getNextOpeningDateTime(
-  oystehr: Oystehr,
-  now: DateTime,
-  schedule: Location | Practitioner | HealthcareService
-): string | undefined {
+export function getNextOpeningDateTime(now: DateTime, schedule: Schedule): string | undefined {
   const NUM_DAYS_TO_CHECK = 30;
   let day = 0;
   let nextOpeningTime: DateTime | undefined;
+  const scheduleExtension = getScheduleExtension(schedule);
+  if (!scheduleExtension) {
+    return undefined;
+  }
+  const timezone = getTimezone(schedule);
   while (day < NUM_DAYS_TO_CHECK && nextOpeningTime === undefined) {
     const nextOpeningDate = now.plus({ day });
-    const locationInfo = getLocationInformation(oystehr, schedule, nextOpeningDate);
-    if (isLocationOpen(locationInfo, nextOpeningDate)) {
-      const maybeNextOpeningTime = getOpeningTime(locationInfo, nextOpeningDate);
+    if (isLocationOpen(scheduleExtension, timezone, nextOpeningDate)) {
+      const maybeNextOpeningTime = getOpeningTime(scheduleExtension, timezone, nextOpeningDate);
       if (maybeNextOpeningTime && maybeNextOpeningTime > now) {
         nextOpeningTime = maybeNextOpeningTime;
       }
@@ -165,22 +170,4 @@ export function getNextOpeningDateTime(
     day++;
   }
   return nextOpeningTime?.setZone('utc').toFormat('HH:mm MM-dd-yyyy z');
-}
-
-function getLocationInformationWithClosures(
-  oystehr: Oystehr,
-  scheduleResource: Location | Practitioner | HealthcareService,
-  currentDate: DateTime
-): AvailableLocationInformation {
-  const scheduleInformation: AvailableLocationInformation = getLocationInformation(
-    oystehr,
-    scheduleResource,
-    currentDate
-  );
-  const schedule = getScheduleDetails(scheduleResource);
-  const scheduleInformationWithClosures: AvailableLocationInformation = {
-    ...scheduleInformation,
-    closures: schedule?.closures ?? [],
-  };
-  return scheduleInformationWithClosures;
 }

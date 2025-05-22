@@ -7,13 +7,13 @@ import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
-  createSamplePrebookAppointments,
-  createSampleTelemedAppointments,
+  createSampleAppointments,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
   GetPaperworkAnswers,
   RelationshipOption,
+  ServiceMode,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { fetchWithOystAuth } from './helpers/tests-utils';
@@ -139,11 +139,7 @@ export class ResourceHandler {
 
     this.#initPromise = this.initApi();
 
-    if (flow === 'telemed' || flow === 'in-person') {
-      this.#createAppointmentZambdaId = 'create-appointment';
-    } else {
-      throw new Error('❌ Invalid flow name');
-    }
+    this.#createAppointmentZambdaId = 'create-appointment';
   }
 
   private async initApi(): Promise<void> {
@@ -198,31 +194,19 @@ export class ResourceHandler {
       }
 
       // Create appointment and related resources using zambda
-      const appointmentData =
-        this.#flow === 'in-person'
-          ? await createSamplePrebookAppointments({
-              oystehr: this.#apiClient,
-              authToken: getAccessToken(),
-              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.#createAppointmentZambdaId,
-              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
-              demoData: patientData,
-              projectId: process.env.PROJECT_ID!,
-              paperworkAnswers: this.#paperworkAnswers,
-            })
-          : await createSampleTelemedAppointments({
-              oystehr: this.#apiClient,
-              authToken: getAccessToken(),
-              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.#createAppointmentZambdaId,
-              islocal: process.env.APP_IS_LOCAL === 'true',
-              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
-              demoData: patientData,
-              projectId: process.env.PROJECT_ID!,
-              paperworkAnswers: this.#paperworkAnswers,
-            });
+      const appointmentData = await createSampleAppointments({
+        oystehr: this.#apiClient,
+        authToken: getAccessToken(),
+        phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+        createAppointmentZambdaId: this.#createAppointmentZambdaId,
+        zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+        serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
+        selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
+        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
+        demoData: patientData,
+        projectId: process.env.PROJECT_ID!,
+        paperworkAnswers: this.#paperworkAnswers,
+      });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
@@ -345,7 +329,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 6000));
       }
 
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");

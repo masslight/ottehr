@@ -339,19 +339,22 @@ test.describe('Insurance Information Section mutating tests', () => {
     const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
     const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
 
-    //todo: remove extra selectInsuranceCarrier once issue #1965 is resolved
-    await secondaryInsuranceCard.selectInsuranceCarrier(NEW_PATIENT_INSURANCE_CARRIER_2);
-
     await primaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clickShowMoreButton();
 
     await primaryInsuranceCard.enterAdditionalInsuranceInformation('Primary test info');
     await secondaryInsuranceCard.enterAdditionalInsuranceInformation('Secondary test info');
 
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
 
     await patientInformationPage.reloadPatientInformationPage();
+    await primaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+    await secondaryInsuranceCard.waitUntilInsuranceCarrierIsRendered();
+
     await primaryInsuranceCard.clickShowMoreButton();
     await secondaryInsuranceCard.clickShowMoreButton();
 
@@ -404,12 +407,12 @@ async function createResourceHandler(): Promise<[ResourceHandler, string, string
   const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
     return [
       getContactInformationAnswers({
-        firstName: patientInfo.patient.firstName,
-        lastName: patientInfo.patient.lastName,
-        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
-        email: patientInfo.patient.email,
-        phoneNumber: patientInfo.patient.phoneNumber,
-        birthSex: patientInfo.patient.sex,
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
       }),
       getPatientDetailsStepAnswers({}),
       getPaymentOptionInsuranceAnswers({

@@ -1,4 +1,13 @@
-import { ApptTelemedTab, PractitionerQualificationCode, RoleType, TelemedAppointmentVisitTabs } from 'utils';
+import {
+  ApptTelemedTab,
+  ExamCardsNames,
+  ExamFieldsNames,
+  ExamTabCardNames,
+  DispositionType,
+  PractitionerQualificationCode,
+  RoleType,
+  TelemedAppointmentVisitTabs,
+} from 'utils';
 
 export const dataTestIds = {
   closeIcon: 'CloseIcon',
@@ -58,6 +67,7 @@ export const dataTestIds = {
   patientInformationPage: {
     saveChangesButton: 'save-changes-button',
     addInsuranceButton: 'add-insurance-button',
+    breadcrumb: 'breadcrumb',
   },
   patientHeader: {
     patientId: 'header-patient-id',
@@ -66,7 +76,8 @@ export const dataTestIds = {
     patientBirthday: 'header-patient-birthday',
     patientAddress: 'header-patient-address',
     patientPhoneNumber: 'header-patient-phone-number',
-    emergencyContact: 'header-emergency-contact',
+    emergencyContact: 'header-patient-emergency-contact',
+    closeButton: 'header-patient-close-button',
   },
   patientInformationContainer: {
     patientLastName: 'patient-last-name',
@@ -151,8 +162,10 @@ export const dataTestIds = {
     slot: 'slot',
   },
   dialog: {
-    closeButton: 'close-button',
-    proceedButton: 'proceed-button',
+    closeButton: 'dialog-close-button',
+    cancelButton: 'dialog-cancel-button',
+    proceedButton: 'dialog-proceed-button',
+    title: 'dialog-title',
   },
   statesPage: {
     statesSearch: 'states-search',
@@ -271,11 +284,30 @@ export const dataTestIds = {
     hpiChiefComplaintRos: 'telemed-chief-complaint-ros',
     hpiPatientConditionPhotos: 'telemed-patient-condition-photos',
     hpiReasonForVisit: 'telemed-reason-for-visit',
+    examTabField: (field: ExamFieldsNames | ExamCardsNames) => `telemed-exam-tab-field-${field}`,
+    examTabCards: (card: ExamTabCardNames) => `telemed-exam-tab-cards-${card}`,
+    examTabDistressCheckbox: 'exam-exam-tab-distress-checkbox',
+    examTabDistressDropdown: 'telemed-exam-tab-distress-dropdown',
+    examTabTenderCheckbox: 'telemed-exam-tab-tender-checkbox',
+    examTabTenderDropdown: 'telemed-exam-tab-tender-dropdown',
+    examTabRashesAbnormalSubsection: 'telemed-exam-tab-rashes-abnormal-subsection',
+    examTabRashElementInSubsection: 'telemed-exam-tab-rash-element-in-subsection',
+    examTabRashesDropdown: 'telemed-exam-tab-rashes-dropdown',
+    examTabRashesCheckbox: 'telemed-exam-tab-rashes-checkbox',
+    examTabRashesDescription: 'telemed-exam-tab-rashes-description',
+    examTabRashesAddButton: 'telemed-exam-tab-rashes-add-button',
+    examTabCardsComments: (card: ExamTabCardNames) => `telemed-exam-tab-cards-comment-${card}`,
     videoRoomContainer: 'telemed-video-room-container',
     endVideoCallButton: 'telemed-end-video-call-button',
     appointmentVisitTabs: (tab: TelemedAppointmentVisitTabs) => `telemed-appointment-visit-tab-${tab}`,
     patientInfoConfirmationCheckbox: 'telemed-patient-info-confirmation-checkbox',
     signButton: 'telemed-sign-button',
+    planTabDispositionContainer: 'telemed-plan-tab-disposition-container',
+    planTabDispositionToggleButton: (buttonName: DispositionType) =>
+      `telemed-plan-tab-disposition-toggle-button-${buttonName}`,
+    planTabDispositionFollowUpDropdown: 'telemed-plan-tab-disposition-follow-up-dropdown',
+    planTabDispositionNote: 'telemed-plan-tab-disposition-note',
+    planTabDispositionReasonForTransferDropdown: 'telemed-plan-tab-disposition-reason-for-transfer-dropdown',
     reviewTabMedicalConditionsContainer: 'telemed-review-tab-medical-conditions-container',
     reviewTabKnownAllergiesContainer: 'telemed-review-tab-known-allergies-container',
     reviewTabMedicationsContainer: 'telemed-review-tab-medications-container',
@@ -284,6 +316,8 @@ export const dataTestIds = {
       `telemed-review-tab-additional-question-${questionSymptom}`,
     reviewTabChiefComplaintContainer: 'telemed-review-tab-chief-complaint-container',
     reviewTabRosContainer: 'telemed-review-tab-ros-container',
+    reviewTabPatientInstructionsContainer: 'telemed-review-tab-patient-instructions-container',
+    reviewTabExaminationsContainer: 'telemed-review-tab-examinations-container',
     cancelThisVisitButton: 'telemed-cancel-this-visit-button',
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
