@@ -11,11 +11,17 @@ import {
   MenuItem,
   IconButton,
   Collapse,
+  useTheme,
+  // Stack,
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { LabTest, inHouseLabsTestStatuses } from 'utils';
+import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { getOrCreateVisitLabel } from 'src/api/api';
+import { useApiClients } from '../../../../hooks/useAppClients';
 
 interface CollectSampleViewProps {
   testDetails: LabTest;
@@ -30,6 +36,11 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const [collectionDate, setCollectionDate] = useState('');
   const [collectionTime, setCollectionTime] = useState('');
   const [notes, setNotes] = useState(testDetails.notes || '');
+  const [_error, setError] = useState('');
+
+  const _theme = useTheme();
+  const { oystehrZambda } = useApiClients();
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
   const handleToggleSampleCollection = (): void => {
     setShowSampleCollection(!showSampleCollection);
@@ -48,8 +59,20 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
     });
   };
 
-  const handleReprintLabel = (): void => {
-    console.log('Reprinting label for test:', testDetails.id);
+  const handleReprintLabel = async (): Promise<void> => {
+    if (encounter.id && oystehrZambda) {
+      setError('TODO remove me');
+      console.log('Fetching visit label for encounter ', encounter.id);
+      const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId: encounter.id });
+      console.log('These are the labelPDFs plural returned', JSON.stringify(labelPdfs));
+      if (labelPdfs.length !== 1) {
+        setError('Expected 1 label pdf, received unexpected number');
+        return;
+      }
+      const labelPdf = labelPdfs[0];
+      console.log('This is the labelPDF returned', JSON.stringify(labelPdf));
+      window.open(labelPdf.presignedURL, '_blank');
+    }
   };
 
   return (

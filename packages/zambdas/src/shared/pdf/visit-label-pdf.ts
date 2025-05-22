@@ -78,7 +78,8 @@ const createVisitLabelPdfBytes = async (data: VisitLabelConfig): Promise<Uint8Ar
     if (!dob) return '';
 
     // get the date diff between now and the dob
-    const ageInMonths = Math.round(dob.setZone('UTC').diffNow(['months']).as('months'));
+    // const ageInMonths = Math.round(dob.setZone('UTC').diffNow(['months']).as('months'));
+    const ageInMonths = Math.round(DateTime.utc().diff(dob.toUTC(), ['months']).as('months'));
 
     if (ageInMonths <= 24) return `${ageInMonths} mo`;
     else {

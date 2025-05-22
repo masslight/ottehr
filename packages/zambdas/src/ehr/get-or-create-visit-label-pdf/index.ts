@@ -43,6 +43,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!labelDocRefs.length) {
       // we should create the pdf. Need patient & appointment info
+      console.log(`No docrefs found for Encounter/${encounterId}. Making new label`);
       const resources = (
         await oystehr.fhir.search<Encounter | Patient | Appointment>({
           resourceType: 'Encounter',
@@ -104,6 +105,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     } else if (labelDocRefs.length === 1) {
       const labelDocRef = labelDocRefs[0];
+      console.log(`Found existing DocumentReference/${labelDocRef.id} for Encounter/${encounterId}`);
       const url = labelDocRef.content.find((content) => content.attachment.contentType === 'application/pdf')
         ?.attachment.url;
 
@@ -112,10 +114,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
 
       return {
-        body: JSON.stringify({
-          documentReference: labelDocRef,
-          presignedURL: await getPresignedURL(url, m2mtoken),
-        }),
+        body: JSON.stringify([
+          {
+            documentReference: labelDocRef,
+            presignedURL: await getPresignedURL(url, m2mtoken),
+          },
+        ]),
         statusCode: 200,
       };
     }

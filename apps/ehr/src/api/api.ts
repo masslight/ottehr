@@ -144,7 +144,7 @@ export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParam
 export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVisitLabelInput): Promise<LabelPdf[]> => {
   try {
     if (GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID == null) {
-      throw new Error('get-label-pdf evironment variable could not be loaded');
+      throw new Error('get-or-create-visit-label-pdf environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
