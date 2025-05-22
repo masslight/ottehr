@@ -4,6 +4,7 @@ import {
   QuestionnaireResponse,
   QuestionnaireResponseItem,
   DocumentReference,
+  Reference,
 } from 'fhir/r4b';
 import { DiagnosisDTO } from '../..';
 
@@ -230,7 +231,12 @@ export interface LabelConfig {
   marginRightInches: number;
   printerDPI: number;
 }
-export type GetLabelPdfParameters = {
-  relatedResource: string;
-  searchParams: { name: string; value: string | number }[];
-};
+export interface GetLabelPdfParameters {
+  contextRelatedReference: Reference;
+  searchParams: { name: string; value: string }[];
+}
+
+export interface LabelPdf {
+  documentReference: DocumentReference;
+  presignedURL: string;
+}

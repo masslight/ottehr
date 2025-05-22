@@ -9,7 +9,6 @@ import {
   Practitioner,
   PractitionerRole,
   QuestionnaireResponse,
-  Reference,
   Task,
 } from 'fhir/r4b';
 import { TIMEZONES } from './constants';
@@ -763,13 +762,3 @@ export interface CanonicalUrl {
 }
 
 export type Timezone = (typeof TIMEZONES)[number];
-
-export interface GetLabelPdfParameters {
-  contextRelatedReference: Reference;
-  searchParams: { name: string; value: string }[];
-}
-
-export interface LabelPdf {
-  documentReference: DocumentReference;
-  presignedURL: string;
-}
