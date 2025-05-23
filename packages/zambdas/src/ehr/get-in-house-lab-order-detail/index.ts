@@ -9,6 +9,7 @@ import {
   getTimezone,
   fetchLabOrderPDFs,
   fetchDocumentReferencesForDiagnosticReports,
+  LabOrderPDF,
 } from 'utils';
 import {
   ZambdaInput,
@@ -198,13 +199,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const orderHistory = buildOrderHistory(provenances, specimen);
 
-    const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, [diagnosticReport]);
-    const resultsPDFs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
-    const resultsPDF = resultsPDFs.filter((resultPDF) => resultPDF.diagnosticReportId === diagnosticReport.id);
-
-    if (resultsPDF.length > 1) {
-      throw new Error('more than one results pdf');
+    let resultsPDF: LabOrderPDF | undefined;
+    if (diagnosticReport) {
+      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, [diagnosticReport]);
+      const resultsPDFs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
+      resultsPDF = resultsPDFs.filter((resultPDF) => resultPDF.diagnosticReportId === diagnosticReport.id)[0];
     }
+
+    // todo better validations needed here
+    // if (resultsPDFs.length > 1) {
+    //   throw new Error('more than one results pdf');
+    // }
 
     const response: InHouseLabDTO = {
       serviceRequestId,
@@ -217,7 +222,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       providerId: attendingPractitionerId,
       currentUserName: currentPractitionerName,
       currentUserId: currentPractitionerId,
-      resultsPDFUrl: resultsPDF[0].url,
+      resultsPDFUrl: resultsPDF?.url,
       orderInfo: {
         diagnosis: diagnoses,
         testName,
@@ -256,7 +261,7 @@ const parseResources = (
   encounter: Encounter;
   location?: Location;
   specimen?: Specimen;
-  diagnosticReport: DiagnosticReport;
+  diagnosticReport?: DiagnosticReport;
   timezone: string;
   tasks: Task[];
   provenances: Provenance[];
@@ -285,9 +290,8 @@ const parseResources = (
   const missingResources: string[] = [];
   if (!serviceRequest) missingResources.push('service request');
   if (!encounter) missingResources.push('encounter');
-  if (!diagnosticReport) missingResources.push('diagnosticReport');
   if (tasks.length === 0) missingResources.push('task');
-  if (!serviceRequest || !encounter || !diagnosticReport || tasks.length === 0) {
+  if (!serviceRequest || !encounter || tasks.length === 0) {
     throw new Error(`Missing resources: ${missingResources.join(',')}`);
   }
 
