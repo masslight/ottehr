@@ -390,9 +390,9 @@ function getSlotsForDayPostTelemed(
   const timeToStartSlots =
     day > openingDateAndTime
       ? day.set({ minute: Math.ceil(day.minute / 30) * 30 }).startOf('minute')
-      : openingDateAndTime.plus({ hour: 1 });
+      : openingDateAndTime;
   const timeSlots: { [slot: string]: number } = {};
-  for (let temp = timeToStartSlots; temp < closingDateAndTime.minus({ hour: 2 }); temp = temp.plus({ minutes: 30 })) {
+  for (let temp = timeToStartSlots; temp < closingDateAndTime; temp = temp.plus({ minutes: 30 })) {
     const tempTime = temp.toISO() || '';
     timeSlots[tempTime] = 1;
   }
