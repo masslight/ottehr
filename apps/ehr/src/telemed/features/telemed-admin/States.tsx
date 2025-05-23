@@ -24,6 +24,7 @@ import Loading from '../../../components/Loading';
 import { STATES_ROWS_PER_PAGE } from '../../../constants';
 import { useStatesQuery } from './telemed-admin.queries';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { isLocationVirtual } from 'utils';
 
 export default function StatesPage(): ReactElement {
   const theme = useTheme();
@@ -33,17 +34,26 @@ export default function StatesPage(): ReactElement {
   const [searchText, setSearchText] = React.useState('');
 
   const { data, isFetching } = useStatesQuery();
-  const stateLocations = data || [];
+  const stateLocations = React.useMemo(() => data || [], [data]);
+
+  // Filter the states based on the locations from fhir
+  const fhirLocationStates = React.useMemo(
+    () =>
+      AllStates.filter((state: State) =>
+        stateLocations.some((loc) => loc.address?.state === state.value && isLocationVirtual(loc))
+      ),
+    [stateLocations]
+  );
 
   // Filter the states based on the search text
   const filteredStates = React.useMemo(
     () =>
-      AllStates.filter((state: State) =>
+      fhirLocationStates.filter((state: State) =>
         `${state.label} - ${AllStatesToVirtualLocationsData[state.value as StateType]}`
           .toLowerCase()
           .includes(searchText.toLowerCase())
       ),
-    [searchText]
+    [searchText, fhirLocationStates]
   );
 
   // For pagination, only include the rows that are on the current page
