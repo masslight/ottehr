@@ -8,10 +8,13 @@ import {
   Observation,
   Patient,
   Person,
+  QuestionnaireResponse,
   RelatedPerson,
   Resource,
   ServiceRequest,
   Slot,
+  Consent,
+  Account,
 } from 'fhir/r4b';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
@@ -49,6 +52,9 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
   serviceRequestTests(e2eResources, integrationResources);
   clinicalImpressionTests(e2eResources, integrationResources);
   documentReferenceTests(e2eResources, integrationResources);
+  questionnaireResponseTests(e2eResources, integrationResources);
+  consentTests(e2eResources, integrationResources);
+  accountTests(e2eResources, integrationResources);
 });
 
 const appointmentTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
@@ -226,6 +232,47 @@ const documentReferenceTests = (e2eResources: Resource[], integrationResources: 
   });
 };
 
+const questionnaireResponseTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eQuestionnaireResponses = e2eResources.filter(
+    (resource) => resource.resourceType === 'QuestionnaireResponse'
+  ) as QuestionnaireResponse[];
+  const integrationQuestionnaireResponses = integrationResources.filter(
+    (resource) => resource.resourceType === 'QuestionnaireResponse'
+  ) as QuestionnaireResponse[];
+
+  expect(e2eQuestionnaireResponses.length).toEqual(integrationQuestionnaireResponses.length);
+
+  const e2eQuestionnaireResponse = cleanQuestionnaireResponse(e2eQuestionnaireResponses[0]);
+  const integrationQuestionnaireResponse = cleanQuestionnaireResponse(integrationQuestionnaireResponses[0]);
+  checkKeysAndValuesBothWays(e2eQuestionnaireResponse, integrationQuestionnaireResponse, 'QuestionnaireResponse');
+};
+
+const consentTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eConsents = e2eResources.filter((resource) => resource.resourceType === 'Consent') as Consent[];
+  const integrationConsents = integrationResources.filter(
+    (resource) => resource.resourceType === 'Consent'
+  ) as Consent[];
+
+  expect(e2eConsents.length).toEqual(integrationConsents.length);
+
+  const e2eConsent = cleanConsent(e2eConsents[0]);
+  const integrationConsent = cleanConsent(integrationConsents[0]);
+  checkKeysAndValuesBothWays(e2eConsent, integrationConsent, 'Consent');
+};
+
+const accountTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eAccounts = e2eResources.filter((resource) => resource.resourceType === 'Account') as Account[];
+  const integrationAccounts = integrationResources.filter(
+    (resource) => resource.resourceType === 'Account'
+  ) as Account[];
+
+  expect(e2eAccounts.length).toEqual(integrationAccounts.length);
+
+  const e2eAccount = cleanAccount(e2eAccounts[0]);
+  const integrationAccount = cleanAccount(integrationAccounts[0]);
+  checkKeysAndValuesBothWays(e2eAccount, integrationAccount, 'Account');
+};
+
 const checkKeysAndValuesBothWays = (e2eResource: any, integrationResource: any, label: string): void => {
   Object.entries(e2eResource).forEach(([key, value]) => {
     expect(integrationResource[key], `expect integration ${label}.${key} value to be defined`).toBeDefined();
@@ -347,6 +394,37 @@ const cleanDocumentReference = (documentReference: DocumentReference): DocumentR
   return cleanedDocumentReference;
 };
 
+const cleanQuestionnaireResponse = (questionnaireResponse: QuestionnaireResponse): QuestionnaireResponse => {
+  let cleanedQuestionnaireResponse = { ...questionnaireResponse };
+  cleanedQuestionnaireResponse = cleanOutMetaStuff(cleanedQuestionnaireResponse) as QuestionnaireResponse;
+  cleanedQuestionnaireResponse.subject!.reference = cleanedQuestionnaireResponse.subject!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedQuestionnaireResponse.encounter!.reference = cleanedQuestionnaireResponse.encounter!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedQuestionnaireResponse.authored = SKIP_ME;
+  return cleanedQuestionnaireResponse;
+};
+
+const cleanConsent = (consent: Consent): Consent => {
+  let cleanedConsent = { ...consent };
+  cleanedConsent = cleanOutMetaStuff(cleanedConsent) as Consent;
+  cleanedConsent.patient!.reference = cleanedConsent.patient!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedConsent.sourceReference!.reference = cleanedConsent.sourceReference!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedConsent.dateTime = SKIP_ME;
+  return cleanedConsent;
+};
+
+const cleanAccount = (account: Account): Account => {
+  let cleanedAccount = { ...account };
+  cleanedAccount = cleanOutMetaStuff(cleanedAccount) as Account;
+  cleanedAccount.subject?.forEach((subject) => {
+    subject.reference = subject.reference?.split('/')[0]; // cut off the UUID for comparison
+  });
+  const containedRelatedPerson = cleanedAccount.contained?.find(
+    (contained) => contained.resourceType === 'RelatedPerson'
+  ) as RelatedPerson;
+  containedRelatedPerson.patient.reference = containedRelatedPerson.patient.reference?.split('/')[0]; // cut off the UUID for comparison
+  return cleanedAccount;
+};
+
 const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[]> => {
   return (
     await e2eHandler.apiClient.fhir.search<Patient>({
@@ -371,10 +449,6 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
         {
           name: '_revinclude:iterate',
           value: 'RelatedPerson:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Encounter:participant',
         },
         {
           name: '_revinclude:iterate',

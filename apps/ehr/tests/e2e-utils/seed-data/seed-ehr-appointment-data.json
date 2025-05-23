@@ -819,7 +819,7 @@
                 "linkId": "patient-first-name",
                 "answer": [
                   {
-                    "valueString": "Test_John_Random20250519"
+                    "valueString": "Jon"
                   }
                 ]
               },
@@ -827,7 +827,7 @@
                 "linkId": "patient-last-name",
                 "answer": [
                   {
-                    "valueString": "Test_Doe_Random20250519"
+                    "valueString": "Snow"
                   }
                 ]
               },
