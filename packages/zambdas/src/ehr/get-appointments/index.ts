@@ -168,13 +168,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           const appointments = appointmentResponse
             .unbundle()
             .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
+
           const activeApptsBeforeTodayResources = activeApptsBeforeTodayResponse.unbundle();
-          let activeApptsBeforeToday = activeApptsBeforeTodayResources.filter((resource) => {
-            return resource.resourceType === 'Appointment';
+          let activeApptsBeforeToday: Appointment[] = [];
+          const activeApptsBeforeTodayPatientsIds: string[] = [];
+          activeApptsBeforeTodayResources.forEach((res) => {
+            if (res.resourceType === 'Appointment') activeApptsBeforeToday.push(res);
+            if (res.resourceType === 'Patient' && res.id) activeApptsBeforeTodayPatientsIds.push(res.id);
           });
-          const activeApptsBeforeTodayPatientsIds = activeApptsBeforeTodayResources
-            .filter((res) => res.resourceType === 'Patient')
-            .map((res) => res.id);
 
           // here we are checking if appointments-before-today have patients, because this issue appears a lot
           // and we can see date where we have appointment but nothing in waiting room because no patient for appointment
@@ -182,7 +183,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             const patientRef = (res as Appointment).participant.find(
               (participant) => participant.actor?.reference?.startsWith('Patient/')
             )?.actor?.reference;
-            const patientId = patientRef?.replace('Patient/', '');
+            const patientId = patientRef?.replace('Patient/', '') ?? '';
             return Boolean(activeApptsBeforeTodayPatientsIds.includes(patientId));
           });
 
