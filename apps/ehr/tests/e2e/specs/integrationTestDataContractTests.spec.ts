@@ -1,5 +1,18 @@
 import { expect, test } from '@playwright/test';
-import { Appointment, Observation, Patient, Person, RelatedPerson, Resource } from 'fhir/r4b';
+import {
+  Appointment,
+  ClinicalImpression,
+  DocumentReference,
+  Encounter,
+  List,
+  Observation,
+  Patient,
+  Person,
+  RelatedPerson,
+  Resource,
+  ServiceRequest,
+  Slot,
+} from 'fhir/r4b';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const e2eHandler = new ResourceHandler();
@@ -30,6 +43,12 @@ test('Ensure Resources created by generate test data -> harvest -> prefill is th
   relatedPersonTests(e2eResources, integrationResources);
   personTests(e2eResources, integrationResources);
   observationTests(e2eResources, integrationResources);
+  encounterTests(e2eResources, integrationResources);
+  slotTests(e2eResources, integrationResources);
+  listTests(e2eResources, integrationResources);
+  serviceRequestTests(e2eResources, integrationResources);
+  clinicalImpressionTests(e2eResources, integrationResources);
+  documentReferenceTests(e2eResources, integrationResources);
 });
 
 const appointmentTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
@@ -108,7 +127,103 @@ const observationTests = (e2eResources: Resource[], integrationResources: Resour
 
     checkKeysAndValuesBothWays(e2eObservation, integrationObservation, `${e2eObservationTypeTag!.code} Observation`);
   });
-  // TODO we can't check that these are valid yet because the actual data is junk placeholder snomed codes.
+};
+
+const encounterTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eEncounters = e2eResources.filter((resource) => resource.resourceType === 'Encounter') as Encounter[];
+  const integrationEncounters = integrationResources.filter(
+    (resource) => resource.resourceType === 'Encounter'
+  ) as Encounter[];
+
+  expect(e2eEncounters.length).toEqual(integrationEncounters.length);
+
+  const e2eEncounter = cleanEncounter(e2eEncounters[0]);
+  const integrationEncounter = cleanEncounter(integrationEncounters[0]);
+  checkKeysAndValuesBothWays(e2eEncounter, integrationEncounter, 'Encounter');
+};
+
+const slotTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eSlots = e2eResources.filter((resource) => resource.resourceType === 'Slot') as Slot[];
+  const integrationSlots = integrationResources.filter((resource) => resource.resourceType === 'Slot') as Slot[];
+
+  expect(e2eSlots.length).toEqual(integrationSlots.length);
+
+  const e2eSlot = cleanSlot(e2eSlots[0]);
+  const integrationSlot = cleanSlot(integrationSlots[0]);
+  checkKeysAndValuesBothWays(e2eSlot, integrationSlot, 'Slot');
+};
+
+const listTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eLists = e2eResources.filter((resource) => resource.resourceType === 'List') as List[];
+  const integrationLists = integrationResources.filter((resource) => resource.resourceType === 'List') as List[];
+
+  expect(e2eLists.length).toEqual(integrationLists.length);
+
+  const e2eCleaned = e2eLists.map((list) => cleanList(list));
+  const integrationCleaned = integrationLists.map((list) => cleanList(list));
+
+  e2eCleaned.forEach((e2eList) => {
+    const integrationList = integrationCleaned.find((iList) => iList.title === e2eList.title);
+
+    checkKeysAndValuesBothWays(e2eList, integrationList, `${e2eList!.title} List`);
+  });
+};
+
+const serviceRequestTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eServiceRequests = e2eResources.filter(
+    (resource) => resource.resourceType === 'ServiceRequest'
+  ) as ServiceRequest[];
+  const integrationServiceRequests = integrationResources.filter(
+    (resource) => resource.resourceType === 'ServiceRequest'
+  ) as ServiceRequest[];
+
+  expect(e2eServiceRequests.length).toEqual(integrationServiceRequests.length);
+
+  const e2eServiceRequest = cleanServiceRequest(e2eServiceRequests[0]);
+  const integrationServiceRequest = cleanServiceRequest(integrationServiceRequests[0]);
+  checkKeysAndValuesBothWays(e2eServiceRequest, integrationServiceRequest, 'ServiceRequest');
+};
+
+const clinicalImpressionTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eClinicalImpressions = e2eResources.filter(
+    (resource) => resource.resourceType === 'ClinicalImpression'
+  ) as ClinicalImpression[];
+  const integrationClinicalImpressions = integrationResources.filter(
+    (resource) => resource.resourceType === 'ClinicalImpression'
+  ) as ClinicalImpression[];
+
+  expect(e2eClinicalImpressions.length).toEqual(integrationClinicalImpressions.length);
+
+  const e2eClinicalImpression = cleanClinicalImpression(e2eClinicalImpressions[0]);
+  const integrationClinicalImpression = cleanClinicalImpression(integrationClinicalImpressions[0]);
+  checkKeysAndValuesBothWays(e2eClinicalImpression, integrationClinicalImpression, 'ClinicalImpression');
+};
+
+const documentReferenceTests = (e2eResources: Resource[], integrationResources: Resource[]): void => {
+  const e2eDocumentReferences = e2eResources.filter(
+    (resource) => resource.resourceType === 'DocumentReference'
+  ) as DocumentReference[];
+  const integrationDocumentReferences = integrationResources.filter(
+    (resource) => resource.resourceType === 'DocumentReference'
+  ) as DocumentReference[];
+
+  expect(e2eDocumentReferences.length).toEqual(integrationDocumentReferences.length);
+
+  const e2eCleaned = e2eDocumentReferences.map((docRef) => cleanDocumentReference(docRef));
+  const integrationCleaned = integrationDocumentReferences.map((docRef) => cleanDocumentReference(docRef));
+
+  e2eCleaned.forEach((e2eDocRef) => {
+    const e2eDocTypeLoincCoding = e2eDocRef.type?.coding?.find((coding) => coding.system === 'http://loinc.org');
+
+    const integrationDocRef = integrationCleaned.find(
+      (integrationDocRef) =>
+        integrationDocRef.type?.coding?.find(
+          (coding) => coding.system === 'http://loinc.org' && coding.code === e2eDocTypeLoincCoding!.code
+        )
+    );
+
+    checkKeysAndValuesBothWays(e2eDocRef, integrationDocRef, `${e2eDocTypeLoincCoding!.code} DocumentReference`);
+  });
 };
 
 const checkKeysAndValuesBothWays = (e2eResource: any, integrationResource: any, label: string): void => {
@@ -169,6 +284,69 @@ const cleanObservation = (observation: Observation): Observation => {
   return cleanedObservation;
 };
 
+const cleanEncounter = (encounter: Encounter): Encounter => {
+  let cleanedEncounter = { ...encounter };
+  cleanedEncounter = cleanOutMetaStuff(cleanedEncounter) as Encounter;
+  cleanedEncounter.appointment!.forEach((appointment) => {
+    appointment.reference = appointment.reference?.split('/')[0]; // cut off the UUID for comparison
+  });
+  cleanedEncounter.subject!.reference = cleanedEncounter.subject!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedEncounter.statusHistory?.forEach((statusHistory) => {
+    statusHistory.period!.start = SKIP_ME;
+  });
+  return cleanedEncounter;
+};
+
+const cleanSlot = (slot: Slot): Slot => {
+  let cleanedSlot = { ...slot };
+  cleanedSlot = cleanOutMetaStuff(cleanedSlot) as Slot;
+  cleanedSlot.schedule!.reference = cleanedSlot.schedule!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedSlot.start = SKIP_ME;
+  cleanedSlot.end = SKIP_ME;
+  return cleanedSlot;
+};
+
+const cleanList = (list: List): List => {
+  let cleanedList = { ...list };
+  cleanedList = cleanOutMetaStuff(cleanedList) as List;
+  cleanedList.subject!.reference = cleanedList.subject!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedList.entry?.forEach((entry) => {
+    entry.item!.reference = entry.item!.reference?.split('/')[0]; // cut off the UUID for comparison
+    entry.date = SKIP_ME;
+  });
+  return cleanedList;
+};
+
+const cleanServiceRequest = (serviceRequest: ServiceRequest): ServiceRequest => {
+  let cleanedServiceRequest = { ...serviceRequest };
+  cleanedServiceRequest = cleanOutMetaStuff(cleanedServiceRequest) as ServiceRequest;
+  cleanedServiceRequest.subject!.reference = cleanedServiceRequest.subject!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedServiceRequest.encounter!.reference = cleanedServiceRequest.encounter!.reference?.split('/')[0]; // cut off the UUID for comparison
+  return cleanedServiceRequest;
+};
+
+const cleanClinicalImpression = (clinicalImpression: ClinicalImpression): ClinicalImpression => {
+  let cleanedClinicalImpression = { ...clinicalImpression };
+  cleanedClinicalImpression = cleanOutMetaStuff(cleanedClinicalImpression) as ClinicalImpression;
+  cleanedClinicalImpression.subject!.reference = cleanedClinicalImpression.subject!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedClinicalImpression.encounter!.reference = cleanedClinicalImpression.encounter!.reference?.split('/')[0]; // cut off the UUID for comparison
+  return cleanedClinicalImpression;
+};
+
+const cleanDocumentReference = (documentReference: DocumentReference): DocumentReference => {
+  let cleanedDocumentReference = { ...documentReference };
+  cleanedDocumentReference = cleanOutMetaStuff(cleanedDocumentReference) as DocumentReference;
+  cleanedDocumentReference.subject!.reference = cleanedDocumentReference.subject!.reference?.split('/')[0]; // cut off the UUID for comparison
+  cleanedDocumentReference.date = SKIP_ME;
+  cleanedDocumentReference.content.forEach((content) => {
+    content.attachment!.url = SKIP_ME;
+  });
+  cleanedDocumentReference.context?.related?.forEach((related) => {
+    related.reference = related.reference?.split('/')[0]; // cut off the UUID for comparison
+  });
+  return cleanedDocumentReference;
+};
+
 const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[]> => {
   return (
     await e2eHandler.apiClient.fhir.search<Patient>({
@@ -225,10 +403,6 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
         {
           name: '_revinclude:iterate',
           value: 'Account:patient',
-        },
-        {
-          name: '_revinclude:iterate',
-          value: 'Schedule:actor',
         },
         {
           name: '_revinclude:iterate',
