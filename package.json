@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.9.12",
+  "version": "1.10.0",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -30,6 +30,7 @@
     "ehr:start": "turbo start --filter=ehr-ui",
     "ehr:e2e:local": "tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:ui": "tsx scripts/run-e2e.ts --app=ehr --ui",
+    "ehr:e2e:local:ui:integration": "INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:demo": "ENV=demo tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:demo:ui": "ENV=demo tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:development": "ENV=development tsx scripts/run-e2e.ts --app=ehr",

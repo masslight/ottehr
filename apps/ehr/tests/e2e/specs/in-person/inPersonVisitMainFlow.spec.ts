@@ -51,7 +51,12 @@ test.describe('Book appointment', async () => {
   const resourceHandler = new ResourceHandler();
 
   test.beforeEach(async () => {
-    await resourceHandler.setResources();
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    }
   });
 
   test.afterEach(async () => {
@@ -149,7 +154,11 @@ test.describe('Book appointment filling insurances information on payment option
     ];
   });
   test.beforeEach(async () => {
-    await resourceHandler.setResources();
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+    }
   });
 
   test.afterEach(async () => {

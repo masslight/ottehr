@@ -9,7 +9,11 @@ import { expectVisitDetailsPage } from '../page/VisitDetailsPage';
 const resourceHandler = new ResourceHandler('in-person');
 
 test.beforeEach(async () => {
-  await resourceHandler.setResources();
+  if (process.env.INTEGRATION_TEST === 'true') {
+    await resourceHandler.setResourcesFast();
+  } else {
+    await resourceHandler.setResources();
+  }
 });
 
 test.afterEach(async () => {
