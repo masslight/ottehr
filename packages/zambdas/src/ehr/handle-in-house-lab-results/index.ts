@@ -43,6 +43,7 @@ import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
 import { getAttendingPractionerId } from '../shared/inhouse-labs';
+import { createLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
 
@@ -85,6 +86,21 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const res = await oystehr.fhir.transaction({ requests });
     console.log('check the res', JSON.stringify(res));
+
+    const diagnosticReport = res.entry?.find((resource) => resource.resource?.resourceType === 'DiagnosticReport')
+      ?.resource as DiagnosticReport;
+
+    await createLabResultPDF(
+      oystehr,
+      'in-house',
+      serviceRequestId,
+      diagnosticReport,
+      undefined,
+      secrets,
+      m2mtoken,
+      specimen,
+      activityDefinition
+    );
 
     return {
       statusCode: 200,
