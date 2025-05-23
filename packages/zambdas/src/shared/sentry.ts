@@ -15,8 +15,7 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
         const environment = event.tags?.environment?.toString();
         // https://github.com/getsentry/sentry-javascript/issues/13391#issuecomment-2359832269
         // filter out events from dev and local
-        // if (!environment || ['dev', 'local'].includes(environment)) {
-        if (!environment || ['local'].includes(environment)) {
+        if (!environment || ['dev', 'local'].includes(environment)) {
           return null;
         }
         // update transaction name
