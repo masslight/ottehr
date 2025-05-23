@@ -360,7 +360,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationZip: location?.address?.postalCode,
         locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
-        labOrganizationName: labOrganization.name || ORDER_ITEM_UNKNOWN,
+        labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         providerTitle:
