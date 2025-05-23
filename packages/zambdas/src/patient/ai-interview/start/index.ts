@@ -18,8 +18,8 @@ const INITIAL_USER_MESSAGE = `Perform a medical history intake session with me b
  Ask no more than 30 questions.
  Ask one question at a time.
  Don't numerate questions.
- When you'll have no new questions to ask, make a summary and say 
- "I've recorded what you've shared, and this will be reviewed by your provider, to better understand your situation and prepare for your visit. ${INTERVIEW_COMPLETED}"`;
+ When you'll have no new questions to ask just say 
+ "No further questions, thanks for chatting. We've sent the information to your nurse or doctor to review. ${INTERVIEW_COMPLETED}"`;
 const QUESTIONNAIRE_ID = 'aiInterviewQuestionnaire';
 
 let oystehrToken: string;
