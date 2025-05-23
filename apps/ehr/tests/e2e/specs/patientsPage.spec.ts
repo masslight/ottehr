@@ -16,8 +16,12 @@ import { expectPatientsPage } from '../page/PatientsPage';
 const resourceHandler = new ResourceHandler();
 
 test.beforeAll(async () => {
-  await resourceHandler.setResources();
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  if (process.env.INTEGRATION_TEST === 'true') {
+    await resourceHandler.setResourcesFast();
+  } else {
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  }
 });
 
 test.afterAll(async () => {
