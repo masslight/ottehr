@@ -43,6 +43,7 @@ import {
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
 import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -282,11 +283,11 @@ export class ResourceHandler {
     seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
     seedDataString = seedDataString.replace(
       /\{\{questionnaireUrl\}\}/g,
-      'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.7' // TODO right place to get this?
+      `${inPersonIntakeQuestionnaire.resource.url}|${inPersonIntakeQuestionnaire.resource.version}`
     );
     seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
 
-    // TODO do something about the DocumentReference attachments.
+    // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
 
     const hydratedFastSeedJSON = JSON.parse(seedDataString);
 
