@@ -74,7 +74,9 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const debouncedHandleInputChange = useCallback(
     debounce((data) => {
       console.log(data);
-      setDebouncedSearchTerm(data);
+      if (data.length > 2) {
+        setDebouncedSearchTerm(data);
+      }
     }, 800),
     []
   );
@@ -200,7 +202,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                     disablePortal
                     disabled={isLoading || isChartDataLoading}
                     noOptionsText={
-                      debouncedSearchTerm && medSearchOptions.length === 0
+                      debouncedSearchTerm && debouncedSearchTerm.length > 2 && medSearchOptions.length === 0
                         ? 'Nothing found for this search criteria'
                         : 'Start typing to load results'
                     }

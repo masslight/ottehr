@@ -2,13 +2,18 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Secrets,
   CreateInHouseLabOrderParameters,
-  PRACTITIONER_CODINGS,
   FHIR_IDC10_VALUESET_SYSTEM,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  IN_HOUSE_LAB_DOCREF_CATEGORY,
+  getFullestAvailableName,
 } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken, createOystehrClient, getMyPractitionerId } from '../../shared';
+import {
+  ZambdaInput,
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+  parseCreatedResourcesBundle,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Account,
@@ -19,14 +24,16 @@ import {
   Location,
   ActivityDefinition,
   Provenance,
-  DocumentReference,
   Task,
   FhirResource,
+  Practitioner,
+  Bundle,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPrimaryInsurance } from '../shared/labs';
-import { BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputRequest, ZambdaExecuteResult } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
+import { getAttendingPractionerId } from '../shared/inhouse-labs';
 
 let m2mtoken: string;
 
@@ -56,8 +63,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-
-    const { encounterId, testItem, cptCode: _cptCode, diagnoses, notes } = validatedParameters;
+    const { encounterId, testItem, cptCode: _cptCode, diagnosesAll, diagnosesNew, notes } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -154,7 +160,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const activityDefinition = (() => {
       if (activeDefinitionResources.length !== 1) {
         throw Error(
-          `ActivityDefinition not found, results contain ${activeDefinitionResources.length} activity definitions`
+          `ActivityDefinition not found, results contain ${
+            activeDefinitionResources.length
+          } activity definitions, ids: ${activeDefinitionResources
+            .map((resource) => `ActivityDefinition/${resource.id}`)
+            .join(', ')}`
         );
       }
 
@@ -189,19 +199,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return accountSearchResults[0];
     })();
 
-    const attendingPractitionerId = (() => {
-      const practitionerId = encounter.participant
-        ?.find(
-          (participant) =>
-            participant.type?.find(
-              (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-            )
-        )
-        ?.individual?.reference?.replace('Practitioner/', '');
+    const attendingPractitionerId = getAttendingPractionerId(encounter);
 
-      if (!practitionerId) throw Error('Attending practitioner not found');
-      return practitionerId;
-    })();
+    const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
+      oystehrCurrentUser.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: userPractitionerId,
+      }),
+      oystehrCurrentUser.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: attendingPractitionerId,
+      }),
+    ]).then(([currentUserPractitioner, attendingPractitioner]) => {
+      return {
+        currentUserPractitionerName: getFullestAvailableName(currentUserPractitioner),
+        attendingPractitionerName: getFullestAvailableName(attendingPractitioner),
+      };
+    });
 
     const coverage = getPrimaryInsurance(account, coverageSearchResults);
 
@@ -228,7 +242,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: activityDefinition.code?.coding,
         text: activityDefinition.name,
       },
-      reasonCode: diagnoses.map((diagnosis) => {
+      reasonCode: [...diagnosesAll, ...diagnosesNew].map((diagnosis) => {
         return {
           coding: [
             {
@@ -281,45 +295,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       recorded: DateTime.now().toISO(),
       agent: [
         {
-          who: { reference: `Practitioner/${userPractitionerId}` },
-          onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
-        },
-      ],
-    };
-
-    const documentReferenceConfig: DocumentReference = {
-      resourceType: 'DocumentReference',
-      context: {
-        related: [{ reference: serviceRequestFullUrl }],
-      },
-      // todo: will be implemented later - https://github.com/masslight/ottehr/issues/2152
-      content: [
-        {
-          attachment: {
-            contentType: 'text/plain',
-            data: Buffer.from(
-              'Placeholder for future content https://github.com/masslight/ottehr/issues/2152'
-            ).toString('base64'),
+          who: {
+            reference: `Practitioner/${userPractitionerId}`,
+            display: currentUserPractitionerName,
           },
-        },
-      ],
-      date: DateTime.now().toISO(),
-      status: 'current',
-      docStatus: 'final',
-      category: [
-        {
-          coding: [
-            {
-              // todo: check is it valid?
-              system: IN_HOUSE_LAB_DOCREF_CATEGORY.system,
-              code: IN_HOUSE_LAB_DOCREF_CATEGORY.code.sampleLabel,
-            },
-            {
-              // todo: check is it valid?
-              system: IN_HOUSE_LAB_DOCREF_CATEGORY.system,
-              code: IN_HOUSE_LAB_DOCREF_CATEGORY.code.resultForm,
-            },
-          ],
+          onBehalfOf: {
+            reference: `Practitioner/${attendingPractitionerId}`,
+            display: attendingPractitionerName,
+          },
         },
       ],
     };
@@ -342,30 +325,39 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           url: '/Provenance',
           resource: provenanceConfig,
         },
-        {
-          method: 'POST',
-          url: '/DocumentReference',
-          resource: documentReferenceConfig,
-        },
       ] as BatchInputRequest<FhirResource>[],
     });
+
+    const resources = parseCreatedResourcesBundle(transactionResponse);
+    const newServiceRequest = resources.find((r) => r.resourceType === 'ServiceRequest');
 
     if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
       throw Error('Error creating in-house lab order in transaction');
     }
 
-    const saveChartDataResponse = await oystehrCurrentUser.zambda.execute({
-      id: 'save-chart-data',
-      encounterId,
-      diagnosis: diagnoses,
-    });
+    const saveChartDataResponse = diagnosesNew.length
+      ? await oystehrCurrentUser.zambda.execute({
+          id: 'save-chart-data',
+          encounterId,
+          diagnosis: diagnosesNew,
+        })
+      : {};
+
+    // todo: add common response type
+    const response: {
+      transactionResponse: Bundle<FhirResource>;
+      saveChartDataResponse: ZambdaExecuteResult | Record<string, never>;
+      serviceRequestId?: string;
+    } = {
+      transactionResponse,
+      saveChartDataResponse,
+    };
+
+    if (newServiceRequest) response['serviceRequestId'] = newServiceRequest.id;
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        transactionResponse,
-        saveChartDataResponse,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error creating in-house lab order:', JSON.stringify(error));

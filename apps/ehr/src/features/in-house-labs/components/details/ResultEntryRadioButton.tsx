@@ -4,6 +4,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 
 interface ResultEntryRadioButtonProps {
   testItemComponent: CodeableConceptComponent;
+  disabled?: boolean;
 }
 
 const ABNORMAL_FONT_COLOR = '#F44336';
@@ -22,7 +23,7 @@ const NORMAL_RADIO_COLOR_STYLING = {
   },
 };
 
-export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent }) => {
+export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent, disabled }) => {
   const nullCode = testItemComponent.nullOption?.code;
   const { control } = useFormContext();
 
@@ -100,7 +101,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
                 <Grid item xs={6} key={valueCode}>
                   <FormControlLabel
                     value={valueCode}
-                    control={<Radio sx={radioStylingColor(valueCode, field.value)} />}
+                    control={<Radio sx={radioStylingColor(valueCode, field.value)} disabled={!!disabled} />}
                     label={<Typography sx={typographyStyling(valueCode, field.value)}>{valueCode}</Typography>}
                     sx={{
                       margin: 0,
@@ -121,6 +122,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
               <FormControlLabel
                 control={
                   <Checkbox
+                    disabled={!!disabled}
                     checked={field.value === nullCode}
                     onChange={() => field.onChange(field.value === nullCode ? '' : nullCode)}
                   />
