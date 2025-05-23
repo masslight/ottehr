@@ -218,9 +218,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.timeEnd('get_active_encounters + get_appointment_data');
 
     const activeAppointmentDatesBeforeToday = activeApptsBeforeToday
-      .filter((resource) => {
-        return resource.resourceType === 'Appointment';
-      })
       .sort((r1, r2) => {
         const d1 = DateTime.fromISO((r1 as Appointment).start || '');
         const d2 = DateTime.fromISO((r2 as Appointment).start || '');
