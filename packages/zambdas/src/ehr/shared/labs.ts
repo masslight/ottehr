@@ -28,6 +28,8 @@ import {
   getPresignedURL,
   LAB_DR_TYPE_TAG,
   nameLabTest,
+  LabType,
+  IN_HOUSE_LAB_TASK,
 } from 'utils';
 
 export type LabOrderResources = {
@@ -36,7 +38,7 @@ export type LabOrderResources = {
   questionnaireResponse?: QuestionnaireResponse;
   practitioner: Practitioner;
   task: Task;
-  organization: Organization;
+  organization: Organization | undefined;
   diagnosticReports: DiagnosticReport[];
   appointment: Appointment;
   encounter: Encounter;
@@ -44,7 +46,11 @@ export type LabOrderResources = {
   specimens: Specimen[];
 };
 
-export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
+export async function getLabOrderResources(
+  oystehr: Oystehr,
+  type: LabType,
+  serviceRequestID: string
+): Promise<LabOrderResources> {
   const serviceRequestTemp = (
     await oystehr.fhir.search<
       | ServiceRequest
@@ -125,9 +131,15 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
   );
 
-  const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
+  let tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
+
+  if (type === 'in-house') {
+    tasksTemp = tasksTemp.filter(
+      (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
+    );
+  }
 
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
@@ -170,8 +182,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     throw new Error('task is not found');
   }
 
-  if (orgsTemp?.length !== 1) {
-    throw new Error('performing lab Org not found');
+  if (type === 'external') {
+    if (orgsTemp?.length !== 1) {
+      throw new Error('performing lab Org not found');
+    }
   }
 
   if (appointmentsTemp?.length !== 1) {

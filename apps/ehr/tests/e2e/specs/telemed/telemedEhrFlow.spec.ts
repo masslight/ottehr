@@ -75,17 +75,21 @@ test.describe('Tests checking data without mutating state', () => {
       testsUserStates
     );
 
-    await myPatientsTabAppointmentResources.setResources({
-      telemedLocationState: testsUserQualificationState,
-    });
-    await otherPatientsTabAppointmentResources.setResources({
-      telemedLocationState: randomState,
-    });
+    await Promise.all([
+      myPatientsTabAppointmentResources.setResources({
+        telemedLocationState: testsUserQualificationState,
+      }),
+      otherPatientsTabAppointmentResources.setResources({
+        telemedLocationState: randomState,
+      }),
+    ]);
   });
 
   test.afterAll(async () => {
-    await myPatientsTabAppointmentResources.cleanupResources();
-    await otherPatientsTabAppointmentResources.cleanupResources();
+    await Promise.all([
+      myPatientsTabAppointmentResources.cleanupResources(),
+      otherPatientsTabAppointmentResources.cleanupResources(),
+    ]);
   });
 
   test("Appointment should appear correctly in 'my patients' tab", async ({ page }) => {

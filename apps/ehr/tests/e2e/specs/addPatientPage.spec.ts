@@ -176,7 +176,12 @@ test.describe('For new patient', () => {
 
 test.describe('For existing patient', () => {
   test.beforeAll(async () => {
-    await resourceHandler.setResources();
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    }
   });
 
   test.afterAll(async () => {

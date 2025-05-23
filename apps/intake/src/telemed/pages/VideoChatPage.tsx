@@ -1,4 +1,4 @@
-import { Container } from '@mui/material';
+import { Container, useMediaQuery } from '@mui/material';
 import {
   DeviceLabels,
   GlobalStyles,
@@ -21,6 +21,7 @@ import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { VideoRoom, useCallSettingsStore, useJoinCall, useVideoCallStore } from '../features/video-call';
 import { useZapEHRAPIClient } from '../utils';
+import { breakpoints } from 'ui-components';
 
 const VideoChatPage: FC = () => {
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
@@ -34,6 +35,7 @@ const VideoChatPage: FC = () => {
   const { isVideoEnabled } = useLocalVideo();
   const { devices: videoInputs, selectedDevice: selectedVideoDevice } = useVideoInputs();
   const { devices: audioInputs, selectedDevice: selectedAudioDevice } = useAudioInputs();
+  const isMobile = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);
 
   const apiClient = useZapEHRAPIClient();
   const [searchParams] = useSearchParams();
@@ -138,14 +140,18 @@ const VideoChatPage: FC = () => {
     );
   }
 
-  return (
-    <CustomContainer useEmptyBody title="">
-      <Container maxWidth="xl" sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
-        <VideoRoom />
-        {isRegularParticipant && <CallSideCard />}
-      </Container>
-    </CustomContainer>
-  );
+  if (isMobile) {
+    return <VideoRoom />;
+  } else {
+    return (
+      <CustomContainer useEmptyBody title="">
+        <Container maxWidth="xl" sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+          <VideoRoom />
+          {isRegularParticipant && <CallSideCard />}
+        </Container>
+      </CustomContainer>
+    );
+  }
 };
 
 const VideoChatPageContainer: FC = () => {

@@ -184,6 +184,10 @@ const processObservationDefinition = (
   throw Error('Invalid data type');
 };
 
+export function quantityRangeFormat(quantity: QuantityComponent): string {
+  return `${quantity.normalRange.low} - ${quantity.normalRange.high}`;
+}
+
 export const convertActivityDefinitionToTestItem = (
   activityDef: ActivityDefinition,
   observations?: Observation[]

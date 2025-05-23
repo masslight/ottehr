@@ -1,5 +1,5 @@
 import { Typography, TableCell, TableRow } from '@mui/material';
-import { TestItemComponent, OBSERVATION_CODES } from 'utils';
+import { TestItemComponent, OBSERVATION_CODES, quantityRangeFormat } from 'utils';
 import { ResultEntrySelect } from './ResultEntrySelect';
 import { ResultEntryNumericInput } from './ResultsEntryNumericInput';
 import { useState, useEffect } from 'react';
@@ -28,7 +28,7 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
   let valueElement = <div>Could not parse input type</div>;
   if (component.dataType === 'Quantity') {
     units = component.unit;
-    referenceRange = `${component.normalRange.low} - ${component.normalRange.high}`;
+    referenceRange = quantityRangeFormat(component);
   }
 
   if (component.dataType === 'CodeableConcept') {

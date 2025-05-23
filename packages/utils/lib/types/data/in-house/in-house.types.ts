@@ -160,6 +160,7 @@ export type InHouseLabDTO = {
   providerId: string;
   currentUserName: string;
   currentUserId: string;
+  resultsPDFUrl?: string;
   orderInfo: {
     diagnosis: DiagnosisDTO[];
     testName: string;

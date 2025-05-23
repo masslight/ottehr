@@ -220,7 +220,7 @@ export const isoToDateObject = (isoString: string): { year: string; month: strin
   };
 };
 
-export const DEMO_VISIT_STREET_ADDRESS = `${DateTime.now().toFormat('yyyyMMdd')} Test Line`;
+export const DEMO_VISIT_STREET_ADDRESS = `20250519 Test Line`;
 export const DEMO_VISIT_STREET_ADDRESS_OPTIONAL = 'Apt 4B';
 export const DEMO_VISIT_CITY = 'New York';
 export const DEMO_VISIT_STATE = 'NY';

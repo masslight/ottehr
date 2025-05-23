@@ -27,14 +27,19 @@ const CPT_CODE_2 = '72146';
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async ({ browser }) => {
+  if (process.env.INTEGRATION_TEST === 'true') {
+    await resourceHandler.setResourcesFast();
+  } else {
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  }
+
   context = await browser.newContext();
   page = await context.newPage();
   assessmentPage = new InPersonAssessmentPage(page);
   progressNotePage = new InPersonProgressNotePage(page);
   sideMenu = new SideMenu(page);
   cssHeader = new CssHeader(page);
-  await resourceHandler.setResources();
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment!.id!);
   await page.goto(`in-person/${resourceHandler.appointment.id}/progress-note`);
   await cssHeader.verifyStatus('pending');
   await cssHeader.clickSwitchStatusButton('provider');
