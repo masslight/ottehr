@@ -1,8 +1,8 @@
-import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
+  AvailableLocationInformation,
   chooseJson,
-  Closure,
   CreateAppointmentInputParams,
   CreateSlotParams,
   GetAppointmentDetailsResponse,
@@ -20,7 +20,6 @@ import {
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
-  ScheduleType,
   StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
@@ -57,20 +56,6 @@ const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTER
 const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
-
-export interface AvailableLocationInformation {
-  id: string | undefined;
-  slug: string | undefined;
-  name: string | undefined;
-  description: string | undefined;
-  address: Address | undefined;
-  telecom: ContactPoint[] | undefined;
-  hoursOfOperation: LocationHoursOfOperation[] | undefined;
-  closures: Closure[];
-  timezone: string | undefined;
-  otherOffices: { display: string; url: string }[];
-  scheduleType: ScheduleType;
-}
 
 export interface AppointmentBasicInfo {
   start: string;

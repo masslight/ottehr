@@ -1,47 +1,63 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Grid,
-  FormControlLabel,
-  Radio,
-  RadioGroup,
-  Checkbox,
-  Collapse,
-} from '@mui/material';
+import { Box, Paper, Typography, Button } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { LabTest, TestResult } from '../../labTypes';
-import { History } from './History';
+import { InHouseLabDTO, ResultEntryInput, LoadingState } from 'utils';
+import { ResultEntryRadioButton } from './ResultEntryRadioButton';
+import { ResultEntryTable } from './ResultsEntryTable';
+import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
+import { handleInHouseLabResults } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { LoadingButton } from '@mui/lab';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { useParams } from 'react-router-dom';
+import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 
 interface PerformTestViewProps {
-  testDetails: LabTest;
+  testDetails: InHouseLabDTO;
+  setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
-  onSubmit: (data: any) => void;
 }
 
-export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, onBack, onSubmit }) => {
-  const [result, setResult] = useState<TestResult>(testDetails.result || null);
-  const [indeterminate, setIndeterminate] = useState(false);
+export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, setLoadingState, onBack }) => {
+  const methods = useForm<ResultEntryInput>({ mode: 'onChange' });
+  const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
+  const {
+    handleSubmit,
+    formState: { isValid },
+  } = methods;
+  const { oystehrZambda: oystehr } = useApiClients();
+
   const [showDetails, setShowDetails] = useState(false);
-  const [notes, setNotes] = useState(testDetails.notes || '');
+  // const [notes, setNotes] = useState(testDetails.notes || '');
+  const [submittingResults, setSubmittingResults] = useState<boolean>(false);
+  const [error, setError] = useState<string[] | undefined>(undefined);
 
-  const handleToggleDetails = (): void => {
-    setShowDetails(!showDetails);
-  };
+  // const handleReprintLabel = (): void => {
+  //   console.log('Reprinting label for test:', testDetails.serviceRequestId);
+  // };
 
-  const handleReprintLabel = (): void => {
-    console.log('Reprinting label for test:', testDetails.id);
-  };
-
-  const handleSubmit = (): void => {
-    onSubmit({
-      status: 'FINAL',
-      result: indeterminate ? 'INDETERMINATE' : result,
-      notes,
-    });
+  const handleResultEntrySubmit: SubmitHandler<ResultEntryInput> = async (data): Promise<void> => {
+    setSubmittingResults(true);
+    if (!oystehr) {
+      console.log('no oystehr client! :o'); // todo add error handling
+      return;
+    }
+    if (!serviceRequestID) return; // todo better error handling
+    console.log('data being submitted', data);
+    try {
+      await handleInHouseLabResults(oystehr, {
+        serviceRequestId: serviceRequestID,
+        data: data,
+      });
+      setLoadingState(LoadingState.initial);
+    } catch (e) {
+      const oyError = e as OystehrSdkError;
+      console.log('error entering results', oyError.code, oyError.message);
+      const errorMessage = [oyError.message];
+      setError(errorMessage);
+    }
+    setSubmittingResults(false);
   };
 
   return (
@@ -54,146 +70,77 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, o
         Perform Test & Enter Results
       </Typography>
 
-      <Paper sx={{ mb: 2 }}>
-        <Box sx={{ p: 3 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Typography variant="h5" color="primary.dark" fontWeight="bold">
-              {testDetails.name}
-            </Typography>
-            <Box
-              sx={{
-                bgcolor: '#E8DEFF',
-                color: '#5E35B1',
-                fontWeight: 'bold',
-                px: 2,
-                py: 0.5,
-                borderRadius: '4px',
-                fontSize: '0.75rem',
-              }}
-            >
-              COLLECTED
+      <FormProvider {...methods}>
+        <form onSubmit={handleSubmit(handleResultEntrySubmit)}>
+          <Paper sx={{ mb: 2 }}>
+            <Box sx={{ p: 3 }}>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                <Typography variant="h5" color="primary.dark" fontWeight="bold">
+                  {testDetails.name}
+                </Typography>
+                <Box
+                  sx={{
+                    bgcolor: '#E8DEFF',
+                    color: '#5E35B1',
+                    fontWeight: 'bold',
+                    px: 2,
+                    py: 0.5,
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  {testDetails.status}
+                </Box>
+              </Box>
+
+              {testDetails.labDetails.components.radioComponents.map((component) => {
+                return <ResultEntryRadioButton testItemComponent={component} />;
+              })}
+
+              {testDetails.labDetails.components.groupedComponents.length > 0 && (
+                <ResultEntryTable testItemComponents={testDetails.labDetails.components.groupedComponents} />
+              )}
+
+              <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
+                <Button
+                  variant="text"
+                  color="primary"
+                  onClick={() => setShowDetails(!showDetails)}
+                  endIcon={showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
+                >
+                  Details
+                </Button>
+              </Box>
+              <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
             </Box>
-          </Box>
-
-          <RadioGroup value={result} onChange={(e) => setResult(e.target.value as TestResult)}>
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <FormControlLabel
-                  value="NOT_DETECTED"
-                  control={
-                    <Radio
-                      checked={result === 'NOT_DETECTED'}
-                      sx={{
-                        color: result === 'NOT_DETECTED' ? '#4CAF50' : undefined,
-                        '&.Mui-checked': {
-                          color: '#4CAF50',
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <Typography
-                      sx={{
-                        color: result === 'NOT_DETECTED' ? '#4CAF50' : 'text.secondary',
-                        fontWeight: result === 'NOT_DETECTED' ? 'bold' : 'regular',
-                      }}
-                    >
-                      Not detected
-                    </Typography>
-                  }
-                  sx={{
-                    margin: 0,
-                    padding: 2,
-                    width: '100%',
-                    border: '1px solid #E0E0E0',
-                    borderRadius: 1,
-                    backgroundColor: result === 'NOT_DETECTED' ? '#E8F5E9' : 'transparent',
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={6}>
-                <FormControlLabel
-                  value="DETECTED"
-                  control={
-                    <Radio
-                      checked={result === 'DETECTED'}
-                      sx={{
-                        color: result === 'DETECTED' ? '#F44336' : undefined,
-                        '&.Mui-checked': {
-                          color: '#F44336',
-                        },
-                      }}
-                    />
-                  }
-                  label={
-                    <Typography
-                      sx={{
-                        color: result === 'DETECTED' ? '#F44336' : 'text.secondary',
-                        fontWeight: result === 'DETECTED' ? 'bold' : 'regular',
-                      }}
-                    >
-                      Detected
-                    </Typography>
-                  }
-                  sx={{
-                    margin: 0,
-                    padding: 2,
-                    width: '100%',
-                    border: '1px solid #E0E0E0',
-                    borderRadius: 1,
-                    backgroundColor: result === 'DETECTED' ? '#FFEBEE' : 'transparent',
-                  }}
-                />
-              </Grid>
-            </Grid>
-          </RadioGroup>
-
-          <Box mt={2}>
-            <FormControlLabel
-              control={<Checkbox checked={indeterminate} onChange={(e) => setIndeterminate(e.target.checked)} />}
-              label="Indeterminate / inconclusive / error"
-              sx={{ color: 'text.secondary' }}
-            />
-          </Box>
-
-          <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
-            <Button
-              variant="text"
-              color="primary"
-              onClick={handleToggleDetails}
-              endIcon={showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-            >
-              Details
-            </Button>
-          </Box>
-
-          <Collapse in={showDetails}>
-            <History
-              testDetails={testDetails}
-              setNotes={setNotes}
-              notes={notes}
-              handleReprintLabel={handleReprintLabel}
-            />
-          </Collapse>
-
+          </Paper>
           <Box display="flex" justifyContent="space-between">
             <Button variant="outlined" onClick={onBack} sx={{ borderRadius: '50px', px: 4 }}>
               Back
             </Button>
 
-            <Button
+            <LoadingButton
               variant="contained"
               color="primary"
-              onClick={handleSubmit}
-              disabled={!result && !indeterminate}
+              loading={submittingResults}
+              disabled={!isValid}
+              type="submit"
               sx={{ borderRadius: '50px', px: 4 }}
             >
               Submit
-            </Button>
+            </LoadingButton>
           </Box>
-        </Box>
-      </Paper>
+          {error &&
+            error.length > 0 &&
+            error.map((msg, idx) => (
+              <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                <Typography sx={{ color: 'error.dark' }}>
+                  {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                </Typography>
+              </Box>
+            ))}
+        </form>
+      </FormProvider>
     </Box>
   );
 };

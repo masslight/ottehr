@@ -1,4 +1,4 @@
-import { Color, PDFFont, PDFImage } from 'pdf-lib';
+import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
@@ -57,6 +57,11 @@ export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
   drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawStartXPosSpecifiedText: (
+    text: string,
+    textStyle: TextStyle,
+    startingXPos: number
+  ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
   getX: () => number;
@@ -65,6 +70,7 @@ export interface PdfClient {
   setY: (y: number) => void;
   save: () => Promise<Uint8Array>;
   embedFont: (path: Buffer) => Promise<PDFFont>;
+  embedStandardFont: (font: StandardFonts) => Promise<PDFFont>;
   embedImage: (file: Buffer) => Promise<PDFImage>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
   getLeftBound: () => number;
@@ -140,12 +146,19 @@ export interface ExternalLabsData {
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
-export interface LabResult {
+export interface ExternalLabResult {
   resultCode: string;
   resultCodeDisplay: string;
-  resultInterpretation: string;
-  resultInterpretationDisplay: string;
+  resultInterpretation?: string;
+  resultInterpretationDisplay?: string;
   resultValue: string;
+}
+
+export interface InHouseLabResult {
+  name: string;
+  value: string | undefined;
+  units?: string;
+  range: string;
 }
 
 export interface LabResultsData extends ExternalLabsData {
@@ -160,13 +173,15 @@ export interface LabResultsData extends ExternalLabsData {
   specimenReferenceRange?: string;
   resultPhase: string;
   resultStatus: string;
-  reviewed: boolean;
+  reviewed?: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
+  collectionDate: string;
   reviewDate: string | undefined;
   resultInterpretations: string[];
-  results: LabResult[];
+  externalLabResults?: ExternalLabResult[];
+  inHouseLabResults?: InHouseLabResult[];
   testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;

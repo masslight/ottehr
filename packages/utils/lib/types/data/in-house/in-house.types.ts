@@ -1,10 +1,68 @@
-import { TestItemsType } from '../../../fhir';
+import { DiagnosisDTO, OBSERVATION_CODES } from '../..';
 import { Pagination } from '../labs';
 
-export type InHouseOrderStatus = 'ordered' | 'collected' | 'final';
+export interface TestItemMethods {
+  manual?: { device: string };
+  analyzer?: { device: string };
+  machine?: { device: string };
+}
+export interface QuantityRange {
+  low: number;
+  high: number;
+  unit: string;
+  precision?: number;
+}
+
+export type ObservationCode = (typeof OBSERVATION_CODES)[keyof typeof OBSERVATION_CODES];
+
+export interface TestComponentResult {
+  entry: string;
+  interpretationCode: ObservationCode;
+}
+export interface BaseComponent {
+  componentName: string;
+  loincCode: string[];
+  observationDefinitionId: string;
+  result?: TestComponentResult;
+}
+
+export interface CodeableConceptComponent extends BaseComponent {
+  dataType: 'CodeableConcept';
+  valueSet: string[];
+  abnormalValues: string[];
+  displayType: 'Radio' | 'Select';
+  nullOption?: {
+    text: string;
+    code: string;
+  };
+  unit?: string;
+  referenceRangeValues?: string[];
+}
+
+export interface QuantityComponent extends BaseComponent {
+  dataType: 'Quantity';
+  unit: string;
+  normalRange: QuantityRange;
+  displayType: 'Numeric';
+}
+
+export type TestItemComponent = CodeableConceptComponent | QuantityComponent;
+
+export interface TestItem {
+  name: string;
+  methods: TestItemMethods;
+  method: string;
+  device: string;
+  cptCode: string[];
+  components: {
+    groupedComponents: TestItemComponent[];
+    radioComponents: CodeableConceptComponent[];
+  };
+  note?: string;
+}
 
 export type InHouseOrderResultDetails = {
-  status: InHouseOrderStatus;
+  status: TestStatus;
   sample: {
     source: unknown;
     collectedBy: unknown;
@@ -12,7 +70,7 @@ export type InHouseOrderResultDetails = {
   }[];
   note: string;
   history: {
-    status: InHouseOrderStatus;
+    status: TestStatus;
     providerName: string;
     date: string;
   }[];
@@ -25,7 +83,7 @@ export type InHouseOrderListPageDTO = {
   testItem: string;
   diagnosis: string;
   orderDate: string;
-  status: InHouseOrderStatus;
+  status: TestStatus;
   visitDate: string;
   providerName: string;
   resultReceivedDate: string | null;
@@ -69,31 +127,81 @@ export type GetInHouseOrdersParameters = InHouseOrdersSearchBy &
 
 export type CreateInHouseLabOrderParameters = {
   encounterId: string;
-  patientId: string;
-  serviceRequestId: string;
+  testItem: TestItem;
+  cptCode: string;
+  diagnosesAll: DiagnosisDTO[];
+  diagnosesNew: DiagnosisDTO[];
+  notes?: string;
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { serviceRequestId: string };
+export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string };
 
 export type GetCreateInHouseLabOrderResourcesResponse = {
-  labs: TestItemsType;
+  labs: TestItem[];
   providerName: string;
+};
+
+export type InHouseLabDTO = {
+  serviceRequestId: string;
+  name: string;
+  status: TestStatus;
+  diagnosis: string;
+  diagnosisDTO: DiagnosisDTO[];
+  notes: string;
+  labDetails: TestItem;
+  timezone: string | undefined;
+  specimen?: {
+    source: string;
+    collectedBy: string;
+    collectionDate: string;
+    collectionTime: string;
+  };
+  providerName: string;
+  providerId: string;
+  currentUserName: string;
+  currentUserId: string;
+  resultsPDFUrl?: string;
+  orderInfo: {
+    diagnosis: DiagnosisDTO[];
+    testName: string;
+    notes: string | undefined;
+    status: TestStatus;
+  };
+  orderHistory: {
+    status: TestStatus;
+    providerName: string;
+    date: string;
+  }[];
 };
 
 export type CollectInHouseLabSpecimenParameters = {
   encounterId: string;
-  patientId: string;
   serviceRequestId: string;
+  data: MarkAsCollectedData;
 };
 
+export interface ResultEntryInput {
+  [observationDefinitionId: string]: any;
+}
+
 export type HandleInHouseLabResultsParameters = {
-  encounterId: string;
-  patientId: string;
   serviceRequestId: string;
+  data: ResultEntryInput;
 };
 
 export type DeleteInHouseLabOrderParameters = {
   encounterId: string;
   patientId: string;
   serviceRequestId: string;
+};
+
+export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
+
+export type MarkAsCollectedData = {
+  specimen: {
+    source: string;
+    collectedBy: { id: string; name: string };
+    collectionDate: string;
+  };
+  notes: string;
 };

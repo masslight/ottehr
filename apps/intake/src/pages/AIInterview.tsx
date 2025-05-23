@@ -47,6 +47,8 @@ const AIInterview = (): JSX.Element => {
     setLoading(false);
   };
 
+  const userInputEnabled = !loading && questionnaireResponse != null && questionnaireResponse.status !== 'completed';
+
   return (
     <PageContainer>
       <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
@@ -69,13 +71,14 @@ const AIInterview = (): JSX.Element => {
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           onKeyUp={async (event) => {
-            if (event.key === 'Enter') {
+            if (event.key === 'Enter' && userInputEnabled) {
               await onSend();
             }
           }}
+          autoComplete="off"
         />
         <Button
-          disabled={loading || questionnaireResponse == null || questionnaireResponse.status === 'completed'}
+          disabled={!userInputEnabled}
           onClick={onSend}
           size="large"
           type="button"

@@ -25,6 +25,9 @@ import ProceduresNew from '../pages/ProceduresNew';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
+import { NursingOrderCreatePage } from 'src/features/nursing-orders/pages/NursingOrderCreatePage';
+import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
+import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/NursingOrderDetailsPage';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -51,10 +54,15 @@ export enum ROUTER_PATH {
 
   PROCEDURES = 'procedures',
   PROCEDURES_NEW = 'procedures/new',
+  PROCEDURES_EDIT = 'procedures/:procedureId',
 
   IN_HOUSE_LAB_ORDERS = 'in-house-lab-orders',
   IN_HOUSE_LAB_ORDER_CREATE = `in-house-lab-orders/create`,
   IN_HOUSE_LAB_ORDER_DETAILS = `in-house-lab-orders/:serviceRequestID/order-details`,
+
+  NURSING_ORDERS = 'nursing-orders',
+  NURSING_ORDER_CREATE = 'nursing-orders/create',
+  NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -200,6 +208,14 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     text: 'Document Procedure ',
     iconKey: 'Procedures',
   },
+  [ROUTER_PATH.PROCEDURES_EDIT]: {
+    path: ROUTER_PATH.PROCEDURES_EDIT,
+    modes: ['provider'],
+    isSkippedInNavigation: true,
+    element: <ProceduresNew />,
+    text: 'Edit Procedure ',
+    iconKey: 'Procedures',
+  },
   [ROUTER_PATH.IN_HOUSE_LAB_ORDERS]: {
     path: ROUTER_PATH.IN_HOUSE_LAB_ORDERS,
     modes: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? ['provider', 'readonly'] : [],
@@ -222,6 +238,29 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabTestDetailsPage /> : null,
     text: 'In-house Labs',
     iconKey: 'In-house Labs',
+  },
+  [ROUTER_PATH.NURSING_ORDERS]: {
+    path: ROUTER_PATH.NURSING_ORDERS,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider'] : [],
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrdersPage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
+  },
+  [ROUTER_PATH.NURSING_ORDER_CREATE]: {
+    path: ROUTER_PATH.NURSING_ORDER_CREATE,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderCreatePage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
+  },
+  [ROUTER_PATH.NURSING_ORDER_DETAILS]: {
+    path: ROUTER_PATH.NURSING_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderDetailsPage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
   },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,

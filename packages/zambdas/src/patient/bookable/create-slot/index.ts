@@ -1,12 +1,12 @@
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  checkSlotAvailable,
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
   getTimezone,
   INVALID_INPUT_ERROR,
   isValidUUID,
+  makeBookingOriginExtensionEntry,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   Secrets,
@@ -65,8 +65,17 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     throw MISSING_REQUEST_BODY;
   }
 
-  const { scheduleId, startISO, lengthInMinutes, lengthInHours, status, walkin, serviceModality, postTelemedLabOnly } =
-    JSON.parse(input.body);
+  const {
+    scheduleId,
+    startISO,
+    lengthInMinutes,
+    lengthInHours,
+    status,
+    walkin,
+    serviceModality,
+    postTelemedLabOnly,
+    originalBookingUrl,
+  } = JSON.parse(input.body);
 
   // required param checks
   if (!scheduleId) {
@@ -131,6 +140,9 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
   if (!['in-person', 'virtual'].includes(serviceModality)) {
     throw INVALID_INPUT_ERROR('"serviceModality" must be one of: "in-person", "virtual"');
   }
+  if (originalBookingUrl && typeof originalBookingUrl !== 'string') {
+    throw INVALID_INPUT_ERROR('if included, "originalBookingUrl must be a string');
+  }
   const apptLength: ApptLengthDef = { length: 0, unit: 'minutes' };
   if (lengthInMinutes) {
     apptLength.length = lengthInMinutes;
@@ -148,6 +160,7 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
     walkin: walkin ?? false,
     postTelemedLabOnly: postTelemedLabOnly ?? false,
     serviceModality: serviceModality as ServiceMode,
+    originalBookingUrl,
   };
 };
 
@@ -156,7 +169,8 @@ interface EffectInput {
 }
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
-  const { scheduleId, startISO, apptLength, status, walkin, serviceModality, postTelemedLabOnly } = input;
+  const { scheduleId, startISO, apptLength, status, walkin, serviceModality, postTelemedLabOnly, originalBookingUrl } =
+    input;
   // query up the schedule that owns the slot
   const schedule: Schedule = await oystehr.fhir.get<Schedule>({ resourceType: 'Schedule', id: scheduleId });
   if (!schedule) {
@@ -178,6 +192,10 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     serviceModality === ServiceMode['in-person']
       ? [SlotServiceCategory.inPersonServiceMode]
       : [SlotServiceCategory.virtualServiceMode];
+  let extension: Slot['extension'];
+  if (originalBookingUrl) {
+    extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];
+  }
   const slot: Slot = {
     resourceType: 'Slot',
     status: status ?? 'busy',
@@ -187,29 +205,14 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
     schedule: {
       reference: `Schedule/${schedule.id}`,
     },
+    extension,
   };
   if (walkin) {
     slot.appointmentType = { ...SLOT_WALKIN_APPOINTMENT_TYPE_CODING };
   } else if (postTelemedLabOnly) {
     slot.appointmentType = { ...SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING };
-    // todo 1.8-9: check if post-telemed lab only slot is available
-  } else {
-    // check if slot is available
-    const isAvailable = await checkSlotAvailable(
-      {
-        slot,
-        schedule,
-      },
-      oystehr
-    );
-    if (!isAvailable) {
-      // todo: better custom error here
-      throw INVALID_INPUT_ERROR('Slot is not available');
-    }
   }
-
   // optional: check if the schedule owner permits the provided service modality
   // we do this instead at appointment creation time
-
   return { slot };
 };

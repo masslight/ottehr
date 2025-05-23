@@ -1,13 +1,14 @@
 import { ReactElement } from 'react';
 import { Chip, ChipProps } from '@mui/material';
 import { ExternalLabsStatus } from 'utils/lib/types/data/labs';
+import { TestStatus } from 'utils/lib/types/data/in-house';
 
 interface InHouseLabsStatusChipProps {
   status: ExternalLabsStatus | string;
 }
 
 export const InHouseLabsStatusChip = ({ status }: InHouseLabsStatusChipProps): ReactElement => {
-  const getChipProps = (): ChipProps & { label: string } => {
+  const getChipProps = (): ChipProps & { label: TestStatus } => {
     switch (status.toLowerCase()) {
       case 'final':
         return {
@@ -31,7 +32,7 @@ export const InHouseLabsStatusChip = ({ status }: InHouseLabsStatusChipProps): R
         };
       case 'pending':
         return {
-          label: 'PENDING',
+          label: 'ORDERED',
           sx: {
             backgroundColor: '#fff4e5',
             color: '#ed6c02',
@@ -39,30 +40,9 @@ export const InHouseLabsStatusChip = ({ status }: InHouseLabsStatusChipProps): R
             borderRadius: '4px',
           },
         };
-      case 'received':
-      case 'reviewed':
-        return {
-          label: 'RECEIVED',
-          sx: {
-            backgroundColor: '#e3f2fd',
-            color: '#2196f3',
-            fontWeight: 'bold',
-            borderRadius: '4px',
-          },
-        };
-      case 'cancelled':
-        return {
-          label: 'CANCELLED',
-          sx: {
-            backgroundColor: '#f5f5f5',
-            color: '#757575',
-            fontWeight: 'bold',
-            borderRadius: '4px',
-          },
-        };
       default:
         return {
-          label: status.toUpperCase(),
+          label: (status.toUpperCase() || 'UNKNOWN') as TestStatus, // todo: clarify possible statuses
           sx: {
             backgroundColor: '#f5f5f5',
             color: '#757575',
