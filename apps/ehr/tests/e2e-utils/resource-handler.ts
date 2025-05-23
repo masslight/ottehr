@@ -334,42 +334,6 @@ export class ResourceHandler {
         (resource) => resource!.resourceType === 'QuestionnaireResponse'
       ) as QuestionnaireResponse,
     };
-
-    // Create Patient, RelatedPerson, patch Person in a batch
-    // Create Slot, Appointment
-    // Create QR
-
-    /*
-    Creates by step in workflow:
-    * Step 1: Create slot + Create-appointment zambda
-      * Create the Slot that will be booked
-      * Create the Patient resource, dangly - https://github.com/masslight/ottehr/blob/develop/packages/zambdas/src/shared/appointment/helpers.ts#L366
-      * Create List resources of documents https://github.com/masslight/ottehr/blob/develop/packages/utils/lib/fhir/list.ts#L4
-      * Create the Appointment resource. https://github.com/masslight/ottehr/blob/develop/packages/zambdas/src/patient/appointment/create-appointment/index.ts#L312
-      * Create the Encounter resource. https://github.com/masslight/ottehr/blob/develop/packages/zambdas/src/patient/appointment/create-appointment/index.ts#L312
-      * Create QuestionnaireResponse (but why should not it hve been made already by Step 1?)
-      * Create Task for text message appointment confirmation https://github.com/masslight/ottehr/blob/develop/packages/zambdas/src/patient/appointment/create-appointment/index.ts#L552
-      * Usually it patches Appointment to have FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG, but we don't want to do that as we will just prefill directly.
-      * Creates Account resource.
-      * Create User Resources for the patient https://github.com/masslight/ottehr/blob/develop/packages/utils/lib/fhir/patient.ts#L40
-        * Includes RelatedPerson
-        * Includes Person 
-      * Create AuditEvent for appointment-create.
-    * Step 2: Populate the paperwork (QR resource) so it is complete.
-    * Step 3: Harvest Module
-      * Patches Patient, Coverage, RelatedPerson
-      * Creates Consent resources
-      * Add eRX contact into patient?
-      * Makes some Observations for the chart (https://github.com/masslight/ottehr/blob/develop/packages/zambdas/src/subscriptions/questionnaire-response/sub-intake-harvest/index.ts#L284)
-      * patches Account resource
-      * Creates DocumentReference resources
-    * Step 4: Prefill Exam Module
-      * Creates a ton of Observation resources
-      * Creates a ServiceRequest resource for some kind of documentation reason https://github.com/masslight/ottehr/blob/develop/packages/zambdas/src/subscriptions/appointment/appointment-chart-data-prefilling/index.ts#L152
-      * Updates Encounter resource with discharge disposition and patient information confirmation
-      * Patches Appointment resource to have FHIR_APPOINTMENT_PREPROCESSED_TAG
-      * Creates a ClinicalImpression resource for some reason?
-    **/
   }
 
   public async cleanupResources(): Promise<void> {
