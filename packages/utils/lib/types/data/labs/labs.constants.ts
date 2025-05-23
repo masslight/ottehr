@@ -112,12 +112,14 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
+  collectSpecimen: 'COLLECT SPECIMEN',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
-  createOrder: 'CREATE ORDER',
+  createOrder: 'create order',
+  collectSpecimen: 'collect sample',
   inputResults: 'input results',
 } as const;
 
@@ -140,6 +142,11 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   inputResults: {
     code: PROVENANCE_ACTIVITY_CODES.inputResults,
     display: PROVENANCE_ACTIVITY_CODES.inputResults,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  collectSpecimen: {
+    code: PROVENANCE_ACTIVITY_CODES.collectSpecimen,
+    display: PROVENANCE_ACTIVITY_DISPLAY.collectSpecimen,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;

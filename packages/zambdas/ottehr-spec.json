@@ -839,6 +839,14 @@
       "src": "src/ehr/get-label-pdf/index",
       "zip": ".dist/zips/get-label-pdf.zip"
     },
+    "GET-OR-CREATE-VISIT-LABEL-PDF": {
+      "name": "GET-OR-CREATE-VISIT-LABEL-PDF",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-or-create-visit-label-pdf/index",
+      "zip": ".dist/zips/get-or-create-visit-label-pdf.zip"
+    },
+
     "EHR-GET-SCHEDULE": {
       "name": "EHR-GET-SCHEDULE",
       "type": "http_auth",
@@ -928,6 +936,13 @@
       "src": "src/ehr/get-create-in-house-lab-order-resources/index",
       "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
     },
+    "GET-IN-HOUSE-LAB-ORDER-DETAIL": {
+      "name": "GET-IN-HOUSE-LAB-ORDER-DETAIL",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-in-house-lab-order-detail/index",
+      "zip": ".dist/zips/get-in-house-lab-order-detail.zip"
+    },
     "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
       "name": "COLLECT-IN-HOUSE-LAB-SPECIMEN",
       "type": "http_auth",
@@ -959,10 +974,7 @@
         "patient": "patient-id",
         "title": "My Questions"
       },
-      "managedFields": [
-        "name",
-        "title"
-      ]
+      "managedFields": ["name", "title"]
     }
   },
   "apps": {
@@ -985,9 +997,7 @@
           "effect": "Allow"
         }
       ],
-      "roles": [
-        "#ref/EHR_SUPER_ADMIN"
-      ]
+      "roles": ["#ref/EHR_SUPER_ADMIN"]
     }
   },
   "roles": {

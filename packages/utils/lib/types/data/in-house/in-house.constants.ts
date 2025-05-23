@@ -1,6 +1,13 @@
 import { CodeableConcept } from 'fhir/r4b';
 import { TestStatus } from './in-house.types';
 
+export enum LoadingState {
+  initial,
+  loading,
+  loaded,
+  loadedWithError,
+}
+
 export const inHouseLabsTestStatuses: Record<TestStatus, TestStatus> = {
   ORDERED: 'ORDERED',
   COLLECTED: 'COLLECTED',
@@ -23,13 +30,19 @@ export const IN_HOUSE_LAB_DOCREF_CATEGORY = {
   },
 } as const;
 
-const OBSERVATION_INTERPRETATION_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation';
+export const OBSERVATION_INTERPRETATION_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation';
+
+export const OBSERVATION_CODES = {
+  ABNORMAL: 'A',
+  NORMAL: 'N',
+  INDETERMINATE: 'IND',
+} as const;
 
 export const ABNORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
   coding: [
     {
       system: OBSERVATION_INTERPRETATION_SYSTEM,
-      code: 'A',
+      code: OBSERVATION_CODES.ABNORMAL,
       display: 'Abnormal',
     },
   ],
@@ -39,7 +52,7 @@ export const NORMAL_OBSERVATION_INTERPRETATION: CodeableConcept = {
   coding: [
     {
       system: OBSERVATION_INTERPRETATION_SYSTEM,
-      code: 'N',
+      code: OBSERVATION_CODES.NORMAL,
       display: 'Normal',
     },
   ],
@@ -49,7 +62,7 @@ export const INDETERMINATE_OBSERVATION_INTERPRETATION: CodeableConcept = {
   coding: [
     {
       system: OBSERVATION_INTERPRETATION_SYSTEM,
-      code: 'IND',
+      code: OBSERVATION_CODES.INDETERMINATE,
       display: 'Indeterminate',
     },
   ],
@@ -94,3 +107,13 @@ export const IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG = {
   valueCode: 'Unknown',
   valueString: 'Indeterminate / inconclusive / error',
 };
+
+// because we are storing the obs defs as contained resources on the in house labs activity definitions,
+// there's no way to link them to the observations so will store their "id" in an extension
+export const IN_HOUSE_OBS_DEF_ID_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/contained-obs-def-id';
+
+// todo when we have a predefined list we can use this
+export const SPECIMEN_COLLECTION_SOURCE_SYSTEM = 'https://hl7.org/fhir/R4B/valueset-body-site';
+
+// todo we will use this while the entry is free text
+export const SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/specimen-source';

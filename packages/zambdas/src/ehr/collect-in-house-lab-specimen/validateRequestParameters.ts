@@ -19,7 +19,41 @@ export function validateRequestParameters(
     throw Error('Invalid JSON in request body');
   }
 
-  // todo: validate params
+  if (!params.encounterId) {
+    throw new Error('encounterId is required');
+  }
+
+  if (!params.serviceRequestId) {
+    throw new Error('serviceRequestId is required');
+  }
+
+  if (!params.data) {
+    throw new Error('data is required');
+  }
+
+  if (!params.data.specimen) {
+    throw new Error('specimen is required');
+  }
+
+  if (!params.data.specimen.source) {
+    throw new Error('specimen.source is required');
+  }
+
+  if (!params.data.specimen.collectedBy) {
+    throw new Error('specimen.collectedBy is required');
+  }
+
+  if (!('id' in params.data.specimen.collectedBy)) {
+    throw new Error('specimen.collectedBy.id is required');
+  }
+
+  if (!('name' in params.data.specimen.collectedBy)) {
+    throw new Error('specimen.collectedBy.name is required');
+  }
+
+  if (!params.data.specimen.collectionDate) {
+    throw new Error('specimen.collectionDate is required');
+  }
 
   return {
     ...params,

@@ -1,17 +1,27 @@
 import { Typography, TableCell, TableRow } from '@mui/material';
-import { TestItemComponent } from 'utils';
+import { TestItemComponent, OBSERVATION_CODES } from 'utils';
 import { ResultEntrySelect } from './ResultEntrySelect';
 import { ResultEntryNumericInput } from './ResultsEntryNumericInput';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface ResultEntryTableRowProps {
   component: TestItemComponent;
+  disabled?: boolean;
 }
 
 const ROW_STYLING = { paddingLeft: 0 };
 
-export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component }) => {
+export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component, disabled }) => {
   const [isAbnormal, setIsAbnormal] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (component.result?.interpretationCode) {
+      const code = component.result?.interpretationCode;
+      if (code === OBSERVATION_CODES.ABNORMAL) {
+        setIsAbnormal(true);
+      }
+    }
+  }, [component.result]);
 
   let units = '';
   let referenceRange = '';
@@ -20,14 +30,35 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     units = component.unit;
     referenceRange = `${component.normalRange.low} - ${component.normalRange.high}`;
   }
+
+  if (component.dataType === 'CodeableConcept') {
+    units = component.unit ?? '';
+    referenceRange =
+      component.referenceRangeValues
+        ?.map((refRange) => {
+          return refRange.charAt(0).toUpperCase() + refRange.slice(1);
+        })
+        .join(', ') ?? '';
+  }
+
   if (component.displayType === 'Numeric') {
     valueElement = (
-      <ResultEntryNumericInput testItemComponent={component} isAbnormal={isAbnormal} setIsAbnormal={setIsAbnormal} />
+      <ResultEntryNumericInput
+        testItemComponent={component}
+        isAbnormal={isAbnormal}
+        setIsAbnormal={setIsAbnormal}
+        disabled={disabled}
+      />
     );
   }
   if (component.displayType === 'Select') {
     valueElement = (
-      <ResultEntrySelect testItemComponent={component} isAbnormal={isAbnormal} setIsAbnormal={setIsAbnormal} />
+      <ResultEntrySelect
+        testItemComponent={component}
+        isAbnormal={isAbnormal}
+        setIsAbnormal={setIsAbnormal}
+        disabled={disabled}
+      />
     );
   }
 

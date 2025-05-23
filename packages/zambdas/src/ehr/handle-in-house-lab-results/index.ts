@@ -19,6 +19,8 @@ import {
   DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  getFullestAvailableName,
 } from 'utils';
 import {
   ServiceRequest,
@@ -34,10 +36,13 @@ import {
   FhirResource,
   Provenance,
   ValueSet,
+  Encounter,
+  Practitioner,
 } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
+import { getAttendingPractionerId } from '../shared/inhouse-labs';
 
 let m2mtoken: string;
 
@@ -61,15 +66,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       inputRequestTask: irtTask,
       specimen,
       activityDefinition,
-    } = await getResources(serviceRequestId, oystehr);
+      currentUserPractitionerName,
+      attendingPractitionerId,
+      attendingPractitionerName,
+    } = await getResources(serviceRequestId, curUserPractitionerId, oystehr);
 
     const requests = makeResultEntryRequests(
       serviceRequest,
       irtTask,
       specimen,
       activityDefinition,
-      curUserPractitionerId,
-      resultsEntryData
+      resultsEntryData,
+      { id: curUserPractitionerId, name: currentUserPractitionerName },
+      { id: attendingPractitionerId, name: attendingPractitionerName }
     );
 
     // console.log('check whats going on here!', JSON.stringify(requests));
@@ -98,20 +107,28 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 // todo better errors
 const getResources = async (
   serviceRequestId: string,
+  curUserPractitionerId: string,
   oystehr: Oystehr
 ): Promise<{
   serviceRequest: ServiceRequest;
   inputRequestTask: Task;
   specimen: Specimen;
   activityDefinition: ActivityDefinition;
+  currentUserPractitionerName: string | undefined;
+  attendingPractitionerId: string;
+  attendingPractitionerName: string | undefined;
 }> => {
   const labOrderResources = (
-    await oystehr.fhir.search<ServiceRequest | Specimen | Task>({
+    await oystehr.fhir.search<ServiceRequest | Encounter | Specimen | Task>({
       resourceType: 'ServiceRequest',
       params: [
         {
           name: '_id',
           value: serviceRequestId,
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:encounter',
         },
         {
           name: '_revinclude',
@@ -130,10 +147,12 @@ const getResources = async (
   const serviceRequests: ServiceRequest[] = [];
   const inputRequestTasks: Task[] = []; // IRT tasks
   const specimens: Specimen[] = [];
+  const encounters: Encounter[] = [];
 
   labOrderResources.forEach((resource) => {
     if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
     if (resource.resourceType === 'Specimen') specimens.push(resource);
+    if (resource.resourceType === 'Encounter') encounters.push(resource);
     if (
       resource.resourceType === 'Task' &&
       resource.status === 'ready' &&
@@ -144,16 +163,29 @@ const getResources = async (
   });
 
   if (serviceRequests.length !== 1) throw new Error('Only one service request should be returned');
-  if (specimens.length !== 1) throw new Error('Only one specimen should be returned');
+  if (encounters.length !== 1) throw new Error('Only one encounter should be returned');
+  if (specimens.length !== 1)
+    throw new Error(`Only one specimen should be returned - specimen ids: ${specimens.map((s) => s.id)}`);
   if (inputRequestTasks.length !== 1)
     throw new Error(`Only one ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
 
   const serviceRequest = serviceRequests[0];
 
-  // todo there's a bug with _include=ServiceRequest:instantiates-canonical
-  // so doing this for now
-  const activityDefinitionSearch = (
-    await oystehr.fhir.search<ActivityDefinition>({
+  const encounter = encounters[0];
+  const attendingPractitionerId = getAttendingPractionerId(encounter);
+
+  const { currentUserPractitionerName, attendingPractitionerName, activityDefinitionSearch } = await Promise.all([
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: curUserPractitionerId,
+    }),
+    oystehr.fhir.get<Practitioner>({
+      resourceType: 'Practitioner',
+      id: attendingPractitionerId,
+    }),
+    // todo there's a bug with _include=ServiceRequest:instantiates-canonical
+    // so doing this for now
+    oystehr.fhir.search<ActivityDefinition>({
       resourceType: 'ActivityDefinition',
       params: [
         {
@@ -165,29 +197,47 @@ const getResources = async (
           value: 'active',
         },
       ],
-    })
-  ).unbundle();
-  if (activityDefinitionSearch.length !== 1) throw new Error('Only one active activity definition should be returned');
+    }),
+  ]).then(([currentUserPractitioner, attendingPractitioner, activityDefinitionSearch]) => {
+    return {
+      currentUserPractitionerName: getFullestAvailableName(currentUserPractitioner),
+      attendingPractitionerName: getFullestAvailableName(attendingPractitioner),
+      activityDefinitionSearch,
+    };
+  });
+
+  const activityDefinitions = activityDefinitionSearch.unbundle();
+  if (activityDefinitions.length !== 1) throw new Error('Only one active activity definition should be returned');
 
   return {
     serviceRequest,
     inputRequestTask: inputRequestTasks[0],
     specimen: specimens[0],
-    activityDefinition: activityDefinitionSearch[0],
+    activityDefinition: activityDefinitions[0],
+    currentUserPractitionerName,
+    attendingPractitionerId,
+    attendingPractitionerName,
   };
 };
+
+interface PractitionerConfig {
+  id: string;
+  name: string | undefined;
+}
 
 const makeResultEntryRequests = (
   serviceRequest: ServiceRequest,
   irtTask: Task,
   specimen: Specimen,
   activityDefinition: ActivityDefinition,
-  curUserPractitionerId: string,
-  resultsEntryData: ResultEntryInput
+  resultsEntryData: ResultEntryInput,
+  curUser: PractitionerConfig,
+  attendingPractitioner: PractitionerConfig
 ): BatchInputRequest<FhirResource>[] => {
   const { provenancePostRequest, provenanceFullUrl } = makeProvenancePostRequest(
-    curUserPractitionerId,
-    irtTask.id || ''
+    serviceRequest.id || '',
+    curUser,
+    attendingPractitioner
   );
 
   const irtTaskPatchRequest = makeIrtTaskPatchRequest(irtTask, provenanceFullUrl);
@@ -208,7 +258,7 @@ const makeResultEntryRequests = (
     serviceRequest,
     specimen,
     activityDefinition,
-    curUserPractitionerId,
+    curUser,
     resultsEntryData
   );
 
@@ -228,7 +278,7 @@ const makeObservationPostRequests = (
   serviceRequest: ServiceRequest,
   specimen: Specimen,
   activityDefinition: ActivityDefinition,
-  curUserPractitionerId: string,
+  curUser: PractitionerConfig,
   resultsEntryData: ResultEntryInput
 ): { obsRefs: Reference[]; obsPostRequests: BatchInputPostRequest<Observation>[] } => {
   if (!activityDefinition.code) throw new Error('activityDefinition.code is missing and is required');
@@ -251,7 +301,8 @@ const makeObservationPostRequests = (
     },
     performer: [
       {
-        reference: `Practitioner/${curUserPractitionerId}`,
+        reference: `Practitioner/${curUser.id}`,
+        display: curUser.name,
       },
     ],
     code: activityDefinition.code,
@@ -272,6 +323,12 @@ const makeObservationPostRequests = (
       ...obsConfig,
       ...obsValue,
       ...obsInterpretation,
+      extension: [
+        {
+          url: IN_HOUSE_OBS_DEF_ID_SYSTEM,
+          valueString: observationDefinitionId,
+        },
+      ],
     };
     const request: BatchInputPostRequest<Observation> = {
       method: 'POST',
@@ -345,7 +402,7 @@ const determineQuantInterpretation = (
     precision?: number;
   }
 ): CodeableConcept => {
-  if (entry >= range.high && entry <= range.low) {
+  if (entry > range.high || entry < range.low) {
     return ABNORMAL_OBSERVATION_INTERPRETATION;
   } else {
     return NORMAL_OBSERVATION_INTERPRETATION;
@@ -390,15 +447,16 @@ const makeDiagnosticReportPostRequest = (
 };
 
 const makeProvenancePostRequest = (
-  curUserPractitionerId: string,
-  irtTaskId: string
+  serviceRequestId: string,
+  curUser: PractitionerConfig,
+  attendingPractitioner: PractitionerConfig
 ): { provenancePostRequest: BatchInputPostRequest<Provenance>; provenanceFullUrl: string } => {
   const provenanceFullUrl = `urn:uuid:${randomUUID()}`;
   const provenanceConfig: Provenance = {
     resourceType: 'Provenance',
     target: [
       {
-        reference: `Task/${irtTaskId}`,
+        reference: `ServiceRequest/${serviceRequestId}`,
       },
     ],
     activity: {
@@ -407,7 +465,11 @@ const makeProvenancePostRequest = (
     recorded: DateTime.now().toISO(),
     agent: [
       {
-        who: { reference: `Practitioner/${curUserPractitionerId}` },
+        who: { reference: `Practitioner/${curUser.id}`, display: curUser.name },
+        onBehalfOf: {
+          reference: `Practitioner/${attendingPractitioner.id}`,
+          display: attendingPractitioner.name,
+        },
       },
     ],
   };
