@@ -58,25 +58,35 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       const [myPractitionerId, { encounter, timezone }] = await Promise.all([
         getMyPractitionerId(oystehrCurrentUser),
-        oystehr.fhir
-          .search<Encounter | Location>({
-            resourceType: 'Encounter',
-            params: [
-              { name: '_id', value: validatedParameters.encounterId },
-              { name: '_include', value: 'Encounter:location' },
-            ],
-          })
-          .then((bundle) => {
-            const resources = bundle.unbundle();
-            const encounter = resources.find((r): r is Encounter => r.resourceType === 'Encounter');
-            const location = resources.find((r): r is Location => r.resourceType === 'Location');
-            const timezone = location && getTimezone(location);
-            return { encounter, timezone };
-          }),
+        validatedParameters.encounterId
+          ? oystehr.fhir
+              .search<Encounter | Location>({
+                resourceType: 'Encounter',
+                params: [
+                  { name: '_id', value: validatedParameters.encounterId },
+                  { name: '_include', value: 'Encounter:location' },
+                ],
+              })
+              .then((bundle) => {
+                const resources = bundle.unbundle();
+                const encounter = resources.find((r): r is Encounter => r.resourceType === 'Encounter');
+                const location = resources.find((r): r is Location => r.resourceType === 'Location');
+                const timezone = location && getTimezone(location);
+                return { encounter, timezone };
+              })
+          : Promise.resolve({ encounter: null, timezone: undefined }),
       ]);
 
       if (!encounter) {
-        throw new Error('Encounter not found');
+        // todo: we dont have encounter in patient page, this zambda should return the test items only,
+        // the rest of data should be fetched from the get-orders zambda
+        return {
+          attendingPractitionerName: '',
+          currentPractitionerName: '',
+          attendingPractitionerId: '',
+          currentPractitionerId: '',
+          timezone: undefined,
+        };
       }
 
       const practitionerId = encounter.participant

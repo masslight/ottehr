@@ -75,11 +75,10 @@ export type InHouseOrderResultDetails = {
     date: string;
   }[];
   showOnPatientPortal: boolean;
-  templateTypes: unknown[];
-  submittedValues: unknown[];
 };
 
 export type InHouseOrderListPageDTO = {
+  serviceRequestId: string;
   testItem: string;
   diagnosis: string;
   orderDate: string;
@@ -87,6 +86,11 @@ export type InHouseOrderListPageDTO = {
   visitDate: string;
   providerName: string;
   resultReceivedDate: string | null;
+  diagnosesDTO: DiagnosisDTO[];
+  encounterTimezone: string | undefined;
+  orderAddedDate: string;
+  orderingPhysician: string;
+  lastResultReceivedDate: string | undefined;
 };
 
 export type InHouseOrderDetailedPageDTO = InHouseOrderListPageDTO & InHouseOrderResultDetails;
@@ -112,8 +116,8 @@ export type InHouseOrdersSearchBy = {
 };
 
 export type InHouseOrdersSearchFilters = {
-  testItem: unknown;
-  visitDate: string;
+  orderableItemCode?: string;
+  visitDate?: string;
 };
 
 export type InHouseOrdersPaginationOptions = {
@@ -134,7 +138,7 @@ export type CreateInHouseLabOrderParameters = {
   notes?: string;
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string };
+export type GetCreateInHouseLabOrderResourcesParameters = { encounterId?: string };
 
 export type GetCreateInHouseLabOrderResourcesResponse = {
   labs: TestItem[];
