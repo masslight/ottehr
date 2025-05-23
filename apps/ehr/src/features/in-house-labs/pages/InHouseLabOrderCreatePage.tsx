@@ -283,7 +283,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
               <Grid item xs={12}>
                 <FormControl
                   fullWidth
-                  required
                   sx={{
                     '& .MuiInputBase-root': {
                       height: '40px',
