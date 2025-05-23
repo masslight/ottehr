@@ -47,7 +47,6 @@ import {
   User,
   VisitType,
 } from 'utils';
-import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,

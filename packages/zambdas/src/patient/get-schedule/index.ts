@@ -27,7 +27,6 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
-import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
