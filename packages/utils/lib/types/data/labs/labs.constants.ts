@@ -62,7 +62,8 @@ export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefin
 export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/related-specimen-definition';
 
-export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
+export const IN_HOUSE_LAB_RESULT_PDF_BASE_NAME = 'LabsResultsForm';
+export const EXTERNAL_LAB_RESULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
 
 export const EXTERNAL_LAB_LABEL_PDF_BASE_NAME = 'ExternalLabsLabel';
 

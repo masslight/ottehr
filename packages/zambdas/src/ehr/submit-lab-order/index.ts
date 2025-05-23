@@ -20,7 +20,7 @@ import { Coverage, FhirResource, Location, Organization, Patient, Provenance, Se
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
-import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
+import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
 import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
@@ -55,7 +55,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounter,
       organization: labOrganization,
       specimens,
-    } = await getLabOrderResources(oystehr, serviceRequestID);
+    } = await getLabOrderResources(oystehr, 'external', serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 

@@ -165,6 +165,8 @@ export type LabOrdersPaginationOptions = {
   pageIndex?: number;
 };
 
+export type LabType = 'external' | 'in-house';
+
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
 
 export interface DynamicAOEInput {

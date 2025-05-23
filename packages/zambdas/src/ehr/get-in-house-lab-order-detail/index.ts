@@ -7,6 +7,8 @@ import {
   getFullestAvailableName,
   DiagnosisDTO,
   getTimezone,
+  fetchLabOrderPDFs,
+  fetchDocumentReferencesForDiagnosticReports,
 } from 'utils';
 import {
   ZambdaInput,
@@ -27,6 +29,7 @@ import {
   FhirResource,
   Specimen,
   Observation,
+  DiagnosticReport,
 } from 'fhir/r4b';
 import { determineOrderStatus, buildOrderHistory, getSpecimenDetails } from '../shared/inhouse-labs';
 
@@ -62,6 +65,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       serviceRequest,
       specimen,
       tasks,
+      diagnosticReport,
       provenances,
       observations,
       attendingPractitionerName,
@@ -72,28 +76,30 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     } = await (async () => {
       const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
-      const [myPractitionerId, { serviceRequest, encounter, specimen, timezone, tasks, provenances, observations }] =
-        await Promise.all([
-          getMyPractitionerId(oystehrCurrentUser),
-          oystehr.fhir
-            .search<FhirResource>({
-              resourceType: 'ServiceRequest',
-              params: [
-                { name: '_id', value: serviceRequestId },
-                { name: '_include', value: 'ServiceRequest:encounter' },
-                { name: '_include:iterate', value: 'Encounter:location' },
-                { name: '_revinclude', value: 'Task:based-on' },
-                { name: '_revinclude', value: 'Provenance:target' },
-                { name: '_include', value: 'ServiceRequest:specimen' },
-                { name: '_revinclude', value: 'DiagnosticReport:based-on' },
-                { name: '_include:iterate', value: 'DiagnosticReport:result' },
-              ],
-            })
-            .then((bundle) => {
-              const resources = bundle.unbundle();
-              return parseResources(resources);
-            }),
-        ]);
+      const [
+        myPractitionerId,
+        { serviceRequest, encounter, diagnosticReport, specimen, timezone, tasks, provenances, observations },
+      ] = await Promise.all([
+        getMyPractitionerId(oystehrCurrentUser),
+        oystehr.fhir
+          .search<FhirResource>({
+            resourceType: 'ServiceRequest',
+            params: [
+              { name: '_id', value: serviceRequestId },
+              { name: '_include', value: 'ServiceRequest:encounter' },
+              { name: '_include:iterate', value: 'Encounter:location' },
+              { name: '_revinclude', value: 'Task:based-on' },
+              { name: '_revinclude', value: 'Provenance:target' },
+              { name: '_include', value: 'ServiceRequest:specimen' },
+              { name: '_revinclude', value: 'DiagnosticReport:based-on' },
+              { name: '_include:iterate', value: 'DiagnosticReport:result' },
+            ],
+          })
+          .then((bundle) => {
+            const resources = bundle.unbundle();
+            return parseResources(resources);
+          }),
+      ]);
 
       if (!encounter) {
         throw new Error('Encounter not found');
@@ -141,6 +147,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         specimen,
         tasks,
         provenances,
+        diagnosticReport,
         observations,
         attendingPractitionerName,
         currentPractitionerName,
@@ -191,6 +198,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const orderHistory = buildOrderHistory(provenances, specimen);
 
+    const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, [diagnosticReport]);
+    const resultsPDFs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
+    const resultsPDF = resultsPDFs.filter((resultPDF) => resultPDF.diagnosticReportId === diagnosticReport.id);
+
+    if (resultsPDF.length > 1) {
+      throw new Error('more than one results pdf');
+    }
+
     const response: InHouseLabDTO = {
       serviceRequestId,
       name: testItem.name,
@@ -202,6 +217,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       providerId: attendingPractitionerId,
       currentUserName: currentPractitionerName,
       currentUserId: currentPractitionerId,
+      resultsPDFUrl: resultsPDF[0].url,
       orderInfo: {
         diagnosis: diagnoses,
         testName,
@@ -240,6 +256,7 @@ const parseResources = (
   encounter: Encounter;
   location?: Location;
   specimen?: Specimen;
+  diagnosticReport: DiagnosticReport;
   timezone: string;
   tasks: Task[];
   provenances: Provenance[];
@@ -248,6 +265,7 @@ const parseResources = (
   let serviceRequest: ServiceRequest | undefined;
   let encounter: Encounter | undefined;
   let location: Location | undefined;
+  let diagnosticReport: DiagnosticReport | undefined;
   let specimen: Specimen | undefined;
   const tasks: Task[] = [];
   const provenances: Provenance[] = [];
@@ -256,8 +274,9 @@ const parseResources = (
   resources.forEach((r) => {
     if (r.resourceType === 'ServiceRequest') serviceRequest = r;
     if (r.resourceType === 'Encounter') encounter = r;
-    if (r.resourceType === 'Specimen') specimen = r;
     if (r.resourceType === 'Location') location = r;
+    if (r.resourceType === 'DiagnosticReport') diagnosticReport = r;
+    if (r.resourceType === 'Specimen') specimen = r;
     if (r.resourceType === 'Task') tasks.push(r);
     if (r.resourceType === 'Provenance') provenances.push(r);
     if (r.resourceType === 'Observation') observations.push(r);
@@ -266,13 +285,24 @@ const parseResources = (
   const missingResources: string[] = [];
   if (!serviceRequest) missingResources.push('service request');
   if (!encounter) missingResources.push('encounter');
+  if (!diagnosticReport) missingResources.push('diagnosticReport');
   if (tasks.length === 0) missingResources.push('task');
-  if (!serviceRequest || !encounter || tasks.length === 0) {
+  if (!serviceRequest || !encounter || !diagnosticReport || tasks.length === 0) {
     throw new Error(`Missing resources: ${missingResources.join(',')}`);
   }
 
   // todo figure this out
   const timezone = location ? getTimezone(location) : 'America/New_York';
 
-  return { serviceRequest, encounter, location, specimen, timezone, tasks, provenances, observations };
+  return {
+    serviceRequest,
+    encounter,
+    location,
+    diagnosticReport,
+    specimen,
+    timezone,
+    tasks,
+    provenances,
+    observations,
+  };
 };

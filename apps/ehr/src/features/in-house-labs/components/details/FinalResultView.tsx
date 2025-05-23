@@ -7,6 +7,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useForm, FormProvider } from 'react-hook-form';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
+import { BiotechOutlined } from '@mui/icons-material';
 
 interface FinalResultViewProps {
   testDetails: InHouseLabDTO;
@@ -14,6 +15,11 @@ interface FinalResultViewProps {
 }
 
 export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, onBack }) => {
+  const openPdf = (): void => {
+    if (testDetails.resultsPDFUrl) {
+      window.open(testDetails.resultsPDFUrl, '_blank');
+    }
+  };
   const [showDetails, setShowDetails] = useState(false);
 
   const radioResultMap = testDetails.labDetails.components.radioComponents.reduce((acc: any, item) => {
@@ -62,7 +68,16 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
                 disabled={true}
               />
             )}
-            <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
+            <Box display="flex" justifyContent="space-between" mt={2} mb={3}>
+              <Button
+                variant="outlined"
+                color="primary"
+                sx={{ borderRadius: '50px', textTransform: 'none' }}
+                onClick={() => openPdf()}
+                startIcon={<BiotechOutlined />}
+              >
+                Results PDF
+              </Button>
               <Button
                 variant="text"
                 color="primary"
