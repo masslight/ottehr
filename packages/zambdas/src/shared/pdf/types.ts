@@ -149,8 +149,8 @@ export interface ExternalLabsData {
 export interface ExternalLabResult {
   resultCode: string;
   resultCodeDisplay: string;
-  resultInterpretation: string;
-  resultInterpretationDisplay: string;
+  resultInterpretation?: string;
+  resultInterpretationDisplay?: string;
   resultValue: string;
 }
 

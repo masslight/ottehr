@@ -195,8 +195,8 @@ export async function createLabResultPDF(
         const labResult: ExternalLabResult = {
           resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
           resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
-          resultInterpretation: observation.interpretation?.[0].coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
-          resultInterpretationDisplay: interpretationDisplay || ORDER_RESULT_ITEM_UNKNOWN,
+          resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
+          resultInterpretationDisplay: interpretationDisplay,
           resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
             observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
           }`,
@@ -828,11 +828,13 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
       drawSeparatorLine(styles.margin.x, width - styles.margin.x);
       addNewLine();
       drawFreeText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`);
-      addNewLine(undefined, 1.5);
-      drawFreeText(
-        `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
-        getResultRowDisplayColor([labResult.resultInterpretationDisplay], styles.colors)
-      );
+      if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
+        addNewLine(undefined, 1.5);
+        drawFreeText(
+          `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
+          getResultRowDisplayColor([labResult.resultInterpretationDisplay], styles.colors)
+        );
+      }
       addNewLine(undefined, 1.5);
       drawFreeText(`Value: ${labResult.resultValue}`);
     }
