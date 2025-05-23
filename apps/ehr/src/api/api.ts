@@ -39,6 +39,7 @@ import {
   LabelPdf,
   GetVisitLabelInput,
   InHouseLabDTO,
+  PaginatedInHouseOrderResponse,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -739,7 +740,7 @@ export const createInHouseLabOrder = async (
 export const getInHouseOrders = async <RequestParameters extends GetInHouseOrdersParameters>(
   oystehr: Oystehr,
   parameters: RequestParameters
-): Promise<PaginatedResponse<RequestParameters>> => {
+): Promise<PaginatedInHouseOrderResponse<RequestParameters>> => {
   try {
     if (GET_IN_HOUSE_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get in house orders zambda environment variable could not be loaded');

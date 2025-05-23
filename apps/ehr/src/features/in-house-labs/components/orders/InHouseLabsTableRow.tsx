@@ -1,13 +1,13 @@
 import { ReactElement } from 'react';
 import { TableCell, TableRow, Box, Typography, Tooltip, useTheme } from '@mui/material';
-import { LabOrderListPageDTO } from 'utils/lib/types/data/labs';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
 import { DateTime } from 'luxon';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
+import { InHouseOrderListPageDTO } from 'utils/lib/types/data/in-house';
 
 interface InHouseLabsTableRowProps {
   columns: InHouseLabsTableColumn[];
-  labOrderData: LabOrderListPageDTO;
+  labOrderData: InHouseOrderListPageDTO;
   onRowClick?: () => void;
   allowDelete?: boolean;
 }
@@ -53,9 +53,9 @@ export const InHouseLabsTableRow = ({ labOrderData, columns, onRowClick }: InHou
         return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <Box>{formatDate(labOrderData.lastResultReceivedDate)}</Box>;
+        return <Box>{formatDate(labOrderData.lastResultReceivedDate || '-')}</Box>;
       case 'status':
-        return <InHouseLabsStatusChip status={labOrderData.orderStatus} />;
+        return <InHouseLabsStatusChip status={labOrderData.status} />;
       default:
         return null;
     }
