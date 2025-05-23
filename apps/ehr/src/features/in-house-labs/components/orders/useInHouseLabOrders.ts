@@ -62,7 +62,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
     const params: GetInHouseOrdersParameters = {
       itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
       ...memoizedSearchBy,
-      ...(testTypeFilter && { testItem: testTypeFilter }), // Updated field name
+      ...(testTypeFilter && { orderableItemCode: testTypeFilter }),
       ...(visitDateFilter && visitDateFilter.isValid && { visitDate: formatVisitDate(visitDateFilter) }),
     };
 

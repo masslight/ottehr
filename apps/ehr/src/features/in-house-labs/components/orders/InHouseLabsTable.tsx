@@ -15,6 +15,7 @@ import {
   IconButton,
   TextField,
   InputAdornment,
+  Autocomplete,
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
@@ -24,10 +25,13 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderListPageDTO, LabOrdersSearchBy } from 'utils/lib/types/data/labs';
+import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { DateTime } from 'luxon';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { useAppointmentStore } from 'src/telemed';
+import { InHouseOrderListPageDTO, TestItem } from 'utils';
+import { getCreateInHouseLabOrderResources } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
 
 export type InHouseLabsTableColumn =
   | 'testType'
@@ -76,6 +80,38 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   const [testTypeQuery, setTestTypeQuery] = useState<string>('');
   const [tempDateFilter, setTempDateFilter] = useState<DateTime | null>(visitDateFilter);
 
+  const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
+  const [loadingTests, setLoadingTests] = useState(false);
+
+  const { oystehrZambda } = useApiClients();
+
+  useEffect(() => {
+    if (!oystehrZambda) {
+      return;
+    }
+
+    const fetchTests = async (): Promise<void> => {
+      try {
+        if (!appointmentId) {
+          console.error('Appointment not found');
+          return;
+        }
+        setLoadingTests(true);
+
+        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {});
+
+        const testItems = Object.values(response.labs || {});
+        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
+      } catch (error) {
+        console.error('Error fetching tests:', error);
+      } finally {
+        setLoadingTests(false);
+      }
+    };
+
+    void fetchTests();
+  }, [appointmentId, oystehrZambda]);
+
   const submitFilterByDate = (): void => {
     setVisitDateFilter(tempDateFilter);
   };
@@ -85,16 +121,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     setVisitDateFilter(null);
   };
 
-  const handleTestTypeSearch = (): void => {
-    setTestTypeFilter(testTypeQuery);
-  };
-
-  const handleClearTestType = (): void => {
-    setTestTypeQuery('');
-    setTestTypeFilter('');
-  };
-
-  const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
+  const onRowClick = (labOrderData: InHouseOrderListPageDTO): void => {
     if (!appointmentId) {
       return;
     }
@@ -208,31 +235,38 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4}>
-                <TextField
-                  label="Test type"
-                  value={testTypeQuery}
-                  onChange={(e) => setTestTypeQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleTestTypeSearch();
-                    }
-                  }}
-                  fullWidth
+                <Autocomplete
                   size="small"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                    endAdornment: testTypeQuery && (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={handleClearTestType} edge="end">
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+                  fullWidth
+                  loading={loadingTests}
+                  options={availableTests}
+                  getOptionLabel={(option) => option.name}
+                  value={availableTests.find((test) => test.name === testTypeQuery) || null}
+                  onChange={(_, newValue) => {
+                    setTestTypeQuery(newValue?.name || ''); // todo: ?
+                    setTestTypeFilter(newValue?.name || ''); // todo: ?
                   }}
+                  inputValue={testTypeQuery}
+                  onInputChange={(_, newInputValue) => {
+                    setTestTypeQuery(newInputValue);
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Test type"
+                      InputProps={{
+                        ...params.InputProps,
+                        startAdornment: (
+                          <>
+                            <InputAdornment position="start">
+                              <SearchIcon />
+                            </InputAdornment>
+                            {params.InputProps.startAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
                 />
               </Grid>
               <Grid item xs={4}>

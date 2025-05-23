@@ -78,6 +78,7 @@ export type InHouseOrderResultDetails = {
 };
 
 export type InHouseOrderListPageDTO = {
+  serviceRequestId: string;
   testItem: string;
   diagnosis: string;
   orderDate: string;
@@ -115,7 +116,7 @@ export type InHouseOrdersSearchBy = {
 };
 
 export type InHouseOrdersSearchFilters = {
-  orderableItemCode?: string; // todo: implement in filters
+  orderableItemCode?: string;
   visitDate?: string;
 };
 
@@ -137,7 +138,7 @@ export type CreateInHouseLabOrderParameters = {
   notes?: string;
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string };
+export type GetCreateInHouseLabOrderResourcesParameters = { encounterId?: string };
 
 export type GetCreateInHouseLabOrderResourcesResponse = {
   labs: TestItem[];
