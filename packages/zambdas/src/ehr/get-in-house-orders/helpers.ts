@@ -135,11 +135,12 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     visitDate: parseVisitDate(appointment),
     providerName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '-' : '-',
     resultReceivedDate: parseResultsReceivedDate(serviceRequest, tasks),
-    diagnosesDTO: [], // todo implement
-    encounterTimezone: undefined, // todo implement
-    lastResultReceivedDate: undefined, // todo implement
+    diagnosesDTO: [], // todo: implement
+    encounterTimezone: undefined, // todo: implement
+    lastResultReceivedDate: undefined, // todo: implement
     orderAddedDate: parseOrderAddedDate(serviceRequest, tasks),
     orderingPhysician: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '-' : '-',
+    serviceRequestId: serviceRequest.id,
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
