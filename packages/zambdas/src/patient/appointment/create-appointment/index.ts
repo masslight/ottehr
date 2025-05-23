@@ -59,6 +59,7 @@ import {
   getUser,
   topLevelCatch,
   ZambdaInput,
+  isTestM2MClient,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
 import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
@@ -89,8 +90,28 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('getting user');
 
     const token = input.headers.Authorization.replace('Bearer ', '');
-    const user = await getUser(token, input.secrets);
 
+    const isTestClient = token && isTestM2MClient(token, input.secrets);
+    console.log('isTestClient', isTestClient);
+
+    let user: User | undefined;
+    try {
+      user = await getUser(token, input.secrets);
+    } catch (error: any) {
+      const isTestClient = token && isTestM2MClient(token, input.secrets);
+      console.log('isTestClient', isTestClient);
+      if (!isTestClient) {
+        throw error;
+      }
+      user = {
+        id: 'test-M2M-user-id',
+        email: 'test-M2M-user-email',
+        name: 'test-M2M-user-name',
+        phoneNumber: 'test-M2M-user-phoneNumber',
+        profile: `Patient/${JSON.parse(input.body ?? '')?.patient?.id}`,
+        authenticationMethod: 'sms',
+      };
+    }
     const validatedParameters = validateCreateAppointmentParams(input, user);
     const { secrets, unconfirmedDateOfBirth, language } = validatedParameters;
     console.groupEnd();

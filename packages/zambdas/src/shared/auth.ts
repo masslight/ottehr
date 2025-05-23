@@ -2,7 +2,8 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { RelatedPerson } from 'fhir/r4b';
 import { getAuth0Token } from './getAuth0Token';
 import { createOystehrClient } from './helpers';
-import { Secrets } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { decodeJwt } from 'jose';
 
 export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
   const oystehr = createOystehrClient(token, secrets);
@@ -48,3 +49,14 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
     return token;
   }
 }
+
+export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {
+  const decoded = decodeJwt(token);
+
+  if (!decoded) {
+    return false;
+  }
+
+  const testM2MClientId = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
+  return testM2MClientId === (decoded as any).sub?.split('@')?.[0];
+};

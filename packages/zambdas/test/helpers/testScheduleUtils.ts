@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { FhirResource, Location, LocationHoursOfOperation, Schedule } from 'fhir/r4b';
+import { FhirResource, Location, LocationHoursOfOperation, Patient, Schedule } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
 import {
@@ -1319,7 +1319,30 @@ export const cleanupTestScheduleResources = async (processId: string, oystehr: O
     })
   ).unbundle();
 
-  const deleteRequests: BatchInputDeleteRequest[] = schedulesAndSuch.map((res) => {
+  const patientsAndThings = (
+    await oystehr.fhir.search<FhirResource>({
+      resourceType: 'Patient',
+      params: [
+        {
+          name: '_tag',
+          value: tagForProcessId(processId),
+        },
+        {
+          name: '_revinclude',
+          value: 'RelatedPerson:patient',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Person:link:RelatedPerson',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'Person:patient',
+        },
+      ],
+    })
+  ).unbundle();
+  const deleteRequests: BatchInputDeleteRequest[] = [...schedulesAndSuch, ...patientsAndThings].map((res) => {
     return {
       method: 'DELETE',
       url: `${res.resourceType}/${res.id}`,
@@ -1330,5 +1353,128 @@ export const cleanupTestScheduleResources = async (processId: string, oystehr: O
   } catch (error) {
     console.error('Error deleting schedules', error);
     console.log(`ProcessId ${processId} may need manual cleanup`);
+  }
+};
+
+export const makeTestPatient = (partial?: Partial<Patient>): Patient => {
+  const base = partial ?? {};
+  const patient: Patient = {
+    name: [
+      {
+        use: 'official',
+        given: ['Olha'],
+        family: 'Test0418',
+      },
+    ],
+    active: true,
+    gender: 'female',
+    address: [
+      {
+        city: 'Pembroke Pine',
+        line: ['street address new'],
+        state: 'CA',
+        country: 'US',
+        postalCode: '06001',
+      },
+    ],
+    contact: [
+      {
+        telecom: [
+          {
+            value: '+12027139680',
+            system: 'phone',
+            extension: [
+              {
+                url: 'https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx',
+                valueString: 'erx',
+              },
+            ],
+          },
+        ],
+      },
+    ],
+    telecom: [
+      {
+        value: 'okovalenko+testnew@masslight.com',
+        system: 'email',
+      },
+      {
+        value: '+12027139680',
+        system: 'phone',
+      },
+    ],
+    birthDate: '2005-07-18',
+    extension: [
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/ethnicity',
+        valueCodeableConcept: {
+          coding: [
+            {
+              code: '2135-2',
+              system: 'http://terminology.hl7.org/CodeSystem/v3-Ethnicity',
+              display: 'Hispanic or Latino',
+            },
+          ],
+        },
+      },
+      {
+        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/race',
+        valueCodeableConcept: {
+          coding: [
+            {
+              code: '1002-5',
+              system: 'http://terminology.hl7.org/CodeSystem/v3-Race',
+              display: 'American Indian or Alaska Native',
+            },
+          ],
+        },
+      },
+    ],
+    resourceType: 'Patient',
+    communication: [
+      {
+        language: {
+          coding: [
+            {
+              code: 'en',
+              system: 'urn:ietf:bcp:47',
+              display: 'English',
+            },
+          ],
+        },
+        preferred: true,
+      },
+    ],
+    ...base,
+  };
+  return patient;
+};
+
+interface PersistTestPatientInput {
+  patient: Patient;
+  processId: string;
+}
+export const persistTestPatient = async (input: PersistTestPatientInput, oystehr: Oystehr): Promise<Patient> => {
+  const { patient, processId } = input;
+  const resource = {
+    ...patient,
+    id: undefined,
+    meta: {
+      tag: [
+        {
+          system: 'OTTEHR_AUTOMATED_TEST',
+          code: tagForProcessId(processId),
+          display: 'a test resource that should be cleaned up',
+        },
+      ],
+    },
+  };
+  try {
+    const createdPatient = await oystehr.fhir.create<Patient>(resource);
+    console.log('createdPatient', createdPatient);
+    return createdPatient;
+  } catch (error) {
+    console.error('Error creating test patient', error);
+    throw new Error('Error creating test patient');
   }
 };

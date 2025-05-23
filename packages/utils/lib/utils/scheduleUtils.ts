@@ -40,6 +40,7 @@ import {
   SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+  CreateSlotParams,
 } from 'utils';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
@@ -1734,4 +1735,24 @@ const removeSlotsAfter = (slots: SlotCapacityMap, time: DateTime): SlotCapacityM
 
 export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined => {
   return slot.extension?.find((ext) => ext.url === SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL)?.valueString;
+};
+
+interface CreateSlotOptions {
+  walkin: boolean;
+  status: Slot['status'];
+  originalBookingUrl?: string;
+  postTelemedLabOnly?: boolean;
+}
+export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
+  const { walkin, status, originalBookingUrl, postTelemedLabOnly } = options;
+  return {
+    scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
+    startISO: slot.start,
+    serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
+    lengthInMinutes: getAppointmentDurationFromSlot(slot),
+    status,
+    walkin,
+    originalBookingUrl,
+    postTelemedLabOnly,
+  };
 };
