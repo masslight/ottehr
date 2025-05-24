@@ -34,8 +34,6 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     return;
   }
 
-  let patchResult: Person | undefined;
-
   try {
     console.log(`Patching Person...`);
 
@@ -60,7 +58,7 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
       }
       try {
         if (operations.length > 0) {
-          patchResult = await oystehr.fhir.patch<Person>(
+          await oystehr.fhir.patch<Person>(
             { resourceType: 'Person', id: person.id!, operations },
             { optimisticLockingVersionId: person.meta!.versionId! }
           );
@@ -90,10 +88,6 @@ const deleteAppointmentData = async (config: any): Promise<void> => {
     }
   } catch (e) {
     console.error(`Error patching resources: ${e}`, JSON.stringify(e));
-  }
-
-  if (!patchResult) {
-    throw new Error(`Patching Person failed. Patch result: ${JSON.stringify(patchResult)}`);
   }
 
   console.log('Appointment data batch removed and person patched');

@@ -105,7 +105,11 @@ jobs:
       - name: Run E2E tests
         run: |
           if [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
-            npm run ${{ matrix.app }}:e2e:local
+            if [ "${{ matrix.app }}" == "ehr" ]; then
+              npm run ${{ matrix.app }}:e2e:local:integration
+            else
+              npm run ${{ matrix.app }}:e2e:local
+            fi
           else
             npm run ${{ matrix.app }}:e2e:${{ github.event.inputs.environment }}
           fi
