@@ -1,4 +1,4 @@
-import { BatchInputGetRequest } from '@oystehr/sdk';
+import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
@@ -176,6 +176,16 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       resourceId: encounter.id || 'Unknown',
       patchOperations: encounterPatchOperations,
     });
+
+    const slotId = appointment.slot?.[0]?.reference?.split('/')[1];
+    const deleteSlotRequests: BatchInputDeleteRequest[] = [];
+    if (slotId) {
+      deleteSlotRequests.push({
+        url: `/Slot/${slotId}`,
+        method: 'DELETE',
+      });
+    }
+
     const getAppointmentRequest: BatchInputGetRequest = {
       url: `/Appointment?_id=${appointmentID}&_include=Appointment:patient&_include=Appointment:actor`,
       method: 'GET',
@@ -184,7 +194,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const transactionBundle = await oystehr.fhir.transaction<
       Appointment | Encounter | Schedule | ScheduleOwnerFhirResource
     >({
-      requests: [getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest],
+      requests: [getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest, ...deleteSlotRequests],
     });
     console.log('getting appointment from transaction bundle');
     const {

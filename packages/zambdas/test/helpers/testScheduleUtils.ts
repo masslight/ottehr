@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
-import { FhirResource, Location, LocationHoursOfOperation, Patient, Schedule } from 'fhir/r4b';
+import { FhirResource, Location, LocationHoursOfOperation, Patient, RelatedPerson, Schedule } from 'fhir/r4b';
 import _ from 'lodash';
 import { DateTime } from 'luxon';
 import {
@@ -1339,6 +1339,14 @@ export const cleanupTestScheduleResources = async (processId: string, oystehr: O
           name: '_revinclude:iterate',
           value: 'Person:patient',
         },
+        {
+          name: '_revinclude',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'QuestionnaireResponse:encounter',
+        },
       ],
     })
   ).unbundle();
@@ -1472,6 +1480,23 @@ export const persistTestPatient = async (input: PersistTestPatientInput, oystehr
   try {
     const createdPatient = await oystehr.fhir.create<Patient>(resource);
     console.log('createdPatient', createdPatient);
+    await oystehr.fhir.create<RelatedPerson>({
+      resourceType: 'RelatedPerson',
+      patient: { reference: `Patient/${createdPatient.id}` },
+      name: [
+        {
+          family: 'Horseman',
+          given: ['Bojack'],
+        },
+      ],
+      telecom: [
+        {
+          system: 'phone',
+          value: '+12027139680',
+          use: 'mobile',
+        },
+      ],
+    });
     return createdPatient;
   } catch (error) {
     console.error('Error creating test patient', error);

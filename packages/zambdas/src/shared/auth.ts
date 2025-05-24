@@ -5,9 +5,28 @@ import { createOystehrClient } from './helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
 import { decodeJwt } from 'jose';
 
-export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
+export async function getUser(token: string, secrets: Secrets | null, testProfile?: string): Promise<User> {
   const oystehr = createOystehrClient(token, secrets);
-  const user = await oystehr.user.me();
+
+  let user: User;
+  try {
+    user = await oystehr.user.me();
+  } catch (error: any) {
+    const isTestClient = token && isTestM2MClient(token, secrets);
+    console.log('isTestClient', isTestClient);
+    if (!isTestClient) {
+      throw error;
+    }
+    user = {
+      id: 'test-M2M-user-id',
+      email: 'test-M2M-user-email',
+      name: 'test-M2M-user-name',
+      phoneNumber: 'test-M2M-user-phoneNumber',
+      profile: testProfile || 'test-M2M-user-profile',
+      authenticationMethod: 'sms',
+    };
+  }
+
   return user;
 }
 

@@ -173,6 +173,7 @@ describe('slot availability tests', () => {
       now = now.plus({ minutes: 15 });
     }
   });
+
   it('closing buffers should remove slots from the end of the available slots list as expected', () => {
     const bufferedSchedule = applyBuffersToScheduleExtension(DEFAULT_SCHEDULE_JSON, {
       closingBuffer: 30,
