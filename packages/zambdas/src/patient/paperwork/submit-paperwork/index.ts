@@ -4,7 +4,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FHIR_EXTENSION, OTTEHR_MODULE } from 'utils';
-import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,

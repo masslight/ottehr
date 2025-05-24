@@ -4,7 +4,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { QuestionnaireResponse } from 'fhir/r4b';
 import {} from 'utils';
-import '../../../shared/instrument.mjs';
 import { createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 

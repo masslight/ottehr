@@ -26,7 +26,6 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { getUser } from '../../shared/auth';
-import '../../shared/instrument.mjs';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
 

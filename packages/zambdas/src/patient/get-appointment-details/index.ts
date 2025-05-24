@@ -21,7 +21,6 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
-import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {
