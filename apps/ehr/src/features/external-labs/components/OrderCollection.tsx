@@ -89,11 +89,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
 
       try {
-        const { orderPdfUrl } = await submitLabOrder(oystehr, {
+        const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data: data,
         });
+
+        if (labelPdfUrl) await openPdf(labelPdfUrl);
 
         await openPdf(orderPdfUrl);
         setSubmitLoading(false);
