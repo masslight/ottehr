@@ -15,6 +15,8 @@ import {
   Autocomplete,
   useTheme,
   Chip,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
@@ -38,6 +40,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [notes, setNotes] = useState<string>('');
   const [providerName, setProviderName] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [runAsRepeat, setRunAsRepeat] = useState<boolean>(false);
 
   const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -135,6 +138,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           cptCode: selectedCptCode,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
+          runAsRepeat,
           notes: notes,
         });
 
@@ -243,49 +247,97 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
               </Grid>
 
               {availableCptCodes.length > 0 && (
-                <Grid item xs={12}>
-                  <FormControl
-                    fullWidth
-                    required
-                    sx={{
-                      '& .MuiInputBase-root': {
-                        height: '40px',
-                      },
-                      '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                      },
-                    }}
-                  >
-                    <InputLabel
-                      id="cpt-code-label"
+                <>
+                  <Grid item xs={selectedTest?.repeatable ? 9 : 12}>
+                    <FormControl
+                      fullWidth
+                      required
                       sx={{
-                        transform: 'translate(14px, 10px) scale(1)',
-                        '&.MuiInputLabel-shrink': {
-                          transform: 'translate(14px, -9px) scale(0.75)',
+                        '& .MuiInputBase-root': {
+                          height: '40px',
+                        },
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          paddingTop: 0,
+                          paddingBottom: 0,
                         },
                       }}
                     >
-                      CPT code
-                    </InputLabel>
-                    <Select
-                      labelId="cpt-code-label"
-                      id="cpt-code"
-                      value={selectedCptCode}
-                      label="CPT code*"
-                      onChange={(e) => setSelectedCptCode(e.target.value)}
-                      size="small"
-                    >
-                      {availableCptCodes.map((cpt) => (
-                        <MenuItem key={cpt} value={cpt}>
-                          {cpt}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+                      <InputLabel
+                        id="cpt-code-label"
+                        sx={{
+                          transform: 'translate(14px, 10px) scale(1)',
+                          '&.MuiInputLabel-shrink': {
+                            transform: 'translate(14px, -9px) scale(0.75)',
+                          },
+                        }}
+                      >
+                        CPT code
+                      </InputLabel>
+                      <Select
+                        labelId="cpt-code-label"
+                        id="cpt-code"
+                        value={selectedCptCode}
+                        label="CPT code*"
+                        onChange={(e) => setSelectedCptCode(e.target.value)}
+                        size="small"
+                      >
+                        {availableCptCodes.map((cpt) => (
+                          <MenuItem key={cpt} value={cpt}>
+                            {cpt}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  {selectedTest?.repeatable && (
+                    <Grid item xs={3}>
+                      <FormControlLabel
+                        sx={{
+                          backgroundColor: 'transparent',
+                          pr: 0,
+                        }}
+                        control={
+                          <Checkbox size="small" checked={runAsRepeat} onChange={() => setRunAsRepeat(!runAsRepeat)} />
+                        }
+                        label={<Typography variant="body1">Run as Repeat</Typography>}
+                      />
+                    </Grid>
+                  )}
+                </>
+              )}
+
+              {runAsRepeat && (
+                <>
+                  <Grid item xs={10}>
+                    <TextField
+                      InputProps={{
+                        readOnly: true,
+                        sx: {
+                          '& input': {
+                            cursor: 'default',
+                          },
+                          height: '40px',
+                        },
+                      }}
+                      fullWidth
+                      label="CPT Code Modifier"
+                      focused={false}
+                      value={'91'}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(0, 0, 0, 0.23)',
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="body1">QW</Typography>
+                  </Grid>
+                </>
               )}
 
               <Grid item xs={12}>

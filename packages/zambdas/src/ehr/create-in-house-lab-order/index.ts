@@ -63,7 +63,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-    const { encounterId, testItem, cptCode: _cptCode, diagnosesAll, diagnosesNew, notes } = validatedParameters;
+    const {
+      encounterId,
+      testItem,
+      cptCode: cptCode,
+      diagnosesAll,
+      diagnosesNew,
+      runAsRepeat,
+      notes,
+    } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -122,11 +130,41 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
     };
 
-    const [encounterResources, activeDefinitionResources, userPractitionerId] = await Promise.all([
-      encounterResourcesRequest(),
-      activeDefinitionRequest(),
-      userPractitionerIdRequest(),
-    ]);
+    const requests: any[] = [encounterResourcesRequest(), activeDefinitionRequest(), userPractitionerIdRequest()];
+
+    if (runAsRepeat) {
+      console.log('run as repeat for', cptCode, testItem.name);
+      const intialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
+        (
+          await oystehr.fhir.search({
+            resourceType: 'ServiceRequest',
+            params: [
+              {
+                name: 'encounter',
+                value: `Encounter/${encounterId}`,
+              },
+              {
+                name: 'code',
+                value: cptCode,
+              },
+            ],
+          })
+        ).unbundle() as ServiceRequest[];
+      requests.push(intialServiceRequestSearch());
+    }
+
+    const results = await Promise.all(requests);
+    const [
+      encounterResources,
+      activeDefinitionResources,
+      userPractitionerId,
+      initialServiceRequestResources, // only exists if runAsRepeat is true
+    ] = results as [
+      (Encounter | Patient | Location | Coverage | Account)[],
+      ActivityDefinition[],
+      string,
+      ServiceRequest[]?,
+    ];
 
     const {
       encounterSearchResults,
@@ -199,6 +237,27 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return accountSearchResults[0];
     })();
 
+    const initialServiceRequest = (() => {
+      if (runAsRepeat) {
+        if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
+          // todo config this to be an identifiable error to front end so users know whats up
+          throw new Error('You cannot run this as repeat, no initial tests could be found for this encounter.');
+        }
+        const possibleInitialSRs = initialServiceRequestResources.reduce((acc: ServiceRequest[], sr) => {
+          if (!sr.basedOn) acc.push(sr);
+          return acc;
+        }, []);
+        if (possibleInitialSRs.length > 1) {
+          // this really shouldn't happen, something is misconfigured
+          throw new Error('More than one initial tests found for this encounter');
+        }
+        const initialSR = possibleInitialSRs?.[0];
+        if (!initialSR) throw new Error('Initial tests could be found for this encounter'); // this really shouldn't happen, something is misconfigured
+        return initialSR;
+      }
+      return;
+    })();
+
     const attendingPractitionerId = getAttendingPractionerId(encounter);
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
@@ -266,6 +325,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
       instantiatesCanonical: [`${activityDefinition.url}`], // todo in the future - we should add |${activityDefinition.version}
     };
+    if (initialServiceRequest) {
+      serviceRequestConfig.basedOn = [
+        {
+          reference: `ServiceRequest/${initialServiceRequest.id}`,
+        },
+      ];
+    }
 
     const taskConfig: Task = {
       resourceType: 'Task',
