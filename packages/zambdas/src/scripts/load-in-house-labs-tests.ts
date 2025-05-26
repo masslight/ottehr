@@ -19,6 +19,7 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   OD_DISPLAY_CONFIG,
+  REPEATABLE_TEXT_EXTENSION_CONFIG,
 } from 'utils';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
@@ -116,6 +117,18 @@ const makeObsDefExtension = (item: TestItem | MixedComponent): Extension[] => {
   const extension: Extension[] = [displayExt];
   if (item.display?.nullOption) {
     extension.push(IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG);
+  }
+
+  return extension;
+};
+
+const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] => {
+  const extension: Extension[] = [];
+  if (item.repeatTest) {
+    extension.push({
+      url: REPEATABLE_TEXT_EXTENSION_CONFIG.url,
+      valueString: REPEATABLE_TEXT_EXTENSION_CONFIG.valueString,
+    });
   }
 
   return extension;
@@ -493,6 +506,7 @@ async function main(): Promise<void> {
           },
         ],
       },
+      extension: makeActivityDefinitionRepeatableExtension(testData),
     };
 
     activityDefinitions.push(activityDef);
@@ -554,7 +568,7 @@ interface BaseTestItem {
   device: string;
   cptCode: string[];
   loincCode: string[];
-  // repeatTest: boolean;
+  repeatTest: boolean;
   // if components are present this display will be defined there
   display?: componentDisplay;
   note?: string;
@@ -594,7 +608,7 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip)',
     cptCode: ['87880'],
     loincCode: ['78012-2'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -613,7 +627,7 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87804'],
     loincCode: ['80382-5'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -632,7 +646,7 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87804'],
     loincCode: ['80381-7'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -651,7 +665,7 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87807'],
     loincCode: ['72885-7'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -670,7 +684,7 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87426'],
     loincCode: ['94558-4'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -688,7 +702,7 @@ const testItems: TestItemsType = {
     device: 'Sofia',
     cptCode: ['87428'],
     loincCode: ['80382-5', '94558-4'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -706,7 +720,7 @@ const testItems: TestItemsType = {
     device: '',
     cptCode: ['82270'],
     loincCode: ['50196-5'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -724,7 +738,7 @@ const testItems: TestItemsType = {
     device: 'Test well / tube',
     cptCode: ['86308'],
     loincCode: ['31418-7'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -742,7 +756,7 @@ const testItems: TestItemsType = {
     device: 'Glucometer brand unknown',
     cptCode: ['82962'],
     loincCode: ['32016-8'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'Quantity' as const,
     unit: 'mg/dL',
     normalRange: {
@@ -763,7 +777,7 @@ const testItems: TestItemsType = {
     device: 'Clinitek',
     cptCode: ['81003'],
     loincCode: ['24356-8'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
     valueSet: [], // empty value set, because the test itself has no values, only components
     abnormalValues: [],
@@ -911,7 +925,7 @@ const testItems: TestItemsType = {
     device: 'Strip/stick',
     cptCode: ['81025'],
     loincCode: ['2106-3'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: [], // empty array, because both results are normal in the context of the test
@@ -929,7 +943,7 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87651'],
     loincCode: ['104724-0'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -947,7 +961,7 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87501'],
     loincCode: ['104730-7'],
-    // repeatTest: true,
+    repeatTest: true,
     note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
@@ -966,7 +980,7 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87501'],
     loincCode: ['106618-2'],
-    // repeatTest: true,
+    repeatTest: true,
     note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
@@ -985,7 +999,7 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87634'],
     loincCode: ['33045-6', '31949-1'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
@@ -1003,7 +1017,7 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87635'],
     loincCode: ['96119-3'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
     valueSet: ['Positive', 'Negative'],
     abnormalValues: ['Positive'],
