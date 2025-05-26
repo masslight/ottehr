@@ -30,8 +30,6 @@ let inviteeData: Awaited<ReturnType<PaperworkTelemed['fillInviteParticipant']>>;
 let commonLocatorsHelper: CommonLocatorsHelper;
 const appointmentIds: string[] = [];
 
-test.describe.configure({ mode: 'parallel' });
-
 test.beforeAll(async ({ browser }) => {
   context = await browser.newContext();
   page = await context.newPage();
