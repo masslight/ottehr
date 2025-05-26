@@ -7,7 +7,7 @@ interface ResultEntryNumericInputProps {
   testItemComponent: TestItemComponent;
   isAbnormal: boolean;
   setIsAbnormal: (bool: boolean) => void;
-  disabled?: boolean;
+  disabled?: boolean; // equates to the final view
 }
 
 export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = ({

@@ -4,7 +4,7 @@ import { ResultEntryTableRow } from './ResultsEntryTableRow';
 
 interface ResultEntryTableProps {
   testItemComponents: TestItemComponent[];
-  disabled?: boolean;
+  disabled?: boolean; // equates to the final view
 }
 
 const HEADER_ROW_STYLING = { borderBottom: 'none', padding: '0 8px 6px 0' };

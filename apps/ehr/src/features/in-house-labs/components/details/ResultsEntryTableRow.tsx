@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 
 interface ResultEntryTableRowProps {
   component: TestItemComponent;
-  disabled?: boolean;
+  disabled?: boolean; // equates to the final view
 }
 
 const ROW_STYLING = { paddingLeft: 0 };

@@ -4,7 +4,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 
 interface ResultEntryRadioButtonProps {
   testItemComponent: CodeableConceptComponent;
-  disabled?: boolean;
+  disabled?: boolean; // equates to the final view
 }
 
 const ABNORMAL_FONT_COLOR = '#F44336';
@@ -85,6 +85,48 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     }
   };
 
+  const finalViewNullOptionCheckboxStyling = (curValue: string): SxProps<Theme> => {
+    const isFinalView = !!disabled;
+    if (isFinalView) {
+      const isChecked = curValue === nullCode;
+      if (isChecked) {
+        return {
+          color: 'primary.main',
+          '&.Mui-disabled': {
+            color: 'primary.main',
+            '& .MuiSvgIcon-root': {
+              fill: 'primary.main',
+            },
+          },
+        };
+      } else {
+        return {};
+      }
+    }
+    return {};
+  };
+
+  const finalViewNullOptionCheckboxLabelStyling = (curValue: string): SxProps<Theme> => {
+    const isFinalView = !!disabled;
+    if (isFinalView) {
+      const isChecked = curValue === nullCode;
+      if (isChecked) {
+        return {
+          color: 'text.primary',
+          '& .MuiFormControlLabel-label': {
+            color: 'text.primary',
+          },
+          '&.Mui-disabled .MuiFormControlLabel-label': {
+            color: 'text.primary',
+          },
+        };
+      } else {
+        return {};
+      }
+    }
+    return {};
+  };
+
   return (
     <Controller
       name={testItemComponent.observationDefinitionId}
@@ -125,10 +167,11 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
                     disabled={!!disabled}
                     checked={field.value === nullCode}
                     onChange={() => field.onChange(field.value === nullCode ? '' : nullCode)}
+                    sx={disabled ? finalViewNullOptionCheckboxStyling(field.value) : {}}
                   />
                 }
                 label={testItemComponent.nullOption.text}
-                sx={{ color: 'text.secondary' }}
+                sx={disabled ? finalViewNullOptionCheckboxLabelStyling(field.value) : {}}
               />
             </Box>
           )}
