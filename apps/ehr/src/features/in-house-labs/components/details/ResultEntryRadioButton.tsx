@@ -1,6 +1,8 @@
 import { Typography, Grid, FormControlLabel, Radio, RadioGroup, Checkbox, Box, SxProps, Theme } from '@mui/material';
 import { CodeableConceptComponent } from 'utils';
 import { Controller, useFormContext } from 'react-hook-form';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 
 interface ResultEntryRadioButtonProps {
   testItemComponent: CodeableConceptComponent;
@@ -164,6 +166,8 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
               <FormControlLabel
                 control={
                   <Checkbox
+                    icon={<RadioButtonUncheckedIcon />}
+                    checkedIcon={<RadioButtonCheckedIcon />}
                     disabled={!!disabled}
                     checked={field.value === nullCode}
                     onChange={() => field.onChange(field.value === nullCode ? '' : nullCode)}
