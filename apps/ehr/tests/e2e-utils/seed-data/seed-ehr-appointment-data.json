@@ -313,7 +313,7 @@
           {
             "status": "planned",
             "period": {
-              "start": "{{date}}T14:56:02.819Z"
+              "start": "{{date}}T00:00:00.000Z"
             }
           }
         ],
