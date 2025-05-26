@@ -41,8 +41,12 @@ export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComp
           </TableRow>
         </TableHead>
         <TableBody>
-          {testItemComponents.map((component) => (
-            <ResultEntryTableRow component={component} disabled={disabled} />
+          {testItemComponents.map((component, index) => (
+            <ResultEntryTableRow
+              component={component}
+              disabled={disabled}
+              isLastRow={index === testItemComponents.length - 1}
+            />
           ))}
         </TableBody>
       </Table>
