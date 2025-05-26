@@ -1,4 +1,4 @@
-import { Select, InputLabel, FormControl, MenuItem } from '@mui/material';
+import { Select, FormControl, MenuItem } from '@mui/material';
 import { TestItemComponent } from 'utils';
 import { useFormContext, Controller } from 'react-hook-form';
 
@@ -61,20 +61,6 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
       }}
       size="small"
     >
-      <InputLabel
-        id="result-entry-labe"
-        sx={{
-          color: isAbnormal ? 'error.dark' : '',
-          '&.Mui-focused': {
-            color: isAbnormal ? 'error.dark' : '',
-          },
-          '&.Mui-disabled': {
-            color: isAbnormal ? 'error.dark' : '',
-          },
-        }}
-      >
-        Select
-      </InputLabel>
       <Controller
         name={testItemComponent.observationDefinitionId}
         control={control}
@@ -83,9 +69,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
           <Select
             disabled={!!disabled}
             fullWidth
-            labelId="result-entry-label"
             id="result-entry-select"
-            label="Select"
             {...field}
             onChange={(e) => {
               field.onChange(e);
