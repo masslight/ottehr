@@ -51,12 +51,9 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
           error={isAbnormal}
           sx={{
             width: '80%',
-            '& .MuiInputBase-root': {
-              color: isAbnormal ? 'error.dark' : 'text.primary',
-            },
             '& .Mui-disabled': {
               color: isAbnormal ? 'error.dark' : '',
-              WebkitTextFillColor: isAbnormal ? '#C62828' : '',
+              WebkitTextFillColor: isAbnormal ? '#C62828' : '#000000e0',
             },
             '& .MuiOutlinedInput-root': {
               '&.Mui-disabled': {

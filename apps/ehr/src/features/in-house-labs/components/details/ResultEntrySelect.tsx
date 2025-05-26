@@ -55,8 +55,8 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
         },
 
         '& .MuiSelect-select.Mui-disabled': {
-          color: isAbnormal ? 'error.dark' : '',
-          WebkitTextFillColor: isAbnormal ? '#C62828' : '',
+          color: isAbnormal ? 'error.dark' : '#000000e0',
+          WebkitTextFillColor: isAbnormal ? '#C62828' : '#000000e0',
         },
       }}
       size="small"
