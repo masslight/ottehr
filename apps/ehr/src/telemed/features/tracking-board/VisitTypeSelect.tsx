@@ -19,8 +19,8 @@ export function VisitTypeSelect(): ReactElement {
           textAlign: 'start',
         },
       }}
-      // value={visitTypes?.length > 0 ? [...visitTypes] : visitTypesOptions}
       value={visitTypes}
+      // value={visitTypes?.length > 0 ? [...visitTypes] : visitTypesOptions}
       options={visitTypesOptions}
       getOptionLabel={(option) => {
         return VisitTypeToLabelTelemed[option as VisitType];
@@ -31,8 +31,12 @@ export function VisitTypeSelect(): ReactElement {
         } else {
           localStorage.removeItem('selectedVisitTypes');
         }
+
         useTrackingBoardStore.setState({ visitTypes: value as VisitType[] });
       }}
+      // onChange={(_, value) => {
+      //   useTrackingBoardStore.setState({ visitTypes: value as VisitType[] });
+      // }}
       multiple
       renderInput={(params) => <TextField name="visittypes" {...params} label="Visit type" required={false} />}
     />
