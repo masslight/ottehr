@@ -61,20 +61,33 @@ export interface TestItem {
   note?: string;
 }
 
-export type InHouseOrderResultDetails = {
-  status: TestStatus;
-  sample: {
-    source: unknown;
-    collectedBy: unknown;
-    collectionDate: string;
-  }[];
-  note: string;
-  history: {
+export type InHouseOrderResultDetails = InHouseOrderListPageDTO & {
+  name: string;
+  labDetails: TestItem;
+  providerId: string;
+  currentUserId: string;
+  currentUserName: string;
+  resultsPDFUrl: string | undefined;
+  orderInfo: {
+    diagnosis: DiagnosisDTO[];
+    testName: string;
+    notes: string | undefined;
+    status: TestStatus;
+  };
+  orderHistory: {
     status: TestStatus;
     providerName: string;
     date: string;
   }[];
-  showOnPatientPortal: boolean;
+  specimen:
+    | {
+        source: string;
+        collectedBy: string;
+        collectionDate: string;
+        collectionTime: string;
+      }
+    | undefined;
+  notes: string;
 };
 
 export type InHouseOrderListPageDTO = {
@@ -86,8 +99,8 @@ export type InHouseOrderListPageDTO = {
   visitDate: string;
   providerName: string;
   resultReceivedDate: string | null;
-  diagnosesDTO: DiagnosisDTO[];
-  encounterTimezone: string | undefined;
+  diagnosisDTO: DiagnosisDTO[];
+  timezone: string | undefined;
   orderAddedDate: string;
   orderingPhysician: string;
   lastResultReceivedDate: string | undefined;

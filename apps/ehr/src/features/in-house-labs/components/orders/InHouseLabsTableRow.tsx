@@ -17,7 +17,7 @@ export const InHouseLabsTableRow = ({ labOrderData, columns, onRowClick }: InHou
 
   const formatDate = (datetime: string): string => {
     if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(labOrderData.encounterTimezone).toFormat('MM/dd/yyyy hh:mm a');
+    return DateTime.fromISO(datetime).setZone(labOrderData.timezone).toFormat('MM/dd/yyyy hh:mm a');
   };
 
   const renderCellContent = (column: InHouseLabsTableColumn): React.ReactNode => {
@@ -35,11 +35,11 @@ export const InHouseLabsTableRow = ({ labOrderData, columns, onRowClick }: InHou
       case 'provider':
         return labOrderData.orderingPhysician || '';
       case 'dx': {
-        const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
-        const firstDxCode = labOrderData.diagnosesDTO[0]?.code || '';
+        const firstDx = labOrderData.diagnosisDTO[0]?.display || '';
+        const firstDxCode = labOrderData.diagnosisDTO[0]?.code || '';
         const firstDxText = `${firstDxCode} ${firstDx}`;
-        const fullDxText = labOrderData.diagnosesDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
-        const dxCount = labOrderData.diagnosesDTO.length;
+        const fullDxText = labOrderData.diagnosisDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
+        const dxCount = labOrderData.diagnosisDTO.length;
 
         if (dxCount > 1) {
           return (

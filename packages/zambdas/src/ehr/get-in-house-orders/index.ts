@@ -32,6 +32,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    const userToken = input.headers.Authorization.replace('Bearer ', '');
+
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
     const {
@@ -39,24 +41,25 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       tasks,
       practitioners,
       encounters,
-      locations,
       appointments,
       provenances,
       activityDefinitions,
       specimens,
       observations,
       pagination,
-    } = await getInHouseResources(oystehr, validatedParameters, {
-      searchBy: validatedParameters.searchBy,
-    });
-
-    console.log('1 serviceRequests', serviceRequests.length);
-    console.log('1 tasks', tasks.length);
-    console.log('1 encounters', encounters.length);
-    console.log('1 locations', locations.length);
-    console.log('1 provenances', provenances.length);
-    console.log('1 specimens', specimens.length);
-    console.log('1 observations', observations.length);
+      diagnosticReports,
+      resultsPDFs,
+      currentPractitioner,
+      timezone,
+    } = await getInHouseResources(
+      oystehr,
+      validatedParameters,
+      {
+        searchBy: validatedParameters.searchBy,
+      },
+      userToken,
+      m2mtoken
+    );
 
     if (!serviceRequests.length) {
       console.log('no serviceRequests found, returning empty data array');
@@ -75,13 +78,24 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       tasks,
       practitioners,
       encounters,
-      locations,
       appointments,
       provenances,
       activityDefinitions,
       specimens,
-      observations
+      observations,
+      diagnosticReports,
+      resultsPDFs,
+      currentPractitioner,
+      timezone
     );
+
+    // For detail requests, return single item without pagination
+    if (searchBy.field === 'serviceRequestId' && inHouseOrders.length > 0) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(inHouseOrders[0]),
+      };
+    }
 
     return {
       statusCode: 200,

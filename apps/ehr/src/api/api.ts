@@ -91,7 +91,6 @@ const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID;
 const GET_IN_HOUSE_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_IN_HOUSE_ORDERS_ZAMBDA_ID;
 const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES;
-const GET_IN_HOUSE_LAB_ORDER_DETAIL = import.meta.env.VITE_APP_GET_IN_HOUSE_LAB_ORDER_DETAIL;
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = import.meta.env.VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN;
 const HANDLE_IN_HOUSE_LAB_RESULTS = import.meta.env.VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS;
 const DELETE_IN_HOUSE_LAB_ORDER = import.meta.env.VITE_APP_DELETE_IN_HOUSE_LAB_ORDER;
@@ -789,19 +788,9 @@ export const getInHouseLabOrderDetail = async (
   oystehr: Oystehr,
   parameters: { serviceRequestId: string }
 ): Promise<InHouseLabDTO> => {
-  try {
-    if (GET_IN_HOUSE_LAB_ORDER_DETAIL == null) {
-      throw new Error('get in house lab order detail zambda environment variable could not be loaded');
-    }
-    const response = await oystehr.zambda.execute({
-      id: GET_IN_HOUSE_LAB_ORDER_DETAIL,
-      ...parameters,
-    });
-    return chooseJson(response);
-  } catch (error: unknown) {
-    console.log(error);
-    throw error;
-  }
+  return getInHouseOrders(oystehr, {
+    searchBy: { field: 'serviceRequestId', value: parameters.serviceRequestId },
+  }) as unknown as Promise<InHouseLabDTO>;
 };
 
 export const collectInHouseLabSpecimen = async (
