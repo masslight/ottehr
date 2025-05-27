@@ -34,7 +34,6 @@ export default function StatesPage(): ReactElement {
   const [searchText, setSearchText] = React.useState('');
 
   const { data, isFetching } = useStatesQuery();
-  const stateLocations = React.useMemo(() => data || [], [data]);
 
   // Filter the states based on the locations from fhir
   const fhirLocationStates = React.useMemo(
