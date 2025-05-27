@@ -747,7 +747,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(unbundledSlots.length).toBe(0);
   });
 
-  it.skip('successfully creates a post-telemed appointment for a returning patient after selecting an available slot', async () => {
+  it('successfully creates a post-telemed appointment for a returning patient after selecting an available slot', async () => {
     expect(oystehr).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
