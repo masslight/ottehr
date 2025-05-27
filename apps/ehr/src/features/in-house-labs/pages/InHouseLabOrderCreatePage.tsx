@@ -342,6 +342,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       }}
                     />
                   </Grid>
+                  {/* indicates that the test is “CLIA waived”, should just be hardcoded for repeats */}
                   <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center' }}>
                     <Typography variant="body1">QW</Typography>
                   </Grid>
