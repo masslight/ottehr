@@ -13,6 +13,7 @@ export const useChartData = ({
   onError,
   enabled = true,
   replaceStoreValues = false,
+  refetchInterval,
 }: {
   encounterId: string;
   requestedFields?: ChartDataRequestedFields;
@@ -21,6 +22,7 @@ export const useChartData = ({
   onError?: (error: any) => void;
   enabled?: boolean;
   replaceStoreValues?: boolean;
+  refetchInterval?: number;
 }): {
   refetch: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
   chartData: GetChartDataResponse | undefined;
@@ -41,7 +43,7 @@ export const useChartData = ({
     data: chartData,
     queryKey,
   } = useGetChartData(
-    { apiClient, encounterId, requestedFields, enabled },
+    { apiClient, encounterId, requestedFields, enabled, refetchInterval },
     (data) => {
       onSuccess?.(data);
       if (replaceStoreValues) {

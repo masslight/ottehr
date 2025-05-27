@@ -1,3 +1,4 @@
+import { ErxConnectPractitionerParams } from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
@@ -37,7 +38,6 @@ import {
 } from 'utils';
 import { APPOINTMENT_REFRESH_INTERVAL, CHAT_REFETCH_INTERVAL, QUERY_STALE_TIME } from '../../../constants';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { useAuthToken } from '../../../hooks/useAuthToken';
 import useEvolveUser, { EvolveUser } from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { OystehrTelemedAPIClient, PromiseReturnType } from '../../data';
@@ -374,11 +374,13 @@ export const useGetChartData = (
     encounterId,
     requestedFields,
     enabled,
+    refetchInterval,
   }: {
     apiClient: OystehrTelemedAPIClient | null;
     encounterId?: string;
     requestedFields?: ChartDataRequestedFields;
     enabled?: boolean;
+    refetchInterval?: number;
   },
   onSuccess: (data: PromiseReturnType<ReturnType<OystehrTelemedAPIClient['getChartData']>>) => void,
   onError?: (error: any) => void
@@ -418,6 +420,7 @@ export const useGetChartData = (
       },
       enabled: !!apiClient && !!encounterId && !!user && !isAppointmentLoading && enabled,
       staleTime: 0,
+      refetchInterval: refetchInterval || false,
     }
   );
   return {
@@ -634,27 +637,95 @@ export const useDeletePatientInstruction = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useSyncPhotonPatient = () => {
-  const token = useAuthToken();
+export const useSyncERXPatient = ({
+  patient,
+  enabled,
+  onError,
+}: {
+  patient: Patient;
+  enabled: boolean;
+  onError: (err: any) => void;
+}) => {
+  const { oystehr } = useApiClients();
+
+  return useQuery(
+    ['erx-sync-patient', patient],
+    async () => {
+      if (oystehr) {
+        console.log(`Start syncing patient with erx patient ${patient.id}`);
+        try {
+          await oystehr.erx.syncPatient({ patientId: patient.id! });
+          console.log('Successfuly synced erx patient');
+        } catch (err) {
+          console.error('Error during syncing erx patient: ', err);
+          throw err;
+        }
+      }
+      throw new Error('oystehr client is not defined');
+    },
+    {
+      retry: 2,
+      enabled,
+      onError,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useConnectPractitionerToERX = () => {
+  const { oystehr } = useApiClients();
 
   return useMutation(
-    ['sync-photon-patient'],
-    async (patient: Patient) => {
-      if (token) {
-        console.log(`Start syncing patient with photon patient ${patient.id}`);
-        const resp = await fetch(`${import.meta.env.VITE_APP_PROJECT_API_URL}/erx/sync-patient/${patient.id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          method: 'POST',
-        });
-        if (!resp.ok) {
-          throw { ...(await resp.json()), status: resp.status };
+    ['erx-connect-practitioner'],
+    async (patient?: Patient) => {
+      if (oystehr) {
+        console.log(`Start connecting practitioner to erx`);
+        try {
+          const params: ErxConnectPractitionerParams = {};
+          if (patient) {
+            params.patientId = patient.id;
+          }
+          const resp = await oystehr.erx.connectPractitioner(params);
+          console.log('Successfuly connected practitioner to erx');
+          return resp.ssoLink;
+        } catch (err) {
+          console.error('Error during connecting practitioner to erx: ', err);
+          throw err;
         }
-        console.log('Successfuly synced photon patient');
-        return (await resp.json()) as { photonPatientId: string };
       }
-      throw new Error('auth token is not defined');
+      throw new Error('oystehr client is not defined');
+    },
+    {
+      retry: 2,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useCheckPractitionerEnrollment = () => {
+  const { oystehr } = useApiClients();
+  const user = useEvolveUser();
+
+  return useQuery(
+    ['erx-check-practitioner-enrollment'],
+    async () => {
+      if (oystehr) {
+        console.log(`Start checking practitioner enrollment`);
+        try {
+          if (!user?.profileResource?.id) {
+            throw new Error("Current user doesn't have a profile resource id");
+          }
+          const resp = await oystehr.erx.checkPractitionerEnrollment({
+            practitionerId: user?.profileResource?.id,
+          });
+          console.log('Successfuly checked practitioner enrollment');
+          return resp.confirmed;
+        } catch (err) {
+          console.error('Error during checking practitioner enrollment: ', err);
+          throw err;
+        }
+      }
+      throw new Error('oystehr client is not defined');
     },
     {
       retry: 2,

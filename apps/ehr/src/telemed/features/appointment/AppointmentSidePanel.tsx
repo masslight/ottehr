@@ -33,7 +33,6 @@ import { dataTestIds } from '../../../constants/data-test-ids';
 import ChatModal from '../../../features/chat/ChatModal';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import { adjustTopForBannerHeight } from '../../../helpers/misc.helper';
-import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import CancelVisitDialog from '../../components/CancelVisitDialog';
 import InviteParticipant from '../../components/InviteParticipant';
@@ -72,8 +71,6 @@ export const AppointmentSidePanel: FC = () => {
     'questionnaireResponse',
     'chartData',
   ]);
-
-  const user = useEvolveUser();
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -284,7 +281,7 @@ export const AppointmentSidePanel: FC = () => {
             Book visit
           </Button>
 
-          {user?.isPractitionerEnrolledInPhoton && (
+          {
             <LoadingButton
               size="small"
               variant="outlined"
@@ -301,7 +298,7 @@ export const AppointmentSidePanel: FC = () => {
             >
               RX
             </LoadingButton>
-          )}
+          }
         </Box>
 
         <Divider />

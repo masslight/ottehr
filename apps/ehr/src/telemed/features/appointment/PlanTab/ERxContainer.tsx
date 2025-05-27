@@ -1,5 +1,4 @@
-import { Stack } from '@mui/system';
-import { FC, useCallback, useEffect, useState } from 'react';
+import AddIcon from '@mui/icons-material/Add';
 import {
   CircularProgress,
   Paper,
@@ -12,10 +11,11 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { formatDateToMDYWithTime } from 'utils';
+import { FC, useCallback, useEffect, useState } from 'react';
+import { formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -127,6 +127,7 @@ export const ERxContainer: FC = () => {
         _include: 'MedicationRequest:requester',
       },
     },
+    refetchInterval: 10000,
     onSuccess: (data) => {
       const prescribedMedications = (data.prescribedMedications || []).reduce(
         (prev, curr) => {
@@ -186,17 +187,6 @@ export const ERxContainer: FC = () => {
     setCancellationLoading((prevState) => prevState.filter((item) => item !== prescriptionId));
   };
 
-  useEffect(() => {
-    const photonListener = (): void => {
-      void refetch();
-    };
-    document.addEventListener('photon-prescriptions-created', photonListener);
-
-    return () => {
-      document.removeEventListener('photon-prescriptions-created', photonListener);
-    };
-  }, [refetch]);
-
   const handleCloseTooltip = (): void => {
     setOpenTooltip(false);
   };
@@ -215,14 +205,14 @@ export const ERxContainer: FC = () => {
           </Stack>
           <Tooltip
             placement="top"
-            title="You're not enrolled in erx. Please check that your provider profile has all the required info filled in: first name, last name, phone number, NPI"
-            open={openTooltip && !isReadOnly && !user?.isPractitionerEnrolledInPhoton}
+            title="You don't have the necessary role to access ERX. Please contact your administrator."
+            open={openTooltip && !isReadOnly && !user?.hasRole([RoleType.Provider])}
             onClose={handleCloseTooltip}
             onOpen={handleOpenTooltip}
           >
             <Stack>
               <RoundedButton
-                disabled={isReadOnly || isERXLoading || !user?.isPractitionerEnrolledInPhoton}
+                disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
                 variant="contained"
                 onClick={() => setIsERXOpen(true)}
                 startIcon={<AddIcon />}

@@ -29,7 +29,7 @@ export const ERX: React.FC<ERXProps> = () => {
   return (
     <Stack spacing={1}>
       <ERxContainer />
-      <div id="photon-prescribe-workflow-dialog" />
+      <div id="prescribe-dialog" />
     </Stack>
   );
 };

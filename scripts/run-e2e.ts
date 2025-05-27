@@ -87,16 +87,7 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(
       'cross-env',
-      [
-        'VITE_APP_CI_PHOTON_DISABLED=true',
-        `ENV=${envMapping[app][ENV]}`,
-        'VITE_NO_OPEN=true',
-        'npm',
-        'run',
-        `${app}:start`,
-        '--',
-        '--verbosity=2',
-      ],
+      [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start`, '--', '--verbosity=2'],
       {
         shell: true,
         stdio: 'inherit',
