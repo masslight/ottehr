@@ -45,7 +45,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   const updateCommunicationRequests: BatchInputRequest<Communication>[] = [];
   const updateAppointmentRequests: BatchInputRequest<Appointment>[] = [];
 
-  const practitionerUnsignedTooLongAppoitmentPackagesMap: {
+  const practitionerUnsignedTooLongAppointmentPackagesMap: {
     [key: string]: { pack: ResourcePackage; isProcessed: boolean }[];
   } = {};
 
@@ -189,7 +189,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 for (const provider of providersToSendNotificationTo) {
                   const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
 
-                  // - if praictioner has notifications disabled - we don't create notification at all
+                  // - if practitioner has notifications disabled - we don't create notification at all
 
                   if (notificationSettings?.enabled) {
                     const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
@@ -260,10 +260,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                   (tag) => tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM && tag.code === tagToLookFor
                 )
               );
-              if (!practitionerUnsignedTooLongAppoitmentPackagesMap[practitioner.id!]) {
-                practitionerUnsignedTooLongAppoitmentPackagesMap[practitioner.id!] = [];
+              if (!practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!]) {
+                practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!] = [];
               }
-              practitionerUnsignedTooLongAppoitmentPackagesMap[practitioner.id!].push({
+              practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!].push({
                 pack: readyOrUnsignedVisitPackages[appointmentId],
                 isProcessed: Boolean(isProcessed),
               });
@@ -292,9 +292,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
     });
 
-    console.log(`Too long unsigned appointments: ${JSON.stringify(practitionerUnsignedTooLongAppoitmentPackagesMap)}`);
-    Object.keys(practitionerUnsignedTooLongAppoitmentPackagesMap).forEach((practitionerId) => {
-      const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppoitmentPackagesMap[practitionerId];
+    console.log(`Too long unsigned appointments: ${JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap)}`);
+    Object.keys(practitionerUnsignedTooLongAppointmentPackagesMap).forEach((practitionerId) => {
+      const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppointmentPackagesMap[practitionerId];
       let hasUnprocessed = false;
       let practitionerResource: Practitioner | undefined = undefined;
       let encounterResource: Encounter | undefined = undefined;
@@ -464,7 +464,7 @@ interface ResourcePackage {
 
 type ResourcePackagesMap = { [key: NonNullable<Appointment['id']>]: ResourcePackage };
 
-/** Getting apppointments with status "Arrived" and encounter with statuses
+/** Getting appointments with status "Arrived" and encounter with statuses
  * that correspond to Telemed statuses "ready", "pre-video", "on-video", "unsigned".
  * Include related encounter, patient, provider and communication
  */
@@ -674,7 +674,7 @@ function addPractitionerToState(
 }
 
 // set the status of communication:
-// - if practitioner is not busy and notificatios enabled - set it to in-progress
+// - if practitioner is not busy and notifications enabled - set it to in-progress
 // - if practitioner is busy - set it to "preparation"
 // - if provider has only "mobile" notification type - we can set the status to "completed" and
 // send the notification to mobile right away
