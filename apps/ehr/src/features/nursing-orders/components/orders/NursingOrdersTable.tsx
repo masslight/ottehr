@@ -105,64 +105,52 @@ export const NursingOrdersTable = ({
   };
 
   return (
-    <Paper
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 3,
-        mt: 2,
-        p: 3,
-        position: 'relative',
-      }}
-    >
-      <Box sx={{ width: '100%' }}>
-        {!Array.isArray(nursingOrders) || nursingOrders.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body1" gutterBottom>
-              No nursing orders to display
-            </Typography>
-            {onCreateOrder && (
-              <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                Create New Nursing Order
-              </Button>
-            )}
-          </Box>
-        ) : (
-          <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {columns.map((column) => (
-                    <TableCell
-                      key={column}
-                      align="left"
-                      sx={{
-                        fontWeight: 'bold',
-                        width: getColumnWidth(column),
-                        padding: '8px 16px',
-                      }}
-                    >
-                      {getColumnHeader(column)}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {nursingOrders.map((order) => (
-                  <NursingOrdersTableRow
-                    key={order.serviceRequestId}
-                    nursingOrderData={order}
-                    onRowClick={() => onRowClick(order)}
-                    columns={columns}
-                    allowDelete={allowDelete}
-                  />
+    <Box sx={{ width: '100%' }}>
+      {!Array.isArray(nursingOrders) || nursingOrders.length === 0 ? (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="body1" gutterBottom>
+            No nursing orders to display
+          </Typography>
+          {onCreateOrder && (
+            <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
+              Create New Nursing Order
+            </Button>
+          )}
+        </Box>
+      ) : (
+        <TableContainer sx={{ border: '1px solid #e0e0e0' }}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                {columns.map((column) => (
+                  <TableCell
+                    key={column}
+                    align="left"
+                    sx={{
+                      fontWeight: 'bold',
+                      width: getColumnWidth(column),
+                      padding: '8px 16px',
+                    }}
+                  >
+                    {getColumnHeader(column)}
+                  </TableCell>
                 ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-      </Box>
-    </Paper>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {nursingOrders.map((order) => (
+                <NursingOrdersTableRow
+                  key={order.serviceRequestId}
+                  nursingOrderData={order}
+                  onRowClick={() => onRowClick(order)}
+                  columns={columns}
+                  allowDelete={allowDelete}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
   );
 };

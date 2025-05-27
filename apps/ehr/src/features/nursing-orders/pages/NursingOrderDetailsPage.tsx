@@ -2,10 +2,12 @@ import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCi
 import React, { useEffect, useState } from 'react';
 import { Box, Paper, Typography, Button, CircularProgress, Collapse, IconButton, Divider } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from '../components/details/OrderDetails';
 import { NursingOrder, NursingOrdersStatus } from '../nursingOrderTypes';
 import { History } from '../components/details/History';
+
 export const NursingOrderDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { serviceRequestID } = useParams<{ serviceRequestID: string }>();
@@ -134,32 +136,38 @@ export const NursingOrderDetailsPage: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <OrderDetails orderDetails={nursingOrderDetails} onSubmit={handleSubmit} />
+    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '680px' }}>
+        <OrderDetails orderDetails={nursingOrderDetails} onSubmit={handleSubmit} />
 
-      <Paper>
-        <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, backgroundColor: '#F4F6F8' }}>
-          <IconButton onClick={handleToggleDetails} sx={{ mr: 0.75, p: 0 }}>
-            <ArrowDropDownCircleOutlinedIcon
-              color="primary"
-              sx={{
-                rotate: showHistory ? '' : '180deg',
-              }}
-            ></ArrowDropDownCircleOutlinedIcon>
-          </IconButton>
-          <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-            History
-          </Typography>
-        </Box>
-        <Divider />
-        <Collapse in={showHistory}>
-          <History orderDetails={nursingOrderDetails} />
-        </Collapse>
-      </Paper>
+        <Paper>
+          <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, backgroundColor: '#F4F6F8' }}>
+            <IconButton onClick={handleToggleDetails} sx={{ mr: 0.75, p: 0 }}>
+              <ArrowDropDownCircleOutlinedIcon
+                color="primary"
+                sx={{
+                  rotate: showHistory ? '' : '180deg',
+                }}
+              ></ArrowDropDownCircleOutlinedIcon>
+            </IconButton>
+            <Typography variant="subtitle2" color="primary.dark" sx={{ fontSize: '14px' }}>
+              Order History
+            </Typography>
+          </Box>
+          <Divider />
+          <Collapse in={showHistory}>
+            <History orderDetails={nursingOrderDetails} />
+          </Collapse>
+        </Paper>
 
-      <Button variant="outlined" onClick={handleBack} sx={{ borderRadius: '50px', px: 4, alignSelf: 'flex-start' }}>
-        Back
-      </Button>
+        <ButtonRounded
+          variant="outlined"
+          onClick={handleBack}
+          sx={{ borderRadius: '50px', px: 4, alignSelf: 'flex-start' }}
+        >
+          Back
+        </ButtonRounded>
+      </Box>
     </Box>
   );
 };

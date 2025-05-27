@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Button, Grid, TextField, CircularProgress, Stack } from '@mui/material';
+import { Box, Paper, Typography, TextField, CircularProgress, Stack, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 
@@ -39,65 +40,67 @@ export const NursingOrderCreatePage: React.FC = () => {
   };
 
   return (
-    <Box>
-      <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
-        Nursing Order
-      </Typography>
+    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
+        <Typography variant="h4" color="primary.dark">
+          Nursing Order
+        </Typography>
 
-      <Paper sx={{ p: 4 }}>
-        {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-            <CircularProgress />
-          </Box>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  id="notes"
-                  label="Order note"
-                  multiline
-                  rows={4}
-                  value={orderNote}
-                  onChange={(e) => setOrderNote(e.target.value)}
-                  required
-                />
-              </Grid>
-
-              <Grid item xs={12} sx={{ mt: 3 }}>
-                <Stack direction="row" spacing={2} justifyContent="space-between">
-                  <Button
-                    variant="outlined"
-                    onClick={handleBack}
-                    sx={{
-                      borderRadius: '50px',
-                      px: 4,
-                      py: 1,
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Box>
-                    <Button
-                      variant="contained"
-                      type="submit"
-                      disabled={orderNote.length === 0}
+        <Paper>
+          {loading ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+              <CircularProgress />
+            </Box>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ p: 3 }}>
+                  <TextField
+                    fullWidth
+                    id="notes"
+                    label="Order note"
+                    multiline
+                    rows={4}
+                    value={orderNote}
+                    onChange={(e) => setOrderNote(e.target.value)}
+                    required
+                  />
+                </Box>
+                <Divider />
+                <Box sx={{ px: 3, py: 2 }}>
+                  <Stack direction="row" spacing={2} justifyContent="space-between">
+                    <ButtonRounded
+                      variant="outlined"
+                      onClick={handleBack}
                       sx={{
                         borderRadius: '50px',
                         px: 4,
                         py: 1,
                       }}
                     >
-                      Order
-                    </Button>
-                  </Box>
-                </Stack>
-              </Grid>
-            </Grid>
-          </form>
-        )}
-      </Paper>
+                      Cancel
+                    </ButtonRounded>
+                    <Box>
+                      <ButtonRounded
+                        variant="contained"
+                        type="submit"
+                        disabled={orderNote.length === 0}
+                        sx={{
+                          borderRadius: '50px',
+                          px: 4,
+                          py: 1,
+                        }}
+                      >
+                        Order
+                      </ButtonRounded>
+                    </Box>
+                  </Stack>
+                </Box>
+              </Box>
+            </form>
+          )}
+        </Paper>
+      </Box>
     </Box>
   );
 };
