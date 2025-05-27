@@ -22,11 +22,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
-import { PRACTITIONER_CODINGS, TestItem } from 'utils';
+import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { enqueueSnackbar } from 'notistack';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -123,6 +124,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
+    const GENERIC_ERROR_MSG = 'There was an error creating this lab order';
     const encounterId = encounter.id;
     const canBeSubmitted =
       encounterId &&
@@ -157,8 +159,14 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
         }
       } catch (e) {
-        console.error(e);
-        setError(['There was an error creating this lab order']);
+        const oyError = e as OystehrSdkError;
+        console.error('error creating in house lab order', oyError.code, oyError.message);
+        if (isApiError(oyError)) {
+          console.log('is api error');
+          setError([oyError.message || GENERIC_ERROR_MSG]);
+        } else {
+          setError([GENERIC_ERROR_MSG]);
+        }
       } finally {
         setLoading(false);
       }
@@ -168,7 +176,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
+      if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
     }
   };

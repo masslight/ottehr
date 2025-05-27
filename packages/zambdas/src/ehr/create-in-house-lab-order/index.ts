@@ -6,6 +6,9 @@ import {
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   getFullestAvailableName,
+  IN_HOUSE_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
 import {
   ZambdaInput,
@@ -240,19 +243,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const initialServiceRequest = (() => {
       if (runAsRepeat) {
         if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
-          // todo config this to be an identifiable error to front end so users know whats up
-          throw new Error('You cannot run this as repeat, no initial tests could be found for this encounter.');
+          throw IN_HOUSE_LAB_ERROR(
+            'You cannot run this as repeat, no initial tests could be found for this encounter.'
+          );
         }
         const possibleInitialSRs = initialServiceRequestResources.reduce((acc: ServiceRequest[], sr) => {
           if (!sr.basedOn) acc.push(sr);
           return acc;
         }, []);
         if (possibleInitialSRs.length > 1) {
-          // this really shouldn't happen, something is misconfigured
-          throw new Error('More than one initial tests found for this encounter');
+          throw new Error('More than one initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
         }
         const initialSR = possibleInitialSRs?.[0];
-        if (!initialSR) throw new Error('Initial tests could be found for this encounter'); // this really shouldn't happen, something is misconfigured
+        if (!initialSR) throw new Error('Initial tests could not be found for this encounter'); // this really shouldn't happen, something is misconfigured
         return initialSR;
       }
       return;
@@ -426,12 +429,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.error('Error creating in-house lab order:', JSON.stringify(error));
+    console.error('Error creating in-house lab order:', JSON.stringify(error), error);
+    let body = JSON.stringify({ message: `Error creating in-house lab order: ${error.message || error}` });
+    let statusCode = 500;
+
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+      statusCode = 400;
+    }
+
     return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
+      statusCode,
+      body,
     };
   }
 };
