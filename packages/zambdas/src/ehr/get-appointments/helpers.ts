@@ -211,6 +211,10 @@ export const getActiveAppointmentsBeforeTodayQueryInput = async (input: {
         value: 'false',
       },
       {
+        name: 'actor',
+        value: 'Patient',
+      },
+      {
         name: '_include',
         value: 'Appointment:patient',
       },
