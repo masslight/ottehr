@@ -12,7 +12,7 @@ import { UserMenu } from './UserMenu';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
-if (ORGANIZATION_NAME_SHORT == null) {
+if (ORGANIZATION_NAME_SHORT && ORGANIZATION_NAME_SHORT == null) {
   throw new Error('Could not load env variable');
 }
 

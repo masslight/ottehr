@@ -3,7 +3,7 @@ import { ReactElement, useState } from 'react';
 import { Sidebar, SidebarItem } from '../components/navigation/Sidebar';
 
 const { VITE_APP_ORGANIZATION_NAME_LONG: ORGANIZATION_NAME_LONG } = import.meta.env;
-if (ORGANIZATION_NAME_LONG == null) {
+if (ORGANIZATION_NAME_LONG && ORGANIZATION_NAME_LONG == null) {
   throw new Error('Could not load env variable');
 }
 
