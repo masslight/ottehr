@@ -39,9 +39,9 @@ export default function StatesPage(): ReactElement {
   // Filter the states based on the locations from fhir
   const fhirLocationStates = React.useMemo(
     () =>
-      AllStates.filter((state: State) =>
+      stateLocations ? AllStates.filter((state: State) =>
         stateLocations.some((loc) => loc.address?.state === state.value && isLocationVirtual(loc))
-      ),
+      ) : [],
     [stateLocations]
   );
 
