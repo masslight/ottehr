@@ -90,10 +90,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     );
 
     // For detail requests, return single item without pagination
-    if (searchBy.field === 'serviceRequestId' && inHouseOrders.length > 0) {
+    if (searchBy.field === 'serviceRequestId') {
       return {
         statusCode: 200,
-        body: JSON.stringify(inHouseOrders[0]),
+        body: JSON.stringify(inHouseOrders?.[0] || {}),
       };
     }
 

@@ -38,8 +38,8 @@ import {
   GetLabelPdfParameters,
   LabelPdf,
   GetVisitLabelInput,
-  InHouseLabDTO,
-  PaginatedInHouseOrderResponse,
+  InHouseOrderDetailedPageDTO,
+  InHouseOrdersListResponse,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -739,7 +739,7 @@ export const createInHouseLabOrder = async (
 export const getInHouseOrders = async <RequestParameters extends GetInHouseOrdersParameters>(
   oystehr: Oystehr,
   parameters: RequestParameters
-): Promise<PaginatedInHouseOrderResponse<RequestParameters>> => {
+): Promise<InHouseOrdersListResponse<RequestParameters>> => {
   try {
     if (GET_IN_HOUSE_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get in house orders zambda environment variable could not be loaded');
@@ -787,10 +787,10 @@ export const getCreateInHouseLabOrderResources = async (
 export const getInHouseLabOrderDetail = async (
   oystehr: Oystehr,
   parameters: { serviceRequestId: string }
-): Promise<InHouseLabDTO> => {
+): Promise<InHouseOrderDetailedPageDTO> => {
   return getInHouseOrders(oystehr, {
     searchBy: { field: 'serviceRequestId', value: parameters.serviceRequestId },
-  }) as unknown as Promise<InHouseLabDTO>;
+  });
 };
 
 export const collectInHouseLabSpecimen = async (

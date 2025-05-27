@@ -61,7 +61,7 @@ export interface TestItem {
   note?: string;
 }
 
-export type InHouseOrderResultDetails = InHouseOrderListPageDTO & {
+export type InHouseOrderDetailPageDTO = InHouseOrderListPageDTO & {
   name: string;
   labDetails: TestItem;
   providerId: string;
@@ -106,7 +106,7 @@ export type InHouseOrderListPageDTO = {
   lastResultReceivedDate: string | undefined;
 };
 
-export type InHouseOrderDetailedPageDTO = InHouseOrderListPageDTO & InHouseOrderResultDetails;
+export type InHouseOrderDetailedPageDTO = InHouseOrderListPageDTO & InHouseOrderDetailPageDTO;
 
 export type InHouseOrderDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
   searchBy: { field: 'serviceRequestId' };
@@ -114,12 +114,14 @@ export type InHouseOrderDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy e
   ? InHouseOrderDetailedPageDTO
   : InHouseOrderListPageDTO;
 
-export type PaginatedInHouseOrderResponse<
+export type InHouseOrdersListResponse<
   RequestParameters extends GetInHouseOrdersParameters = GetInHouseOrdersParameters,
-> = {
-  data: InHouseOrderDTO<RequestParameters>[];
-  pagination: Pagination;
-};
+> = RequestParameters extends { searchBy: { field: 'serviceRequestId' } }
+  ? InHouseOrderDetailedPageDTO
+  : {
+      data: InHouseOrderDTO<RequestParameters>[];
+      pagination: Pagination;
+    };
 
 export type InHouseOrdersSearchBy = {
   searchBy:
@@ -158,39 +160,6 @@ export type GetCreateInHouseLabOrderResourcesResponse = {
   providerName: string;
 };
 
-export type InHouseLabDTO = {
-  serviceRequestId: string;
-  name: string;
-  status: TestStatus;
-  diagnosis: string;
-  diagnosisDTO: DiagnosisDTO[];
-  notes: string;
-  labDetails: TestItem;
-  timezone: string | undefined;
-  specimen?: {
-    source: string;
-    collectedBy: string;
-    collectionDate: string;
-    collectionTime: string;
-  };
-  providerName: string;
-  providerId: string;
-  currentUserName: string;
-  currentUserId: string;
-  resultsPDFUrl?: string;
-  orderInfo: {
-    diagnosis: DiagnosisDTO[];
-    testName: string;
-    notes: string | undefined;
-    status: TestStatus;
-  };
-  orderHistory: {
-    status: TestStatus;
-    providerName: string;
-    date: string;
-  }[];
-};
-
 export type CollectInHouseLabSpecimenParameters = {
   encounterId: string;
   serviceRequestId: string;
@@ -207,8 +176,6 @@ export type HandleInHouseLabResultsParameters = {
 };
 
 export type DeleteInHouseLabOrderParameters = {
-  encounterId: string;
-  patientId: string;
   serviceRequestId: string;
 };
 

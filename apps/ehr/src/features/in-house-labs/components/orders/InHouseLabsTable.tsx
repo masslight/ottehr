@@ -40,7 +40,8 @@ export type InHouseLabsTableColumn =
   | 'provider'
   | 'dx'
   | 'resultsReceived'
-  | 'status';
+  | 'status'
+  | 'actions';
 
 type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   searchBy: SearchBy;
@@ -75,6 +76,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     setVisitDateFilter,
     showPagination,
     error,
+    showDeleteLabOrderDialog,
+    DeleteOrderDialog,
   } = useInHouseLabOrders(searchBy);
 
   const [testTypeQuery, setTestTypeQuery] = useState<string>('');
@@ -182,6 +185,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         return '12%';
       case 'status':
         return '8%';
+      case 'actions':
+        return '5%';
       default:
         return '10%';
     }
@@ -274,8 +279,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                   label="Visit date"
                   value={tempDateFilter}
                   onChange={setTempDateFilter}
-                  onAccept={submitFilterByDate}
-                  format="MM/dd/yyyy"
+                  onAccept={setVisitDateFilter}
+                  format="dd.MM.yyyy"
                   slotProps={{
                     textField: (params) => ({
                       ...params,
@@ -342,6 +347,12 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                     onRowClick={() => onRowClick(order)}
                     columns={columns}
                     allowDelete={allowDelete}
+                    onDeleteOrder={() =>
+                      showDeleteLabOrderDialog({
+                        serviceRequestId: order.serviceRequestId,
+                        testItemName: order.testItem,
+                      })
+                    }
                   />
                 ))}
               </TableBody>
@@ -367,6 +378,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
           </Box>
         )}
       </Box>
+      {DeleteOrderDialog}
     </Paper>
   );
 };

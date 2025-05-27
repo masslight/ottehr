@@ -1,7 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Secrets,
-  InHouseLabDTO,
   convertActivityDefinitionToTestItem,
   PRACTITIONER_CODINGS,
   getFullestAvailableName,
@@ -10,6 +9,7 @@ import {
   fetchLabOrderPDFs,
   fetchDocumentReferencesForDiagnosticReports,
   LabOrderPDF,
+  InHouseOrderDetailedPageDTO,
 } from 'utils';
 import {
   ZambdaInput,
@@ -211,7 +211,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     //   throw new Error('more than one results pdf');
     // }
 
-    const response: InHouseLabDTO = {
+    const response: InHouseOrderDetailedPageDTO = {
       serviceRequestId,
       name: testItem.name,
       status: orderStatus,

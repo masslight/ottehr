@@ -1,18 +1,27 @@
 import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Typography, Tooltip, useTheme } from '@mui/material';
+import { TableCell, TableRow, Box, Typography, Tooltip, useTheme, Button } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
 import { DateTime } from 'luxon';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { InHouseOrderListPageDTO } from 'utils/lib/types/data/in-house';
+import { otherColors } from '@theme/colors';
 
 interface InHouseLabsTableRowProps {
   columns: InHouseLabsTableColumn[];
   labOrderData: InHouseOrderListPageDTO;
   onRowClick?: () => void;
   allowDelete?: boolean;
+  onDeleteOrder?: () => void;
 }
 
-export const InHouseLabsTableRow = ({ labOrderData, columns, onRowClick }: InHouseLabsTableRowProps): ReactElement => {
+export const InHouseLabsTableRow = ({
+  labOrderData,
+  columns,
+  onRowClick,
+  allowDelete,
+  onDeleteOrder,
+}: InHouseLabsTableRowProps): ReactElement => {
   const theme = useTheme();
 
   const formatDate = (datetime: string): string => {
@@ -56,6 +65,25 @@ export const InHouseLabsTableRow = ({ labOrderData, columns, onRowClick }: InHou
         return <Box>{formatDate(labOrderData.lastResultReceivedDate || '-')}</Box>;
       case 'status':
         return <InHouseLabsStatusChip status={labOrderData.status} />;
+      case 'actions':
+        if (allowDelete && labOrderData.status === 'ORDERED') {
+          return (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteOrder?.();
+              }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 28,
+                fontWeight: 'bold',
+              }}
+            >
+              <DeleteIcon sx={{ color: otherColors.priorityHighText }} />
+            </Button>
+          );
+        }
+        return null;
       default:
         return null;
     }

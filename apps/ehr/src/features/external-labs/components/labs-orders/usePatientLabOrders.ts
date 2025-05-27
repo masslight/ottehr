@@ -12,7 +12,7 @@ import {
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
-import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
+import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
@@ -210,7 +210,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   );
 
   // handle delete dialog
-  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteLabOrderDialog({
+  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteCommonLabOrderDialog({
     deleteOrder: handleDeleteLabOrder,
   });
 

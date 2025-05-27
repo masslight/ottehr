@@ -1,14 +1,15 @@
-import { useCallback, useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useEffect, useMemo, ReactNode } from 'react';
+import { DateTime } from 'luxon';
+import { DEFAULT_LABS_ITEMS_PER_PAGE } from 'utils';
+import { useDeleteCommonLabOrderDialog } from 'src/features/common/useDeleteCommonLabOrderDialog';
 import {
   GetInHouseOrdersParameters,
   InHouseOrdersSearchBy,
   InHouseOrderDTO,
-  PaginatedInHouseOrderResponse,
+  DeleteInHouseLabOrderParameters,
 } from 'utils/lib/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getInHouseOrders } from '../../../../api/api';
-import { DateTime } from 'luxon';
-import { DEFAULT_LABS_ITEMS_PER_PAGE } from 'utils';
+import { deleteInHouseLabOrder, getInHouseOrders } from '../../../../api/api';
 
 export interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchBy> {
   labOrders: InHouseOrderDTO<SearchBy>[];
@@ -26,6 +27,14 @@ export interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchB
   refetch: () => void;
   hasData: boolean;
   totalItems: number;
+  showDeleteLabOrderDialog: ({
+    serviceRequestId,
+    testItemName,
+  }: {
+    serviceRequestId: string;
+    testItemName: string;
+  }) => void;
+  DeleteOrderDialog: ReactNode | null;
 }
 
 export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
@@ -91,10 +100,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
       setError(null);
 
       try {
-        const response: PaginatedInHouseOrderResponse<GetInHouseOrdersParameters> = await getInHouseOrders(
-          oystehrZambda,
-          searchParams
-        );
+        const response = await getInHouseOrders(oystehrZambda, searchParams);
 
         if (response?.data) {
           setLabOrders(response.data as InHouseOrderDTO<SearchBy>[]);
@@ -174,6 +180,54 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
 
   const hasData = useMemo(() => labOrders.length > 0, [labOrders.length]);
 
+  const handleDeleteLabOrder = useCallback(
+    async ({ serviceRequestId }: DeleteInHouseLabOrderParameters): Promise<boolean> => {
+      if (!serviceRequestId) {
+        console.error('Cannot delete lab order: Missing service request ID');
+        setError(new Error('Missing service request ID'));
+        return false;
+      }
+
+      if (!oystehrZambda) {
+        console.error('Cannot delete lab order: API client is not available');
+        setError(new Error('API client is not available'));
+        return false;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        await deleteInHouseLabOrder(oystehrZambda, {
+          serviceRequestId,
+        });
+
+        setPage(1);
+        const searchParams = getCurrentSearchParamsForPage(1);
+        await fetchLabOrders(searchParams);
+
+        return true;
+      } catch (err) {
+        console.error('Error deleting lab order:', err);
+
+        const errorObj =
+          err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
+
+        setError(errorObj);
+
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fetchLabOrders, getCurrentSearchParamsForPage, oystehrZambda]
+  );
+
+  // handle delete dialog
+  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteCommonLabOrderDialog({
+    deleteOrder: handleDeleteLabOrder,
+  });
+
   return {
     labOrders,
     loading,
@@ -190,5 +244,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
     showPagination,
     refetch,
     hasData,
+    showDeleteLabOrderDialog,
+    DeleteOrderDialog,
   };
 };
