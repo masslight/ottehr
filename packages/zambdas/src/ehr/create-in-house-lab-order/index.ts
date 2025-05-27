@@ -150,7 +150,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               },
               {
                 name: 'code',
-                value: cptCode,
+                value: `${cptCode},${testItem.name}`,
               },
             ],
           })
@@ -255,6 +255,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }, []);
         if (possibleInitialSRs.length > 1) {
           throw new Error('More than one initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+        }
+        if (possibleInitialSRs.length === 0) {
+          throw new Error('No initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
         }
         const initialSR = possibleInitialSRs[0];
         return initialSR;
