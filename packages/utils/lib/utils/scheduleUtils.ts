@@ -247,12 +247,6 @@ export function getTimezone(
   return timezone;
 }
 
-export function getTimezoneLocation(location: Location): string | undefined {
-  const timezone = location.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
-    ?.valueString;
-  return timezone;
-}
-
 export const getAppointmentTimezone = (appointment: Appointment, scheduleResources: Resource[]): string => {
   const participantReferences =
     appointment.participant?.map((participant) => participant.actor?.reference).filter(Boolean) ?? [];

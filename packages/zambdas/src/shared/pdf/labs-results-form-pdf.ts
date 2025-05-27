@@ -17,7 +17,7 @@ import {
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   convertActivityDefinitionToTestItem,
   quantityRangeFormat,
-  getTimezoneLocation,
+  getTimezone,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
@@ -174,7 +174,7 @@ export async function createLabResultPDF(
   const accessionNumber = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value;
   let timezone = undefined;
   if (location) {
-    timezone = getTimezoneLocation(location);
+    timezone = getTimezone(location);
   }
 
   const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');

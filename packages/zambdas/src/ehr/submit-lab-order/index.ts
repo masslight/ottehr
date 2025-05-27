@@ -12,7 +12,7 @@ import {
   getPatientFirstName,
   getPatientLastName,
   isPSCOrder,
-  getTimezoneLocation,
+  getTimezone,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -147,7 +147,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const now = DateTime.now();
     let timezone = undefined;
     if (location) {
-      timezone = getTimezoneLocation(location);
+      timezone = getTimezone(location);
     }
     const sampleCollectionDates: DateTime[] = [];
 
