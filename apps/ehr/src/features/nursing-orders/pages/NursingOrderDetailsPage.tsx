@@ -7,6 +7,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from '../components/details/OrderDetails';
 import { NursingOrder, NursingOrdersStatus } from '../nursingOrderTypes';
 import { History } from '../components/details/History';
+import { BreadCrumbs } from '../components/BreadCrumbs';
 
 export const NursingOrderDetailsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -138,6 +139,8 @@ export const NursingOrderDetailsPage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '680px' }}>
+        <BreadCrumbs />
+
         <OrderDetails orderDetails={nursingOrderDetails} onSubmit={handleSubmit} />
 
         <Paper>

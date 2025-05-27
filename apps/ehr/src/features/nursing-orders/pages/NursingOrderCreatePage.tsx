@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
+import { BreadCrumbs } from '../components/BreadCrumbs';
 
 export const NursingOrderCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState<string>('');
-  const { patient, encounter } = getSelectors(useAppointmentStore, ['chartData', 'patient', 'encounter']);
+  const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
 
   const handleBack = (): void => {
     navigate(-1);
@@ -42,6 +43,8 @@ export const NursingOrderCreatePage: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
+        <BreadCrumbs />
+
         <Typography variant="h4" color="primary.dark">
           Nursing Order
         </Typography>
