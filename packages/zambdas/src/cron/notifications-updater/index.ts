@@ -524,10 +524,14 @@ async function getResourcePackagesAppointmentsMap(
   const practitionerIdMap: { [key: NonNullable<Practitioner['id']>]: Practitioner } = {};
   const locationIdMap: { [key: NonNullable<Location['id']>]: Location } = {};
   // first fill maps with Appointments and Encounters
+  console.log('results.length', results.length);
+
+  console.log('filling in encounters and appointments');
   results.forEach((res) => {
     if (res.resourceType === 'Encounter') {
       const encounter = res as Encounter;
       const appointmentId = getTelemedEncounterAppointmentId(encounter);
+      console.log('is encounter. appointmentId', appointmentId);
       if (appointmentId) {
         const pack = getOrCreateAppointmentResourcePackage(appointmentId);
         pack.encounter = encounter;
@@ -535,40 +539,48 @@ async function getResourcePackagesAppointmentsMap(
         encounterIdAppointmentIdMap[encounter.id!] = appointmentId;
       }
     } else if (res.resourceType === 'Appointment') {
+      console.log('is appointment');
       const appointment = res as Appointment;
       const pack = getOrCreateAppointmentResourcePackage(appointment.id!);
       pack.appointment = appointment;
       resourcePackagesMap[appointment.id!] = pack;
     } else if (res.resourceType === 'Practitioner') {
+      console.log('is practitioner');
       // create practitioners id map for later optimized mapping
       const practitioner = res as Practitioner;
       practitionerIdMap[practitioner.id!] = practitioner;
     } else if (res.resourceType === 'Location') {
+      console.log('is location');
       // create locations id map for later optimized mapping
       const location = res as Location;
       locationIdMap[location.id!] = location;
     }
   });
 
+  console.log('filling in communications');
   results.forEach((res) => {
     // fill in communications (it needs already some filled in maps)
     if (res.resourceType === 'Communication') {
+      console.log('is communication');
       const communication = res as Communication;
       const encounterReference = communication.encounter!.reference!;
       const encounterId = removePrefix('Encounter/', encounterReference)!;
       const appointmentId = encounterIdAppointmentIdMap[encounterId];
+      console.log('appointmentId', appointmentId);
       const pack = getOrCreateAppointmentResourcePackage(appointmentId);
       pack.communications.push(communication);
       resourcePackagesMap[appointmentId] = pack;
     }
   });
 
+  console.log('filling in practitioners and locations');
   // fill in practitioners and locations
   Object.keys(resourcePackagesMap).forEach((appointmentId) => {
     const encounter = resourcePackagesMap[appointmentId].encounter;
     const practitionerReference = encounter?.participant?.find(
       (participant) => participant.individual?.reference?.startsWith('Practitioner')
     )?.individual?.reference;
+    console.log('practitionerReference', practitionerReference);
     if (practitionerReference) {
       const practitionerId = removePrefix('Practitioner/', practitionerReference);
       if (practitionerId) {
@@ -578,6 +590,7 @@ async function getResourcePackagesAppointmentsMap(
       }
     }
     const locationReference = encounter?.location?.find((loc) => loc.location.reference)?.location.reference;
+    console.log('locationReference', locationReference);
     if (locationReference) {
       const locationId = removePrefix('Location/', locationReference);
       if (locationId) {
@@ -594,8 +607,12 @@ async function getResourcePackagesAppointmentsMap(
 const getPractitionersByStatesMap = async (oystehr: Oystehr): Promise<StatePractitionerMap> => {
   const [employees, roles] = await Promise.all([await getEmployees(oystehr), await getRoles(oystehr)]);
 
+  console.log(`employees (${employees.length})`, JSON.stringify(employees));
+  console.log(`roles (${roles.length})`, JSON.stringify(roles));
   const inactiveRoleId = roles.find((role: any) => role.name === RoleType.Inactive)?.id;
   const providerRoleId = roles.find((role: any) => role.name === RoleType.Provider)?.id;
+  console.log('inactiveRoleId', inactiveRoleId);
+  console.log('providerRoleId', providerRoleId);
   if (!inactiveRoleId || !providerRoleId) {
     throw new Error('Error searching for Inactive or Provider role.');
   }
@@ -644,9 +661,13 @@ const getPractitionersByStatesMap = async (oystehr: Oystehr): Promise<StatePract
   console.log(`User id to practitioner map: ${JSON.stringify(userIdPractitionerMap)}`);
 
   employees.forEach((employee) => {
+    console.log('employee.id', employee.id);
     const isActive = !inactiveUsersMap.has(employee.id);
+    console.log('isActive', isActive);
     const isProvider = !providerUsersMap.has(employee.id);
+    console.log('isProvider', isProvider);
     if (!isActive && !isProvider) {
+      console.log('not adding employee to state');
       return;
     }
     const practitioner = userIdPractitionerMap[employee.id];
