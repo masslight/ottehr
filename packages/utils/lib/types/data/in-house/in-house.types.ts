@@ -54,6 +54,7 @@ export interface TestItem {
   method: string;
   device: string;
   cptCode: string[];
+  repeatable: boolean;
   components: {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
@@ -131,6 +132,7 @@ export type CreateInHouseLabOrderParameters = {
   cptCode: string;
   diagnosesAll: DiagnosisDTO[];
   diagnosesNew: DiagnosisDTO[];
+  isRepeatTest: boolean;
   notes?: string;
 };
 

@@ -158,7 +158,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     })();
 
-    console.log('they should be here', observations);
     if (!serviceRequest || !serviceRequest.id) throw new Error('service request is missing');
 
     const adCanonicalUrl = serviceRequest?.instantiatesCanonical?.join('');
@@ -183,7 +182,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const testItem = convertActivityDefinitionToTestItem(activityDefinitionSearch[0], observations);
 
     // Determine order status, info, and history
-    console.log('tasks', tasks);
     const orderStatus = determineOrderStatus(serviceRequest, tasks);
 
     const diagnoses: DiagnosisDTO[] =
