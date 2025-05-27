@@ -339,7 +339,6 @@ const AddAllergyField: FC = () => {
                 ? 'Nothing found for this search criteria'
                 : 'Start typing to load results'
             }
-            filterOptions={(x) => x}
             renderInput={(params) => (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <TextField
