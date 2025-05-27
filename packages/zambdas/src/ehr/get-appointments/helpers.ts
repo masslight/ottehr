@@ -211,8 +211,8 @@ export const getActiveAppointmentsBeforeTodayQueryInput = async (input: {
         value: 'false',
       },
       {
-        name: 'actor',
-        value: 'Patient',
+        name: 'actor:missing',
+        value: 'false',
       },
       {
         name: '_include',
