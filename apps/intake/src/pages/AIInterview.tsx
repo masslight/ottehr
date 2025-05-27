@@ -34,7 +34,7 @@ const AIInterview = (): JSX.Element => {
   }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient, appointmentId]);
 
   const onSend = async (): Promise<void> => {
-    if (zambdaClient == null || questionnaireResponse == null) return;
+    if (zambdaClient == null || questionnaireResponse == null || answer.length === 0) return;
     setUnprocessedUserAnswer(answer);
     setAnswer('');
     setLoading(true);
