@@ -34,13 +34,16 @@ export default function StatesPage(): ReactElement {
   const [searchText, setSearchText] = React.useState('');
 
   const { data, isFetching } = useStatesQuery();
+  const stateLocations = data || [];
 
-  // Filter the states based on the locations from fhir
+  // Filter the states based on the locations
   const fhirLocationStates = React.useMemo(
     () =>
-      stateLocations ? AllStates.filter((state: State) =>
-        stateLocations.some((loc) => loc.address?.state === state.value && isLocationVirtual(loc))
-      ) : [],
+      stateLocations
+        ? AllStates.filter((state: State) =>
+            stateLocations.some((loc) => loc.address?.state === state.value && isLocationVirtual(loc))
+          )
+        : [],
     [stateLocations]
   );
 
