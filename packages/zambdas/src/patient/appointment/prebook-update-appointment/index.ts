@@ -23,6 +23,7 @@ import {
   UpdateAppointmentParameters,
   normalizeSlotToUTC,
   isValidUUID,
+  isAppointmentVirtual,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -106,7 +107,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
 
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
-    if (fhirAppointment.status === 'arrived') {
+    // https://github.com/masslight/ottehr/issues/2431
+    // todo: remove the second condition once virtual prebook appointments begin in 'booked' status
+    if (fhirAppointment.status === 'arrived' && !isAppointmentVirtual(fhirAppointment)) {
       throw CANT_UPDATE_CHECKED_IN_APT_ERROR;
     } else if (fhirAppointment.status === 'cancelled') {
       throw CANT_UPDATE_CANCELED_APT_ERROR;
@@ -165,7 +168,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       oystehr
     );
 
-    // todo 1.10: make reschedule behave more like create appointment in terms of available slots
+    // todo: make reschedule behave more like create appointment in terms of available slots
     const slotAlreadyPersisted = isValidUUID(slot.id ?? '');
     if (slotAlreadyPersisted || availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {
       console.log('slot is available');

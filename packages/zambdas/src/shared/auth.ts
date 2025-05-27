@@ -5,6 +5,7 @@ import { createOystehrClient } from './helpers';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
 import { decodeJwt } from 'jose';
 
+const TEST_USER_ID = 'test-M2M-user-id';
 export async function getUser(token: string, secrets: Secrets | null, testProfile?: string): Promise<User> {
   const oystehr = createOystehrClient(token, secrets);
 
@@ -78,4 +79,8 @@ export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean
 
   const testM2MClientId = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
   return testM2MClientId === (decoded as any).sub?.split('@')?.[0];
+};
+
+export const isTestUser = (user: User): boolean => {
+  return user.id === TEST_USER_ID;
 };

@@ -1,16 +1,29 @@
-import { CancellationReasonOptionsInPerson, CancellationReasonOptionsTelemedEHR } from 'utils';
+import {
+  CancellationReasonOptionsInPerson,
+  CancellationReasonOptionsTelemedEHR,
+  INVALID_INPUT_ERROR,
+  MISSING_REQUEST_BODY,
+  MISSING_REQUIRED_PARAMETERS,
+} from 'utils';
 import { CancelAppointmentInput } from '.';
 import { ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { language, appointmentID, cancellationReason, silent } = JSON.parse(input.body);
 
-  if (appointmentID === undefined || cancellationReason === undefined) {
-    throw new Error('These fields are required: "appointmentID", "cancellationReason"');
+  const missingFields = [];
+  if (appointmentID === undefined) {
+    missingFields.push('appointmentID');
+  }
+  if (cancellationReason === undefined) {
+    missingFields.push('cancellationReason');
+  }
+  if (missingFields.length > 0) {
+    throw MISSING_REQUIRED_PARAMETERS(missingFields);
   }
 
   const validReasons = [
@@ -19,7 +32,9 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
   ];
 
   if (!validReasons.includes(cancellationReason)) {
-    throw new Error(`"cancellationReason" must be one of the following values: ${JSON.stringify(validReasons)}`);
+    throw INVALID_INPUT_ERROR(
+      `"cancellationReason" must be one of the following values: ${JSON.stringify(validReasons)}`
+    );
   }
 
   return {

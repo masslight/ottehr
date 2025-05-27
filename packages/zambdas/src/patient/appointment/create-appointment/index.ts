@@ -33,7 +33,6 @@ import {
   formatPhoneNumberDisplay,
   getAppointmentDurationFromSlot,
   getCanonicalQuestionnaire,
-  getPatchOperationForNewMetaTag,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
@@ -59,7 +58,7 @@ import {
   getUser,
   topLevelCatch,
   ZambdaInput,
-  isTestM2MClient,
+  isTestUser,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
 import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
@@ -90,9 +89,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('getting user');
 
     const token = input.headers.Authorization.replace('Bearer ', '');
-
-    const isTestClient = token && isTestM2MClient(token, input.secrets);
-    console.log('isTestClient', isTestClient);
 
     const user = await getUser(token, input.secrets);
     const validatedParameters = validateCreateAppointmentParams(input, user);
@@ -233,6 +229,7 @@ export async function createAppointment(
     oystehr: oystehr,
     updatePatientRequest,
     createPatientRequest,
+    performPreProcessing: !isTestUser(user),
     listRequests,
     unconfirmedDateOfBirth,
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
@@ -300,6 +297,7 @@ interface TransactionInput {
   newPatientDob?: string;
   createPatientRequest?: BatchInputPostRequest<Patient>;
   listRequests: BatchInputRequest<List>[];
+  performPreProcessing: boolean;
   updatePatientRequest?: BatchInputRequest<Patient>;
   formUser?: string;
   slot?: Slot;
@@ -328,6 +326,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     additionalInfo,
     unconfirmedDateOfBirth,
     createPatientRequest,
+    performPreProcessing,
     listRequests,
     updatePatientRequest,
     newPatientDob,
@@ -426,6 +425,8 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     };
   }
 
+  const otherMetaTags = performPreProcessing ? [FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG] : [];
+
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
@@ -435,6 +436,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
           system: CREATED_BY_SYSTEM,
           display: createdBy,
         },
+        ...otherMetaTags,
       ],
     },
     participant: participants,
@@ -605,11 +607,6 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   console.log('making transaction request');
   const bundle = await oystehr.fhir.transaction(transactionInput);
   const resources = extractResourcesFromBundle(bundle);
-  await oystehr.fhir.patch({
-    resourceType: 'Appointment',
-    id: resources.appointment.id!,
-    operations: [getPatchOperationForNewMetaTag(resources.appointment, FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG)],
-  });
   return resources;
 };
 

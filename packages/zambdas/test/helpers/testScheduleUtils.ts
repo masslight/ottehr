@@ -194,7 +194,7 @@ export const DELETABLE_RESOURCE_CODE_PREFIX = 'DELETE_ME-';
 export const DEFAULT_TEST_TIMEZONE = 'America/New_York';
 
 export const tagForProcessId = (processId?: string): string => {
-  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId ?? 'N/A'}`;
+  return `${DELETABLE_RESOURCE_CODE_PREFIX}${processId ?? ''}`;
 };
 
 export const makeSchedule = (input: MakeTestScheduleInput): Schedule => {

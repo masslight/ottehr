@@ -23,6 +23,7 @@ import {
   getPatientFirstName,
   getRelatedPersonForPatient,
   getSecret,
+  isAppointmentVirtual,
   isPostTelemedAppointment,
 } from 'utils';
 import {
@@ -68,7 +69,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('getting user');
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets));
-    const isEHRUser = userToken && !user.name.startsWith('+');
+    const isEHRUser = userToken && !user.name.startsWith('+') && !(user.id === 'test-M2M-user-id');
     const validatedParameters = validateRequestParameters(input);
     const { appointmentID, language: languageInput, cancellationReason, silent, secrets } = validatedParameters;
     const language = languageInput || 'en';
@@ -99,7 +100,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
       console.log(`checking appointment with id ${appointmentID} is not checked in`);
       if (appointment.status !== 'booked') {
-        throw CANT_CANCEL_CHECKEDIN_APT_ERROR;
+        if (isAppointmentVirtual(appointment)) {
+          // https://github.com/masslight/ottehr/issues/2431
+          // todo: remove this once prebooked virtual appointments begin in 'booked' status
+          console.log(`appointment is virtual, allowing cancellation`);
+        } else {
+          throw CANT_CANCEL_CHECKEDIN_APT_ERROR;
+        }
       }
     } else {
       console.log('cancelled by EHR user');
