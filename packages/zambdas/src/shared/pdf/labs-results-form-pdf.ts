@@ -17,6 +17,7 @@ import {
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   convertActivityDefinitionToTestItem,
   quantityRangeFormat,
+  getTimezoneLocation,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
@@ -34,6 +35,7 @@ import {
   Task,
 } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
+import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 
 function formatResultValue(result: string | undefined): string | undefined {
   if (result === 'Positive') {
@@ -170,12 +172,17 @@ export async function createLabResultPDF(
   const orderID = serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 
   const accessionNumber = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value;
-  const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).toFormat('MM/dd/yyyy hh:mm a');
+  let timezone = undefined;
+  if (location) {
+    timezone = getTimezoneLocation(location);
+  }
+
+  const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
   const orderCreateDate = serviceRequest.authoredOn
-    ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+    ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a')
     : undefined;
   const reviewDate = provenanceRFRT
-    ? DateTime.fromISO(provenanceRFRT.recorded).toFormat('MM/dd/yyyy hh:mm a')
+    ? DateTime.fromISO(provenanceRFRT.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a')
     : undefined;
   const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
@@ -249,12 +256,14 @@ export async function createLabResultPDF(
   let collectionDate = undefined;
 
   if (labType === 'external') {
-    collectionDate = now.toFormat('MM/dd/yy hh:mm a');
+    collectionDate = now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
   } else if (labType === 'in-house') {
     if (!specimen?.collection?.collectedDateTime) {
       throw new Error('in-house lab collection date is not defined');
     }
-    collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime).toFormat('MM/dd/yy hh:mm a');
+    collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
+      .setZone(timezone)
+      .toFormat(LABS_DATE_STRING_FORMAT);
   }
 
   const pdfDetail = await createExternalLabsResultsFormPDF(
@@ -286,7 +295,7 @@ export async function createLabResultPDF(
       patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_RESULT_ITEM_UNKNOWN,
       patientPhone:
         patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
-      todayDate: now.toFormat('MM/dd/yy hh:mm a'),
+      todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
       collectionDate: collectionDate || ORDER_RESULT_ITEM_UNKNOWN,
       orderSubmitDate: orderSubmitDate,
       orderCreateDate: orderCreateDate || ORDER_RESULT_ITEM_UNKNOWN,

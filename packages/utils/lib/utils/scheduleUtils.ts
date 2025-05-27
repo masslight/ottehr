@@ -40,6 +40,7 @@ import {
   SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
   DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
@@ -238,13 +239,17 @@ export function getScheduleExtension(
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
 ): Timezone {
-  const timezone = schedule.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-  )?.valueString;
+  const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)?.valueString;
   if (!timezone) {
     console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
   }
+  return timezone;
+}
+
+export function getTimezoneLocation(location: Location): string | undefined {
+  const timezone = location.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+    ?.valueString;
   return timezone;
 }
 
