@@ -192,14 +192,24 @@ export async function createLabResultPDF(
       )
       .forEach((observation) => {
         const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
+        let value = undefined;
+        if (observation.valueQuantity) {
+          value = `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
+            observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
+          }`;
+        } else if (observation.valueString) {
+          value = observation.valueString;
+        } else if (observation.valueCodeableConcept) {
+          value =
+            observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') ||
+            ORDER_RESULT_ITEM_UNKNOWN;
+        }
         const labResult: ExternalLabResult = {
           resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
           resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
           resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
           resultInterpretationDisplay: interpretationDisplay,
-          resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
-            observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
-          }`,
+          resultValue: value || ORDER_RESULT_ITEM_UNKNOWN,
         };
         resultsTemp.push(labResult);
         if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
