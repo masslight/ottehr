@@ -41,7 +41,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [notes, setNotes] = useState<string>('');
   const [providerName, setProviderName] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
-  const [runAsRepeat, setRunAsRepeat] = useState<boolean>(false);
+  const [repeatTest, setRepeatTest] = useState<boolean>(false);
 
   const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -140,7 +140,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           cptCode: selectedCptCode,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
-          runAsRepeat,
+          isRepeatTest: repeatTest,
           notes: notes,
         });
 
@@ -307,7 +307,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                           pr: 0,
                         }}
                         control={
-                          <Checkbox size="small" checked={runAsRepeat} onChange={() => setRunAsRepeat(!runAsRepeat)} />
+                          <Checkbox size="small" checked={repeatTest} onChange={() => setRepeatTest(!repeatTest)} />
                         }
                         label={<Typography variant="body1">Run as Repeat</Typography>}
                       />
@@ -316,7 +316,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                 </>
               )}
 
-              {runAsRepeat && (
+              {repeatTest && (
                 <>
                   <Grid item xs={10}>
                     <TextField

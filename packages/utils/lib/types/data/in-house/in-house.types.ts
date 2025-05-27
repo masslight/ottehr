@@ -132,7 +132,7 @@ export type CreateInHouseLabOrderParameters = {
   cptCode: string;
   diagnosesAll: DiagnosisDTO[];
   diagnosesNew: DiagnosisDTO[];
-  runAsRepeat: boolean;
+  isRepeatTest: boolean;
   notes?: string;
 };
 

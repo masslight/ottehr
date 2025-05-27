@@ -72,7 +72,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       cptCode: cptCode,
       diagnosesAll,
       diagnosesNew,
-      runAsRepeat,
+      isRepeatTest,
       notes,
     } = validatedParameters;
 
@@ -135,8 +135,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const requests: any[] = [encounterResourcesRequest(), activeDefinitionRequest(), userPractitionerIdRequest()];
 
-    if (runAsRepeat) {
+    if (isRepeatTest) {
       console.log('run as repeat for', cptCode, testItem.name);
+      // tests being run as repeat need to be linked via basedOn to the original test that was run
+      // so we are looking for a test with the same cptCode that does not have any value in basedOn - this will be the initialServiceRequest
       const intialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
         (
           await oystehr.fhir.search({
@@ -241,7 +243,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     })();
 
     const initialServiceRequest = (() => {
-      if (runAsRepeat) {
+      if (isRepeatTest) {
         if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
           throw IN_HOUSE_LAB_ERROR(
             'You cannot run this as repeat, no initial tests could be found for this encounter.'
@@ -254,8 +256,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         if (possibleInitialSRs.length > 1) {
           throw new Error('More than one initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
         }
-        const initialSR = possibleInitialSRs?.[0];
-        if (!initialSR) throw new Error('Initial tests could not be found for this encounter'); // this really shouldn't happen, something is misconfigured
+        const initialSR = possibleInitialSRs[0];
         return initialSR;
       }
       return;
@@ -328,6 +329,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
       instantiatesCanonical: [`${activityDefinition.url}`], // todo in the future - we should add |${activityDefinition.version}
     };
+    // if an initialServiceRequest is defined, the test being ordered is repeat and should be linked to the
+    // original test represented by initialServiceRequest
     if (initialServiceRequest) {
       serviceRequestConfig.basedOn = [
         {
