@@ -1,4 +1,3 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { Close } from '@mui/icons-material';
 import {
   Box,
@@ -114,9 +113,7 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
         }));
       },
       clear: () => {
-        set({
-          ...PAPERWORK_STATE_INITIAL,
-        });
+        set(PAPERWORK_STATE_INITIAL);
       },
     }),
     { name: 'ip-intake-paperwork-store-0.1' }
@@ -125,24 +122,16 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
 
 export const PaperworkHome: FC = () => {
   const [appointmentNotFound, setAppointmentNotFound] = useState<boolean>(false);
-  const { isAuthenticated, isLoading: authIsLoading } = useAuth0();
   const { id: appointmentId } = useParams();
   const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
   const { pathname } = useLocation();
   const [authedFetchState, setAuthedFetchState] = useState(AuthedLoadingState.initial);
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
-  const {
-    paperworkInProgress,
-    paperworkResponse,
-    updateTimestamp,
-    setResponse,
-    clear: clearPaperworkState,
-  } = getSelectors(usePaperworkStore, [
+  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse } = getSelectors(usePaperworkStore, [
     'paperworkInProgress',
     'setResponse',
     'paperworkResponse',
-    'clear',
     'updateTimestamp',
   ]);
 
@@ -152,7 +141,7 @@ export const PaperworkHome: FC = () => {
         allItems: [] as IntakeQuestionnaireItem[],
         questionnaireResponse: undefined,
         appointment: undefined,
-        patien: undefined,
+        patient: undefined,
       };
     } else {
       const { allItems, questionnaireResponse, appointment, patient } = paperworkResponse;
@@ -164,18 +153,6 @@ export const PaperworkHome: FC = () => {
       };
     }
   }, [paperworkResponse]);
-
-  useEffect(() => {
-    if (!isAuthenticated && !authIsLoading) {
-      clearPaperworkState();
-    }
-  }, [authIsLoading, clearPaperworkState, isAuthenticated]);
-
-  useEffect(() => {
-    if (appointmentId && appointment?.id && appointmentId !== appointment?.id) {
-      clearPaperworkState();
-    }
-  }, [appointment?.id, appointmentId, clearPaperworkState]);
 
   useEffect(() => {
     const fetchAuthedPaperwork = async (apptId: string, zambdaClient: ZambdaClient): Promise<void> => {
@@ -197,10 +174,10 @@ export const PaperworkHome: FC = () => {
         }
       }
     };
-    if (isAuthenticated && tokenfulZambdaClient && authedFetchState === AuthedLoadingState.initial && appointmentId) {
+    if (tokenfulZambdaClient && authedFetchState === AuthedLoadingState.initial && appointmentId) {
       void fetchAuthedPaperwork(appointmentId, tokenfulZambdaClient);
     }
-  }, [isAuthenticated, authedFetchState, setResponse, tokenfulZambdaClient, setAuthedFetchState, appointmentId]);
+  }, [authedFetchState, setResponse, tokenfulZambdaClient, setAuthedFetchState, appointmentId]);
 
   useEffect(() => {
     try {
@@ -223,13 +200,6 @@ export const PaperworkHome: FC = () => {
       console.error(error);
     }
   }, [appointmentId, pathname]);
-
-  useEffect(() => {
-    if (appointmentId && appointment?.id && appointmentId !== appointment.id) {
-      // console.log('clearing state');
-      clearPaperworkState();
-    }
-  }, [appointmentId, appointment?.id, clearPaperworkState]);
 
   const completedPaperwork: QuestionnaireResponseItem[] = useMemo(() => {
     return questionnaireResponse?.item ?? [];
@@ -290,10 +260,7 @@ export const PaperworkHome: FC = () => {
     );
   }
 
-  if (
-    (isAuthenticated || authIsLoading) &&
-    (authedFetchState === AuthedLoadingState.initial || authedFetchState === AuthedLoadingState.loading)
-  ) {
+  if (authedFetchState === AuthedLoadingState.initial || authedFetchState === AuthedLoadingState.loading) {
     return (
       <PageContainer title={t('paperwork.loading')}>
         <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
