@@ -14,7 +14,6 @@ import {
 } from '@mui/material';
 import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
-import { DateTime } from 'luxon';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -89,22 +88,18 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
         });
       },
       saveProgress: (pageId: string, responses: any) => {
-        const updateDT = DateTime.now().toSeconds();
         set((state) => {
           const pIP = { ...(state.paperworkInProgress || {}) };
           pIP[pageId] = responses;
           return {
             ...state,
-            updateTimestamp: updateDT,
             paperworkInProgress: pIP,
           };
         });
       },
       patchCompletedPaperwork: (QR: QuestionnaireResponse) => {
-        const updateDT = DateTime.now().toSeconds();
         set((state) => ({
           ...state,
-          updateTimestamp: updateDT,
           paperworkResponse: {
             ...(state.paperworkResponse || ({} as UCGetPaperworkResponse)),
             questionnaireResponse: QR,
