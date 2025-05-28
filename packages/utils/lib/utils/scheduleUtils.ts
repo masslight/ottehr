@@ -5,20 +5,24 @@ import {
   FhirResource,
   HealthcareService,
   Location,
+  LocationHoursOfOperation,
   Practitioner,
   Resource,
   Schedule,
   Slot,
-  LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BookableScheduleData,
   Closure,
   ClosureType,
+  codingContainedInList,
+  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   getDateTimeFromDateAndTime,
   getFullName,
   getPatchOperationForNewMetaTag,
+  isLocationVirtual,
+  makeBookingOriginExtensionEntry,
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
@@ -26,20 +30,16 @@ import {
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
   ScheduleType,
-  Timezone,
-  SlotServiceCategory,
   ServiceMode,
-  codingContainedInList,
+  SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  SlotServiceCategory,
+  Timezone,
   TIMEZONES,
   VisitType,
-  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
-  isLocationVirtual,
   WALKIN_APPOINTMENT_TYPE_CODE,
-  makeBookingOriginExtensionEntry,
-  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
-  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
-  SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
 } from 'utils';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
@@ -1655,7 +1655,7 @@ export const applyOverridesToDailySchedule = (
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }).toLowerCase() as DOW;
+    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
     const dailyScheduleDay = dailySchedule[dayOfWeek];
     const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);
