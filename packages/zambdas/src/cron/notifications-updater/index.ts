@@ -128,11 +128,18 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       try {
         const { appointment, encounter, practitioner, location, communications } =
           readyOrUnsignedVisitPackages[appointmentId];
+
+        console.log('encounter && appointment', Boolean(encounter && appointment));
         if (encounter && appointment) {
           const status: TelemedAppointmentStatus | undefined = mapStatusToTelemed(encounter.status, appointment.status);
+          console.log('status', status);
           if (!status) return;
 
           // getting communications that were postponed after practitioner will become not busy
+          console.log(
+            'practitioner?.id && communications && !busyPractitionerIds.has(practitioner.id)',
+            Boolean(practitioner?.id && communications && !busyPractitionerIds.has(practitioner.id))
+          );
           if (practitioner?.id && communications && !busyPractitionerIds.has(practitioner.id)) {
             const postponedCommunications = communications.filter(
               (comm) =>
@@ -140,12 +147,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 comm.recipient?.[0].reference &&
                 !busyPractitionerIds.has(comm.recipient?.[0].reference)
             );
+            console.log('postponedCommunications', JSON.stringify(postponedCommunications));
             postponedCommunications.forEach((communication) => {
               const communicationPractitionerUri = communication.recipient![0].reference!;
               const practitioner = allPractitionersIdMap[communicationPractitionerUri];
+              console.log(`${communication.id} practitioner`, JSON.stringify(practitioner));
               const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
+              console.log(
+                `${communication.id} notificationSettings && notificationSettings.enabled?`,
+                Boolean(notificationSettings && notificationSettings.enabled)
+              );
               if (notificationSettings && notificationSettings.enabled) {
                 const newStatus = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitioner);
+                console.log(`${communication.id} newStatus`, newStatus);
                 updateCommunicationRequests.push(
                   getPatchBinary({
                     resourceId: communication.id!,
@@ -159,7 +173,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                     ],
                   })
                 );
+                console.log(
+                  `${communication.id} updateCommunicationRequests.length`,
+                  updateCommunicationRequests.length
+                );
                 addNewSMSCommunicationForPractitioner(practitioner, communication, newStatus);
+                console.log(
+                  `${communication.id} sendSMSPractitionerCommunications[practitioner.id!].communications.length`,
+                  JSON.stringify(sendSMSPractitionerCommunications[practitioner.id!].communications.length)
+                );
               }
             });
           }
