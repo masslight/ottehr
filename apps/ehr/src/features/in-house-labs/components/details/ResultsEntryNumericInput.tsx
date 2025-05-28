@@ -1,4 +1,4 @@
-import { TextField } from '@mui/material';
+import { TextField, useTheme } from '@mui/material';
 import { TestItemComponent } from 'utils';
 // import InputMask from 'src/components/InputMask';
 import { useFormContext, Controller } from 'react-hook-form';
@@ -17,6 +17,7 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
   disabled,
 }) => {
   const { control } = useFormContext();
+  const theme = useTheme();
 
   const assessAbnormality = (entry: string): void => {
     if (
@@ -53,7 +54,7 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
             width: '80%',
             '& .Mui-disabled': {
               color: isAbnormal ? 'error.dark' : '',
-              WebkitTextFillColor: isAbnormal ? '#C62828' : '#000000e0',
+              WebkitTextFillColor: isAbnormal ? theme.palette.error.dark : theme.palette.text.primary,
             },
             '& .MuiOutlinedInput-root': {
               '&.Mui-disabled': {

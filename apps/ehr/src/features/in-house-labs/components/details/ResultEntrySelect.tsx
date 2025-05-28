@@ -1,4 +1,4 @@
-import { Select, FormControl, MenuItem } from '@mui/material';
+import { Select, FormControl, MenuItem, useTheme } from '@mui/material';
 import { TestItemComponent } from 'utils';
 import { useFormContext, Controller } from 'react-hook-form';
 
@@ -16,6 +16,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   disabled,
 }) => {
   const { control } = useFormContext();
+  const theme = useTheme();
 
   const assessAbnormality = (entry: string): void => {
     if (testItemComponent.dataType === 'CodeableConcept' && testItemComponent.abnormalValues) {
@@ -55,8 +56,8 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
         },
 
         '& .MuiSelect-select.Mui-disabled': {
-          color: isAbnormal ? 'error.dark' : '#000000e0',
-          WebkitTextFillColor: isAbnormal ? '#C62828' : '#000000e0',
+          color: isAbnormal ? 'error.dark' : 'text.primary',
+          WebkitTextFillColor: isAbnormal ? theme.palette.error.dark : theme.palette.text.primary,
         },
       }}
       size="small"
