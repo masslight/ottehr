@@ -284,11 +284,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             if (lastUnsignedStatus && !lastUnsignedStatus.period.end) {
               const unsignedPeriodStart = DateTime.fromISO(lastUnsignedStatus.period.start || utcNow.toISO()!);
               console.log('unsignedPeriodStart.toISO()', unsignedPeriodStart.toISO());
-              if (unsignedPeriodStart < utcNow.minus({ hour: 48 })) {
+              if (unsignedPeriodStart < utcNow.minus({ minute: 48 })) {
                 tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_3;
-              } else if (unsignedPeriodStart < utcNow.minus({ hour: 24 })) {
+              } else if (unsignedPeriodStart < utcNow.minus({ minute: 24 })) {
                 tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_2;
-              } else if (unsignedPeriodStart < utcNow.minus({ hour: 12 })) {
+              } else if (unsignedPeriodStart < utcNow.minus({ minute: 12 })) {
                 tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_1;
               }
             }
