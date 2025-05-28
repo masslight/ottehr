@@ -15,16 +15,19 @@ import {
   Autocomplete,
   useTheme,
   Chip,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
-import { PRACTITIONER_CODINGS, TestItem } from 'utils';
+import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import { createInHouseLabOrder, getCreateInHouseLabOrderResources } from '../../../api/api';
+import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { enqueueSnackbar } from 'notistack';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -38,6 +41,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [notes, setNotes] = useState<string>('');
   const [providerName, setProviderName] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [repeatTest, setRepeatTest] = useState<boolean>(false);
 
   const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -47,20 +51,27 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   const { diagnosis = [] } = chartData || {};
   const didPrimaryDiagnosisInit = useRef(false);
-  const [selectedDiagnoses, setSelectedDiagnoses] = useState<DiagnosisDTO[]>([]);
 
-  // init selectedDiagnoses with primary diagnosis
+  // already added diagnoses, the may have "added via lab order" flag with true and false value
+  // so, the select "select dx" will show all diagnoses which are showed in the Assessment page no matter what source they have
+  const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>([]);
+
+  // new diagnoses, the will have "added via lab order" flag with true value,
+  // and they will be linked to appointment resources in the create-in-house-lab-order zambda
+  const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>([]);
+
+  // init selectedAssessmentDiagnoses with primary diagnosis
   useEffect(() => {
     if (didPrimaryDiagnosisInit.current) {
       return;
     }
     const primaryDiagnosis = [chartData?.diagnosis?.find((d) => d.isPrimary)].filter((d): d is DiagnosisDTO => !!d);
 
-    if (primaryDiagnosis.length && !selectedDiagnoses.length) {
-      setSelectedDiagnoses(primaryDiagnosis);
+    if (primaryDiagnosis.length && !selectedAssessmentDiagnoses.length) {
+      setSelectedAssessmentDiagnoses(primaryDiagnosis);
       didPrimaryDiagnosisInit.current = true;
     }
-  }, [chartData?.diagnosis, selectedDiagnoses]);
+  }, [chartData?.diagnosis, selectedAssessmentDiagnoses]);
 
   // used to fetch dx icd10 codes
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -94,7 +105,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           encounterId: encounter.id,
         });
         const testItems = Object.values(response.labs || {});
-        setAvailableTests(testItems);
+        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
         setProviderName(response.providerName);
       } catch (error) {
         console.error('Error fetching labs:', error);
@@ -113,44 +124,59 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
+    const GENERIC_ERROR_MSG = 'There was an error creating this lab order';
     const encounterId = encounter.id;
-    const canBeSubmitted = encounterId && selectedTest && selectedCptCode && selectedDiagnoses.length;
+    const canBeSubmitted =
+      encounterId &&
+      selectedTest &&
+      selectedCptCode &&
+      (selectedAssessmentDiagnoses.length || selectedNewDiagnoses.length);
 
     if (oystehrZambda && canBeSubmitted) {
       try {
-        await createInHouseLabOrder(oystehrZambda, {
+        const res = await createInHouseLabOrder(oystehrZambda, {
           encounterId,
           testItem: selectedTest,
           cptCode: selectedCptCode,
-
-          // filter out dx that are already on the encounter
-          diagnoses: selectedDiagnoses
-            .filter((dx) => !diagnosis.find((d) => d.code === dx.code))
-            .map((dx) => ({
-              ...dx,
-              isPrimary: false,
-              addedViaLabOrder: true,
-            })),
-
+          diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
+          diagnosesNew: selectedNewDiagnoses,
+          isRepeatTest: repeatTest,
           notes: notes,
         });
 
         if (shouldPrintLabel) {
-          // todo: print label
+          const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
+
+          if (labelPdfs.length !== 1) {
+            setError(['Expected 1 label pdf, received unexpected number']);
+          }
+
+          const labelPdf = labelPdfs[0];
+          window.open(labelPdf.presignedURL, '_blank');
         }
 
-        navigate(`/in-person/${appointment?.id}/in-house-lab-orders`);
+        if (res.serviceRequestId) {
+          navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
+        }
       } catch (e) {
-        setError(['There was an error creating this lab order']);
+        const oyError = e as OystehrSdkError;
+        console.error('error creating in house lab order', oyError.code, oyError.message);
+        if (isApiError(oyError)) {
+          console.log('is api error');
+          setError([oyError.message || GENERIC_ERROR_MSG]);
+        } else {
+          setError([GENERIC_ERROR_MSG]);
+        }
       } finally {
         setLoading(false);
       }
     } else if (!canBeSubmitted) {
       const errorMessage: string[] = [];
-      if (!selectedDiagnoses.length) errorMessage.push('Please enter at least one dx');
+      if (!selectedAssessmentDiagnoses.length && !selectedNewDiagnoses.length)
+        errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
+      if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
     }
   };
@@ -229,55 +255,103 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
               </Grid>
 
               {availableCptCodes.length > 0 && (
-                <Grid item xs={12}>
-                  <FormControl
-                    fullWidth
-                    required
-                    sx={{
-                      '& .MuiInputBase-root': {
-                        height: '40px',
-                      },
-                      '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                      },
-                    }}
-                  >
-                    <InputLabel
-                      id="cpt-code-label"
+                <>
+                  <Grid item xs={selectedTest?.repeatable ? 9 : 12}>
+                    <FormControl
+                      fullWidth
+                      required
                       sx={{
-                        transform: 'translate(14px, 10px) scale(1)',
-                        '&.MuiInputLabel-shrink': {
-                          transform: 'translate(14px, -9px) scale(0.75)',
+                        '& .MuiInputBase-root': {
+                          height: '40px',
+                        },
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          paddingTop: 0,
+                          paddingBottom: 0,
                         },
                       }}
                     >
-                      CPT code
-                    </InputLabel>
-                    <Select
-                      labelId="cpt-code-label"
-                      id="cpt-code"
-                      value={selectedCptCode}
-                      label="CPT code*"
-                      onChange={(e) => setSelectedCptCode(e.target.value)}
-                      size="small"
-                    >
-                      {availableCptCodes.map((cpt) => (
-                        <MenuItem key={cpt} value={cpt}>
-                          {cpt}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+                      <InputLabel
+                        id="cpt-code-label"
+                        sx={{
+                          transform: 'translate(14px, 10px) scale(1)',
+                          '&.MuiInputLabel-shrink': {
+                            transform: 'translate(14px, -9px) scale(0.75)',
+                          },
+                        }}
+                      >
+                        CPT code
+                      </InputLabel>
+                      <Select
+                        labelId="cpt-code-label"
+                        id="cpt-code"
+                        value={selectedCptCode}
+                        label="CPT code*"
+                        onChange={(e) => setSelectedCptCode(e.target.value)}
+                        size="small"
+                      >
+                        {availableCptCodes.map((cpt) => (
+                          <MenuItem key={cpt} value={cpt}>
+                            {cpt}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  {selectedTest?.repeatable && (
+                    <Grid item xs={3}>
+                      <FormControlLabel
+                        sx={{
+                          backgroundColor: 'transparent',
+                          pr: 0,
+                        }}
+                        control={
+                          <Checkbox size="small" checked={repeatTest} onChange={() => setRepeatTest(!repeatTest)} />
+                        }
+                        label={<Typography variant="body1">Run as Repeat</Typography>}
+                      />
+                    </Grid>
+                  )}
+                </>
+              )}
+
+              {repeatTest && (
+                <>
+                  <Grid item xs={10}>
+                    <TextField
+                      InputProps={{
+                        readOnly: true,
+                        sx: {
+                          '& input': {
+                            cursor: 'default',
+                          },
+                          height: '40px',
+                        },
+                      }}
+                      fullWidth
+                      label="CPT Code Modifier"
+                      focused={false}
+                      value={'91'}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(0, 0, 0, 0.23)',
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  {/* indicates that the test is “CLIA waived”, should just be hardcoded for repeats */}
+                  <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="body1">QW</Typography>
+                  </Grid>
+                </>
               )}
 
               <Grid item xs={12}>
                 <FormControl
                   fullWidth
-                  required
                   sx={{
                     '& .MuiInputBase-root': {
                       height: '40px',
@@ -305,17 +379,16 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     labelId="diagnosis-label"
                     id="diagnosis"
                     multiple
-                    value={selectedDiagnoses.filter((dx) => !dx.addedViaLabOrder).map((dx) => dx.code)}
+                    value={selectedAssessmentDiagnoses.map((dx) => dx.code)}
                     label="Select Dx"
                     onChange={(e) => {
                       const dxCodesFromSelect = Array.isArray(e.target.value) ? e.target.value : [e.target.value];
-                      const alreadySelectedAddedViaLabOrder = selectedDiagnoses.filter((dx) => dx.addedViaLabOrder);
 
                       const diagnosesFomSelect = dxCodesFromSelect
                         .map((code) => diagnosis.find((dx) => dx.code === code))
                         .filter((dx): dx is DiagnosisDTO => Boolean(dx));
 
-                      setSelectedDiagnoses([...diagnosesFomSelect, ...alreadySelectedAddedViaLabOrder]);
+                      setSelectedAssessmentDiagnoses([...diagnosesFomSelect]);
                     }}
                     renderValue={(selected) => {
                       if (selected.length === 0) {
@@ -353,10 +426,10 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     if (!selectedDx) {
                       return;
                     }
-                    const alreadySelected = selectedDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
+                    const alreadySelected = selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
                     if (!alreadySelected) {
-                      setSelectedDiagnoses([
-                        ...(selectedDiagnoses || []),
+                      setSelectedNewDiagnoses((diagnoses) => [
+                        ...diagnoses,
                         { ...selectedDx, addedViaLabOrder: true, isPrimary: false },
                       ]);
                     } else {
@@ -382,11 +455,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                 />
               </Grid>
 
-              {selectedDiagnoses.length > 0 && (
+              {(selectedAssessmentDiagnoses.length > 0 || selectedNewDiagnoses.length > 0) && (
                 <Grid item xs={12}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     <ActionsList
-                      data={selectedDiagnoses}
+                      data={selectedAssessmentDiagnoses}
                       getKey={(value, index) => value.resourceId || index}
                       renderItem={(value) => (
                         <Typography>
@@ -396,7 +469,27 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                       renderActions={(value) => (
                         <DeleteIconButton
                           onClick={() =>
-                            setSelectedDiagnoses(() => selectedDiagnoses.filter((dxVal) => dxVal.code !== value.code))
+                            setSelectedAssessmentDiagnoses((diagnoses) =>
+                              diagnoses.filter((dxVal) => dxVal.code !== value.code)
+                            )
+                          }
+                        />
+                      )}
+                    />
+                    <ActionsList
+                      data={selectedNewDiagnoses}
+                      getKey={(value, index) => value.resourceId || index}
+                      renderItem={(value) => (
+                        <Typography>
+                          {value.display} {value.code}
+                        </Typography>
+                      )}
+                      renderActions={(value) => (
+                        <DeleteIconButton
+                          onClick={() =>
+                            setSelectedNewDiagnoses((diagnoses) =>
+                              diagnoses.filter((dxVal) => dxVal.code !== value.code)
+                            )
                           }
                         />
                       )}
@@ -442,7 +535,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     <Button
                       variant="contained"
                       onClick={(e) => handleSubmit(e, true)}
-                      disabled={!selectedTest || !selectedCptCode || selectedDiagnoses.length === 0}
+                      disabled={
+                        !selectedTest ||
+                        !selectedCptCode ||
+                        (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
+                      }
                       sx={{
                         borderRadius: '50px',
                         px: 4,
@@ -455,7 +552,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     <Button
                       variant="contained"
                       type="submit"
-                      disabled={!selectedTest || !selectedCptCode || selectedDiagnoses.length === 0}
+                      disabled={
+                        !selectedTest ||
+                        !selectedCptCode ||
+                        (selectedAssessmentDiagnoses.length === 0 && selectedNewDiagnoses.length === 0)
+                      }
                       sx={{
                         borderRadius: '50px',
                         px: 4,

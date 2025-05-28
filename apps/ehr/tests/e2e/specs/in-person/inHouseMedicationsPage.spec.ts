@@ -27,8 +27,12 @@ const NEW_INSTRUCTIONS = 'Edited instructions';
 const STATUS = 'pending';
 
 test.beforeEach(async () => {
-  await resourceHandler.setResources();
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  if (process.env.INTEGRATION_TEST === 'true') {
+    await resourceHandler.setResourcesFast();
+  } else {
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  }
 });
 
 test.afterEach(async () => {

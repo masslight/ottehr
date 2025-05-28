@@ -33,7 +33,7 @@ export interface ExternalLabsLabelConfig {
 
 const UPLOAD_BUCKET_NAME = 'visit-notes';
 
-const convertLabeConfigToPdfClientStyles = (labelConfig: LabelConfig): PdfClientStyles => {
+export const convertLabeConfigToPdfClientStyles = (labelConfig: LabelConfig): PdfClientStyles => {
   const inchesToPoints = (sizeInches: number): number => {
     // conversion factor is 1 point = 1/72 inches.
     // pdf-lib uses Points not pixels

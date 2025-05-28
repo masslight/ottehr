@@ -146,12 +146,19 @@ export interface ExternalLabsData {
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
-export interface LabResult {
+export interface ExternalLabResult {
   resultCode: string;
   resultCodeDisplay: string;
-  resultInterpretation: string;
-  resultInterpretationDisplay: string;
+  resultInterpretation?: string;
+  resultInterpretationDisplay?: string;
   resultValue: string;
+}
+
+export interface InHouseLabResult {
+  name: string;
+  value: string | undefined;
+  units?: string;
+  range: string;
 }
 
 export interface LabResultsData extends ExternalLabsData {
@@ -166,13 +173,15 @@ export interface LabResultsData extends ExternalLabsData {
   specimenReferenceRange?: string;
   resultPhase: string;
   resultStatus: string;
-  reviewed: boolean;
+  reviewed?: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
+  collectionDate: string;
   reviewDate: string | undefined;
   resultInterpretations: string[];
-  results: LabResult[];
+  externalLabResults?: ExternalLabResult[];
+  inHouseLabResults?: InHouseLabResult[];
   testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
@@ -241,6 +250,25 @@ export interface VisitNoteData extends ExaminationBlockData {
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];
+  procedures?: {
+    procedureType?: string;
+    cptCodes?: string[];
+    diagnoses?: string[];
+    procedureDateTime?: string;
+    performerType?: string;
+    medicationUsed?: string;
+    bodySite?: string;
+    bodySide?: string;
+    technique?: string;
+    suppliesUsed?: string;
+    procedureDetails?: string;
+    specimenSent?: string;
+    complications?: string;
+    patientResponse?: string;
+    postInstructions?: string;
+    timeSpent?: string;
+    documentedBy?: string;
+  }[];
 }
 
 export interface ReceiptData {

@@ -18,6 +18,7 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import {
+  APIError,
   ChartDataFields,
   ChartDataRequestedFields,
   GetMedicationOrdersResponse,
@@ -539,8 +540,9 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
       return apiClient?.icdSearch({ search, sabs });
     },
     {
-      onError: (_err) => {
+      onError: (error: APIError) => {
         openError();
+        return error;
       },
       enabled: Boolean(apiClient && search),
       keepPreviousData: true,

@@ -22,7 +22,6 @@ import {
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
-  ScheduleAndOwner,
   ScheduleOwnerFhirResource,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
@@ -37,6 +36,11 @@ import {
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   isLocationVirtual,
   WALKIN_APPOINTMENT_TYPE_CODE,
+  makeBookingOriginExtensionEntry,
+  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
+  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
+  SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
@@ -235,9 +239,7 @@ export function getScheduleExtension(
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
 ): Timezone {
-  const timezone = schedule.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-  )?.valueString;
+  const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)?.valueString;
   if (!timezone) {
     console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
@@ -387,9 +389,9 @@ function getSlotsForDayPostTelemed(
   const timeToStartSlots =
     day > openingDateAndTime
       ? day.set({ minute: Math.ceil(day.minute / 30) * 30 }).startOf('minute')
-      : openingDateAndTime.plus({ hour: 1 });
+      : openingDateAndTime;
   const timeSlots: { [slot: string]: number } = {};
-  for (let temp = timeToStartSlots; temp < closingDateAndTime.minus({ hour: 2 }); temp = temp.plus({ minutes: 30 })) {
+  for (let temp = timeToStartSlots; temp < closingDateAndTime; temp = temp.plus({ minutes: 30 })) {
     const tempTime = temp.toISO() || '';
     timeSlots[tempTime] = 1;
   }
@@ -469,7 +471,7 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
     timezone,
   });
 
-  console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
+  // console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
 
   const availableSlots = removeBusySlots({
     slotCapacityMap,
@@ -747,6 +749,9 @@ export async function addWaitingMinutesToAppointment(
 interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
+  numDays?: number;
+  originalBookingUrl?: string;
+  slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -756,37 +761,47 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList } = input;
+  const { now, scheduleList, numDays, originalBookingUrl } = input;
   let telemedAvailable: SlotListItem[] = [];
   let availableSlots: SlotListItem[] = [];
 
-  const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
-    schedule: scheduleTemp.schedule,
-    owner: scheduleTemp.owner,
-  }));
-
   const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: schedules.map((scheduleTemp) => scheduleTemp.schedule.id!),
+    scheduleIds: scheduleList.map((scheduleTemp) => scheduleTemp.schedule.id!),
     fromISO: now.toISO() ?? '',
-    toISO: now.plus({ days: SCHEDULE_NUM_DAYS }).toISO() ?? '',
+    toISO:
+      now
+        .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
+        .startOf('day')
+        .toISO() ?? '',
     status: ['busy', 'busy-tentative', 'busy-unavailable'],
+    filter: (slot: Slot) => {
+      const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
+      if (slot.status === 'busy-tentative') {
+        const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+        if (!lastUpdated.isValid) {
+          return true;
+        }
+        const minutesSinceLastUpdate = lastUpdated.diff(thisMoment, 'minutes').minutes;
+        return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
+      }
+      return true;
+    },
   };
   const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
 
-  schedules.forEach((scheduleTemp) => {
+  scheduleList.forEach((scheduleTemp) => {
     try {
       // todo 1.8: find busy / busy-tentative slots
       const busySlots: Slot[] = allBusySlots.filter((slot) => {
         const scheduleId = slot.schedule?.reference?.split('/')?.[1];
         return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
       });
-      console.log('getting post telemed slots');
-      // todo: 1.8-9 check busy slots for telemed
+      // console.log('getting post telemed slots');
+      // todo: 1.9 check busy slots for telemed
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
-      console.log('getting available slots to display');
       const slotStartsForSchedule = getAvailableSlots({
         now,
-        numDays: SCHEDULE_NUM_DAYS,
+        numDays: numDays ?? SCHEDULE_NUM_DAYS,
         schedule: scheduleTemp.schedule,
         busySlots,
       });
@@ -796,6 +811,7 @@ export const getAvailableSlotsForSchedules = async (
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
           timezone: getTimezone(scheduleTemp.schedule),
+          originalBookingUrl,
         })
       );
       telemedAvailable.push(
@@ -804,6 +820,7 @@ export const getAvailableSlotsForSchedules = async (
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
           timezone: getTimezone(scheduleTemp.schedule),
+          originalBookingUrl,
         })
       );
       // console.log('available slots for schedule:', slotStartsForSchedule);
@@ -877,12 +894,25 @@ interface MakeSlotListItemsInput {
   owner: Practitioner | Location | HealthcareService;
   timezone: Timezone;
   appointmentLengthInMinutes?: number;
+  originalBookingUrl?: string;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
-  const { startTimes, owner: ownerResource, scheduleId, timezone, appointmentLengthInMinutes = 15 } = input;
+  // todo: remove magic numbers
+  const {
+    startTimes,
+    owner: ownerResource,
+    scheduleId,
+    timezone,
+    appointmentLengthInMinutes = DEFAULT_APPOINTMENT_LENGTH_MINUTES,
+    originalBookingUrl,
+  } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
+    let extension: Slot['extension'];
+    if (originalBookingUrl) {
+      extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];
+    }
     const slot: Slot = {
       resourceType: 'Slot',
       id: `${scheduleId}|${startTime}`,
@@ -891,6 +921,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
+      extension,
     };
     const owner = makeSlotOwnerFromResource(ownerResource);
     return {
@@ -1398,19 +1429,23 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
   return 'HealthcareService';
 };
 
-interface GetSlotsInWindowInput {
+export interface GetSlotsInWindowInput {
   scheduleIds: string[];
   fromISO: string;
   toISO: string;
   status: Slot['status'][];
+  filter?: (slot: Slot) => boolean;
 }
 
 export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oystehr): Promise<Slot[]> => {
-  const { scheduleIds, fromISO, toISO, status } = input;
-  const statusParams = status.map((statusTemp) => ({
-    name: 'status',
-    value: statusTemp,
-  }));
+  const { scheduleIds, fromISO, toISO, status, filter } = input;
+  const statusString = status.join(',');
+  const statusParams = [
+    {
+      name: 'status',
+      value: statusString,
+    },
+  ];
   const appointmentTypeParams = [
     {
       name: 'appointment-type:not',
@@ -1438,6 +1473,9 @@ export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oy
       ],
     })
   ).unbundle();
+  if (filter) {
+    return slots.filter(filter);
+  }
   return slots;
 };
 
@@ -1616,7 +1654,7 @@ export const applyOverridesToDailySchedule = (
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase() as DOW;
+    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }).toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
     const dailyScheduleDay = dailySchedule[dayOfWeek];
     const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);
@@ -1691,4 +1729,8 @@ const removeSlotsAfter = (slots: SlotCapacityMap, time: DateTime): SlotCapacityM
     return slotTime < time;
   });
   return Object.fromEntries(filtered);
+};
+
+export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined => {
+  return slot.extension?.find((ext) => ext.url === SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL)?.valueString;
 };

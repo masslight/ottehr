@@ -4,10 +4,11 @@ import {
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   IN_HOUSE_TAG_DEFINITION,
-  TestItemsType,
   convertActivityDefinitionToTestItem,
   PRACTITIONER_CODINGS,
   getFullestAvailableName,
+  TestItem,
+  getTimezone,
 } from 'utils';
 import {
   ZambdaInput,
@@ -17,8 +18,7 @@ import {
   getMyPractitionerId,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ActivityDefinition, Encounter, Practitioner } from 'fhir/r4b';
-
+import { ActivityDefinition, Encounter, Practitioner, Location } from 'fhir/r4b';
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -46,16 +46,48 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    const attendingPractitionerName: string = await (async () => {
+    const {
+      attendingPractitionerName,
+      // not sure if we need these
+      // currentPractitionerName,
+      // attendingPractitionerId,
+      // currentPractitionerId,
+      // timezone,
+    } = await (async () => {
       const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
-      const [myPractitionerId, encounter] = await Promise.all([
+      const [myPractitionerId, { encounter, timezone }] = await Promise.all([
         getMyPractitionerId(oystehrCurrentUser),
-        oystehr.fhir.get<Encounter>({
-          resourceType: 'Encounter',
-          id: validatedParameters.encounterId,
-        }),
+        validatedParameters.encounterId
+          ? oystehr.fhir
+              .search<Encounter | Location>({
+                resourceType: 'Encounter',
+                params: [
+                  { name: '_id', value: validatedParameters.encounterId },
+                  { name: '_include', value: 'Encounter:location' },
+                ],
+              })
+              .then((bundle) => {
+                const resources = bundle.unbundle();
+                const encounter = resources.find((r): r is Encounter => r.resourceType === 'Encounter');
+                const location = resources.find((r): r is Location => r.resourceType === 'Location');
+                const timezone = location && getTimezone(location);
+                return { encounter, timezone };
+              })
+          : Promise.resolve({ encounter: null, timezone: undefined }),
       ]);
+
+      if (!encounter) {
+        // todo: we dont have encounter in patient page, this zambda should return the test items only,
+        // the rest of data should be fetched from the get-orders zambda
+        return {
+          attendingPractitionerName: '',
+          currentPractitionerName: '',
+          attendingPractitionerId: '',
+          currentPractitionerId: '',
+          timezone: undefined,
+        };
+      }
 
       const practitionerId = encounter.participant
         ?.find(
@@ -66,22 +98,41 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         )
         ?.individual?.reference?.replace('Practitioner/', '');
 
-      if (!practitionerId) {
-        return '';
-      }
+      const attendingPractitionerPromise = practitionerId
+        ? oystehr.fhir.get<Practitioner>({
+            resourceType: 'Practitioner',
+            id: practitionerId,
+          })
+        : Promise.resolve(null);
 
-      if (practitionerId === myPractitionerId) {
-        return ''; // show name only if it's not the current user
-      }
+      const currentPractitionerPromise = myPractitionerId
+        ? oystehr.fhir.get<Practitioner>({
+            resourceType: 'Practitioner',
+            id: myPractitionerId,
+          })
+        : Promise.resolve(null);
 
-      const attendingPractitioner = await oystehr.fhir.get<Practitioner>({
-        resourceType: 'Practitioner',
-        id: practitionerId,
-      });
+      const [attendingPractitioner, currentPractitioner] = await Promise.all([
+        attendingPractitionerPromise,
+        currentPractitionerPromise,
+      ]);
 
-      const name = getFullestAvailableName(attendingPractitioner);
+      const attendingPractitionerName = attendingPractitioner
+        ? getFullestAvailableName(attendingPractitioner) || ''
+        : '';
 
-      return name || '';
+      const currentPractitionerName = currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '';
+
+      const attendingPractitionerId = attendingPractitioner?.id || '';
+      const currentPractitionerId = currentPractitioner?.id || '';
+
+      return {
+        attendingPractitionerName,
+        currentPractitionerName,
+        attendingPractitionerId,
+        currentPractitionerId,
+        timezone,
+      };
     })();
 
     const activityDefinitions = (
@@ -96,12 +147,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     console.log(`Found ${activityDefinitions.length} ActivityDefinition resources`);
 
-    const testItems: TestItemsType = {} as TestItemsType;
+    const testItems: TestItem[] = [];
 
-    for (const activeDefenition of activityDefinitions) {
-      const testItem = convertActivityDefinitionToTestItem(activeDefenition);
-      const key = testItem.name.replace(/\s+/g, '_') as keyof TestItemsType;
-      testItems[key] = testItem;
+    for (const activeDefinition of activityDefinitions) {
+      const testItem = convertActivityDefinitionToTestItem(activeDefinition);
+      testItems.push(testItem);
     }
 
     const response: GetCreateInHouseLabOrderResourcesResponse = {

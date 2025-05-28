@@ -151,7 +151,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           owner: scheduleOwner,
         },
       ],
-      owner: scheduleOwner,
       metadata: {
         type: scheduleType,
       },

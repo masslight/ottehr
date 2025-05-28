@@ -147,8 +147,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
 
     console.log('current appointment slot: ', fhirSlot);
-    // todo 1.8-9: consider whether we really need to be getting avaialble slots when getting appointment details
-    // why do we need to do this?
+    // we need to get available slots here, at least for now, because this endpoint is used to populate
+    // the slot data in the reschedule page
+    // a better solution would probably be to call the existing endpoint to get the slot data (get-schedule)
+    // rather than duplicating the logic here
     const { availableSlots } = await getAvailableSlotsForSchedules(
       {
         now: DateTime.now(),

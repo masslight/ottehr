@@ -7,15 +7,7 @@ import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { InHouseLabsTable, InHouseLabsTableColumn } from '../components/orders/InHouseLabsTable';
 import { getInHouseLabOrderCreateUrl } from 'src/features/css-module/routing/helpers';
 
-const inHouseLabsColumns: InHouseLabsTableColumn[] = [
-  'testType',
-  'visit',
-  'orderAdded',
-  'provider',
-  'dx',
-  'resultsReceived',
-  'status',
-];
+const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'dx', 'orderAdded', 'status', 'actions'];
 
 export const InHouseLabsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -66,8 +58,8 @@ export const InHouseLabsPage: React.FC = () => {
       <InHouseLabsTable
         searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
         columns={inHouseLabsColumns}
-        showFilters={true}
-        allowDelete={false}
+        showFilters={false}
+        allowDelete={true}
       />
     </Box>
   );

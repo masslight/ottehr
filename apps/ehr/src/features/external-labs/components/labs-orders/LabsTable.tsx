@@ -251,7 +251,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
                   value={tempDateFilter}
                   onChange={setTempDateFilter}
                   onAccept={setVisitDateFilter}
-                  format="dd.MM.yyyy"
+                  format="MM/dd/yyyy"
                   slotProps={{
                     textField: (params) => ({
                       ...params,

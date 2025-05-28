@@ -16,7 +16,6 @@ import {
   QuestionnaireResponse,
   Questionnaire,
   QuestionnaireResponseItem,
-  DocumentReference,
   Location,
   Specimen,
 } from 'fhir/r4b';
@@ -35,25 +34,25 @@ import {
   QuestionnaireData,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
-  getPresignedURL,
   getTimezone,
   sampleDTO,
   SPECIMEN_CODING_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  LabOrderPDF,
+  fetchDocumentReferencesForDiagnosticReports,
+  fetchLabOrderPDFs,
+  Secrets,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
 import { DateTime } from 'luxon';
+import { captureSentryException } from '../../shared';
+import { sendErrors } from '../../shared';
 
 // cache for the service request context: contains parsed tasks and results
 type Cache = {
   parsedResults?: ReturnType<typeof parseResults>;
   parsedTasks?: ReturnType<typeof parseTasks>;
-};
-
-type LabOrderPDF = {
-  url: string;
-  diagnosticReportId: string;
 };
 
 export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
@@ -69,35 +68,46 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
   labPDFs: LabOrderPDF[],
-  specimens: Specimen[]
+  specimens: Specimen[],
+  secrets: Secrets | null
 ): LabOrderDTO<SearchBy>[] => {
-  return serviceRequests.map((serviceRequest) => {
-    const parsedResults = parseResults(serviceRequest, results);
-    const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
+  const result: LabOrderDTO<SearchBy>[] = [];
 
-    // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
-    const cache: Cache = {
-      parsedResults,
-      parsedTasks,
-    };
+  for (const serviceRequest of serviceRequests) {
+    try {
+      const parsedResults = parseResults(serviceRequest, results);
+      const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
 
-    return parseOrderData({
-      searchBy,
-      tasks,
-      serviceRequest,
-      results,
-      appointments,
-      encounters,
-      locations,
-      practitioners,
-      provenances,
-      organizations,
-      questionnaires,
-      labPDFs,
-      specimens,
-      cache,
-    });
-  });
+      // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
+      const cache: Cache = {
+        parsedResults,
+        parsedTasks,
+      };
+
+      result.push(
+        parseOrderData({
+          searchBy,
+          tasks,
+          serviceRequest,
+          results,
+          appointments,
+          encounters,
+          locations,
+          practitioners,
+          provenances,
+          organizations,
+          questionnaires,
+          labPDFs,
+          specimens,
+          cache,
+        })
+      );
+    } catch (error) {
+      console.error(`Error parsing service request ${serviceRequest.id}:`, error);
+      void sendErrors('get-lab-orders', error, secrets, captureSentryException);
+    }
+  }
+  return result;
 };
 
 export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
@@ -749,81 +759,6 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
   });
 
   return tasksResponse.unbundle();
-};
-
-export const fetchDocumentReferencesForDiagnosticReports = async (
-  oystehr: Oystehr,
-  diagnosticReports: DiagnosticReport[]
-): Promise<DocumentReference[]> => {
-  const reportIds = diagnosticReports.map((report) => report.id).filter(Boolean);
-
-  if (!reportIds.length) {
-    return [];
-  }
-
-  const documentReferencesResponse = await oystehr.fhir.search<DocumentReference>({
-    resourceType: 'DocumentReference',
-    params: [
-      {
-        name: 'related',
-        value: reportIds.map((id) => `DiagnosticReport/${id}`).join(','),
-      },
-      {
-        name: 'status',
-        value: 'current',
-      },
-    ],
-  });
-
-  return documentReferencesResponse.unbundle();
-};
-
-export const fetchLabOrderPDFs = async (
-  documentReferences: DocumentReference[],
-  m2mtoken: string
-): Promise<LabOrderPDF[]> => {
-  if (!documentReferences.length) {
-    return [];
-  }
-
-  const pdfPromises: Promise<LabOrderPDF | null>[] = [];
-
-  for (const docRef of documentReferences) {
-    const diagnosticReportReference = docRef.context?.related?.find(
-      (rel) => rel.reference?.startsWith('DiagnosticReport/')
-    )?.reference;
-
-    const diagnosticReportId = diagnosticReportReference?.split('/')[1];
-
-    if (!diagnosticReportId) {
-      continue;
-    }
-
-    for (const content of docRef.content) {
-      const z3Url = content.attachment?.url;
-      if (z3Url) {
-        pdfPromises.push(
-          getPresignedURL(z3Url, m2mtoken)
-            .then((url) => ({
-              url,
-              diagnosticReportId,
-            }))
-            .catch((error) => {
-              console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
-              return null;
-            })
-        );
-      }
-    }
-  }
-
-  const results = await Promise.allSettled(pdfPromises);
-
-  return results
-    .filter(
-      (result): result is PromiseFulfilledResult<LabOrderPDF> => result.status === 'fulfilled' && result.value !== null
-    )
-    .map((result) => result.value as LabOrderPDF);
 };
 
 export const fetchQuestionnaireForServiceRequests = async (
