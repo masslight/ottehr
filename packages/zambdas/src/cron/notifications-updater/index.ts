@@ -663,9 +663,9 @@ const getPractitionersByStatesMap = async (oystehr: Oystehr): Promise<StatePract
     console.log('stateSearch:', 'employee.id', employee.id);
     const isActive = !inactiveUsersMap.has(employee.id);
     console.log('stateSearch:', 'isActive', isActive);
-    const isProvider = !providerUsersMap.has(employee.id);
+    const isProvider = providerUsersMap.has(employee.id);
     console.log('stateSearch:', 'isProvider', isProvider);
-    if (!isActive && !isProvider) {
+    if (!isActive || !isProvider) {
       console.log('stateSearch:', 'not adding employee to state');
       return;
     }
