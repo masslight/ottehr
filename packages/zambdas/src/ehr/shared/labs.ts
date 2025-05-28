@@ -290,8 +290,8 @@ export const makeEncounterLabResult = async (
       (related) => related.reference?.startsWith('DiagnosticReport')
     )?.reference;
     if (diagnosticReportRef) {
-      const relatedDR = diagnosticReportMap[diagnosticReportRef];
-      const isReflex = relatedDR.meta?.tag?.find(
+      const relatedDR: DiagnosticReport | undefined = diagnosticReportMap[diagnosticReportRef];
+      const isReflex = relatedDR?.meta?.tag?.find(
         (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
       );
       const serviceRequestRef = relatedDR?.basedOn?.find((based) => based.reference?.startsWith('ServiceRequest'))
@@ -306,7 +306,7 @@ export const makeEncounterLabResult = async (
         const labName = activityDef?.publisher;
         let formattedName = nameLabTest(testName, labName, false);
         if (isReflex) {
-          const reflexTestName = relatedDR.code.coding?.[0].display || 'Name missing';
+          const reflexTestName = relatedDR?.code.coding?.[0].display || 'Name missing';
           formattedName = nameLabTest(reflexTestName, labName, true);
         }
 

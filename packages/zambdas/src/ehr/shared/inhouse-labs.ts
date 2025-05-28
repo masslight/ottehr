@@ -85,7 +85,6 @@ export function buildOrderHistory(
 
   // Add entries from provenances
   provenances.forEach((provenance) => {
-    console.log('provenances here', JSON.stringify(provenances));
     const activityCode = provenance.activity?.coding?.[0]?.code;
 
     // Map activity codes to statuses

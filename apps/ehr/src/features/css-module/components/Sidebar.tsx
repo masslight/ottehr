@@ -338,7 +338,6 @@ export const Sidebar = (): JSX.Element => {
           return (
             <StyledButton
               isactive={location.pathname.includes(comparedPath).toString()}
-              disabled={location.pathname.includes(comparedPath)}
               key={item.text}
               onClick={() => {
                 requestAnimationFrame(() => {
