@@ -85,6 +85,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       observations,
       diagnosticReports,
       resultsPDFs,
+      secrets,
       currentPractitioner,
       timezone
     );

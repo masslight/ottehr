@@ -5,16 +5,16 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { PerformTestView } from '../components/details/PerformTestView';
 import { FinalResultView } from '../components/details/FinalResultView';
-import { getSelectors, MarkAsCollectedData, InHouseLabDTO, LoadingState } from 'utils';
+import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPageDTO } from 'utils';
 import { useAppointmentStore } from 'src/telemed';
-import { collectInHouseLabSpecimen, getInHouseLabOrderDetail } from 'src/api/api';
+import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter', 'appointment']);
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
-  const [testDetails, setTestDetails] = useState<InHouseLabDTO | null>(null);
+  const [testDetails, setTestDetails] = useState<InHouseOrderDetailPageDTO | null>(null);
   const { oystehrZambda } = useApiClients();
 
   useEffect(() => {
@@ -30,10 +30,10 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
           return;
         }
 
-        const testData = await getInHouseLabOrderDetail(oystehrZambda, {
-          serviceRequestId: serviceRequestID,
+        const testData = await getInHouseOrders(oystehrZambda, {
+          searchBy: { field: 'serviceRequestId', value: serviceRequestID },
         });
-        console.log('check data returned from getInHouseLabOrderDetail', testData);
+
         setTestDetails(testData);
       } catch (error) {
         console.error('Error fetching test details:', error);

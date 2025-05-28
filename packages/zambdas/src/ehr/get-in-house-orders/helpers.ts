@@ -15,14 +15,20 @@ import {
   Observation,
   DiagnosticReport,
 } from 'fhir/r4b';
-import { fetchLabOrderPDFs, fetchDocumentReferencesForDiagnosticReports, LabOrderPDF, getTimezone } from 'utils';
-import { getMyPractitionerId, createOystehrClient } from '../../shared';
+import {
+  fetchLabOrderPDFs,
+  fetchDocumentReferencesForDiagnosticReports,
+  LabOrderPDF,
+  getTimezone,
+  DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
+  Secrets,
+} from 'utils';
+import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
 import { getSpecimenDetails } from '../shared/inhouse-labs';
 import {
-  DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
-  InHouseOrderDetailedPageDTO,
+  InHouseOrderDetailPageDTO,
   InHouseOrderListPageDTO,
   InHouseOrdersSearchBy,
   Pagination,
@@ -58,6 +64,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
   resultsPDFs: LabOrderPDF[],
+  secrets: Secrets | null,
   currentPractitioner?: Practitioner,
   timezone?: string
 ): InHouseOrderDTO<SearchBy>[] => {
@@ -102,8 +109,9 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
     } catch (error) {
       console.error(
         `Error parsing order data for service request ${serviceRequest.id}:`,
-        JSON.stringify(error, null, 2)
+        typeof error === 'string' ? error : JSON.stringify(error, null, 2)
       );
+      void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
     }
   }
 
@@ -155,6 +163,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     cache?.activityDefinition || findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
 
   if (!activityDefinition) {
+    console.error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
     throw new Error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
   }
 
@@ -164,18 +173,16 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   const diagnosisDTO = parseDiagnoses(serviceRequest);
 
   const listPageDTO: InHouseOrderListPageDTO = {
-    testItem: testItem.name,
-    diagnosis: diagnosisDTO.map((d) => `${d.code} ${d.display}`).join(', '),
+    appointmentId: appointmentId,
+    testItemName: testItem.name,
     orderDate: parseOrderAddedDate(serviceRequest, tasks),
     status: orderStatus,
     visitDate: parseVisitDate(appointment),
-    providerName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '-' : '-',
+    orderingPhysicianFullName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '-' : '-',
     resultReceivedDate: parseResultsReceivedDate(serviceRequest, tasks),
-    diagnosisDTO: diagnosisDTO,
+    diagnosesDTO: diagnosisDTO,
     timezone: timezone,
-    lastResultReceivedDate: undefined, // todo: implement
     orderAddedDate: parseOrderAddedDate(serviceRequest, tasks),
-    orderingPhysician: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '-' : '-',
     serviceRequestId: serviceRequest.id,
   };
 
@@ -185,25 +192,13 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
       (s) => s.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
 
-    const detailedPageDTO: InHouseOrderDetailedPageDTO = {
+    const detailedPageDTO: InHouseOrderDetailPageDTO = {
       ...listPageDTO,
-      serviceRequestId: serviceRequest.id,
-      name: testItem.name,
-      status: orderStatus,
-      diagnosis: diagnosisDTO.map((d: DiagnosisDTO) => `${d.code} ${d.display}`).join(', '),
-
       labDetails: testItem,
-      providerName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '' : '',
-      providerId: attendingPractitioner?.id || '',
-      currentUserName: currentPractitionerName || '',
+      orderingPhysicianId: attendingPractitioner?.id || '',
+      currentUserFullName: currentPractitionerName || '',
       currentUserId: currentPractitionerId || '',
       resultsPDFUrl: resultsPDF?.url,
-      orderInfo: {
-        diagnosis: diagnosisDTO,
-        testName: serviceRequest?.code?.text || '',
-        notes: serviceRequest.note?.[0]?.text || '',
-        status: orderStatus,
-      },
       orderHistory,
       specimen: relatedSpecimens[0] ? getSpecimenDetails(relatedSpecimens[0]) : undefined,
       notes: serviceRequest.note?.[0]?.text || '',
@@ -326,7 +321,7 @@ export const getInHouseResources = async (
 };
 
 export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouseOrdersParams): SearchParam[] => {
-  const { searchBy, visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
+  const { searchBy, visitDate, itemsPerPage = DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
 
   const searchParams: SearchParam[] = [
     {
@@ -344,6 +339,10 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
     {
       name: '_sort',
       value: '-_lastUpdated',
+    },
+    {
+      name: 'code:missing',
+      value: 'false',
     },
     {
       name: 'code',

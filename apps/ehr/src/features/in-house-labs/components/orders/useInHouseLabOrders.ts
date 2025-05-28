@@ -1,6 +1,6 @@
-import { useCallback, useState, useEffect, useMemo, ReactNode } from 'react';
+import { useCallback, useState, useEffect, useMemo, ReactNode, useRef } from 'react';
 import { DateTime } from 'luxon';
-import { DEFAULT_LABS_ITEMS_PER_PAGE } from 'utils';
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE } from 'utils';
 import { useDeleteCommonLabOrderDialog } from 'src/features/common/useDeleteCommonLabOrderDialog';
 import {
   GetInHouseOrdersParameters,
@@ -11,7 +11,7 @@ import {
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { deleteInHouseLabOrder, getInHouseOrders } from '../../../../api/api';
 
-export interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchBy> {
+interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchBy> {
   labOrders: InHouseOrderDTO<SearchBy>[];
   loading: boolean;
   error: Error | null;
@@ -37,8 +37,20 @@ export interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchB
   DeleteOrderDialog: ReactNode | null;
 }
 
+const formatVisitDate = (date: DateTime | null): string | undefined => {
+  if (!date || !date.isValid) {
+    return undefined;
+  }
+  try {
+    return date.toISODate() || undefined;
+  } catch (dateError) {
+    console.error('Error formatting date:', dateError);
+    return undefined;
+  }
+};
+
 export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
-  searchBy: SearchBy
+  _searchBy: SearchBy
 ): UseInHouseLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
   const [labOrders, setLabOrders] = useState<InHouseOrderDTO<SearchBy>[]>([]);
@@ -50,33 +62,22 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
   const [showPagination, setShowPagination] = useState(false);
   const [testTypeFilter, setTestTypeFilter] = useState('');
   const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
+  const didOrdersFetchRef = useRef(false);
 
   // Memoize searchBy to prevent unnecessary re-renders
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const memoizedSearchBy = useMemo(() => searchBy, [JSON.stringify(searchBy)]);
-
-  const formatVisitDate = useCallback((date: DateTime | null): string | undefined => {
-    if (!date || !date.isValid) {
-      return undefined;
-    }
-    try {
-      return date.toISODate() || undefined;
-    } catch (dateError) {
-      console.error('Error formatting date:', dateError);
-      return undefined;
-    }
-  }, []);
+  const memoizedSearchBy = useMemo(() => _searchBy, [JSON.stringify(_searchBy)]);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetInHouseOrdersParameters => {
     const params: GetInHouseOrdersParameters = {
-      itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
+      itemsPerPage: DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
       ...memoizedSearchBy,
       ...(testTypeFilter && { orderableItemCode: testTypeFilter }),
       ...(visitDateFilter && visitDateFilter.isValid && { visitDate: formatVisitDate(visitDateFilter) }),
     };
 
     return params;
-  }, [testTypeFilter, visitDateFilter, formatVisitDate, memoizedSearchBy]);
+  }, [testTypeFilter, visitDateFilter, memoizedSearchBy]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNumber: number): GetInHouseOrdersParameters => {
@@ -146,37 +147,30 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
     }
   }, [fetchLabOrders, getCurrentSearchParamsForPage, page]);
 
-  // Initial fetch and when search criteria change
+  // initial fetch of lab orders, and when the search params change
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
     if (searchParams.searchBy.field && searchParams.searchBy.value) {
-      // Reset page to 1 when search criteria change
-      if (page !== 1) {
-        setPage(1);
-      } else {
-        void fetchLabOrders(searchParams);
-      }
+      void fetchLabOrders(searchParams);
     } else {
-      setError(new Error('Missing required search parameters'));
-      setLoading(false);
+      console.error('searchParams are not valid', searchParams);
     }
-  }, [memoizedSearchBy, testTypeFilter, visitDateFilter, getCurrentSearchParamsForPage, page, fetchLabOrders]);
+  }, [fetchLabOrders, getCurrentSearchParamsForPage]);
 
-  // Fetch when page changes (but not on initial load)
+  // React.ref handles edge case when table items exceed actual display data
+  // (errors during parsing where the table has fewer items than the Oystehr API
+  // returns for ServiceRequests), ensuring users can navigate away from empty pages.
+  didOrdersFetchRef.current =
+    labOrders.length > 0 && didOrdersFetchRef.current === false ? true : didOrdersFetchRef.current;
+
+  // fetch lab orders when the page changes
   useEffect(() => {
-    const hasInitiallyLoaded = labOrders.length > 0 || !loading;
-    if (hasInitiallyLoaded && page > 1) {
+    // skip if the orders haven't been fetched yet, to prevent fetching when the page is first loaded
+    if (didOrdersFetchRef.current) {
       const searchParams = getCurrentSearchParamsForPage(page);
       void fetchLabOrders(searchParams);
     }
-  }, [page, fetchLabOrders, getCurrentSearchParamsForPage, labOrders.length, loading]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    if (page !== 1) {
-      setPage(1);
-    }
-  }, [page, testTypeFilter, visitDateFilter]);
+  }, [fetchLabOrders, getCurrentSearchParamsForPage, page]);
 
   const hasData = useMemo(() => labOrders.length > 0, [labOrders.length]);
 

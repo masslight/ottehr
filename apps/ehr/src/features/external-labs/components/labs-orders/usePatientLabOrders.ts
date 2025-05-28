@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, ReactElement, useMemo } from 'react';
+import { useCallback, useState, useEffect, ReactElement, useMemo, useRef } from 'react';
 import {
   EMPTY_PAGINATION,
   LabOrderDTO,
@@ -41,6 +41,18 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
 }
 
+const formatVisitDate = (date: DateTime | null): string | undefined => {
+  if (!date || !date.isValid) {
+    return undefined;
+  }
+  try {
+    return date.toISODate() || undefined;
+  } catch (dateError) {
+    console.error('Error formatting date:', dateError);
+  }
+  return;
+};
+
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   // don't use this directly, use memoized searchBy instead,
   // if parent component is re-rendered, _searchBy will be a new object and will trigger unnecessary effects
@@ -55,21 +67,10 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const [showPagination, setShowPagination] = useState(false);
   const [orderableItemCodeFilter, setOrderableItemCodeFilter] = useState('');
   const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
+  const didOrdersFetchRef = useRef(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const searchBy = useMemo(() => _searchBy, [JSON.stringify(_searchBy)]);
-
-  const formatVisitDate = useCallback((date: DateTime | null): string | undefined => {
-    if (!date || !date.isValid) {
-      return undefined;
-    }
-    try {
-      return date.toISODate() || undefined;
-    } catch (dateError) {
-      console.error('Error formatting date:', dateError);
-    }
-    return;
-  }, []);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetLabOrdersParameters => {
     const params: GetLabOrdersParameters = {
@@ -80,7 +81,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     };
 
     return params;
-  }, [orderableItemCodeFilter, visitDateFilter, formatVisitDate, searchBy]);
+  }, [orderableItemCodeFilter, visitDateFilter, searchBy]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNubmer: number): GetLabOrdersParameters => {
@@ -153,16 +154,20 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     }
   }, [fetchLabOrders, getCurrentSearchParamsForPage]);
 
-  const didOrdersFetch = labOrders.length > 0;
+  // React.ref handles edge case when table items exceed actual display data
+  // (errors during parsing where the table has fewer items than the Oystehr API
+  // returns for ServiceRequests), ensuring users can navigate away from empty pages.
+  didOrdersFetchRef.current =
+    labOrders.length > 0 && didOrdersFetchRef.current === false ? true : didOrdersFetchRef.current;
 
   // fetch lab orders when the page changes
   useEffect(() => {
     // skip if the orders haven't been fetched yet, to prevent fetching when the page is first loaded
-    if (didOrdersFetch) {
+    if (didOrdersFetchRef.current) {
       const searchParams = getCurrentSearchParamsForPage(page);
       void fetchLabOrders(searchParams);
     }
-  }, [fetchLabOrders, getCurrentSearchParamsForPage, didOrdersFetch, page]);
+  }, [fetchLabOrders, getCurrentSearchParamsForPage, page]);
 
   const handleDeleteLabOrder = useCallback(
     async ({ serviceRequestId }: DeleteLabOrderParams): Promise<boolean> => {

@@ -1,4 +1,4 @@
-import { DEFAULT_LABS_ITEMS_PER_PAGE, GetInHouseOrdersParameters } from 'utils';
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, GetInHouseOrdersParameters } from 'utils';
 import { ZambdaInput } from '../../shared';
 
 export type GetZambdaInHouseOrdersParams = GetInHouseOrdersParameters & {
@@ -19,7 +19,12 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaInHouseO
     throw new Error('Invalid JSON in request body');
   }
 
-  const { searchBy, visitDate: _visitDate, itemsPerPage = DEFAULT_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
+  const {
+    searchBy,
+    visitDate: _visitDate,
+    itemsPerPage = DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
+    pageIndex = 0,
+  } = params;
 
   if (!searchBy?.field || !searchBy?.value) {
     throw new Error(`Missing searchBy field or value: ${JSON.stringify(searchBy)}`);

@@ -34,7 +34,7 @@ export const InHouseLabsTableRow = ({
       case 'testType':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.testItem}</Box>
+            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.testItemName}</Box>
           </Box>
         );
       case 'visit':
@@ -42,13 +42,13 @@ export const InHouseLabsTableRow = ({
       case 'orderAdded':
         return <Box>{formatDate(labOrderData.orderAddedDate)}</Box>;
       case 'provider':
-        return labOrderData.orderingPhysician || '';
+        return labOrderData.orderingPhysicianFullName || '';
       case 'dx': {
-        const firstDx = labOrderData.diagnosisDTO[0]?.display || '';
-        const firstDxCode = labOrderData.diagnosisDTO[0]?.code || '';
+        const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
+        const firstDxCode = labOrderData.diagnosesDTO[0]?.code || '';
         const firstDxText = `${firstDxCode} ${firstDx}`;
-        const fullDxText = labOrderData.diagnosisDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
-        const dxCount = labOrderData.diagnosisDTO.length;
+        const fullDxText = labOrderData.diagnosesDTO.map((dx) => `${dx.code} ${dx.display}`).join('; ');
+        const dxCount = labOrderData.diagnosesDTO.length;
 
         if (dxCount > 1) {
           return (
@@ -62,7 +62,7 @@ export const InHouseLabsTableRow = ({
         return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <Box>{formatDate(labOrderData.lastResultReceivedDate || '-')}</Box>;
+        return <Box>{formatDate(labOrderData.resultReceivedDate || '-')}</Box>;
       case 'status':
         return <InHouseLabsStatusChip status={labOrderData.status} />;
       case 'actions':

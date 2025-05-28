@@ -6,6 +6,7 @@ export interface TestItemMethods {
   analyzer?: { device: string };
   machine?: { device: string };
 }
+
 export interface QuantityRange {
   low: number;
   high: number;
@@ -61,19 +62,26 @@ export interface TestItem {
   note?: string;
 }
 
+export type InHouseOrderListPageDTO = {
+  appointmentId: string;
+  serviceRequestId: string;
+  testItemName: string;
+  diagnosesDTO: DiagnosisDTO[];
+  orderDate: string;
+  status: TestStatus;
+  visitDate: string;
+  resultReceivedDate: string | null;
+  timezone: string | undefined;
+  orderAddedDate: string;
+  orderingPhysicianFullName: string;
+};
+
 export type InHouseOrderDetailPageDTO = InHouseOrderListPageDTO & {
-  name: string;
-  labDetails: TestItem;
-  providerId: string;
+  orderingPhysicianId: string;
   currentUserId: string;
-  currentUserName: string;
+  currentUserFullName: string;
   resultsPDFUrl: string | undefined;
-  orderInfo: {
-    diagnosis: DiagnosisDTO[];
-    testName: string;
-    notes: string | undefined;
-    status: TestStatus;
-  };
+  labDetails: TestItem;
   orderHistory: {
     status: TestStatus;
     providerName: string;
@@ -90,34 +98,16 @@ export type InHouseOrderDetailPageDTO = InHouseOrderListPageDTO & {
   notes: string;
 };
 
-export type InHouseOrderListPageDTO = {
-  serviceRequestId: string;
-  testItem: string;
-  diagnosis: string;
-  orderDate: string;
-  status: TestStatus;
-  visitDate: string;
-  providerName: string;
-  resultReceivedDate: string | null;
-  diagnosisDTO: DiagnosisDTO[];
-  timezone: string | undefined;
-  orderAddedDate: string;
-  orderingPhysician: string;
-  lastResultReceivedDate: string | undefined;
-};
-
-export type InHouseOrderDetailedPageDTO = InHouseOrderListPageDTO & InHouseOrderDetailPageDTO;
-
 export type InHouseOrderDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
   searchBy: { field: 'serviceRequestId' };
 }
-  ? InHouseOrderDetailedPageDTO
+  ? InHouseOrderDetailPageDTO
   : InHouseOrderListPageDTO;
 
 export type InHouseOrdersListResponse<
   RequestParameters extends GetInHouseOrdersParameters = GetInHouseOrdersParameters,
 > = RequestParameters extends { searchBy: { field: 'serviceRequestId' } }
-  ? InHouseOrderDetailedPageDTO
+  ? InHouseOrderDetailPageDTO
   : {
       data: InHouseOrderDTO<RequestParameters>[];
       pagination: Pagination;

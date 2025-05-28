@@ -38,7 +38,6 @@ import {
   GetLabelPdfParameters,
   LabelPdf,
   GetVisitLabelInput,
-  InHouseOrderDetailedPageDTO,
   InHouseOrdersListResponse,
 } from 'utils';
 import {
@@ -780,17 +779,6 @@ export const getCreateInHouseLabOrderResources = async (
     console.log(error);
     throw error;
   }
-};
-
-// todo this is temp to facilitate faster dev while the get-orders zambda that will be called by both
-// the tables and the detail page is being worked on
-export const getInHouseLabOrderDetail = async (
-  oystehr: Oystehr,
-  parameters: { serviceRequestId: string }
-): Promise<InHouseOrderDetailedPageDTO> => {
-  return getInHouseOrders(oystehr, {
-    searchBy: { field: 'serviceRequestId', value: parameters.serviceRequestId },
-  });
 };
 
 export const collectInHouseLabSpecimen = async (

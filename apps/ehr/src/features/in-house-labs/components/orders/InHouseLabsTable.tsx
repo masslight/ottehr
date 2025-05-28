@@ -28,7 +28,6 @@ import { useNavigate } from 'react-router-dom';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { DateTime } from 'luxon';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { useAppointmentStore } from 'src/telemed';
 import { InHouseOrderListPageDTO, TestItem } from 'utils';
 import { getCreateInHouseLabOrderResources } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -63,7 +62,6 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   onCreateOrder,
 }: InHouseLabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
-  const appointmentId = useAppointmentStore((state) => state.appointment?.id);
 
   const {
     labOrders,
@@ -95,15 +93,9 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
 
     const fetchTests = async (): Promise<void> => {
       try {
-        if (!appointmentId) {
-          console.error('Appointment not found');
-          return;
-        }
         setLoadingTests(true);
-
         const response = await getCreateInHouseLabOrderResources(oystehrZambda, {});
-
-        const testItems = Object.values(response.labs || {});
+        const testItems = response.labs || [];
         setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
       } catch (error) {
         console.error('Error fetching tests:', error);
@@ -113,7 +105,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     };
 
     void fetchTests();
-  }, [appointmentId, oystehrZambda]);
+  }, [oystehrZambda]);
 
   const submitFilterByDate = (): void => {
     setVisitDateFilter(tempDateFilter);
@@ -125,10 +117,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   const onRowClick = (labOrderData: InHouseOrderListPageDTO): void => {
-    if (!appointmentId) {
-      return;
-    }
-    navigateTo(getInHouseLabOrderDetailsUrl(appointmentId, labOrderData.serviceRequestId));
+    navigateTo(getInHouseLabOrderDetailsUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
@@ -248,8 +237,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                   getOptionLabel={(option) => option.name}
                   value={availableTests.find((test) => test.name === testTypeQuery) || null}
                   onChange={(_, newValue) => {
-                    setTestTypeQuery(newValue?.name || ''); // todo: ?
-                    setTestTypeFilter(newValue?.name || ''); // todo: ?
+                    setTestTypeQuery(newValue?.name || '');
+                    setTestTypeFilter(newValue?.name || '');
                   }}
                   inputValue={testTypeQuery}
                   onInputChange={(_, newInputValue) => {
@@ -280,7 +269,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                   value={tempDateFilter}
                   onChange={setTempDateFilter}
                   onAccept={setVisitDateFilter}
-                  format="dd.MM.yyyy"
+                  format="MM/dd/yyyy"
                   slotProps={{
                     textField: (params) => ({
                       ...params,
@@ -350,7 +339,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                     onDeleteOrder={() =>
                       showDeleteLabOrderDialog({
                         serviceRequestId: order.serviceRequestId,
-                        testItemName: order.testItem,
+                        testItemName: order.testItemName,
                       })
                     }
                   />
