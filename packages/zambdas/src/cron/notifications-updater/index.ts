@@ -112,6 +112,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
       {}
     );
+    console.log('allPractitionersIdMap', JSON.stringify(allPractitionersIdMap));
 
     // Going through arrived or in-progress visits to determine busy practitioners that should not receive a notification
     Object.keys(assignedOrInProgressVisitPackages).forEach((appointmentId) => {
@@ -120,7 +121,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         busyPractitionerIds.add(practitioner.id!);
       }
     });
-
     console.log(`Busy practitioners: ${JSON.stringify(busyPractitionerIds)}`);
 
     // Going through ready or unsigned visits to create notifications and other update logic
@@ -679,16 +679,12 @@ const getPractitionersByStatesMap = async (oystehr: Oystehr): Promise<StatePract
   }
   // map for getting active practitioners that can operate in each state
   const statePractitionerMap: StatePractitionerMap = {};
-  console.log('stateSearch:', `User id to practitioner map: ${JSON.stringify(userIdPractitionerMap)}`);
 
   employees.forEach((employee) => {
-    console.log('stateSearch:', 'employee.id', employee.id);
     const isActive = !inactiveUsersMap.has(employee.id);
-    console.log('stateSearch:', 'isActive', isActive);
     const isProvider = providerUsersMap.has(employee.id);
-    console.log('stateSearch:', 'isProvider', isProvider);
     if (!isActive || !isProvider) {
-      console.log('stateSearch:', 'not adding employee to state');
+      console.log(`not adding employee ${employee.id} to state`);
       return;
     }
     const practitioner = userIdPractitionerMap[employee.id];
