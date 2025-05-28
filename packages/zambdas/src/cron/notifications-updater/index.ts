@@ -293,9 +293,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     Object.keys(practitionerUnsignedTooLongAppointmentPackagesMap).forEach((practitionerId) => {
       const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppointmentPackagesMap[practitionerId];
 
-      const unsignedChartsMessage = (length: number): string =>
-        `You have ${length} unsigned charts on ET. Please complete and sign ASAP. Thanks!`;
-
       let hasUnprocessed = false;
       let practitionerResource: Practitioner | undefined = undefined;
       let encounterResource: Encounter | undefined = undefined;
@@ -318,6 +315,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitionerResource);
         // rules of status described above
         if (notificationSettings?.enabled) {
+          const unsignedChartsMessage = (length: number): string =>
+            `You have ${length} unsigned charts on ET. Please complete and sign ASAP. Thanks!`;
+
           const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitionerResource);
           const request: BatchInputPostRequest<Communication> = {
             method: 'POST',
