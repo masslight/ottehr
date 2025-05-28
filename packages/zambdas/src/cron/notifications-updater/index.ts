@@ -292,7 +292,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log(`Too long unsigned appointments: ${JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap)}`);
     Object.keys(practitionerUnsignedTooLongAppointmentPackagesMap).forEach((practitionerId) => {
       const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppointmentPackagesMap[practitionerId];
-
       let hasUnprocessed = false;
       let practitionerResource: Practitioner | undefined = undefined;
       let encounterResource: Encounter | undefined = undefined;
