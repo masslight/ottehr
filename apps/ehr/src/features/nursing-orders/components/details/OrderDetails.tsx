@@ -1,4 +1,5 @@
-import { Box, Paper, Typography, Button, Divider } from '@mui/material';
+import { Box, Paper, Typography, Divider } from '@mui/material';
+import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { NursingOrder, NursingOrdersStatus } from '../../nursingOrderTypes';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 
@@ -33,7 +34,7 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
         </Box>
         <Divider />
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 3 }}>
-          <Button
+          <ButtonRounded
             variant="contained"
             color="primary"
             onClick={handleMarkAsCollected}
@@ -41,7 +42,7 @@ export const OrderDetails: React.FC<CollectSampleViewProps> = ({ orderDetails, o
             sx={{ borderRadius: '50px', px: 4 }}
           >
             Mark as Completed
-          </Button>
+          </ButtonRounded>
         </Box>
       </Paper>
     </Box>
