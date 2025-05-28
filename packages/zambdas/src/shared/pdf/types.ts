@@ -250,6 +250,25 @@ export interface VisitNoteData extends ExaminationBlockData {
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];
+  procedures?: {
+    procedureType?: string;
+    cptCodes?: string[];
+    diagnoses?: string[];
+    procedureDateTime?: string;
+    performerType?: string;
+    medicationUsed?: string;
+    bodySite?: string;
+    bodySide?: string;
+    technique?: string;
+    suppliesUsed?: string;
+    procedureDetails?: string;
+    specimenSent?: string;
+    complications?: string;
+    patientResponse?: string;
+    postInstructions?: string;
+    timeSpent?: string;
+    documentedBy?: string;
+  }[];
 }
 
 export interface ReceiptData {
