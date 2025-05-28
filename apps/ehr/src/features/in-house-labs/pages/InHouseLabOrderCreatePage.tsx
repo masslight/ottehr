@@ -105,7 +105,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           encounterId: encounter.id,
         });
         const testItems = Object.values(response.labs || {});
-        setAvailableTests(testItems);
+        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
         setProviderName(response.providerName);
       } catch (error) {
         console.error('Error fetching labs:', error);
@@ -352,7 +352,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
               <Grid item xs={12}>
                 <FormControl
                   fullWidth
-                  required
                   sx={{
                     '& .MuiInputBase-root': {
                       height: '40px',

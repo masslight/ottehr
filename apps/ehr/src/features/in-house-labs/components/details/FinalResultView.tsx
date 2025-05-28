@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Paper, Typography, Button, Chip } from '@mui/material';
-import { InHouseLabDTO, ResultEntryInput } from 'utils';
+import { getFormattedDiagnoses, ResultEntryInput } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -8,9 +8,10 @@ import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useForm, FormProvider } from 'react-hook-form';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 import { BiotechOutlined } from '@mui/icons-material';
+import { InHouseOrderDetailPageDTO } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface FinalResultViewProps {
-  testDetails: InHouseLabDTO;
+  testDetails: InHouseOrderDetailPageDTO;
   onBack: () => void;
 }
 
@@ -38,14 +39,14 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
     <FormProvider {...methods}>
       <Box>
         <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
-          {testDetails.diagnosis}
+          {getFormattedDiagnoses(testDetails.diagnosesDTO)}
         </Typography>
 
         <Paper sx={{ mb: 2 }}>
           <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
               <Typography variant="h5" color="primary.dark" fontWeight="bold">
-                {testDetails.name}
+                {testDetails.testItemName}
               </Typography>
               <Chip
                 label="FINAL"

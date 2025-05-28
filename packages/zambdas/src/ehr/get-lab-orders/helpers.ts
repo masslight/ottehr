@@ -41,10 +41,13 @@ import {
   LabOrderPDF,
   fetchDocumentReferencesForDiagnosticReports,
   fetchLabOrderPDFs,
+  Secrets,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
 import { DateTime } from 'luxon';
+import { captureSentryException } from '../../shared';
+import { sendErrors } from '../../shared';
 
 // cache for the service request context: contains parsed tasks and results
 type Cache = {
@@ -65,35 +68,46 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
   labPDFs: LabOrderPDF[],
-  specimens: Specimen[]
+  specimens: Specimen[],
+  secrets: Secrets | null
 ): LabOrderDTO<SearchBy>[] => {
-  return serviceRequests.map((serviceRequest) => {
-    const parsedResults = parseResults(serviceRequest, results);
-    const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
+  const result: LabOrderDTO<SearchBy>[] = [];
 
-    // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
-    const cache: Cache = {
-      parsedResults,
-      parsedTasks,
-    };
+  for (const serviceRequest of serviceRequests) {
+    try {
+      const parsedResults = parseResults(serviceRequest, results);
+      const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
 
-    return parseOrderData({
-      searchBy,
-      tasks,
-      serviceRequest,
-      results,
-      appointments,
-      encounters,
-      locations,
-      practitioners,
-      provenances,
-      organizations,
-      questionnaires,
-      labPDFs,
-      specimens,
-      cache,
-    });
-  });
+      // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
+      const cache: Cache = {
+        parsedResults,
+        parsedTasks,
+      };
+
+      result.push(
+        parseOrderData({
+          searchBy,
+          tasks,
+          serviceRequest,
+          results,
+          appointments,
+          encounters,
+          locations,
+          practitioners,
+          provenances,
+          organizations,
+          questionnaires,
+          labPDFs,
+          specimens,
+          cache,
+        })
+      );
+    } catch (error) {
+      console.error(`Error parsing service request ${serviceRequest.id}:`, error);
+      void sendErrors('get-lab-orders', error, secrets, captureSentryException);
+    }
+  }
+  return result;
 };
 
 export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
