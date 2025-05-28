@@ -186,12 +186,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             });
           }
           if (status === TelemedAppointmentStatusEnum.ready) {
+            console.log('status is ready');
             // check the tag presence that indicates that communications for "Patient is waiting" notification already exist
             const isProcessed = appointment.meta?.tag?.find(
               (tag) =>
                 tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM &&
                 tag.code === AppointmentProviderNotificationTags.patient_waiting
             );
+            console.log('!isProcessed && location?.address?.state?', Boolean(!isProcessed && location?.address?.state));
             if (!isProcessed && location?.address?.state) {
               // add tag into appointment and add to batch request
               updateAppointmentRequests.push(
@@ -206,13 +208,19 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                   ],
                 })
               );
+              console.log('updateAppointmentRequests.length', updateAppointmentRequests.length);
               const providersToSendNotificationTo = statePractitionerMap[location.address?.state];
+              console.log('providersToSendNotificationTo.length', providersToSendNotificationTo.length);
               if (providersToSendNotificationTo) {
                 for (const provider of providersToSendNotificationTo) {
                   const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
 
                   // - if practitioner has notifications disabled - we don't create notification at all
 
+                  console.log(
+                    `provider ${provider.id}: notificationSettings?.enabled?`,
+                    Boolean(notificationSettings?.enabled)
+                  );
                   if (notificationSettings?.enabled) {
                     const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, provider);
                     const request: BatchInputPostRequest<Communication> = {
@@ -240,14 +248,26 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                       },
                     };
                     createCommunicationRequests.push(request);
+                    console.log(
+                      `provider ${provider.id}: createCommunicationRequests.length`,
+                      createCommunicationRequests.length
+                    );
 
                     addNewSMSCommunicationForPractitioner(provider, request.resource as Communication, status);
+                    console.log(
+                      `provider ${provider.id}: request.resource.id ${request.resource.id} sendSMSPractitionerCommunications[provider.id!].communications.length`,
+                      JSON.stringify(sendSMSPractitionerCommunications[provider.id!].communications.length)
+                    );
                   }
                 }
               }
             }
             // todo: go through communications and make sure everything was sent
           } else if (status === TelemedAppointmentStatusEnum.unsigned && practitioner) {
+            console.log('status is unsigned');
+
+            // todo new logs end here
+
             // check that the appointment is more than >12 hours in the "unsigned" status
             // and that corresponding notifications were sent to providers
 
