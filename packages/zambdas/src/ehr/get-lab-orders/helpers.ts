@@ -755,10 +755,6 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
           name: 'based-on',
           value: resultsIds.join(','),
         },
-        // {
-        //   name: 'status:not',
-        //   value: 'cancelled',
-        // },
       ],
     })
   ).unbundle();
@@ -792,6 +788,8 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
 
   tasksResponse.forEach((task) => {
     // easy case, we take all non-cancelled. identical to previous behavior
+    // Note: this will only show the latest correction for a given result (so if there were multiple corrections sent,
+    // you'd only see the latest one until it was reviewed)
     if (task.status !== 'cancelled') {
       tasksToReturn.push(task);
       return;

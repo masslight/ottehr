@@ -69,8 +69,6 @@ export async function createLabResultPDF(
     observations,
   } = await getLabOrderResources(oystehr, labType, serviceRequestID);
 
-  console.log(`>>> in labs-results-form-pdf, this is the task returned by getLabOrderResources`, JSON.stringify(task));
-
   const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
   if (!appointment.id) {
@@ -151,7 +149,7 @@ export async function createLabResultPDF(
   );
 
   const latestReviewTask = reviewTasksFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
-  console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, JSON.stringify(latestReviewTask));
+
   let provenanceReviewTask = undefined;
 
   if (latestReviewTask) {
