@@ -346,29 +346,42 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log(`Too long unsigned appointments: ${JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap)}`);
     Object.keys(practitionerUnsignedTooLongAppointmentPackagesMap).forEach((practitionerId) => {
       const unsignedPractitionerAppointments = practitionerUnsignedTooLongAppointmentPackagesMap[practitionerId];
+      console.log('unsignedPractitionerAppointments', JSON.stringify(unsignedPractitionerAppointments));
+
+      const unsignedChartsMessage = (length: number): string =>
+        `You have ${length} unsigned charts on ET. Please complete and sign ASAP. Thanks!`;
+
       let hasUnprocessed = false;
       let practitionerResource: Practitioner | undefined = undefined;
       let encounterResource: Encounter | undefined = undefined;
       for (const appt of unsignedPractitionerAppointments) {
+        console.log('appt', JSON.stringify(appt));
         const { pack, isProcessed } = appt;
         const { practitioner, encounter } = pack;
+        console.log('!practitionerResource && practitioner?', Boolean(!practitionerResource && practitioner));
         if (!practitionerResource && practitioner) {
           practitionerResource = practitioner;
         }
+        console.log('!encounterResource && encounter?', Boolean(!encounterResource && encounter));
         if (!encounterResource && encounter) {
           encounterResource = encounter;
         }
+        console.log('isProcessed', isProcessed);
         if (!isProcessed) {
           hasUnprocessed = true;
         }
+        console.log('hasUnprocessed', hasUnprocessed);
       }
 
+      console.log('hasUnprocessed && practitionerResource?', Boolean(hasUnprocessed && practitionerResource));
       if (hasUnprocessed && checkPractitionerResourceDefined(practitionerResource)) {
         // create notification for practitioner that was assigned to this visit
         const notificationSettings = getProviderNotificationSettingsForPractitioner(practitionerResource);
         // rules of status described above
+        console.log('notificationSettings.enabled', notificationSettings?.enabled);
         if (notificationSettings?.enabled) {
           const status = getCommunicationStatus(notificationSettings, busyPractitionerIds, practitionerResource);
+          console.log('status', status);
           const request: BatchInputPostRequest<Communication> = {
             method: 'POST',
             url: '/Communication',
@@ -396,14 +409,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               recipient: [{ reference: `Practitioner/${practitionerResource.id}` }],
               payload: [
                 {
-                  contentString: `You have ${unsignedPractitionerAppointments.length} unsigned charts on ET. Please complete and sign ASAP. Thanks!`,
+                  contentString: unsignedChartsMessage(unsignedPractitionerAppointments.length),
                 },
               ],
             },
           };
 
           createCommunicationRequests.push(request);
+          console.log('createCommunicationRequests', createCommunicationRequests);
 
+          console.log('status', status);
+          console.log('notificationSettings.method', notificationSettings.method);
+          console.log(
+            "status === 'completed' || (status === 'in-progress' && notificationSettings.method === ProviderNotificationMethod['phone and computer'])?",
+            status === 'completed' ||
+              (status === 'in-progress' &&
+                notificationSettings.method === ProviderNotificationMethod['phone and computer'])
+          );
           if (
             status === 'completed' ||
             (status === 'in-progress' &&
@@ -417,8 +439,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 comm.category?.[0].coding?.[0].system === PROVIDER_NOTIFICATION_TYPE_SYSTEM &&
                 comm.category?.[0].coding?.[0].code === AppointmentProviderNotificationTypes.unsigned_charts
             );
+            console.log('existingUnsignedNotificationPending', JSON.stringify(existingUnsignedNotificationPending));
             if (existingUnsignedNotificationPending?.payload?.[0]) {
-              existingUnsignedNotificationPending.payload[0].contentString = `You have ${unsignedPractitionerAppointments.length} unsigned charts on ET. Please complete and sign ASAP. Thanks!`;
+              existingUnsignedNotificationPending.payload[0].contentString = unsignedChartsMessage(
+                unsignedPractitionerAppointments.length
+              );
             } else {
               addOrUpdateSMSPractitionerCommunications(request.resource as Communication, practitionerResource);
             }
@@ -429,35 +454,34 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     // here we need to send SMS to practitioners that are not busy and has some unprocessed communications
     const sendSMSRequests: Promise<unknown>[] = [];
-    if (Object.keys(sendSMSPractitionerCommunications).length > 0) {
-      Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
-        try {
-          const { practitioner, communications } = sendSMSPractitionerCommunications[id];
-          const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
-          if (
-            (practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
-              notificationSettings?.method === ProviderNotificationMethod.phone) ||
-            notificationSettings?.method === ProviderNotificationMethod['phone and computer']
-          ) {
-            communications.forEach((comm) => {
-              if (comm.payload?.[0].contentString) {
-                sendSMSRequests.push(
-                  oystehr.transactionalSMS.send({
-                    resource: `Practitioner/${practitioner.id!}`,
-                    message: comm.payload?.[0].contentString,
-                  })
-                );
-              }
-            });
-          }
-        } catch (error) {
-          console.error(
-            `Error trying to send SMS notifications for practitioner ${sendSMSPractitionerCommunications[id].practitioner.id}`,
-            error
-          );
+    console.log('sendSMSPractitionerCommunications.length', sendSMSPractitionerCommunications.length);
+    Object.keys(sendSMSPractitionerCommunications).forEach((id) => {
+      try {
+        const { practitioner, communications } = sendSMSPractitionerCommunications[id];
+        const notificationSettings = getProviderNotificationSettingsForPractitioner(practitioner);
+        if (
+          (practitioner.telecom?.find((tel) => tel.system === 'sms' && Boolean(tel.value)) &&
+            notificationSettings?.method === ProviderNotificationMethod.phone) ||
+          notificationSettings?.method === ProviderNotificationMethod['phone and computer']
+        ) {
+          communications.forEach((comm) => {
+            if (comm.payload?.[0].contentString) {
+              sendSMSRequests.push(
+                oystehr.transactionalSMS.send({
+                  resource: `Practitioner/${practitioner.id!}`,
+                  message: comm.payload?.[0].contentString,
+                })
+              );
+            }
+          });
         }
-      });
-    }
+      } catch (error) {
+        console.error(
+          `Error trying to send SMS notifications for practitioner ${sendSMSPractitionerCommunications[id].practitioner.id}`,
+          error
+        );
+      }
+    });
 
     console.log(`Update appointment requests: ${JSON.stringify(updateAppointmentRequests)}`);
     console.log(`Create communications requests: ${JSON.stringify(createCommunicationRequests)}`);
