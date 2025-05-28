@@ -19,15 +19,14 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaInHouseO
     throw new Error('Invalid JSON in request body');
   }
 
-  const {
-    searchBy,
-    visitDate: _visitDate,
-    itemsPerPage = DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
-    pageIndex = 0,
-  } = params;
+  const { searchBy, visitDate, itemsPerPage = DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
 
   if (!searchBy?.field || !searchBy?.value) {
     throw new Error(`Missing searchBy field or value: ${JSON.stringify(searchBy)}`);
+  }
+
+  if (visitDate && typeof visitDate !== 'string') {
+    throw new Error('Invalid visitDate. Must be a string');
   }
 
   const validFields = ['encounterId', 'patientId', 'serviceRequestId'];

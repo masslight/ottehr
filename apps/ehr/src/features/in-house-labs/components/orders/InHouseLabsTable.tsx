@@ -86,8 +86,9 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
 
   const { oystehrZambda } = useApiClients();
 
+  // set data for filters
   useEffect(() => {
-    if (!oystehrZambda) {
+    if (!oystehrZambda || !showFilters) {
       return;
     }
 
@@ -105,7 +106,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     };
 
     void fetchTests();
-  }, [oystehrZambda]);
+  }, [oystehrZambda, showFilters]);
 
   const submitFilterByDate = (): void => {
     setVisitDateFilter(tempDateFilter);

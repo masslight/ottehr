@@ -1,6 +1,6 @@
 import { useCallback, useState, useEffect, useMemo, ReactNode, useRef } from 'react';
 import { DateTime } from 'luxon';
-import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE } from 'utils';
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, tryFormatDateToISO } from 'utils';
 import { useDeleteCommonLabOrderDialog } from 'src/features/common/useDeleteCommonLabOrderDialog';
 import {
   GetInHouseOrdersParameters,
@@ -37,18 +37,6 @@ interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchBy> {
   DeleteOrderDialog: ReactNode | null;
 }
 
-const formatVisitDate = (date: DateTime | null): string | undefined => {
-  if (!date || !date.isValid) {
-    return undefined;
-  }
-  try {
-    return date.toISODate() || undefined;
-  } catch (dateError) {
-    console.error('Error formatting date:', dateError);
-    return undefined;
-  }
-};
-
 export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
   _searchBy: SearchBy
 ): UseInHouseLabOrdersResult<SearchBy> => {
@@ -73,7 +61,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
       itemsPerPage: DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
       ...memoizedSearchBy,
       ...(testTypeFilter && { orderableItemCode: testTypeFilter }),
-      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: formatVisitDate(visitDateFilter) }),
+      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: tryFormatDateToISO(visitDateFilter) }),
     };
 
     return params;

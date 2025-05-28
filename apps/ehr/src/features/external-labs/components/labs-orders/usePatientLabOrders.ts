@@ -8,6 +8,7 @@ import {
   LabOrdersSearchBy,
   TaskReviewedParameters,
   SpecimenDateChangedParameters,
+  tryFormatDateToISO,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
@@ -41,18 +42,6 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
 }
 
-const formatVisitDate = (date: DateTime | null): string | undefined => {
-  if (!date || !date.isValid) {
-    return undefined;
-  }
-  try {
-    return date.toISODate() || undefined;
-  } catch (dateError) {
-    console.error('Error formatting date:', dateError);
-  }
-  return;
-};
-
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   // don't use this directly, use memoized searchBy instead,
   // if parent component is re-rendered, _searchBy will be a new object and will trigger unnecessary effects
@@ -77,7 +66,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
       ...searchBy,
       ...(orderableItemCodeFilter && { orderableItemCode: orderableItemCodeFilter }),
-      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: formatVisitDate(visitDateFilter) }),
+      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: tryFormatDateToISO(visitDateFilter) }),
     };
 
     return params;
