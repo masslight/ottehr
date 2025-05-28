@@ -1,4 +1,4 @@
-import { Typography, TableCell, TableRow } from '@mui/material';
+import { Typography, TableCell, TableRow, SxProps, Theme } from '@mui/material';
 import { TestItemComponent, OBSERVATION_CODES, quantityRangeFormat } from 'utils';
 import { ResultEntrySelect } from './ResultEntrySelect';
 import { ResultEntryNumericInput } from './ResultsEntryNumericInput';
@@ -6,12 +6,13 @@ import { useState, useEffect } from 'react';
 
 interface ResultEntryTableRowProps {
   component: TestItemComponent;
-  disabled?: boolean;
+  isLastRow: boolean;
+  disabled?: boolean; // equates to the final view
 }
 
 const ROW_STYLING = { paddingLeft: 0 };
 
-export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component, disabled }) => {
+export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component, disabled, isLastRow }) => {
   const [isAbnormal, setIsAbnormal] = useState<boolean>(false);
 
   useEffect(() => {
@@ -30,7 +31,6 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     units = component.unit;
     referenceRange = quantityRangeFormat(component);
   }
-
   if (component.dataType === 'CodeableConcept') {
     units = component.unit ?? '';
     referenceRange =
@@ -40,7 +40,6 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
         })
         .join(', ') ?? '';
   }
-
   if (component.displayType === 'Numeric') {
     valueElement = (
       <ResultEntryNumericInput
@@ -62,18 +61,22 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     );
   }
 
+  const rowStyling: SxProps<Theme> = isLastRow
+    ? { ...ROW_STYLING, borderBottom: 'none', paddingBottom: 0 }
+    : ROW_STYLING;
+
   return (
     <TableRow key={`row-${component.observationDefinitionId}`}>
-      <TableCell sx={ROW_STYLING}>
+      <TableCell sx={rowStyling}>
         <Typography variant="body1" sx={{ color: `${isAbnormal ? 'error.dark' : ''}` }}>
           {component.componentName}
         </Typography>
       </TableCell>
-      <TableCell sx={ROW_STYLING}>{valueElement}</TableCell>
-      <TableCell sx={ROW_STYLING}>
+      <TableCell sx={rowStyling}>{valueElement}</TableCell>
+      <TableCell sx={rowStyling}>
         <Typography variant="body1">{units}</Typography>
       </TableCell>
-      <TableCell sx={ROW_STYLING}>
+      <TableCell sx={rowStyling}>
         <Typography variant="body1">{referenceRange}</Typography>
       </TableCell>
     </TableRow>

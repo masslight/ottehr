@@ -610,8 +610,8 @@ const testItems: TestItemsType = {
     loincCode: ['78012-2'],
     repeatTest: true,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -629,8 +629,8 @@ const testItems: TestItemsType = {
     loincCode: ['80382-5'],
     repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -648,8 +648,8 @@ const testItems: TestItemsType = {
     loincCode: ['80381-7'],
     repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -667,8 +667,8 @@ const testItems: TestItemsType = {
     loincCode: ['72885-7'],
     repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -686,8 +686,8 @@ const testItems: TestItemsType = {
     loincCode: ['94558-4'],
     repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -704,8 +704,8 @@ const testItems: TestItemsType = {
     loincCode: ['80382-5', '94558-4'],
     repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -722,8 +722,8 @@ const testItems: TestItemsType = {
     loincCode: ['50196-5'],
     repeatTest: true,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -740,8 +740,8 @@ const testItems: TestItemsType = {
     loincCode: ['31418-7'],
     repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -785,7 +785,7 @@ const testItems: TestItemsType = {
       Glucose: {
         loincCode: ['2350-7'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
+        valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
         unit: 'mg/dL',
         // currently quantitativeReference is not being mapped into the fhir resource
@@ -804,7 +804,7 @@ const testItems: TestItemsType = {
       Bilirubin: {
         loincCode: ['1977-8'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', '1+', '2+', '3+'],
+        valueSet: ['Not detected', '1+', '2+', '3+'],
         abnormalValues: ['1+', '2+', '3+'],
         quantitativeReference: {
           '1+': 'small',
@@ -818,7 +818,7 @@ const testItems: TestItemsType = {
       Ketone: {
         loincCode: ['49779-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         unit: 'mg/dL',
         quantitativeReference: {
@@ -847,7 +847,7 @@ const testItems: TestItemsType = {
       Blood: {
         loincCode: ['105906-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         display: {
           type: 'Select',
@@ -869,7 +869,7 @@ const testItems: TestItemsType = {
       Protein: {
         loincCode: ['2888-6'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
+        valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
         unit: 'mg/dL',
         quantitativeReference: {
@@ -899,8 +899,8 @@ const testItems: TestItemsType = {
       Nitrite: {
         loincCode: ['32710-6'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Positive', 'Negative'],
-        abnormalValues: ['Positive'],
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
         display: {
           type: 'Select',
         },
@@ -908,7 +908,7 @@ const testItems: TestItemsType = {
       Leukocytes: {
         loincCode: ['105105-1'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         display: {
           type: 'Select',
@@ -927,7 +927,7 @@ const testItems: TestItemsType = {
     loincCode: ['2106-3'],
     repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
+    valueSet: ['Detected', 'Not detected'],
     abnormalValues: [], // empty array, because both results are normal in the context of the test
     display: {
       type: 'Radio',
@@ -945,8 +945,8 @@ const testItems: TestItemsType = {
     loincCode: ['104724-0'],
     repeatTest: true,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -964,8 +964,8 @@ const testItems: TestItemsType = {
     repeatTest: true,
     note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -983,8 +983,8 @@ const testItems: TestItemsType = {
     repeatTest: true,
     note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -1001,8 +1001,8 @@ const testItems: TestItemsType = {
     loincCode: ['33045-6', '31949-1'],
     repeatTest: true,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -1019,8 +1019,8 @@ const testItems: TestItemsType = {
     loincCode: ['96119-3'],
     repeatTest: true,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
