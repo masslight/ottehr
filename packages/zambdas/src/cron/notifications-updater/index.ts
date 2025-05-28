@@ -173,14 +173,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                     ],
                   })
                 );
-                console.log(
-                  `${communication.id} updateCommunicationRequests.length`,
-                  updateCommunicationRequests.length
-                );
+                console.log(`${communication.id} updateCommunicationRequests`, updateCommunicationRequests);
                 addNewSMSCommunicationForPractitioner(practitioner, communication, newStatus);
                 console.log(
-                  `${communication.id} sendSMSPractitionerCommunications[practitioner.id!].communications.length`,
-                  JSON.stringify(sendSMSPractitionerCommunications[practitioner.id!].communications.length)
+                  `${communication.id} sendSMSPractitionerCommunications[practitioner.id!].communications`,
+                  JSON.stringify(sendSMSPractitionerCommunications[practitioner.id!].communications)
                 );
               }
             });
@@ -208,9 +205,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                   ],
                 })
               );
-              console.log('updateAppointmentRequests.length', updateAppointmentRequests.length);
+              console.log('updateAppointmentRequests', updateAppointmentRequests);
               const providersToSendNotificationTo = statePractitionerMap[location.address?.state];
-              console.log('providersToSendNotificationTo.length', providersToSendNotificationTo.length);
+              console.log('providersToSendNotificationTo', providersToSendNotificationTo);
               if (providersToSendNotificationTo) {
                 for (const provider of providersToSendNotificationTo) {
                   const notificationSettings = getProviderNotificationSettingsForPractitioner(provider);
@@ -248,15 +245,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                       },
                     };
                     createCommunicationRequests.push(request);
-                    console.log(
-                      `provider ${provider.id}: createCommunicationRequests.length`,
-                      createCommunicationRequests.length
-                    );
-
+                    console.log(`provider ${provider.id}: createCommunicationRequests`, createCommunicationRequests);
                     addNewSMSCommunicationForPractitioner(provider, request.resource as Communication, status);
                     console.log(
-                      `provider ${provider.id}: request.resource.id ${request.resource.id} sendSMSPractitionerCommunications[provider.id!].communications.length`,
-                      JSON.stringify(sendSMSPractitionerCommunications[provider.id!].communications.length)
+                      `provider ${provider.id}: request.resource.id ${request.resource.id} sendSMSPractitionerCommunications[provider.id!].communications`,
+                      JSON.stringify(sendSMSPractitionerCommunications[provider.id!].communications)
                     );
                   }
                 }
@@ -265,8 +258,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             // todo: go through communications and make sure everything was sent
           } else if (status === TelemedAppointmentStatusEnum.unsigned && practitioner) {
             console.log('status is unsigned');
-
-            // todo new logs end here
 
             // check that the appointment is more than >12 hours in the "unsigned" status
             // and that corresponding notifications were sent to providers
@@ -280,27 +271,39 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               },
               null
             );
+            console.log('lastUnsignedStatus', JSON.stringify(lastUnsignedStatus));
 
             const utcNow = DateTime.utc();
             let isProcessed = true;
             let tagToLookFor: AppointmentProviderNotificationTags | undefined = undefined;
             // here we check that the appointment is in the unsigned status for > 12, 24 or 48 hours
+            console.log(
+              'lastUnsignedStatus && !lastUnsignedStatus.period.end?',
+              Boolean(lastUnsignedStatus && !lastUnsignedStatus.period.end)
+            );
             if (lastUnsignedStatus && !lastUnsignedStatus.period.end) {
               const unsignedPeriodStart = DateTime.fromISO(lastUnsignedStatus.period.start || utcNow.toISO()!);
-              if (unsignedPeriodStart < DateTime.utc().minus({ hour: 48 })) {
+              console.log('unsignedPeriodStart.toISO()', unsignedPeriodStart.toISO());
+              if (unsignedPeriodStart < utcNow.minus({ hour: 48 })) {
                 tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_3;
-              } else if (unsignedPeriodStart < DateTime.utc().minus({ hour: 24 })) {
+              } else if (unsignedPeriodStart < utcNow.minus({ hour: 24 })) {
                 tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_2;
-              } else if (unsignedPeriodStart < DateTime.utc().minus({ hour: 12 })) {
+              } else if (unsignedPeriodStart < utcNow.minus({ hour: 12 })) {
                 tagToLookFor = AppointmentProviderNotificationTags.unsigned_more_than_x_hours_1;
               }
             }
+            console.log('tagToLookFor', tagToLookFor);
 
             if (tagToLookFor) {
               isProcessed = Boolean(
                 appointment.meta?.tag?.find(
                   (tag) => tag.system === PROVIDER_NOTIFICATION_TAG_SYSTEM && tag.code === tagToLookFor
                 )
+              );
+              console.log('isProcessed', isProcessed);
+              console.log(
+                'before practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!]',
+                JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!])
               );
               if (!practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!]) {
                 practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!] = [];
@@ -309,8 +312,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 pack: readyOrUnsignedVisitPackages[appointmentId],
                 isProcessed: Boolean(isProcessed),
               });
+              console.log(
+                'after practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!]',
+                JSON.stringify(practitionerUnsignedTooLongAppointmentPackagesMap[practitioner.id!])
+              );
 
               if (!isProcessed) {
+                console.log('!isProcessed');
                 // add tag into appointment that the >x hours unsigned status notification was processed
                 // and add to batch request
                 updateAppointmentRequests.push(
@@ -325,6 +333,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                     ],
                   })
                 );
+                console.log('updateAppointmentRequests', updateAppointmentRequests);
               }
             }
           }
