@@ -210,7 +210,6 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                     onChange={(_e, data) => {
                       onChange(data);
                     }}
-                    filterOptions={(x) => x}
                     renderInput={(params) => (
                       <TextField
                         {...params}

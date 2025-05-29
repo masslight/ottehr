@@ -142,7 +142,7 @@ export const DiagnosesContainer: FC = () => {
   };
 
   const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+    window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
   };
   const addedViaLabOrderInfo = (
     <GenericToolTip title="Added during lab order" placement="right">

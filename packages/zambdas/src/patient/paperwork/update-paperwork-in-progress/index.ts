@@ -4,7 +4,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {} from 'utils';
-import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,

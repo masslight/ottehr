@@ -5,11 +5,11 @@ import {
   FhirResource,
   HealthcareService,
   Location,
+  LocationHoursOfOperation,
   Practitioner,
   Resource,
   Schedule,
   Slot,
-  LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
@@ -1658,7 +1658,7 @@ export const applyOverridesToDailySchedule = (
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }).toLowerCase() as DOW;
+    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
     const dailyScheduleDay = dailySchedule[dayOfWeek];
     const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);

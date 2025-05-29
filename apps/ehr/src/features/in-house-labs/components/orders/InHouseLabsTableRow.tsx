@@ -2,10 +2,9 @@ import { ReactElement } from 'react';
 import { TableCell, TableRow, Box, Typography, Tooltip, useTheme, Button } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
-import { DateTime } from 'luxon';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
-import { InHouseOrderListPageDTO } from 'utils/lib/types/data/in-house';
 import { otherColors } from '@theme/colors';
+import { InHouseOrderListPageDTO, formatDateForLabs } from 'utils';
 
 interface InHouseLabsTableRowProps {
   columns: InHouseLabsTableColumn[];
@@ -24,11 +23,6 @@ export const InHouseLabsTableRow = ({
 }: InHouseLabsTableRowProps): ReactElement => {
   const theme = useTheme();
 
-  const formatDate = (datetime: string): string => {
-    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(labOrderData.timezone).toFormat('MM/dd/yyyy hh:mm a');
-  };
-
   const renderCellContent = (column: InHouseLabsTableColumn): React.ReactNode => {
     switch (column) {
       case 'testType':
@@ -38,9 +32,9 @@ export const InHouseLabsTableRow = ({
           </Box>
         );
       case 'visit':
-        return <Box>{formatDate(labOrderData.visitDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.visitDate, labOrderData.timezone)}</Box>;
       case 'orderAdded':
-        return <Box>{formatDate(labOrderData.orderAddedDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.timezone)}</Box>;
       case 'provider':
         return labOrderData.orderingPhysicianFullName || '';
       case 'dx': {
@@ -62,7 +56,7 @@ export const InHouseLabsTableRow = ({
         return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <Box>{formatDate(labOrderData.resultReceivedDate || '-')}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.resultReceivedDate || '-', labOrderData.timezone)}</Box>;
       case 'status':
         return <InHouseLabsStatusChip status={labOrderData.status} />;
       case 'actions':

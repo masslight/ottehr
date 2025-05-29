@@ -150,7 +150,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               },
               {
                 name: 'code',
-                value: `${cptCode},${testItem.name}`,
+                value: cptCode,
+              },
+              {
+                name: 'code',
+                value: testItem.name,
               },
             ],
           })

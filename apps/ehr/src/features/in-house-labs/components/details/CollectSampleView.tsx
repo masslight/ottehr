@@ -24,8 +24,7 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
-import { InHouseOrderDetailPageDTO, MarkAsCollectedData } from 'utils/lib/types/data/in-house/in-house.types';
-import { getFormattedDiagnoses } from 'utils/lib/types/data/in-house/in-house.helpers';
+import { getFormattedDiagnoses, InHouseOrderDetailPageDTO, MarkAsCollectedData } from 'utils';
 
 interface CollectSampleViewProps {
   testDetails: InHouseOrderDetailPageDTO;
