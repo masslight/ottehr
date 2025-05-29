@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
-import { vi, assert } from 'vitest';
+import { assert, inject } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
-import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
 import { randomUUID } from 'crypto';
 import {
@@ -177,7 +176,6 @@ describe('prebook integration - from getting list of slots to booking with selec
   let token = null;
   let processId: string | null = null;
   let existingTestPatient: Patient;
-  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
   const setUpInPersonResources = async (postTelemed: boolean): Promise<SetUpOutput> => {
     expect(oystehr).toBeDefined();
@@ -628,6 +626,8 @@ describe('prebook integration - from getting list of slots to booking with selec
   beforeAll(async () => {
     processId = randomUUID();
     const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, PROJECT_ID } = SECRETS;
+    const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
+    expect(EXECUTE_ZAMBDA_URL).toBeDefined();
     token = await getAuth0Token({
       AUTH0_ENDPOINT: AUTH0_ENDPOINT,
       AUTH0_CLIENT: AUTH0_CLIENT,
@@ -640,7 +640,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     oystehr = new Oystehr({
       accessToken: token,
       fhirApiUrl: FHIR_API,
-      projectApiUrl: 'http://localhost:3000/local', // todo: env variable
+      projectApiUrl: EXECUTE_ZAMBDA_URL,
       projectId: PROJECT_ID,
     });
     existingTestPatient = await persistTestPatient({ patient: makeTestPatient(), processId }, oystehr);
@@ -652,326 +652,344 @@ describe('prebook integration - from getting list of slots to booking with selec
     await cleanupTestScheduleResources(processId, oystehr);
   });
 
-  it('successfully creates an in person appointment for a returning patient after selecting an available slot', async () => {
-    const {
-      timezone,
-      initialSlotId,
-      initialSlot: createdSlotResponse,
-      schedule,
-      locationSlug: slug,
-    } = await setUpInPersonResources(false);
+  test.concurrent(
+    'successfully creates an in person appointment for a returning patient after selecting an available slot',
+    async () => {
+      const {
+        timezone,
+        initialSlotId,
+        initialSlot: createdSlotResponse,
+        schedule,
+        locationSlug: slug,
+      } = await setUpInPersonResources(false);
 
-    const patientInfo: PatientInfo = {
-      id: existingTestPatient.id,
-      firstName: existingTestPatient.name![0]!.given![0],
-      lastName: existingTestPatient!.name![0]!.family,
-      email: 'okovalenko+coolPatient@masslight.com',
-      sex: 'female',
-      dateOfBirth: existingTestPatient.birthDate,
-      newPatient: false,
-    };
+      const patientInfo: PatientInfo = {
+        id: existingTestPatient.id,
+        firstName: existingTestPatient.name![0]!.given![0],
+        lastName: existingTestPatient!.name![0]!.family,
+        email: 'okovalenko+coolPatient@masslight.com',
+        sex: 'female',
+        dateOfBirth: existingTestPatient.birthDate,
+        newPatient: false,
+      };
 
-    const { appointmentId } = await createAppointmentAndValidate({
-      timezone,
-      patientInfo,
-      patient: existingTestPatient,
-      slot: createdSlotResponse,
-      isPostTelemed: false,
-      isVirtual: false,
-    });
-
-    const { newSlotId } = await rescheduleAndValidate({
-      appointmentId,
-      oldSlotId: initialSlotId,
-      slug,
-      serviceMode: ServiceMode['in-person'],
-      schedule,
-    });
-
-    await cancelAndValidate({
-      appointmentId,
-      oldSlotId: newSlotId,
-    });
-  });
-
-  it('successfully creates a virtual appointment for a returning patient after selecting an available slot', async () => {
-    const {
-      timezone,
-      initialSlotId,
-      initialSlot: createdSlotResponse,
-      schedule,
-      locationSlug: slug,
-    } = await setUpVirtualResources();
-
-    const patientInfo: PatientInfo = {
-      id: existingTestPatient.id,
-      firstName: existingTestPatient.name![0]!.given![0],
-      lastName: existingTestPatient!.name![0]!.family,
-      sex: 'female',
-      email: 'okovalenko+coolPatient@masslight.com',
-      dateOfBirth: existingTestPatient.birthDate,
-      newPatient: false,
-    };
-    const { appointmentId } = await createAppointmentAndValidate({
-      timezone,
-      patientInfo,
-      patient: existingTestPatient,
-      slot: createdSlotResponse,
-      isPostTelemed: false,
-      isVirtual: true,
-    });
-
-    const { newSlotId } = await rescheduleAndValidate({
-      appointmentId,
-      oldSlotId: initialSlotId,
-      slug,
-      serviceMode: ServiceMode.virtual,
-      schedule,
-    });
-    await cancelAndValidate({
-      appointmentId,
-      oldSlotId: newSlotId,
-    });
-  });
-
-  it('successfully creates a post-telemed appointment for a returning patient after selecting an available slot', async () => {
-    const {
-      timezone,
-      initialSlot: createdSlotResponse,
-      schedule,
-      locationSlug: slug,
-      initialTelemedAvailableSlots: available,
-    } = await setUpInPersonResources(true);
-
-    const patientInfo: PatientInfo = {
-      id: existingTestPatient.id,
-      firstName: existingTestPatient.name![0]!.given![0],
-      lastName: existingTestPatient!.name![0]!.family,
-      email: 'okovalenko+coolPatient@masslight.com',
-      sex: 'female',
-      dateOfBirth: existingTestPatient.birthDate,
-      newPatient: false,
-    };
-
-    const { appointment } = await createAppointmentAndValidate({
-      timezone,
-      patientInfo,
-      patient: existingTestPatient,
-      slot: createdSlotResponse,
-      isPostTelemed: true,
-      isVirtual: false,
-    });
-
-    // post-telemed appointments can't be rescheduled
-    let getScheduleResponse: GetScheduleResponse | undefined;
-    try {
-      getScheduleResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'get-schedule',
-          slug,
-          scheduleType: 'location',
-        })
-      ).output as GetScheduleResponse;
-    } catch (e) {
-      console.error('Error executing get-schedule zambda', e);
-    }
-    expect(getScheduleResponse).toBeDefined();
-    assert(getScheduleResponse);
-
-    const { telemedAvailable: newAvailable } = getScheduleResponse;
-
-    const index = Math.ceil(Math.random() * (available.length - 1)) - 1;
-    const rescheduleSlot = newAvailable[index];
-    expect(rescheduleSlot).toBeDefined();
-    assert(rescheduleSlot);
-
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      walkin: false,
-      postTelemedLabOnly: true,
-      status: 'busy-tentative',
-    });
-
-    const validatedRescheduledSlot = await createSlotAndValidate(
-      { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-      oystehr
-    );
-    const rescheduleSlotResponse = validatedRescheduledSlot.slot;
-    assert(rescheduleSlotResponse.id);
-    expect(getSlotIsPostTelemed(createdSlotResponse)).toEqual(true);
-
-    let rescheduleAppointmentResponse: any | undefined;
-    try {
-      rescheduleAppointmentResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'update-appointment',
-          appointmentID: appointment.id,
-          slot: rescheduleSlotResponse,
-        })
-      ).output;
-    } catch (e) {
-      console.error('Error executing update-appointment zambda', e);
-      const apiError = e as APIError;
-      expect(apiError.message).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR.message);
-      expect(apiError.code).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR.code);
-    }
-    expect(rescheduleAppointmentResponse).toBeUndefined();
-
-    // post-telemed appointments can't be canceled either
-    try {
-      await oystehr.zambda.executePublic({
-        id: 'cancel-appointment',
-        appointmentID: appointment.id,
-        cancellationReason: 'Patient improved',
+      const { appointmentId } = await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: existingTestPatient,
+        slot: createdSlotResponse,
+        isPostTelemed: false,
+        isVirtual: false,
       });
-    } catch (e) {
-      console.error('Error executing cancel-appointment zambda', e);
-      const apiError = e as APIError;
-      expect(apiError.message).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR.message);
-      expect(apiError.code).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR.code);
+
+      const { newSlotId } = await rescheduleAndValidate({
+        appointmentId,
+        oldSlotId: initialSlotId,
+        slug,
+        serviceMode: ServiceMode['in-person'],
+        schedule,
+      });
+
+      await cancelAndValidate({
+        appointmentId,
+        oldSlotId: newSlotId,
+      });
     }
+  );
 
-    const canceledAppointment = await oystehr.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointment.id!,
-    });
-    expect(canceledAppointment).toBeDefined();
-    assert(canceledAppointment);
-    expect(canceledAppointment.status).toEqual('booked'); // should still be booked since we can't cancel it
-  });
+  test.concurrent(
+    'successfully creates a virtual appointment for a returning patient after selecting an available slot',
+    async () => {
+      const {
+        timezone,
+        initialSlotId,
+        initialSlot: createdSlotResponse,
+        schedule,
+        locationSlug: slug,
+      } = await setUpVirtualResources();
 
-  it('successfully creates an in person appointment for a new patient after selecting an available slot', async () => {
-    assert(processId);
-    const {
-      timezone,
-      initialSlotId,
-      initialSlot: createdSlotResponse,
-      schedule,
-      locationSlug: slug,
-    } = await setUpInPersonResources(false);
+      const patientInfo: PatientInfo = {
+        id: existingTestPatient.id,
+        firstName: existingTestPatient.name![0]!.given![0],
+        lastName: existingTestPatient!.name![0]!.family,
+        sex: 'female',
+        email: 'okovalenko+coolPatient@masslight.com',
+        dateOfBirth: existingTestPatient.birthDate,
+        newPatient: false,
+      };
+      const { appointmentId } = await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: existingTestPatient,
+        slot: createdSlotResponse,
+        isPostTelemed: false,
+        isVirtual: true,
+      });
 
-    const newPatient = makeTestPatient();
-    const patientInfo: PatientInfo = {
-      firstName: newPatient.name![0]!.given![0],
-      lastName: newPatient.name![0]!.family,
-      sex: 'female',
-      dateOfBirth: newPatient.birthDate,
-      newPatient: true,
-      phoneNumber: '+12027139680',
-      email: 'okovalenko+coolNewPatient@masslight.com',
-      tags: [
-        {
-          system: 'OTTEHR_AUTOMATED_TEST',
-          code: tagForProcessId(processId),
-          display: 'a test resource that should be cleaned up',
-        },
-      ],
-    };
+      const { newSlotId } = await rescheduleAndValidate({
+        appointmentId,
+        oldSlotId: initialSlotId,
+        slug,
+        serviceMode: ServiceMode.virtual,
+        schedule,
+      });
+      await cancelAndValidate({
+        appointmentId,
+        oldSlotId: newSlotId,
+      });
+    }
+  );
 
-    const { appointmentId } = await createAppointmentAndValidate({
-      timezone,
-      patientInfo,
-      patient: undefined,
-      slot: createdSlotResponse,
-      isPostTelemed: false,
-      isVirtual: false,
-    });
+  test.concurrent(
+    'successfully creates a post-telemed appointment for a returning patient after selecting an available slot',
+    async () => {
+      const {
+        timezone,
+        initialSlot: createdSlotResponse,
+        schedule,
+        locationSlug: slug,
+        initialTelemedAvailableSlots: available,
+      } = await setUpInPersonResources(true);
 
-    const { newSlotId } = await rescheduleAndValidate({
-      oldSlotId: initialSlotId,
-      appointmentId: appointmentId,
-      slug,
-      serviceMode: ServiceMode['in-person'],
-      schedule,
-    });
+      const patientInfo: PatientInfo = {
+        id: existingTestPatient.id,
+        firstName: existingTestPatient.name![0]!.given![0],
+        lastName: existingTestPatient!.name![0]!.family,
+        email: 'okovalenko+coolPatient@masslight.com',
+        sex: 'female',
+        dateOfBirth: existingTestPatient.birthDate,
+        newPatient: false,
+      };
 
-    await cancelAndValidate({
-      appointmentId,
-      oldSlotId: newSlotId,
-    });
-  });
+      const { appointment } = await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: existingTestPatient,
+        slot: createdSlotResponse,
+        isPostTelemed: true,
+        isVirtual: false,
+      });
 
-  it('successfully creates a virtual appointment for a new patient after selecting an available slot', async () => {
-    assert(processId);
-    const {
-      timezone,
-      initialSlotId,
-      initialSlot: createdSlotResponse,
-      schedule,
-      locationSlug: slug,
-    } = await setUpVirtualResources();
+      // post-telemed appointments can't be rescheduled
+      let getScheduleResponse: GetScheduleResponse | undefined;
+      try {
+        getScheduleResponse = (
+          await oystehr.zambda.executePublic({
+            id: 'get-schedule',
+            slug,
+            scheduleType: 'location',
+          })
+        ).output as GetScheduleResponse;
+      } catch (e) {
+        console.error('Error executing get-schedule zambda', e);
+      }
+      expect(getScheduleResponse).toBeDefined();
+      assert(getScheduleResponse);
 
-    const newPatient = makeTestPatient();
-    const patientInfo: PatientInfo = {
-      firstName: newPatient.name![0]!.given![0],
-      lastName: newPatient.name![0]!.family,
-      sex: 'female',
-      dateOfBirth: newPatient.birthDate,
-      newPatient: true,
-      phoneNumber: '+12027139680',
-      email: 'okovalenko+coolNewPatient@masslight.com',
-      tags: [
-        {
-          system: 'OTTEHR_AUTOMATED_TEST',
-          code: tagForProcessId(processId),
-          display: 'a test resource that should be cleaned up',
-        },
-      ],
-    };
+      const { telemedAvailable: newAvailable } = getScheduleResponse;
 
-    const { appointmentId } = await createAppointmentAndValidate({
-      timezone,
-      patientInfo,
-      patient: undefined,
-      slot: createdSlotResponse,
-      isPostTelemed: false,
-      isVirtual: true,
-    });
+      const index = Math.ceil(Math.random() * (available.length - 1)) - 1;
+      const rescheduleSlot = newAvailable[index];
+      expect(rescheduleSlot).toBeDefined();
+      assert(rescheduleSlot);
 
-    const { newSlotId } = await rescheduleAndValidate({
-      oldSlotId: initialSlotId,
-      slug,
-      serviceMode: ServiceMode.virtual,
-      schedule,
-      appointmentId,
-    });
+      const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+        walkin: false,
+        postTelemedLabOnly: true,
+        status: 'busy-tentative',
+      });
 
-    await cancelAndValidate({
-      appointmentId,
-      oldSlotId: newSlotId,
-    });
-  });
+      const validatedRescheduledSlot = await createSlotAndValidate(
+        { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
+        oystehr
+      );
+      const rescheduleSlotResponse = validatedRescheduledSlot.slot;
+      assert(rescheduleSlotResponse.id);
+      expect(getSlotIsPostTelemed(createdSlotResponse)).toEqual(true);
+
+      let rescheduleAppointmentResponse: any | undefined;
+      try {
+        rescheduleAppointmentResponse = (
+          await oystehr.zambda.executePublic({
+            id: 'update-appointment',
+            appointmentID: appointment.id,
+            slot: rescheduleSlotResponse,
+          })
+        ).output;
+      } catch (e) {
+        console.error('Error executing update-appointment zambda', e);
+        const apiError = e as APIError;
+        expect(apiError.message).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR.message);
+        expect(apiError.code).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR.code);
+      }
+      expect(rescheduleAppointmentResponse).toBeUndefined();
+
+      // post-telemed appointments can't be canceled either
+      try {
+        await oystehr.zambda.executePublic({
+          id: 'cancel-appointment',
+          appointmentID: appointment.id,
+          cancellationReason: 'Patient improved',
+        });
+      } catch (e) {
+        console.error('Error executing cancel-appointment zambda', e);
+        const apiError = e as APIError;
+        expect(apiError.message).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR.message);
+        expect(apiError.code).toEqual(POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR.code);
+      }
+
+      const canceledAppointment = await oystehr.fhir.get<Appointment>({
+        resourceType: 'Appointment',
+        id: appointment.id!,
+      });
+      expect(canceledAppointment).toBeDefined();
+      assert(canceledAppointment);
+      expect(canceledAppointment.status).toEqual('booked'); // should still be booked since we can't cancel it
+    }
+  );
+
+  test.concurrent(
+    'successfully creates an in person appointment for a new patient after selecting an available slot',
+    async () => {
+      assert(processId);
+      const {
+        timezone,
+        initialSlotId,
+        initialSlot: createdSlotResponse,
+        schedule,
+        locationSlug: slug,
+      } = await setUpInPersonResources(false);
+
+      const newPatient = makeTestPatient();
+      const patientInfo: PatientInfo = {
+        firstName: newPatient.name![0]!.given![0],
+        lastName: newPatient.name![0]!.family,
+        sex: 'female',
+        dateOfBirth: newPatient.birthDate,
+        newPatient: true,
+        phoneNumber: '+12027139680',
+        email: 'okovalenko+coolNewPatient@masslight.com',
+        tags: [
+          {
+            system: 'OTTEHR_AUTOMATED_TEST',
+            code: tagForProcessId(processId),
+            display: 'a test resource that should be cleaned up',
+          },
+        ],
+      };
+
+      const { appointmentId } = await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: undefined,
+        slot: createdSlotResponse,
+        isPostTelemed: false,
+        isVirtual: false,
+      });
+
+      const { newSlotId } = await rescheduleAndValidate({
+        oldSlotId: initialSlotId,
+        appointmentId: appointmentId,
+        slug,
+        serviceMode: ServiceMode['in-person'],
+        schedule,
+      });
+
+      await cancelAndValidate({
+        appointmentId,
+        oldSlotId: newSlotId,
+      });
+    }
+  );
+
+  test.concurrent(
+    'successfully creates a virtual appointment for a new patient after selecting an available slot',
+    async () => {
+      assert(processId);
+      const {
+        timezone,
+        initialSlotId,
+        initialSlot: createdSlotResponse,
+        schedule,
+        locationSlug: slug,
+      } = await setUpVirtualResources();
+
+      const newPatient = makeTestPatient();
+      const patientInfo: PatientInfo = {
+        firstName: newPatient.name![0]!.given![0],
+        lastName: newPatient.name![0]!.family,
+        sex: 'female',
+        dateOfBirth: newPatient.birthDate,
+        newPatient: true,
+        phoneNumber: '+12027139680',
+        email: 'okovalenko+coolNewPatient@masslight.com',
+        tags: [
+          {
+            system: 'OTTEHR_AUTOMATED_TEST',
+            code: tagForProcessId(processId),
+            display: 'a test resource that should be cleaned up',
+          },
+        ],
+      };
+
+      const { appointmentId } = await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: undefined,
+        slot: createdSlotResponse,
+        isPostTelemed: false,
+        isVirtual: true,
+      });
+
+      const { newSlotId } = await rescheduleAndValidate({
+        oldSlotId: initialSlotId,
+        slug,
+        serviceMode: ServiceMode.virtual,
+        schedule,
+        appointmentId,
+      });
+
+      await cancelAndValidate({
+        appointmentId,
+        oldSlotId: newSlotId,
+      });
+    }
+  );
 
   // irl this use case doesn't make sense, but there is nothing preventing this scenario from being initiated
   // by an EHR user, so might as well test it
-  it('successfully creates a post-telemed appointment for a new patient after selecting an available slot', async () => {
-    assert(processId);
-    const { timezone, initialSlot: createdSlotResponse } = await setUpInPersonResources(true);
+  test.concurrent(
+    'successfully creates a post-telemed appointment for a new patient after selecting an available slot',
+    async () => {
+      assert(processId);
+      const { timezone, initialSlot: createdSlotResponse } = await setUpInPersonResources(true);
 
-    const newPatient = makeTestPatient();
-    const patientInfo: PatientInfo = {
-      firstName: newPatient.name![0]!.given![0],
-      lastName: newPatient.name![0]!.family,
-      sex: 'female',
-      dateOfBirth: newPatient.birthDate,
-      newPatient: true,
-      phoneNumber: '+12027139680',
-      email: 'okovalenko+coolNewPatient@masslight.com',
-      tags: [
-        {
-          system: 'OTTEHR_AUTOMATED_TEST',
-          code: tagForProcessId(processId),
-          display: 'a test resource that should be cleaned up',
-        },
-      ],
-    };
+      const newPatient = makeTestPatient();
+      const patientInfo: PatientInfo = {
+        firstName: newPatient.name![0]!.given![0],
+        lastName: newPatient.name![0]!.family,
+        sex: 'female',
+        dateOfBirth: newPatient.birthDate,
+        newPatient: true,
+        phoneNumber: '+12027139680',
+        email: 'okovalenko+coolNewPatient@masslight.com',
+        tags: [
+          {
+            system: 'OTTEHR_AUTOMATED_TEST',
+            code: tagForProcessId(processId),
+            display: 'a test resource that should be cleaned up',
+          },
+        ],
+      };
 
-    await createAppointmentAndValidate({
-      timezone,
-      patientInfo,
-      patient: undefined,
-      slot: createdSlotResponse,
-      isPostTelemed: true,
-      isVirtual: false,
-    });
-  });
+      await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: undefined,
+        slot: createdSlotResponse,
+        isPostTelemed: true,
+        isVirtual: false,
+      });
+    }
+  );
 });

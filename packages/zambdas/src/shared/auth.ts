@@ -9,11 +9,14 @@ const TEST_USER_ID = 'test-M2M-user-id';
 export async function getUser(token: string, secrets: Secrets | null, testProfile?: string): Promise<User> {
   const oystehr = createOystehrClient(token, secrets);
 
+  const ENV = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+  console.log('ENV', ENV);
+
   let user: User;
   try {
     user = await oystehr.user.me();
   } catch (error: any) {
-    const isTestClient = token && isTestM2MClient(token, secrets);
+    const isTestClient = token && isTestM2MClient(token, secrets) && ENV === 'local';
     console.log('isTestClient', isTestClient);
     if (!isTestClient) {
       throw error;

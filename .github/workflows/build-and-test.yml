@@ -93,8 +93,17 @@ jobs:
       - name: Run linting
         run: npm run lint:eslint
 
+      - name: Init deployed resources
+        run: npm run setup-deployed-resources local
+
       - name: Run unit tests
         run: npm run test
+        env:
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+  
+      - name: Run integration tests
+        run: npm run test:integration:ci
         env:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'

@@ -146,6 +146,7 @@
     "parquetjs": "^0.11.2",
     "prettier": "^3.0.0",
     "simple-zustand-devtools": "^1.1.0",
+    "start-server-and-test": "^2.0.12",
     "tsx": "^4.19.2",
     "turbo": "^1.10.16",
     "typescript": "^4.9.5",
