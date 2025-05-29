@@ -42,12 +42,12 @@ import {
   fetchDocumentReferencesForDiagnosticReports,
   fetchLabOrderPDFs,
   Secrets,
-  compareDates,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
 import { captureSentryException } from '../../shared';
 import { sendErrors } from '../../shared';
+import { DateTime } from 'luxon';
 
 // cache for the service request context: contains parsed tasks and results
 type Cache = {
@@ -1086,6 +1086,19 @@ const deletePrelimResultsIfFinalExists = (prelimMap: Map<string, DiagnosticRepor
       prelimMap.delete(id);
     }
   });
+};
+
+export const compareDates = (a: string | undefined, b: string | undefined): number => {
+  const dateA = DateTime.fromISO(a || '');
+  const dateB = DateTime.fromISO(b || '');
+  const isDateAValid = dateA.isValid;
+  const isDateBValid = dateB.isValid;
+
+  if (isDateAValid && !isDateBValid) return -1;
+  if (!isDateAValid && isDateBValid) return 1;
+  if (!isDateAValid && !isDateBValid) return 0;
+
+  return dateB.toMillis() - dateA.toMillis();
 };
 
 export const parsePaginationFromResponse = (data: {
