@@ -3,15 +3,13 @@ import { FC } from 'react';
 import { otherColors } from '@theme/colors';
 interface CompleteConfigurationProps {
   handleSetup: () => void;
-  marginX?: string;
 }
 
-export const CompleteConfiguration: FC<CompleteConfigurationProps> = ({ handleSetup, marginX }) => {
+export const CompleteConfiguration: FC<CompleteConfigurationProps> = ({ handleSetup }) => {
   return (
     <Box
       sx={{
         backgroundColor: otherColors.orange100,
-        mx: marginX,
         px: '20px',
         py: '10px',
         borderRadius: '4px',
