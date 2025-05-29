@@ -42,10 +42,10 @@ import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 
 const createSlotAndValidate = async (
-  inut: { params: CreateSlotParams; selectedSlot: SlotListItem; schedule: Schedule },
+  input: { params: CreateSlotParams; selectedSlot: SlotListItem; schedule: Schedule },
   oystehr: Oystehr
 ): Promise<{ slot: Slot; serviceMode: ServiceMode | undefined; originalBookingUrl: string | undefined }> => {
-  const { params: createSlotParams, selectedSlot, schedule } = inut;
+  const { params: createSlotParams, selectedSlot, schedule } = input;
   let createdSlotResponse: Slot | undefined;
   try {
     createdSlotResponse = (
@@ -74,7 +74,7 @@ const createSlotAndValidate = async (
     originalBookingUrl: getOriginalBookingUrlFromSlot(createdSlotResponse),
   };
 };
-interface ValidtateCreateAppointmentResponseInput {
+interface ValidateCreateAppointmentResponseInput {
   createAppointmentResponse: CreateAppointmentResponse | undefined;
   patient: Patient | undefined;
   slot: Slot;
@@ -82,9 +82,22 @@ interface ValidtateCreateAppointmentResponseInput {
   isPostTelemed: boolean;
   isVirtual: boolean;
 }
+interface ValidatedCreateAppointmentResponseOutput {
+  appointment: Appointment;
+  appointmentId: string;
+}
+
+interface CreateAppointmentInput {
+  patientInfo: PatientInfo;
+  slot: Slot;
+  timezone: Timezone;
+  isPostTelemed: boolean;
+  isVirtual: boolean;
+  patient?: Patient;
+}
 const validateCreateAppointmentResponse = (
-  input: ValidtateCreateAppointmentResponseInput
-): { appointment: Appointment; appointmentId: string } => {
+  input: ValidateCreateAppointmentResponseInput
+): ValidatedCreateAppointmentResponseOutput => {
   const { createAppointmentResponse, timezone, patient, slot, isPostTelemed, isVirtual } = input;
   expect(createAppointmentResponse).toBeDefined();
   assert(createAppointmentResponse);
@@ -112,7 +125,7 @@ const validateCreateAppointmentResponse = (
   expect(appointment.id).toEqual(appointmentId);
   assert(appointment.id);
   // this really should be 'booked' for all but there is a known issue https://github.com/masslight/ottehr/issues/2431
-  // todo: chage the check to 'booked' once the issue wiht virtual appointments is resolved
+  // todo: change the check to 'booked' once the issue with virtual appointments is resolved
   expect(appointment.status).toEqual(isVirtual ? 'arrived' : 'booked');
   assert(appointment.start);
   expect(DateTime.fromISO(appointment.start!, { zone: timezone }).toISO()).toEqual(slot.start);
@@ -144,9 +157,14 @@ interface SetUpOutput {
   initialTelemedAvailableSlots: SlotListItem[];
 }
 interface RescheduleAndValidateInput {
-  slot: Slot;
   appointmentId: string;
   oldSlotId: string;
+  slug: string;
+  serviceMode: ServiceMode;
+  schedule: Schedule;
+}
+interface RescheduleAndValidateOutput {
+  newSlotId: string;
 }
 
 interface CancelAndValidateInput {
@@ -181,7 +199,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     const ownerLocation: Location = {
       resourceType: 'Location',
       status: 'active',
-      name: 'BusySlotsTestLcocation',
+      name: 'BusySlotsTestLocation',
       description: 'We only just met but I will be gone soon',
       identifier: [
         {
@@ -314,7 +332,7 @@ describe('prebook integration - from getting list of slots to booking with selec
     const ownerLocation: Location = {
       resourceType: 'Location',
       status: 'active',
-      name: 'BusySlotsTestTelemedLcocation',
+      name: 'BusySlotsTestTelemedLocation',
       description: 'We only just met but I will be gone soon',
       identifier: [
         {
@@ -405,15 +423,56 @@ describe('prebook integration - from getting list of slots to booking with selec
     };
   };
 
-  const rescheduleAndValidate = async (input: RescheduleAndValidateInput): Promise<void> => {
-    const { slot, appointmentId, oldSlotId } = input;
+  const rescheduleAndValidate = async (input: RescheduleAndValidateInput): Promise<RescheduleAndValidateOutput> => {
+    const { appointmentId, oldSlotId, slug, schedule, serviceMode } = input;
+
+    // reschedule the appointment and make sure everything still looks good
+    let getScheduleResponse: GetScheduleResponse | undefined;
+    try {
+      getScheduleResponse = (
+        await oystehr.zambda.executePublic({
+          id: 'get-schedule',
+          slug,
+          scheduleType: 'location',
+        })
+      ).output as GetScheduleResponse;
+    } catch (e) {
+      console.error('Error executing get-schedule zambda', e);
+    }
+    expect(getScheduleResponse).toBeDefined();
+    assert(getScheduleResponse);
+
+    const { available: newAvailable } = getScheduleResponse;
+
+    const index = Math.ceil(Math.random() * (newAvailable.length - 1)) - 1;
+    const rescheduleSlot = newAvailable[index];
+    expect(rescheduleSlot).toBeDefined();
+    assert(rescheduleSlot);
+
+    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
+      walkin: false,
+      originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
+      status: 'busy-tentative',
+    });
+
+    const validatedRescheduledSlot = await createSlotAndValidate(
+      { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
+      oystehr
+    );
+    const rescheduleSlotResponse: Slot = validatedRescheduledSlot.slot;
+    const slotServiceMode = validatedRescheduledSlot.serviceMode;
+    const bookingUrl = validatedRescheduledSlot.originalBookingUrl;
+    assert(rescheduleSlotResponse.id);
+    expect(slotServiceMode).toEqual(serviceMode);
+    expect(bookingUrl).toEqual(`prebook/${serviceMode}?bookingOn=${slug}`);
+
     let rescheduleAppointmentResponse: any | undefined;
     try {
       rescheduleAppointmentResponse = (
         await oystehr.zambda.executePublic({
           id: 'update-appointment',
           appointmentID: appointmentId,
-          slot,
+          slot: rescheduleSlotResponse,
         })
       ).output;
     } catch (e) {
@@ -461,10 +520,16 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(newAppointment).toBeDefined();
     assert(newAppointment);
     expect(DateTime.fromISO(newAppointment.start!).setZone('UTC').toISO()).toEqual(
-      DateTime.fromISO(slot.start).setZone('UTC').toISO()
+      DateTime.fromISO(rescheduleSlotResponse.start).setZone('UTC').toISO()
     );
     expect(DateTime.fromISO(newAppointment.end!).setZone('UTC').toISO()).toEqual(
-      DateTime.fromISO(slot.end).setZone('UTC').toISO()
+      DateTime.fromISO(rescheduleSlotResponse.end).setZone('UTC').toISO()
+    );
+    expect(DateTime.fromISO(newAppointment.start!).setZone('UTC').toISO()).toEqual(
+      DateTime.fromISO(newSlot.start).setZone('UTC').toISO()
+    );
+    expect(DateTime.fromISO(newAppointment.end!).setZone('UTC').toISO()).toEqual(
+      DateTime.fromISO(newSlot.end).setZone('UTC').toISO()
     );
 
     expect(newSlot).toBeDefined();
@@ -476,6 +541,10 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(oldSlotList).toBeDefined();
     assert(oldSlotList);
     expect(oldSlotList.length).toEqual(0);
+
+    return {
+      newSlotId: newSlot.id,
+    };
   };
 
   const cancelAndValidate = async (input: CancelAndValidateInput): Promise<void> => {
@@ -514,6 +583,48 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(unbundledSlots.length).toBe(0);
   };
 
+  const createAppointmentAndValidate = async (
+    input: CreateAppointmentInput
+  ): Promise<ValidatedCreateAppointmentResponseOutput> => {
+    const { patientInfo, patient, timezone, slot, isPostTelemed, isVirtual } = input;
+    const slotId = slot.id;
+    assert(slotId);
+    const createAppointmentInputParams: CreateAppointmentInputParams = {
+      patient: patientInfo,
+      slotId,
+    };
+
+    let createAppointmentResponse: CreateAppointmentResponse | undefined;
+    try {
+      createAppointmentResponse = (
+        await oystehr.zambda.execute({
+          id: 'create-appointment',
+          ...createAppointmentInputParams,
+        })
+      ).output as CreateAppointmentResponse;
+    } catch (e) {
+      console.error('Error executing create-appointment zambda', e);
+    }
+    const validated = validateCreateAppointmentResponse({
+      createAppointmentResponse,
+      patient,
+      slot,
+      timezone,
+      isPostTelemed,
+      isVirtual,
+    });
+
+    const fetchedSlot = await oystehr.fhir.get<Slot>({
+      resourceType: 'Slot',
+      id: slotId,
+    });
+    expect(fetchedSlot).toBeDefined();
+    assert(fetchedSlot);
+    expect(fetchedSlot.status).toEqual('busy');
+
+    return validated;
+  };
+
   beforeAll(async () => {
     processId = randomUUID();
     const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, PROJECT_ID } = SECRETS;
@@ -548,10 +659,9 @@ describe('prebook integration - from getting list of slots to booking with selec
       initialSlot: createdSlotResponse,
       schedule,
       locationSlug: slug,
-      initialAvailableSlots: available,
     } = await setUpInPersonResources(false);
 
-    const patient: PatientInfo = {
+    const patientInfo: PatientInfo = {
       id: existingTestPatient.id,
       firstName: existingTestPatient.name![0]!.given![0],
       lastName: existingTestPatient!.name![0]!.family,
@@ -561,116 +671,27 @@ describe('prebook integration - from getting list of slots to booking with selec
       newPatient: false,
     };
 
-    const createAppointmentInputParams: CreateAppointmentInputParams = {
-      patient,
-      slotId: initialSlotId,
-    };
-
-    let createAppointmentResponse: CreateAppointmentResponse | undefined;
-    try {
-      createAppointmentResponse = (
-        await oystehr.zambda.execute({
-          id: 'create-appointment',
-          ...createAppointmentInputParams,
-        })
-      ).output as CreateAppointmentResponse;
-    } catch (e) {
-      console.error('Error executing create-appointment zambda', e);
-    }
-    const { appointment, appointmentId } = validateCreateAppointmentResponse({
-      createAppointmentResponse,
+    const { appointmentId } = await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
       patient: existingTestPatient,
       slot: createdSlotResponse,
-      timezone,
       isPostTelemed: false,
       isVirtual: false,
     });
 
-    const fetchedSlot = await oystehr.fhir.get<Slot>({
-      resourceType: 'Slot',
-      id: initialSlotId,
-    });
-    expect(fetchedSlot).toBeDefined();
-    assert(fetchedSlot);
-    expect(fetchedSlot.status).toEqual('busy');
-
-    // reschedule the appointment and make sure everything still looks good
-    let getScheduleResponse: GetScheduleResponse | undefined;
-    try {
-      getScheduleResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'get-schedule',
-          slug,
-          scheduleType: 'location',
-        })
-      ).output as GetScheduleResponse;
-    } catch (e) {
-      console.error('Error executing get-schedule zambda', e);
-    }
-    expect(getScheduleResponse).toBeDefined();
-    assert(getScheduleResponse);
-
-    const { available: newAvailable } = getScheduleResponse;
-
-    const index = Math.ceil(Math.random() * (available.length - 1)) - 1;
-    const rescheduleSlot = newAvailable[index];
-    expect(rescheduleSlot).toBeDefined();
-    assert(rescheduleSlot);
-
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      walkin: false,
-      originalBookingUrl: `prebook/in-person?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
-
-    const validatedRescheduledSlot = await createSlotAndValidate(
-      { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-      oystehr
-    );
-    const rescheduleSlotResponse: Slot = validatedRescheduledSlot.slot;
-    const serviceMode = validatedRescheduledSlot.serviceMode;
-    const bookingUrl = validatedRescheduledSlot.originalBookingUrl;
-    assert(rescheduleSlotResponse.id);
-    expect(serviceMode).toEqual('in-person');
-    expect(bookingUrl).toEqual(`prebook/in-person?bookingOn=${slug}`);
-
-    await rescheduleAndValidate({
-      slot: rescheduleSlotResponse,
-      appointmentId: appointment.id!,
+    const { newSlotId } = await rescheduleAndValidate({
+      appointmentId,
       oldSlotId: initialSlotId,
+      slug,
+      serviceMode: ServiceMode['in-person'],
+      schedule,
     });
-    try {
-      const cancelResult = await oystehr.zambda.executePublic({
-        id: 'cancel-appointment',
-        appointmentID: appointment.id,
-        cancellationReason: 'Patient improved',
-      });
-      console.log('cancelResult', JSON.stringify(cancelResult));
-      expect(cancelResult.status).toBe(200);
-    } catch (e) {
-      console.error('Error executing cancel-appointment zambda', e);
-      expect(false).toBeTruthy(); // fail the test if we can't cancel the appointment
-    }
 
-    const canceledAppointment = await oystehr.fhir.get<Appointment>({
-      resourceType: 'Appointment',
-      id: appointmentId,
+    await cancelAndValidate({
+      appointmentId,
+      oldSlotId: newSlotId,
     });
-    expect(canceledAppointment).toBeDefined();
-    assert(canceledAppointment);
-    expect(canceledAppointment.status).toEqual('cancelled');
-    const slotSearch = await oystehr.fhir.search<Slot>({
-      resourceType: 'Slot',
-      params: [
-        {
-          name: '_id',
-          value: rescheduleSlotResponse.id,
-        },
-      ],
-    });
-    expect(slotSearch).toBeDefined();
-    const unbundledSlots = slotSearch.unbundle();
-    expect(unbundledSlots.length).toBe(0);
   });
 
   it('successfully creates a virtual appointment for a returning patient after selecting an available slot', async () => {
@@ -680,10 +701,9 @@ describe('prebook integration - from getting list of slots to booking with selec
       initialSlot: createdSlotResponse,
       schedule,
       locationSlug: slug,
-      initialAvailableSlots: available,
     } = await setUpVirtualResources();
 
-    const patient: PatientInfo = {
+    const patientInfo: PatientInfo = {
       id: existingTestPatient.id,
       firstName: existingTestPatient.name![0]!.given![0],
       lastName: existingTestPatient!.name![0]!.family,
@@ -692,103 +712,38 @@ describe('prebook integration - from getting list of slots to booking with selec
       dateOfBirth: existingTestPatient.birthDate,
       newPatient: false,
     };
-
-    const createAppointmentInputParams: CreateAppointmentInputParams = {
-      patient,
-      slotId: initialSlotId,
-    };
-
-    let createAppointmentResponse: CreateAppointmentResponse | undefined;
-    try {
-      createAppointmentResponse = (
-        await oystehr.zambda.execute({
-          id: 'create-appointment',
-          ...createAppointmentInputParams,
-        })
-      ).output as CreateAppointmentResponse;
-    } catch (e) {
-      console.error('Error executing create-appointment zambda', e);
-    }
-    const { appointment, appointmentId } = validateCreateAppointmentResponse({
-      createAppointmentResponse,
+    const { appointmentId } = await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
       patient: existingTestPatient,
       slot: createdSlotResponse,
-      timezone,
       isPostTelemed: false,
       isVirtual: true,
     });
 
-    const fetchedSlot = await oystehr.fhir.get<Slot>({
-      resourceType: 'Slot',
-      id: initialSlotId,
-    });
-    expect(fetchedSlot).toBeDefined();
-    assert(fetchedSlot);
-    expect(fetchedSlot.status).toEqual('busy');
-
-    // reschedule the appointment and make sure everything still looks good
-    let getScheduleResponse: GetScheduleResponse | undefined;
-    try {
-      getScheduleResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'get-schedule',
-          slug,
-          scheduleType: 'location',
-        })
-      ).output as GetScheduleResponse;
-    } catch (e) {
-      console.error('Error executing get-schedule zambda', e);
-    }
-    expect(getScheduleResponse).toBeDefined();
-    assert(getScheduleResponse);
-
-    const { available: newAvailable } = getScheduleResponse;
-
-    const index = Math.ceil(Math.random() * (available.length - 1)) - 1;
-    const rescheduleSlot = newAvailable[index];
-    expect(rescheduleSlot).toBeDefined();
-    assert(rescheduleSlot);
-
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      walkin: false,
-      originalBookingUrl: `prebook/virtual?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
-
-    const validatedRescheduledSlot = await createSlotAndValidate(
-      { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-      oystehr
-    );
-    const rescheduleSlotResponse = validatedRescheduledSlot.slot;
-    const serviceMode = validatedRescheduledSlot.serviceMode;
-    const bookingUrl = validatedRescheduledSlot.originalBookingUrl;
-    assert(rescheduleSlotResponse.id);
-    expect(getSlotIsPostTelemed(createdSlotResponse)).toEqual(false);
-    expect(serviceMode).toEqual('virtual');
-    expect(bookingUrl).toEqual(`prebook/virtual?bookingOn=${slug}`);
-
-    await rescheduleAndValidate({
-      slot: rescheduleSlotResponse,
-      appointmentId: appointment.id!,
+    const { newSlotId } = await rescheduleAndValidate({
+      appointmentId,
       oldSlotId: initialSlotId,
+      slug,
+      serviceMode: ServiceMode.virtual,
+      schedule,
     });
     await cancelAndValidate({
       appointmentId,
-      oldSlotId: rescheduleSlotResponse.id,
+      oldSlotId: newSlotId,
     });
   });
 
   it('successfully creates a post-telemed appointment for a returning patient after selecting an available slot', async () => {
     const {
       timezone,
-      initialSlotId,
       initialSlot: createdSlotResponse,
       schedule,
       locationSlug: slug,
       initialTelemedAvailableSlots: available,
     } = await setUpInPersonResources(true);
 
-    const patient: PatientInfo = {
+    const patientInfo: PatientInfo = {
       id: existingTestPatient.id,
       firstName: existingTestPatient.name![0]!.given![0],
       lastName: existingTestPatient!.name![0]!.family,
@@ -798,38 +753,14 @@ describe('prebook integration - from getting list of slots to booking with selec
       newPatient: false,
     };
 
-    const createAppointmentInputParams: CreateAppointmentInputParams = {
-      patient,
-      slotId: initialSlotId,
-    };
-
-    let createAppointmentResponse: CreateAppointmentResponse | undefined;
-    try {
-      createAppointmentResponse = (
-        await oystehr.zambda.execute({
-          id: 'create-appointment',
-          ...createAppointmentInputParams,
-        })
-      ).output as CreateAppointmentResponse;
-    } catch (e) {
-      console.error('Error executing create-appointment zambda', e);
-    }
-    const { appointment } = validateCreateAppointmentResponse({
-      createAppointmentResponse,
+    const { appointment } = await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
       patient: existingTestPatient,
       slot: createdSlotResponse,
-      timezone,
       isPostTelemed: true,
       isVirtual: false,
     });
-
-    const fetchedSlot = await oystehr.fhir.get<Slot>({
-      resourceType: 'Slot',
-      id: initialSlotId,
-    });
-    expect(fetchedSlot).toBeDefined();
-    assert(fetchedSlot);
-    expect(fetchedSlot.status).toEqual('busy');
 
     // post-telemed appointments can't be rescheduled
     let getScheduleResponse: GetScheduleResponse | undefined;
@@ -916,11 +847,10 @@ describe('prebook integration - from getting list of slots to booking with selec
       initialSlot: createdSlotResponse,
       schedule,
       locationSlug: slug,
-      initialAvailableSlots: available,
     } = await setUpInPersonResources(false);
 
     const newPatient = makeTestPatient();
-    const patient: PatientInfo = {
+    const patientInfo: PatientInfo = {
       firstName: newPatient.name![0]!.given![0],
       lastName: newPatient.name![0]!.family,
       sex: 'female',
@@ -937,87 +867,26 @@ describe('prebook integration - from getting list of slots to booking with selec
       ],
     };
 
-    const createAppointmentInputParams: CreateAppointmentInputParams = {
-      patient,
-      slotId: initialSlotId,
-    };
-
-    let createAppointmentResponse: CreateAppointmentResponse | undefined;
-    try {
-      createAppointmentResponse = (
-        await oystehr.zambda.execute({
-          id: 'create-appointment',
-          ...createAppointmentInputParams,
-        })
-      ).output as CreateAppointmentResponse;
-    } catch (e) {
-      console.error('Error executing create-appointment zambda', e);
-    }
-    const { appointment, appointmentId } = validateCreateAppointmentResponse({
-      createAppointmentResponse,
+    const { appointmentId } = await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
       patient: undefined,
       slot: createdSlotResponse,
-      timezone,
       isPostTelemed: false,
       isVirtual: false,
     });
-    const fetchedSlot = await oystehr.fhir.get<Slot>({
-      resourceType: 'Slot',
-      id: initialSlotId,
-    });
-    expect(fetchedSlot).toBeDefined();
-    assert(fetchedSlot);
-    expect(fetchedSlot.status).toEqual('busy');
 
-    // reschedule the appointment and make sure everything still looks good
-    let getScheduleResponse: GetScheduleResponse | undefined;
-    try {
-      getScheduleResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'get-schedule',
-          slug,
-          scheduleType: 'location',
-        })
-      ).output as GetScheduleResponse;
-    } catch (e) {
-      console.error('Error executing get-schedule zambda', e);
-    }
-    expect(getScheduleResponse).toBeDefined();
-    assert(getScheduleResponse);
-
-    const { available: newAvailable } = getScheduleResponse;
-
-    const index = Math.ceil(Math.random() * (available.length - 1)) - 1;
-    const rescheduleSlot = newAvailable[index];
-    expect(rescheduleSlot).toBeDefined();
-    assert(rescheduleSlot);
-
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      walkin: false,
-      originalBookingUrl: `prebook/in-person?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
-
-    const validatedRescheduledSlot = await createSlotAndValidate(
-      { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-      oystehr
-    );
-    const rescheduleSlotResponse: Slot = validatedRescheduledSlot.slot;
-    const serviceMode = validatedRescheduledSlot.serviceMode;
-    const bookingUrl = validatedRescheduledSlot.originalBookingUrl;
-    assert(rescheduleSlotResponse.id);
-    expect(serviceMode).toEqual('in-person');
-    expect(bookingUrl).toEqual(`prebook/in-person?bookingOn=${slug}`);
-
-    await rescheduleAndValidate({
-      slot: rescheduleSlotResponse,
-      appointmentId: appointment.id!,
+    const { newSlotId } = await rescheduleAndValidate({
       oldSlotId: initialSlotId,
+      appointmentId: appointmentId,
+      slug,
+      serviceMode: ServiceMode['in-person'],
+      schedule,
     });
 
     await cancelAndValidate({
       appointmentId,
-      oldSlotId: rescheduleSlotResponse.id,
+      oldSlotId: newSlotId,
     });
   });
 
@@ -1029,11 +898,10 @@ describe('prebook integration - from getting list of slots to booking with selec
       initialSlot: createdSlotResponse,
       schedule,
       locationSlug: slug,
-      initialAvailableSlots: available,
     } = await setUpVirtualResources();
 
     const newPatient = makeTestPatient();
-    const patient: PatientInfo = {
+    const patientInfo: PatientInfo = {
       firstName: newPatient.name![0]!.given![0],
       lastName: newPatient.name![0]!.family,
       sex: 'female',
@@ -1050,87 +918,26 @@ describe('prebook integration - from getting list of slots to booking with selec
       ],
     };
 
-    const createAppointmentInputParams: CreateAppointmentInputParams = {
-      patient,
-      slotId: initialSlotId,
-    };
-
-    let createAppointmentResponse: CreateAppointmentResponse | undefined;
-    try {
-      createAppointmentResponse = (
-        await oystehr.zambda.execute({
-          id: 'create-appointment',
-          ...createAppointmentInputParams,
-        })
-      ).output as CreateAppointmentResponse;
-    } catch (e) {
-      console.error('Error executing create-appointment zambda', e);
-    }
-    const { appointment, appointmentId } = validateCreateAppointmentResponse({
-      createAppointmentResponse,
+    const { appointmentId } = await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
       patient: undefined,
       slot: createdSlotResponse,
-      timezone,
       isPostTelemed: false,
       isVirtual: true,
     });
-    const fetchedSlot = await oystehr.fhir.get<Slot>({
-      resourceType: 'Slot',
-      id: initialSlotId,
-    });
-    expect(fetchedSlot).toBeDefined();
-    assert(fetchedSlot);
-    expect(fetchedSlot.status).toEqual('busy');
 
-    // reschedule the appointment and make sure everything still looks good
-    let getScheduleResponse: GetScheduleResponse | undefined;
-    try {
-      getScheduleResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'get-schedule',
-          slug,
-          scheduleType: 'location',
-        })
-      ).output as GetScheduleResponse;
-    } catch (e) {
-      console.error('Error executing get-schedule zambda', e);
-    }
-    expect(getScheduleResponse).toBeDefined();
-    assert(getScheduleResponse);
-
-    const { available: newAvailable } = getScheduleResponse;
-
-    const index = Math.ceil(Math.random() * (available.length - 1)) - 1;
-    const rescheduleSlot = newAvailable[index];
-    expect(rescheduleSlot).toBeDefined();
-    assert(rescheduleSlot);
-
-    const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      walkin: false,
-      originalBookingUrl: `prebook/virtual?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
-
-    const validatedRescheduledSlot = await createSlotAndValidate(
-      { params: rescheduleSlotParams, selectedSlot: rescheduleSlot, schedule },
-      oystehr
-    );
-    const rescheduleSlotResponse: Slot = validatedRescheduledSlot.slot;
-    const serviceMode = validatedRescheduledSlot.serviceMode;
-    const bookingUrl = validatedRescheduledSlot.originalBookingUrl;
-    assert(rescheduleSlotResponse.id);
-    expect(serviceMode).toEqual('virtual');
-    expect(bookingUrl).toEqual(`prebook/virtual?bookingOn=${slug}`);
-
-    await rescheduleAndValidate({
-      slot: rescheduleSlotResponse,
-      appointmentId: appointment.id!,
+    const { newSlotId } = await rescheduleAndValidate({
       oldSlotId: initialSlotId,
+      slug,
+      serviceMode: ServiceMode.virtual,
+      schedule,
+      appointmentId,
     });
 
     await cancelAndValidate({
       appointmentId,
-      oldSlotId: rescheduleSlotResponse.id,
+      oldSlotId: newSlotId,
     });
   });
 
@@ -1138,10 +945,10 @@ describe('prebook integration - from getting list of slots to booking with selec
   // by an EHR user, so might as well test it
   it('successfully creates a post-telemed appointment for a new patient after selecting an available slot', async () => {
     assert(processId);
-    const { timezone, initialSlotId, initialSlot: createdSlotResponse } = await setUpInPersonResources(true);
+    const { timezone, initialSlot: createdSlotResponse } = await setUpInPersonResources(true);
 
     const newPatient = makeTestPatient();
-    const patient: PatientInfo = {
+    const patientInfo: PatientInfo = {
       firstName: newPatient.name![0]!.given![0],
       lastName: newPatient.name![0]!.family,
       sex: 'female',
@@ -1158,36 +965,13 @@ describe('prebook integration - from getting list of slots to booking with selec
       ],
     };
 
-    const createAppointmentInputParams: CreateAppointmentInputParams = {
-      patient,
-      slotId: initialSlotId,
-    };
-
-    let createAppointmentResponse: CreateAppointmentResponse | undefined;
-    try {
-      createAppointmentResponse = (
-        await oystehr.zambda.execute({
-          id: 'create-appointment',
-          ...createAppointmentInputParams,
-        })
-      ).output as CreateAppointmentResponse;
-    } catch (e) {
-      console.error('Error executing create-appointment zambda', e);
-    }
-    const _ = validateCreateAppointmentResponse({
-      createAppointmentResponse,
+    await createAppointmentAndValidate({
+      timezone,
+      patientInfo,
       patient: undefined,
       slot: createdSlotResponse,
-      timezone,
       isPostTelemed: true,
       isVirtual: false,
     });
-    const fetchedSlot = await oystehr.fhir.get<Slot>({
-      resourceType: 'Slot',
-      id: initialSlotId,
-    });
-    expect(fetchedSlot).toBeDefined();
-    assert(fetchedSlot);
-    expect(fetchedSlot.status).toEqual('busy');
   });
 });
