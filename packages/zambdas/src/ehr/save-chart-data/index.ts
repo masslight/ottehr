@@ -47,8 +47,8 @@ import {
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-} from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+} from '../../shared';
+import { createOystehrClient } from '../../shared';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
@@ -346,9 +346,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
       }
       for (const element of diagnosis) {
-        const condition = await oystehr.fhir.create(
-          makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis')
-        );
+        const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
+        const condition = element.resourceId
+          ? await oystehr.fhir.update(conditionResource)
+          : await oystehr.fhir.create(conditionResource);
         additionalResourcesForResponse.push(condition);
         updateEncounterOperations.push(...updateEncounterDiagnosis(encounter, condition.id!, element));
       }
