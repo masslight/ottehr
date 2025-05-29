@@ -1093,7 +1093,7 @@ const deletePrelimResultsIfFinalExists = (prelimMap: Map<string, DiagnosticRepor
  * The most recent date will be first,
  * invalid dates will be last
  */
-const compareDates = (a: string | undefined, b: string | undefined): number => {
+export const compareDates = (a: string | undefined, b: string | undefined): number => {
   const dateA = DateTime.fromISO(a || '');
   const dateB = DateTime.fromISO(b || '');
   const isDateAValid = dateA.isValid;
