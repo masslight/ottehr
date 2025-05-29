@@ -19,12 +19,18 @@ export function VisitTypeSelect(): ReactElement {
           textAlign: 'start',
         },
       }}
-      value={visitTypes?.length > 0 ? [...visitTypes] : visitTypesOptions}
+      // value={visitTypes?.length > 0 ? [...visitTypes] : visitTypesOptions}
+      value={visitTypes}
       options={visitTypesOptions}
       getOptionLabel={(option) => {
         return VisitTypeToLabelTelemed[option as VisitType];
       }}
       onChange={(_, value) => {
+        if (value) {
+          localStorage.setItem('selectedVisitTypes', JSON.stringify(value));
+        } else {
+          localStorage.removeItem('selectedVisitTypes');
+        }
         useTrackingBoardStore.setState({ visitTypes: value as VisitType[] });
       }}
       multiple
