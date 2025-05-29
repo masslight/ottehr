@@ -30,6 +30,7 @@ import { useAppointmentStore } from '../../../../telemed/state/appointment/appoi
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { LabOrderLoading } from './LabOrderLoading';
+import { DateTime } from 'luxon';
 
 export type LabsTableColumn =
   | 'testType'
@@ -69,10 +70,8 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     loading,
     totalPages,
     page,
-    setPage,
-    setOrderableItemCodeFilter,
+    setSearchParams,
     visitDateFilter,
-    setVisitDateFilter,
     showPagination,
     error,
     showDeleteLabOrderDialog,
@@ -85,13 +84,18 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
 
-  const submitFilterByDate = (): void => {
-    setVisitDateFilter(tempDateFilter);
+  const submitFilterByDate = (date?: DateTime | null): void => {
+    const dateToSet = date || tempDateFilter;
+    setSearchParams({ pageNumber: 1, visitDateFilter: dateToSet });
   };
 
   const handleClearDate = (): void => {
     setTempDateFilter(null);
-    setVisitDateFilter(null);
+    setSearchParams({ pageNumber: 1, visitDateFilter: null });
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
+    setSearchParams({ pageNumber: value });
   };
 
   const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
@@ -129,12 +133,8 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
 
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
-    setOrderableItemCodeFilter(value?.item.itemLoinc || '');
     setSelectedOrderedItem(value || null);
-  };
-
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
-    setPage(value);
+    setSearchParams({ pageNumber: 1, testTypeFilter: value?.item.itemLoinc || '' });
   };
 
   if (loading || !labOrders) {
@@ -239,23 +239,74 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4} sx={{ mt: -1 }}>
-                <LabsAutocomplete
-                  selectedLab={selectedOrderedItem}
-                  setSelectedLab={handleOrderableItemCodeChange}
-                  labs={labs}
-                ></LabsAutocomplete>
+                {labs.length ? (
+                  <LabsAutocomplete
+                    selectedLab={selectedOrderedItem}
+                    setSelectedLab={handleOrderableItemCodeChange}
+                    labs={labs}
+                  />
+                ) : (
+                  <Box
+                    sx={{
+                      height: 40,
+                      display: 'flex',
+                      alignItems: 'center',
+                      px: 2,
+                      mt: 1,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      backgroundColor: 'action.hover',
+                      position: 'relative',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: '60%',
+                        height: 16,
+                        backgroundColor: 'action.selected',
+                        borderRadius: 0.5,
+                        animation: 'pulse 1.5s ease-in-out infinite',
+                        '@keyframes pulse': {
+                          '0%': {
+                            opacity: 1,
+                          },
+                          '50%': {
+                            opacity: 0.4,
+                          },
+                          '100%': {
+                            opacity: 1,
+                          },
+                        },
+                      }}
+                    />
+
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        right: 12,
+                        width: 20,
+                        height: 16,
+                        backgroundColor: 'action.selected',
+                        borderRadius: 0.5,
+                        animation: 'pulse 1.5s ease-in-out infinite',
+                      }}
+                    />
+                  </Box>
+                )}
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
                   label="Visit date"
                   value={tempDateFilter}
                   onChange={setTempDateFilter}
-                  onAccept={setVisitDateFilter}
+                  onAccept={submitFilterByDate}
                   format="MM/dd/yyyy"
                   slotProps={{
                     textField: (params) => ({
                       ...params,
-                      onBlur: submitFilterByDate,
+                      onBlur: () => submitFilterByDate(),
                       fullWidth: true,
                       size: 'small',
                       InputProps: {

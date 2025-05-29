@@ -68,10 +68,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     loading,
     totalPages,
     page,
-    setPage,
-    setTestTypeFilter,
+    setSearchParams,
     visitDateFilter,
-    setVisitDateFilter,
     showPagination,
     error,
     showDeleteLabOrderDialog,
@@ -108,13 +106,14 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     void fetchTests();
   }, [oystehrZambda, showFilters]);
 
-  const submitFilterByDate = (): void => {
-    setVisitDateFilter(tempDateFilter);
+  const submitFilterByDate = (date?: DateTime | null): void => {
+    const dateToSet = date || tempDateFilter;
+    setSearchParams({ pageNumber: 1, visitDateFilter: dateToSet });
   };
 
   const handleClearDate = (): void => {
     setTempDateFilter(null);
-    setVisitDateFilter(null);
+    setSearchParams({ pageNumber: 1, visitDateFilter: null });
   };
 
   const onRowClick = (labOrderData: InHouseOrderListPageDTO): void => {
@@ -122,7 +121,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
-    setPage(value);
+    setSearchParams({ pageNumber: value });
   };
 
   // Redirect to create order page if needed
@@ -239,7 +238,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                   value={availableTests.find((test) => test.name === testTypeQuery) || null}
                   onChange={(_, newValue) => {
                     setTestTypeQuery(newValue?.name || '');
-                    setTestTypeFilter(newValue?.name || '');
+                    setSearchParams({ pageNumber: 1, testTypeFilter: newValue?.name || '' });
                   }}
                   inputValue={testTypeQuery}
                   onInputChange={(_, newInputValue) => {
@@ -269,12 +268,12 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                   label="Visit date"
                   value={tempDateFilter}
                   onChange={setTempDateFilter}
-                  onAccept={setVisitDateFilter}
+                  onAccept={submitFilterByDate}
                   format="MM/dd/yyyy"
                   slotProps={{
                     textField: (params) => ({
                       ...params,
-                      onBlur: submitFilterByDate,
+                      onBlur: () => submitFilterByDate(),
                       fullWidth: true,
                       size: 'small',
                       InputProps: {
