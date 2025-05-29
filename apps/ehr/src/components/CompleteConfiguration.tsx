@@ -10,7 +10,6 @@ export const CompleteConfiguration: FC<CompleteConfigurationProps> = ({ handleSe
     <Box
       sx={{
         backgroundColor: otherColors.orange100,
-        // mx: '24px',
         px: '20px',
         py: '10px',
         borderRadius: '4px',
