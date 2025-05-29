@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Paper, Typography, Button } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { InHouseLabDTO, ResultEntryInput, LoadingState } from 'utils';
+import { ResultEntryInput, LoadingState, InHouseOrderDetailPageDTO, getFormattedDiagnoses } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
 import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
@@ -14,7 +14,7 @@ import { useParams } from 'react-router-dom';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 
 interface PerformTestViewProps {
-  testDetails: InHouseLabDTO;
+  testDetails: InHouseOrderDetailPageDTO;
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
 }
@@ -63,7 +63,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
   return (
     <Box>
       <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
-        {testDetails.diagnosis}
+        {getFormattedDiagnoses(testDetails.diagnosesDTO)}
       </Typography>
 
       <Typography variant="h4" color="primary.dark" sx={{ mb: 3, fontWeight: 'bold' }}>
@@ -76,7 +76,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
             <Box sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h5" color="primary.dark" fontWeight="bold">
-                  {testDetails.name}
+                  {testDetails.testItemName}
                 </Typography>
                 <Box
                   sx={{

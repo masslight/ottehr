@@ -3,16 +3,20 @@ import { PageContainer } from '../components';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import api from '../api/ottehrApi';
-import { Box } from '@mui/system';
-import { Button, TextField } from '@mui/material';
+import { Box, Stack } from '@mui/system';
+import { Button, TextField, Typography } from '@mui/material';
 import { Send } from '@mui/icons-material';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AiChatHistory } from '../components/AiChatHistory';
+import ArrowBack from '@mui/icons-material/ArrowBack';
+import { useVisitContext } from './ThankYou';
 
 const AIInterview = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
 
+  const navigate = useNavigate();
   const { id: appointmentId } = useParams();
+  const { appointmentData } = useVisitContext();
   const [questionnaireResponse, setQuestionnaireResponse] = useState<QuestionnaireResponse | undefined>(undefined);
   const [loading, setLoading] = useState<boolean>(false);
   const [answer, setAnswer] = useState<string>('');
@@ -30,7 +34,7 @@ const AIInterview = (): JSX.Element => {
   }, [questionnaireResponse, setQuestionnaireResponse, zambdaClient, appointmentId]);
 
   const onSend = async (): Promise<void> => {
-    if (zambdaClient == null || questionnaireResponse == null) return;
+    if (zambdaClient == null || questionnaireResponse == null || answer.length === 0) return;
     setUnprocessedUserAnswer(answer);
     setAnswer('');
     setLoading(true);
@@ -47,10 +51,35 @@ const AIInterview = (): JSX.Element => {
     setLoading(false);
   };
 
+  const goToVisit = (): void => {
+    if (appointmentData.appointment?.serviceMode === 'virtual') {
+      navigate(`/waiting-room?appointment_id=${appointmentId}`);
+    } else {
+      navigate(`/visit/${appointmentId}`);
+    }
+  };
+
   const userInputEnabled = !loading && questionnaireResponse != null && questionnaireResponse.status !== 'completed';
 
   return (
-    <PageContainer>
+    <PageContainer
+      topOutsideCardComponent={
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: 'center',
+            marginBottom: '8px',
+            cursor: 'pointer',
+          }}
+          onClick={goToVisit}
+        >
+          <ArrowBack sx={{ color: '#B2DDFF' }} />
+          <Typography sx={{ fontWeight: 500, fontSize: '14px', color: '#B2DDFF', marginLeft: '4px' }}>
+            Return to visit page
+          </Typography>
+        </Stack>
+      }
+    >
       <Box style={{ overflowY: 'auto', height: 'calc(100vh - 400px)' }}>
         <AiChatHistory
           questionnaireResponse={questionnaireResponse}
@@ -59,37 +88,58 @@ const AIInterview = (): JSX.Element => {
           scrollToBottomOnUpdate={true}
         />
       </Box>
-      <Box
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        <TextField
-          style={{ width: '100%' }}
-          placeholder="Your message..."
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          onKeyUp={async (event) => {
-            if (event.key === 'Enter' && userInputEnabled) {
-              await onSend();
-            }
+      {questionnaireResponse?.status !== 'completed' ? (
+        <Box
+          style={{
+            display: 'flex',
+            alignItems: 'center',
           }}
-          autoComplete="off"
-        />
-        <Button
-          disabled={!userInputEnabled}
-          onClick={onSend}
-          size="large"
-          type="button"
-          color="secondary"
-          variant="contained"
-          startIcon={<Send />}
-          style={{ height: '38px', marginLeft: '16px' }}
         >
-          Send
-        </Button>
-      </Box>
+          <TextField
+            style={{ width: '100%' }}
+            placeholder="Your message..."
+            value={answer}
+            onChange={(e) => setAnswer(e.target.value)}
+            onKeyUp={async (event) => {
+              if (event.key === 'Enter' && userInputEnabled) {
+                await onSend();
+              }
+            }}
+            autoComplete="off"
+          />
+          <Button
+            disabled={!userInputEnabled}
+            onClick={onSend}
+            size="large"
+            type="button"
+            color="secondary"
+            variant="contained"
+            startIcon={<Send />}
+            style={{ height: '38px', marginLeft: '16px', fontWeight: 500 }}
+          >
+            Send
+          </Button>
+        </Box>
+      ) : (
+        <Box
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            marginTop: '16px',
+          }}
+        >
+          <Button
+            onClick={goToVisit}
+            size="large"
+            type="button"
+            color="secondary"
+            variant="contained"
+            style={{ height: '38px', marginLeft: '16px', fontWeight: 500 }}
+          >
+            Return to visit page
+          </Button>
+        </Box>
+      )}
     </PageContainer>
   );
 };

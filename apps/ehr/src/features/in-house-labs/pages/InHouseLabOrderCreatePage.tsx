@@ -15,16 +15,19 @@ import {
   Autocomplete,
   useTheme,
   Chip,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
-import { PRACTITIONER_CODINGS, TestItem } from 'utils';
+import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
 import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { enqueueSnackbar } from 'notistack';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -38,6 +41,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [notes, setNotes] = useState<string>('');
   const [providerName, setProviderName] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
+  const [repeatTest, setRepeatTest] = useState<boolean>(false);
 
   const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -101,7 +105,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           encounterId: encounter.id,
         });
         const testItems = Object.values(response.labs || {});
-        setAvailableTests(testItems);
+        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
         setProviderName(response.providerName);
       } catch (error) {
         console.error('Error fetching labs:', error);
@@ -120,6 +124,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
+    const GENERIC_ERROR_MSG = 'There was an error creating this lab order';
     const encounterId = encounter.id;
     const canBeSubmitted =
       encounterId &&
@@ -135,6 +140,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           cptCode: selectedCptCode,
           diagnosesAll: [...selectedAssessmentDiagnoses, ...selectedNewDiagnoses],
           diagnosesNew: selectedNewDiagnoses,
+          isRepeatTest: repeatTest,
           notes: notes,
         });
 
@@ -153,8 +159,14 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           navigate(`/in-person/${appointment?.id}/in-house-lab-orders/${res.serviceRequestId}/order-details`);
         }
       } catch (e) {
-        console.error(e);
-        setError(['There was an error creating this lab order']);
+        const oyError = e as OystehrSdkError;
+        console.error('error creating in house lab order', oyError.code, oyError.message);
+        if (isApiError(oyError)) {
+          console.log('is api error');
+          setError([oyError.message || GENERIC_ERROR_MSG]);
+        } else {
+          setError([GENERIC_ERROR_MSG]);
+        }
       } finally {
         setLoading(false);
       }
@@ -164,7 +176,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
         errorMessage.push('Please enter at least one dx');
       if (!selectedTest) errorMessage.push('Please select a test to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
+      if (errorMessage.length === 0) errorMessage.push(GENERIC_ERROR_MSG);
       setError(errorMessage);
     }
   };
@@ -243,55 +255,103 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
               </Grid>
 
               {availableCptCodes.length > 0 && (
-                <Grid item xs={12}>
-                  <FormControl
-                    fullWidth
-                    required
-                    sx={{
-                      '& .MuiInputBase-root': {
-                        height: '40px',
-                      },
-                      '& .MuiSelect-select': {
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingTop: 0,
-                        paddingBottom: 0,
-                      },
-                    }}
-                  >
-                    <InputLabel
-                      id="cpt-code-label"
+                <>
+                  <Grid item xs={selectedTest?.repeatable ? 9 : 12}>
+                    <FormControl
+                      fullWidth
+                      required
                       sx={{
-                        transform: 'translate(14px, 10px) scale(1)',
-                        '&.MuiInputLabel-shrink': {
-                          transform: 'translate(14px, -9px) scale(0.75)',
+                        '& .MuiInputBase-root': {
+                          height: '40px',
+                        },
+                        '& .MuiSelect-select': {
+                          display: 'flex',
+                          alignItems: 'center',
+                          paddingTop: 0,
+                          paddingBottom: 0,
                         },
                       }}
                     >
-                      CPT code
-                    </InputLabel>
-                    <Select
-                      labelId="cpt-code-label"
-                      id="cpt-code"
-                      value={selectedCptCode}
-                      label="CPT code*"
-                      onChange={(e) => setSelectedCptCode(e.target.value)}
-                      size="small"
-                    >
-                      {availableCptCodes.map((cpt) => (
-                        <MenuItem key={cpt} value={cpt}>
-                          {cpt}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
+                      <InputLabel
+                        id="cpt-code-label"
+                        sx={{
+                          transform: 'translate(14px, 10px) scale(1)',
+                          '&.MuiInputLabel-shrink': {
+                            transform: 'translate(14px, -9px) scale(0.75)',
+                          },
+                        }}
+                      >
+                        CPT code
+                      </InputLabel>
+                      <Select
+                        labelId="cpt-code-label"
+                        id="cpt-code"
+                        value={selectedCptCode}
+                        label="CPT code*"
+                        onChange={(e) => setSelectedCptCode(e.target.value)}
+                        size="small"
+                      >
+                        {availableCptCodes.map((cpt) => (
+                          <MenuItem key={cpt} value={cpt}>
+                            {cpt}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  {selectedTest?.repeatable && (
+                    <Grid item xs={3}>
+                      <FormControlLabel
+                        sx={{
+                          backgroundColor: 'transparent',
+                          pr: 0,
+                        }}
+                        control={
+                          <Checkbox size="small" checked={repeatTest} onChange={() => setRepeatTest(!repeatTest)} />
+                        }
+                        label={<Typography variant="body1">Run as Repeat</Typography>}
+                      />
+                    </Grid>
+                  )}
+                </>
+              )}
+
+              {repeatTest && (
+                <>
+                  <Grid item xs={10}>
+                    <TextField
+                      InputProps={{
+                        readOnly: true,
+                        sx: {
+                          '& input': {
+                            cursor: 'default',
+                          },
+                          height: '40px',
+                        },
+                      }}
+                      fullWidth
+                      label="CPT Code Modifier"
+                      focused={false}
+                      value={'91'}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(0, 0, 0, 0.23)',
+                          },
+                        },
+                      }}
+                    />
+                  </Grid>
+                  {/* indicates that the test is “CLIA waived”, should just be hardcoded for repeats */}
+                  <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Typography variant="body1">QW</Typography>
+                  </Grid>
+                </>
               )}
 
               <Grid item xs={12}>
                 <FormControl
                   fullWidth
-                  required
                   sx={{
                     '& .MuiInputBase-root': {
                       height: '40px',

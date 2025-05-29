@@ -12,37 +12,40 @@ import {
   LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 import {
-  BookableScheduleData,
-  Closure,
-  ClosureType,
-  getDateTimeFromDateAndTime,
-  getFullName,
-  getPatchOperationForNewMetaTag,
-  OVERRIDE_DATE_FORMAT,
   SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
+  getPatchOperationForNewMetaTag,
+  BookableScheduleData,
   SCHEDULE_NUM_DAYS,
-  ScheduleOwnerFhirResource,
-  ScheduleStrategy,
+  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
   scheduleStrategyForHealthcareService,
-  ScheduleType,
-  Timezone,
+  ScheduleStrategy,
+  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
+  makeBookingOriginExtensionEntry,
+  getFullName,
+  WALKIN_APPOINTMENT_TYPE_CODE,
+  isLocationVirtual,
   SlotServiceCategory,
-  ServiceMode,
   codingContainedInList,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  TIMEZONES,
-  VisitType,
   SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
-  isLocationVirtual,
-  WALKIN_APPOINTMENT_TYPE_CODE,
-  makeBookingOriginExtensionEntry,
-  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
-  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+} from '../fhir';
+import {
+  Closure,
+  Timezone,
+  TIMEZONES,
+  OVERRIDE_DATE_FORMAT,
+  ClosureType,
+  VisitType,
+  ScheduleType,
+  ScheduleOwnerFhirResource,
+  ServiceMode,
   CreateSlotParams,
-} from 'utils';
-import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
+} from '../types';
+import { getDateTimeFromDateAndTime } from './date';
 
 export interface WaitTimeRange {
   low: number;
@@ -239,9 +242,8 @@ export function getScheduleExtension(
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
 ): Timezone {
-  const timezone = schedule.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-  )?.valueString;
+  const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+    ?.valueString;
   if (!timezone) {
     console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
@@ -391,9 +393,9 @@ function getSlotsForDayPostTelemed(
   const timeToStartSlots =
     day > openingDateAndTime
       ? day.set({ minute: Math.ceil(day.minute / 30) * 30 }).startOf('minute')
-      : openingDateAndTime.plus({ hour: 1 });
+      : openingDateAndTime;
   const timeSlots: { [slot: string]: number } = {};
-  for (let temp = timeToStartSlots; temp < closingDateAndTime.minus({ hour: 2 }); temp = temp.plus({ minutes: 30 })) {
+  for (let temp = timeToStartSlots; temp < closingDateAndTime; temp = temp.plus({ minutes: 30 })) {
     const tempTime = temp.toISO() || '';
     timeSlots[tempTime] = 1;
   }

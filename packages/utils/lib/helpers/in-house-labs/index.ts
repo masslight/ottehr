@@ -12,6 +12,7 @@ import {
   ObservationCode,
   TestComponentResult,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+  REPEATABLE_TEXT_EXTENSION_CONFIG,
 } from 'utils';
 
 // TODO TEMP PUTTING THIS HERE WHILE I TEST THE FRONT END
@@ -199,6 +200,8 @@ export const convertActivityDefinitionToTestItem = (
       ?.filter((coding) => coding.system === CODE_SYSTEM_CPT)
       .map((coding) => coding.code || '') || [];
 
+  const repeatable = !!activityDef?.extension?.find((ext) => ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url);
+
   const methods: {
     manual?: { device: string };
     analyzer?: { device: string };
@@ -254,6 +257,7 @@ export const convertActivityDefinitionToTestItem = (
   const testItem: TestItem = {
     name,
     methods,
+    repeatable,
     method: Object.keys(methods).join(' or '),
     device: Object.values(methods)
       .map((m) => m.device)

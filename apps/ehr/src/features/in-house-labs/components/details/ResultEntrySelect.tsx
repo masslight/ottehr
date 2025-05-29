@@ -1,4 +1,4 @@
-import { Select, InputLabel, FormControl, MenuItem } from '@mui/material';
+import { Select, FormControl, MenuItem, useTheme } from '@mui/material';
 import { TestItemComponent } from 'utils';
 import { useFormContext, Controller } from 'react-hook-form';
 
@@ -6,7 +6,7 @@ interface ResultEntrySelectProps {
   testItemComponent: TestItemComponent;
   isAbnormal: boolean;
   setIsAbnormal: (bool: boolean) => void;
-  disabled?: boolean;
+  disabled?: boolean; // equates to the final view
 }
 
 export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
@@ -16,6 +16,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   disabled,
 }) => {
   const { control } = useFormContext();
+  const theme = useTheme();
 
   const assessAbnormality = (entry: string): void => {
     if (testItemComponent.dataType === 'CodeableConcept' && testItemComponent.abnormalValues) {
@@ -55,26 +56,12 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
         },
 
         '& .MuiSelect-select.Mui-disabled': {
-          color: isAbnormal ? 'error.dark' : '',
-          WebkitTextFillColor: isAbnormal ? '#C62828' : '',
+          color: isAbnormal ? 'error.dark' : 'text.primary',
+          WebkitTextFillColor: isAbnormal ? theme.palette.error.dark : theme.palette.text.primary,
         },
       }}
       size="small"
     >
-      <InputLabel
-        id="result-entry-labe"
-        sx={{
-          color: isAbnormal ? 'error.dark' : '',
-          '&.Mui-focused': {
-            color: isAbnormal ? 'error.dark' : '',
-          },
-          '&.Mui-disabled': {
-            color: isAbnormal ? 'error.dark' : '',
-          },
-        }}
-      >
-        Select
-      </InputLabel>
       <Controller
         name={testItemComponent.observationDefinitionId}
         control={control}
@@ -83,9 +70,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
           <Select
             disabled={!!disabled}
             fullWidth
-            labelId="result-entry-label"
             id="result-entry-select"
-            label="Select"
             {...field}
             onChange={(e) => {
               field.onChange(e);
