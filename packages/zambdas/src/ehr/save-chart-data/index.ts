@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
 import {
+  addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
   createCodingCode,
@@ -341,6 +342,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     // 13 convert diagnosis to Condition (FHIR) resources and mention them in Encounter.diagnosis
     if (diagnosis) {
+      if (!encounter.diagnosis) {
+        updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
+      }
       for (const element of diagnosis) {
         const condition = await oystehr.fhir.create(
           makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis')
