@@ -37,6 +37,7 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
   Timezone,
+  TIMEZONE_EXTENSION_URL,
   TIMEZONES,
   VisitType,
   WALKIN_APPOINTMENT_TYPE_CODE,
@@ -238,9 +239,8 @@ export function getScheduleExtension(
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
 ): Timezone {
-  const timezone = schedule.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-  )?.valueString;
+  const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+    ?.valueString;
   if (!timezone) {
     console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
@@ -390,9 +390,9 @@ function getSlotsForDayPostTelemed(
   const timeToStartSlots =
     day > openingDateAndTime
       ? day.set({ minute: Math.ceil(day.minute / 30) * 30 }).startOf('minute')
-      : openingDateAndTime.plus({ hour: 1 });
+      : openingDateAndTime;
   const timeSlots: { [slot: string]: number } = {};
-  for (let temp = timeToStartSlots; temp < closingDateAndTime.minus({ hour: 2 }); temp = temp.plus({ minutes: 30 })) {
+  for (let temp = timeToStartSlots; temp < closingDateAndTime; temp = temp.plus({ minutes: 30 })) {
     const tempTime = temp.toISO() || '';
     timeSlots[tempTime] = 1;
   }

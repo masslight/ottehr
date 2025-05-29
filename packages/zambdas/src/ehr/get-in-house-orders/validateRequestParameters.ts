@@ -1,32 +1,59 @@
-import { GetInHouseOrdersParameters } from 'utils';
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, GetInHouseOrdersParameters } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export type GetZambdaInHouseOrdersParams = GetInHouseOrdersParameters & { secrets: any; userToken: string };
+export type GetZambdaInHouseOrdersParams = GetInHouseOrdersParameters & {
+  secrets: any;
+  userToken: string;
+};
 
 export function validateRequestParameters(input: ZambdaInput): GetZambdaInHouseOrdersParams {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const params = JSON.parse(input.body) as GetInHouseOrdersParameters;
+  let params: GetInHouseOrdersParameters;
 
-  if (!params.searchBy.field || !params.searchBy.value) {
-    throw new Error(`Missing searchBy field or value: ${JSON.stringify(params.searchBy)}`);
+  try {
+    params = JSON.parse(input.body) as GetInHouseOrdersParameters;
+  } catch (error) {
+    throw new Error('Invalid JSON in request body');
   }
 
-  if (typeof params.itemsPerPage !== 'number' || isNaN(params.itemsPerPage) || params.itemsPerPage < 1) {
+  const { searchBy, visitDate, itemsPerPage = DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
+
+  if (!searchBy?.field || !searchBy?.value) {
+    throw new Error(`Missing searchBy field or value: ${JSON.stringify(searchBy)}`);
+  }
+
+  if (visitDate && typeof visitDate !== 'string') {
+    throw new Error('Invalid visitDate. Must be a string');
+  }
+
+  const validFields = ['encounterId', 'patientId', 'serviceRequestId'];
+  if (!validFields.includes(searchBy.field)) {
+    throw new Error(`Invalid searchBy field. Must be one of: ${validFields.join(', ')}`);
+  }
+
+  if (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1) {
     throw new Error('Invalid parameter: itemsPerPage must be a number greater than 0');
   }
 
-  if (typeof params.pageIndex !== 'number' || isNaN(params.pageIndex) || params.pageIndex < 0) {
+  if (typeof pageIndex !== 'number' || isNaN(pageIndex) || pageIndex < 0) {
     throw new Error('Invalid parameter: pageIndex must be a number greater than or equal to 0');
   }
 
-  // todo: validate params
+  if (!input.headers?.Authorization) {
+    throw new Error('Authorization header is required');
+  }
+
+  const userToken = input.headers.Authorization.replace('Bearer ', '');
+  if (!userToken) {
+    throw new Error('Invalid Authorization header format');
+  }
 
   return {
     ...params,
     secrets: input.secrets,
-    userToken: input.headers.Authorization.replace('Bearer ', ''),
+    userToken,
   };
 }

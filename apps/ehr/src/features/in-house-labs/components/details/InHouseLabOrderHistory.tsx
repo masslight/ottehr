@@ -1,12 +1,12 @@
 import React from 'react';
 import { Typography, Collapse, Table, TableBody, TableRow, TableCell } from '@mui/material';
-import { InHouseLabDTO } from 'utils';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { DateTime } from 'luxon';
+import { InHouseOrderDetailPageDTO } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface InHouseLabOrderHistoryProps {
   showDetails: boolean;
-  testDetails: InHouseLabDTO;
+  testDetails: InHouseOrderDetailPageDTO;
 }
 
 export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ showDetails, testDetails }) => {

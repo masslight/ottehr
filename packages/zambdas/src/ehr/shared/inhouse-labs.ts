@@ -3,9 +3,9 @@ import {
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PRACTITIONER_CODINGS,
-  InHouseLabDTO,
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+  InHouseOrderDetailPageDTO,
 } from 'utils';
 import { Coding, Task, ServiceRequest, Provenance, Encounter, Specimen } from 'fhir/r4b';
 
@@ -85,7 +85,6 @@ export function buildOrderHistory(
 
   // Add entries from provenances
   provenances.forEach((provenance) => {
-    console.log('provenances here', JSON.stringify(provenances));
     const activityCode = provenance.activity?.coding?.[0]?.code;
 
     // Map activity codes to statuses
@@ -128,7 +127,7 @@ export function buildOrderHistory(
   return history;
 }
 
-export const getSpecimenDetails = (specimen: Specimen): InHouseLabDTO['specimen'] => {
+export const getSpecimenDetails = (specimen: Specimen): InHouseOrderDetailPageDTO['specimen'] => {
   const specimenCollection = specimen.collection;
   if (specimenCollection) {
     const standardizedSource = specimenCollection.bodySite?.coding?.find(

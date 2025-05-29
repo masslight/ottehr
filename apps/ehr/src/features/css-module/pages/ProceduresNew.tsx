@@ -1,4 +1,4 @@
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
 import {
   AccordionCard,
@@ -7,6 +7,7 @@ import {
   useAppointmentStore,
   useDebounce,
   useDeleteChartData,
+  useGetAppointmentAccessibility,
   useGetIcd10Search,
   useSaveChartData,
 } from 'src/telemed';
@@ -32,13 +33,22 @@ import {
 } from '@mui/material';
 import { RoundedButton } from 'src/components/RoundedButton';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
-import { CPTCodeDTO, DiagnosisDTO, getSelectors, IcdSearchResponse, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
+import {
+  CPTCodeDTO,
+  DiagnosisDTO,
+  getSelectors,
+  getVisitStatus,
+  IcdSearchResponse,
+  REQUIRED_FIELD_ERROR_MESSAGE,
+  TelemedAppointmentStatusEnum,
+} from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
 import { InfoAlert } from '../components/InfoAlert';
 import { enqueueSnackbar } from 'notistack';
 import { DateTime } from 'luxon';
+import { useFeatureFlags } from '../context/featureFlags';
 
 const OTHER = 'Other';
 const PROCEDURE_TYPES = [
@@ -140,12 +150,27 @@ interface PageState {
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId, procedureId } = useParams();
-  const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);
+  const { chartData, setPartialChartData, appointment, encounter } = getSelectors(useAppointmentStore, [
+    'chartData',
+    'setPartialChartData',
+    'appointment',
+    'encounter',
+  ]);
+  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
+  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const { css } = useFeatureFlags();
+  const isReadOnly = useMemo(() => {
+    if (css) {
+      return inPersonStatus === 'completed';
+    }
+    return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
+  }, [css, inPersonStatus, appointmentAccessibility.status]);
   const chartCptCodes = chartData?.cptCodes || [];
   const chartDiagnoses = chartData?.diagnosis || [];
   const chartProcedures = chartData?.procedures || [];
   const { mutateAsync: saveChartData } = useSaveChartData();
   const { mutateAsync: deleteChartData } = useDeleteChartData();
+
   const [state, setState] = useState<PageState>({
     procedureDate: DateTime.now(),
     procedureTime: DateTime.now(),
@@ -331,6 +356,7 @@ export default function ProceduresNew(): ReactElement {
               onChange={(e) => debouncedHandleInputChange(e.target.value)}
             />
           )}
+          disabled={isReadOnly}
         />
         <ActionsList
           data={state.cptCodes ?? []}
@@ -340,15 +366,17 @@ export default function ProceduresNew(): ReactElement {
               {value.code} {value.display}
             </Typography>
           )}
-          renderActions={(value) => (
-            <DeleteIconButton
-              onClick={() =>
-                updateState(
-                  (state) => (state.cptCodes = state.cptCodes?.filter((cptCode) => cptCode.code != value.code))
-                )
-              }
-            />
-          )}
+          renderActions={(value) =>
+            !isReadOnly ? (
+              <DeleteIconButton
+                onClick={() =>
+                  updateState(
+                    (state) => (state.cptCodes = state.cptCodes?.filter((cptCode) => cptCode.code != value.code))
+                  )
+                }
+              />
+            ) : undefined
+          }
           divider
         />
       </>
@@ -367,6 +395,7 @@ export default function ProceduresNew(): ReactElement {
             });
           }}
           disableForPrimary={false}
+          disabled={isReadOnly}
         />
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           <ActionsList
@@ -377,8 +406,8 @@ export default function ProceduresNew(): ReactElement {
                 {value.display} {value.code}
               </Typography>
             )}
-            renderActions={(value) => (
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            renderActions={(value) =>
+              !isReadOnly ? (
                 <DeleteIconButton
                   onClick={() =>
                     updateState(
@@ -387,8 +416,8 @@ export default function ProceduresNew(): ReactElement {
                     )
                   }
                 />
-              </Box>
-            )}
+              ) : undefined
+            }
             divider
           />
         </Box>
@@ -403,7 +432,7 @@ export default function ProceduresNew(): ReactElement {
     stateMutator: (value: string, state: PageState) => void
   ): ReactElement => {
     return (
-      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small">
+      <FormControl fullWidth sx={{ backgroundColor: 'white' }} size="small" disabled={isReadOnly}>
         <InputLabel id={label}>{label}</InputLabel>
         <Select
           label={label}
@@ -441,6 +470,7 @@ export default function ProceduresNew(): ReactElement {
         size="small"
         value={value ?? ''}
         onChange={(e: any) => updateState((state) => stateMutator(e.target.value, state))}
+        disabled={isReadOnly}
       />
     );
   };
@@ -453,7 +483,7 @@ export default function ProceduresNew(): ReactElement {
     error = false
   ): ReactElement => {
     return (
-      <FormControl error={error}>
+      <FormControl error={error} disabled={isReadOnly}>
         <FormLabel id={label}>{label}</FormLabel>
         <RadioGroup
           row
@@ -480,6 +510,7 @@ export default function ProceduresNew(): ReactElement {
               <Checkbox
                 checked={state.consentObtained ?? false}
                 onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
+                disabled={isReadOnly}
               />
               <Typography>I have obtained the Consent for Procedure *</Typography>
             </Box>
@@ -516,6 +547,7 @@ export default function ProceduresNew(): ReactElement {
                   }}
                   value={state.procedureDate}
                   onChange={(date: DateTime | null, _e: any) => updateState((state) => (state.procedureDate = date))}
+                  disabled={isReadOnly}
                 />
               </LocalizationProvider>
               <LocalizationProvider dateAdapter={AdapterLuxon}>
@@ -529,6 +561,7 @@ export default function ProceduresNew(): ReactElement {
                   }}
                   value={state.procedureTime}
                   onChange={(time: DateTime | null, _e: any) => updateState((state) => (state.procedureTime = time))}
+                  disabled={isReadOnly}
                 />
               </LocalizationProvider>
             </Stack>
@@ -567,6 +600,7 @@ export default function ProceduresNew(): ReactElement {
               rows={4}
               value={state.procedureDetails ?? ''}
               onChange={(e: any) => updateState((state) => (state.procedureDetails = e.target.value))}
+              disabled={isReadOnly}
             />
             {radio(
               'Specimen sent',
@@ -612,7 +646,12 @@ export default function ProceduresNew(): ReactElement {
               <RoundedButton color="primary" onClick={onCancel}>
                 Cancel
               </RoundedButton>
-              <RoundedButton color="primary" variant="contained" disabled={!state.consentObtained} onClick={onSave}>
+              <RoundedButton
+                color="primary"
+                variant="contained"
+                disabled={!state.consentObtained || isReadOnly}
+                onClick={onSave}
+              >
                 Save
               </RoundedButton>
             </Box>

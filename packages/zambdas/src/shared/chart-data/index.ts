@@ -688,7 +688,6 @@ export function updateEncounterDiagnosis(encounter: Encounter, conditionId: stri
     }
   });
   if (!foundDiagnosis) {
-    if (!encounter.diagnosis) resultOperations.push(addEmptyArrOperation('/diagnosis'));
     resultOperations.push(
       addOperation('/diagnosis/-', {
         condition: { reference: conditionReference },

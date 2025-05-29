@@ -232,6 +232,30 @@ function composeDataForPdf(
     else workSchoolExcuse.push('There was a work note generated');
   });
 
+  // --- Procedures ---
+  const procedures = chartData?.procedures?.map((procedure) => ({
+    procedureType: procedure.procedureType,
+    cptCodes: procedure?.cptCodes?.map((cptCode) => cptCode.code + ' ' + cptCode.display),
+    diagnoses: procedure?.diagnoses?.map((diagnosis) => diagnosis.code + ' ' + diagnosis.display),
+    procedureDateTime:
+      procedure.procedureDateTime != null
+        ? DateTime.fromISO(procedure.procedureDateTime).toFormat('MM/dd/yyyy, HH:mm a')
+        : undefined,
+    performerType: procedure.performerType,
+    medicationUsed: procedure.medicationUsed,
+    bodySite: procedure.bodySite,
+    bodySide: procedure.bodySide,
+    technique: procedure.technique,
+    suppliesUsed: procedure.suppliesUsed,
+    procedureDetails: procedure.procedureDetails,
+    specimenSent: procedure.specimenSent != null ? (procedure.specimenSent ? 'Yes' : 'No') : undefined,
+    complications: procedure.complications,
+    patientResponse: procedure.patientResponse,
+    postInstructions: procedure.postInstructions,
+    timeSpent: procedure.timeSpent,
+    documentedBy: procedure.documentedBy,
+  }));
+
   return {
     patientName: patientName ?? '',
     patientDOB: patientDOB ?? '',
@@ -285,6 +309,7 @@ function composeDataForPdf(
     },
     subSpecialtyFollowUp,
     workSchoolExcuse,
+    procedures,
   };
 }
 

@@ -61,7 +61,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       organizations,
       questionnaires,
       labPDFs,
-      specimens
+      specimens,
+      secrets
     );
 
     return {

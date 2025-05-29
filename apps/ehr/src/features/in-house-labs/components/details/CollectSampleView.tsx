@@ -17,7 +17,6 @@ import {
 } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { InHouseLabDTO, MarkAsCollectedData } from 'utils';
 import { DateTime } from 'luxon';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
@@ -25,9 +24,11 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
+import { InHouseOrderDetailPageDTO, MarkAsCollectedData } from 'utils/lib/types/data/in-house/in-house.types';
+import { getFormattedDiagnoses } from 'utils/lib/types/data/in-house/in-house.helpers';
 
 interface CollectSampleViewProps {
-  testDetails: InHouseLabDTO;
+  testDetails: InHouseOrderDetailPageDTO;
   onBack: () => void;
   onSubmit: (data: MarkAsCollectedData) => void;
 }
@@ -52,12 +53,12 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
   const providers =
-    testDetails.currentUserId !== testDetails.providerId
+    testDetails.currentUserId !== testDetails.orderingPhysicianId
       ? [
-          { name: testDetails.currentUserName, id: testDetails.currentUserId },
-          { name: testDetails.providerName, id: testDetails.providerId },
+          { name: testDetails.currentUserFullName, id: testDetails.currentUserId },
+          { name: testDetails.orderingPhysicianFullName, id: testDetails.orderingPhysicianId },
         ]
-      : [{ name: testDetails.currentUserName, id: testDetails.currentUserId }];
+      : [{ name: testDetails.currentUserFullName, id: testDetails.currentUserId }];
 
   const handleToggleSampleCollection = (): void => {
     setShowSampleCollection(!showSampleCollection);
@@ -126,7 +127,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   return (
     <Box>
       <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
-        {testDetails.diagnosis}
+        {getFormattedDiagnoses(testDetails.diagnosesDTO)}
       </Typography>
 
       <Typography variant="h4" color="primary.dark" sx={{ mb: 3, fontWeight: 'bold' }}>
@@ -137,7 +138,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
         <Box sx={{ p: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h5" color="primary.dark" fontWeight="bold" sx={{ fontSize: '1.5rem' }}>
-              {testDetails.name}
+              {testDetails.testItemName}
             </Typography>
             <Box
               sx={{

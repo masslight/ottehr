@@ -12,6 +12,7 @@ import {
   getPatientFirstName,
   getPatientLastName,
   isPSCOrder,
+  getTimezone,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -29,6 +30,7 @@ import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../share
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
+export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -143,6 +145,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
+    let timezone = undefined;
+    if (location) {
+      timezone = getTimezone(location);
+    }
     const sampleCollectionDates: DateTime[] = [];
 
     const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
@@ -339,7 +345,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ?.value;
 
     const orderCreateDate = serviceRequest.authoredOn
-      ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+      ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
       : undefined;
 
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -377,10 +383,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         patientId: patient.id,
         patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
         patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-        todayDate: now.toFormat('MM/dd/yy hh:mm a'),
-        orderSubmitDate: now.toFormat('MM/dd/yy hh:mm a'),
+        todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+        orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
-        sampleCollectionDate: mostRecentSampleCollectionDate?.toFormat('MM/dd/yy hh:mm a') || undefined,
+        sampleCollectionDate:
+          mostRecentSampleCollectionDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT) || undefined,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])

@@ -17,6 +17,7 @@ import {
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
   convertActivityDefinitionToTestItem,
   quantityRangeFormat,
+  getTimezone,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
@@ -34,6 +35,8 @@ import {
   Task,
 } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
+import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
+import { compareDates } from '../../ehr/get-lab-orders/helpers';
 
 function formatResultValue(result: string | undefined): string | undefined {
   if (result === 'Positive') {
@@ -135,28 +138,31 @@ export async function createLabResultPDF(
         },
         {
           name: 'code',
-          value: LAB_ORDER_TASK.code.reviewFinalResult,
+          value: `${LAB_ORDER_TASK.code.reviewFinalResult},${LAB_ORDER_TASK.code.reviewCorrectedResult}`,
         },
       ],
     })
   )?.unbundle();
 
-  const taskRequestsRFRT: Task[] | undefined = taskRequestTemp?.filter(
+  const reviewTasksFinalOrCorrected: Task[] | undefined = taskRequestTemp?.filter(
     (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
 
-  const taskRFRT = taskRequestsRFRT?.[0];
-  let provenanceRFRT = undefined;
+  const latestReviewTask = reviewTasksFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
 
-  if (taskRFRT) {
-    const provenanceRFRTID = taskRFRT.relevantHistory?.[0].reference?.replace('Provenance/', '');
-    if (provenanceRFRTID) {
-      provenanceRFRT = await oystehr.fhir.get<Provenance>({
+  let provenanceReviewTask = undefined;
+
+  if (latestReviewTask) {
+    const provenanceReviewTaskId = latestReviewTask.relevantHistory?.[0].reference?.replace('Provenance/', '');
+    if (provenanceReviewTaskId) {
+      provenanceReviewTask = await oystehr.fhir.get<Provenance>({
         resourceType: 'Provenance',
-        id: provenanceRFRTID,
+        id: provenanceReviewTaskId,
       });
     }
   }
+
+  console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, JSON.stringify(provenanceReviewTask));
 
   let location: Location | undefined;
   if (locationID) {
@@ -170,12 +176,17 @@ export async function createLabResultPDF(
   const orderID = serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value;
 
   const accessionNumber = diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value;
-  const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).toFormat('MM/dd/yyyy hh:mm a');
+  let timezone = undefined;
+  if (location) {
+    timezone = getTimezone(location);
+  }
+
+  const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
   const orderCreateDate = serviceRequest.authoredOn
-    ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+    ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a')
     : undefined;
-  const reviewDate = provenanceRFRT
-    ? DateTime.fromISO(provenanceRFRT.recorded).toFormat('MM/dd/yyyy hh:mm a')
+  const reviewDate = provenanceReviewTask
+    ? DateTime.fromISO(provenanceReviewTask.recorded).toFormat('MM/dd/yyyy hh:mm a')
     : undefined;
   const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
@@ -249,12 +260,14 @@ export async function createLabResultPDF(
   let collectionDate = undefined;
 
   if (labType === 'external') {
-    collectionDate = now.toFormat('MM/dd/yy hh:mm a');
+    collectionDate = now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
   } else if (labType === 'in-house') {
     if (!specimen?.collection?.collectedDateTime) {
       throw new Error('in-house lab collection date is not defined');
     }
-    collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime).toFormat('MM/dd/yy hh:mm a');
+    collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
+      .setZone(timezone)
+      .toFormat(LABS_DATE_STRING_FORMAT);
   }
 
   const pdfDetail = await createExternalLabsResultsFormPDF(
@@ -286,7 +299,7 @@ export async function createLabResultPDF(
       patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_RESULT_ITEM_UNKNOWN,
       patientPhone:
         patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
-      todayDate: now.toFormat('MM/dd/yy hh:mm a'),
+      todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
       collectionDate: collectionDate || ORDER_RESULT_ITEM_UNKNOWN,
       orderSubmitDate: orderSubmitDate,
       orderCreateDate: orderCreateDate || ORDER_RESULT_ITEM_UNKNOWN,

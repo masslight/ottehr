@@ -265,6 +265,18 @@ export function formatDateTimeToLocaleString(datetime: string, format: 'date' | 
   }
 }
 
+export const tryFormatDateToISO = (date: DateTime | null): string | undefined => {
+  if (!date || !date.isValid) {
+    return undefined;
+  }
+  try {
+    return date.toISODate() || undefined;
+  } catch (dateError) {
+    console.error('Error formatting date:', dateError);
+  }
+  return;
+};
+
 export const formatVisitDate = (dateString: string, format: string, timezone?: string): string => {
   let date = DateTime.fromISO(dateString);
   if (timezone) {
