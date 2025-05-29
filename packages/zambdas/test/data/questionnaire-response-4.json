@@ -1,0 +1,158 @@
+{
+  "resourceType": "QuestionnaireResponse",
+  "questionnaire": "https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson|1.0.6",
+  "status": "completed",
+  "subject": {
+    "reference": "Patient/f22d7f91-2a36-4cd6-a1ad-b97dddcb4ff3"
+  },
+  "encounter": {
+    "reference": "Encounter/c455a927-5637-4b6c-bcb5-0ccd9f78b6a0"
+  },
+  "item": [
+    {
+      "linkId": "contact-information-page",
+      "item": [
+        {
+          "linkId": "patient-middle-name"
+        },
+        {
+          "linkId": "patient-name-suffix"
+        },
+        {
+          "linkId": "patient-preferred-name"
+        },
+        {
+          "linkId": "patient-pronouns"
+        },
+        {
+          "linkId": "patient-street-address-2"
+        }
+      ]
+    },
+    {
+      "linkId": "patient-details-page",
+      "item": [
+        {
+          "linkId": "patient-sexual-orientation"
+        },
+        {
+          "linkId": "patient-gender-identity"
+        },
+        {
+          "linkId": "patient-gender-identity-details"
+        },
+        {
+          "linkId": "preferred-language"
+        },
+        {
+          "linkId": "patient-point-of-discovery"
+        },
+        {
+          "linkId": "mobile-opt-in"
+        },
+        {
+          "linkId": "common-well-consent"
+        }
+      ]
+    },
+    {
+      "linkId": "primary-care-physician-page",
+      "item": [
+        {
+          "linkId": "pcp-active"
+        },
+        {
+          "linkId": "pcp-first"
+        },
+        {
+          "linkId": "pcp-last"
+        },
+        {
+          "linkId": "pcp-practice"
+        },
+        {
+          "linkId": "pcp-address"
+        },
+        {
+          "linkId": "pcp-number"
+        }
+      ]
+    },
+    {
+      "linkId": "payment-option-page",
+      "item": [
+        {
+          "linkId": "policy-holder-middle-name"
+        },
+        {
+          "linkId": "policy-holder-address-as-patient",
+          "answer": [
+            {
+              "valueBoolean": true
+            }
+          ]
+        },
+        {
+          "linkId": "policy-holder-address-additional-line"
+        },
+        {
+          "linkId": "insurance-card-front"
+        },
+        {
+          "linkId": "insurance-card-back"
+        },
+        {
+          "item": [
+            {
+              "linkId": "policy-holder-middle-name-2"
+            },
+            {
+              "linkId": "policy-holder-address-as-patient-2"
+            },
+            {
+              "linkId": "policy-holder-address-additional-line-2"
+            },
+            {
+              "linkId": "insurance-card-front-2"
+            },
+            {
+              "linkId": "insurance-card-back-2"
+            }
+          ],
+          "linkId": "secondary-insurance"
+        }
+      ]
+    },
+    {
+      "linkId": "responsible-party-page",
+      "item": [
+        {
+          "linkId": "responsible-party-number"
+        }
+      ]
+    },
+    {
+      "linkId": "photo-id-page",
+      "item": [
+        {
+          "linkId": "photo-id-front"
+        },
+        {
+          "linkId": "photo-id-back"
+        }
+      ]
+    }
+  ],
+  "id": "f6fbd727-3ebb-4049-b634-da9ce70e2081",
+  "meta": {
+    "versionId": "d7420525-7c05-4464-bbd1-4af377e77b7c",
+    "lastUpdated": "2025-04-18T08:51:33.504Z"
+  },
+  "authored": "2025-04-18T08:51:33.216+00:00",
+  "extension": [
+    {
+      "url": "https://fhir.zapehr.com/r4/StructureDefinitions/ip-address",
+      "valueString": "Unknown"
+    }
+  ]
+}

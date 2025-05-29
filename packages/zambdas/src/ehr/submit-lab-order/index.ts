@@ -1,26 +1,36 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   getPatchBinary,
-  isValidUUID,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   getPresignedURL,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
+  EXTERNAL_LAB_ERROR,
+  isApiError,
+  APIError,
+  DYMO_30334_LABEL_CONFIG,
+  getPatientFirstName,
+  getPatientLastName,
+  isPSCOrder,
+  getTimezone,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
-import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
+import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
 import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
+import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
+export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -47,33 +57,32 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounter,
       organization: labOrganization,
       specimens,
-    } = await getLabOrderResources(oystehr, serviceRequestID);
+    } = await getLabOrderResources(oystehr, 'external', serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
     if (!appointment.id) {
-      throw new Error('appointment id is undefined');
+      throw EXTERNAL_LAB_ERROR('appointment id is undefined');
     }
-
     if (!encounter.id) {
-      throw new Error('encounter id is undefined');
+      throw EXTERNAL_LAB_ERROR('encounter id is undefined');
     }
     if (!serviceRequest.reasonCode) {
-      throw new Error('service request reasonCode is undefined');
+      throw EXTERNAL_LAB_ERROR(
+        `Please ensure at least one diagnosis is recorded for this service request, ServiceRequest/${serviceRequest.id}, it should be recorded in serviceRequest.reasonCode`
+      );
     }
-
-    if (!locationID || !isValidUUID(locationID)) {
-      throw new Error(`location id ${locationID} is not a uuid`);
-    }
-
     if (!patient.id) {
-      throw new Error('patient.id is undefined');
+      throw EXTERNAL_LAB_ERROR('patient id is undefined');
     }
 
-    const location: Location = await oystehr.fhir.get({
-      resourceType: 'Location',
-      id: locationID,
-    });
+    let location: Location | undefined;
+    if (locationID) {
+      location = await oystehr.fhir.get<Location>({
+        resourceType: 'Location',
+        id: locationID,
+      });
+    }
 
     let coverage: Coverage | undefined = undefined;
     let organization: Organization | undefined = undefined;
@@ -113,15 +122,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
 
       if (coveragesRequestsTemp?.length !== 1) {
-        throw new Error('coverage is not found');
+        throw EXTERNAL_LAB_ERROR('coverage is not found');
       }
 
       if (organizationsRequestsTemp?.length !== 1) {
-        throw new Error('organization is not found');
+        throw EXTERNAL_LAB_ERROR('organization is not found');
       }
 
       if (patientsRequestsTemp?.length !== 1) {
-        throw new Error('patient is not found');
+        throw EXTERNAL_LAB_ERROR('patient is not found');
       }
 
       coverage = coveragesRequestsTemp[0];
@@ -129,11 +138,82 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       coveragePatient = patientsRequestsTemp[0];
 
       if (coveragePatient.id !== patient.id) {
-        throw new Error(
+        throw EXTERNAL_LAB_ERROR(
           `the patient check with coverage isn't the same as the patient the order is being requested on behalf of, coverage patient ${coveragePatient.id}, patient ${patient.id}`
         );
       }
     }
+
+    const now = DateTime.now();
+    let timezone = undefined;
+    if (location) {
+      timezone = getTimezone(location);
+    }
+    const sampleCollectionDates: DateTime[] = [];
+
+    const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
+      specimens.length > 0
+        ? specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+            if (!specimen.id) {
+              return acc;
+            }
+
+            /**
+             * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
+             * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
+             * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
+             * upon submission we should set the current date.
+             */
+            const specimenDateTime = specimen.collection?.collectedDateTime;
+            console.log('specimenDateTime', specimenDateTime);
+
+            const specimenCollector = { reference: currentUser?.profile };
+
+            const requests: Operation[] = [];
+
+            if (!specimenDateTime) {
+              sampleCollectionDates.push(now);
+              if (specimen.collection) {
+                requests.push(
+                  {
+                    path: '/collection/collectedDateTime',
+                    op: 'add',
+                    value: now,
+                  },
+                  {
+                    path: '/collection/collector',
+                    op: 'add',
+                    value: specimenCollector,
+                  }
+                );
+              } else {
+                requests.push({
+                  path: '/collection',
+                  op: 'add',
+                  value: {
+                    collectedDateTime: now,
+                    collector: specimenCollector,
+                  },
+                });
+              }
+            } else {
+              sampleCollectionDates.push(DateTime.fromISO(specimenDateTime));
+            }
+
+            if (requests.length) {
+              acc.push({
+                method: 'PATCH',
+                url: `Specimen/${specimen.id}`,
+                operations: requests,
+              });
+            }
+
+            return acc;
+          }, [])
+        : [];
+
+    // Specimen.collection.collected is required at time of order so we must make this patch before submitting to oystehr
+    const preSumbissionWriteRequests = [...specimenPatchOperations];
 
     // not every order will have an AOE
     let questionsAndAnswers: AOEDisplayForOrderForm[] = [];
@@ -143,25 +223,28 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
       questionsAndAnswers = questionsAndAnswersForFormDisplay;
 
-      await oystehr?.fhir.transaction({
-        requests: [
-          getPatchBinary({
-            resourceType: 'QuestionnaireResponse',
-            resourceId: questionnaireResponse.id,
-            patchOperations: [
-              {
-                op: 'add',
-                path: '/item',
-                value: questionnaireResponseItems,
-              },
-              {
-                op: 'replace',
-                path: '/status',
-                value: 'completed',
-              },
-            ],
-          }),
+      preSumbissionWriteRequests.push({
+        method: 'PATCH',
+        url: `QuestionnaireResponse/${questionnaireResponse.id}`,
+        operations: [
+          {
+            op: 'add',
+            path: '/item',
+            value: questionnaireResponseItems,
+          },
+          {
+            op: 'replace',
+            path: '/status',
+            value: 'completed',
+          },
         ],
+      });
+    }
+
+    if (preSumbissionWriteRequests.length > 0) {
+      console.log('writing updates that must occur before sending order to oysther');
+      await oystehr?.fhir.transaction({
+        requests: preSumbissionWriteRequests,
       });
     }
 
@@ -178,12 +261,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (!submitLabRequest.ok) {
       const submitLabRequestResponse = await submitLabRequest.json();
-      console.log(submitLabRequestResponse);
-      throw new Error('error submitting lab request');
+      console.log('submitLabRequestResponse', submitLabRequestResponse);
+      throw EXTERNAL_LAB_ERROR(submitLabRequestResponse.message || 'error submitting lab request to oystehr');
     }
 
     // submitted successful, so do the fhir provenance writes and update SR
-    const now = DateTime.now();
     const fhirUrl = `urn:uuid:${uuid()}`;
 
     const provenanceFhir: Provenance = {
@@ -205,43 +287,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
     };
 
-    const specimenPatchOperations = specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
-      if (!specimen.id) {
-        return acc;
-      }
-
-      const specimenDateTime = specimen.collection?.collectedDateTime;
-
-      if (specimenDateTime) {
-        /**
-         * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
-         * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
-         * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
-         * upon submission we should set the current date.
-         */
-        return acc;
-      }
-
-      acc.push(
-        getPatchBinary({
-          resourceType: 'Specimen',
-          resourceId: specimen.id,
-          patchOperations: [
-            {
-              path: '/collection/collectedDateTime',
-              op: 'add',
-              value: now.toISO(),
-            },
-          ],
-        })
-      );
-
-      return acc;
-    }, []);
-
     await oystehr?.fhir.transaction({
       requests: [
-        ...specimenPatchOperations,
         getPatchBinary({
           resourceType: 'ServiceRequest',
           resourceId: serviceRequest.id || 'unknown',
@@ -298,21 +345,28 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ?.value;
 
     const orderCreateDate = serviceRequest.authoredOn
-      ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+      ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
       : undefined;
 
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
 
-    const pdfDetail = await createExternalLabsOrderFormPDF(
+    const mostRecentSampleCollectionDate =
+      sampleCollectionDates.length > 0
+        ? sampleCollectionDates.reduce((latest, current) => {
+            return current > latest ? current : latest;
+          })
+        : undefined;
+
+    const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
-        locationName: location.name || ORDER_ITEM_UNKNOWN,
-        locationStreetAddress: location.address?.line?.join(',') || ORDER_ITEM_UNKNOWN,
-        locationCity: location.address?.city || ORDER_ITEM_UNKNOWN,
-        locationState: location.address?.state || ORDER_ITEM_UNKNOWN,
-        locationZip: location.address?.postalCode || ORDER_ITEM_UNKNOWN,
-        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value || ORDER_ITEM_UNKNOWN,
-        labOrganizationName: labOrganization.name || ORDER_ITEM_UNKNOWN,
+        locationName: location?.name,
+        locationStreetAddress: location?.address?.line?.join(','),
+        locationCity: location?.address?.city,
+        locationState: location?.address?.state,
+        locationZip: location?.address?.postalCode,
+        locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
+        locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
+        labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         providerTitle:
@@ -329,9 +383,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         patientId: patient.id,
         patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
         patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-        todayDate: now.toFormat('MM/dd/yy hh:mm a'),
-        orderSubmitDate: now.toFormat('MM/dd/yy hh:mm a'),
+        todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+        orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
+        sampleCollectionDate:
+          mostRecentSampleCollectionDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT) || undefined,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])
@@ -357,26 +413,53 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await makeLabPdfDocumentReference({
       oystehr,
       type: 'order',
-      pdfInfo: pdfDetail,
+      pdfInfo: orderFormPdfDetail,
       patientID: patient.id,
       encounterID: encounter.id,
       serviceRequestID: serviceRequest.id,
     });
 
-    const presignedURL = await getPresignedURL(pdfDetail.uploadURL, m2mtoken);
+    const presignedOrderFormURL = await getPresignedURL(orderFormPdfDetail.uploadURL, m2mtoken);
+    let presignedLabelURL: string | undefined = undefined;
+
+    if (!isPSCOrder(serviceRequest)) {
+      const labelConfig: ExternalLabsLabelConfig = {
+        labelConfig: DYMO_30334_LABEL_CONFIG,
+        content: {
+          patientId: patient.id!,
+          patientFirstName: getPatientFirstName(patient) ?? '',
+          patientLastName: getPatientLastName(patient) ?? '',
+          patientDateOfBirth: patient.birthDate ? DateTime.fromISO(patient.birthDate) : undefined,
+          sampleCollectionDate: mostRecentSampleCollectionDate,
+          orderNumber: orderID ?? '',
+          accountNumber,
+        },
+      };
+
+      presignedLabelURL = (
+        await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mtoken, oystehr)
+      ).presignedURL;
+    }
 
     return {
       body: JSON.stringify({
-        pdfUrl: presignedURL,
+        orderPdfUrl: presignedOrderFormURL,
+        labelPdfUrl: presignedLabelURL,
       }),
       statusCode: 200,
     };
-  } catch (error) {
+  } catch (error: any) {
     console.log(error);
     console.log('submit lab order error:', JSON.stringify(error));
+    await topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    let body = JSON.stringify({ message: 'Error submitting a lab order' });
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+    }
     return {
-      body: JSON.stringify({ message: 'Error submitting a lab order' }),
       statusCode: 500,
+      body,
     };
   }
 };

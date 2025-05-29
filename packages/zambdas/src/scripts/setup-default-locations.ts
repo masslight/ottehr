@@ -9,6 +9,7 @@ import {
   EligibilityPractitionerType,
   FHIR_IDENTIFIER_NPI,
   filterVirtualLocations,
+  ROOM_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
   SLUG_SYSTEM,
   TELEMED_INITIAL_STATES,
@@ -34,6 +35,8 @@ export const allPhysicalDefaultLocations: { state: string; city: string; name: s
     name: 'Los Angeles',
   },
 ];
+
+export const defaultGroup = 'Visit Followup Group';
 export type PhysicalLocation = (typeof allPhysicalDefaultLocations)[number];
 
 export const checkLocations = async (oystehr: Oystehr): Promise<void> => {
@@ -178,6 +181,10 @@ const createPhysicalLocation = async (
         url: TIMEZONE_EXTENSION_URL,
         valueString: 'America/New_York',
       },
+      ...Array.from({ length: 11 }, (_, i) => ({
+        url: ROOM_EXTENSION_URL,
+        valueString: (i + 1).toString(),
+      })),
     ];
 
     const createLocationRequest: BatchInputPostRequest<Location> = {

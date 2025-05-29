@@ -1,12 +1,18 @@
 import { input, password } from '@inquirer/prompts';
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import dotenv from 'dotenv';
-import { Location, Practitioner } from 'fhir/r4b';
+import { FhirResource, Location, Practitioner, Schedule } from 'fhir/r4b';
 import fs from 'fs';
-import { allLicensesForPractitioner, makeQualificationForPractitioner } from 'utils';
+import {
+  allLicensesForPractitioner,
+  makeQualificationForPractitioner,
+  SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils';
 import { isLocationVirtual } from 'utils/lib/fhir/location';
 import {
   allPhysicalDefaultLocations,
+  defaultGroup,
   virtualDefaultLocations,
 } from '../packages/zambdas/src/scripts/setup-default-locations';
 
@@ -100,11 +106,55 @@ async function getLocationsForTesting(
   const firstDefaultLocation = allPhysicalDefaultLocations[0];
   const firstDefaultVirtualLocation = virtualDefaultLocations[0];
 
-  const locationsResponse = await oystehr.fhir.search<Location>({
+  const locationsResponse = await oystehr.fhir.search<Location | Schedule>({
     resourceType: 'Location',
+    params: [
+      {
+        name: '_revinclude',
+        value: 'Schedule:actor:Location',
+      },
+    ],
   });
 
-  const locations = locationsResponse.unbundle();
+  const defaultGroupRelatedResourcesResponse = await oystehr.fhir.search<Location | Practitioner | Schedule>({
+    resourceType: 'HealthcareService',
+    params: [
+      {
+        name: 'name',
+        value: defaultGroup,
+      },
+      {
+        name: '_include',
+        value: 'HealthcareService:location',
+      },
+      {
+        name: '_revinclude',
+        value: 'PractitionerRole:service',
+      },
+      {
+        name: '_include:iterate',
+        value: 'PractitionerRole:practitioner',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor:Location',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor:Practitioner',
+      },
+    ],
+  });
+
+  const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
+  const defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
+    (res) => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
+  );
+  const defaultGroupSchedules = defaultGroupRelatedResources.filter((res) => res.resourceType === 'Schedule');
+
+  const locationsAndSchedules = locationsResponse.unbundle();
+  const locations = locationsAndSchedules.filter((res) => res.resourceType === 'Location');
+  const schedules = locationsAndSchedules.filter((res) => res.resourceType === 'Schedule');
 
   const virtualLocations = locations.filter(isLocationVirtual);
 
@@ -127,6 +177,10 @@ async function getLocationsForTesting(
   );
   const virtualLocationState = (virtualLocation?.address?.state || '').toLowerCase();
 
+  if (!virtualLocation) {
+    throw Error('Required virtual location not found');
+  }
+
   if (!locationId) {
     throw Error('Required locationId not found  ');
   }
@@ -140,7 +194,7 @@ async function getLocationsForTesting(
   }
 
   if (!virtualLocationState) {
-    throw Error('Required locationState not found');
+    throw Error('Required virtual location state not found');
   }
 
   console.log(`Found location by name '${locationResource.name}' with ID: ${locationId}`);
@@ -148,6 +202,16 @@ async function getLocationsForTesting(
 
   console.log(`Found virtual location by state: ${firstDefaultVirtualLocation.state} with ID: ${virtualLocation?.id}`);
   console.log(`Location name: ${virtualLocation?.name}, state: ${virtualLocation?.address?.state}`);
+
+  console.group('Ensure test location schedules and slots');
+  await Promise.all([
+    ensureOwnerResourceSchedulesAndSlots(locationResource, schedules, oystehr),
+    ensureOwnerResourceSchedulesAndSlots(virtualLocation, schedules, oystehr),
+    defaultGroupLocationsAndPractitioners.map((owner) =>
+      ensureOwnerResourceSchedulesAndSlots(owner, defaultGroupSchedules, oystehr)
+    ),
+  ]);
+  console.groupEnd();
 
   return {
     locationId,
@@ -374,3 +438,340 @@ export async function createTestEnvFiles(): Promise<void> {
 }
 
 createTestEnvFiles().catch(() => process.exit(1));
+
+const FULL_DAY_SCHEDULE = `{
+  "schedule": {
+    "monday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "tuesday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "wednesday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "thursday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "friday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "saturday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    },
+    "sunday": {
+      "open": 0,
+      "close": 23,
+      "openingBuffer": 0,
+      "closingBuffer": 0,
+      "workingDay": true,
+      "hours": [
+        { "hour": 0, "capacity": 200 },
+        { "hour": 1, "capacity": 200 },
+        { "hour": 2, "capacity": 200 },
+        { "hour": 3, "capacity": 200 },
+        { "hour": 4, "capacity": 200 },
+        { "hour": 5, "capacity": 200 },
+        { "hour": 6, "capacity": 200 },
+        { "hour": 7, "capacity": 200 },
+        { "hour": 8, "capacity": 200 },
+        { "hour": 9, "capacity": 200 },
+        { "hour": 10, "capacity": 200 },
+        { "hour": 11, "capacity": 200 },
+        { "hour": 12, "capacity": 200 },
+        { "hour": 13, "capacity": 200 },
+        { "hour": 14, "capacity": 200 },
+        { "hour": 15, "capacity": 200 },
+        { "hour": 16, "capacity": 200 },
+        { "hour": 17, "capacity": 200 },
+        { "hour": 18, "capacity": 200 },
+        { "hour": 19, "capacity": 200 },
+        { "hour": 20, "capacity": 200 },
+        { "hour": 21, "capacity": 200 },
+        { "hour": 22, "capacity": 200 },
+        { "hour": 23, "capacity": 200 }
+      ]
+    }
+  },
+  "scheduleOverrides": {}
+}`;
+
+async function ensureOwnerResourceSchedulesAndSlots(
+  owner: Location | Practitioner,
+  schedules: Schedule[],
+  oystehr: Oystehr
+): Promise<void> {
+  const ownerSchedules = schedules.filter(
+    (schedule) => schedule.actor?.[0]?.reference === `${owner.resourceType}/${owner.id}`
+  );
+
+  const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
+  const ownerUpdateRequests: BatchInputPutRequest<Location | Practitioner>[] = [];
+  const scheduleUpdateRequests: BatchInputPutRequest<Schedule>[] = [];
+
+  if (ownerSchedules.length === 0) {
+    schedulePostRequests.push(createScheduleRequest(owner));
+  } else {
+    ownerSchedules.forEach((schedule) => {
+      const extension = schedule.extension ?? [];
+      const existingScheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
+      const existingTimezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+
+      if (
+        !existingScheduleExtension ||
+        existingScheduleExtension.valueString !== FULL_DAY_SCHEDULE ||
+        !existingTimezoneExtension
+      ) {
+        scheduleUpdateRequests.push({
+          method: 'PUT',
+          url: `/Schedule/${schedule.id}`,
+          resource: {
+            ...schedule,
+            extension: [
+              ...extension.filter((ext) => ext.url !== SCHEDULE_EXTENSION_URL && ext.url !== TIMEZONE_EXTENSION_URL),
+              { url: SCHEDULE_EXTENSION_URL, valueString: FULL_DAY_SCHEDULE },
+              { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+            ],
+          },
+        });
+      }
+    });
+  }
+
+  const extension = owner.extension ?? [];
+
+  const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
+
+  if (!timezoneExtension) {
+    ownerUpdateRequests.push({
+      method: 'PUT',
+      url: `/${owner.resourceType}/${owner.id}`,
+      resource: {
+        ...owner,
+        extension: [
+          ...extension.filter((ext) => ext.url !== TIMEZONE_EXTENSION_URL),
+          { url: TIMEZONE_EXTENSION_URL, valueString: 'America/New_York' },
+        ],
+      },
+    });
+  }
+
+  if (schedulePostRequests.length > 0 || ownerUpdateRequests.length > 0 || scheduleUpdateRequests.length > 0) {
+    await oystehr.fhir.transaction<FhirResource>({
+      requests: [...schedulePostRequests, ...ownerUpdateRequests, ...scheduleUpdateRequests],
+    });
+    console.log(
+      `Updated/created resources for ensuring schedules for owner resource ${owner.resourceType} ${owner.id}}`
+    );
+  }
+}
+
+function createScheduleRequest(owner: Location | Practitioner): BatchInputPostRequest<Schedule> {
+  const ownerSchedule: Schedule = {
+    resourceType: 'Schedule',
+    active: true,
+    extension: [
+      {
+        url: SCHEDULE_EXTENSION_URL,
+        valueString: FULL_DAY_SCHEDULE,
+      },
+      {
+        url: TIMEZONE_EXTENSION_URL,
+        valueString: 'America/New_York',
+      },
+    ],
+    actor: [
+      {
+        reference: `${owner.resourceType}/${owner.id}`,
+      },
+    ],
+  };
+
+  const createScheduleRequest: BatchInputPostRequest<Schedule> = {
+    method: 'POST',
+    url: '/Schedule',
+    resource: ownerSchedule,
+  };
+  return createScheduleRequest;
+}

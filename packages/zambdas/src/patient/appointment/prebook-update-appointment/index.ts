@@ -22,7 +22,6 @@ import {
   isPostTelemedAppointment,
   UpdateAppointmentParameters,
   normalizeSlotToUTC,
-  getSlugForBookableResource,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -145,12 +144,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       scheduleType = ScheduleType.group;
     }
 
-    const slug = getSlugForBookableResource(scheduleOwner);
-    if (!slug) {
-      // todo: better error message?
-      throw new Error('slug is missing');
-    }
-
     const scheduleData: BookableScheduleData = {
       scheduleList: [
         {
@@ -158,7 +151,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           owner: scheduleOwner,
         },
       ],
-      owner: scheduleOwner,
       metadata: {
         type: scheduleType,
       },

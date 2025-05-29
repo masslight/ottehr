@@ -10,12 +10,12 @@ export const ProceduresNoteField: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const methods = useForm({
     defaultValues: {
-      text: chartData?.proceduresNote?.text || '',
+      text: chartData?.surgicalHistoryNote?.text || '',
     },
   });
 
   const { control } = methods;
-  const { onValueChange } = useDebounceNotesField('proceduresNote');
+  const { onValueChange } = useDebounceNotesField('surgicalHistoryNote');
 
   return (
     <Controller

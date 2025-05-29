@@ -1,4 +1,4 @@
-import { Color, PDFFont, PDFImage } from 'pdf-lib';
+import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
   ExamObservationFieldItem,
@@ -57,6 +57,11 @@ export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
   drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawStartXPosSpecifiedText: (
+    text: string,
+    textStyle: TextStyle,
+    startingXPos: number
+  ) => { endXPos: number; endYPos: number };
   drawImage: (img: PDFImage, styles: ImageStyle, textStyle?: TextStyle) => void;
   newLine: (yDrop: number) => void;
   getX: () => number;
@@ -65,6 +70,7 @@ export interface PdfClient {
   setY: (y: number) => void;
   save: () => Promise<Uint8Array>;
   embedFont: (path: Buffer) => Promise<PDFFont>;
+  embedStandardFont: (font: StandardFonts) => Promise<PDFFont>;
   embedImage: (file: Buffer) => Promise<PDFImage>;
   drawSeparatedLine: (lineStyle: LineStyle) => void;
   getLeftBound: () => number;
@@ -105,13 +111,13 @@ export interface ExaminationBlockData {
 }
 
 export interface ExternalLabsData {
-  locationName: string;
-  locationStreetAddress: string;
-  locationCity: string;
-  locationState: string;
-  locationZip: string;
-  locationPhone: string;
-  locationFax: string;
+  locationName?: string;
+  locationStreetAddress?: string;
+  locationCity?: string;
+  locationState?: string;
+  locationZip?: string;
+  locationPhone?: string;
+  locationFax?: string;
   labOrganizationName: string;
   reqId: string;
   providerName: string;
@@ -128,6 +134,7 @@ export interface ExternalLabsData {
   todayDate: string;
   orderSubmitDate: string;
   orderCreateDate: string;
+  sampleCollectionDate?: string;
   primaryInsuranceName?: string;
   primaryInsuranceAddress?: string;
   primaryInsuranceSubNum?: string;
@@ -139,12 +146,19 @@ export interface ExternalLabsData {
   orderPriority: string;
 } // TODO: change this based on the actual data we need to send to submit-labs endpoint
 
-interface LabResult {
+export interface ExternalLabResult {
   resultCode: string;
   resultCodeDisplay: string;
-  resultInterpretation: string;
-  resultInterpretationDisplay: string;
+  resultInterpretation?: string;
+  resultInterpretationDisplay?: string;
   resultValue: string;
+}
+
+export interface InHouseLabResult {
+  name: string;
+  value: string | undefined;
+  units?: string;
+  range: string;
 }
 
 export interface LabResultsData extends ExternalLabsData {
@@ -156,15 +170,18 @@ export interface LabResultsData extends ExternalLabsData {
   // specimenSource: string;
   testName: string;
   // specimenDescription: string;
-  specimenValue?: string;
   specimenReferenceRange?: string;
   resultPhase: string;
-  reviewed: boolean;
+  resultStatus: string;
+  reviewed?: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
+  collectionDate: string;
   reviewDate: string | undefined;
-  results: LabResult[];
+  resultInterpretations: string[];
+  externalLabResults?: ExternalLabResult[];
+  inHouseLabResults?: InHouseLabResult[];
   testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
@@ -233,6 +250,25 @@ export interface VisitNoteData extends ExaminationBlockData {
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];
+  procedures?: {
+    procedureType?: string;
+    cptCodes?: string[];
+    diagnoses?: string[];
+    procedureDateTime?: string;
+    performerType?: string;
+    medicationUsed?: string;
+    bodySite?: string;
+    bodySide?: string;
+    technique?: string;
+    suppliesUsed?: string;
+    procedureDetails?: string;
+    specimenSent?: string;
+    complications?: string;
+    patientResponse?: string;
+    postInstructions?: string;
+    timeSpent?: string;
+    documentedBy?: string;
+  }[];
 }
 
 export interface ReceiptData {

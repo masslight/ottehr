@@ -1,6 +1,7 @@
 import { FC } from 'react';
 import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
 import { ExamCardContainer, ExamCommentField, ExamFieldsFactory } from './components';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 
 export const EarsCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('ears');
@@ -10,7 +11,10 @@ export const EarsCard: FC = () => {
       label="Ears"
       collapsed={isCollapsed}
       onSwitch={onSwitch}
-      rightComponent={<ExamCommentField name="ears-comment" />}
+      dataTestId={dataTestIds.telemedEhrFlow.examTabCards('ears')}
+      rightComponent={
+        <ExamCommentField name="ears-comment" dataTestId={dataTestIds.telemedEhrFlow.examTabCardsComments('ears')} />
+      }
       grid={[
         {
           'Right ear': <ExamFieldsFactory card="ears" group="rightEar" radio />,

@@ -25,11 +25,11 @@
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.645.0",
     "@aws-sdk/credential-providers": "^3.645.0",
-    "@oystehr/sdk": "3.0.7",
+    "@oystehr/sdk": "^4.0.0-alpha.2",
     "@types/node-fetch": "^2.6.11",
-    "aws-cdk-lib": "2.177.0",
+    "aws-cdk-lib": "2.198.0",
     "constructs": "^10.0.0",
-    "ts-node": "10.9.2",
-    "source-map-support": "^0.5.21"
+    "source-map-support": "^0.5.21",
+    "ts-node": "10.9.2"
   }
 }

@@ -2,6 +2,7 @@ import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, Zambda
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FHIR_RESOURCE_NOT_FOUND,
+  getOriginalBookingUrlFromSlot,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   GetSlotDetailsParams,
@@ -47,7 +48,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
-  const { slot, schedule, scheduleOwner, appointmentId } = input;
+  const { slot, schedule, scheduleOwner, appointmentId, originalBookingUrl } = input;
 
   const startISO = slot.start;
   const endISO = slot.end;
@@ -66,6 +67,8 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
 
   return {
     slotId: slot.id!,
+    status: slot.status,
+    scheduleId: schedule.id!,
     startISO,
     endISO,
     serviceMode,
@@ -76,6 +79,7 @@ const performEffect = (input: EffectInput): GetSlotDetailsResponse => {
     comment: slot.comment,
     timezoneForDisplay,
     ownerName,
+    originalBookingUrl,
   };
 };
 
@@ -107,6 +111,7 @@ interface EffectInput {
   schedule: Schedule;
   scheduleOwner: ScheduleOwnerFhirResource;
   appointmentId?: string;
+  originalBookingUrl?: string;
 }
 
 const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<EffectInput> => {
@@ -146,5 +151,18 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   }
   const appointment = slotAndChainedResources.find((s): s is Appointment => s.resourceType === 'Appointment');
 
-  return { slot, schedule, scheduleOwner, appointmentId: appointment?.id };
+  // Ottehr uses the HealthcareService resource https://build.fhir.org/healthcareservice.html
+  // to represent scheduling "groups". if a schedule owner belongs to a single such group, we'll return its identifying
+  // details, which may be useful in directing the user back to the root scheduling page that was originally used
+  // to book the appointment.
+
+  const originalBookingUrl = getOriginalBookingUrlFromSlot(slot);
+
+  return {
+    slot,
+    schedule,
+    scheduleOwner,
+    appointmentId: appointment?.id,
+    originalBookingUrl,
+  };
 };

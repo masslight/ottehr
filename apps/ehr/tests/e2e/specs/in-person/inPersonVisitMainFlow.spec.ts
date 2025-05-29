@@ -51,7 +51,12 @@ test.describe('Book appointment', async () => {
   const resourceHandler = new ResourceHandler();
 
   test.beforeEach(async () => {
-    await resourceHandler.setResources();
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+    }
   });
 
   test.afterEach(async () => {
@@ -106,12 +111,12 @@ test.describe('Book appointment filling insurances information on payment option
   const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
     return [
       getContactInformationAnswers({
-        firstName: patientInfo.patient.firstName,
-        lastName: patientInfo.patient.lastName,
-        birthDate: isoToDateObject(patientInfo.patient.dateOfBirth || '') || undefined,
-        email: patientInfo.patient.email,
-        phoneNumber: patientInfo.patient.phoneNumber,
-        birthSex: patientInfo.patient.sex,
+        firstName: patientInfo.firstName,
+        lastName: patientInfo.lastName,
+        birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+        email: patientInfo.email,
+        phoneNumber: patientInfo.phoneNumber,
+        birthSex: patientInfo.sex,
       }),
       getPatientDetailsStepAnswers({}),
       getPaymentOptionInsuranceAnswers({
@@ -149,7 +154,11 @@ test.describe('Book appointment filling insurances information on payment option
     ];
   });
   test.beforeEach(async () => {
-    await resourceHandler.setResources();
+    if (process.env.INTEGRATION_TEST === 'true') {
+      await resourceHandler.setResourcesFast();
+    } else {
+      await resourceHandler.setResources();
+    }
   });
 
   test.afterEach(async () => {

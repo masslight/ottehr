@@ -3,7 +3,7 @@ import { IconButton, Table, TableBody, TableCell, TableRow, Tooltip, Typography,
 import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, generatePath, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm, useUCZambdaClient } from 'ui-components';
 import { APIError, APPOINTMENT_CANT_BE_IN_PAST_ERROR, ServiceMode, VisitType } from 'utils';
 import { ottehrApi } from '../api';
@@ -16,6 +16,7 @@ import { useGetFullName } from '../hooks/useGetFullName';
 import i18n from '../lib/i18n';
 import { useBookingContext } from './BookingHome';
 import { dataTestIds } from '../../src/helpers/data-test-ids';
+import { intakeFlowPageRoute } from '../App';
 
 interface ReviewItem {
   name: string;
@@ -35,16 +36,17 @@ const Review = (): JSX.Element => {
     slotId,
     scheduleOwnerName,
     scheduleOwnerType,
+    scheduleOwnerId,
     timezone,
     startISO,
     serviceMode,
+    originalBookingUrl,
     setPatientInfo,
     completeBooking,
   } = useBookingContext();
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
   const patientFullName = useGetFullName(patientInfo);
   const theme = useTheme();
-  const { pathname } = useLocation();
 
   const { t } = useTranslation();
 
@@ -59,7 +61,6 @@ const Review = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: false });
 
   const onSubmit = async (): Promise<void> => {
-    console.log('submit reached!!!', unconfirmedDateOfBirth, patientInfo);
     try {
       if (!patientInfo) {
         console.log('no patient info error');
@@ -113,10 +114,14 @@ const Review = (): JSX.Element => {
     },
   ];
 
+  console.log('originalBookingUrl', originalBookingUrl);
+
   if (visitType === VisitType.PreBook) {
-    const path = generatePath(pathname, {
-      slotId,
-    });
+    let path = `${intakeFlowPageRoute.PrebookVisit.path}`;
+    if (originalBookingUrl) {
+      const queryChar = originalBookingUrl.includes('?') ? '&' : '?';
+      path = `${originalBookingUrl}${queryChar}slot=${scheduleOwnerId}|${startISO}`;
+    }
     const selectedSlotTimezoneAdjusted = DateTime.fromISO(startISO).setZone(timezone).setLocale('en-us');
     reviewItems.push({
       name: t('reviewAndSubmit.checkInTime'),

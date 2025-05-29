@@ -2,7 +2,8 @@ import { Table, TableRow, TableCell } from '@mui/material';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
-import { DateTime } from 'luxon';
+import { LabsOrderStatusChip } from './ExternalLabsStatusChip';
+import { formatDateForLabs } from 'utils';
 
 interface OrderHistoryProps {
   isLoading?: boolean;
@@ -13,11 +14,6 @@ interface OrderHistoryProps {
 
 export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = false, orderHistory = [], timezone }) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
-
-  const formatDate = (datetime: string | undefined): string => {
-    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
-  };
 
   return (
     <>
@@ -31,13 +27,16 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = fa
       >
         <Table>
           {orderHistory.map((row) => {
-            const isReviewOrReceiveAction = row.action === 'reviewed' || row.action === 'received';
-            const actionDescription = isReviewOrReceiveAction ? `${row.action} (${row.testType})` : row.action;
+            const isReviewOrReceiveAction =
+              row.action === 'reviewed' || row.action === 'received' || row.action === 'corrected';
             return (
               <TableRow key={`${row.action}-${row.performer}-${row.date}`}>
-                <TableCell>{actionDescription}</TableCell>
+                <TableCell>
+                  {<LabsOrderStatusChip status={row.action} />}
+                  {isReviewOrReceiveAction ? ` (${row.testType})` : ''}
+                </TableCell>
                 <TableCell>{row.performer}</TableCell>
-                <TableCell>{formatDate(row.date)}</TableCell>
+                <TableCell>{formatDateForLabs(row.date, timezone)}</TableCell>
               </TableRow>
             );
           })}

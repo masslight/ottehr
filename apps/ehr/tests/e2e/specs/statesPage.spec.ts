@@ -3,7 +3,7 @@ import { expectStateDetailsPage } from '../page/StateDetailsPage';
 import { expectStatesPage, openStatesPage } from '../page/StatesPage';
 
 test.beforeEach(async ({ page }) => {
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(2000); // TODO what is this actually waiting for? Replace it with something faster.
   await page.goto('/telemed-admin/states');
 });
 

@@ -83,7 +83,7 @@ export const useReactNavigationBlocker = (
       title="Confirmation Required"
       description={modalText}
       handleConfirm={handleConfirm}
-      confirmText="Contunie edit"
+      confirmText="Continue edit"
       closeButtonText="Leave"
       closeButton={false}
     />

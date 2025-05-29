@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, Encounter, FhirResource, List, Patient, Practitioner } from 'fhir/r4b';
 import {
+  addEmptyArrOperation,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   ChartDataResources,
   createCodingCode,
@@ -25,6 +26,7 @@ import { ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken, saveOrUpdateResourceRequest } from '../../shared';
 import {
   createDispositionServiceRequest,
+  createProcedureServiceRequest,
   followUpToPerformerMap,
   makeAllergyResource,
   makeBirthHistoryObservationResource,
@@ -45,8 +47,8 @@ import {
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
-} from '../../shared/chart-data';
-import { createOystehrClient } from '../../shared/helpers';
+} from '../../shared';
+import { createOystehrClient } from '../../shared';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
@@ -71,8 +73,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       conditions,
       medications,
       allergies,
-      proceduresNote,
-      procedures,
+      surgicalHistoryNote,
+      surgicalHistory,
       episodeOfCare,
       observations,
       secrets,
@@ -92,6 +94,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       vitalsObservations,
       birthHistory,
       userToken,
+      procedures,
     } = validateRequestParameters(input);
 
     console.time('time');
@@ -178,17 +181,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       );
     });
 
-    procedures?.forEach((procedure) => {
+    surgicalHistory?.forEach((procedure) => {
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(makeProcedureResource(encounterId, patient.id!, procedure, 'surgical-history'))
       );
     });
 
-    if (proceduresNote) {
+    if (surgicalHistoryNote) {
       // convert Procedure to Procedure (FHIR) and preserve FHIR resource IDs
       saveOrUpdateRequests.push(
         saveOrUpdateResourceRequest(
-          makeProcedureResource(encounterId, patient.id!, proceduresNote, 'surgical-history-note')
+          makeProcedureResource(encounterId, patient.id!, surgicalHistoryNote, 'surgical-history-note')
         )
       );
     }
@@ -339,10 +342,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     // 13 convert diagnosis to Condition (FHIR) resources and mention them in Encounter.diagnosis
     if (diagnosis) {
+      if (!encounter.diagnosis) {
+        updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
+      }
       for (const element of diagnosis) {
-        const condition = await oystehr.fhir.create(
-          makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis')
-        );
+        const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
+        const condition = element.resourceId
+          ? await oystehr.fhir.update(conditionResource)
+          : await oystehr.fhir.create(conditionResource);
         additionalResourcesForResponse.push(condition);
         updateEncounterOperations.push(...updateEncounterDiagnosis(encounter, condition.id!, element));
       }
@@ -424,6 +431,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       const request = saveOrUpdateResourceRequest(birthHistoryElement);
       saveOrUpdateRequests.push(request);
     });
+
+    if (procedures) {
+      procedures?.forEach((procedure) => {
+        saveOrUpdateRequests.push(createProcedureServiceRequest(procedure, encounterId, patient.id!));
+      });
+      additionalResourcesForResponse.push(encounter);
+    }
 
     console.log('Starting a transaction update of chart data...');
 

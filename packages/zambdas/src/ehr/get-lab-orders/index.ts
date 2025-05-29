@@ -9,6 +9,7 @@ let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.log(`Input: ${JSON.stringify(input)}`);
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     const { secrets, searchBy } = validatedParameters;
@@ -37,6 +38,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     });
 
     if (!serviceRequests.length) {
+      console.log('no serviceRequests found, returning empty data array');
       return {
         statusCode: 200,
         body: JSON.stringify({
@@ -59,7 +61,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       organizations,
       questionnaires,
       labPDFs,
-      specimens
+      specimens,
+      secrets
     );
 
     return {

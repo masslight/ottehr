@@ -3,7 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect } from 'react';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useSaveChartData } from '../../../../state';
-import { AdditionalBooleanQuestionsFieldsNames, convertToBoolean, ObservationDTO } from 'utils';
+import { AdditionalBooleanQuestionsFieldsNames, convertToBoolean, ObservationBooleanFieldDTO } from 'utils';
 import { setNavigationDisable } from '../../../../../features/css-module/context/NavigationContext';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 
@@ -34,7 +34,7 @@ export const AdditionalQuestionEdit = ({
 
     if (currentObservation?.value === newValue) return;
 
-    const updatedObservation: ObservationDTO = currentObservation
+    const updatedObservation: ObservationBooleanFieldDTO = currentObservation
       ? { ...currentObservation, value: newValue }
       : { field, value: newValue };
 

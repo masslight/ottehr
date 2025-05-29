@@ -1,4 +1,4 @@
-import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Close } from '@mui/icons-material';
 import {
   Box,
   Button,
@@ -12,43 +12,40 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { create } from 'zustand';
-import { PaperworkContext, usePaperworkContext } from 'ui-components';
-import {
-  getSelectors,
-  isApiError,
-  APIError,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  uuidRegex,
-  UCGetPaperworkResponse,
-  IntakeQuestionnaireItem,
-  flattenIntakeQuestionnaireItems,
-  QuestionnaireFormFields,
-  findQuestionnaireResponseItemLinkId,
-  ComplexValidationResult,
-  InsuranceEligibilityCheckStatus,
-  ComplexValidationResultFailureCase,
-  evalComplexValidationTrigger,
-  evalEnableWhen,
-  convertQuesitonnaireItemToQRLinkIdMap,
-  convertQRItemToLinkIdMap,
-} from 'utils';
-import { ottehrApi } from '../api';
-import useAppointmentNotFoundInformation from '../helpers/information';
-import { PageContainer } from '../components';
-import { useSetLastActiveTime } from '../hooks/useSetLastActiveTime';
-import { useAuth0 } from '@auth0/auth0-react';
-import { persist } from 'zustand/middleware';
-import { DateTime } from 'luxon';
-import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
-import { useGetFullName } from '../hooks/useGetFullName';
-import api from '../api/ottehrApi';
 import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 import { t } from 'i18next';
-import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
-import { Close } from '@mui/icons-material';
+import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { PaperworkContext, usePaperworkContext } from 'ui-components';
+import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import {
+  APIError,
+  ComplexValidationResult,
+  ComplexValidationResultFailureCase,
+  convertQRItemToLinkIdMap,
+  convertQuesitonnaireItemToQRLinkIdMap,
+  evalComplexValidationTrigger,
+  evalEnableWhen,
+  findQuestionnaireResponseItemLinkId,
+  flattenIntakeQuestionnaireItems,
+  getSelectors,
+  InsuranceEligibilityCheckStatus,
+  IntakeQuestionnaireItem,
+  isApiError,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  QuestionnaireFormFields,
+  UCGetPaperworkResponse,
+  uuidRegex,
+} from 'utils';
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { ottehrApi } from '../api';
+import api from '../api/ottehrApi';
+import { PageContainer } from '../components';
+import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
+import useAppointmentNotFoundInformation from '../helpers/information';
+import { useGetFullName } from '../hooks/useGetFullName';
 
 enum AuthedLoadingState {
   initial,
@@ -91,22 +88,18 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
         });
       },
       saveProgress: (pageId: string, responses: any) => {
-        const updateDT = DateTime.now().toSeconds();
         set((state) => {
           const pIP = { ...(state.paperworkInProgress || {}) };
           pIP[pageId] = responses;
           return {
             ...state,
-            updateTimestamp: updateDT,
             paperworkInProgress: pIP,
           };
         });
       },
       patchCompletedPaperwork: (QR: QuestionnaireResponse) => {
-        const updateDT = DateTime.now().toSeconds();
         set((state) => ({
           ...state,
-          updateTimestamp: updateDT,
           paperworkResponse: {
             ...(state.paperworkResponse || ({} as UCGetPaperworkResponse)),
             questionnaireResponse: QR,
@@ -115,9 +108,7 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
         }));
       },
       clear: () => {
-        set({
-          ...PAPERWORK_STATE_INITIAL,
-        });
+        set(PAPERWORK_STATE_INITIAL);
       },
     }),
     { name: 'ip-intake-paperwork-store-0.1' }
@@ -126,24 +117,16 @@ export const usePaperworkStore = create<PaperworkState & PaperworkStateActions>(
 
 export const PaperworkHome: FC = () => {
   const [appointmentNotFound, setAppointmentNotFound] = useState<boolean>(false);
-  const { isAuthenticated, isLoading: authIsLoading } = useAuth0();
   const { id: appointmentId } = useParams();
   const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
   const { pathname } = useLocation();
   const [authedFetchState, setAuthedFetchState] = useState(AuthedLoadingState.initial);
   const [saveButtonDisabled, setSaveButtonDisabled] = useState(false);
 
-  const {
-    paperworkInProgress,
-    paperworkResponse,
-    updateTimestamp,
-    setResponse,
-    clear: clearPaperworkState,
-  } = getSelectors(usePaperworkStore, [
+  const { paperworkInProgress, paperworkResponse, updateTimestamp, setResponse } = getSelectors(usePaperworkStore, [
     'paperworkInProgress',
     'setResponse',
     'paperworkResponse',
-    'clear',
     'updateTimestamp',
   ]);
 
@@ -153,7 +136,7 @@ export const PaperworkHome: FC = () => {
         allItems: [] as IntakeQuestionnaireItem[],
         questionnaireResponse: undefined,
         appointment: undefined,
-        patien: undefined,
+        patient: undefined,
       };
     } else {
       const { allItems, questionnaireResponse, appointment, patient } = paperworkResponse;
@@ -165,18 +148,6 @@ export const PaperworkHome: FC = () => {
       };
     }
   }, [paperworkResponse]);
-
-  useEffect(() => {
-    if (!isAuthenticated && !authIsLoading) {
-      clearPaperworkState();
-    }
-  }, [authIsLoading, clearPaperworkState, isAuthenticated]);
-
-  useEffect(() => {
-    if (appointmentId && appointment?.id && appointmentId !== appointment?.id) {
-      clearPaperworkState();
-    }
-  }, [appointment?.id, appointmentId, clearPaperworkState]);
 
   useEffect(() => {
     const fetchAuthedPaperwork = async (apptId: string, zambdaClient: ZambdaClient): Promise<void> => {
@@ -198,10 +169,10 @@ export const PaperworkHome: FC = () => {
         }
       }
     };
-    if (isAuthenticated && tokenfulZambdaClient && authedFetchState === AuthedLoadingState.initial && appointmentId) {
+    if (tokenfulZambdaClient && authedFetchState === AuthedLoadingState.initial && appointmentId) {
       void fetchAuthedPaperwork(appointmentId, tokenfulZambdaClient);
     }
-  }, [isAuthenticated, authedFetchState, setResponse, tokenfulZambdaClient, setAuthedFetchState, appointmentId]);
+  }, [authedFetchState, setResponse, tokenfulZambdaClient, setAuthedFetchState, appointmentId]);
 
   useEffect(() => {
     try {
@@ -224,13 +195,6 @@ export const PaperworkHome: FC = () => {
       console.error(error);
     }
   }, [appointmentId, pathname]);
-
-  useEffect(() => {
-    if (appointmentId && appointment?.id && appointmentId !== appointment.id) {
-      // console.log('clearing state');
-      clearPaperworkState();
-    }
-  }, [appointmentId, appointment?.id, clearPaperworkState]);
 
   const completedPaperwork: QuestionnaireResponseItem[] = useMemo(() => {
     return questionnaireResponse?.item ?? [];
@@ -291,10 +255,7 @@ export const PaperworkHome: FC = () => {
     );
   }
 
-  if (
-    (isAuthenticated || authIsLoading) &&
-    (authedFetchState === AuthedLoadingState.initial || authedFetchState === AuthedLoadingState.loading)
-  ) {
+  if (authedFetchState === AuthedLoadingState.initial || authedFetchState === AuthedLoadingState.loading) {
     return (
       <PageContainer title={t('paperwork.loading')}>
         <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -386,9 +347,6 @@ export const PaperworkPage: FC = () => {
   }, [lastLoggedPageName, pageName]);
 
   const [loading, setLoading] = useState<boolean>(false);
-
-  // Update last active time for paperwork-in-progress flag every minute
-  useSetLastActiveTime(appointmentID, !!slug, zambdaClient);
 
   const controlButtons = useMemo(
     () => ({
@@ -591,13 +549,13 @@ const performComplexValidation = async (
       client
     );
     const { primary, secondary } = eligibilityRes;
-    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary }];
-    if (secondary != undefined) {
-      valueEntryValues.push({ valueString: secondary });
+    const valueEntryValues: QuestionnaireResponseItemAnswer[] = [{ valueString: primary!.status }];
+    if (secondary?.status != undefined) {
+      valueEntryValues.push({ valueString: secondary?.status });
     }
     if (
-      primary === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
-      primary === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityConfirmed ||
+      primary?.status === InsuranceEligibilityCheckStatus.eligibilityCheckNotSupported
     ) {
       return {
         type: 'success',
@@ -609,12 +567,12 @@ const performComplexValidation = async (
       let message = '';
       let title = '';
       let attemptCureAction: string | undefined;
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotChecked) {
         title = 'Coverage could not be verified';
         message =
           'System not responding; unable to verify eligibility. Proceed to the next screen to continue as self-pay.';
       }
-      if (primary === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
+      if (primary?.status === InsuranceEligibilityCheckStatus.eligibilityNotConfirmed) {
         title = 'Coverage not found';
         message =
           'We were unable to verify insurance eligibility. Please select "Try again" to confirm the information was entered correctly or continue as self-pay';

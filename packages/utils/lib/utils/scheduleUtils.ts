@@ -5,48 +5,44 @@ import {
   FhirResource,
   HealthcareService,
   Location,
+  LocationHoursOfOperation,
   Practitioner,
   Resource,
   Schedule,
   Slot,
-  LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BookableScheduleData,
   Closure,
   ClosureType,
+  codingContainedInList,
+  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   getDateTimeFromDateAndTime,
   getFullName,
   getPatchOperationForNewMetaTag,
+  isLocationVirtual,
+  makeBookingOriginExtensionEntry,
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
-  ScheduleAndOwner,
   ScheduleOwnerFhirResource,
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
   ScheduleType,
-  Timezone,
-  SlotServiceCategory,
   ServiceMode,
-  codingContainedInList,
+  SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  HOURS_OF_OPERATION_FORMAT,
+  SlotServiceCategory,
+  Timezone,
+  TIMEZONE_EXTENSION_URL,
   TIMEZONES,
   VisitType,
-  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
-  isLocationVirtual,
   WALKIN_APPOINTMENT_TYPE_CODE,
 } from 'utils';
-import {
-  applyBuffersToSlots,
-  createMinimumAndMaximumTime,
-  distributeTimeSlots,
-  divideHourlyCapacityBySlotInverval,
-} from './dateUtils';
-
-export const FIRST_AVAILABLE_SLOT_OFFSET_IN_MINUTES = 14;
+import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
 export interface WaitTimeRange {
   low: number;
@@ -87,7 +83,7 @@ export interface Capacity {
 
 export interface ScheduleDay {
   open: HourOfDay;
-  close: HourOfDay;
+  close: HourOfDay | 24;
   openingBuffer: number;
   closingBuffer: number;
   workingDay: boolean;
@@ -96,7 +92,7 @@ export interface ScheduleDay {
 
 export interface ScheduleOverrideDay {
   open: HourOfDay;
-  close: HourOfDay;
+  close: HourOfDay | 24;
   openingBuffer: number;
   closingBuffer: number;
   hours: Capacity[];
@@ -109,6 +105,7 @@ export interface ScheduleExtension {
   schedule: DailySchedule;
   scheduleOverrides: ScheduleOverrides;
   closures: Closure[] | undefined;
+  slotLength?: number;
 }
 
 export interface ScheduleDTOOwner {
@@ -222,7 +219,7 @@ export function getWaitingMinutes(now: DateTime, encounters: Encounter[]): numbe
   return waitingMinutes;
 }
 
-export function getScheduleDetails(
+export function getScheduleExtension(
   scheduleResource: Location | Practitioner | HealthcareService | Schedule
 ): ScheduleExtension | undefined {
   console.log(
@@ -235,16 +232,15 @@ export function getScheduleDetails(
 
   if (!scheduleExtension) return undefined;
 
-  const { schedule, scheduleOverrides, closures } = JSON.parse(scheduleExtension) as ScheduleExtension;
-  return { schedule, scheduleOverrides, closures };
+  const { schedule, scheduleOverrides, closures, slotLength } = JSON.parse(scheduleExtension) as ScheduleExtension;
+  return { schedule, scheduleOverrides, closures, slotLength };
 }
 
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
 ): Timezone {
-  const timezone = schedule.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-  )?.valueString;
+  const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+    ?.valueString;
   if (!timezone) {
     console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
@@ -275,24 +271,25 @@ export function getSlotCapacityMapForDayAndSchedule(
   now: DateTime,
   schedule: DailySchedule,
   scheduleOverrides: ScheduleOverrides,
-  closures: Closure[] | undefined
+  closures: Closure[] | undefined,
+  slotLength?: number
 ): SlotCapacityMap {
   let openingTime: HourOfDay | null = null;
   let closingTime: HourOfDay | 24 | null = null;
   let scheduleCapacityList: Capacity[] = [];
   let dayString = now.toFormat(OVERRIDE_DATE_FORMAT);
 
-  console.log('day:', dayString, 'closures:', closures);
+  //console.log('day:', dayString, 'closures:', closures);
   if (closures) {
     for (const closure of closures) {
       if (closure.type === ClosureType.OneDay && closure.start === dayString) {
-        console.log('closing day', dayString);
+        //console.log('closing day', dayString);
         return {};
       } else if (closure.type === ClosureType.Period) {
         const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).startOf('day');
         const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).endOf('day');
         if (now >= startClosure && now <= endClosure) {
-          console.log('closing day', dayString);
+          //console.log('closing day', dayString);
           return {};
         }
       }
@@ -300,7 +297,7 @@ export function getSlotCapacityMapForDayAndSchedule(
   }
 
   const scheduleOverridden = Object.keys(scheduleOverrides).find((overrideTemp) => overrideTemp === dayString);
-  console.log('day:', dayString, 'overrides:', Object.keys(scheduleOverrides));
+  //console.log('day:', dayString, 'overrides:', Object.keys(scheduleOverrides));
 
   let scheduleTemp = scheduleOverrides;
   if (!scheduleOverridden) {
@@ -334,18 +331,11 @@ export function getSlotCapacityMapForDayAndSchedule(
     throw Error('error getting available time slots, location has no opening time');
   }
   let timeSlots: SlotCapacityMap = {};
-  scheduleCapacityList?.forEach((slot) => {
-    const firstSlotTimeForHour = getDateTimeFromDateAndTime(now, slot.hour);
-    if (firstSlotTimeForHour.hour >= now.hour) {
-      timeSlots = {
-        ...timeSlots,
-        ...divideHourlyCapacityBySlotInverval(now, firstSlotTimeForHour, slot.capacity, closingDateAndTime, 60),
-      };
-    }
-  });
+  //console.log('scheudle capacity list', scheduleCapacityList);
+
+  timeSlots = convertCapacityListToBucketedTimeSlots(scheduleCapacityList, now, slotLength);
 
   const buffered = applyBuffersToSlots({
-    hourlyCapacity: scheduleCapacityList,
     slots: timeSlots,
     openingBufferMinutes: openingBuffer,
     closingBufferMinutes: closingBuffer,
@@ -369,7 +359,7 @@ export const removeBusySlots = (input: RemoveBusySlotsInput): string[] => {
 };
 
 export function getPostTelemedSlots(now: DateTime, scheduleResource: Schedule, appointments: Appointment[]): string[] {
-  const { schedule } = getScheduleDetails(scheduleResource) || { schedule: undefined };
+  const { schedule } = getScheduleExtension(scheduleResource) || { schedule: undefined };
   const timezone = getTimezone(scheduleResource);
   const nowForTimezone = now.setZone(timezone);
 
@@ -400,9 +390,9 @@ function getSlotsForDayPostTelemed(
   const timeToStartSlots =
     day > openingDateAndTime
       ? day.set({ minute: Math.ceil(day.minute / 30) * 30 }).startOf('minute')
-      : openingDateAndTime.plus({ hour: 1 });
+      : openingDateAndTime;
   const timeSlots: { [slot: string]: number } = {};
-  for (let temp = timeToStartSlots; temp < closingDateAndTime.minus({ hour: 2 }); temp = temp.plus({ minutes: 30 })) {
+  for (let temp = timeToStartSlots; temp < closingDateAndTime; temp = temp.plus({ minutes: 30 })) {
     const tempTime = temp.toISO() || '';
     timeSlots[tempTime] = 1;
   }
@@ -415,50 +405,80 @@ interface GetSlotCapacityMapInput {
   finishDate: DateTime;
   scheduleExtension: ScheduleExtension;
   timezone: string;
+  log?: boolean;
 }
 // returns all slots given current time, schedule, and timezone, irrespective of booked/busy status of any of those slots
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
-  const { schedule, scheduleOverrides, closures } = scheduleExtension;
-  const nowForTimezone = now.setZone(timezone);
+  const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
+  const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
+    'day'
+  );
+  const finishDateForTimezone = DateTime.fromFormat(finishDate.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', {
+    zone: timezone,
+  });
+  console.log('now for capacity map', nowForTimezone.toISO(), now.toISO());
   let currentDayTemp = nowForTimezone;
   let slots = {};
-  while (currentDayTemp < finishDate) {
-    const slotsTemp = getSlotCapacityMapForDayAndSchedule(currentDayTemp, schedule, scheduleOverrides, closures);
+  while (currentDayTemp < finishDateForTimezone) {
+    const slotsTemp = getSlotCapacityMapForDayAndSchedule(
+      currentDayTemp,
+      schedule,
+      scheduleOverrides,
+      closures,
+      slotLength
+    );
     slots = { ...slots, ...slotsTemp };
     currentDayTemp = currentDayTemp.plus({ days: 1 }).startOf('day');
   }
 
-  return slots;
+  if (input.log) {
+    console.log('all slots', JSON.stringify(slots, null, 2));
+  }
+
+  return Object.fromEntries(
+    // normalize the timezone of the keys
+    Object.entries(slots).map(([key, value]) => {
+      return [DateTime.fromISO(key).setZone(timezone).toISO()!, value];
+    })
+  ) as SlotCapacityMap;
 };
 
-interface GetAvailableSlotsInput {
+export interface GetAvailableSlotsInput {
   now: DateTime;
   numDays: number;
   schedule: Schedule;
   busySlots: Slot[]; // todo 1.8: add these in upstream
 }
 
+// returns a list of available slots for the next numDays
 export function getAvailableSlots(input: GetAvailableSlotsInput): string[] {
+  console.time('getAvailableSlots');
   const { now, numDays, schedule, busySlots } = input;
   const timezone = getTimezone(schedule);
-  const scheduleDetails = getScheduleDetails(schedule);
-  if (!scheduleDetails) {
-    throw new Error('schedule does not have schedule');
+  const scheduleExtension = getScheduleExtension(schedule);
+  if (!scheduleExtension) {
+    throw new Error('Schedule does not have schedule');
+  }
+  if (!timezone) {
+    throw new Error('Schedule does not have a timezone');
   }
   // literally all slots based on open, close, buffers and capacity
   // no appointments or busy slots have been factored in
   const slotCapacityMap = getAllSlotsAsCapacityMap({
     now,
-    finishDate: now.plus({ days: numDays }),
-    scheduleExtension: scheduleDetails,
+    finishDate: now.startOf('day').plus({ days: numDays }),
+    scheduleExtension,
     timezone,
   });
+
+  // console.log('slotCapacityMap', JSON.stringify(slotCapacityMap, null, 2));
 
   const availableSlots = removeBusySlots({
     slotCapacityMap,
     busySlots,
   });
+  console.timeEnd('getAvailableSlots');
 
   return availableSlots;
 }
@@ -730,6 +750,9 @@ export async function addWaitingMinutesToAppointment(
 interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
+  numDays?: number;
+  originalBookingUrl?: string;
+  slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
 }
 
 export const getAvailableSlotsForSchedules = async (
@@ -739,37 +762,47 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList } = input;
-  const telemedAvailable: SlotListItem[] = [];
-  const availableSlots: SlotListItem[] = [];
-
-  const schedules: ScheduleAndOwner[] = scheduleList.map((scheduleTemp) => ({
-    schedule: scheduleTemp.schedule,
-    owner: scheduleTemp.owner,
-  }));
+  const { now, scheduleList, numDays, originalBookingUrl } = input;
+  let telemedAvailable: SlotListItem[] = [];
+  let availableSlots: SlotListItem[] = [];
 
   const getBusySlotsInput: GetSlotsInWindowInput = {
-    scheduleIds: schedules.map((scheduleTemp) => scheduleTemp.schedule.id!),
+    scheduleIds: scheduleList.map((scheduleTemp) => scheduleTemp.schedule.id!),
     fromISO: now.toISO() ?? '',
-    toISO: now.plus({ days: SCHEDULE_NUM_DAYS }).toISO() ?? '',
+    toISO:
+      now
+        .plus({ days: numDays ?? SCHEDULE_NUM_DAYS })
+        .startOf('day')
+        .toISO() ?? '',
     status: ['busy', 'busy-tentative', 'busy-unavailable'],
+    filter: (slot: Slot) => {
+      const thisMoment = DateTime.now().plus({ seconds: input.slotExpirationBiasInSeconds ?? 0 });
+      if (slot.status === 'busy-tentative') {
+        const lastUpdated = DateTime.fromISO(slot.meta?.lastUpdated || '');
+        if (!lastUpdated.isValid) {
+          return true;
+        }
+        const minutesSinceLastUpdate = lastUpdated.diff(thisMoment, 'minutes').minutes;
+        return minutesSinceLastUpdate <= SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES;
+      }
+      return true;
+    },
   };
   const allBusySlots = await getSlotsInWindow(getBusySlotsInput, oystehr);
 
-  schedules.forEach((scheduleTemp) => {
+  scheduleList.forEach((scheduleTemp) => {
     try {
       // todo 1.8: find busy / busy-tentative slots
       const busySlots: Slot[] = allBusySlots.filter((slot) => {
         const scheduleId = slot.schedule?.reference?.split('/')?.[1];
         return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
       });
-      console.log('getting post telemed slots');
-      // todo: 1.8-9 check busy slots for telemed
+      // console.log('getting post telemed slots');
+      // todo: 1.9 check busy slots for telemed
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
-      console.log('getting available slots to display');
       const slotStartsForSchedule = getAvailableSlots({
         now,
-        numDays: SCHEDULE_NUM_DAYS,
+        numDays: numDays ?? SCHEDULE_NUM_DAYS,
         schedule: scheduleTemp.schedule,
         busySlots,
       });
@@ -779,6 +812,7 @@ export const getAvailableSlotsForSchedules = async (
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
           timezone: getTimezone(scheduleTemp.schedule),
+          originalBookingUrl,
         })
       );
       telemedAvailable.push(
@@ -787,6 +821,7 @@ export const getAvailableSlotsForSchedules = async (
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
           timezone: getTimezone(scheduleTemp.schedule),
+          originalBookingUrl,
         })
       );
       // console.log('available slots for schedule:', slotStartsForSchedule);
@@ -797,6 +832,13 @@ export const getAvailableSlotsForSchedules = async (
         err
       );
     }
+  });
+
+  availableSlots = availableSlots.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
+  });
+  telemedAvailable = telemedAvailable.filter((slot) => {
+    return DateTime.fromISO(slot.slot.start) >= now;
   });
 
   // this logic removes duplicate slots even across schedules,
@@ -853,12 +895,25 @@ interface MakeSlotListItemsInput {
   owner: Practitioner | Location | HealthcareService;
   timezone: Timezone;
   appointmentLengthInMinutes?: number;
+  originalBookingUrl?: string;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
-  const { startTimes, owner: ownerResource, scheduleId, timezone, appointmentLengthInMinutes = 15 } = input;
+  // todo: remove magic numbers
+  const {
+    startTimes,
+    owner: ownerResource,
+    scheduleId,
+    timezone,
+    appointmentLengthInMinutes = DEFAULT_APPOINTMENT_LENGTH_MINUTES,
+    originalBookingUrl,
+  } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
+    let extension: Slot['extension'];
+    if (originalBookingUrl) {
+      extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];
+    }
     const slot: Slot = {
       resourceType: 'Slot',
       id: `${scheduleId}|${startTime}`,
@@ -867,6 +922,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
+      extension,
     };
     const owner = makeSlotOwnerFromResource(ownerResource);
     return {
@@ -1374,19 +1430,23 @@ export const fhirTypeForScheduleType = (scheduleType: ScheduleType): ScheduleOwn
   return 'HealthcareService';
 };
 
-interface GetSlotsInWindowInput {
+export interface GetSlotsInWindowInput {
   scheduleIds: string[];
   fromISO: string;
   toISO: string;
   status: Slot['status'][];
+  filter?: (slot: Slot) => boolean;
 }
 
 export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oystehr): Promise<Slot[]> => {
-  const { scheduleIds, fromISO, toISO, status } = input;
-  const statusParams = status.map((statusTemp) => ({
-    name: 'status',
-    value: statusTemp,
-  }));
+  const { scheduleIds, fromISO, toISO, status, filter } = input;
+  const statusString = status.join(',');
+  const statusParams = [
+    {
+      name: 'status',
+      value: statusString,
+    },
+  ];
   const appointmentTypeParams = [
     {
       name: 'appointment-type:not',
@@ -1414,6 +1474,9 @@ export const getSlotsInWindow = async (input: GetSlotsInWindowInput, oystehr: Oy
       ],
     })
   ).unbundle();
+  if (filter) {
+    return slots.filter(filter);
+  }
   return slots;
 };
 
@@ -1580,37 +1643,41 @@ export const getLocationHoursFromScheduleExtension = (extension: ScheduleExtensi
 interface OverrideOperatingHoursInput {
   from: DateTime;
   scheduleOverrides: ScheduleOverrides;
-  hoursOfOperation: LocationHoursOfOperation[];
+  dailySchedule: DailySchedule;
   timezone: Timezone;
 }
-export const applyOverridesToOperatingHours = (input: OverrideOperatingHoursInput): LocationHoursOfOperation[] => {
-  const { from, scheduleOverrides, hoursOfOperation, timezone } = input;
+export const applyOverridesToDailySchedule = (
+  input: OverrideOperatingHoursInput
+): { dailySchedule: DailySchedule; overriddenDay: ScheduleDay | undefined } => {
+  const { from, scheduleOverrides, dailySchedule, timezone } = input;
   const currentDate = from.setZone(timezone);
   const overrideDate = Object.keys(scheduleOverrides).find((date) => {
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toFormat('EEE').toLowerCase();
+    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
-    const dayIndex = hoursOfOperation?.findIndex((hour) => (hour.daysOfWeek as string[])?.includes(dayOfWeek));
-    if (hoursOfOperation && typeof dayIndex !== 'undefined' && dayIndex >= 0) {
-      hoursOfOperation[dayIndex].openingTime = DateTime.fromFormat(override.open.toString(), 'h')
-        .set({
-          year: currentDate.year,
-          month: currentDate.month,
-          day: currentDate.day,
-        })
-        .toFormat(HOURS_OF_OPERATION_FORMAT);
-      hoursOfOperation[dayIndex].closingTime = DateTime.fromFormat(override.close.toString(), 'h')
-        .set({
-          year: currentDate.year,
-          month: currentDate.month,
-          day: currentDate.day,
-        })
-        .toFormat(HOURS_OF_OPERATION_FORMAT);
-    }
+    const dailyScheduleDay = dailySchedule[dayOfWeek];
+    const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);
+    const newDailySchedule = {
+      ...dailySchedule,
+      [dayOfWeek]: overriddenDay,
+    };
+    return { dailySchedule: newDailySchedule, overriddenDay };
   }
-  return hoursOfOperation;
+  return { dailySchedule: { ...dailySchedule }, overriddenDay: undefined };
+};
+
+const applyOverrideToDay = (override: ScheduleOverrideDay, day: ScheduleDay): ScheduleDay => {
+  const { open, close, openingBuffer, closingBuffer, hours } = override;
+  return {
+    open,
+    close,
+    openingBuffer,
+    closingBuffer,
+    workingDay: day.workingDay, // todo?: should this be overridable??
+    hours,
+  };
 };
 
 export const scheduleTypeFromFHIRType = (fhirType: FhirResource['resourceType']): ScheduleType => {
@@ -1628,4 +1695,43 @@ export const getAppointmentDurationFromSlot = (slot: Slot, unit: 'minutes' | 'ho
   const end = DateTime.fromISO(slot.end);
   const duration = end.diff(start, unit).toObject();
   return duration[unit] || 0;
+};
+
+interface ApplyBuffersInput {
+  slots: SlotCapacityMap;
+  openingBufferMinutes: number;
+  closingBufferMinutes: number;
+  openingTime: DateTime;
+  closingTime: DateTime;
+  now: DateTime;
+}
+export const applyBuffersToSlots = (input: ApplyBuffersInput): SlotCapacityMap => {
+  const { slots, openingBufferMinutes, closingBufferMinutes, openingTime, closingTime, now } = input;
+  const closingBufferApplied = removeSlotsAfter(slots, closingTime.minus({ minutes: closingBufferMinutes }));
+  const beforeTime =
+    openingTime.plus({ minutes: openingBufferMinutes }) > now
+      ? openingTime.plus({ minutes: openingBufferMinutes })
+      : now;
+  const openingBufferApplied = removeSlotsBefore(closingBufferApplied, beforeTime);
+  return openingBufferApplied;
+};
+
+const removeSlotsBefore = (slots: SlotCapacityMap, time: DateTime): SlotCapacityMap => {
+  const filtered = Object.entries(slots).filter(([slotTimeISO, _]) => {
+    const slotTime = DateTime.fromISO(slotTimeISO);
+    return slotTime >= time;
+  });
+  return Object.fromEntries(filtered);
+};
+
+const removeSlotsAfter = (slots: SlotCapacityMap, time: DateTime): SlotCapacityMap => {
+  const filtered = Object.entries(slots).filter(([slotTimeISO, _]) => {
+    const slotTime = DateTime.fromISO(slotTimeISO);
+    return slotTime < time;
+  });
+  return Object.fromEntries(filtered);
+};
+
+export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined => {
+  return slot.extension?.find((ext) => ext.url === SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL)?.valueString;
 };

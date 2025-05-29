@@ -35,6 +35,7 @@ import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { enqueueSnackbar } from 'notistack';
 import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 
 enum LoadingState {
   initial,
@@ -96,9 +97,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         setCoverageName(coverageName);
         setLabs(labsFetched);
       } catch (e) {
-        console.error('error loading resources', e);
-        const errorMessage = ['There was an error fetching resources to order this lab'];
-        setError(errorMessage);
+        const oyError = e as OystehrSdkError;
+        console.error('error loading resources', oyError.code, oyError.message);
+        setError([oyError.message || 'There was an error loading resources']);
         loadingError = true;
       } finally {
         if (loadingError) {
@@ -129,9 +130,9 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         });
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
-        const error = e as any;
-        console.log('error', JSON.stringify(error));
-        const errorMessage = ['There was an error creating this lab order'];
+        const oyError = e as OystehrSdkError;
+        console.log('error creating lab order', oyError.code, oyError.message);
+        const errorMessage = [oyError.message];
         setError(errorMessage);
       }
     } else if (!paramsSatisfied) {

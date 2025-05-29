@@ -1,16 +1,19 @@
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
+  CoverageCheckWithDetails,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   PatientAccountResponse,
+  pullCoverageIdentifyingDetails,
   Secrets,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Practitioner } from 'fhir/r4b';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
+import { parseCoverageEligibilityResponse } from 'utils';
 
 let m2mtoken: string;
 
@@ -41,9 +44,62 @@ const performEffect = async (input: Input, oystehr: Oystehr): Promise<PatientAcc
   const primaryCarePhysician = accountAndCoverages.patient?.contained?.find(
     (resource) => resource.resourceType === 'Practitioner' && resource.active === true
   ) as Practitioner;
+  const eligibilityCheckResults = (
+    await oystehr.fhir.search<CoverageEligibilityResponse>({
+      resourceType: 'CoverageEligibilityResponse',
+      params: [
+        {
+          name: `patient._id`,
+          value: patientId,
+        },
+        {
+          name: '_sort',
+          value: '-created',
+        },
+      ],
+    })
+  ).unbundle();
+  const coverageIdsToFetch = eligibilityCheckResults.flatMap((ecr) => {
+    if (ecr.insurance?.[0]?.coverage?.reference) {
+      const [resourceType, id] = ecr.insurance[0].coverage.reference.split('/');
+      if (resourceType === 'Coverage') {
+        return id;
+      }
+    }
+    return [];
+  });
+  const coverageRequests: BatchInputGetRequest[] = coverageIdsToFetch.map((id) => ({
+    method: 'GET',
+    url: `Coverage/${id}`,
+  }));
+  const coverages: Coverage[] =
+    (await oystehr.fhir.batch<Coverage>({ requests: coverageRequests })).entry?.flatMap((e) => e.resource ?? []) ?? [];
+
+  const mapped = eligibilityCheckResults
+    .map((result) => {
+      const coverage = [...coverages, ...(result.contained ?? [])].find(
+        (resource) =>
+          resource.resourceType === 'Coverage' &&
+          result.insurance?.[0]?.coverage?.reference?.includes(resource.id ?? '')
+      ) as Coverage;
+      // console.log('coverageDetails', JSON.stringify(coverage, null, 2));
+      if (!coverage) {
+        return null;
+      }
+      const coverageDetails = pullCoverageIdentifyingDetails(coverage);
+      if (!coverageDetails) {
+        return null;
+      }
+      return {
+        ...parseCoverageEligibilityResponse(result),
+        ...coverageDetails,
+      } as CoverageCheckWithDetails;
+    })
+    .filter((result) => result !== null) as CoverageCheckWithDetails[];
   return {
     ...accountAndCoverages,
     primaryCarePhysician,
+    coverageChecks: mapped,
   };
 };
 

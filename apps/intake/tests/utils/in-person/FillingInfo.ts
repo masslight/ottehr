@@ -77,7 +77,7 @@ export class FillingInfo {
     const buttons = this.page.locator('role=button[name=/^\\d{1,2}:\\d{2} (AM|PM)$/]');
     const buttonCount = await buttons.count();
     expect(buttonCount).toBeGreaterThan(0);
-    const randomIndex = Math.floor(Math.random() * (buttonCount - 1)) + 1;
+    const randomIndex = Math.min(Math.floor(Math.random() * (buttonCount - 1)) + 1, buttonCount - 1);
     const selectedButton = buttons.nth(randomIndex);
     const buttonName = await selectedButton.textContent();
     console.log(`Button name: ${buttonName}`);

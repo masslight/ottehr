@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { AOECard } from './AOECard';
 // import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import {
   DynamicAOEInput,
+  ExternalLabsStatus,
   LabOrderDetailedPageDTO,
   LabQuestionnaireResponse,
   SpecimenDateChangedParameters,
@@ -13,9 +14,10 @@ import {
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { SampleInformationCard } from './SampleInformationCard';
+import { OrderInformationCard } from './OrderInformationCard';
 import { OrderHistoryCard } from './OrderHistoryCard';
 import { useApiClients } from '../../../hooks/useAppClients';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 
 interface SampleCollectionProps {
@@ -26,7 +28,7 @@ interface SampleCollectionProps {
   isAOECollapsed?: boolean;
 }
 
-export async function openLabOrder(url: string): Promise<void> {
+export async function openPdf(url: string): Promise<void> {
   window.open(url, '_blank');
 }
 
@@ -37,6 +39,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   showOrderInfo = true,
   isAOECollapsed = false,
 }) => {
+  const theme = useTheme();
   const { oystehrZambda: oystehr } = useApiClients();
   // can add a Yup resolver {resolver: yupResolver(definedSchema)} for validation, see PaperworkGroup for example
   const methods = useForm<DynamicAOEInput>();
@@ -48,9 +51,12 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const aoe = questionnaireData?.questionnaire.item || [];
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [error, setError] = useState<boolean>(false);
-  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
+  const [error, setError] = useState<string[] | undefined>(undefined);
   const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
+  const shouldShowSampleCollectionInstructions =
+    !labOrder.isPSC &&
+    (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
+  const showAOECard = aoe.length > 0;
 
   const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
     setSpecimensLoadingState((prevState) => ({ ...prevState, [specimenId]: state }));
@@ -61,9 +67,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
 
     async function updateFhir(): Promise<void> {
       if (!oystehr) {
-        throw new Error('oystehr client is undefined');
+        setError(['Oystehr client is undefined']);
+        return;
       }
-      setError(false);
       Object.keys(data).forEach((item) => {
         if (!data[item]) {
           delete data[item];
@@ -86,23 +92,32 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
 
       try {
-        const { pdfUrl } = await submitLabOrder(oystehr, {
+        const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data: data,
         });
 
-        await openLabOrder(pdfUrl);
+        if (labelPdfUrl) await openPdf(labelPdfUrl);
+
+        await openPdf(orderPdfUrl);
         setSubmitLoading(false);
-        setError(false);
+        setError(undefined);
         navigate(`/in-person/${appointmentID}/external-lab-orders`);
-      } catch (error) {
-        console.log('error with lab order', error);
+      } catch (e) {
+        const oyError = e as OystehrSdkError;
+        console.log('error creating lab order1', oyError.code, oyError.message);
+        const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+        setError(errorMessage);
         setSubmitLoading(false);
-        setError(true);
       }
     }
-    updateFhir().catch((error) => console.log(error));
+    updateFhir().catch((e) => {
+      const oyError = e as OystehrSdkError;
+      console.log('error creating lab order2', oyError.code, oyError.message);
+      const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
+      setError(errorMessage);
+    });
     console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
@@ -111,33 +126,30 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
-        <AOECard
-          questions={aoe}
-          labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
-          isCollapsed={isAOECollapsed}
-        />
+        {showAOECard && (
+          <AOECard
+            questions={aoe}
+            labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
+            isCollapsed={isAOECollapsed}
+          />
+        )}
 
         {shouldShowSampleCollectionInstructions &&
           labOrder.samples.map((sample) => (
-            <SampleCollectionInstructionsCard
-              key={sample.specimen.id}
-              sample={sample}
-              serviceRequestId={labOrder.serviceRequestId}
-              timezone={labOrder.encounterTimezone}
-              saveSpecimenDate={saveSpecimenDate}
-              updateSpecimenLoadingState={updateSpecimenLoadingState}
-            />
+            <Box sx={{ marginTop: showAOECard ? 2 : 0 }}>
+              <SampleCollectionInstructionsCard
+                key={sample.specimen.id}
+                sample={sample}
+                serviceRequestId={labOrder.serviceRequestId}
+                timezone={labOrder.encounterTimezone}
+                saveSpecimenDate={saveSpecimenDate}
+                updateSpecimenLoadingState={updateSpecimenLoadingState}
+                printLabelVisible={orderStatus === 'sent'}
+              />
+            </Box>
           ))}
 
-        {showOrderInfo && (
-          <SampleInformationCard
-          // orderAddedDateTime={labOrder?.orderAddedDate}
-          // orderingPhysician={labOrder?.orderingPhysician || ''}
-          // individualCollectingSample={'The best nurse'}
-          // collectionDateTime={DateTime.now().toString()}
-          // showInPatientPortal={showInPatientPortal}
-          />
-        )}
+        {showOrderInfo && <OrderInformationCard />}
 
         <Box sx={{ mt: 2 }}>
           <OrderHistoryCard orderHistory={labOrder?.history} timezone={labOrder.encounterTimezone} />
@@ -152,11 +164,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             </Link>
             {orderStatus === 'pending' && (
               <Stack>
-                {error && (
-                  <Typography variant="body1" color="error">
-                    Error submitting lab order
-                  </Typography>
-                )}
                 <LoadingButton
                   loading={submitLoading}
                   variant="contained"
@@ -166,10 +173,20 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                 >
                   {isSpecimenSaving ? 'Saving changes...' : 'Submit & Print order'}
                 </LoadingButton>
-                {/* <FormHelperText error>Please address errors</FormHelperText> */}
               </Stack>
             )}
           </Stack>
+        )}
+        {error && error.length > 0 && (
+          <Box sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
+            {error.map((msg, idx) => (
+              <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
+                <Typography sx={{ color: theme.palette.error.main }} key={`errormsg-${idx}`}>
+                  {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
         )}
       </form>
     </FormProvider>

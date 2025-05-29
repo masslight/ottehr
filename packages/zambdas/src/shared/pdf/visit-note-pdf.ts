@@ -308,7 +308,7 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     if (data.chiefComplaint && data.chiefComplaint.length > 0) {
       regularText(data.chiefComplaint);
     }
-    if (data.providerTimeSpan) {
+    if (data.providerTimeSpan && !isInPersonAppointment) {
       pdfClient.drawText(
         `Provider spent ${data.providerTimeSpan} minutes on real-time audio & video with this patient`,
         textStyles.smallGreyText
@@ -558,6 +558,41 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     drawBlockHeader('CPT codes');
     data.cptCodes.forEach((cptCode) => {
       regularText(cptCode);
+    });
+    separateLine();
+  }
+
+  if (data.procedures && data.procedures.length > 0) {
+    drawBlockHeader('Procedures');
+    data.procedures.forEach((procedure) => {
+      drawBlockHeader(procedure.procedureType ?? '', textStyles.blockSubHeader);
+      regularText(procedure.cptCodes != null ? 'CPT: ' + procedure.cptCodes.join('; ') : undefined);
+      regularText(procedure.diagnoses != null ? 'Dx: ' + procedure.diagnoses.join('; ') : undefined);
+
+      regularText(
+        procedure.procedureDateTime != null
+          ? 'Date and time of the procedure: ' + procedure.procedureDateTime
+          : undefined
+      );
+      regularText(procedure.performerType != null ? 'Performed by: ' + procedure.performerType : undefined);
+      regularText(
+        procedure.medicationUsed != null ? 'Anaesthesia / medication used: ' + procedure.medicationUsed : undefined
+      );
+      regularText(procedure.bodySite != null ? 'Site/location: ' + procedure.bodySite : undefined);
+      regularText(procedure.bodySide != null ? 'Side of body: ' + procedure.bodySide : undefined);
+      regularText(procedure.technique != null ? 'Technique: ' + procedure.technique : undefined);
+      regularText(
+        procedure.suppliesUsed != null ? 'Instruments / supplies used: ' + procedure.suppliesUsed : undefined
+      );
+      regularText(procedure.procedureDetails != null ? 'Procedure details: ' + procedure.procedureDetails : undefined);
+      regularText(procedure.specimenSent != null ? 'Specimen sent: ' + procedure.specimenSent : undefined);
+      regularText(procedure.complications != null ? 'Complications: ' + procedure.complications : undefined);
+      regularText(procedure.patientResponse != null ? 'Patient response: ' + procedure.patientResponse : undefined);
+      regularText(
+        procedure.postInstructions != null ? 'Post-procedure instructions: ' + procedure.postInstructions : undefined
+      );
+      regularText(procedure.timeSpent != null ? 'Time spent: ' + procedure.timeSpent : undefined);
+      regularText(procedure.documentedBy != null ? 'Documented by: ' + procedure.documentedBy : undefined);
     });
     separateLine();
   }

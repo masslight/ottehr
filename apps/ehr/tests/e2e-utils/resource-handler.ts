@@ -1,5 +1,22 @@
-import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import {
+  Address,
+  Appointment,
+  ClinicalImpression,
+  Consent,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Person,
+  Practitioner,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Schedule,
+  ServiceRequest,
+  Slot,
+} from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -7,24 +24,26 @@ import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
-  createSamplePrebookAppointments,
-  createSampleTelemedAppointments,
+  createSampleAppointments,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
   GetPaperworkAnswers,
   RelationshipOption,
+  ServiceMode,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
 import { fetchWithOystAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
+  TestEmployee,
   TEST_EMPLOYEE_1,
   TEST_EMPLOYEE_2,
-  TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
+import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,10 +64,10 @@ export function getAccessToken(): string {
   return token;
 }
 
-const EightDigitsString = DateTime.now().toFormat('yyyyMMdd');
+const EightDigitsString = '20250519';
 
-export const PATIENT_FIRST_NAME = 'Test_John_Random' + EightDigitsString;
-export const PATIENT_LAST_NAME = 'Test_Doe_Random' + EightDigitsString; // don't use real random values in parallel related tests
+export const PATIENT_FIRST_NAME = 'Jon';
+export const PATIENT_LAST_NAME = 'Snow';
 export const PATIENT_GENDER = 'Male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';
@@ -139,11 +158,7 @@ export class ResourceHandler {
 
     this.#initPromise = this.initApi();
 
-    if (flow === 'telemed' || flow === 'in-person') {
-      this.#createAppointmentZambdaId = 'create-appointment';
-    } else {
-      throw new Error('❌ Invalid flow name');
-    }
+    this.#createAppointmentZambdaId = 'create-appointment';
   }
 
   private async initApi(): Promise<void> {
@@ -160,8 +175,6 @@ export class ResourceHandler {
 
   private async createAppointment(inputParams?: CreateTestAppointmentInput): Promise<CreateAppointmentResponse> {
     await this.#initPromise;
-
-    console.log('create appointment params', JSON.stringify(inputParams, null, 2));
 
     try {
       const address: Address = {
@@ -183,8 +196,6 @@ export class ResourceHandler {
         address: [address],
       };
 
-      console.log('patientData', patientData);
-
       if (!process.env.PROJECT_API_ZAMBDA_URL) {
         throw new Error('PROJECT_API_ZAMBDA_URL is not set');
       }
@@ -201,34 +212,20 @@ export class ResourceHandler {
         throw new Error('PROJECT_ID is not set');
       }
 
-      console.log('resource handler flow', this.#flow);
-
       // Create appointment and related resources using zambda
-      const appointmentData =
-        this.#flow === 'in-person'
-          ? await createSamplePrebookAppointments({
-              oystehr: this.#apiClient,
-              authToken: getAccessToken(),
-              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.#createAppointmentZambdaId,
-              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
-              demoData: patientData,
-              projectId: process.env.PROJECT_ID!,
-              paperworkAnswers: this.#paperworkAnswers,
-            })
-          : await createSampleTelemedAppointments({
-              oystehr: this.#apiClient,
-              authToken: getAccessToken(),
-              phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
-              createAppointmentZambdaId: this.#createAppointmentZambdaId,
-              islocal: process.env.APP_IS_LOCAL === 'true',
-              zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
-              locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
-              demoData: patientData,
-              projectId: process.env.PROJECT_ID!,
-              paperworkAnswers: this.#paperworkAnswers,
-            });
+      const appointmentData = await createSampleAppointments({
+        oystehr: this.#apiClient,
+        authToken: getAccessToken(),
+        phoneNumber: formatPhoneNumber(PATIENT_PHONE_NUMBER)!,
+        createAppointmentZambdaId: this.#createAppointmentZambdaId,
+        zambdaUrl: process.env.PROJECT_API_ZAMBDA_URL,
+        serviceMode: this.#flow === 'telemed' ? ServiceMode.virtual : ServiceMode['in-person'],
+        selectedLocationId: inputParams?.selectedLocationId ?? process.env.LOCATION_ID,
+        locationState: inputParams?.telemedLocationState ?? process.env.STATE_ONE, // todo: check why state is used here
+        demoData: patientData,
+        projectId: process.env.PROJECT_ID!,
+        paperworkAnswers: this.#paperworkAnswers,
+      });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
       }
@@ -254,11 +251,88 @@ export class ResourceHandler {
     const response = await this.createAppointment(params);
     this.#resources = {
       ...response.resources,
-      // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
+      // add relatedPerson to resources to make possible to clean it up; endpoint returns only id
       relatedPerson: {
         id: response.relatedPersonId,
         resourceType: 'RelatedPerson',
       },
+    };
+  }
+
+  public async setResourcesFast(_params?: CreateTestAppointmentInput): Promise<void> {
+    await this.#initPromise;
+
+    if (process.env.LOCATION_ID == null) {
+      throw new Error('LOCATION_ID is not set');
+    }
+
+    const schedule = (
+      await this.#apiClient.fhir.search<Schedule>({
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: 'actor',
+            value: `Location/${process.env.LOCATION_ID}`,
+          },
+        ],
+      })
+    ).unbundle()[0] as Schedule;
+
+    let seedDataString = JSON.stringify(fastSeedData);
+    seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
+    seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
+    seedDataString = seedDataString.replace(
+      /\{\{questionnaireUrl\}\}/g,
+      `${inPersonIntakeQuestionnaire.resource.url}|${inPersonIntakeQuestionnaire.resource.version}`
+    );
+    seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
+
+    // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
+
+    const hydratedFastSeedJSON = JSON.parse(seedDataString);
+
+    const createdResources =
+      (
+        await this.#apiClient.fhir.transaction<
+          | Patient
+          | RelatedPerson
+          | Person
+          | Appointment
+          | Encounter
+          | Slot
+          | List
+          | Consent
+          | DocumentReference
+          | QuestionnaireResponse
+          | ServiceRequest
+          | ClinicalImpression
+        >({
+          requests: hydratedFastSeedJSON.entry.map((entry: any): BatchInputPostRequest<FhirResource> => {
+            if (entry.request.method !== 'POST') {
+              throw new Error('Only POST method is supported in fast mode');
+            }
+            return {
+              method: entry.request.method,
+              url: entry.request.url,
+              fullUrl: entry.fullUrl,
+              resource: entry.resource,
+            };
+          }),
+        })
+      ).entry
+        ?.map((entry) => entry.resource)
+        .filter((entry) => entry !== undefined) ?? [];
+    this.#resources = {
+      patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
+      relatedPerson: {
+        id: (createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson).id!,
+        resourceType: 'RelatedPerson',
+      },
+      appointment: createdResources.find((resource) => resource!.resourceType === 'Appointment') as Appointment,
+      encounter: createdResources.find((resource) => resource!.resourceType === 'Encounter') as Encounter,
+      questionnaire: createdResources.find(
+        (resource) => resource!.resourceType === 'QuestionnaireResponse'
+      ) as QuestionnaireResponse,
     };
   }
 
@@ -351,7 +425,7 @@ export class ResourceHandler {
           return;
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 3000));
+        await new Promise((resolve) => setTimeout(resolve, 6000));
       }
 
       throw new Error("Appointment wasn't harvested by sub-intake-harvest module");

@@ -1,6 +1,7 @@
 import { FhirResource } from 'fhir/r4b';
 
 export enum APIErrorCode {
+  // 40xx
   NOT_AUTHORIZED = 4000,
   CANT_UPDATE_CANCELED_APT_ERROR = 4001,
   DOB_UNCONFIRMED = 4002,
@@ -21,11 +22,15 @@ export enum APIErrorCode {
   FHIR_RESOURCE_NOT_FOUND = 4017,
   SCHEDULE_OWNER_NOT_FOUND = 4018,
   SLOT_UNAVAILABLE = 4019,
+  // 41xx
   QUESTIONNAIRE_RESPONSE_INVALID = 4100,
   QUESTIONNAIRE_NOT_FOUND_FOR_QR = 4101,
+  // 42xx
   MISSING_REQUEST_BODY = 4200,
   MISSING_REQUIRED_PARAMETERS = 4201,
   INVALID_RESOURCE_ID = 4202,
+  MISSING_AUTH_TOKEN = 4203,
+  // 43xx
   CANNOT_JOIN_CALL_NOT_IN_PROGRESS = 4300,
   MISSING_BILLING_PROVIDER_DETAILS = 4301,
   STRIPE_CUSTOMER_ID_NOT_FOUND = 4302,
@@ -33,8 +38,13 @@ export enum APIErrorCode {
   MISCONFIGURED_SCHEDULING_GROUP = 4304,
   MISSING_SCHEDULE_EXTENSION = 4305,
   MISSING_PATIENT_COVERAGE_INFO = 4306,
+  // 434x
   INVALID_INPUT = 4340,
   APPOINTMENT_ALREADY_EXISTS = 4341,
+  // 44xx
+  EXTERNAL_LAB_GENERAL = 4400,
+  MISSING_NLM_API_KEY_ERROR = 4401,
+  IN_HOUSE_LAB_GENERAL = 4402,
 }
 
 export interface APIError {
@@ -46,6 +56,7 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
   if (!errorObject) {
     return false;
   }
+
   let asObj = errorObject;
   if (typeof asObj === 'string') {
     try {
@@ -54,13 +65,29 @@ export const isApiError = (errorObject: unknown | undefined): boolean => {
       return false;
     }
   }
+
   const asAny = asObj as any;
   const output = asAny?.output;
+
+  // Check direct properties
   if (asAny && asAny.code && asAny.message) {
-    return typeof asAny.message === 'string' && Object.values(APIErrorCode).includes(asAny.code);
-  } else if (output && output.code && output.message) {
-    return typeof output.message === 'string' && Object.values(APIErrorCode).includes(output.code);
+    const code = asAny.code;
+    const message = asAny.message;
+    const isMessageString = typeof message === 'string';
+    const isCodeValid = Object.values(APIErrorCode).includes(code);
+
+    return isMessageString && isCodeValid;
   }
+  // Check nested 'output' properties
+  else if (output && output.code && output.message) {
+    const code = output.code;
+    const message = output.message;
+    const isMessageString = typeof message === 'string';
+    const isCodeValid = Object.values(APIErrorCode).includes(code);
+
+    return isMessageString && isCodeValid;
+  }
+
   return false;
 };
 
@@ -160,6 +187,11 @@ export const INVALID_RESOURCE_ID_ERROR = (paramName: string): APIError => {
   };
 };
 
+export const MISSING_AUTH_TOKEN = {
+  code: APIErrorCode.MISSING_AUTH_TOKEN,
+  message: 'AuthToken is not provided in headers',
+};
+
 export const QUESTIONNAIRE_NOT_FOUND_FOR_QR_ERROR = {
   code: APIErrorCode.QUESTIONNAIRE_NOT_FOUND_FOR_QR,
   message: 'The questionnaire referenced in the QuestionnaireResponse could not be found',
@@ -256,6 +288,26 @@ export const MISSING_PATIENT_COVERAGE_INFO_ERROR = {
   code: APIErrorCode.MISSING_PATIENT_COVERAGE_INFO,
   message: 'No coverage information found for this patient',
 };
+
+export const MISSING_NLM_API_KEY_ERROR: APIError = {
+  code: APIErrorCode.MISSING_NLM_API_KEY_ERROR,
+  message: 'No nlm api key was provided.',
+};
+
+export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.EXTERNAL_LAB_GENERAL,
+    message,
+  };
+};
+
+export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.IN_HOUSE_LAB_GENERAL,
+    message,
+  };
+};
+
 export const SLOT_UNAVAILABLE_ERROR = {
   code: APIErrorCode.SLOT_UNAVAILABLE,
   message: 'The requested slot is unavailable',
