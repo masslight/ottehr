@@ -1,4 +1,4 @@
-import { Pagination } from './labs.types';
+import { LabelConfig, Pagination } from './labs.types';
 
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
@@ -28,6 +28,14 @@ export const LAB_RESULT_DOC_REF_CODING_CODE = {
   display: 'Laboratory report',
 };
 
+// there is no loinc code specifically for specimen labels or container labels, closest is 74384-9 "Specimen container [Type]"
+// so opted for something custom her
+export const EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE = {
+  system: 'http://ottehr.org/fhir/StructureDefinition/specimen-collection-label',
+  code: 'specimen-container-label',
+  display: 'Specimen Container Label',
+};
+
 export const LAB_DR_TYPE_TAG = {
   system: 'result-type',
   display: {
@@ -49,13 +57,27 @@ export const LAB_ORG_TYPE_CODING = { system: 'http://snomed.info/sct', code: '26
 
 export const LAB_ACCOUNT_NUMBER_SYSTEM = 'https://identifiers.fhir.oystehr.com/lab-account-number';
 
-export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/added-via-lab-order';
+export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/added-via-lab-order'; // used also for in-house labs
 
 export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/related-specimen-definition';
 
-export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
+export const IN_HOUSE_LAB_RESULT_PDF_BASE_NAME = 'LabsResultsForm';
+export const EXTERNAL_LAB_RESULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
 
+export const EXTERNAL_LAB_LABEL_PDF_BASE_NAME = 'ExternalLabsLabel';
+
+export const DYMO_550_TURBO_DPI = 300;
+
+export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
+  heightInches: 1.25,
+  widthInches: 2.25,
+  marginTopInches: 0.06,
+  marginBottomInches: 0.06,
+  marginLeftInches: 0.04,
+  marginRightInches: 0.04,
+  printerDPI: DYMO_550_TURBO_DPI,
+};
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
 // so if we dont like any of them, we have to change there too
@@ -90,12 +112,16 @@ export const PROVENANCE_ACTIVITY_CODES = {
   review: 'REVIEW',
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
+  inputResults: 'INPUT RESULTS',
+  collectSpecimen: 'COLLECT SPECIMEN',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
-  createOrder: 'CREATE ORDER',
+  createOrder: 'create order',
+  collectSpecimen: 'collect sample',
+  inputResults: 'input results',
 } as const;
 
 export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
@@ -112,6 +138,16 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
   createOrder: {
     code: PROVENANCE_ACTIVITY_CODES.createOrder,
     display: PROVENANCE_ACTIVITY_CODES.createOrder,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  inputResults: {
+    code: PROVENANCE_ACTIVITY_CODES.inputResults,
+    display: PROVENANCE_ACTIVITY_CODES.inputResults,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
+  collectSpecimen: {
+    code: PROVENANCE_ACTIVITY_CODES.collectSpecimen,
+    display: PROVENANCE_ACTIVITY_DISPLAY.collectSpecimen,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
 } as const;

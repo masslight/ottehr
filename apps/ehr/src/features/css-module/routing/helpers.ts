@@ -21,3 +21,27 @@ export const getAssessmentUrl = (appointmentId: string): string => {
 export const getExternalLabOrderEditUrl = (appointmentId: string, orderId: string): string => {
   return `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`;
 };
+
+export const getInHouseLabsUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/in-house-lab-orders`;
+};
+
+export const getInHouseLabOrderCreateUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/in-house-lab-orders/create`;
+};
+
+export const getInHouseLabOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/in-house-lab-orders/${serviceRequestId}/order-details`;
+};
+
+export const getNursingOrdersUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/nursing-orders`;
+};
+
+export const getNursingOrderCreateUrl = (appointmentId: string): string => {
+  return `/in-person/${appointmentId}/nursing-orders/create`;
+};
+
+export const getNursingOrderDetailsUrl = (appointmentId: string, serviceRequestId: string): string => {
+  return `/in-person/${appointmentId}/nursing-orders/${serviceRequestId}/order-details`;
+};

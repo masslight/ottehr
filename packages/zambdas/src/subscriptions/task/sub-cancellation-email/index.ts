@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail } from 'utils';
-import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from '../validateRequestParameters';
 import {
   captureSentryException,

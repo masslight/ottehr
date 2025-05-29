@@ -5,14 +5,14 @@ import React, { useState } from 'react';
 // import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { useParams } from 'react-router';
-import { openLabOrder } from './OrderCollection';
+import { openPdf } from './OrderCollection';
 import { DocumentReference } from 'fhir/r4b';
 import { getPresignedFileUrl } from '../../../helpers/files.helper';
 import { useAuth0 } from '@auth0/auth0-react';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 
-interface SampleInfoProps {
+interface OrderInfoProps {
   orderAddedDateTime?: string;
   orderingPhysician?: string;
   individualCollectingSample?: string;
@@ -21,7 +21,7 @@ interface SampleInfoProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDateTime, orderingPhysician }) => {
+export const OrderInformationCard: React.FC<OrderInfoProps> = ({ orderAddedDateTime, orderingPhysician }) => {
   const { oystehr } = useApiClients();
   const { serviceRequestID } = useParams();
   const [collapsed, setCollapsed] = useState(false);
@@ -53,7 +53,7 @@ export const SampleInformationCard: React.FC<SampleInfoProps> = ({ orderAddedDat
     if (!urlTemp) {
       throw new Error('error with a presigned url');
     }
-    await openLabOrder(urlTemp);
+    await openPdf(urlTemp);
   }
 
   return (

@@ -35,6 +35,7 @@ export interface CreateSlotParams {
   status?: Slot['status'];
   walkin?: boolean;
   postTelemedLabOnly?: boolean;
+  originalBookingUrl?: string;
 }
 
 export interface GetSlotDetailsParams {
@@ -55,6 +56,5 @@ export interface GetSlotDetailsResponse {
   appointmentId?: string;
   comment?: string;
   timezoneForDisplay?: Timezone;
-  bookingGroupId?: string;
-  bookingGroupSlug?: string;
+  originalBookingUrl?: string;
 }

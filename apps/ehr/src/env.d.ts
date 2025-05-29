@@ -42,6 +42,13 @@ interface ImportMetaEnv {
   readonly VITE_APP_CREATE_LAB_ORDER_ZAMBDA_ID?: string;
   readonly VITE_APP_GET_CREATE_LAB_ORDER_RESOURCES?: string;
   readonly VITE_APP_GET_LAB_ORDERS_ZAMBDA_ID?: string;
+  readonly VITE_APP_GET_IN_HOUSE_ORDERS_ZAMBDA_ID?: string;
+  readonly VITE_APP_GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES?: string;
+  readonly VITE_APP_GET_IN_HOUSE_LAB_ORDER_DETAIL?: string;
+  readonly VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN?: string;
+  readonly VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS?: string;
+  readonly VITE_APP_DELETE_IN_HOUSE_LAB_ORDER?: string;
+  readonly VITE_APP_CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID?: string;
 }
 
 interface ImportMeta {

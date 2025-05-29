@@ -1,40 +1,34 @@
-import { Address, Consent, ContactPoint, LocationHoursOfOperation, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
-  Closure,
+  AvailableLocationInformation,
+  chooseJson,
   CreateAppointmentInputParams,
+  CreateSlotParams,
   GetAppointmentDetailsResponse,
   GetEligibilityParameters,
   GetEligibilityResponse,
   GetPresignedFileURLInput,
   GetScheduleRequestParams,
   GetScheduleResponse,
-  WalkinAvailabilityCheckParams,
+  GetSlotDetailsParams,
+  GetSlotDetailsResponse,
   HandleAnswerInput,
+  isApiError,
+  isoStringFromMDYString,
   PatchPaperworkParameters,
   PatientInfo,
   PersistConsentInput,
   PresignUploadUrlResponse,
-  ScheduleType,
   StartInterviewInput,
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentParameters,
   VisitType,
-  chooseJson,
-  isApiError,
-  isoStringFromMDYString,
+  WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
-  CreateSlotParams,
-  GetSlotDetailsParams,
-  GetSlotDetailsResponse,
 } from 'utils';
-import {
-  CancelAppointmentParameters,
-  GetAppointmentParameters,
-  GetPaperworkParameters,
-  UpdatePaperworkParameters,
-} from '../types/types';
+import { CancelAppointmentParameters, GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
 
 export interface ZapehrSearchParameter {
@@ -48,7 +42,6 @@ const CREATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_APPOINTMENT
 const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ZAMBDA_ID;
 const UPDATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_APPOINTMENT_ZAMBDA_ID;
 const GET_PATIENTS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENTS_ZAMBDA_ID;
-const UPDATE_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_PAPERWORK_ZAMBDA_ID;
 const GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_GET_SCHEDULE_ZAMBDA_ID;
 const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_APP_TELEMED_GET_APPOINTMENTS_ZAMBDA_ID;
 const GET_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PAPERWORK_ZAMBDA_ID;
@@ -63,20 +56,6 @@ const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTER
 const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
-
-export interface AvailableLocationInformation {
-  id: string | undefined;
-  slug: string | undefined;
-  name: string | undefined;
-  description: string | undefined;
-  address: Address | undefined;
-  telecom: ContactPoint[] | undefined;
-  hoursOfOperation: LocationHoursOfOperation[] | undefined;
-  closures: Closure[];
-  timezone: string | undefined;
-  otherOffices: { display: string; url: string }[];
-  scheduleType: ScheduleType;
-}
 
 export interface AppointmentBasicInfo {
   start: string;
@@ -184,32 +163,6 @@ class API {
       return jsonToUse;
     } catch (error: unknown) {
       throw apiErrorToThrow(error);
-    }
-  }
-
-  async updatePaperworkInProgress(
-    zambdaClient: ZambdaClient,
-    parameters: UpdatePaperworkParameters,
-    throwError = true
-  ): Promise<any> {
-    try {
-      if (UPDATE_PAPERWORK_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
-        throw new Error('update appointment environment variable could not be loaded');
-      }
-      // Exclude local file data from paperwork so it doesn't get saved in QuestionnaireResponse.
-      const response = await zambdaClient.executePublic(UPDATE_PAPERWORK_ZAMBDA_ID, {
-        ...parameters,
-      });
-
-      const jsonToUse = chooseJson(response);
-      return jsonToUse;
-    } catch (error: unknown) {
-      if (throwError) {
-        throw apiErrorToThrow(error);
-      } else {
-        // Fail silently
-        console.error('Error updating paperwork', error);
-      }
     }
   }
 

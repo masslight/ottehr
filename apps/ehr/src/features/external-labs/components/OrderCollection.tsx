@@ -13,7 +13,7 @@ import {
 // import useEvolveUser from '../../../hooks/useEvolveUser';
 import { submitLabOrder } from '../../../api/api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { SampleInformationCard } from './SampleInformationCard';
+import { OrderInformationCard } from './OrderInformationCard';
 import { OrderHistoryCard } from './OrderHistoryCard';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
@@ -27,7 +27,7 @@ interface SampleCollectionProps {
   isAOECollapsed?: boolean;
 }
 
-export async function openLabOrder(url: string): Promise<void> {
+export async function openPdf(url: string): Promise<void> {
   window.open(url, '_blank');
 }
 
@@ -51,8 +51,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
-  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
   const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
+  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
+  const showAOECard = aoe.length > 0;
 
   const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
     setSpecimensLoadingState((prevState) => ({ ...prevState, [specimenId]: state }));
@@ -88,13 +89,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
 
       try {
-        const { pdfUrl } = await submitLabOrder(oystehr, {
+        const { orderPdfUrl } = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data: data,
         });
 
-        await openLabOrder(pdfUrl);
+        await openPdf(orderPdfUrl);
         setSubmitLoading(false);
         setError(undefined);
         navigate(`/in-person/${appointmentID}/external-lab-orders`);
@@ -120,33 +121,30 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
-        <AOECard
-          questions={aoe}
-          labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
-          isCollapsed={isAOECollapsed}
-        />
+        {showAOECard && (
+          <AOECard
+            questions={aoe}
+            labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
+            isCollapsed={isAOECollapsed}
+          />
+        )}
 
         {shouldShowSampleCollectionInstructions &&
           labOrder.samples.map((sample) => (
-            <SampleCollectionInstructionsCard
-              key={sample.specimen.id}
-              sample={sample}
-              serviceRequestId={labOrder.serviceRequestId}
-              timezone={labOrder.encounterTimezone}
-              saveSpecimenDate={saveSpecimenDate}
-              updateSpecimenLoadingState={updateSpecimenLoadingState}
-            />
+            <Box sx={{ marginTop: showAOECard ? 2 : 0 }}>
+              <SampleCollectionInstructionsCard
+                key={sample.specimen.id}
+                sample={sample}
+                serviceRequestId={labOrder.serviceRequestId}
+                timezone={labOrder.encounterTimezone}
+                saveSpecimenDate={saveSpecimenDate}
+                updateSpecimenLoadingState={updateSpecimenLoadingState}
+                printLabelVisible={orderStatus === 'sent'}
+              />
+            </Box>
           ))}
 
-        {showOrderInfo && (
-          <SampleInformationCard
-          // orderAddedDateTime={labOrder?.orderAddedDate}
-          // orderingPhysician={labOrder?.orderingPhysician || ''}
-          // individualCollectingSample={'The best nurse'}
-          // collectionDateTime={DateTime.now().toString()}
-          // showInPatientPortal={showInPatientPortal}
-          />
-        )}
+        {showOrderInfo && <OrderInformationCard />}
 
         <Box sx={{ mt: 2 }}>
           <OrderHistoryCard orderHistory={labOrder?.history} timezone={labOrder.encounterTimezone} />

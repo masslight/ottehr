@@ -20,6 +20,7 @@ import {
   PaperworkSupportingInfo,
   PersonSex,
   SLUG_SYSTEM,
+  ScheduleExtension,
   ScheduleType,
   Secrets,
   ServiceMode,
@@ -29,7 +30,7 @@ import {
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
-  getScheduleDetails,
+  getScheduleExtension,
   getUnconfirmedDOBForAppointment,
   mapQuestionnaireAndValueSetsToItemsList,
   serviceModeForHealthcareService,
@@ -43,7 +44,6 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { getUser } from '../../../shared/auth';
-import '../../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
@@ -402,9 +402,9 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
   if (hsResources) {
     // do a thing
     const { hs, locations, coverageArea } = hsResources;
-    const closures: Closure[] = [];
     const otherOffices: AvailableLocationInformation['otherOffices'] = [];
     const serviceMode = serviceModeForHealthcareService(hs);
+    let scheduleExtension: ScheduleExtension | undefined = undefined;
     let loc: Location | undefined;
     // note there's not really any clear notion what to do here if the HS pools provider schedules
     // this is to be addressed in a future release
@@ -423,10 +423,7 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
         loc = locations?.length === 1 ? locations[0] : undefined;
       }
       if (loc) {
-        const schedule = getScheduleDetails(loc);
-        if (schedule && schedule.closures) {
-          closures.push(...schedule.closures);
-        }
+        scheduleExtension = getScheduleExtension(loc);
       }
     } else {
       loc = coverageArea?.length === 1 ? coverageArea[0] : undefined;
@@ -438,13 +435,12 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       description: loc?.description,
       address: loc?.address,
       telecom: loc?.telecom,
-      hoursOfOperation: loc?.hoursOfOperation,
-      closures: [],
       timezone: loc?.extension?.find(
         (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString,
       otherOffices,
-      scheduleType: ScheduleType['group'],
+      scheduleOwnerType: ScheduleType['group'],
+      scheduleExtension,
     };
   } else if (practitioner) {
     // todo build out pracitioner scheduling more
@@ -455,18 +451,16 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       description: undefined,
       address: undefined,
       telecom: [],
-      hoursOfOperation: [],
-      closures: [],
       timezone: practitioner?.extension?.find(
         (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString,
       otherOffices: [],
-      scheduleType: ScheduleType['provider'],
+      scheduleOwnerType: ScheduleType['provider'],
     };
   } else {
     const closures: Closure[] = [];
     if (location) {
-      const schedule = getScheduleDetails(location);
+      const schedule = getScheduleExtension(location);
       if (schedule && schedule.closures) {
         closures.push(...schedule.closures);
       }
@@ -478,13 +472,11 @@ const makeLocationSummary = (input: LocationSummaryInput): AppointmentSummary['l
       description: location?.description,
       address: location?.address,
       telecom: location?.telecom,
-      hoursOfOperation: location?.hoursOfOperation,
-      closures,
       timezone: location?.extension?.find(
         (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString,
       otherOffices: location ? getOtherOfficesForLocation(location) : [],
-      scheduleType: ScheduleType['location'],
+      scheduleOwnerType: ScheduleType['location'],
     };
   }
 };

@@ -159,6 +159,41 @@ export const FHIR_EXTENSION = {
       url: `${TERMINOLOGY_BASE_URL}/condition-clinical`,
     },
   },
+  ServiceRequest: {
+    medicationUsed: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/medication-used`,
+    },
+    bodySide: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/body-side`,
+    },
+    technique: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/technique`,
+    },
+    suppliesUsed: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/supplies-used`,
+    },
+    procedureDetails: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/procedure-details`,
+    },
+    specimenSent: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/specimen-sent`,
+    },
+    complications: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/complications`,
+    },
+    patientResponse: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/patient-response`,
+    },
+    postInstructions: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/post-instructions`,
+    },
+    timeSpent: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/time-spent`,
+    },
+    documentedBy: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/documented-by`,
+    },
+  },
 } as const;
 
 export type FHIR_EXTENSION_TYPE = typeof FHIR_EXTENSION;
@@ -256,7 +291,6 @@ export interface ScheduleAndOwner {
 }
 
 interface BaseScheduleResponse {
-  owner: HealthcareService | Location | Practitioner;
   scheduleList: ScheduleAndOwner[];
 }
 interface ScheduleMetaData {
@@ -481,3 +515,23 @@ export const SlotServiceCategory: { [key: string]: CodeableConcept } = {
     ],
   },
 };
+
+export const SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL = `${PRIVATE_EXTENSION_BASE_URL}/slot-booking-flow-origin`;
+
+export const makeBookingOriginExtensionEntry = (url: string): { url: string; valueString: string } => {
+  return {
+    url: SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+    valueString: url,
+  };
+};
+
+// this is the time in minutes after which a busy-tentative slot will be considered expired and will no longer
+// be counted against the available slots. the _lastUpdated field will be checked, so mutating the slot
+// at all will reset the timer
+export const SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES = 10;
+export const DEFAULT_APPOINTMENT_LENGTH_MINUTES = 15;
+
+const PROCEDURES_TERMINOLOGY_BASE_URL = FHIR_BASE_URL + '/CodeSystem/Procedure';
+export const PROCEDURE_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/procedure-type';
+export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/performer-type';
+export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';

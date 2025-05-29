@@ -3,7 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Closure,
   DailySchedule,
-  getScheduleDetails,
+  getScheduleExtension,
   MISSING_SCHEDULE_EXTENSION_ERROR,
   SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
@@ -45,7 +45,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 const performEffect = async (input: EffectInput, oystehr: Oystehr): Promise<Schedule> => {
   const { updateDetails, currentSchedule, definiteDailySchedule, owner } = input;
   const { schedule: newSchedule, scheduleOverrides, closures, timezone, ownerSlug } = updateDetails;
-  const scheduleExtension: ScheduleExtension = getScheduleDetails(currentSchedule) ?? {
+  const scheduleExtension: ScheduleExtension = getScheduleExtension(currentSchedule) ?? {
     schedule: definiteDailySchedule,
     closures,
     scheduleOverrides: {},
@@ -140,7 +140,7 @@ const complexValidation = async (input: UpdateScheduleBasicInput, oystehr: Oyste
   }
 
   if (scheduleInput === undefined) {
-    const scheduleExtension = getScheduleDetails(schedule);
+    const scheduleExtension = getScheduleExtension(schedule);
     if (!scheduleExtension) {
       throw MISSING_SCHEDULE_EXTENSION_ERROR;
     }

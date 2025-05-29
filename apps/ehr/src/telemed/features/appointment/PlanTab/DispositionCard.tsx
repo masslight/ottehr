@@ -41,6 +41,7 @@ import {
 } from '../../../utils';
 import { useDispositionMultipleNotes } from './useDispositionMultipleNotes';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 
 const ERROR_TEXT = 'Disposition data update was unsuccessful, please change some disposition field data to try again.';
@@ -70,11 +71,11 @@ export const DispositionCard: FC = () => {
     onSuccess: (data) => {
       setPartialChartData({ disposition: data?.disposition });
       isResetting.current = true;
+      reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
+      setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
       if (data?.disposition?.note) {
         setNoteCache(data.disposition.note);
       }
-      reset(data?.disposition ? mapDispositionToForm(data.disposition) : DEFAULT_DISPOSITION_VALUES);
-      setCurrentType(data?.disposition?.type || DEFAULT_DISPOSITION_VALUES.type);
       isResetting.current = false;
     },
   });
@@ -159,7 +160,10 @@ export const DispositionCard: FC = () => {
       }
     >
       <FormProvider {...methods}>
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box
+          sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}
+          data-testid={dataTestIds.telemedEhrFlow.planTabDispositionContainer}
+        >
           <Controller
             name="type"
             control={control}
@@ -178,7 +182,11 @@ export const DispositionCard: FC = () => {
                 }}
               >
                 {tabs.map((tab) => (
-                  <ContainedPrimaryToggleButton key={tab} value={tab}>
+                  <ContainedPrimaryToggleButton
+                    key={tab}
+                    value={tab}
+                    data-testid={dataTestIds.telemedEhrFlow.planTabDispositionToggleButton(tab)}
+                  >
                     {mapDispositionTypeToLabel[tab]}
                   </ContainedPrimaryToggleButton>
                 ))}
@@ -268,6 +276,7 @@ export const DispositionCard: FC = () => {
                   select
                   disabled={isReadOnly}
                   label="Follow up visit in"
+                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown}
                   size="small"
                   sx={{ minWidth: '200px', width: 'fit-content' }}
                   value={value}
@@ -296,6 +305,7 @@ export const DispositionCard: FC = () => {
                   disabled={isReadOnly}
                   label="Reason for transfer"
                   placeholder="Select"
+                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionReasonForTransferDropdown}
                   size="small"
                   sx={{ minWidth: '200px', width: '50%' }}
                   value={value}
@@ -330,6 +340,7 @@ export const DispositionCard: FC = () => {
                   multiline
                   fullWidth
                   size="small"
+                  data-testid={dataTestIds.telemedEhrFlow.planTabDispositionNote}
                   value={value}
                   onChange={(...args) => {
                     setNoteCache(args[0].target.value);

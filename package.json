@@ -1,12 +1,13 @@
 {
   "name": "ottehr",
-  "version": "1.8.14",
+  "version": "1.9.18",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=9.0.0"
   },
   "scripts": {
+    "build": "turbo build lint",
     "version": "npm version $npm_package_version --workspaces && git add **/package.json",
     "lint": "npm run lint:eslint && npm run lint:prettier",
     "lint:eslint": "turbo lint",
@@ -65,7 +66,7 @@
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^6.18.6",
-    "@oystehr/sdk": "3.0.16",
+    "@oystehr/sdk": "^4.0.0-alpha.2",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sendgrid/mail": "^8.1.4",
     "@sentry/aws-serverless": "^8.26.0",

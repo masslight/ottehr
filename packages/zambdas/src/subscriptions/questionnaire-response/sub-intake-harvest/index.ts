@@ -48,7 +48,6 @@ import {
   triggerSlackAlarm,
   ZambdaInput,
 } from '../../../shared';
-import '../../../shared/instrument.mjs';
 import { createAdditionalQuestions } from '../../appointment/appointment-chart-data-prefilling/helpers';
 import { QRSubscriptionInput, validateRequestParameters } from './validateRequestParameters';
 

@@ -9,7 +9,6 @@ import {
   getWaitingMinutesAtSchedule,
   TaskStatus,
 } from 'utils';
-import '../../../shared/instrument.mjs';
 import {
   captureSentryException,
   createOystehrClient,

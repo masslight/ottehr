@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "types": ["node"]
-  },
-  "include": ["tests", "playwright.config.ts", "setup-test-deps.js", "auth.setup.js", "vitest.config.ts"]
-}
