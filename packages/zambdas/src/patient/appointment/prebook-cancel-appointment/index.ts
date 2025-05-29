@@ -30,6 +30,7 @@ import {
   AuditableZambdaEndpoints,
   ZambdaInput,
   captureSentryException,
+  checkIsEHRUser,
   configSentry,
   createAuditEvent,
   createOystehrClient,
@@ -69,7 +70,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('getting user');
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets));
-    const isEHRUser = userToken && !user.name.startsWith('+') && !(user.id === 'test-M2M-user-id');
+    const isEHRUser = checkIsEHRUser(user);
     const validatedParameters = validateRequestParameters(input);
     const { appointmentID, language: languageInput, cancellationReason, silent, secrets } = validatedParameters;
     const language = languageInput || 'en';

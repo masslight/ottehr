@@ -708,7 +708,7 @@
       "subscription": {
         "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
         "reason": "Appointment pre-processor",
-        "event": "update"
+        "event": "create"
       }
     },
     "SUB-CANCELLATION-EMAIL": {

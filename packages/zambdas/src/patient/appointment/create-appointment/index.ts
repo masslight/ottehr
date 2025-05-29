@@ -194,7 +194,7 @@ export async function createAppointment(
   let verifiedFormattedPhoneNumber = verifiedPhoneNumber;
 
   if (!patient.id && !verifiedPhoneNumber) {
-    console.log('Getting verifiedPhoneNumber for new patient');
+    console.log('Getting verifiedPhoneNumber for new patient', patient.phoneNumber);
     if (isEHRUser) {
       if (!patient.phoneNumber) {
         throw new Error('No phone number found for patient');
@@ -246,7 +246,7 @@ export async function createAppointment(
   if (!patient.id && fhirPatient.id) {
     console.log('New patient');
     if (!verifiedFormattedPhoneNumber) {
-      throw new Error('No phone number found for patient');
+      throw new Error('No phone number found for patient 2');
     }
     // If it is a new patient, create a RelatedPerson resource for the Patient
     // and create a Person resource if there is not one for the account

@@ -21,8 +21,8 @@ export async function getUser(token: string, secrets: Secrets | null, testProfil
     user = {
       id: 'test-M2M-user-id',
       email: 'test-M2M-user-email',
-      name: 'test-M2M-user-name',
-      phoneNumber: 'test-M2M-user-phoneNumber',
+      name: '+15555555555',
+      phoneNumber: '+15555555555',
       profile: testProfile || 'test-M2M-user-profile',
       authenticationMethod: 'sms',
     };
@@ -83,4 +83,8 @@ export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean
 
 export const isTestUser = (user: User): boolean => {
   return user.id === TEST_USER_ID;
+};
+
+export const checkIsEHRUser = (user: User): boolean => {
+  return !user?.name?.startsWith?.('+') && !isTestUser(user);
 };

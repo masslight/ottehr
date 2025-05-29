@@ -204,6 +204,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // const user = await appClient.getMe();
     const relatedPerson = await getRelatedPersonForPatient(fhirPatient.id || '', oystehr);
     if (relatedPerson) {
+      console.log(`RelatedPerson found for patient: RP/${relatedPerson.id}`);
       const timezone = scheduleOwner.extension?.find(
         (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString;
