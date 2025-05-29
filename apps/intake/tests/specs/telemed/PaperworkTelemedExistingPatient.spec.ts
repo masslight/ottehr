@@ -32,6 +32,7 @@ test.beforeAll(async ({ browser }) => {
   locator = new Locators(page);
   fillingInfo = new FillingInfo(page);
   bookingData = await flowClass.startVisitFullFlow();
+  await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check prepopulation which depends on harvest.
 });
 test.afterAll(async () => {
   await page.close();
