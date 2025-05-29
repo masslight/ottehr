@@ -42,10 +42,10 @@ import {
   fetchDocumentReferencesForDiagnosticReports,
   fetchLabOrderPDFs,
   Secrets,
+  compareDates,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
-import { DateTime } from 'luxon';
 import { captureSentryException } from '../../shared';
 import { sendErrors } from '../../shared';
 
@@ -1086,25 +1086,6 @@ const deletePrelimResultsIfFinalExists = (prelimMap: Map<string, DiagnosticRepor
       prelimMap.delete(id);
     }
   });
-};
-
-/**
- * Compares two dates.
- * The most recent date will be first,
- * invalid dates will be last
- */
-export const compareDates = (a: string | undefined, b: string | undefined): number => {
-  const dateA = DateTime.fromISO(a || '');
-  const dateB = DateTime.fromISO(b || '');
-  const isDateAValid = dateA.isValid;
-  const isDateBValid = dateB.isValid;
-
-  // if one date is valid and the other is not, the valid date should be first
-  if (isDateAValid && !isDateBValid) return -1;
-  if (!isDateAValid && isDateBValid) return 1;
-  if (!isDateAValid && !isDateBValid) return 0;
-
-  return dateB.toMillis() - dateA.toMillis();
 };
 
 export const parsePaginationFromResponse = (data: {
