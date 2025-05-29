@@ -662,7 +662,7 @@ const getSrsRelatedToRepeat = (serviceRequests: ServiceRequest[], serviceRequest
     return acc;
   }, []);
 
-  const srsRelatedTorRepeat: ServiceRequest[] = [];
+  const srsRelatedToRepeat: ServiceRequest[] = [];
   if (additionalServiceRequests.length > 0 && serviceRequestSearched) {
     // was the service request passed as the search param the initial test or ran as repeat?
     const intialServiceRequestId = serviceRequestSearched?.basedOn
@@ -674,11 +674,11 @@ const getSrsRelatedToRepeat = (serviceRequests: ServiceRequest[], serviceRequest
       // tbh this check might be overkill - todo dicuss if necessary
       const basedOn = sr.basedOn?.[0].reference?.replace('ServiceRequest/', '');
       if (sr.id === intialServiceRequestId || (basedOn && basedOn === intialServiceRequestId)) {
-        srsRelatedTorRepeat.push(sr);
+        srsRelatedToRepeat.push(sr);
       }
     });
   }
-  return srsRelatedTorRepeat;
+  return srsRelatedToRepeat;
 };
 
 export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {
