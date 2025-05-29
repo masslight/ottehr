@@ -2,7 +2,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { getInHouseResources, mapResourcesToInHouseOrderDTOs } from './helpers';
-import { EMPTY_PAGINATION } from 'utils';
+import { EMPTY_PAGINATION, compareDates } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 
 let m2mtoken: string;
@@ -89,12 +89,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       currentPractitioner,
       timezone
     );
+    const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
 
-    // For detail requests, return single item without pagination
     if (searchBy.field === 'serviceRequestId') {
       return {
         statusCode: 200,
-        body: JSON.stringify(inHouseOrders?.[0] || {}),
+        body: JSON.stringify(sortedOrders || []),
       };
     }
 

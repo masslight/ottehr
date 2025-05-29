@@ -33,10 +33,6 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
   const [submittingResults, setSubmittingResults] = useState<boolean>(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
 
-  // const handleReprintLabel = (): void => {
-  //   console.log('Reprinting label for test:', testDetails.serviceRequestId);
-  // };
-
   const handleResultEntrySubmit: SubmitHandler<ResultEntryInput> = async (data): Promise<void> => {
     setSubmittingResults(true);
     if (!oystehr) {

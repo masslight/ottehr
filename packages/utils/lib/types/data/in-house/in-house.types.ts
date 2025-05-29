@@ -68,7 +68,6 @@ export type InHouseOrderListPageDTO = {
   serviceRequestId: string;
   testItemName: string;
   diagnosesDTO: DiagnosisDTO[];
-  orderDate: string;
   status: TestStatus;
   visitDate: string;
   resultReceivedDate: string | null;
@@ -108,7 +107,7 @@ export type InHouseOrderDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy e
 export type InHouseOrdersListResponse<
   RequestParameters extends GetInHouseOrdersParameters = GetInHouseOrdersParameters,
 > = RequestParameters extends { searchBy: { field: 'serviceRequestId' } }
-  ? InHouseOrderDetailPageDTO
+  ? InHouseOrderDetailPageDTO[]
   : {
       data: InHouseOrderDTO<RequestParameters>[];
       pagination: Pagination;

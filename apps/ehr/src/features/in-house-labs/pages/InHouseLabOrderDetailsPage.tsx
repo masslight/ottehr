@@ -15,6 +15,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   const { encounter } = getSelectors(useAppointmentStore, ['encounter', 'appointment']);
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [testDetails, setTestDetails] = useState<InHouseOrderDetailPageDTO | null>(null);
+  const [allTestDetails, setAllTestDetails] = useState<InHouseOrderDetailPageDTO[] | undefined>(undefined);
   const { oystehrZambda } = useApiClients();
 
   useEffect(() => {
@@ -29,13 +30,14 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
         if (!oystehrZambda) {
           return;
         }
-
         const testData = await getInHouseOrders(oystehrZambda, {
           searchBy: { field: 'serviceRequestId', value: serviceRequestID },
         });
-
-        setTestDetails(testData);
+        setAllTestDetails(testData);
+        const specificTestDetail = testData.find((data) => data.serviceRequestId === serviceRequestID) || null;
+        setTestDetails(specificTestDetail);
       } catch (error) {
+        // todo better error handling
         console.error('Error fetching test details:', error);
       } finally {
         setLoadingState(LoadingState.loaded);
@@ -109,7 +111,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
           case 'COLLECTED':
             return <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
           case 'FINAL':
-            return <FinalResultView testDetails={testDetails} onBack={handleBack} />;
+            return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
           default:
             // temp for debugging
             return <p>Status could not be parsed: {testDetails.status}</p>;

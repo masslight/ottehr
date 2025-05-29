@@ -1,13 +1,13 @@
 import { ReactElement } from 'react';
-import { Chip, ChipProps } from '@mui/material';
-import { ExternalLabsStatus } from 'utils/lib/types/data/labs';
+import { Chip, ChipProps, SxProps } from '@mui/material';
 import { TestStatus } from 'utils/lib/types/data/in-house';
 
 interface InHouseLabsStatusChipProps {
-  status: ExternalLabsStatus | string;
+  status: TestStatus | string;
+  additionalStyling?: SxProps;
 }
 
-export const InHouseLabsStatusChip = ({ status }: InHouseLabsStatusChipProps): ReactElement => {
+export const InHouseLabsStatusChip = ({ status, additionalStyling }: InHouseLabsStatusChipProps): ReactElement => {
   const getChipProps = (): ChipProps & { label: TestStatus } => {
     switch (status.toLowerCase()) {
       case 'final':
@@ -18,6 +18,7 @@ export const InHouseLabsStatusChip = ({ status }: InHouseLabsStatusChipProps): R
             color: '#1976d2',
             fontWeight: 'bold',
             borderRadius: '4px',
+            ...additionalStyling,
           },
         };
       case 'collected':
