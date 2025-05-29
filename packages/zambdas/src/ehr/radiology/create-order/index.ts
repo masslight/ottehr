@@ -166,6 +166,17 @@ const writeOurServiceRequest = (
         value: now.toFormat(DATE_FORMAT),
       },
     ],
+    category: [
+      {
+        coding: [
+          {
+            system: 'http://snomed.info/sct',
+            code: '363679005',
+            display: 'Imaging',
+          },
+        ],
+      },
+    ],
     subject: {
       reference: encounter.subject?.reference,
     },
