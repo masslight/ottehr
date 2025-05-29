@@ -6,11 +6,11 @@ import { radiologyLaunchViewer } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { CSSPageTitle } from '../../../telemed/components/PageTitle';
 import radiologyIcon from '../../../themes/ottehr/icons/mui-radiology.svg';
-import { WithRadiologyBreadcrumbs } from '../components/labs-orders/RadiologyBreadcrumbs';
-import { RadiologyOrderHistoryCard } from '../components/labs-orders/RadiologyOrderHistoryCard';
-import { RadiologyOrderLoading } from '../components/labs-orders/RadiologyOrderLoading';
-import { RadiologyTableStatusChip } from '../components/labs-orders/RadiologyTableStatusChip';
-import { usePatientRadiologyOrders } from '../components/labs-orders/usePatientRadiologyOrders';
+import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
+import { RadiologyOrderHistoryCard } from '../components/RadiologyOrderHistoryCard';
+import { RadiologyOrderLoading } from '../components/RadiologyOrderLoading';
+import { RadiologyTableStatusChip } from '../components/RadiologyTableStatusChip';
+import { usePatientRadiologyOrders } from '../components/usePatientRadiologyOrders';
 
 export const RadiologyOrderDetailsPage: React.FC = () => {
   const { oystehrZambda } = useApiClients();

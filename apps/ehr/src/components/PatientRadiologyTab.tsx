@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Box } from '@mui/material';
-import { RadiologyTable, RadiologyTableColumn } from 'src/features/radiology/components/labs-orders/RadiologyTable';
+import { RadiologyTable, RadiologyTableColumn } from 'src/features/radiology/components/RadiologyTable';
 
 interface PatientRadiologyTabProps {
   patientId: string;

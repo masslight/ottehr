@@ -1,5 +1,5 @@
 import { Table, TableRow, TableCell } from '@mui/material';
-import { AccordionCard } from '../../../../telemed/components/AccordionCard';
+import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { RadiologyOrderHistoryRow } from 'utils';
 import { DateTime } from 'luxon';

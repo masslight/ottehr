@@ -3,7 +3,7 @@ import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle } from 'src/telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
-import { RadiologyTable, RadiologyTableColumn } from '../components/labs-orders/RadiologyTable';
+import { RadiologyTable, RadiologyTableColumn } from '../components/RadiologyTable';
 
 const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'status', 'actions'];
 

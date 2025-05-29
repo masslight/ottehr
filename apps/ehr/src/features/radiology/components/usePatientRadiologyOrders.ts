@@ -5,8 +5,8 @@ import {
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOrder,
 } from 'utils';
-import { cancelRadiologyOrder, getRadiologyOrders } from '../../../../api/api';
-import { useApiClients } from '../../../../hooks/useAppClients';
+import { cancelRadiologyOrder, getRadiologyOrders } from '../../../api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
 import { useDeleteRadiologyOrderDialog } from './useDeleteRadiologyOrderDialog';
 
 interface UsePatientRadiologyOrdersResult {

@@ -19,7 +19,7 @@ import { createRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore, useDebounce, useGetIcd10Search, useSaveChartData } from '../../../telemed';
-import { WithRadiologyBreadcrumbs } from '../components/labs-orders/RadiologyBreadcrumbs';
+import { WithRadiologyBreadcrumbs } from '../components/RadiologyBreadcrumbs';
 
 interface CreateRadiologyOrdersProps {
   appointmentID?: string;

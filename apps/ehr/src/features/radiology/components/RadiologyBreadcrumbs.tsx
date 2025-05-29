@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom';
 import { Box, Typography, Link as MuiLink } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { FC } from 'react';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../telemed';
+import { getSelectors } from '../../../shared/store/getSelectors';
+import { useAppointmentStore } from '../../../telemed';
 
 interface RadiologyBreadcrumbsProps {
   sectionName: string;
