@@ -6,5 +6,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["."]
+  "include": [".", ".eslintrc.cjs"]
 }
