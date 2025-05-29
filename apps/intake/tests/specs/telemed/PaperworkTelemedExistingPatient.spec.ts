@@ -32,7 +32,6 @@ test.beforeAll(async ({ browser }) => {
   locator = new Locators(page);
   fillingInfo = new FillingInfo(page);
   bookingData = await flowClass.startVisitFullFlow();
-  await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check prepopulation which depends on harvest.
 });
 test.afterAll(async () => {
   await page.close();
@@ -51,6 +50,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
     await locator.finishButton.click();
     await page.goto('/home');
+    await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check prepopulation which depends on harvest.
     await locator.scheduleVirtualVisitButton.click();
     await paperwork.checkCorrectPageOpens('Book a visit');
     await flowClass.selectTimeLocationAndContinue();
