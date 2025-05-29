@@ -330,7 +330,9 @@ const ChatModal = memo(
             )}
           </Grid>
           {!isMessagingSetup && !isMessagingConfigLoading && (
-            <CompleteConfiguration handleSetup={handleSetup} marginX="24px" />
+            <Grid item sx={{ margin: '24px' }}>
+              <CompleteConfiguration handleSetup={handleSetup} />
+            </Grid>
           )}
           <Divider />
           <Grid container sx={{ margin: '16px 0 16px 24px' }}>
