@@ -1,3 +1,4 @@
+import { Bundle, FhirResource } from 'fhir/r4b';
 import { DiagnosisDTO, OBSERVATION_CODES } from '../..';
 import { Pagination } from '../labs';
 
@@ -143,6 +144,12 @@ export type CreateInHouseLabOrderParameters = {
   diagnosesNew: DiagnosisDTO[];
   isRepeatTest: boolean;
   notes?: string;
+};
+
+export type CreateInHouseLabOrderResponse = {
+  transactionResponse: { output: Bundle<FhirResource> };
+  saveChartDataResponse: { output: { chartData: { diagnosis: (DiagnosisDTO & { resourceId: string })[] } } };
+  serviceRequestId?: string | undefined;
 };
 
 export type GetCreateInHouseLabOrderResourcesParameters = { encounterId?: string };
