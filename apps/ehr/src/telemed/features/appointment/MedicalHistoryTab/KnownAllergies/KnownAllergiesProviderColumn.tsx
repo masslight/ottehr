@@ -245,7 +245,9 @@ const AddAllergyField: FC = () => {
     () =>
       debounce((data) => {
         console.log(data);
-        setDebouncedSearchTerm(data);
+        if (data.length > 2) {
+          setDebouncedSearchTerm(data);
+        }
       }, 800),
     []
   );
@@ -333,11 +335,10 @@ const AddAllergyField: FC = () => {
             disabled={isChartDataLoading || isUpdateLoading}
             options={allergiesSearchOptions}
             noOptionsText={
-              debouncedSearchTerm && allergiesSearchOptions.length === 0
+              debouncedSearchTerm && debouncedSearchTerm.length > 2 && allergiesSearchOptions.length === 0
                 ? 'Nothing found for this search criteria'
                 : 'Start typing to load results'
             }
-            filterOptions={(x) => x}
             renderInput={(params) => (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <TextField

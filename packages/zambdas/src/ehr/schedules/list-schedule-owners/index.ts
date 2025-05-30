@@ -15,10 +15,10 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_CHANGES_DATE_FORMAT,
+  ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
   TIMEZONES,
-  ScheduleListItem,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
@@ -180,7 +180,7 @@ const complexValidation = async <T extends ScheduleOwnerFhirResource>(
 
 const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHoursISO'] => {
   const tz = getTimezone(item) ?? TIMEZONES[0];
-  const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
+  const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase();
 
   const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {

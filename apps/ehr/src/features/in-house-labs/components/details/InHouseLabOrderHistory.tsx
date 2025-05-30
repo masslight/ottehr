@@ -1,7 +1,7 @@
 import React from 'react';
 import { Typography, Collapse, Table, TableBody, TableRow, TableCell } from '@mui/material';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
-import { DateTime } from 'luxon';
+import { formatDateForLabs } from 'utils';
 import { InHouseOrderDetailPageDTO } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface InHouseLabOrderHistoryProps {
@@ -10,11 +10,6 @@ interface InHouseLabOrderHistoryProps {
 }
 
 export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ showDetails, testDetails }) => {
-  const formatDate = (datetime: string | undefined): string => {
-    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(testDetails.timezone).toFormat('MM/dd/yyyy hh:mm a');
-  };
-
   return (
     <Collapse in={showDetails}>
       <Table
@@ -45,7 +40,7 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
                 </Typography>
               </TableCell>
               <TableCell sx={{ p: '8px 0 8px 0', width: '33%' }}>
-                <Typography variant="body2">{formatDate(date)}</Typography>
+                <Typography variant="body2">{formatDateForLabs(date, testDetails.timezone)}</Typography>
               </TableCell>
             </TableRow>
           ))}

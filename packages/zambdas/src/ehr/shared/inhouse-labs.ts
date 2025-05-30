@@ -26,6 +26,7 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
 
   const collectSampleTask = tasks.find(
     (task) =>
+      taskIsBasedOnServiceRequest(task, serviceRequest) &&
       task.code?.coding?.some(
         (coding: Coding) =>
           coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.collectSampleTask
@@ -35,6 +36,7 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
 
   const interpretResultsTask = tasks.find(
     (task) =>
+      taskIsBasedOnServiceRequest(task, serviceRequest) &&
       task.code?.coding?.some(
         (coding: Coding) =>
           coding.system === IN_HOUSE_LAB_TASK.system && coding.code === IN_HOUSE_LAB_TASK.code.inputResultsTask // todo: is it valid?
@@ -71,6 +73,7 @@ export function determineOrderStatus(serviceRequest: ServiceRequest, tasks: Task
 
 export function buildOrderHistory(
   provenances: Provenance[],
+  serviceRequest: ServiceRequest,
   specimen?: Specimen
 ): {
   status: TestStatus;
@@ -85,25 +88,28 @@ export function buildOrderHistory(
 
   // Add entries from provenances
   provenances.forEach((provenance) => {
-    const activityCode = provenance.activity?.coding?.[0]?.code;
+    const relatedToSR = provenanceIsTargetOfServiceRequest(provenance, serviceRequest);
+    if (relatedToSR) {
+      const activityCode = provenance.activity?.coding?.[0]?.code;
 
-    // Map activity codes to statuses
-    let status: TestStatus | undefined;
+      // Map activity codes to statuses
+      let status: TestStatus | undefined;
 
-    if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code) {
-      status = 'ORDERED';
-    } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults.code) {
-      status = 'FINAL';
-    }
+      if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.createOrder.code) {
+        status = 'ORDERED';
+      } else if (activityCode === PROVENANCE_ACTIVITY_CODING_ENTITY.inputResults.code) {
+        status = 'FINAL';
+      }
 
-    if (status && provenance.recorded) {
-      const agentName = provenance.agent?.[0]?.who?.display || '';
+      if (status && provenance.recorded) {
+        const agentName = provenance.agent?.[0]?.who?.display || '';
 
-      history.push({
-        status,
-        providerName: agentName,
-        date: provenance.recorded,
-      });
+        history.push({
+          status,
+          providerName: agentName,
+          date: provenance.recorded,
+        });
+      }
     }
   });
 
@@ -154,4 +160,12 @@ export const getSpecimenDetails = (specimen: Specimen): InHouseOrderDetailPageDT
     return specimenDetails;
   }
   throw new Error(`missing specimen details for specimen ${specimen.id}`);
+};
+
+export const taskIsBasedOnServiceRequest = (task: Task, serviceRequest: ServiceRequest): boolean => {
+  return !!task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
+};
+
+export const provenanceIsTargetOfServiceRequest = (provenance: Provenance, serviceRequest: ServiceRequest): boolean => {
+  return !!provenance.target?.some((target) => target.reference === `ServiceRequest/${serviceRequest.id}`);
 };
