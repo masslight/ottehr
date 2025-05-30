@@ -16,7 +16,7 @@
       "dependsOn": ["build", "lint"]
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": ["build", "start:local"],
       "inputs": [
         "apps/**/*.tsx",
         "apps/**/*.ts",
@@ -25,16 +25,7 @@
         "src/**/*.tsx",
         "src/**/*.ts",
         "test/**/*.ts",
-        "test/**/*.tsx"
-      ]
-    },
-    "integration-test": {
-      "dependsOn": ["build", "start:local"],
-      "inputs": [
-        "packages/**/*.ts",
-        "packages/**/*.tsx",
-        "src/**/*.tsx",
-        "src/**/*.ts",
+        "test/**/*.tsx",
         "packages/**/integration/**/*.ts"
       ]
     },
