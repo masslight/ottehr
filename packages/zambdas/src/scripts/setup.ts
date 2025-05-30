@@ -443,6 +443,22 @@ export async function setupEHR(
     console.log(`Error occurred while setting up external labs AutoLab org: ${error.message}`);
   }
 
+  // In House labs
+  try {
+    console.log('Configuring In-House Lab resources...');
+    const { stdout: stdout1, stderr: stderr1 } = await execPromise(
+      `cd packages/zambdas && npm run make-in-house-test-items ${environment}`
+    );
+    if (stderr1) {
+      console.log(`Command executed with warnings: ${stderr1}`);
+    } else {
+      console.log(`stdout: ${stdout1}`);
+      console.log('In-House Lab resources configured successfully!');
+    }
+  } catch (error: any) {
+    console.log(`Error occurred while executing command: ${error.message}`);
+  }
+
   if (invitationUrl1) {
     console.log(
       `User with email \x1b[35m${providerEmail}\x1b[0m can gain access to their account by navigating to URL \x1b[35m${invitationUrl1}\x1b[0m`
