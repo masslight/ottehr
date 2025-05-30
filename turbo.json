@@ -28,6 +28,16 @@
         "test/**/*.tsx"
       ]
     },
+    "integration-test": {
+      "dependsOn": ["build", "start:local"],
+      "inputs": [
+        "packages/**/*.ts",
+        "packages/**/*.tsx",
+        "src/**/*.tsx",
+        "src/**/*.ts",
+        "packages/**/integration/**/*.ts"
+      ]
+    },
     "lint": {},
     "e2e:login": {
       "cache": false,
