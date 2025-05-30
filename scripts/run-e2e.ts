@@ -78,6 +78,7 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
 
 const startZambdas = (): void => {
   spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
+    shell: true,
     stdio: 'inherit',
     env: { ...process.env, ENV: envMapping['ehr'][ENV] },
   });
