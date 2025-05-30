@@ -16,7 +16,7 @@
       "dependsOn": ["build", "lint"]
     },
     "test": {
-      "dependsOn": ["build", "packages/zambdas/start:local"],
+      "dependsOn": ["build"],
       "inputs": [
         "apps/**/*.tsx",
         "apps/**/*.ts",
@@ -25,8 +25,7 @@
         "src/**/*.tsx",
         "src/**/*.ts",
         "test/**/*.ts",
-        "test/**/*.tsx",
-        "packages/**/integration/**/*.ts"
+        "test/**/*.tsx"
       ]
     },
     "lint": {},
