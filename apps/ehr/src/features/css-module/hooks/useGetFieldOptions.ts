@@ -17,7 +17,7 @@ const getRoutesArray = (routes: MedicationApplianceRoutes): Option[] => {
 
 export type OrderFieldsSelectsOptions = Record<
   'medicationId' | 'location' | 'route' | 'units' | 'associatedDx',
-  { options: Option[]; status: 'loading' | 'loaded' }
+  { options: Option[]; status: 'loading' | 'loaded'; defaultOption?: Option }
 >;
 
 // fast fix to prevent multiple requests to get locations
@@ -38,6 +38,11 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       value: item.resourceId || '',
       label: `${item.code} - ${item.display}`,
     })) || [];
+  const primaryDiagnosis = diagnosis?.find((item) => item.isPrimary);
+  const diagnosisDefaultOption = primaryDiagnosis && {
+    value: primaryDiagnosis.resourceId || '',
+    label: `${primaryDiagnosis.code} - ${primaryDiagnosis.display}`,
+  };
 
   useEffect(() => {
     if (!oystehr) {
@@ -105,6 +110,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     associatedDx: {
       options: diagnosisSelectOptions,
       status: isChartDataLoading ? 'loading' : 'loaded',
+      defaultOption: diagnosisDefaultOption,
     },
   };
 };
