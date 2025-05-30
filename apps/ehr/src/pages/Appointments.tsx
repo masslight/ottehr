@@ -374,7 +374,8 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                             textAlign: 'start',
                           },
                         }}
-                        value={visitType?.length > 0 ? [...visitType] : Object.keys(VisitTypeToLabel)}
+                        // value={visitType?.length > 0 ? [...visitType] : Object.keys(VisitTypeToLabel)}
+                        value={visitType}
                         options={Object.keys(VisitTypeToLabel)}
                         getOptionLabel={(option) => {
                           return VisitTypeToLabel[option as VisitType];
