@@ -162,13 +162,10 @@ export default function PatientFollowupForm({
       };
 
       const res = await saveFollowup(oystehrZambda, { encounterDetails });
-      if (res.encounterId) {
-        if (followupStatus === 'NEW') {
-          navigate(`/patient/${patientId}/followup/${res.encounterId}`);
-        } else if (resolved && setFollowupStatus) {
-          setFollowupStatus('RESOLVED');
-        }
+      if (res.encounterId && resolved && setFollowupStatus) {
+        setFollowupStatus('RESOLVED');
       }
+      navigate(`/patient/${patientId}`, { state: { defaultTab: 'followups' } });
     } catch (error) {
       console.error(`Failed to add patient followup: ${error}`);
       if (!errorMessage) errorMessage = `Failed to add patient followup: ${error}`;
@@ -179,6 +176,14 @@ export default function PatientFollowupForm({
       if (!apiErr) {
         enqueueSnackbar('Followup saved successfully!', { variant: 'success' });
       }
+    }
+  };
+
+  const handleCancel = (): void => {
+    if (patientId) {
+      navigate(`/patient/${patientId}`, { state: { defaultTab: 'followups' } });
+    } else {
+      navigate('/visits');
     }
   };
 
@@ -315,10 +320,7 @@ export default function PatientFollowupForm({
                   textTransform: 'none',
                   fontWeight: 600,
                 }}
-                onClick={() => {
-                  const navRoute = patientId ? `/patient/${patientId}` : '/visits';
-                  navigate(navRoute);
-                }}
+                onClick={handleCancel}
               >
                 Cancel
               </Button>
