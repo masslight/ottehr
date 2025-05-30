@@ -77,14 +77,9 @@ const waitForApp = async (app: (typeof supportedApps)[number]): Promise<void> =>
 };
 
 const startZambdas = (): void => {
-  const childProcess = spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
+  spawn('cross-env', [`ENV=${envMapping['ehr'][ENV]}`, 'npm', 'run', `zambdas:start`], {
     stdio: 'inherit',
     env: { ...process.env, ENV: envMapping['ehr'][ENV] },
-  });
-
-  childProcess.stdout?.on('data', (data) => {
-    const message = data.toString();
-    console.log(`[zambdas stdout]: ${message}`);
   });
 };
 
