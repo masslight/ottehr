@@ -106,7 +106,7 @@ jobs:
         run: cd packages/zambdas && npm run setup-deployed-resources local
 
       - name: Run integration tests
-        run:  cd packages/zambdas && npm run test:integration:ci
+        run:  cd packages/zambdas && npm run build && npm run test:integration:ci
         env:
           ENV: 'local'
           CI: true
