@@ -5,6 +5,7 @@ import { PageTitle } from '../../../telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
+import ListViewContainer from '../../common/ListViewContainer';
 
 const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'psc', 'actions'];
 
@@ -22,31 +23,33 @@ export const ExternalLabOrdersListPage: React.FC = () => {
   }
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle label="Labs" showIntakeNotesButton={false} />
-        <Stack direction="row" spacing={2} alignItems="center">
-          <ButtonRounded
-            variant="contained"
-            color="primary"
-            size={'medium'}
-            onClick={() => handleCreateOrder()}
-            sx={{
-              py: 1,
-              px: 5,
-            }}
-          >
-            Order
-          </ButtonRounded>
-        </Stack>
+    <ListViewContainer>
+      <Box>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <PageTitle label="Labs" showIntakeNotesButton={false} />
+          <Stack direction="row" spacing={2} alignItems="center">
+            <ButtonRounded
+              variant="contained"
+              color="primary"
+              size={'medium'}
+              onClick={() => handleCreateOrder()}
+              sx={{
+                py: 1,
+                px: 5,
+              }}
+            >
+              Order
+            </ButtonRounded>
+          </Stack>
+        </Box>
+        <LabsTable
+          searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
+          columns={externalLabsColumns}
+          showFilters={false}
+          allowDelete={true}
+          onCreateOrder={handleCreateOrder}
+        />
       </Box>
-      <LabsTable
-        searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
-        columns={externalLabsColumns}
-        showFilters={false}
-        allowDelete={true}
-        onCreateOrder={handleCreateOrder}
-      />
-    </Box>
+    </ListViewContainer>
   );
 };

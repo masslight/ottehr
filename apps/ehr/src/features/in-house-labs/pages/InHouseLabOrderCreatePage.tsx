@@ -28,6 +28,7 @@ import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVi
 import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { enqueueSnackbar } from 'notistack';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -212,7 +213,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <DetailPageContainer>
       <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
         Order In-house Lab
       </Typography>
@@ -270,7 +271,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
               {availableCptCodes.length > 0 && (
                 <>
-                  <Grid item xs={selectedTest?.repeatable ? 9 : 12}>
+                  <Grid item xs={selectedTest?.repeatable ? 8.5 : 12}>
                     <FormControl
                       fullWidth
                       required
@@ -314,7 +315,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     </FormControl>
                   </Grid>
                   {selectedTest?.repeatable && (
-                    <Grid item xs={3}>
+                    <Grid item xs={3.5}>
                       <FormControlLabel
                         sx={{
                           backgroundColor: 'transparent',
@@ -597,6 +598,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           </form>
         )}
       </Paper>
-    </Box>
+    </DetailPageContainer>
   );
 };

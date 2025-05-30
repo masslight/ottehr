@@ -1,4 +1,3 @@
-import { Stack } from '@mui/system';
 import React from 'react';
 import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters, TaskReviewedParameters } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
@@ -20,52 +19,50 @@ export const DetailsWithResults: React.FC<{
   };
 
   return (
-    <div style={{ maxWidth: '890px', width: '100%', margin: '0 auto' }}>
-      <Stack spacing={2} sx={{ p: 3 }}>
-        <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
+    <>
+      <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
-        <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
-          {labOrder.diagnoses}
-        </Typography>
+      <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
+        {labOrder.diagnoses}
+      </Typography>
 
-        {labOrder.resultsDetails.map((result) => (
-          <ResultItem
-            onMarkAsReviewed={() =>
-              markTaskAsReviewed({
-                taskId: result.taskId,
-                serviceRequestId: labOrder.serviceRequestId,
-                diagnosticReportId: result.diagnosticReportId,
-              })
-            }
-            resultDetails={result}
-            labOrder={labOrder}
-            loading={loading}
-          />
-        ))}
-
-        <OrderCollection
-          showActionButtons={false}
-          showOrderInfo={false}
-          isAOECollapsed={true}
+      {labOrder.resultsDetails.map((result) => (
+        <ResultItem
+          onMarkAsReviewed={() =>
+            markTaskAsReviewed({
+              taskId: result.taskId,
+              serviceRequestId: labOrder.serviceRequestId,
+              diagnosticReportId: result.diagnosticReportId,
+            })
+          }
+          resultDetails={result}
           labOrder={labOrder}
-          saveSpecimenDate={saveSpecimenDate}
+          loading={loading}
         />
+      ))}
 
-        <Button
-          variant="outlined"
-          color="primary"
-          sx={{
-            borderRadius: 28,
-            padding: '8px 22px',
-            alignSelf: 'flex-start',
-            marginTop: 2,
-            textTransform: 'none',
-          }}
-          onClick={handleBack}
-        >
-          Back
-        </Button>
-      </Stack>
-    </div>
+      <OrderCollection
+        showActionButtons={false}
+        showOrderInfo={false}
+        isAOECollapsed={true}
+        labOrder={labOrder}
+        saveSpecimenDate={saveSpecimenDate}
+      />
+
+      <Button
+        variant="outlined"
+        color="primary"
+        sx={{
+          borderRadius: 28,
+          padding: '8px 22px',
+          alignSelf: 'flex-start',
+          marginTop: 2,
+          textTransform: 'none',
+        }}
+        onClick={handleBack}
+      >
+        Back
+      </Button>
+    </>
   );
 };

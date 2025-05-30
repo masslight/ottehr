@@ -11,19 +11,10 @@ interface LabBreadcrumbsProps {
   children: React.ReactNode;
 }
 
-const PageWrapper = styled(Box)({
-  padding: '16px 0',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '8px',
-});
-
 const BreadcrumbsContainer = styled(Box)({
   display: 'flex',
   gap: '8px',
   alignSelf: 'flex-start',
-  marginLeft: '42px',
 });
 
 const Separator = styled(Typography)({
@@ -34,7 +25,7 @@ export const WithLabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, disab
   const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
 
   return (
-    <PageWrapper>
+    <>
       <BreadcrumbsContainer>
         {!disableLabsLink && appointment?.id ? (
           <MuiLink component={Link} to={`/in-person/${appointment.id}/external-lab-orders`} color="text.primary">
@@ -48,6 +39,6 @@ export const WithLabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, disab
       </BreadcrumbsContainer>
 
       {children}
-    </PageWrapper>
+    </>
   );
 };
