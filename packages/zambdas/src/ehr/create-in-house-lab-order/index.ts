@@ -307,7 +307,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: activityDefinition.code?.coding,
         text: activityDefinition.name,
       },
-      reasonCode: [...diagnosesAll, ...diagnosesNew].map((diagnosis) => {
+      reasonCode: [...diagnosesAll].map((diagnosis) => {
         return {
           coding: [
             {
