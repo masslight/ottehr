@@ -1,5 +1,4 @@
-import { DiagnosisDTO, OBSERVATION_CODES } from '../..';
-import { Pagination } from '../labs';
+import { DiagnosisDTO, OBSERVATION_CODES, Pagination } from '../..';
 
 export interface TestItemMethods {
   manual?: { device: string };

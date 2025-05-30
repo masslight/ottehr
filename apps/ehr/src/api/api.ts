@@ -21,13 +21,19 @@ import {
   ListScheduleOwnersResponse,
   ScheduleDTO,
   UpdateScheduleParams,
+  CreateRadiologyZambdaOrderInput,
+  GetRadiologyOrderListZambdaInput,
+  GetRadiologyOrderListZambdaOutput,
   GetLabOrdersParameters,
   DeleteLabOrderParams,
   SubmitLabOrderDTO,
-  CreateSlotParams,
-  apiErrorToThrow,
   CreateAppointmentInputParams,
   UpdateLabOrderResourcesParameters,
+  CreateSlotParams,
+  apiErrorToThrow,
+  CancelRadiologyOrderZambdaInput,
+  RadiologyLaunchViewerZambdaInput,
+  RadiologyLaunchViewerZambdaOutput,
   GetInHouseOrdersParameters,
   CollectInHouseLabSpecimenParameters,
   GetCreateInHouseLabOrderResourcesParameters,
@@ -697,6 +703,77 @@ export const updateLabOrderResources = async (
     }
     const response = await oystehr.zambda.execute({
       id: UPDATE_LAB_ORDER_RESOURCES_ZAMBDA_ID,
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const createRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: CreateRadiologyZambdaOrderInput
+): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-create-order',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const cancelRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: CancelRadiologyOrderZambdaInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'radiology-cancel-order',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const radiologyLaunchViewer = async (
+  oystehr: Oystehr,
+  parameters: RadiologyLaunchViewerZambdaInput
+): Promise<RadiologyLaunchViewerZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-launch-viewer',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getRadiologyOrders = async (
+  oystehr: Oystehr,
+  parameters: GetRadiologyOrderListZambdaInput
+): Promise<GetRadiologyOrderListZambdaOutput> => {
+  try {
+    const searchBy = parameters.encounterId || parameters.patientId || parameters.serviceRequestId;
+    if (!searchBy) {
+      throw new Error(
+        `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
+          parameters
+        )}`
+      );
+    }
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-order-list',
       ...parameters,
     });
     return chooseJson(response);
