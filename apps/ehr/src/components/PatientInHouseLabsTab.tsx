@@ -4,6 +4,7 @@ import { InHouseLabsTable, InHouseLabsTableColumn } from '../features/in-house-l
 
 interface PatientInHouseLabsTabProps {
   patientId: string;
+  titleText: string;
 }
 
 const patientLabOrdersColumns: InHouseLabsTableColumn[] = [
@@ -16,7 +17,7 @@ const patientLabOrdersColumns: InHouseLabsTableColumn[] = [
   'status',
 ];
 
-export const PatientInHouseLabsTab = ({ patientId }: PatientInHouseLabsTabProps): ReactElement => {
+export const PatientInHouseLabsTab = ({ patientId, titleText }: PatientInHouseLabsTabProps): ReactElement => {
   return (
     <Box sx={{ mt: 2 }}>
       <InHouseLabsTable
@@ -24,7 +25,7 @@ export const PatientInHouseLabsTab = ({ patientId }: PatientInHouseLabsTabProps)
         columns={patientLabOrdersColumns}
         showFilters={true}
         allowDelete={false}
-        titleText="In-House Labs"
+        titleText={titleText}
       />
     </Box>
   );

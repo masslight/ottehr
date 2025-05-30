@@ -50,8 +50,7 @@ type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
-  onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
+  onCreateOrder?: () => void;
 };
 
 export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -60,7 +59,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   showFilters = false,
   allowDelete = false,
   titleText,
-  redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
@@ -120,17 +118,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
       void getResources(oystehrZambda);
     }
   }, [encounter, oystehrZambda]);
-
-  // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && labOrders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder({ isAutoRedirected: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
 
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
     setSelectedOrderedItem(value || null);

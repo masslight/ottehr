@@ -48,8 +48,7 @@ type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
-  onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
+  onCreateOrder?: () => void;
 };
 
 export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -58,7 +57,6 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   showFilters = false,
   allowDelete = false,
   titleText,
-  redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: InHouseLabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
@@ -123,17 +121,6 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
     setSearchParams({ pageNumber: value });
   };
-
-  // Redirect to create order page if needed
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && labOrders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder({ isAutoRedirected: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
 
   if (loading) {
     return (
@@ -220,7 +207,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
           color="primary.dark"
           sx={{ mb: -2, mt: 2, width: '100%', display: 'flex', justifyContent: 'flex-start' }}
         >
-          Labs
+          {titleText}
         </Typography>
       )}
 
