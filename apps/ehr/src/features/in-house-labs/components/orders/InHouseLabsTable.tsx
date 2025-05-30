@@ -28,7 +28,7 @@ import { useNavigate } from 'react-router-dom';
 import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { DateTime } from 'luxon';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { InHouseOrderListPageDTO, TestItem } from 'utils';
+import { InHouseOrderListPageItemDTO, TestItem } from 'utils';
 import { getCreateInHouseLabOrderResources } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
@@ -115,7 +115,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     setSearchParams({ pageNumber: 1, visitDateFilter: null });
   };
 
-  const onRowClick = (labOrderData: InHouseOrderListPageDTO): void => {
+  const onRowClick = (labOrderData: InHouseOrderListPageItemDTO): void => {
     navigateTo(getInHouseLabOrderDetailsUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 

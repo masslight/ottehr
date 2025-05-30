@@ -1,18 +1,19 @@
 import { useCallback, useState, useEffect, useMemo, ReactNode, useRef } from 'react';
 import { DateTime } from 'luxon';
-import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, tryFormatDateToISO } from 'utils'; // todo: config
+import { DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, tryFormatDateToISO } from 'utils';
 import { useDeleteCommonLabOrderDialog } from 'src/features/common/useDeleteCommonLabOrderDialog';
 import {
   GetInHouseOrdersParameters,
   InHouseOrdersSearchBy,
-  InHouseOrderDTO,
   DeleteInHouseLabOrderParameters,
+  InHouseOrderListPageItemDTO,
+  InHouseGetOrdersResponseDTO,
 } from 'utils/lib/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { deleteInHouseLabOrder, getInHouseOrders } from '../../../../api/api';
 
-interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchBy> {
-  labOrders: InHouseOrderDTO<SearchBy>[];
+interface UseInHouseLabOrdersResult {
+  labOrders: InHouseOrderListPageItemDTO[];
   loading: boolean;
   error: Error | null;
   totalPages: number;
@@ -39,9 +40,9 @@ interface UseInHouseLabOrdersResult<SearchBy extends InHouseOrdersSearchBy> {
 
 export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
   _searchBy: SearchBy
-): UseInHouseLabOrdersResult<SearchBy> => {
+): UseInHouseLabOrdersResult => {
   const { oystehrZambda } = useApiClients();
-  const [labOrders, setLabOrders] = useState<InHouseOrderDTO<SearchBy>[]>([]);
+  const [labOrders, setLabOrders] = useState<InHouseGetOrdersResponseDTO<SearchBy>['data']>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
@@ -94,7 +95,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
         const response = await getInHouseOrders(oystehrZambda, searchParams);
 
         if (response?.data) {
-          setLabOrders(response.data as InHouseOrderDTO<SearchBy>[]);
+          setLabOrders(response.data);
           setTotalItems(response.pagination?.totalItems || 0);
 
           if (response.pagination) {

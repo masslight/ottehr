@@ -63,12 +63,11 @@ export interface TestItem {
   note?: string;
 }
 
-export type InHouseOrderListPageDTO = {
+export type InHouseOrderListPageItemDTO = {
   appointmentId: string;
   serviceRequestId: string;
   testItemName: string;
   diagnosesDTO: DiagnosisDTO[];
-  orderDate: string;
   status: TestStatus;
   visitDate: string;
   resultReceivedDate: string | null;
@@ -77,7 +76,7 @@ export type InHouseOrderListPageDTO = {
   orderingPhysicianFullName: string;
 };
 
-export type InHouseOrderDetailPageDTO = InHouseOrderListPageDTO & {
+export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
   orderingPhysicianId: string;
   currentUserId: string;
   currentUserFullName: string;
@@ -99,18 +98,12 @@ export type InHouseOrderDetailPageDTO = InHouseOrderListPageDTO & {
   notes: string;
 };
 
-export type InHouseOrderDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
+export type InHouseGetOrdersResponseDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
   searchBy: { field: 'serviceRequestId' };
 }
-  ? InHouseOrderDetailPageDTO
-  : InHouseOrderListPageDTO;
-
-export type InHouseOrdersListResponse<
-  RequestParameters extends GetInHouseOrdersParameters = GetInHouseOrdersParameters,
-> = RequestParameters extends { searchBy: { field: 'serviceRequestId' } }
-  ? InHouseOrderDetailPageDTO
+  ? InHouseOrderDetailPageItemDTO[]
   : {
-      data: InHouseOrderDTO<RequestParameters>[];
+      data: InHouseOrderListPageItemDTO[];
       pagination: Pagination;
     };
 
