@@ -31,6 +31,7 @@ import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/he
 import { InHouseOrderListPageDTO, TestItem } from 'utils';
 import { getCreateInHouseLabOrderResources } from 'src/api/api';
 import { useApiClients } from 'src/hooks/useAppClients';
+import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 
 export type InHouseLabsTableColumn =
   | 'testType'
@@ -216,39 +217,43 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4}>
-                <Autocomplete
-                  size="small"
-                  fullWidth
-                  loading={loadingTests}
-                  options={availableTests}
-                  getOptionLabel={(option) => option.name}
-                  value={availableTests.find((test) => test.name === testTypeQuery) || null}
-                  onChange={(_, newValue) => {
-                    setTestTypeQuery(newValue?.name || '');
-                    setSearchParams({ pageNumber: 1, testTypeFilter: newValue?.name || '' });
-                  }}
-                  inputValue={testTypeQuery}
-                  onInputChange={(_, newInputValue) => {
-                    setTestTypeQuery(newInputValue);
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Test type"
-                      InputProps={{
-                        ...params.InputProps,
-                        startAdornment: (
-                          <>
-                            <InputAdornment position="start">
-                              <SearchIcon />
-                            </InputAdornment>
-                            {params.InputProps.startAdornment}
-                          </>
-                        ),
-                      }}
-                    />
-                  )}
-                />
+                {availableTests.length ? (
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    loading={loadingTests}
+                    options={availableTests}
+                    getOptionLabel={(option) => option.name}
+                    value={availableTests.find((test) => test.name === testTypeQuery) || null}
+                    onChange={(_, newValue) => {
+                      setTestTypeQuery(newValue?.name || '');
+                      setSearchParams({ pageNumber: 1, testTypeFilter: newValue?.name || '' });
+                    }}
+                    inputValue={testTypeQuery}
+                    onInputChange={(_, newInputValue) => {
+                      setTestTypeQuery(newInputValue);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Test type"
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SearchIcon />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                ) : (
+                  <DropdownPlaceholder />
+                )}
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
@@ -337,7 +342,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         )}
 
         {showPagination && totalPages > 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, width: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 2, width: '100%' }}>
             <Pagination
               count={totalPages}
               page={page}

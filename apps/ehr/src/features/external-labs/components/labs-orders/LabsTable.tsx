@@ -31,6 +31,7 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { LabOrderLoading } from './LabOrderLoading';
 import { DateTime } from 'luxon';
+import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 
 export type LabsTableColumn =
   | 'testType'
@@ -225,7 +226,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         {showFilters && (
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
-              <Grid item xs={4} sx={{ mt: -1 }}>
+              <Grid item xs={4}>
                 {labs.length ? (
                   <LabsAutocomplete
                     selectedLab={selectedOrderedItem}
@@ -233,54 +234,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
                     labs={labs}
                   />
                 ) : (
-                  <Box
-                    sx={{
-                      height: 40,
-                      display: 'flex',
-                      alignItems: 'center',
-                      px: 2,
-                      mt: 1,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderRadius: 1,
-                      backgroundColor: 'action.hover',
-                      position: 'relative',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        width: '60%',
-                        height: 16,
-                        backgroundColor: 'action.selected',
-                        borderRadius: 0.5,
-                        animation: 'pulse 1.5s ease-in-out infinite',
-                        '@keyframes pulse': {
-                          '0%': {
-                            opacity: 1,
-                          },
-                          '50%': {
-                            opacity: 0.4,
-                          },
-                          '100%': {
-                            opacity: 1,
-                          },
-                        },
-                      }}
-                    />
-
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        right: 12,
-                        width: 20,
-                        height: 16,
-                        backgroundColor: 'action.selected',
-                        borderRadius: 0.5,
-                        animation: 'pulse 1.5s ease-in-out infinite',
-                      }}
-                    />
-                  </Box>
+                  <DropdownPlaceholder />
                 )}
               </Grid>
               <Grid item xs={4}>
