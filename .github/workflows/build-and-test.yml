@@ -94,6 +94,8 @@ jobs:
         run: npm run lint:eslint
 
       - name: Init deployed resources
+        env:
+          ENV: 'local'
         run: cd packages/zambdas && npm run setup-deployed-resources local
 
       - name: Run unit tests
@@ -105,6 +107,7 @@ jobs:
       - name: Run integration tests
         run:  cd packages/zambdas && npm run test:integration:ci
         env:
+          ENV: 'local'
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
