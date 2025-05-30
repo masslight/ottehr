@@ -1,3 +1,4 @@
+import { Bundle, FhirResource } from 'fhir/r4b';
 import { DiagnosisDTO, OBSERVATION_CODES, Pagination } from '../..';
 
 export interface TestItemMethods {
@@ -62,7 +63,7 @@ export interface TestItem {
   note?: string;
 }
 
-export type InHouseOrderListPageDTO = {
+export type InHouseOrderListPageItemDTO = {
   appointmentId: string;
   serviceRequestId: string;
   testItemName: string;
@@ -75,7 +76,7 @@ export type InHouseOrderListPageDTO = {
   orderingPhysicianFullName: string;
 };
 
-export type InHouseOrderDetailPageDTO = InHouseOrderListPageDTO & {
+export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
   orderingPhysicianId: string;
   currentUserId: string;
   currentUserFullName: string;
@@ -97,18 +98,12 @@ export type InHouseOrderDetailPageDTO = InHouseOrderListPageDTO & {
   notes: string;
 };
 
-export type InHouseOrderDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
+export type InHouseGetOrdersResponseDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
   searchBy: { field: 'serviceRequestId' };
 }
-  ? InHouseOrderDetailPageDTO
-  : InHouseOrderListPageDTO;
-
-export type InHouseOrdersListResponse<
-  RequestParameters extends GetInHouseOrdersParameters = GetInHouseOrdersParameters,
-> = RequestParameters extends { searchBy: { field: 'serviceRequestId' } }
-  ? InHouseOrderDetailPageDTO[]
+  ? InHouseOrderDetailPageItemDTO[]
   : {
-      data: InHouseOrderDTO<RequestParameters>[];
+      data: InHouseOrderListPageItemDTO[];
       pagination: Pagination;
     };
 
@@ -141,6 +136,12 @@ export type CreateInHouseLabOrderParameters = {
   diagnosesNew: DiagnosisDTO[];
   isRepeatTest: boolean;
   notes?: string;
+};
+
+export type CreateInHouseLabOrderResponse = {
+  transactionResponse: { output: Bundle<FhirResource> };
+  saveChartDataResponse: { output: { chartData: { diagnosis: (DiagnosisDTO & { resourceId: string })[] } } };
+  serviceRequestId?: string | undefined;
 };
 
 export type GetCreateInHouseLabOrderResourcesParameters = { encounterId?: string };

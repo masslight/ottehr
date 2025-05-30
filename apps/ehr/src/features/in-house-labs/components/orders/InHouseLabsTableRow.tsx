@@ -4,11 +4,11 @@ import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { otherColors } from '@theme/colors';
-import { InHouseOrderListPageDTO, formatDateForLabs } from 'utils';
+import { InHouseOrderListPageItemDTO, formatDateForLabs } from 'utils';
 
 interface InHouseLabsTableRowProps {
   columns: InHouseLabsTableColumn[];
-  labOrderData: InHouseOrderListPageDTO;
+  labOrderData: InHouseOrderListPageItemDTO;
   onRowClick?: () => void;
   allowDelete?: boolean;
   onDeleteOrder?: () => void;

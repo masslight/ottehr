@@ -44,7 +44,8 @@ import {
   GetLabelPdfParameters,
   LabelPdf,
   GetVisitLabelInput,
-  InHouseOrdersListResponse,
+  CreateInHouseLabOrderResponse,
+  InHouseGetOrdersResponseDTO,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -796,7 +797,7 @@ export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Pro
 export const createInHouseLabOrder = async (
   oystehr: Oystehr,
   parameters: CreateInHouseLabOrderParameters
-): Promise<any> => {
+): Promise<CreateInHouseLabOrderResponse> => {
   try {
     if (CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('create in house lab order zambda environment variable could not be loaded');
@@ -815,7 +816,7 @@ export const createInHouseLabOrder = async (
 export const getInHouseOrders = async <RequestParameters extends GetInHouseOrdersParameters>(
   oystehr: Oystehr,
   parameters: RequestParameters
-): Promise<InHouseOrdersListResponse<RequestParameters>> => {
+): Promise<InHouseGetOrdersResponseDTO<RequestParameters>> => {
   try {
     if (GET_IN_HOUSE_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get in house orders zambda environment variable could not be loaded');

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Paper, Typography, Button } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { ResultEntryInput, LoadingState, InHouseOrderDetailPageDTO, getFormattedDiagnoses } from 'utils';
+import { ResultEntryInput, LoadingState, InHouseOrderDetailPageItemDTO, getFormattedDiagnoses } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
 import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
@@ -14,7 +14,7 @@ import { useParams } from 'react-router-dom';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 
 interface PerformTestViewProps {
-  testDetails: InHouseOrderDetailPageDTO;
+  testDetails: InHouseOrderDetailPageItemDTO;
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
 }
