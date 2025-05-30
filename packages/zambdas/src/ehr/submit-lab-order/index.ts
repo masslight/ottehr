@@ -367,11 +367,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+        serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
+        // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
         providerTitle:
-          provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') ||
-          ORDER_ITEM_UNKNOWN,
+          provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text)?.[0] || ORDER_ITEM_UNKNOWN,
         providerNPI: 'test',
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
