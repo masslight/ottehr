@@ -43,17 +43,18 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [repeatTest, setRepeatTest] = useState<boolean>(false);
 
-  const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
+  const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
     'chartData',
     'encounter',
     'appointment',
+    'setPartialChartData',
   ]);
 
   const { diagnosis = [] } = chartData || {};
   const didPrimaryDiagnosisInit = useRef(false);
 
-  // already added diagnoses, the may have "added via lab order" flag with true and false value
-  // so, the select "select dx" will show all diagnoses which are showed in the Assessment page no matter what source they have
+  // already added diagnoses may have "added via lab order" flag with true and false values
+  // so, the "select dx" dropdown will show all diagnoses that are displayed on the Assessment page regardless of their source
   const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>([]);
 
   // new diagnoses, the will have "added via lab order" flag with true value,
@@ -142,6 +143,19 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           diagnosesNew: selectedNewDiagnoses,
           isRepeatTest: repeatTest,
           notes: notes,
+        });
+
+        let savedDiagnoses: DiagnosisDTO[] = [];
+
+        try {
+          savedDiagnoses = res?.saveChartDataResponse?.output?.chartData?.diagnosis || [];
+        } catch (error) {
+          console.error('Failed to extract diagnosis from response:', error);
+        }
+
+        // update chart data local state with new diagnoses after successful creation to see actual diagnoses in the Assessment page
+        setPartialChartData({
+          diagnosis: [...(chartData?.diagnosis || []), ...savedDiagnoses],
         });
 
         if (shouldPrintLabel) {
@@ -426,7 +440,9 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     if (!selectedDx) {
                       return;
                     }
-                    const alreadySelected = selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
+                    const alreadySelected =
+                      selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code) ||
+                      selectedAssessmentDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
                     if (!alreadySelected) {
                       setSelectedNewDiagnoses((diagnoses) => [
                         ...diagnoses,

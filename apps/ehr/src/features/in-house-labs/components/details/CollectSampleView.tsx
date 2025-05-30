@@ -24,10 +24,10 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
-import { getFormattedDiagnoses, InHouseOrderDetailPageDTO, MarkAsCollectedData } from 'utils';
+import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData } from 'utils';
 
 interface CollectSampleViewProps {
-  testDetails: InHouseOrderDetailPageDTO;
+  testDetails: InHouseOrderDetailPageItemDTO;
   onBack: () => void;
   onSubmit: (data: MarkAsCollectedData) => void;
 }

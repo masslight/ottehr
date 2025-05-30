@@ -23,17 +23,16 @@ import {
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
   Secrets,
   compareDates,
+  InHouseGetOrdersResponseDTO,
 } from 'utils';
 import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
 import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
 import {
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
-  InHouseOrderDetailPageDTO,
-  InHouseOrderListPageDTO,
+  InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
   Pagination,
-  InHouseOrderDTO,
   DiagnosisDTO,
   convertActivityDefinitionToTestItem,
   getFullestAvailableName,
@@ -67,8 +66,8 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   secrets: Secrets | null,
   currentPractitioner?: Practitioner,
   timezone?: string
-): InHouseOrderDTO<SearchBy>[] => {
-  const result: InHouseOrderDTO<SearchBy>[] = [];
+): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
+  const result: InHouseGetOrdersResponseDTO<SearchBy>['data'] = [];
 
   for (const serviceRequest of serviceRequests) {
     try {
@@ -150,7 +149,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   currentPractitionerName?: string;
   currentPractitionerId?: string;
   timezone?: string;
-}): InHouseOrderDTO<SearchBy> => {
+}): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -172,7 +171,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   const attendingPractitioner = parseAttendingPractitioner(encounter, practitioners);
   const diagnosisDTO = parseDiagnoses(serviceRequest);
 
-  const listPageDTO: InHouseOrderListPageDTO = {
+  const listPageDTO: InHouseOrderListPageItemDTO = {
     appointmentId: appointmentId,
     testItemName: testItem.name,
     status: orderStatus,
@@ -194,7 +193,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
       (s) => s.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
 
-    const detailedPageDTO: InHouseOrderDetailPageDTO = {
+    const detailedPageDTO = {
       ...listPageDTO,
       labDetails: testItem,
       orderingPhysicianId: attendingPractitioner?.id || '',
@@ -206,10 +205,10 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
       notes: serviceRequest.note?.[0]?.text || '',
     };
 
-    return detailedPageDTO as InHouseOrderDTO<SearchBy>;
+    return detailedPageDTO;
   }
 
-  return listPageDTO as InHouseOrderDTO<SearchBy>;
+  return listPageDTO;
 };
 
 export const parseTasks = (
