@@ -100,6 +100,13 @@ jobs:
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 
+      - name: Run integration tests
+        run: npm run integration:zambdas
+        env:
+          ENV: 'local'
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
       - name: TruffleHog -- Check for secrets in bundles of publicly available code
         run: |
           docker run --rm -v .:/tmp -w /tmp \
