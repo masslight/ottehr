@@ -1,4 +1,3 @@
-import { Stack } from '@mui/system';
 import React from 'react';
 import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters, TaskReviewedParameters } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
@@ -20,7 +19,7 @@ export const DetailsWithResults: React.FC<{
   };
 
   return (
-    <Stack spacing={2}>
+    <>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
 
       <Typography variant="body1" sx={{ fontWeight: 'medium' }}>
@@ -64,6 +63,6 @@ export const DetailsWithResults: React.FC<{
       >
         Back
       </Button>
-    </Stack>
+    </>
   );
 };
