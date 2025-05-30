@@ -15,17 +15,14 @@ export const InHouseLabsPage: React.FC = () => {
   const appointmentId = useAppointmentStore((state) => state.appointment?.id);
   const encounterId = useAppointmentStore((state) => state.encounter?.id);
 
-  const handleCreateOrder = useCallback(
-    ({ _isAutoRedirected }: { _isAutoRedirected?: boolean } = {}): void => {
-      if (!appointmentId) {
-        console.error('No appointment ID found');
-        return;
-      }
+  const handleCreateOrder = useCallback((): void => {
+    if (!appointmentId) {
+      console.error('No appointment ID found');
+      return;
+    }
 
-      navigate(getInHouseLabOrderCreateUrl(appointmentId));
-    },
-    [navigate, appointmentId]
-  );
+    navigate(getInHouseLabOrderCreateUrl(appointmentId));
+  }, [navigate, appointmentId]);
 
   if (!appointmentId) {
     console.error('No appointment ID found');
@@ -62,6 +59,7 @@ export const InHouseLabsPage: React.FC = () => {
           columns={inHouseLabsColumns}
           showFilters={false}
           allowDelete={true}
+          onCreateOrder={handleCreateOrder}
         />
       </>
     </ListViewContainer>

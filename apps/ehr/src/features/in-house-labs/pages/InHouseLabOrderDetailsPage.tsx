@@ -5,7 +5,7 @@ import { useApiClients } from '../../../hooks/useAppClients';
 import { CollectSampleView } from '../components/details/CollectSampleView';
 import { PerformTestView } from '../components/details/PerformTestView';
 import { FinalResultView } from '../components/details/FinalResultView';
-import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPageDTO } from 'utils';
+import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPageItemDTO } from 'utils';
 import { useAppointmentStore } from 'src/telemed';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
@@ -15,8 +15,8 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   const { serviceRequestID } = useParams<{ testId: string; serviceRequestID: string }>();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter', 'appointment']);
   const [loadingState, setLoadingState] = useState(LoadingState.initial);
-  const [testDetails, setTestDetails] = useState<InHouseOrderDetailPageDTO | null>(null);
-  const [allTestDetails, setAllTestDetails] = useState<InHouseOrderDetailPageDTO[] | undefined>(undefined);
+  const [testDetails, setTestDetails] = useState<InHouseOrderDetailPageItemDTO | null>(null);
+  const [allTestDetails, setAllTestDetails] = useState<InHouseOrderDetailPageItemDTO[] | undefined>(undefined);
   const { oystehrZambda } = useApiClients();
 
   useEffect(() => {

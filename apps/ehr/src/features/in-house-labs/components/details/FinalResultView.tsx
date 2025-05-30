@@ -1,11 +1,11 @@
 import React from 'react';
 import { Box, Typography, Button, Paper } from '@mui/material';
-import { InHouseOrderDetailPageDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 import { getFormattedDiagnoses, DiagnosisDTO } from 'utils';
 import { FinalResultCard } from './FinalResultCard';
 
 interface FinalResultViewProps {
-  testDetails: InHouseOrderDetailPageDTO[] | undefined;
+  testDetails: InHouseOrderDetailPageItemDTO[] | undefined;
   onBack: () => void;
 }
 

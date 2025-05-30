@@ -30,6 +30,8 @@ import { useAppointmentStore } from '../../../../telemed/state/appointment/appoi
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { LabOrderLoading } from './LabOrderLoading';
+import { DateTime } from 'luxon';
+import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 
 export type LabsTableColumn =
   | 'testType'
@@ -49,8 +51,7 @@ type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
-  onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
+  onCreateOrder?: () => void;
 };
 
 export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -59,7 +60,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   showFilters = false,
   allowDelete = false,
   titleText,
-  redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
@@ -69,10 +69,8 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     loading,
     totalPages,
     page,
-    setPage,
-    setOrderableItemCodeFilter,
+    setSearchParams,
     visitDateFilter,
-    setVisitDateFilter,
     showPagination,
     error,
     showDeleteLabOrderDialog,
@@ -85,13 +83,18 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
 
   const [tempDateFilter, setTempDateFilter] = useState(visitDateFilter);
 
-  const submitFilterByDate = (): void => {
-    setVisitDateFilter(tempDateFilter);
+  const submitFilterByDate = (date?: DateTime | null): void => {
+    const dateToSet = date || tempDateFilter;
+    setSearchParams({ pageNumber: 1, visitDateFilter: dateToSet });
   };
 
   const handleClearDate = (): void => {
     setTempDateFilter(null);
-    setVisitDateFilter(null);
+    setSearchParams({ pageNumber: 1, visitDateFilter: null });
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
+    setSearchParams({ pageNumber: value });
   };
 
   const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
@@ -117,24 +120,9 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     }
   }, [encounter, oystehrZambda]);
 
-  // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && labOrders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder({ isAutoRedirected: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
-
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
-    setOrderableItemCodeFilter(value?.item.itemLoinc || '');
     setSelectedOrderedItem(value || null);
-  };
-
-  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
-    setPage(value);
+    setSearchParams({ pageNumber: 1, testTypeFilter: value?.item.itemLoinc || '' });
   };
 
   if (loading || !labOrders) {
@@ -238,24 +226,28 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         {showFilters && (
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
-              <Grid item xs={4} sx={{ mt: -1 }}>
-                <LabsAutocomplete
-                  selectedLab={selectedOrderedItem}
-                  setSelectedLab={handleOrderableItemCodeChange}
-                  labs={labs}
-                ></LabsAutocomplete>
+              <Grid item xs={4}>
+                {labs.length ? (
+                  <LabsAutocomplete
+                    selectedLab={selectedOrderedItem}
+                    setSelectedLab={handleOrderableItemCodeChange}
+                    labs={labs}
+                  />
+                ) : (
+                  <DropdownPlaceholder />
+                )}
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
                   label="Visit date"
                   value={tempDateFilter}
                   onChange={setTempDateFilter}
-                  onAccept={setVisitDateFilter}
+                  onAccept={submitFilterByDate}
                   format="MM/dd/yyyy"
                   slotProps={{
                     textField: (params) => ({
                       ...params,
-                      onBlur: submitFilterByDate,
+                      onBlur: () => submitFilterByDate(),
                       fullWidth: true,
                       size: 'small',
                       InputProps: {
