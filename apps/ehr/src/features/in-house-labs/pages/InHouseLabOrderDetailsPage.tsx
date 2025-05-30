@@ -8,6 +8,7 @@ import { FinalResultView } from '../components/details/FinalResultView';
 import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPageDTO } from 'utils';
 import { useAppointmentStore } from 'src/telemed';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -101,7 +102,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
   }
 
   return (
-    <>
+    <DetailPageContainer>
       {(() => {
         switch (testDetails.status) {
           case 'ORDERED':
@@ -117,6 +118,6 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
             return <p>Status could not be parsed: {testDetails.status}</p>;
         }
       })()}
-    </>
+    </DetailPageContainer>
   );
 };
