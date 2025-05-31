@@ -6,6 +6,7 @@ import {
   AUTH0_SECRET,
   FHIR_API,
   IN_PERSON_PREVISIT_QUESTIONNAIRE,
+  PROJECT_ID,
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore
 } from '../../.env/local.json';
@@ -18,4 +19,5 @@ export const SECRETS = {
   AUTH0_SECRET: AUTH0_SECRET,
   PROJECT_API: PROJECT_API,
   IN_PERSON_PREVISIT_QUESTIONNAIRE: IN_PERSON_PREVISIT_QUESTIONNAIRE,
+  PROJECT_ID,
 };

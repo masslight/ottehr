@@ -22,6 +22,8 @@ import {
   isPostTelemedAppointment,
   UpdateAppointmentParameters,
   normalizeSlotToUTC,
+  isValidUUID,
+  isAppointmentVirtual,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -105,7 +107,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     }
 
     console.log(`checking appointment with id ${appointmentID} is not checked in`);
-    if (fhirAppointment.status === 'arrived') {
+    // https://github.com/masslight/ottehr/issues/2431
+    // todo: remove the second condition once virtual prebook appointments begin in 'booked' status
+    if (fhirAppointment.status === 'arrived' && !isAppointmentVirtual(fhirAppointment)) {
       throw CANT_UPDATE_CHECKED_IN_APT_ERROR;
     } else if (fhirAppointment.status === 'cancelled') {
       throw CANT_UPDATE_CANCELED_APT_ERROR;
@@ -164,8 +168,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       oystehr
     );
 
-    // todo 1.9: another place to refactor with a slot comparator utility func
-    if (availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {
+    // todo: make reschedule behave more like create appointment in terms of available slots
+    const slotAlreadyPersisted = isValidUUID(slot.id ?? '');
+    if (slotAlreadyPersisted || availableSlots.map((si) => normalizeSlotToUTC(si.slot).start).includes(slot.start)) {
       console.log('slot is available');
     } else {
       console.log('slot start', slot.start, availableSlots[0].slot.start);
@@ -199,6 +204,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // const user = await appClient.getMe();
     const relatedPerson = await getRelatedPersonForPatient(fhirPatient.id || '', oystehr);
     if (relatedPerson) {
+      console.log(`RelatedPerson found for patient: RP/${relatedPerson.id}`);
       const timezone = scheduleOwner.extension?.find(
         (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
       )?.valueString;
@@ -230,6 +236,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentUpdate, oystehr, input, fhirPatient.id || '', secrets);
 
+    // todo 1.10: define an output type for this, as it's actually a very tricky type that is differently shaped
+    // depending on whether the slot was unavailable or not
     return {
       statusCode: 200,
       body: JSON.stringify(response),
