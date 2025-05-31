@@ -5,7 +5,7 @@ import {
   PRACTITIONER_CODINGS,
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
-  InHouseOrderDetailPageDTO,
+  InHouseOrderDetailPageItemDTO,
 } from 'utils';
 import { Coding, Task, ServiceRequest, Provenance, Encounter, Specimen } from 'fhir/r4b';
 
@@ -133,7 +133,7 @@ export function buildOrderHistory(
   return history;
 }
 
-export const getSpecimenDetails = (specimen: Specimen): InHouseOrderDetailPageDTO['specimen'] => {
+export const getSpecimenDetails = (specimen: Specimen): InHouseOrderDetailPageItemDTO['specimen'] => {
   const specimenCollection = specimen.collection;
   if (specimenCollection) {
     const standardizedSource = specimenCollection.bodySite?.coding?.find(

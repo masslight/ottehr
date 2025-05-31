@@ -61,11 +61,11 @@ export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyRe
 };
 
 const accessCheck = async (headers: any, secrets: Secrets): Promise<void> => {
-  if (headers == null || !headers.authorization) {
+  if (headers == null || !headers.Authorization) {
     throw new Error('Unauthorized');
   }
 
-  if (headers.authorization.split('Bearer ')[1] !== getSecret(SecretsKeys.ADVAPACS_WEBHOOK_SECRET, secrets)) {
+  if (headers.Authorization.split('Bearer ')[1] !== getSecret(SecretsKeys.ADVAPACS_WEBHOOK_SECRET, secrets)) {
     throw new Error('Forbidden');
   }
 };

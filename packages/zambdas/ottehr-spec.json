@@ -838,8 +838,8 @@
       "name": "RADIOLOGY-ORDER-LIST",
       "type": "http_auth",
       "runtime": "nodejs20.x",
-      "src": "src/ehr/radiology/get-order-list/index",
-      "zip": ".dist/zips/radiology-get-order-list.zip"
+      "src": "src/ehr/radiology/order-list/index",
+      "zip": ".dist/zips/radiology-order-list.zip"
     },
     "RADIOLOGY-PACS-WEBHOOK": {
       "name": "RADIOLOGY-PACS-WEBHOOK",
@@ -897,7 +897,6 @@
       "src": "src/ehr/get-or-create-visit-label-pdf/index",
       "zip": ".dist/zips/get-or-create-visit-label-pdf.zip"
     },
-
     "EHR-GET-SCHEDULE": {
       "name": "EHR-GET-SCHEDULE",
       "type": "http_auth",

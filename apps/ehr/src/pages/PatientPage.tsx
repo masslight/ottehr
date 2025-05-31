@@ -166,7 +166,7 @@ export default function PatientPage(): JSX.Element {
             )}
             {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
               <TabPanel value="in-house-labs" sx={{ p: 0 }}>
-                <PatientInHouseLabsTab patientId={id || ''} />
+                <PatientInHouseLabsTab titleText="In-house Labs" patientId={id || ''} />
               </TabPanel>
             )}
             {FEATURE_FLAGS.RADIOLOGY_ENABLED && (

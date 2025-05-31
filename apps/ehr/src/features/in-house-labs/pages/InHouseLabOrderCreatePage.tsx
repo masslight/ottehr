@@ -28,6 +28,7 @@ import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVi
 import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
 import { enqueueSnackbar } from 'notistack';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -43,17 +44,18 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [repeatTest, setRepeatTest] = useState<boolean>(false);
 
-  const { chartData, encounter, appointment } = getSelectors(useAppointmentStore, [
+  const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
     'chartData',
     'encounter',
     'appointment',
+    'setPartialChartData',
   ]);
 
   const { diagnosis = [] } = chartData || {};
   const didPrimaryDiagnosisInit = useRef(false);
 
-  // already added diagnoses, the may have "added via lab order" flag with true and false value
-  // so, the select "select dx" will show all diagnoses which are showed in the Assessment page no matter what source they have
+  // already added diagnoses may have "added via lab order" flag with true and false values
+  // so, the "select dx" dropdown will show all diagnoses that are displayed on the Assessment page regardless of their source
   const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>([]);
 
   // new diagnoses, the will have "added via lab order" flag with true value,
@@ -144,6 +146,19 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           notes: notes,
         });
 
+        let savedDiagnoses: DiagnosisDTO[] = [];
+
+        try {
+          savedDiagnoses = res?.saveChartDataResponse?.output?.chartData?.diagnosis || [];
+        } catch (error) {
+          console.error('Failed to extract diagnosis from response:', error);
+        }
+
+        // update chart data local state with new diagnoses after successful creation to see actual diagnoses in the Assessment page
+        setPartialChartData({
+          diagnosis: [...(chartData?.diagnosis || []), ...savedDiagnoses],
+        });
+
         if (shouldPrintLabel) {
           const labelPdfs = await getOrCreateVisitLabel(oystehrZambda, { encounterId });
 
@@ -198,7 +213,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   };
 
   return (
-    <Box>
+    <DetailPageContainer>
       <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
         Order In-house Lab
       </Typography>
@@ -256,7 +271,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
               {availableCptCodes.length > 0 && (
                 <>
-                  <Grid item xs={selectedTest?.repeatable ? 9 : 12}>
+                  <Grid item xs={selectedTest?.repeatable ? 8.5 : 12}>
                     <FormControl
                       fullWidth
                       required
@@ -300,7 +315,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     </FormControl>
                   </Grid>
                   {selectedTest?.repeatable && (
-                    <Grid item xs={3}>
+                    <Grid item xs={3.5}>
                       <FormControlLabel
                         sx={{
                           backgroundColor: 'transparent',
@@ -426,7 +441,9 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     if (!selectedDx) {
                       return;
                     }
-                    const alreadySelected = selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
+                    const alreadySelected =
+                      selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code) ||
+                      selectedAssessmentDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
                     if (!alreadySelected) {
                       setSelectedNewDiagnoses((diagnoses) => [
                         ...diagnoses,
@@ -581,6 +598,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
           </form>
         )}
       </Paper>
-    </Box>
+    </DetailPageContainer>
   );
 };

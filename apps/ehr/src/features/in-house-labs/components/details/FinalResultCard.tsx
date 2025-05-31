@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Paper, Typography, Button } from '@mui/material';
-import { ResultEntryInput, formatDateForLabs, InHouseOrderDetailPageDTO } from 'utils';
+import { ResultEntryInput, formatDateForLabs, InHouseOrderDetailPageItemDTO } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -11,7 +11,7 @@ import { BiotechOutlined } from '@mui/icons-material';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 
 interface FinalResultCardProps {
-  testDetails: InHouseOrderDetailPageDTO;
+  testDetails: InHouseOrderDetailPageItemDTO;
 }
 
 export const FinalResultCard: React.FC<FinalResultCardProps> = ({ testDetails }) => {
