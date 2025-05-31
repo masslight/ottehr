@@ -1740,13 +1740,14 @@ export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined =>
 };
 
 interface CreateSlotOptions {
-  walkin: boolean;
   status: Slot['status'];
   originalBookingUrl?: string;
   postTelemedLabOnly?: boolean;
 }
 export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
-  const { walkin, status, originalBookingUrl, postTelemedLabOnly } = options;
+  const { status, originalBookingUrl, postTelemedLabOnly } = options;
+  const walkin = getSlotIsWalkin(slot);
+  console.log('service modality from slot', getServiceModeFromSlot(slot));
   return {
     scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
     startISO: slot.start,

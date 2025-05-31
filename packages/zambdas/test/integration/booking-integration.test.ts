@@ -16,6 +16,7 @@ import {
 } from '../helpers/testScheduleUtils';
 import {
   APIError,
+  appointmentTypeForAppointment,
   checkEncounterIsVirtual,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -26,14 +27,18 @@ import {
   GetScheduleResponse,
   getServiceModeFromSlot,
   getSlotIsPostTelemed,
+  getSlotIsWalkin,
   getSlugForBookableResource,
   getTimezone,
   isPostTelemedAppointment,
   PatientInfo,
   POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
   POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+  ScheduleOwnerFhirResource,
   ServiceMode,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotListItem,
+  SlotServiceCategory,
   SLUG_SYSTEM,
   Timezone,
 } from 'utils';
@@ -41,7 +46,7 @@ import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 
 const createSlotAndValidate = async (
-  input: { params: CreateSlotParams; selectedSlot: SlotListItem; schedule: Schedule },
+  input: { params: CreateSlotParams; schedule: Schedule; selectedSlot?: SlotListItem },
   oystehr: Oystehr
 ): Promise<{ slot: Slot; serviceMode: ServiceMode | undefined; originalBookingUrl: string | undefined }> => {
   const { params: createSlotParams, selectedSlot, schedule } = input;
@@ -63,10 +68,15 @@ const createSlotAndValidate = async (
   assert(createdSlotResponse.id);
   expect(createdSlotResponse.resourceType).toEqual('Slot');
   expect(createdSlotResponse.status).toEqual('busy-tentative');
-  expect(createdSlotResponse.start).toEqual(selectedSlot.slot.start);
-  expect(createdSlotResponse.end).toEqual(
-    DateTime.fromISO(selectedSlot.slot.end, { zone: getTimezone(schedule) }).toISO()
-  );
+  if (selectedSlot) {
+    expect(createdSlotResponse.start).toEqual(selectedSlot.slot.start);
+    expect(createdSlotResponse.end).toEqual(
+      DateTime.fromISO(selectedSlot.slot.end, { zone: getTimezone(schedule) }).toISO()
+    );
+  }
+
+  expect(getSlotIsWalkin(createdSlotResponse)).toEqual(createSlotParams.walkin ?? false);
+  expect(getSlotIsPostTelemed(createdSlotResponse)).toEqual(createSlotParams.postTelemedLabOnly ?? false);
   return {
     slot: createdSlotResponse,
     serviceMode: getServiceModeFromSlot(createdSlotResponse),
@@ -78,8 +88,6 @@ interface ValidateCreateAppointmentResponseInput {
   patient: Patient | undefined;
   slot: Slot;
   timezone: Timezone;
-  isPostTelemed: boolean;
-  isVirtual: boolean;
 }
 interface ValidatedCreateAppointmentResponseOutput {
   appointment: Appointment;
@@ -90,14 +98,12 @@ interface CreateAppointmentInput {
   patientInfo: PatientInfo;
   slot: Slot;
   timezone: Timezone;
-  isPostTelemed: boolean;
-  isVirtual: boolean;
   patient?: Patient;
 }
 const validateCreateAppointmentResponse = (
   input: ValidateCreateAppointmentResponseInput
 ): ValidatedCreateAppointmentResponseOutput => {
-  const { createAppointmentResponse, timezone, patient, slot, isPostTelemed, isVirtual } = input;
+  const { createAppointmentResponse, timezone, patient, slot } = input;
   expect(createAppointmentResponse).toBeDefined();
   assert(createAppointmentResponse);
   const {
@@ -123,17 +129,36 @@ const validateCreateAppointmentResponse = (
   assert(appointment);
   expect(appointment.id).toEqual(appointmentId);
   assert(appointment.id);
+  const isWalkin = getSlotIsWalkin(slot);
+  const isPostTelemed = getSlotIsPostTelemed(slot);
+  const isVirtual = checkEncounterIsVirtual(encounter);
   // this really should be 'booked' for all but there is a known issue https://github.com/masslight/ottehr/issues/2431
   // todo: change the check to 'booked' once the issue with virtual appointments is resolved
-  expect(appointment.status).toEqual(isVirtual ? 'arrived' : 'booked');
+  expect(appointment.status).toEqual(isVirtual || isWalkin ? 'arrived' : 'booked');
   assert(appointment.start);
-  expect(DateTime.fromISO(appointment.start!, { zone: timezone }).toISO()).toEqual(slot.start);
+  if (isWalkin) {
+    const appointmentTimeStamp = DateTime.fromISO(appointment.start!, { zone: timezone }).toUnixInteger();
+    const slotTimeStamp = DateTime.fromISO(slot.start).toUnixInteger();
+    const timeDiff = appointmentTimeStamp - slotTimeStamp;
+    // start time is calculated on the fly in the create-appointment zambda, expecting the appointment
+    // time to be within 10 seconds of the slot start time should be adequate precision here
+    expect(timeDiff).toBeGreaterThanOrEqual(0);
+    expect(timeDiff).toBeLessThanOrEqual(10);
+  } else {
+    expect(DateTime.fromISO(appointment.start!, { zone: timezone }).toISO()).toEqual(slot.start);
+  }
   expect(appointment.slot?.[0]?.reference).toEqual(`Slot/${slot.id}`);
 
   expect(encounter).toBeDefined();
   assert(encounter);
   expect(encounter.id);
-  expect(encounter.status).toEqual('planned');
+  // todo: should encounter status be 'arrived' for walkin virtual appointments to match the appointment status?
+  // i think this is intended and helps with some intake logic particular to the virtual walkin flow
+  if (isWalkin && !isVirtual) {
+    expect(encounter.status).toEqual('arrived');
+  } else {
+    expect(encounter.status).toEqual('planned');
+  }
   expect(checkEncounterIsVirtual(encounter)).toEqual(isVirtual);
   expect(questionnaire).toBeDefined();
   assert(questionnaire);
@@ -142,19 +167,39 @@ const validateCreateAppointmentResponse = (
   if (patient) {
     expect(fhirPatient.id).toEqual(patient.id);
   }
+
+  const slotIsWalkin = getSlotIsWalkin(slot);
+  const appointmentType = appointmentTypeForAppointment(appointment);
+  if (slotIsWalkin) {
+    expect(appointmentType).toEqual('walk-in');
+  } else if (isPostTelemed) {
+    expect(appointmentType).toEqual('post-telemed');
+  } else {
+    expect(appointmentType).toEqual('pre-booked');
+  }
+
   expect(isPostTelemedAppointment(appointment)).toEqual(isPostTelemed);
   return { appointment, appointmentId: appointment.id };
 };
 
 interface SetUpOutput {
   timezone: Timezone;
-  initialSlotId: string;
-  initialSlot: Slot;
   schedule: Schedule;
-  locationSlug: string;
-  initialAvailableSlots: SlotListItem[];
-  initialTelemedAvailableSlots: SlotListItem[];
+  scheduleOwnerType: ScheduleOwnerFhirResource['resourceType'];
+  slug: string;
 }
+
+interface GetSlotFromScheduleInput extends SetUpOutput {
+  serviceMode: ServiceMode;
+  isWalkin?: boolean;
+  isPostTelemed?: boolean;
+}
+
+interface GetSlotFromScheduleOutput {
+  slot: Slot;
+  slotId: string;
+}
+
 interface RescheduleAndValidateInput {
   appointmentId: string;
   oldSlotId: string;
@@ -162,6 +207,7 @@ interface RescheduleAndValidateInput {
   serviceMode: ServiceMode;
   schedule: Schedule;
 }
+
 interface RescheduleAndValidateOutput {
   newSlotId: string;
 }
@@ -177,7 +223,7 @@ describe('prebook integration - from getting list of slots to booking with selec
   let processId: string | null = null;
   let existingTestPatient: Patient;
 
-  const setUpInPersonResources = async (postTelemed: boolean): Promise<SetUpOutput> => {
+  const setUpInPersonResources = async (): Promise<SetUpOutput> => {
     expect(oystehr).toBeDefined();
     expect(existingTestPatient).toBeDefined();
     assert(existingTestPatient);
@@ -243,70 +289,12 @@ describe('prebook integration - from getting list of slots to booking with selec
     const slug = getSlugForBookableResource(owner);
     expect(slug).toBeDefined();
     assert(slug);
-    let getScheduleResponse: GetScheduleResponse | undefined;
-    try {
-      getScheduleResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'get-schedule',
-          slug,
-          scheduleType: 'location',
-        })
-      ).output as GetScheduleResponse;
-    } catch (e) {
-      console.error('Error executing get-schedule zambda', e);
-    }
-    expect(getScheduleResponse).toBeDefined();
-    assert(getScheduleResponse);
 
-    const { available: regularAvailable, telemedAvailable } = getScheduleResponse;
-    const available = postTelemed ? telemedAvailable : regularAvailable;
-
-    const randomIndex = Math.ceil(Math.random() * (available.length - 1)) - 1;
-    const selectedSlot = available[randomIndex];
-    expect(selectedSlot).toBeDefined();
-    assert(selectedSlot);
-
-    const createSlotParams = createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
-      walkin: false,
-      originalBookingUrl: postTelemed ? undefined : `prebook/in-person?bookingOn=${slug}`,
-      status: 'busy-tentative',
-      postTelemedLabOnly: postTelemed,
-    });
-
-    console.log('createSlotParams', createSlotParams);
-
-    const validatedSlotResponse = await createSlotAndValidate(
-      { params: createSlotParams, selectedSlot, schedule },
-      oystehr
-    );
-    let createdSlotResponse = validatedSlotResponse.slot;
-    const serviceMode = validatedSlotResponse.serviceMode;
-    const bookingUrl = validatedSlotResponse.originalBookingUrl;
-    try {
-      createdSlotResponse = (
-        await oystehr.zambda.executePublic({
-          id: 'create-slot',
-          ...createSlotParams,
-        })
-      ).output as Slot;
-    } catch (e) {
-      console.error('Error executing get-schedule zambda', e);
-    }
-    assert(createdSlotResponse.id);
-    expect(serviceMode).toEqual('in-person');
-    if (postTelemed) {
-      expect(bookingUrl).toBeUndefined();
-    } else {
-      expect(bookingUrl).toEqual(`prebook/in-person?bookingOn=${slug}`);
-    }
     return {
       timezone,
-      initialSlot: createdSlotResponse,
-      initialSlotId: createdSlotResponse.id,
       schedule,
-      locationSlug: slug,
-      initialAvailableSlots: available,
-      initialTelemedAvailableSlots: getScheduleResponse?.telemedAvailable ?? [],
+      slug,
+      scheduleOwnerType: owner.resourceType,
     };
   };
 
@@ -369,13 +357,25 @@ describe('prebook integration - from getting list of slots to booking with selec
     const slug = getSlugForBookableResource(owner);
     expect(slug).toBeDefined();
     assert(slug);
+
+    return {
+      timezone,
+      schedule,
+      slug,
+      scheduleOwnerType: owner.resourceType,
+    };
+  };
+
+  const getSlot = async (input: GetSlotFromScheduleInput): Promise<GetSlotFromScheduleOutput> => {
+    const { schedule, scheduleOwnerType, isWalkin, isPostTelemed, slug, serviceMode } = input;
+
     let getScheduleResponse: GetScheduleResponse | undefined;
     try {
       getScheduleResponse = (
         await oystehr.zambda.executePublic({
           id: 'get-schedule',
           slug,
-          scheduleType: 'location',
+          scheduleType: scheduleOwnerType === 'Location' ? 'location' : 'provider',
         })
       ).output as GetScheduleResponse;
     } catch (e) {
@@ -384,40 +384,73 @@ describe('prebook integration - from getting list of slots to booking with selec
     expect(getScheduleResponse).toBeDefined();
     assert(getScheduleResponse);
 
-    const { available, telemedAvailable } = getScheduleResponse;
+    let selectedSlot: SlotListItem | undefined;
+    if (!isWalkin) {
+      const { available: regularAvailable, telemedAvailable } = getScheduleResponse;
 
-    expect(telemedAvailable ?? []).toHaveLength(0);
+      if (serviceMode === ServiceMode.virtual) {
+        expect(telemedAvailable ?? []).toHaveLength(0);
+      }
 
-    const randomIndex = Math.ceil(Math.random() * (available.length - 1)) - 1;
-    const selectedSlot = available[randomIndex];
-    expect(selectedSlot).toBeDefined();
-    assert(selectedSlot);
+      const available = isPostTelemed ? telemedAvailable : regularAvailable;
 
-    const createSlotParams = createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
-      walkin: false,
-      originalBookingUrl: `prebook/virtual?bookingOn=${slug}`,
-      status: 'busy-tentative',
-    });
+      const randomIndex = Math.ceil(Math.random() * (available.length - 1)) - 1;
+      selectedSlot = available[randomIndex];
+      expect(selectedSlot).toBeDefined();
+      assert(selectedSlot);
+    }
 
+    let createSlotParams: CreateSlotParams;
+
+    if (selectedSlot === undefined && isWalkin) {
+      // set createSlotParams to
+      const now = DateTime.now().setZone(getTimezone(schedule));
+      const end = now.plus({ minutes: 15 }).toISO()!;
+
+      // todo: make this a util used by the source code as well as here
+      const walkinSlot: Slot = {
+        resourceType: 'Slot',
+        start: now.toISO()!,
+        end,
+        schedule: { reference: `Schedule/${schedule.id}` },
+        status: 'busy-tentative',
+        appointmentType: { ...SLOT_WALKIN_APPOINTMENT_TYPE_CODING },
+        serviceCategory:
+          serviceMode === ServiceMode.virtual
+            ? [SlotServiceCategory.virtualServiceMode]
+            : [SlotServiceCategory.inPersonServiceMode],
+      };
+      createSlotParams = createSlotParamsFromSlotAndOptions(walkinSlot, {
+        postTelemedLabOnly: isPostTelemed ?? false,
+        status: 'busy-tentative',
+      });
+    } else {
+      assert(selectedSlot);
+      createSlotParams = createSlotParamsFromSlotAndOptions(selectedSlot.slot, {
+        postTelemedLabOnly: isPostTelemed ?? false,
+        originalBookingUrl: isWalkin || isPostTelemed ? undefined : `prebook/${serviceMode}?bookingOn=${slug}`,
+        status: 'busy-tentative',
+      });
+    }
+    assert(createSlotParams);
     const validatedSlotResponse = await createSlotAndValidate(
       { params: createSlotParams, selectedSlot, schedule },
       oystehr
     );
     const createdSlotResponse = validatedSlotResponse.slot;
-    const serviceMode = validatedSlotResponse.serviceMode;
+    const serviceModeFromSlot = validatedSlotResponse.serviceMode;
     const bookingUrl = validatedSlotResponse.originalBookingUrl;
     assert(createdSlotResponse.id);
-    expect(serviceMode).toEqual('virtual');
-    expect(bookingUrl).toEqual(`prebook/virtual?bookingOn=${slug}`);
+    expect(serviceModeFromSlot).toEqual(serviceMode);
+    if (!isWalkin && !isPostTelemed) {
+      expect(bookingUrl).toEqual(`prebook/${serviceMode}?bookingOn=${slug}`);
+    } else {
+      expect(bookingUrl).toBeUndefined();
+    }
 
     return {
-      timezone,
-      initialSlot: createdSlotResponse,
-      initialSlotId: createdSlotResponse.id,
-      schedule,
-      locationSlug: slug,
-      initialAvailableSlots: available,
-      initialTelemedAvailableSlots: [],
+      slot: createdSlotResponse,
+      slotId: createdSlotResponse.id,
     };
   };
 
@@ -448,7 +481,6 @@ describe('prebook integration - from getting list of slots to booking with selec
     assert(rescheduleSlot);
 
     const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-      walkin: false,
       originalBookingUrl: `prebook/${serviceMode}?bookingOn=${slug}`,
       status: 'busy-tentative',
     });
@@ -584,7 +616,7 @@ describe('prebook integration - from getting list of slots to booking with selec
   const createAppointmentAndValidate = async (
     input: CreateAppointmentInput
   ): Promise<ValidatedCreateAppointmentResponseOutput> => {
-    const { patientInfo, patient, timezone, slot, isPostTelemed, isVirtual } = input;
+    const { patientInfo, patient, timezone, slot } = input;
     const slotId = slot.id;
     assert(slotId);
     const createAppointmentInputParams: CreateAppointmentInputParams = {
@@ -608,8 +640,6 @@ describe('prebook integration - from getting list of slots to booking with selec
       patient,
       slot,
       timezone,
-      isPostTelemed,
-      isVirtual,
     });
 
     const fetchedSlot = await oystehr.fhir.get<Slot>({
@@ -625,7 +655,7 @@ describe('prebook integration - from getting list of slots to booking with selec
 
   beforeAll(async () => {
     processId = randomUUID();
-    const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_API, PROJECT_ID } = SECRETS;
+    const { AUTH0_ENDPOINT, AUTH0_CLIENT, AUTH0_SECRET, AUTH0_AUDIENCE, FHIR_API, PROJECT_ID } = SECRETS;
     const EXECUTE_ZAMBDA_URL = inject('EXECUTE_ZAMBDA_URL');
     expect(EXECUTE_ZAMBDA_URL).toBeDefined();
     token = await getAuth0Token({
@@ -634,8 +664,6 @@ describe('prebook integration - from getting list of slots to booking with selec
       AUTH0_SECRET: AUTH0_SECRET,
       AUTH0_AUDIENCE: AUTH0_AUDIENCE,
     });
-
-    console.log('project api', PROJECT_API);
 
     oystehr = new Oystehr({
       accessToken: token,
@@ -655,13 +683,8 @@ describe('prebook integration - from getting list of slots to booking with selec
   test.concurrent(
     'successfully creates an in person appointment for a returning patient after selecting an available slot',
     async () => {
-      const {
-        timezone,
-        initialSlotId,
-        initialSlot: createdSlotResponse,
-        schedule,
-        locationSlug: slug,
-      } = await setUpInPersonResources(false);
+      const initialResources = await setUpInPersonResources();
+      const { timezone, schedule, slug } = initialResources;
 
       const patientInfo: PatientInfo = {
         id: existingTestPatient.id,
@@ -673,13 +696,18 @@ describe('prebook integration - from getting list of slots to booking with selec
         newPatient: false,
       };
 
+      const { slot: createdSlotResponse, slotId: initialSlotId } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode['in-person'],
+        isWalkin: false,
+        isPostTelemed: false,
+      });
+
       const { appointmentId } = await createAppointmentAndValidate({
         timezone,
         patientInfo,
         patient: existingTestPatient,
         slot: createdSlotResponse,
-        isPostTelemed: false,
-        isVirtual: false,
       });
 
       const { newSlotId } = await rescheduleAndValidate({
@@ -700,13 +728,8 @@ describe('prebook integration - from getting list of slots to booking with selec
   test.concurrent(
     'successfully creates a virtual appointment for a returning patient after selecting an available slot',
     async () => {
-      const {
-        timezone,
-        initialSlotId,
-        initialSlot: createdSlotResponse,
-        schedule,
-        locationSlug: slug,
-      } = await setUpVirtualResources();
+      const initialResources = await setUpVirtualResources();
+      const { timezone, schedule, slug } = initialResources;
 
       const patientInfo: PatientInfo = {
         id: existingTestPatient.id,
@@ -717,13 +740,19 @@ describe('prebook integration - from getting list of slots to booking with selec
         dateOfBirth: existingTestPatient.birthDate,
         newPatient: false,
       };
+
+      const { slot: createdSlotResponse, slotId: initialSlotId } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode.virtual,
+        isWalkin: false,
+        isPostTelemed: false,
+      });
+
       const { appointmentId } = await createAppointmentAndValidate({
         timezone,
         patientInfo,
         patient: existingTestPatient,
         slot: createdSlotResponse,
-        isPostTelemed: false,
-        isVirtual: true,
       });
 
       const { newSlotId } = await rescheduleAndValidate({
@@ -743,13 +772,8 @@ describe('prebook integration - from getting list of slots to booking with selec
   test.concurrent(
     'successfully creates a post-telemed appointment for a returning patient after selecting an available slot',
     async () => {
-      const {
-        timezone,
-        initialSlot: createdSlotResponse,
-        schedule,
-        locationSlug: slug,
-        initialTelemedAvailableSlots: available,
-      } = await setUpInPersonResources(true);
+      const initialResources = await setUpInPersonResources();
+      const { timezone, schedule, slug } = initialResources;
 
       const patientInfo: PatientInfo = {
         id: existingTestPatient.id,
@@ -761,13 +785,18 @@ describe('prebook integration - from getting list of slots to booking with selec
         newPatient: false,
       };
 
+      const { slot: createdSlotResponse } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode['in-person'],
+        isWalkin: false,
+        isPostTelemed: true,
+      });
+
       const { appointment } = await createAppointmentAndValidate({
         timezone,
         patientInfo,
         patient: existingTestPatient,
         slot: createdSlotResponse,
-        isPostTelemed: true,
-        isVirtual: false,
       });
 
       // post-telemed appointments can't be rescheduled
@@ -788,13 +817,12 @@ describe('prebook integration - from getting list of slots to booking with selec
 
       const { telemedAvailable: newAvailable } = getScheduleResponse;
 
-      const index = Math.ceil(Math.random() * (available.length - 1)) - 1;
+      const index = Math.ceil(Math.random() * (newAvailable.length - 1)) - 1;
       const rescheduleSlot = newAvailable[index];
       expect(rescheduleSlot).toBeDefined();
       assert(rescheduleSlot);
 
       const rescheduleSlotParams = createSlotParamsFromSlotAndOptions(rescheduleSlot.slot, {
-        walkin: false,
         postTelemedLabOnly: true,
         status: 'busy-tentative',
       });
@@ -852,13 +880,8 @@ describe('prebook integration - from getting list of slots to booking with selec
     'successfully creates an in person appointment for a new patient after selecting an available slot',
     async () => {
       assert(processId);
-      const {
-        timezone,
-        initialSlotId,
-        initialSlot: createdSlotResponse,
-        schedule,
-        locationSlug: slug,
-      } = await setUpInPersonResources(false);
+      const initialResources = await setUpInPersonResources();
+      const { timezone, schedule, slug } = initialResources;
 
       const newPatient = makeTestPatient();
       const patientInfo: PatientInfo = {
@@ -878,17 +901,22 @@ describe('prebook integration - from getting list of slots to booking with selec
         ],
       };
 
+      const { slot: createdSlotResponse, slotId } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode['in-person'],
+        isWalkin: false,
+        isPostTelemed: false,
+      });
+
       const { appointmentId } = await createAppointmentAndValidate({
         timezone,
         patientInfo,
         patient: undefined,
         slot: createdSlotResponse,
-        isPostTelemed: false,
-        isVirtual: false,
       });
 
       const { newSlotId } = await rescheduleAndValidate({
-        oldSlotId: initialSlotId,
+        oldSlotId: slotId,
         appointmentId: appointmentId,
         slug,
         serviceMode: ServiceMode['in-person'],
@@ -906,13 +934,8 @@ describe('prebook integration - from getting list of slots to booking with selec
     'successfully creates a virtual appointment for a new patient after selecting an available slot',
     async () => {
       assert(processId);
-      const {
-        timezone,
-        initialSlotId,
-        initialSlot: createdSlotResponse,
-        schedule,
-        locationSlug: slug,
-      } = await setUpVirtualResources();
+      const initialResources = await setUpVirtualResources();
+      const { timezone, schedule, slug } = initialResources;
 
       const newPatient = makeTestPatient();
       const patientInfo: PatientInfo = {
@@ -932,17 +955,22 @@ describe('prebook integration - from getting list of slots to booking with selec
         ],
       };
 
+      const { slot: createdSlotResponse, slotId } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode.virtual,
+        isWalkin: false,
+        isPostTelemed: false,
+      });
+
       const { appointmentId } = await createAppointmentAndValidate({
         timezone,
         patientInfo,
         patient: undefined,
         slot: createdSlotResponse,
-        isPostTelemed: false,
-        isVirtual: true,
       });
 
       const { newSlotId } = await rescheduleAndValidate({
-        oldSlotId: initialSlotId,
+        oldSlotId: slotId,
         slug,
         serviceMode: ServiceMode.virtual,
         schedule,
@@ -962,7 +990,15 @@ describe('prebook integration - from getting list of slots to booking with selec
     'successfully creates a post-telemed appointment for a new patient after selecting an available slot',
     async () => {
       assert(processId);
-      const { timezone, initialSlot: createdSlotResponse } = await setUpInPersonResources(true);
+      const initialResources = await setUpInPersonResources();
+      const { timezone } = initialResources;
+
+      const { slot: createdSlotResponse } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode['in-person'],
+        isWalkin: false,
+        isPostTelemed: true,
+      });
 
       const newPatient = makeTestPatient();
       const patientInfo: PatientInfo = {
@@ -987,9 +1023,135 @@ describe('prebook integration - from getting list of slots to booking with selec
         patientInfo,
         patient: undefined,
         slot: createdSlotResponse,
-        isPostTelemed: true,
-        isVirtual: false,
       });
     }
   );
+  describe('walkin appointments', () => {
+    test.concurrent(
+      'successfully creates an in-person walkin appointment for a new patient after selecting an available slot',
+      async () => {
+        assert(processId);
+        const initialResources = await setUpInPersonResources();
+        const { timezone } = initialResources;
+        const newPatient = makeTestPatient();
+        const patientInfo: PatientInfo = {
+          firstName: newPatient.name![0]!.given![0],
+          lastName: newPatient.name![0]!.family,
+          sex: 'female',
+          dateOfBirth: newPatient.birthDate,
+          newPatient: true,
+          phoneNumber: '+12027139680',
+          email: 'okovalenko+coolNewPatient@masslight.com',
+          tags: [
+            {
+              system: 'OTTEHR_AUTOMATED_TEST',
+              code: tagForProcessId(processId),
+              display: 'a test resource that should be cleaned up',
+            },
+          ],
+        };
+        const { slot: createdSlotResponse } = await getSlot({
+          ...initialResources,
+          serviceMode: ServiceMode['in-person'],
+          isWalkin: true,
+          isPostTelemed: false,
+        });
+        await createAppointmentAndValidate({
+          timezone,
+          patientInfo,
+          patient: undefined,
+          slot: createdSlotResponse,
+        });
+      }
+    );
+    test.concurrent(
+      'successfully creates an in-person walkin appointment for an existing patient after selecting an available slot',
+      async () => {
+        assert(processId);
+        const initialResources = await setUpInPersonResources();
+        const { timezone } = initialResources;
+        const patientInfo: PatientInfo = {
+          id: existingTestPatient.id,
+          firstName: existingTestPatient.name![0]!.given![0],
+          lastName: existingTestPatient!.name![0]!.family,
+          sex: 'female',
+          email: 'okovalenko+coolPatient@masslight.com',
+          dateOfBirth: existingTestPatient.birthDate,
+          newPatient: false,
+        };
+        const { slot: createdSlotResponse } = await getSlot({
+          ...initialResources,
+          serviceMode: ServiceMode['in-person'],
+          isWalkin: true,
+          isPostTelemed: false,
+        });
+        await createAppointmentAndValidate({
+          timezone,
+          patientInfo,
+          patient: existingTestPatient,
+          slot: createdSlotResponse,
+        });
+      }
+    );
+    test.concurrent('successfully creates a virtual walkin appointment for a new patient', async () => {
+      assert(processId);
+      const initialResources = await setUpVirtualResources();
+      const { timezone } = initialResources;
+      const newPatient = makeTestPatient();
+      const patientInfo: PatientInfo = {
+        firstName: newPatient.name![0]!.given![0],
+        lastName: newPatient.name![0]!.family,
+        sex: 'female',
+        dateOfBirth: newPatient.birthDate,
+        newPatient: true,
+        phoneNumber: '+12027139680',
+        email: 'okovalenko+coolNewPatient@masslight.com',
+        tags: [
+          {
+            system: 'OTTEHR_AUTOMATED_TEST',
+            code: tagForProcessId(processId),
+            display: 'a test resource that should be cleaned up',
+          },
+        ],
+      };
+      const { slot: createdSlotResponse } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode.virtual,
+        isWalkin: true,
+        isPostTelemed: false,
+      });
+      await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: undefined,
+        slot: createdSlotResponse,
+      });
+    });
+    test.concurrent('successfully creates a virtual walkin appointment for an existing patient', async () => {
+      assert(processId);
+      const initialResources = await setUpVirtualResources();
+      const { timezone } = initialResources;
+      const patientInfo: PatientInfo = {
+        id: existingTestPatient.id,
+        firstName: existingTestPatient.name![0]!.given![0],
+        lastName: existingTestPatient!.name![0]!.family,
+        sex: 'female',
+        email: 'okovalenko+coolPatient@masslight.com',
+        dateOfBirth: existingTestPatient.birthDate,
+        newPatient: false,
+      };
+      const { slot: createdSlotResponse } = await getSlot({
+        ...initialResources,
+        serviceMode: ServiceMode.virtual,
+        isWalkin: true,
+        isPostTelemed: false,
+      });
+      await createAppointmentAndValidate({
+        timezone,
+        patientInfo,
+        patient: existingTestPatient,
+        slot: createdSlotResponse,
+      });
+    });
+  });
 });
