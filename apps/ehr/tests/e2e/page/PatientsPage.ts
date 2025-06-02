@@ -85,18 +85,21 @@ export class PatientsPage extends PageWithTablePagination {
         const rowPatientDateOfBirth = await rowLocator.getByTestId(dataTestIds.patients.patientDateOfBirth).innerText();
         const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
         const rowPatientPhoneNumber = await rowLocator.getByTestId(dataTestIds.patients.patientPhoneNumber).innerText();
+        const rowPatientAddress = await rowLocator.getByTestId(dataTestIds.patients.patientAddress).innerText();
 
         const expectedName = patientInfo.lastName + ', ' + patientInfo.firstName;
         const normalizedExpectedPhone = patientInfo.phoneNumber.replace(/[^\d]/g, '');
         const normalizedActualPhone = rowPatientPhoneNumber.replace(/^(\+1)/, '').replace(/[^\d]/g, '');
+        const expectedAddress = patientInfo.address;
 
         const idMatch = rowPatientId === patientInfo.id;
         const nameMatch = rowPatientName === expectedName;
         const dobMatch = rowPatientDateOfBirth === patientInfo.dateOfBirth;
         const emailMatch = rowPatientEmail === patientInfo.email;
         const phoneMatch = normalizedActualPhone === normalizedExpectedPhone;
+        const addressMatch = rowPatientAddress === expectedAddress;
 
-        const allMatches = idMatch && nameMatch && dobMatch && emailMatch && phoneMatch; // todo: fix addressMatch ad add it
+        const allMatches = idMatch && nameMatch && dobMatch && emailMatch && phoneMatch && addressMatch;
 
         if (!allMatches) {
           console.log(`❌ Patient verification failed for ID: ${patientInfo.id}`);
@@ -129,6 +132,12 @@ export class PatientsPage extends PageWithTablePagination {
             console.log(`  - Phone Number mismatch:
               Expected: "${patientInfo.phoneNumber}" (normalized: "${normalizedExpectedPhone}")
               Actual:   "${rowPatientPhoneNumber}" (normalized: "${normalizedActualPhone}")`);
+          }
+
+          if (!addressMatch) {
+            console.log(`  - Address mismatch:
+              Expected: "${JSON.stringify(expectedAddress)}"
+              Actual:   "${JSON.stringify(rowPatientAddress)}"`);
           }
         }
 

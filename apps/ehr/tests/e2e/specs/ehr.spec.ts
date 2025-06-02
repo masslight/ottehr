@@ -10,6 +10,7 @@ import {
   PATIENT_GENDER,
   PATIENT_LAST_NAME,
   PATIENT_LINE,
+  PATIENT_LINE_2,
   PATIENT_PHONE_NUMBER,
   PATIENT_POSTALCODE,
   PATIENT_STATE,
@@ -152,6 +153,9 @@ test.describe('Patient search', () => {
   test.skip('Search patients with different filters', async ({ page }) => {
     await page.goto('/patients');
 
+    const patientFullAddress =
+      PATIENT_LINE + ', ' + PATIENT_LINE_2 + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE;
+
     await test.step('Search by Last name', async () => {
       const patientsPage = await expectPatientsPage(page);
       await patientsPage.searchByLastName(PATIENT_LAST_NAME);
@@ -163,7 +167,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -179,7 +183,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -195,7 +199,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -211,7 +215,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -227,7 +231,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -244,7 +248,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -261,7 +265,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -278,7 +282,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -295,7 +299,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
@@ -313,7 +317,7 @@ test.describe('Patient search', () => {
         dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
         email: PATIENT_EMAIL,
         phoneNumber: PATIENT_PHONE_NUMBER,
-        address: PATIENT_LINE + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+        address: patientFullAddress,
       });
       await page.goto('/patients');
     });
