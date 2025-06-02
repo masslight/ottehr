@@ -196,7 +196,6 @@ const PrebookVisit: FC = () => {
   const handleSlotSelection = async (slot?: Slot): Promise<void> => {
     if (slot && tokenlessZambdaClient) {
       const createSlotInput: CreateSlotParams = createSlotParamsFromSlotAndOptions(slot, {
-        walkin: false,
         originalBookingUrl: getUrl(),
         status: 'busy-tentative',
       });
