@@ -197,9 +197,7 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           )}
         </Grid>
         {Object.entries(fieldsConfig).map(([field, config]) => {
-          const defaultOption = selectsOptions[field as keyof OrderFieldsSelectsOptions]?.defaultOption?.value;
-          let value = getFieldValue(field as keyof MedicationData);
-          if ((!value || value < 0) && defaultOption) value = defaultOption;
+          const value = getFieldValue(field as keyof MedicationData);
           let renderValue: string | undefined;
 
           // renderValue handles edge case when backend created new resource with new id and we can't match it with standard select options
