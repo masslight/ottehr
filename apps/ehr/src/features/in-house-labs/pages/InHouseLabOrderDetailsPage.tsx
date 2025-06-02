@@ -9,6 +9,7 @@ import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPage
 import { useAppointmentStore } from 'src/telemed';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { WithInHouseLabsBreadcrums } from '../components/WithInHouseLabsBreadcrums';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -101,18 +102,30 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     );
   }
 
+  const pageName = testDetails.testItemName;
+
   return (
     <DetailPageContainer>
       {(() => {
         switch (testDetails.status) {
           case 'ORDERED':
             return (
-              <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
+              <WithInHouseLabsBreadcrums pageName={pageName}>
+                <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
+              </WithInHouseLabsBreadcrums>
             );
           case 'COLLECTED':
-            return <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
+            return (
+              <WithInHouseLabsBreadcrums pageName={pageName}>
+                <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />
+              </WithInHouseLabsBreadcrums>
+            );
           case 'FINAL':
-            return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
+            return (
+              <WithInHouseLabsBreadcrums pageName={pageName}>
+                <FinalResultView testDetails={allTestDetails} onBack={handleBack} />
+              </WithInHouseLabsBreadcrums>
+            );
           default:
             // temp for debugging
             return <p>Status could not be parsed: {testDetails.status}</p>;
