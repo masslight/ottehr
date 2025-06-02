@@ -1,4 +1,4 @@
-import { FC, useState, useMemo } from 'react';
+import { FC, useState } from 'react';
 import { OrderableItemSearchResult, nameLabTest } from 'utils';
 import { Autocomplete, TextField } from '@mui/material';
 import { useGetCreateExternalLabResources } from 'src/telemed';
@@ -12,40 +12,32 @@ type LabsAutocompleteProps = {
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
   const { selectedLab, setSelectedLab, patientId } = props;
-  const [inputValue, setInputValue] = useState('');
+  const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
 
-  const { debounce } = useDebounce(800);
-
-  // used to fetch external lab items list
-  const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState('');
   const { isFetching: searchingForLabs, data: createExternalLabResources } = useGetCreateExternalLabResources({
     patientId,
     search: debouncedLabSearchTerm,
   });
+
+  const labs = createExternalLabResources?.labs || [];
+
+  const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {
     debounce(() => {
       setDebouncedLabSearchTerm(searchValue);
     });
   };
 
-  const filterOptions = useMemo(() => {
-    const labs = createExternalLabResources?.labs || [];
-    if (inputValue === '') return [];
-    return labs.filter((item) => {
-      return item.item.itemName.toLowerCase().includes(inputValue.toLowerCase());
-    });
-  }, [inputValue, createExternalLabResources?.labs]);
-
   return (
     <Autocomplete
       size="small"
-      options={filterOptions}
+      options={labs}
       getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
-      noOptionsText={inputValue && filterOptions.length === 0 ? 'No labs based on input' : 'Start typing to load labs'}
+      noOptionsText={
+        debouncedLabSearchTerm && labs.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
+      }
       value={selectedLab}
       onChange={(_, newValue) => setSelectedLab(newValue)}
-      inputValue={inputValue}
-      onInputChange={(_, newValue) => setInputValue(newValue)}
       loading={searchingForLabs}
       renderInput={(params) => (
         <TextField
