@@ -55,7 +55,7 @@ export const parseSearchResults = (fhirResponse: Bundle): SearchResult => {
 
     const parsedPatient: SearchResultParsedPatient = {
       id: patient.id as string,
-      name: `${lastName || ''} ${patient.name?.[0]?.given?.join(' ') || ''}`,
+      name: `${lastName || ''}, ${patient.name?.[0]?.given?.join(' ') || ''}`,
       birthDate: patient.birthDate,
       phone: patient.telecom?.find((t) => t.system === 'phone')?.value,
       email: patient.telecom?.find((t) => t.system === 'email')?.value,

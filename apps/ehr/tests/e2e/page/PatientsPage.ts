@@ -86,7 +86,7 @@ export class PatientsPage extends PageWithTablePagination {
         const rowPatientEmail = await rowLocator.getByTestId(dataTestIds.patients.patientEmail).innerText();
         const rowPatientPhoneNumber = await rowLocator.getByTestId(dataTestIds.patients.patientPhoneNumber).innerText();
 
-        const expectedName = patientInfo.lastName + ' ' + patientInfo.firstName;
+        const expectedName = patientInfo.lastName + ', ' + patientInfo.firstName;
         const normalizedExpectedPhone = patientInfo.phoneNumber.replace(/[^\d]/g, '');
         const normalizedActualPhone = rowPatientPhoneNumber.replace(/^(\+1)/, '').replace(/[^\d]/g, '');
 
