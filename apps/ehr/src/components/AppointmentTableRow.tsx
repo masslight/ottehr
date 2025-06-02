@@ -2,6 +2,7 @@ import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined
 import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
@@ -12,6 +13,7 @@ import {
   Grid,
   IconButton,
   MenuItem,
+  Stack,
   TableCell,
   TableRow,
   TextField,
@@ -25,7 +27,7 @@ import { Appointment, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   InPersonAppointmentInformation,
   VisitStatusLabel,
@@ -40,7 +42,6 @@ import {
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
-import { CSSButton } from '../features/css-module/components/CSSButton';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkinPatient } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
@@ -53,12 +54,13 @@ import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
-import { IntakeCheckmark } from './IntakeCheckmark';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
 import { Operation } from 'fast-json-patch';
+import GoToButton from './GoToButton';
+import { progressNoteIcon, startIntakeIcon } from '@theme/icons';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -245,24 +247,11 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
-  const [isCSSButtonIsLoading, setCSSButtonIsLoading] = useState(false);
+  const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
   const rooms = useMemo(() => {
     return location?.extension?.filter((ext) => ext.url === ROOM_EXTENSION_URL).map((ext) => ext.valueString);
   }, [location]);
-
-  const handleCSSButton = async (): Promise<void> => {
-    setCSSButtonIsLoading(true);
-    try {
-      await handleUpdatePractitioner();
-      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
-      navigate(`/in-person/${appointment.id}/patient-info`);
-    } catch (error) {
-      console.error(error);
-      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
-    }
-    setCSSButtonIsLoading(false);
-  };
 
   const officePhoneNumber = getOfficePhoneNumber(location);
 
@@ -274,12 +263,6 @@ export default function AppointmentTableRow({
         lastName: appointment.patient.lastName,
         middleName: appointment.patient.middleName,
       })) ||
-    'Unknown';
-
-  const admitterName =
-    (appointment.participants.admitter?.lastName &&
-      appointment.participants.admitter?.firstName &&
-      `${appointment.participants.admitter?.lastName}, ${appointment.participants.admitter?.firstName}`) ||
     'Unknown';
 
   let start;
@@ -567,21 +550,6 @@ export default function AppointmentTableRow({
     setHasUnread(false);
   }, [setHasUnread]);
 
-  const goToVisitDetails = (): void => {
-    navigate(`/visit/${appointment.id}`);
-  };
-
-  const goToCharts = (): void => {
-    navigate(`/in-person/${appointment.id}`);
-  };
-
-  const isVisitPrebookedOrCancelledOrInWaitingRoom =
-    tab === ApptTab['prebooked'] ||
-    tab === ApptTab['cancelled'] ||
-    (tab === ApptTab['in-office'] && (appointment.status === 'arrived' || appointment.status === 'ready'));
-
-  const handleCellClick = isVisitPrebookedOrCancelledOrInWaitingRoom ? goToVisitDetails : goToCharts;
-
   if (isMobile) {
     return (
       <AppointmentTableRowMobile
@@ -601,15 +569,61 @@ export default function AppointmentTableRow({
     );
   }
 
+  const handleStartIntakeButton = async (): Promise<void> => {
+    setStartIntakeButtonLoading(true);
+    try {
+      await handleUpdatePractitioner();
+      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
+      navigate(`/in-person/${appointment.id}/patient-info`);
+    } catch (error) {
+      console.error(error);
+      enqueueSnackbar('An error occurred. Please try again.', { variant: 'error' });
+    }
+    setStartIntakeButtonLoading(false);
+  };
+
+  const renderStartIntakeButton = (): ReactElement | undefined => {
+    if (
+      appointment.status === 'pending' ||
+      appointment.status === 'arrived' ||
+      appointment.status === 'ready' ||
+      appointment.status === 'intake'
+    ) {
+      return (
+        <GoToButton
+          text="Start Intake"
+          loading={startIntakeButtonLoading}
+          onClick={handleStartIntakeButton}
+          dataTestId={dataTestIds.dashboard.intakeButton}
+        >
+          <img src={startIntakeIcon} />
+        </GoToButton>
+      );
+    }
+    return undefined;
+  };
+
+  const renderProgressNoteButton = (): ReactElement | undefined => {
+    if (
+      appointment.status === 'ready for provider' ||
+      appointment.status === 'provider' ||
+      appointment.status === 'completed'
+    ) {
+      return (
+        <GoToButton text="Progress Note" onClick={() => navigate(`/in-person/${appointment.id}`)}>
+          <img src={progressNoteIcon} />
+        </GoToButton>
+      );
+    }
+    return undefined;
+  };
+
   return (
     <TableRow
       id="appointments-table-row"
       data-testid={dataTestIds.dashboard.tableRowWrapper(appointment.id)}
       sx={{
         '&:last-child td, &:last-child th': { border: 0 },
-        '&:hover': {
-          backgroundColor: otherColors.apptHover,
-        },
         '& .MuiTableCell-root': { p: '8px' },
         position: 'relative',
         ...(appointment.next && {
@@ -618,7 +632,7 @@ export default function AppointmentTableRow({
         }),
       }}
     >
-      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
+      <TableCell sx={{ verticalAlign: 'center' }}>
         {appointment.next && (
           <Box
             sx={{
@@ -649,11 +663,7 @@ export default function AppointmentTableRow({
           </Box>
         )}
       </TableCell>
-      <TableCell
-        sx={{ cursor: 'pointer' }}
-        onClick={handleCellClick}
-        data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}
-      >
+      <TableCell data-testid={dataTestIds.dashboard.tableRowStatus(appointment.id)}>
         <Typography variant="body1">
           {capitalize?.(
             appointment.appointmentType === 'post-telemed'
@@ -670,7 +680,7 @@ export default function AppointmentTableRow({
       {/* <TableCell sx={{ verticalAlign: 'top' }}><Typography variant="body1" aria-owns={hoverElement ? 'status-popover' : undefined} aria-haspopup='true' sx={{ verticalAlign: 'top' }} onMouseOver={(event) => setHoverElement(event.currentTarget)} onMouseLeave={() => setHoverElement(undefined)}>{statusTime}</Typography></TableCell>
           <Popover id='status-popover' open={hoverElement !== undefined} anchorEl={hoverElement} anchorOrigin={{ vertical: 'top', horizontal: 'center' }} transformOrigin={{ vertical: 'bottom', horizontal: 'right' }} onClose={() => setHoverElement(undefined)}><Typography>test</Typography></Popover> */}
       {showTime && (
-        <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
+        <TableCell sx={{ verticalAlign: 'center' }}>
           <Tooltip
             componentsProps={{
               tooltip: {
@@ -697,11 +707,13 @@ export default function AppointmentTableRow({
           </Tooltip>
         </TableCell>
       )}
-      <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word', cursor: 'pointer' }} onClick={handleCellClick}>
+      <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Typography variant="subtitle2" sx={{ fontSize: '16px' }}>
-            {patientName}
-          </Typography>
+          <Link to={`/patient/${appointment.patient.id}`} style={{ textDecoration: 'none' }}>
+            <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
+              {patientName}
+            </Typography>
+          </Link>
           {appointment.needsDOBConfirmation ? (
             <GenericToolTip title="Date of birth for returning patient was not confirmed" customWidth="170px">
               <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
@@ -729,19 +741,6 @@ export default function AppointmentTableRow({
             lineMax={2}
           ></ReasonsForVisit>
         </Box>
-      </TableCell>
-      <TableCell
-        align="center"
-        sx={{
-          verticalAlign: 'center',
-          wordWrap: 'break-word',
-        }}
-      >
-        {appointment.status === 'arrived' || appointment.status === 'pending' || appointment.status === 'ready' ? (
-          <CSSButton isDisabled={!appointment.id} isLoading={isCSSButtonIsLoading} handleCSSButton={handleCSSButton} />
-        ) : (
-          <IntakeCheckmark providerName={admitterName} />
-        )}
       </TableCell>
       {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
         <TableCell
@@ -776,13 +775,13 @@ export default function AppointmentTableRow({
           )}
         </TableCell>
       )}
-      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
+      <TableCell sx={{ verticalAlign: 'center' }}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
+      <TableCell sx={{ verticalAlign: 'center' }}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.group}</Typography>
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'center', cursor: 'pointer' }} onClick={handleCellClick}>
+      <TableCell sx={{ verticalAlign: 'center' }}>
         <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
           <Box sx={{ display: 'flex', gap: 0 }}>
             <AccountCircleOutlinedIcon
@@ -871,6 +870,15 @@ export default function AppointmentTableRow({
             )}
           </IconButton>
         )}
+      </TableCell>
+      <TableCell sx={{ verticalAlign: 'center' }}>
+        <Stack direction={'row'} spacing={1}>
+          <GoToButton text="Visit Details" onClick={() => navigate(`/visit/${appointment.id}`)}>
+            <MedicalInformationIcon />
+          </GoToButton>
+          {renderStartIntakeButton()}
+          {renderProgressNoteButton()}
+        </Stack>
       </TableCell>
       {actionButtons && (
         <TableCell sx={{ verticalAlign: 'center' }}>
