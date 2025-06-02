@@ -412,6 +412,17 @@ export async function setupEHR(
           value: accountNumber,
         },
       ],
+      type: [
+        {
+          coding: [
+            {
+              system: 'http://snomed.info/sct',
+              code: '261904005',
+              display: 'Laboratory',
+            },
+          ],
+        },
+      ],
       contact: [
         {
           name: {
