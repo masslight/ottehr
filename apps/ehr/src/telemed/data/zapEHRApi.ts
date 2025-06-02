@@ -36,6 +36,8 @@ import {
   UpdateCoverageZambdaInput,
   GetPatientAccountZambdaInput,
   SendFaxZambdaInput,
+  GetCreateLabOrderResources,
+  LabOrderResourcesRes,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
@@ -63,6 +65,7 @@ enum ZambdaNames {
   'update patient account' = 'update patient account',
   'remove patient coverage' = 'remove patient coverage',
   'send fax' = 'send fax',
+  'external lab resource search' = 'external lab resource search',
 }
 
 const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
@@ -88,6 +91,7 @@ const zambdasPublicityMap: Record<keyof typeof ZambdaNames, boolean> = {
   'update patient account': false,
   'remove patient coverage': false,
   'send fax': false,
+  'external lab resource search': false,
 };
 
 export type OystehrTelemedAPIClient = ReturnType<typeof getOystehrTelemedAPI>;
@@ -118,6 +122,7 @@ export const getOystehrTelemedAPI = (
   updatePatientAccount: typeof updatePatientAccount;
   removePatientCoverage: typeof removePatientCoverage;
   sendFax: typeof sendFax;
+  externalLabSearch: typeof externalLabSearch;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -142,6 +147,7 @@ export const getOystehrTelemedAPI = (
     updatePatientAccountZambdaID,
     removePatientCoverageZambdaID,
     sendFaxZambdaID,
+    externalLabResourceSearchID,
   } = params;
 
   const zambdasToIdsMap: Record<keyof typeof ZambdaNames, string | undefined> = {
@@ -167,6 +173,7 @@ export const getOystehrTelemedAPI = (
     'update patient account': updatePatientAccountZambdaID,
     'remove patient coverage': removePatientCoverageZambdaID,
     'send fax': sendFaxZambdaID,
+    'external lab resource search': externalLabResourceSearchID,
   };
   const isAppLocalProvided = params.isAppLocal != null;
 
@@ -282,6 +289,10 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('send fax', parameters);
   };
 
+  const externalLabSearch = async (parameters: GetCreateLabOrderResources): Promise<LabOrderResourcesRes> => {
+    return await makeZapRequest('external lab resource search', parameters);
+  };
+
   return {
     getTelemedAppointments,
     initTelemedSession,
@@ -305,5 +316,6 @@ export const getOystehrTelemedAPI = (
     updatePatientAccount,
     removePatientCoverage,
     sendFax,
+    externalLabSearch,
   };
 };

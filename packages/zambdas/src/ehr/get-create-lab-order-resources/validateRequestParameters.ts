@@ -7,16 +7,17 @@ export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrder
     throw new Error('No request body provided');
   }
 
-  const { encounter } = JSON.parse(input.body);
+  const { patientId, search } = JSON.parse(input.body);
 
   const missingResources = [];
-  if (!encounter.id) missingResources.push('encounter');
+  if (!patientId) missingResources.push('patientId');
   if (missingResources.length) {
     throw MISSING_REQUIRED_PARAMETERS(missingResources);
   }
 
   return {
-    encounter,
+    patientId,
+    search,
     secrets: input.secrets,
   };
 }

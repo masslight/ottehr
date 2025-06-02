@@ -25,15 +25,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
-    const { encounter, secrets } = validatedParameters;
+    const { patientId, search, secrets } = validatedParameters;
+    console.log('search passed', search);
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
-
-    const patientId = encounter.subject?.reference?.replace('Patient/', '');
-    if (!patientId) throw EXTERNAL_LAB_ERROR('Encounter is misconfigured and does not contain a patient subject');
 
     const coverageSearchRequest: BatchInputRequest<Coverage> = {
       method: 'GET',
@@ -93,7 +91,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       throw EXTERNAL_LAB_ERROR('Insurance appears to be malformed, cannot reconcile insurance class name');
     const coverageName = primaryInsuranceName ?? 'Self Pay';
 
-    const labs = await getLabs(labOrgsGuids, m2mtoken);
+    let labs: OrderableItemSearchResult[] = [];
+    if (search) {
+      labs = await getLabs(labOrgsGuids, search, m2mtoken);
+    }
 
     const response: LabOrderResourcesRes = {
       coverageName,
@@ -118,13 +119,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const getLabs = async (labOrgsGuids: string[], m2mtoken: string): Promise<OrderableItemSearchResult[]> => {
+const getLabs = async (
+  labOrgsGuids: string[],
+  search: string,
+  m2mtoken: string
+): Promise<OrderableItemSearchResult[]> => {
   const labIds = labOrgsGuids.join(',');
   let cursor = '';
   const items: OrderableItemSearchResult[] = [];
 
   do {
-    const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?labIds=${labIds}&limit=100&cursor=${cursor}`;
+    const url = `${OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API}?labIds=${labIds}&itemNames=${search}&limit=100&cursor=${cursor}`;
     const orderableItemsSearch = await fetch(url, {
       method: 'GET',
       headers: {

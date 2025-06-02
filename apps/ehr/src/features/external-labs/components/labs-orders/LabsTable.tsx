@@ -1,4 +1,4 @@
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -24,14 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocomplete } from '../LabsAutocomplete';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { getCreateLabOrderResources } from '../../../../api/api';
-import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useApiClients } from '../../../../hooks/useAppClients';
 import { LabOrderLoading } from './LabOrderLoading';
 import { DateTime } from 'luxon';
-import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 
 export type LabsTableColumn =
   | 'testType'
@@ -48,6 +42,7 @@ export type LabsTableColumn =
 type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   searchBy: SearchBy;
   columns: LabsTableColumn[];
+  patientId: string;
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
@@ -57,6 +52,7 @@ type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
 export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   searchBy,
   columns,
+  patientId,
   showFilters = false,
   allowDelete = false,
   titleText,
@@ -76,8 +72,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
   } = usePatientLabOrders(searchBy);
-
-  const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
 
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
 
@@ -100,25 +94,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
-
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-
-  const { oystehrZambda } = useApiClients();
-
-  useEffect(() => {
-    async function getResources(oystehrZambda: Oystehr): Promise<void> {
-      try {
-        const { labs } = await getCreateLabOrderResources(oystehrZambda, { encounter });
-        setLabs(labs);
-      } catch (e) {
-        console.error('error loading resources', e);
-      }
-    }
-
-    if (encounter.id && oystehrZambda) {
-      void getResources(oystehrZambda);
-    }
-  }, [encounter, oystehrZambda]);
 
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
     setSelectedOrderedItem(value || null);
@@ -227,15 +202,11 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4}>
-                {labs.length ? (
-                  <LabsAutocomplete
-                    selectedLab={selectedOrderedItem}
-                    setSelectedLab={handleOrderableItemCodeChange}
-                    labs={labs}
-                  />
-                ) : (
-                  <DropdownPlaceholder />
-                )}
+                <LabsAutocomplete
+                  selectedLab={selectedOrderedItem}
+                  setSelectedLab={handleOrderableItemCodeChange}
+                  patientId={patientId}
+                />
               </Grid>
               <Grid item xs={4}>
                 <DatePicker

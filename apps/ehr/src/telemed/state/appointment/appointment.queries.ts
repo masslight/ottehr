@@ -20,6 +20,7 @@ import {
   APIError,
   ChartDataFields,
   ChartDataRequestedFields,
+  GetCreateLabOrderResources,
   GetMedicationOrdersResponse,
   INVENTORY_MEDICATION_TYPE_CODE,
   IcdSearchRequestParams,
@@ -516,6 +517,32 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
         });
       },
       enabled: Boolean(allergiesSearchTerm),
+      keepPreviousData: true,
+      staleTime: QUERY_STALE_TIME,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetExternalLabResources = ({ patientId, search }: GetCreateLabOrderResources) => {
+  const apiClient = useZapEHRAPIClient();
+  const openError = (): void => {
+    enqueueSnackbar('An error occurred during the lab search. Please try again in a moment.', {
+      variant: 'error',
+    });
+  };
+
+  return useQuery(
+    ['external lab resource search', { patientId, search }],
+    async () => {
+      return apiClient?.externalLabSearch({ patientId, search });
+    },
+    {
+      onError: (error: APIError) => {
+        openError();
+        return error;
+      },
+      enabled: Boolean(apiClient && patientId),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
     }

@@ -186,7 +186,8 @@ export type CreateLabOrderParameters = {
 };
 
 export type GetCreateLabOrderResources = {
-  encounter: Encounter;
+  patientId: string;
+  search?: string;
 };
 
 export type LabOrderResourcesRes = {

@@ -11,14 +11,18 @@ const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provi
 
 export const ExternalLabOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
-  const encounterId = useAppointmentStore((state) => state.encounter?.id);
+  const { encounterId, patientId } = useAppointmentStore((state) => ({
+    encounterId: state.encounter?.id,
+    patientId: state.patient?.id,
+  }));
 
   const handleCreateOrder = useCallback((): void => {
     navigate(`create`);
   }, [navigate]);
 
-  if (!encounterId) {
-    console.error('No encounter ID found');
+  if (!encounterId || !patientId) {
+    if (!encounterId) console.error('No encounter ID found');
+    if (!patientId) console.error('No patient ID found');
     return null;
   }
 
@@ -48,6 +52,7 @@ export const ExternalLabOrdersListPage: React.FC = () => {
           showFilters={false}
           allowDelete={true}
           onCreateOrder={handleCreateOrder}
+          patientId={patientId}
         />
       </Box>
     </ListViewContainer>
