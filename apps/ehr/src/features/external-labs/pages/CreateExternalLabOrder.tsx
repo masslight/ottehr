@@ -24,7 +24,7 @@ import {
   ActionsList,
   DeleteIconButton,
   useSaveChartData,
-  useGetExternalLabResources,
+  useGetCreateExternalLabResources,
 } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS } from 'utils';
@@ -80,10 +80,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     });
   };
 
-  const { isFetching: dataLoading, data: getExternalLabSearchRes } = useGetExternalLabResources({
+  const { isFetching: dataLoading, data: createExternalLabResources } = useGetCreateExternalLabResources({
     patientId,
   });
-  const coverageName = getExternalLabSearchRes?.coverageName;
+  const coverageName = createExternalLabResources?.coverageName;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();

@@ -1,7 +1,7 @@
 import { FC, useState, useMemo } from 'react';
 import { OrderableItemSearchResult, nameLabTest } from 'utils';
 import { Autocomplete, TextField } from '@mui/material';
-import { useGetExternalLabResources } from 'src/telemed';
+import { useGetCreateExternalLabResources } from 'src/telemed';
 import { useDebounce } from 'src/telemed';
 
 type LabsAutocompleteProps = {
@@ -18,7 +18,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
   // used to fetch external lab items list
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState('');
-  const { isFetching: searchingForLabs, data: getExternalLabSearchRes } = useGetExternalLabResources({
+  const { isFetching: searchingForLabs, data: createExternalLabResources } = useGetCreateExternalLabResources({
     patientId,
     search: debouncedLabSearchTerm,
   });
@@ -29,12 +29,12 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
   };
 
   const filterOptions = useMemo(() => {
-    const labs = getExternalLabSearchRes?.labs || [];
+    const labs = createExternalLabResources?.labs || [];
     if (inputValue === '') return [];
     return labs.filter((item) => {
       return item.item.itemName.toLowerCase().includes(inputValue.toLowerCase());
     });
-  }, [inputValue, getExternalLabSearchRes?.labs]);
+  }, [inputValue, createExternalLabResources?.labs]);
 
   return (
     <Autocomplete

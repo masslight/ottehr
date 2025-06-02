@@ -122,7 +122,7 @@ export const getOystehrTelemedAPI = (
   updatePatientAccount: typeof updatePatientAccount;
   removePatientCoverage: typeof removePatientCoverage;
   sendFax: typeof sendFax;
-  externalLabSearch: typeof externalLabSearch;
+  getCreateExternalLabResources: typeof getCreateExternalLabResources;
 } => {
   const {
     getTelemedAppointmentsZambdaID,
@@ -289,7 +289,9 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('send fax', parameters);
   };
 
-  const externalLabSearch = async (parameters: GetCreateLabOrderResources): Promise<LabOrderResourcesRes> => {
+  const getCreateExternalLabResources = async (
+    parameters: GetCreateLabOrderResources
+  ): Promise<LabOrderResourcesRes> => {
     return await makeZapRequest('external lab resource search', parameters);
   };
 
@@ -316,6 +318,6 @@ export const getOystehrTelemedAPI = (
     updatePatientAccount,
     removePatientCoverage,
     sendFax,
-    externalLabSearch,
+    getCreateExternalLabResources,
   };
 };
