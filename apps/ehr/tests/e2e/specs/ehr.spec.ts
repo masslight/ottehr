@@ -236,6 +236,11 @@ test.describe('Patient search', () => {
       await page.goto('/patients');
     });
 
+    // Avoid running combination searches if any of the individual ones failed
+    await test.step('All searches by individual fields pass', async () => {
+      expect(test.info().errors).toHaveLength(0);
+    });
+
     await test.step('Search by Last name and First name', async () => {
       const patientsPage = await expectPatientsPage(page);
       await patientsPage.searchByLastName(PATIENT_LAST_NAME);
