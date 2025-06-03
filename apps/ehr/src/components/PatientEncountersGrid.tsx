@@ -142,13 +142,7 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
       // if it's a pre-booked telemed visit the text is just 'prebook' so use the TM tag instead to support both
       const isTelemed = !!appointment.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.TM);
 
-      return (
-        !isTelemed && (
-          <RoundedButton target="_blank" to={`/visit/${id}`}>
-            Visit Info
-          </RoundedButton>
-        )
-      );
+      return !isTelemed && <RoundedButton to={`/visit/${id}`}>Visit Info</RoundedButton>;
     },
   },
   {
