@@ -5,8 +5,12 @@ import { ButtonRounded } from 'src/features/css-module/components/RoundedButton'
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { BreadCrumbs } from '../components/BreadCrumbs';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { createNursingOrder } from 'src/api/api';
+import { CreateNursingOrderParameters } from 'utils';
 
 export const NursingOrderCreatePage: React.FC = () => {
+  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState<string>('');
@@ -21,18 +25,25 @@ export const NursingOrderCreatePage: React.FC = () => {
     setLoading(true);
 
     try {
-      // In a real implementation, this would submit the order to the API
+      if (!oystehrZambda) throw new Error('Zambda client not found');
       console.log('Order submitted:', {
         notes: orderNote,
         patientId: patient?.id,
         encounterId: encounter?.id,
       });
 
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!encounter?.id) {
+        throw new Error('Missing encounter ID');
+      }
 
-      // Navigate back to the nursing orders list
-      navigate(-1);
+      const zambdaParams: CreateNursingOrderParameters = {
+        encounterId: encounter?.id,
+        notes: orderNote,
+      };
+
+      await createNursingOrder(oystehrZambda, zambdaParams);
+
+      handleBack();
     } catch (error) {
       console.error('Error submitting order:', error);
     } finally {
@@ -87,7 +98,7 @@ export const NursingOrderCreatePage: React.FC = () => {
                       <ButtonRounded
                         variant="contained"
                         type="submit"
-                        disabled={orderNote.length === 0}
+                        disabled={orderNote.length === 0 || loading}
                         sx={{
                           borderRadius: '50px',
                           px: 4,

@@ -1,46 +1,13 @@
 import { useCallback, useState, useEffect } from 'react';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { NursingOrdersStatus } from '../../nursingOrderTypes';
+import { getNursingOrders, updateNursingOrder as updateNursingOrderApi } from 'src/api/api';
+import { GetNursingOrdersInput, NursingOrdersSearchBy } from 'utils';
 
-// Mock function for getNursingOrders
-export const getNursingOrders = async (_oystehrZambda: any): Promise<{ data: any[] }> => {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  // Mock data matching your hook's expected structure
-  const mockData = [
-    {
-      serviceRequestId: '123',
-      order:
-        'Offer ice pop for comfort and hydration. Indicated for sore throat and/or post-febrile care. Monitor tolerance and document intake.',
-      orderAddedDate: '2025-05-27T10:17:00.000Z',
-      orderingPhysician: 'Tom Smith, MD',
-      orderStatus: NursingOrdersStatus.pending,
-    },
-    {
-      serviceRequestId: '456',
-      order:
-        'Administer oral rehydration solution as needed. Monitor patient hydration status and document fluid intake.',
-      orderAddedDate: '2025-05-27T11:30:00.000Z',
-      orderingPhysician: 'Sarah Johnson, MD',
-      orderStatus: NursingOrdersStatus.completed,
-    },
-    {
-      serviceRequestId: '789',
-      order:
-        'Apply cold compress to affected area for 15 minutes every 2 hours. Document patient response and comfort level.',
-      orderAddedDate: '2025-05-27T09:45:00.000Z',
-      orderingPhysician: 'Michael Chen, MD',
-      orderStatus: NursingOrdersStatus.cancelled,
-    },
-  ];
-
-  return {
-    data: mockData,
-  };
-};
-
-export const useNursingOrders = (): any => {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetNursingOrders = ({
+  encounterId,
+  searchBy,
+}: GetNursingOrdersInput & { searchBy?: NursingOrdersSearchBy }) => {
   const { oystehrZambda } = useApiClients();
   const [nursingOrders, setNursingOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +25,7 @@ export const useNursingOrders = (): any => {
     try {
       let response;
       try {
-        response = await getNursingOrders(oystehrZambda);
+        response = await getNursingOrders(oystehrZambda, { encounterId, searchBy });
       } catch (err) {
         console.error('Error fetching nursing orders:', err);
         setError(err instanceof Error ? err : new Error('Unknown error occurred'));
@@ -76,7 +43,7 @@ export const useNursingOrders = (): any => {
     } finally {
       setLoading(false);
     }
-  }, [oystehrZambda]);
+  }, [oystehrZambda, encounterId, searchBy]);
 
   // Initial fetch of nursing orders
   useEffect(() => {
@@ -88,5 +55,47 @@ export const useNursingOrders = (): any => {
     loading,
     error,
     fetchNursingOrders,
+  };
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useUpdateNursingOrder = ({ serviceRequestId, action }: { serviceRequestId?: string; action: string }) => {
+  const { oystehrZambda } = useApiClients();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const updateNursingOrder = useCallback(async (): Promise<void> => {
+    if (!oystehrZambda) {
+      console.error('oystehrZambda is not defined');
+      return;
+    }
+
+    if (!serviceRequestId) {
+      console.warn('ServiceRequestId is undefined — skipping update.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      try {
+        await updateNursingOrderApi(oystehrZambda, { serviceRequestId, action });
+      } catch (err) {
+        console.error('Error updating nursing order:', err);
+        setError(err instanceof Error ? err : new Error('Unknown error occurred'));
+      }
+    } catch (error) {
+      console.error('error with setting nursing order:', error);
+      setError(error instanceof Error ? error : new Error('Unknown error occurred'));
+    } finally {
+      setLoading(false);
+    }
+  }, [oystehrZambda, serviceRequestId, action]);
+
+  return {
+    loading,
+    error,
+    updateNursingOrder,
   };
 };

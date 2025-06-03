@@ -1,87 +1,37 @@
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Box, Paper, Typography, Button, CircularProgress, Collapse, IconButton, Divider } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { useApiClients } from '../../../hooks/useAppClients';
 import { OrderDetails } from '../components/details/OrderDetails';
-import { NursingOrder, NursingOrdersStatus } from '../nursingOrderTypes';
+import { getSelectors, NursingOrdersSearchBy } from 'utils';
 import { History } from '../components/details/History';
 import { BreadCrumbs } from '../components/BreadCrumbs';
+import { useGetNursingOrders, useUpdateNursingOrder } from '../components/orders/useNursingOrders';
+import { useAppointmentStore } from 'src/telemed';
 
 export const NursingOrderDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { serviceRequestID } = useParams<{ serviceRequestID: string }>();
-  const [loading, setLoading] = useState(true);
+
   const [showHistory, setShowHistory] = useState(false);
-  const [nursingOrderDetails, setNursingOrderDetails] = useState<NursingOrder | null>(null);
-  const { oystehrZambda } = useApiClients();
+  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
-  // Fetch the test details based on the current view/status
-  useEffect(() => {
-    const fetchNursingOrderDetails = async (): Promise<void> => {
-      setLoading(true);
+  const searchBy: NursingOrdersSearchBy | undefined = useMemo(() => {
+    if (!serviceRequestID) return undefined;
 
-      try {
-        // This would be an API call in a real implementation
-        // For now, we'll create mock data based on the test ID
-
-        // Simulate API delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
-        let testData: NursingOrder;
-
-        // Determine which test data to show based on the test ID
-        // In a real implementation, this would come from the API
-        if (serviceRequestID === '123') {
-          testData = {
-            id: '123',
-            note: 'Offer ice pop for comfort and hydration. Indicated for sore throat and/or post-febrile care. Monitor tolerance and document intake.',
-            status: NursingOrdersStatus.pending,
-            orderDetails: {
-              orderedBy: 'Dr. Smith, MD,',
-              orderedDate: '2025-05-27T10:17:00.000Z',
-            },
-          };
-        } else if (serviceRequestID === '456') {
-          testData = {
-            id: '456',
-            note: 'Offer ice pop for comfort and hydration. Indicated for sore throat and/or post-febrile care. Monitor tolerance and document intake.',
-            status: NursingOrdersStatus.completed,
-            orderDetails: {
-              orderedBy: 'Dr. Smith, MD,',
-              orderedDate: '2025-05-27T10:17:00.000Z',
-            },
-          };
-        } else if (serviceRequestID === '789') {
-          testData = {
-            id: '789',
-            note: 'Offer ice pop for comfort and hydration. Indicated for sore throat and/or post-febrile care. Monitor tolerance and document intake.',
-            status: NursingOrdersStatus.cancelled,
-            orderDetails: {
-              orderedBy: 'Dr. Smith, MD,',
-              orderedDate: '2025-05-27T10:17:00.000Z',
-            },
-          };
-        } else {
-          // Default test data
-          testData = {
-            id: serviceRequestID || 'unknown',
-            note: 'Offer ice pop for comfort and hydration. Indicated for sore throat and/or post-febrile care. Monitor tolerance and document intake.',
-            status: NursingOrdersStatus.pending,
-          };
-        }
-
-        setNursingOrderDetails(testData);
-      } catch (error) {
-        console.error('Error fetching test details:', error);
-      } finally {
-        setLoading(false);
-      }
+    return {
+      field: 'serviceRequestId',
+      value: serviceRequestID,
     };
+  }, [serviceRequestID]);
 
-    void fetchNursingOrderDetails();
-  }, [serviceRequestID, oystehrZambda]);
+  const { nursingOrders, loading, error } = useGetNursingOrders({
+    encounterId: encounter.id || '',
+    searchBy,
+  });
+
+  const order = nursingOrders.find((order) => order.serviceRequestId === serviceRequestID);
 
   const handleBack = (): void => {
     navigate(-1);
@@ -91,25 +41,19 @@ export const NursingOrderDetailsPage: React.FC = () => {
     setShowHistory(!showHistory);
   };
 
-  const handleSubmit = async (updatedData: any): Promise<void> => {
-    setLoading(true);
+  const { updateNursingOrder } = useUpdateNursingOrder({
+    serviceRequestId: serviceRequestID,
+    action: 'COMPLETE ORDER',
+  });
 
+  const handleSubmit = async (): Promise<void> => {
     try {
-      // In a real implementation, this would call the API to update the test details
-      console.log('Submitting test details:', {
-        testId: serviceRequestID,
-        ...updatedData,
-      });
-
-      // Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await updateNursingOrder();
 
       // Navigate back to the list view
       navigate(-1);
     } catch (error) {
-      console.error('Error submitting test details:', error);
-    } finally {
-      setLoading(false);
+      console.error('Error completing nursing order:', error);
     }
   };
 
@@ -121,7 +65,17 @@ export const NursingOrderDetailsPage: React.FC = () => {
     );
   }
 
-  if (!nursingOrderDetails) {
+  if (error) {
+    return (
+      <Paper sx={{ mb: 2 }}>
+        <Typography color="error" variant="body1" gutterBottom>
+          {'Failed to fetch nursing order details. Please try again later.'}
+        </Typography>
+      </Paper>
+    );
+  }
+
+  if (!order) {
     return (
       <Box>
         <Button variant="outlined" onClick={handleBack} sx={{ mb: 2, borderRadius: '50px', px: 4 }}>
@@ -138,10 +92,10 @@ export const NursingOrderDetailsPage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '680px' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: '680px', width: '100%' }}>
         <BreadCrumbs />
 
-        <OrderDetails orderDetails={nursingOrderDetails} onSubmit={handleSubmit} />
+        <OrderDetails orderDetails={order} onSubmit={handleSubmit} />
 
         <Paper>
           <Box sx={{ display: 'flex', alignItems: 'center', px: 2, py: 1, backgroundColor: '#F4F6F8' }}>
@@ -159,7 +113,7 @@ export const NursingOrderDetailsPage: React.FC = () => {
           </Box>
           <Divider />
           <Collapse in={showHistory}>
-            <History orderDetails={nursingOrderDetails} />
+            <History orderHistory={order.history} />
           </Collapse>
         </Paper>
 

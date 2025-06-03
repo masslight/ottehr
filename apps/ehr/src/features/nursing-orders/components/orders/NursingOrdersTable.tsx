@@ -10,50 +10,39 @@ import {
   Paper,
   Button,
 } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNursingOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { useAppointmentStore } from 'src/telemed';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
-import { useNursingOrders } from './useNursingOrders';
+import { useGetNursingOrders } from './useNursingOrders';
+import { getSelectors } from 'utils';
 
 export type NursingOrdersTableColumn = 'order' | 'orderAdded' | 'status';
 
 type NursingOrdersTableProps = {
   columns: NursingOrdersTableColumn[];
   allowDelete?: boolean;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
   onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
 };
 
-export const NursingOrdersTable = ({
-  columns,
-  allowDelete = true,
-  redirectToOrderCreateIfOrdersEmpty = false,
-  onCreateOrder,
-}: NursingOrdersTableProps): ReactElement => {
+export const NursingOrdersTable = ({ columns, onCreateOrder }: NursingOrdersTableProps): ReactElement => {
   const navigateTo = useNavigate();
-  const appointmentId = useAppointmentStore((state) => state.appointment?.id);
+  const { appointment, encounter } = getSelectors(useAppointmentStore, ['appointment', 'encounter']);
 
-  const { nursingOrders, loading, error } = useNursingOrders();
+  const {
+    nursingOrders,
+    loading,
+    error,
+    fetchNursingOrders: refetch,
+  } = useGetNursingOrders({ encounterId: encounter.id || '' });
 
   const onRowClick = (nursingOrderData: { serviceRequestId: string }): void => {
-    if (!appointmentId) {
+    if (!appointment?.id) {
       return;
     }
-    navigateTo(getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId));
+    navigateTo(getNursingOrderDetailsUrl(appointment.id, nursingOrderData.serviceRequestId));
   };
-
-  // Redirect to create order page if needed
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && nursingOrders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder({ isAutoRedirected: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, nursingOrders.length, error, onCreateOrder]);
 
   if (loading) {
     return (
@@ -144,7 +133,7 @@ export const NursingOrdersTable = ({
                   nursingOrderData={order}
                   onRowClick={() => onRowClick(order)}
                   columns={columns}
-                  allowDelete={allowDelete}
+                  refetchOrders={refetch}
                 />
               ))}
             </TableBody>

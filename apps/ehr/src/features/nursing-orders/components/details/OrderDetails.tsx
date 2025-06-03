@@ -1,6 +1,6 @@
 import { Box, Paper, Typography, Divider } from '@mui/material';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { NursingOrder, NursingOrdersStatus } from '../../nursingOrderTypes';
+import { NursingOrder, NursingOrdersStatus } from 'utils';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 
 interface CollectSampleViewProps {
