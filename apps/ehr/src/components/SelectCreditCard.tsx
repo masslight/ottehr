@@ -65,7 +65,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     },
   });
 
-  const initializing = isSetupDataLoading || cardsAreLoading;
+  const initializing = isSetupDataFetching || isSetupDataLoading || cardsAreLoading;
 
   const cardOptions = [
     ...cards.map((card) => ({ id: card.id, label: labelForCard(card) })),
@@ -120,7 +120,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             width: '100%',
           },
           gap: 1,
-          display: addingNewCard ? 'none' : 'initial',
+          display: addingNewCard && cards.length === 0 ? 'none' : 'initial',
           marginBottom: 2,
         }}
         options={cardOptions}
@@ -129,7 +129,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             {option.label}
           </li>
         )}
-        value={selectedCard ?? null}
+        value={selectedCard ?? addingNewCard ? NEW_CARD : null}
         renderInput={(params: AutocompleteRenderInputParams) => {
           return (
             <TextField
@@ -151,6 +151,9 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             return;
           }
           handleCardSelected(value?.id);
+          if (addingNewCard) {
+            setAddingNewCard(false);
+          }
         }}
       />
 
@@ -161,6 +164,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
           justifyContent: 'center',
           alignItems: 'flex-start',
           flexDirection: 'column',
+          marginTop: 2,
         }}
       >
         <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>

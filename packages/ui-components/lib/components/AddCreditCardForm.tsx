@@ -2,7 +2,7 @@ import { LoadingButton } from '@mui/lab';
 import { Box } from '@mui/system';
 import { FC, useState } from 'react';
 import { CardElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { Checkbox, FormLabel, Typography } from '@mui/material';
+import { Checkbox, FormLabel } from '@mui/material';
 
 type CreditCardFormProps = {
   clientSecret: string;
@@ -50,16 +50,6 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
         alignItems: 'end',
       }}
     >
-      <Typography
-        variant="body1"
-        color={'text.primary'}
-        sx={{
-          display: condition && !conditionAccepted ? ' initial' : 'none',
-          width: '100%',
-        }}
-      >
-        Add a new card after obtaining the patient's consent
-      </Typography>
       <Box sx={{ width: '100%' }}>
         <CardElement
           options={{
