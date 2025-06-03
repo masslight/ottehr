@@ -200,7 +200,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                           '& .MuiInputLabel-root': {
                             color: '#5F6368',
                             fontSize: '0.875rem',
-                            lineHeight: '1rem',
+                            lineHeight: '0.8rem',
                             '&.Mui-focused': {
                               color: '#5F6368',
                             },
