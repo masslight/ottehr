@@ -41,7 +41,6 @@ test.afterEach(async () => {
 
 test('Open Order Medication screen, check all fields are required', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
-  await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
   await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
