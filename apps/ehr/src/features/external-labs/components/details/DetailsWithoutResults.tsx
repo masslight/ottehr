@@ -10,7 +10,7 @@ export const DetailsWithoutResults: React.FC<{
   saveSpecimenDate: (params: SpecimenDateChangedParameters) => Promise<void>;
 }> = ({ labOrder, saveSpecimenDate }) => {
   return (
-    <Stack spacing={2} sx={{ p: 3 }}>
+    <Stack spacing={2} sx={{ width: '100%' }}>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
       <Stack
         direction="row"
@@ -20,9 +20,7 @@ export const DetailsWithoutResults: React.FC<{
           alignItems: 'center',
         }}
       >
-        <Typography sx={{ minWidth: '400px' }} variant="body1">
-          {labOrder.diagnoses}
-        </Typography>
+        <Typography variant="body1">{labOrder.diagnoses}</Typography>
         <Grid container justifyContent="end" spacing={2}>
           <Grid item>
             <Typography variant="body1">{labOrder.isPSC ? 'PSC' : ''}</Typography>

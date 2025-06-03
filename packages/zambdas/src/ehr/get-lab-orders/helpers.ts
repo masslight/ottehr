@@ -774,11 +774,12 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
   tasksResponse.forEach((task) => {
     const drId = getDrIdFromTask(task);
     if (drId && task.id) {
+      const drHasCorrectedResult = !!resultIdToHasReviewCorrectedResultMap.get(drId);
       resultIdToHasReviewCorrectedResultMap.set(
         drId,
-        task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult) ?? false
+        task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult) ||
+          drHasCorrectedResult
       );
-
       taskIdToResultIdMap.set(task.id, drId);
     }
   });

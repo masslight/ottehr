@@ -2,11 +2,11 @@ import React from 'react';
 import { Typography, Collapse, Table, TableBody, TableRow, TableCell } from '@mui/material';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { formatDateForLabs } from 'utils';
-import { InHouseOrderDetailPageDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface InHouseLabOrderHistoryProps {
   showDetails: boolean;
-  testDetails: InHouseOrderDetailPageDTO;
+  testDetails: InHouseOrderDetailPageItemDTO;
 }
 
 export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ showDetails, testDetails }) => {
@@ -14,10 +14,10 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
     <Collapse in={showDetails}>
       <Table
         sx={{
-          mt: 2,
-          p: '8px 16px 8px 16px',
+          p: '8px 16px',
           borderCollapse: 'separate',
           backgroundColor: '#F8F9FA',
+          borderRadius: '8px',
         }}
       >
         <TableBody>
@@ -31,15 +31,34 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
                 },
               }}
             >
-              <TableCell sx={{ p: '8px 0 8px 0', width: '33%' }}>
+              <TableCell
+                sx={{
+                  p: '8px 0',
+                  width: '33%',
+                  verticalAlign: 'middle',
+                }}
+              >
                 <InHouseLabsStatusChip status={status} />
               </TableCell>
-              <TableCell sx={{ p: '8px 0 8px 0', width: '33%' }}>
+              <TableCell
+                sx={{
+                  p: '8px 0',
+                  width: '33%',
+                  verticalAlign: 'middle',
+                }}
+              >
                 <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                   {providerName}
                 </Typography>
               </TableCell>
-              <TableCell sx={{ p: '8px 0 8px 0', width: '33%' }}>
+              <TableCell
+                sx={{
+                  p: '8px 0',
+                  width: '33%',
+                  verticalAlign: 'middle',
+                  textAlign: 'right',
+                }}
+              >
                 <Typography variant="body2">{formatDateForLabs(date, testDetails.timezone)}</Typography>
               </TableCell>
             </TableRow>
