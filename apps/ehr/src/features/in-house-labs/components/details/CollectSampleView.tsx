@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Paper,
@@ -22,6 +22,7 @@ import { getOrCreateVisitLabel } from 'src/api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData } from 'utils';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
+import useEvolveUser from 'src/hooks/useEvolveUser';
 
 interface CollectSampleViewProps {
   testDetails: InHouseOrderDetailPageItemDTO;
@@ -46,6 +47,17 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
+
+  const currentUser = useEvolveUser();
+  console.log('currentUser', currentUser);
+
+  // set default collected by to current user if no choice made
+  useEffect(() => {
+    const id = currentUser?.profileResource?.id;
+    if (!collectedById && id) {
+      setCollectedById(id);
+    }
+  }, [collectedById, currentUser]);
 
   const providers =
     testDetails.currentUserId !== testDetails.orderingPhysicianId
@@ -275,7 +287,7 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
                           },
                         }}
                       >
-                        <MenuItem value="">Select</MenuItem>
+                        {!collectedById && <MenuItem value="">Select</MenuItem>}
                         {providers.map((provider) => (
                           <MenuItem key={provider.id} value={provider.id}>
                             {provider.name}
@@ -377,6 +389,9 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
 
             <Box sx={{ mt: 3 }}>
               <TextField
+                InputProps={{
+                  readOnly: true,
+                }}
                 fullWidth
                 multiline
                 rows={3}
