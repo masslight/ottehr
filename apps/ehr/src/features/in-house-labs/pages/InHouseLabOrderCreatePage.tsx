@@ -18,7 +18,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
@@ -35,6 +35,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
   const [selectedTest, setSelectedTest] = useState<TestItem | null>(null);
@@ -44,6 +45,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const [providerName, setProviderName] = useState<string>('');
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [repeatTest, setRepeatTest] = useState<boolean>(false);
+
+  const prefillData = location.state as {
+    testItemName?: string;
+    diagnoses?: DiagnosisDTO[];
+  };
 
   const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -99,10 +105,6 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
     const fetchLabs = async (): Promise<void> => {
       try {
-        if (!encounter?.id) {
-          console.error('Encounter not found');
-          return;
-        }
         setLoading(true);
         const response = await getCreateInHouseLabOrderResources(oystehrZambda, {
           encounterId: encounter.id,
@@ -117,8 +119,33 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
       }
     };
 
-    void fetchLabs();
+    if (encounter.id) {
+      void fetchLabs();
+    }
   }, [oystehrZambda, encounter?.id]);
+
+  useEffect(() => {
+    if (prefillData) {
+      const { testItemName, diagnoses } = prefillData;
+      if (testItemName) {
+        const found = availableTests.find((test) => test.name === testItemName);
+        console.log('found', found);
+        if (found) {
+          setSelectedTest(found);
+          setAvailableCptCodes(found.cptCode);
+          setRepeatTest(true);
+          // currently we aren't handling more than one cpt being selected
+          // in fact all our tests only have one cpt code so at the moment this is a non issue
+          if (found.cptCode.length === 1) {
+            setSelectedCptCode(found.cptCode[0]);
+          }
+        }
+      }
+      if (diagnoses) {
+        setSelectedAssessmentDiagnoses(diagnoses);
+      }
+    }
+  }, [prefillData, availableTests]);
 
   const handleBack = (): void => {
     navigate(-1);

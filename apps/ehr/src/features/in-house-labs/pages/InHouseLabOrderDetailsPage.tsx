@@ -106,31 +106,25 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   return (
     <DetailPageContainer>
-      {(() => {
-        switch (testDetails.status) {
-          case 'ORDERED':
-            return (
-              <WithInHouseLabsBreadcrums pageName={pageName}>
+      <WithInHouseLabsBreadcrums pageName={pageName}>
+        {(() => {
+          switch (testDetails.status) {
+            case 'ORDERED':
+              return (
                 <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
-              </WithInHouseLabsBreadcrums>
-            );
-          case 'COLLECTED':
-            return (
-              <WithInHouseLabsBreadcrums pageName={pageName}>
+              );
+            case 'COLLECTED':
+              return (
                 <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />
-              </WithInHouseLabsBreadcrums>
-            );
-          case 'FINAL':
-            return (
-              <WithInHouseLabsBreadcrums pageName={pageName}>
-                <FinalResultView testDetails={allTestDetails} onBack={handleBack} />
-              </WithInHouseLabsBreadcrums>
-            );
-          default:
-            // temp for debugging
-            return <p>Status could not be parsed: {testDetails.status}</p>;
-        }
-      })()}
+              );
+            case 'FINAL':
+              return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
+            default:
+              // temp for debugging
+              return <p>Status could not be parsed: {testDetails.status}</p>;
+          }
+        })()}
+      </WithInHouseLabsBreadcrums>
     </DetailPageContainer>
   );
 };
