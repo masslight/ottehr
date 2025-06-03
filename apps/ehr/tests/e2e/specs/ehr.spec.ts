@@ -303,6 +303,7 @@ test.describe('Patient search', () => {
 
     const patientsPage = await expectPatientsPage(page);
     await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
     await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
     await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
     await patientsPage.searchByAddress(PATIENT_CITY);
