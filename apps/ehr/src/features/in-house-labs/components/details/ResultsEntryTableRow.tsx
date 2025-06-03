@@ -66,7 +66,7 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     : ROW_STYLING;
 
   return (
-    <TableRow key={`row-${component.observationDefinitionId}`}>
+    <TableRow>
       <TableCell sx={rowStyling}>
         <Typography variant="body1" sx={{ color: `${isAbnormal ? 'error.dark' : ''}` }}>
           {component.componentName}

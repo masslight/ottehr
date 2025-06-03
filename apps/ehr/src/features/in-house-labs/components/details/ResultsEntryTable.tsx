@@ -45,6 +45,7 @@ export const ResultEntryTable: React.FC<ResultEntryTableProps> = ({ testItemComp
             <ResultEntryTableRow
               component={component}
               disabled={disabled}
+              key={`row-${index}-${component.observationDefinitionId}`}
               isLastRow={index === testItemComponents.length - 1}
             />
           ))}

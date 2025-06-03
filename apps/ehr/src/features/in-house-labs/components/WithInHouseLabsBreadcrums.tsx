@@ -14,10 +14,7 @@ export const WithInHouseLabsBreadcrums: React.FC<{ children: React.ReactNode; pa
 
   return (
     <>
-      <Breadcrumbs
-        separator={<Typography sx={{ color: '#5F6368', mx: 0.5 }}>/</Typography>}
-        sx={{ display: 'flex', mb: '18px !important' }}
-      >
+      <Breadcrumbs separator={<Typography sx={{ color: '#5F6368', mx: 0.5 }}>/</Typography>} sx={{ display: 'flex' }}>
         <Link
           underline="hover"
           color="inherit"
