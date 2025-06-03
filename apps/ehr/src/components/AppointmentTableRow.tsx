@@ -610,7 +610,11 @@ export default function AppointmentTableRow({
       appointment.status === 'completed'
     ) {
       return (
-        <GoToButton text="Progress Note" onClick={() => navigate(`/in-person/${appointment.id}`)}>
+        <GoToButton
+          text="Progress Note"
+          onClick={() => navigate(`/in-person/${appointment.id}`)}
+          dataTestId={dataTestIds.dashboard.progressNoteButton}
+        >
           <img src={progressNoteIcon} />
         </GoToButton>
       );
@@ -709,7 +713,11 @@ export default function AppointmentTableRow({
       )}
       <TableCell sx={{ verticalAlign: 'center', wordWrap: 'break-word' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <Link to={`/patient/${appointment.patient.id}`} style={{ textDecoration: 'none' }}>
+          <Link
+            to={`/patient/${appointment.patient.id}`}
+            style={{ textDecoration: 'none' }}
+            data-testId={dataTestIds.dashboard.patientName}
+          >
             <Typography variant="subtitle2" sx={{ fontSize: '16px', color: '#000' }}>
               {patientName}
             </Typography>
@@ -873,7 +881,11 @@ export default function AppointmentTableRow({
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Stack direction={'row'} spacing={1}>
-          <GoToButton text="Visit Details" onClick={() => navigate(`/visit/${appointment.id}`)}>
+          <GoToButton
+            text="Visit Details"
+            onClick={() => navigate(`/visit/${appointment.id}`)}
+            dataTestId={dataTestIds.dashboard.visitDetailsButton}
+          >
             <MedicalInformationIcon />
           </GoToButton>
           {renderStartIntakeButton()}
