@@ -283,7 +283,7 @@ export const getInHouseResources = async (
     // either the service request id passed was the initial test (no basedOn)
     // or it was a repeat test (will have a baseOn property)
     if (serviceRequests.length > 1) {
-      const repeatTestingSrs = getSrsRelatedToRepeat(serviceRequests, searchBy.searchBy.value);
+      const repeatTestingSrs = getSrsRelatedToRepeat(serviceRequests, searchBy.searchBy.value as string);
       // we need to grab additional resources for these additional SRs that will be rendered on the detail page
       const { repeatDiagnosticReports, repeatObservations, repeatProvenances, repeatTasks, repeatSpecimens } =
         await fetchResultResourcesForRepeatServiceRequest(oystehr, repeatTestingSrs);
@@ -389,6 +389,13 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
     searchParams.push({
       name: 'encounter',
       value: `Encounter/${searchBy.value}`,
+    });
+  }
+
+  if (searchBy.field === 'encounterIds') {
+    searchParams.push({
+      name: 'encounter',
+      value: searchBy.value.map((id) => `Encounter/${id}`).join(','),
     });
   }
 

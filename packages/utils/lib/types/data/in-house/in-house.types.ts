@@ -110,6 +110,7 @@ export type InHouseGetOrdersResponseDTO<SearchBy extends InHouseOrdersSearchBy> 
 export type InHouseOrdersSearchBy = {
   searchBy:
     | { field: 'encounterId'; value: string }
+    | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
     | { field: 'serviceRequestId'; value: string };
 };
