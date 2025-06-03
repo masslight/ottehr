@@ -10,11 +10,37 @@ import {
   DialogTitle,
 } from '@mui/material';
 
-interface UseDeleteLabOrderDialogProps {
-  deleteOrder: ({ serviceRequestId }: { serviceRequestId: string }) => Promise<boolean>;
+interface UseDeleteCommonLabOrderDialogProps {
+  deleteOrder: ({
+    serviceRequestId,
+    testItemName,
+  }: {
+    serviceRequestId: string;
+    testItemName: string;
+  }) => Promise<boolean>;
+  locales?: typeof defaultLocalesConstants;
 }
 
-interface UseDeleteLabOrderDialogResult {
+const defaultLocalesConstants = {
+  noLabOrderSelectedForDeletion: 'No lab order selected for deletion',
+  failedToDeleteLabOrder: 'Failed to delete lab order',
+  errorOccurredDuringDeletion: 'An error occurred during deletion',
+  errorConfirmingDelete: 'Error confirming delete:',
+  deleteOrderDialogTitle: 'Delete Lab Order',
+  deleteOrderDialogContent: (testItemName: string) => (
+    <>
+      Are you sure you want to delete this order <strong>{testItemName}</strong>?
+      <br />
+      <br />
+      Deleting this order will also remove any additional associated diagnoses.
+    </>
+  ),
+  deleteOrderDialogKeepButton: 'Keep',
+  deleteOrderDialogDeleteButton: 'Delete Order',
+  deleteOrderDialogDeletingButton: 'Deleting Order...',
+};
+
+interface UseDeleteCommonLabOrderDialogResult {
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
@@ -25,9 +51,10 @@ interface UseDeleteLabOrderDialogResult {
   DeleteOrderDialog: ReactElement | null;
 }
 
-export const useDeleteLabOrderDialog = ({
+export const useDeleteCommonLabOrderDialog = ({
   deleteOrder,
-}: UseDeleteLabOrderDialogProps): UseDeleteLabOrderDialogResult => {
+  locales = defaultLocalesConstants,
+}: UseDeleteCommonLabOrderDialogProps): UseDeleteCommonLabOrderDialogResult => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -51,7 +78,7 @@ export const useDeleteLabOrderDialog = ({
 
   const confirmDeleteOrder = useCallback(async (): Promise<void> => {
     if (!serviceRequestIdToDelete) {
-      setDeleteError('No lab order selected for deletion');
+      setDeleteError(locales.noLabOrderSelectedForDeletion);
       return;
     }
 
@@ -60,21 +87,22 @@ export const useDeleteLabOrderDialog = ({
     try {
       const success = await deleteOrder({
         serviceRequestId: serviceRequestIdToDelete,
+        testItemName: testItemNameToDelete,
       });
 
       if (success) {
         setIsDeleteDialogOpen(false);
       } else {
-        setDeleteError('Failed to delete lab order');
+        setDeleteError(locales.failedToDeleteLabOrder);
       }
     } catch (err) {
-      console.error('Error confirming delete:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred during deletion';
+      console.error(locales.errorConfirmingDelete, err);
+      const errorMessage = err instanceof Error ? err.message : locales.errorOccurredDuringDeletion;
       setDeleteError(errorMessage);
     } finally {
       setIsDeleting(false);
     }
-  }, [serviceRequestIdToDelete, deleteOrder]);
+  }, [serviceRequestIdToDelete, testItemNameToDelete, deleteOrder, locales]);
 
   const DeleteOrderDialog = isDeleteDialogOpen ? (
     <Dialog open={isDeleteDialogOpen} onClose={closeDeleteDialog} maxWidth="sm" fullWidth>
@@ -86,15 +114,10 @@ export const useDeleteLabOrderDialog = ({
         }}
       >
         <DialogTitle variant="h5" color="primary.dark">
-          Delete Lab Order
+          {locales.deleteOrderDialogTitle}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this order <strong>{testItemNameToDelete}</strong>?
-            <br />
-            <br />
-            Deleting this order will also remove any additional associated diagnoses.
-          </DialogContentText>
+          <DialogContentText>{locales.deleteOrderDialogContent(testItemNameToDelete)}</DialogContentText>
           {deleteError && (
             <Box sx={{ mt: 2, color: 'error.main' }}>
               <DialogContentText color="error">{deleteError}</DialogContentText>
@@ -109,7 +132,7 @@ export const useDeleteLabOrderDialog = ({
             disabled={isDeleting}
             sx={{ borderRadius: '50px', textTransform: 'none' }}
           >
-            Keep
+            {locales.deleteOrderDialogKeepButton}
           </Button>
           <Button
             type="submit"
@@ -119,7 +142,7 @@ export const useDeleteLabOrderDialog = ({
             startIcon={isDeleting ? <CircularProgress size={16} color="inherit" /> : null}
             sx={{ borderRadius: '50px', textTransform: 'none' }}
           >
-            {isDeleting ? 'Deleting Order...' : 'Delete Order'}
+            {isDeleting ? locales.deleteOrderDialogDeletingButton : locales.deleteOrderDialogDeleteButton}
           </Button>
         </DialogActions>
       </form>

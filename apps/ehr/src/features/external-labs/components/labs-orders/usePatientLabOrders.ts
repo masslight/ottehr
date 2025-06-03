@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, ReactElement, useMemo } from 'react';
+import { useCallback, useState, useEffect, ReactElement, useMemo, useRef } from 'react';
 import {
   EMPTY_PAGINATION,
   LabOrderDTO,
@@ -8,11 +8,12 @@ import {
   LabOrdersSearchBy,
   TaskReviewedParameters,
   SpecimenDateChangedParameters,
+  tryFormatDateToISO,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
-import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
+import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
@@ -55,32 +56,21 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const [showPagination, setShowPagination] = useState(false);
   const [orderableItemCodeFilter, setOrderableItemCodeFilter] = useState('');
   const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
+  const didOrdersFetchRef = useRef(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const searchBy = useMemo(() => _searchBy, [JSON.stringify(_searchBy)]);
-
-  const formatVisitDate = useCallback((date: DateTime | null): string | undefined => {
-    if (!date || !date.isValid) {
-      return undefined;
-    }
-    try {
-      return date.toISODate() || undefined;
-    } catch (dateError) {
-      console.error('Error formatting date:', dateError);
-    }
-    return;
-  }, []);
 
   const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetLabOrdersParameters => {
     const params: GetLabOrdersParameters = {
       itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
       ...searchBy,
       ...(orderableItemCodeFilter && { orderableItemCode: orderableItemCodeFilter }),
-      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: formatVisitDate(visitDateFilter) }),
+      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: tryFormatDateToISO(visitDateFilter) }),
     };
 
     return params;
-  }, [orderableItemCodeFilter, visitDateFilter, formatVisitDate, searchBy]);
+  }, [orderableItemCodeFilter, visitDateFilter, searchBy]);
 
   const getCurrentSearchParamsForPage = useCallback(
     (pageNubmer: number): GetLabOrdersParameters => {
@@ -153,16 +143,20 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     }
   }, [fetchLabOrders, getCurrentSearchParamsForPage]);
 
-  const didOrdersFetch = labOrders.length > 0;
+  // React.ref handles edge case when table items exceed actual display data
+  // (errors during parsing where the table has fewer items than the Oystehr API
+  // returns for ServiceRequests), ensuring users can navigate away from empty pages.
+  didOrdersFetchRef.current =
+    labOrders.length > 0 && didOrdersFetchRef.current === false ? true : didOrdersFetchRef.current;
 
   // fetch lab orders when the page changes
   useEffect(() => {
     // skip if the orders haven't been fetched yet, to prevent fetching when the page is first loaded
-    if (didOrdersFetch) {
+    if (didOrdersFetchRef.current) {
       const searchParams = getCurrentSearchParamsForPage(page);
       void fetchLabOrders(searchParams);
     }
-  }, [fetchLabOrders, getCurrentSearchParamsForPage, didOrdersFetch, page]);
+  }, [fetchLabOrders, getCurrentSearchParamsForPage, page]);
 
   const handleDeleteLabOrder = useCallback(
     async ({ serviceRequestId }: DeleteLabOrderParams): Promise<boolean> => {
@@ -210,7 +204,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   );
 
   // handle delete dialog
-  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteLabOrderDialog({
+  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteCommonLabOrderDialog({
     deleteOrder: handleDeleteLabOrder,
   });
 

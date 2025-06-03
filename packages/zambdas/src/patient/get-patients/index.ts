@@ -10,7 +10,6 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { getUser } from '../../shared/auth';
-import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetPatientsInput {

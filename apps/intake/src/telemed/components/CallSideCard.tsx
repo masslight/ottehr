@@ -1,13 +1,10 @@
 import EastIcon from '@mui/icons-material/East';
-import { Card, IconButton, List } from '@mui/material';
+import { Card, IconButton } from '@mui/material';
 import { FC, useState } from 'react';
-import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
-import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
+import { SideCardList } from './SideCardList';
 
 export const CallSideCard: FC = () => {
   const [isCardExpanded, setIsCardExpanded] = useState(true);
-  const [isManageParticipantsDialogOpen, setManageParticipantsDialogOpen] = useState<boolean>(false);
-  const [isUploadPhotosDialogOpen, setUploadPhotosDialogOpen] = useState<boolean>(false);
 
   const toggleCard = (): void => {
     setIsCardExpanded((prevState) => !prevState);
@@ -35,19 +32,7 @@ export const CallSideCard: FC = () => {
           }}
         />
       </IconButton>
-      <List sx={{ p: 0 }}>
-        <InvitedParticipantListItemButton
-          onClick={() => setManageParticipantsDialogOpen(true)}
-          hideText={!isCardExpanded}
-        />
-
-        <UploadPhotosListItemButton onClick={() => setUploadPhotosDialogOpen(true)} hideText={!isCardExpanded} />
-      </List>
-
-      {isManageParticipantsDialogOpen ? (
-        <ManageParticipantsDialog onClose={() => setManageParticipantsDialogOpen(false)} />
-      ) : null}
-      {isUploadPhotosDialogOpen ? <UploadPhotosDialog onClose={() => setUploadPhotosDialogOpen(false)} /> : null}
+      <SideCardList isCardExpanded={isCardExpanded} />
     </Card>
   );
 };

@@ -1,9 +1,12 @@
 import { Typography, Grid, FormControlLabel, Radio, RadioGroup, Checkbox, Box, SxProps, Theme } from '@mui/material';
 import { CodeableConceptComponent } from 'utils';
 import { Controller, useFormContext } from 'react-hook-form';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
 
 interface ResultEntryRadioButtonProps {
   testItemComponent: CodeableConceptComponent;
+  disabled?: boolean; // equates to the final view
 }
 
 const ABNORMAL_FONT_COLOR = '#F44336';
@@ -22,7 +25,7 @@ const NORMAL_RADIO_COLOR_STYLING = {
   },
 };
 
-export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent }) => {
+export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent, disabled }) => {
   const nullCode = testItemComponent.nullOption?.code;
   const { control } = useFormContext();
 
@@ -84,6 +87,48 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     }
   };
 
+  const finalViewNullOptionCheckboxStyling = (curValue: string): SxProps<Theme> => {
+    const isFinalView = !!disabled;
+    if (isFinalView) {
+      const isChecked = curValue === nullCode;
+      if (isChecked) {
+        return {
+          color: 'primary.main',
+          '&.Mui-disabled': {
+            color: 'primary.main',
+            '& .MuiSvgIcon-root': {
+              fill: 'primary.main',
+            },
+          },
+        };
+      } else {
+        return {};
+      }
+    }
+    return {};
+  };
+
+  const finalViewNullOptionCheckboxLabelStyling = (curValue: string): SxProps<Theme> => {
+    const isFinalView = !!disabled;
+    if (isFinalView) {
+      const isChecked = curValue === nullCode;
+      if (isChecked) {
+        return {
+          color: 'text.primary',
+          '& .MuiFormControlLabel-label': {
+            color: 'text.primary',
+          },
+          '&.Mui-disabled .MuiFormControlLabel-label': {
+            color: 'text.primary',
+          },
+        };
+      } else {
+        return {};
+      }
+    }
+    return {};
+  };
+
   return (
     <Controller
       name={testItemComponent.observationDefinitionId}
@@ -100,7 +145,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
                 <Grid item xs={6} key={valueCode}>
                   <FormControlLabel
                     value={valueCode}
-                    control={<Radio sx={radioStylingColor(valueCode, field.value)} />}
+                    control={<Radio sx={radioStylingColor(valueCode, field.value)} disabled={!!disabled} />}
                     label={<Typography sx={typographyStyling(valueCode, field.value)}>{valueCode}</Typography>}
                     sx={{
                       margin: 0,
@@ -121,12 +166,16 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
               <FormControlLabel
                 control={
                   <Checkbox
+                    icon={<RadioButtonUncheckedIcon />}
+                    checkedIcon={<RadioButtonCheckedIcon />}
+                    disabled={!!disabled}
                     checked={field.value === nullCode}
                     onChange={() => field.onChange(field.value === nullCode ? '' : nullCode)}
+                    sx={disabled ? finalViewNullOptionCheckboxStyling(field.value) : {}}
                   />
                 }
                 label={testItemComponent.nullOption.text}
-                sx={{ color: 'text.secondary' }}
+                sx={disabled ? finalViewNullOptionCheckboxLabelStyling(field.value) : {}}
               />
             </Box>
           )}

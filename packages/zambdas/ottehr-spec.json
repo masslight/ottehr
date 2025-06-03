@@ -839,6 +839,14 @@
       "src": "src/ehr/get-label-pdf/index",
       "zip": ".dist/zips/get-label-pdf.zip"
     },
+    "GET-OR-CREATE-VISIT-LABEL-PDF": {
+      "name": "GET-OR-CREATE-VISIT-LABEL-PDF",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-or-create-visit-label-pdf/index",
+      "zip": ".dist/zips/get-or-create-visit-label-pdf.zip"
+    },
+
     "EHR-GET-SCHEDULE": {
       "name": "EHR-GET-SCHEDULE",
       "type": "http_auth",
@@ -980,10 +988,7 @@
         "patient": "patient-id",
         "title": "My Questions"
       },
-      "managedFields": [
-        "name",
-        "title"
-      ]
+      "managedFields": ["name", "title"]
     }
   },
   "apps": {
@@ -1006,9 +1011,7 @@
           "effect": "Allow"
         }
       ],
-      "roles": [
-        "#ref/EHR_SUPER_ADMIN"
-      ]
+      "roles": ["#ref/EHR_SUPER_ADMIN"]
     }
   },
   "roles": {

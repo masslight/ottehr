@@ -43,7 +43,11 @@ export function validateRequestParameters(
     throw new Error('CPT code is required and must be a string');
   }
 
-  if (!params.diagnoses || !Array.isArray(params.diagnoses)) {
+  if (!params.diagnosesAll || !Array.isArray(params.diagnosesAll)) {
+    throw new Error('DiagnosesAll are required and must be an non-empty array');
+  }
+
+  if (!Array.isArray(params.diagnosesNew)) {
     throw new Error('Diagnoses are required and must be an array');
   }
 

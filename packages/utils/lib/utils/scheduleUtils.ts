@@ -5,20 +5,24 @@ import {
   FhirResource,
   HealthcareService,
   Location,
+  LocationHoursOfOperation,
   Practitioner,
   Resource,
   Schedule,
   Slot,
-  LocationHoursOfOperation,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   BookableScheduleData,
   Closure,
   ClosureType,
+  codingContainedInList,
+  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
   getDateTimeFromDateAndTime,
   getFullName,
   getPatchOperationForNewMetaTag,
+  isLocationVirtual,
+  makeBookingOriginExtensionEntry,
   OVERRIDE_DATE_FORMAT,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NUM_DAYS,
@@ -26,15 +30,16 @@ import {
   ScheduleStrategy,
   scheduleStrategyForHealthcareService,
   ScheduleType,
-  Timezone,
-  SlotServiceCategory,
   ServiceMode,
-  codingContainedInList,
+  SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  SlotServiceCategory,
+  Timezone,
+  TIMEZONE_EXTENSION_URL,
   TIMEZONES,
   VisitType,
-  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
-  isLocationVirtual,
   WALKIN_APPOINTMENT_TYPE_CODE,
 } from 'utils';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
@@ -43,11 +48,6 @@ export interface WaitTimeRange {
   low: number;
   high: number;
 }
-
-// this is the time in minutes after which a busy-tentative slot will be considered expired and will no longer
-// be counted against the available slots. the _lastUpdated field will be checked, so mutating the slot
-// at all will reset the timer
-const SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES = 10;
 
 export type DOW = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 export type HourOfDay =
@@ -239,9 +239,8 @@ export function getScheduleExtension(
 export function getTimezone(
   schedule: Pick<Location | Practitioner | HealthcareService | Schedule, 'extension' | 'resourceType' | 'id'>
 ): Timezone {
-  const timezone = schedule.extension?.find(
-    (extensionTemp) => extensionTemp.url === 'http://hl7.org/fhir/StructureDefinition/timezone'
-  )?.valueString;
+  const timezone = schedule.extension?.find((extensionTemp) => extensionTemp.url === TIMEZONE_EXTENSION_URL)
+    ?.valueString;
   if (!timezone) {
     console.error('Schedule does not have timezone; returning default', schedule.resourceType, schedule.id);
     return TIMEZONES[0];
@@ -391,9 +390,9 @@ function getSlotsForDayPostTelemed(
   const timeToStartSlots =
     day > openingDateAndTime
       ? day.set({ minute: Math.ceil(day.minute / 30) * 30 }).startOf('minute')
-      : openingDateAndTime.plus({ hour: 1 });
+      : openingDateAndTime;
   const timeSlots: { [slot: string]: number } = {};
-  for (let temp = timeToStartSlots; temp < closingDateAndTime.minus({ hour: 2 }); temp = temp.plus({ minutes: 30 })) {
+  for (let temp = timeToStartSlots; temp < closingDateAndTime; temp = temp.plus({ minutes: 30 })) {
     const tempTime = temp.toISO() || '';
     timeSlots[tempTime] = 1;
   }
@@ -752,6 +751,7 @@ interface GetSlotsInput {
   scheduleList: BookableScheduleData['scheduleList'];
   now: DateTime;
   numDays?: number;
+  originalBookingUrl?: string;
   slotExpirationBiasInSeconds?: number; // this is for testing busy-tentative slot expiration
 }
 
@@ -762,7 +762,7 @@ export const getAvailableSlotsForSchedules = async (
   availableSlots: SlotListItem[];
   telemedAvailable: SlotListItem[];
 }> => {
-  const { now, scheduleList, numDays } = input;
+  const { now, scheduleList, numDays, originalBookingUrl } = input;
   let telemedAvailable: SlotListItem[] = [];
   let availableSlots: SlotListItem[] = [];
 
@@ -812,6 +812,7 @@ export const getAvailableSlotsForSchedules = async (
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
           timezone: getTimezone(scheduleTemp.schedule),
+          originalBookingUrl,
         })
       );
       telemedAvailable.push(
@@ -820,6 +821,7 @@ export const getAvailableSlotsForSchedules = async (
           scheduleId: scheduleTemp.schedule.id!,
           owner: scheduleTemp.owner,
           timezone: getTimezone(scheduleTemp.schedule),
+          originalBookingUrl,
         })
       );
       // console.log('available slots for schedule:', slotStartsForSchedule);
@@ -893,12 +895,25 @@ interface MakeSlotListItemsInput {
   owner: Practitioner | Location | HealthcareService;
   timezone: Timezone;
   appointmentLengthInMinutes?: number;
+  originalBookingUrl?: string;
 }
 
 export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[] => {
-  const { startTimes, owner: ownerResource, scheduleId, timezone, appointmentLengthInMinutes = 15 } = input;
+  // todo: remove magic numbers
+  const {
+    startTimes,
+    owner: ownerResource,
+    scheduleId,
+    timezone,
+    appointmentLengthInMinutes = DEFAULT_APPOINTMENT_LENGTH_MINUTES,
+    originalBookingUrl,
+  } = input;
   return startTimes.map((startTime) => {
     const end = DateTime.fromISO(startTime).plus({ minutes: appointmentLengthInMinutes }).toISO() || '';
+    let extension: Slot['extension'];
+    if (originalBookingUrl) {
+      extension = [makeBookingOriginExtensionEntry(originalBookingUrl)];
+    }
     const slot: Slot = {
       resourceType: 'Slot',
       id: `${scheduleId}|${startTime}`,
@@ -907,6 +922,7 @@ export const makeSlotListItems = (input: MakeSlotListItemsInput): SlotListItem[]
       end,
       schedule: { reference: `Schedule/${scheduleId}` },
       status: 'free',
+      extension,
     };
     const owner = makeSlotOwnerFromResource(ownerResource);
     return {
@@ -1639,7 +1655,7 @@ export const applyOverridesToDailySchedule = (
     return currentDate.toFormat(OVERRIDE_DATE_FORMAT) === date;
   });
   if (overrideDate) {
-    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }).toLowerCase() as DOW;
+    const dayOfWeek = currentDate.toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase() as DOW;
     const override = scheduleOverrides[overrideDate];
     const dailyScheduleDay = dailySchedule[dayOfWeek];
     const overriddenDay = applyOverrideToDay(override, dailyScheduleDay);
@@ -1714,4 +1730,8 @@ const removeSlotsAfter = (slots: SlotCapacityMap, time: DateTime): SlotCapacityM
     return slotTime < time;
   });
   return Object.fromEntries(filtered);
+};
+
+export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined => {
+  return slot.extension?.find((ext) => ext.url === SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL)?.valueString;
 };

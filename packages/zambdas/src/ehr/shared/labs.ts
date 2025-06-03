@@ -28,6 +28,8 @@ import {
   getPresignedURL,
   LAB_DR_TYPE_TAG,
   nameLabTest,
+  LabType,
+  IN_HOUSE_LAB_TASK,
 } from 'utils';
 
 export type LabOrderResources = {
@@ -36,7 +38,7 @@ export type LabOrderResources = {
   questionnaireResponse?: QuestionnaireResponse;
   practitioner: Practitioner;
   task: Task;
-  organization: Organization;
+  organization: Organization | undefined;
   diagnosticReports: DiagnosticReport[];
   appointment: Appointment;
   encounter: Encounter;
@@ -44,7 +46,11 @@ export type LabOrderResources = {
   specimens: Specimen[];
 };
 
-export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: string): Promise<LabOrderResources> {
+export async function getLabOrderResources(
+  oystehr: Oystehr,
+  type: LabType,
+  serviceRequestID: string
+): Promise<LabOrderResources> {
   const serviceRequestTemp = (
     await oystehr.fhir.search<
       | ServiceRequest
@@ -125,9 +131,15 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
   );
 
-  const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
+  let tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
+
+  if (type === 'in-house') {
+    tasksTemp = tasksTemp.filter(
+      (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
+    );
+  }
 
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
@@ -170,8 +182,10 @@ export async function getLabOrderResources(oystehr: Oystehr, serviceRequestID: s
     throw new Error('task is not found');
   }
 
-  if (orgsTemp?.length !== 1) {
-    throw new Error('performing lab Org not found');
+  if (type === 'external') {
+    if (orgsTemp?.length !== 1) {
+      throw new Error('performing lab Org not found');
+    }
   }
 
   if (appointmentsTemp?.length !== 1) {
@@ -276,8 +290,8 @@ export const makeEncounterLabResult = async (
       (related) => related.reference?.startsWith('DiagnosticReport')
     )?.reference;
     if (diagnosticReportRef) {
-      const relatedDR = diagnosticReportMap[diagnosticReportRef];
-      const isReflex = relatedDR.meta?.tag?.find(
+      const relatedDR: DiagnosticReport | undefined = diagnosticReportMap[diagnosticReportRef];
+      const isReflex = relatedDR?.meta?.tag?.find(
         (t) => t.system === LAB_DR_TYPE_TAG.system && t.display === LAB_DR_TYPE_TAG.display.reflex
       );
       const serviceRequestRef = relatedDR?.basedOn?.find((based) => based.reference?.startsWith('ServiceRequest'))
@@ -292,7 +306,7 @@ export const makeEncounterLabResult = async (
         const labName = activityDef?.publisher;
         let formattedName = nameLabTest(testName, labName, false);
         if (isReflex) {
-          const reflexTestName = relatedDR.code.coding?.[0].display || 'Name missing';
+          const reflexTestName = relatedDR?.code.coding?.[0].display || 'Name missing';
           formattedName = nameLabTest(reflexTestName, labName, true);
         }
 

@@ -6,6 +6,7 @@ import { AOECard } from './AOECard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import {
   DynamicAOEInput,
+  ExternalLabsStatus,
   LabOrderDetailedPageDTO,
   LabQuestionnaireResponse,
   SpecimenDateChangedParameters,
@@ -52,7 +53,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
-  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
+  const shouldShowSampleCollectionInstructions =
+    !labOrder.isPSC &&
+    (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
   const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
@@ -89,11 +92,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
 
       try {
-        const { orderPdfUrl } = await submitLabOrder(oystehr, {
+        const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data: data,
         });
+
+        if (labelPdfUrl) await openPdf(labelPdfUrl);
 
         await openPdf(orderPdfUrl);
         setSubmitLoading(false);
