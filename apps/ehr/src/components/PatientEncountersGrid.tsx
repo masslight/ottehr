@@ -152,7 +152,6 @@ const columns: GridColDef<AppointmentHistoryRow>[] = [
     width: 150,
     renderCell: ({ row: { id, serviceMode: serviceType } }) => (
       <RoundedButton
-        target="_blank"
         to={
           serviceType === ServiceMode.virtual
             ? `/telemed/appointments/${id}?tab=sign`
