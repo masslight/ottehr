@@ -310,7 +310,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     Patient insurance
                   </Typography>
                   <Typography variant="body2" sx={{ paddingTop: '8px' }}>
-                    {coverageName}
+                    {coverageName || 'unknown'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
@@ -320,11 +320,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   >
                     Lab
                   </Typography>
-                  <LabsAutocomplete
-                    selectedLab={selectedLab}
-                    setSelectedLab={setSelectedLab}
-                    patientId={patientId}
-                  ></LabsAutocomplete>
+                  <LabsAutocomplete selectedLab={selectedLab} setSelectedLab={setSelectedLab}></LabsAutocomplete>
                 </Grid>
                 <Grid item xs={12}>
                   <FormControlLabel

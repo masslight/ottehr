@@ -42,7 +42,6 @@ export type LabsTableColumn =
 type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   searchBy: SearchBy;
   columns: LabsTableColumn[];
-  patientId: string;
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
@@ -52,13 +51,13 @@ type LabsTableProps<SearchBy extends LabOrdersSearchBy> = {
 export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   searchBy,
   columns,
-  patientId,
   showFilters = false,
   allowDelete = false,
   titleText,
   onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
+  console.log('searchBy', searchBy);
 
   const {
     labOrders,
@@ -202,11 +201,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4}>
-                <LabsAutocomplete
-                  selectedLab={selectedOrderedItem}
-                  setSelectedLab={handleOrderableItemCodeChange}
-                  patientId={patientId}
-                />
+                <LabsAutocomplete selectedLab={selectedOrderedItem} setSelectedLab={handleOrderableItemCodeChange} />
               </Grid>
               <Grid item xs={4}>
                 <DatePicker

@@ -532,7 +532,7 @@ export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreat
       return apiClient?.getCreateExternalLabResources({ patientId, search });
     },
     {
-      enabled: Boolean(apiClient && patientId),
+      enabled: Boolean(apiClient && (patientId || search)),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
     }

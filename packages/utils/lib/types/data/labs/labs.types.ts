@@ -186,12 +186,12 @@ export type CreateLabOrderParameters = {
 };
 
 export type GetCreateLabOrderResources = {
-  patientId: string;
+  patientId?: string;
   search?: string;
 };
 
 export type LabOrderResourcesRes = {
-  coverageName: string;
+  coverageName?: string;
   labs: OrderableItemSearchResult[];
 };
 

@@ -27,7 +27,6 @@ export const PatientLabsTab = ({ patientId }: PatientLabsTabProps): ReactElement
         showFilters={true}
         allowDelete={false}
         titleText="Labs"
-        patientId={patientId}
       />
     </Box>
   );

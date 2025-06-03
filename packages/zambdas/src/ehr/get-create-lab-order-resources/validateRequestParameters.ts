@@ -1,6 +1,5 @@
 import { GetCreateLabOrderResources } from 'utils';
 import { ZambdaInput } from '../../shared';
-import { MISSING_REQUIRED_PARAMETERS } from 'utils';
 
 export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrderResources & { secrets: any } {
   if (!input.body) {
@@ -9,10 +8,8 @@ export function validateRequestParameters(input: ZambdaInput): GetCreateLabOrder
 
   const { patientId, search } = JSON.parse(input.body);
 
-  const missingResources = [];
-  if (!patientId) missingResources.push('patientId');
-  if (missingResources.length) {
-    throw MISSING_REQUIRED_PARAMETERS(missingResources);
+  if (!patientId && !search) {
+    throw new Error('patientId or a search value must be passed as a parameter');
   }
 
   return {

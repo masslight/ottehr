@@ -1,30 +1,28 @@
 import { FC, useState } from 'react';
 import { OrderableItemSearchResult, nameLabTest } from 'utils';
-import { Autocomplete, TextField, Skeleton } from '@mui/material';
+import { Autocomplete, TextField } from '@mui/material';
 import { useGetCreateExternalLabResources } from 'src/telemed';
 import { useDebounce } from 'src/telemed';
 
 type LabsAutocompleteProps = {
   selectedLab: OrderableItemSearchResult | null;
   setSelectedLab: (value: OrderableItemSearchResult | null) => void;
-  patientId: string;
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLab, setSelectedLab, patientId } = props;
+  const { selectedLab, setSelectedLab } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
 
   const {
-    isFetching: searchingForLabs,
-    data: createExternalLabResources,
+    isFetching,
+    data,
     isError,
     error: resourceFetchError,
   } = useGetCreateExternalLabResources({
-    patientId,
     search: debouncedLabSearchTerm,
   });
 
-  const labs = createExternalLabResources?.labs || [];
+  const labs = data?.labs || [];
 
   const { debounce } = useDebounce(800);
   const debouncedHandleLabInputChange = (searchValue: string): void => {
@@ -35,9 +33,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
 
   if (resourceFetchError) console.log('resourceFetchError', resourceFetchError);
 
-  return searchingForLabs ? (
-    <Skeleton variant="rectangular" height="40px" />
-  ) : (
+  return (
     <Autocomplete
       size="small"
       options={labs}
@@ -47,7 +43,7 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
       }
       value={selectedLab}
       onChange={(_, newValue) => setSelectedLab(newValue)}
-      loading={searchingForLabs}
+      loading={isFetching}
       renderInput={(params) => (
         <TextField
           required
