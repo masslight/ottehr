@@ -20,7 +20,7 @@
     ]
   },
   "scripts": {
-    "start": "vite --mode default",
+    "start": "vite --mode default --force",
     "preview": "vite preview --port 4002",
     "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
     "prettier": "prettier --write .",
@@ -55,6 +55,8 @@
     "@mui/x-date-pickers-pro": "^6.3.0",
     "@oystehr/sdk": "^4.0.0-alpha.2",
     "@photonhealth/elements": "^0.12.3",
+    "@stripe/react-stripe-js": "^3.0.0",
+    "@stripe/stripe-js": "^3.5.0",
     "@twilio/conversations": "^2.4.1",
     "amazon-chime-sdk-component-library-react": "^3.7.0",
     "amazon-chime-sdk-js": "^3.20.0",

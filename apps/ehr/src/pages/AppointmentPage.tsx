@@ -95,6 +95,7 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 import { PencilIconButton } from '../telemed';
 import { DocumentInfo, DocumentType, appointmentTypeLabels } from '../types/types';
+import PatientPaymentList from '../components/PatientPaymentsList';
 
 interface Documents {
   photoIdCards: DocumentInfo[];
@@ -1398,6 +1399,10 @@ export default function AppointmentPage(): ReactElement {
                 />
               </Grid>
               <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
+                {/* credit cards and copay */}
+                {appointmentID && patient && (
+                  <PatientPaymentList patient={patient} loading={loading} appointmentId={appointmentID} />
+                )}
                 {/* Insurance information */}
                 {!selfPay && (
                   <PatientInformation

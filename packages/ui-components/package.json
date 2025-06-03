@@ -18,6 +18,8 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^3.0.0",
+    "@stripe/stripe-js": "^3.5.0",
     "tsconfig": "*",
     "utils": "*"
   }
