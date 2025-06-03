@@ -1,6 +1,6 @@
 import { FC, useState } from 'react';
 import { OrderableItemSearchResult, nameLabTest } from 'utils';
-import { Autocomplete, TextField } from '@mui/material';
+import { Autocomplete, TextField, Skeleton } from '@mui/material';
 import { useGetCreateExternalLabResources } from 'src/telemed';
 import { useDebounce } from 'src/telemed';
 
@@ -14,7 +14,12 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
   const { selectedLab, setSelectedLab, patientId } = props;
   const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
 
-  const { isFetching: searchingForLabs, data: createExternalLabResources } = useGetCreateExternalLabResources({
+  const {
+    isFetching: searchingForLabs,
+    data: createExternalLabResources,
+    isError,
+    error: resourceFetchError,
+  } = useGetCreateExternalLabResources({
     patientId,
     search: debouncedLabSearchTerm,
   });
@@ -28,7 +33,11 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
     });
   };
 
-  return (
+  if (resourceFetchError) console.log('resourceFetchError', resourceFetchError);
+
+  return searchingForLabs ? (
+    <Skeleton variant="rectangular" height="40px" />
+  ) : (
     <Autocomplete
       size="small"
       options={labs}
@@ -45,6 +54,8 @@ export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
           {...params}
           label="Lab"
           variant="outlined"
+          error={isError}
+          helperText={isError ? 'Failed to load labs list' : ''}
           onChange={(e) => debouncedHandleLabInputChange(e.target.value)}
         />
       )}

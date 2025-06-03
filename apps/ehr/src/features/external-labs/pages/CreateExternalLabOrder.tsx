@@ -80,7 +80,12 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     });
   };
 
-  const { isFetching: dataLoading, data: createExternalLabResources } = useGetCreateExternalLabResources({
+  const {
+    isFetching: dataLoading,
+    data: createExternalLabResources,
+    isError,
+    error: resourceFetchError,
+  } = useGetCreateExternalLabResources({
     patientId,
   });
   const coverageName = createExternalLabResources?.coverageName;
@@ -153,6 +158,29 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       });
     }
   };
+
+  if (isError || resourceFetchError) {
+    return (
+      <DetailPageContainer>
+        <WithLabBreadcrumbs sectionName="Order Lab">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+              Order Lab
+            </Typography>
+          </Box>
+          <Paper sx={{ p: 3 }}>
+            {(resourceFetchError as Error) && (
+              <Grid item xs={12} sx={{ paddingTop: 1 }}>
+                <Typography sx={{ color: theme.palette.error.main }}>
+                  {(resourceFetchError as Error)?.message || 'error'}
+                </Typography>
+              </Grid>
+            )}
+          </Paper>
+        </WithLabBreadcrumbs>
+      </DetailPageContainer>
+    );
+  }
 
   return (
     <DetailPageContainer>

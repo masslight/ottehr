@@ -526,22 +526,12 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreateLabOrderResources) => {
   const apiClient = useZapEHRAPIClient();
-  const openError = (): void => {
-    enqueueSnackbar('An error occurred during the lab search. Please try again in a moment.', {
-      variant: 'error',
-    });
-  };
-
   return useQuery(
     ['external lab resource search', { patientId, search }],
     async () => {
       return apiClient?.getCreateExternalLabResources({ patientId, search });
     },
     {
-      onError: (error: APIError) => {
-        openError();
-        return error;
-      },
       enabled: Boolean(apiClient && patientId),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
