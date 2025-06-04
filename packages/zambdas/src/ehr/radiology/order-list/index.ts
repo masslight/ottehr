@@ -237,9 +237,10 @@ const parseResultsToOrder = (
 
   let status: RadiologyOrderStatus | undefined;
 
-  const myReviewTask = tasks.find((task) => {
-    task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
-  });
+  // TODO add task for 'reviewed' feature.
+  // const myReviewTask = tasks.find((task) => {
+  //   task.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
+  // });
 
   const myDiagnosticReport = diagnosticReports.find(
     (report) => report.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`)
@@ -253,10 +254,11 @@ const parseResultsToOrder = (
     status = RadiologyOrderStatus.performed;
   } else if (myDiagnosticReport?.status === 'preliminary') {
     status = RadiologyOrderStatus.preliminary;
-  } else if (myDiagnosticReport?.status === 'final' && myReviewTask?.status === 'ready') {
+  } else if (myDiagnosticReport?.status === 'final') {
+    // && myReviewTask?.status === 'ready') {
     status = RadiologyOrderStatus.final;
-  } else if (myReviewTask?.status === 'completed') {
-    status = RadiologyOrderStatus.reviewed;
+    // } else if (myReviewTask?.status === 'completed') {
+    //   status = RadiologyOrderStatus.reviewed;
   } else {
     throw new Error('Order is in an invalid state, could not determine status.');
   }
