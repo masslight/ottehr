@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import { FC, ReactElement } from 'react';
 import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
@@ -7,7 +7,7 @@ import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 import AiSuggestion from '../../../../../components/AiSuggestion';
 
-export const KnownAllergiesPatientColumn: FC<{ noItemsMessage?: string }> = ({ noItemsMessage }) => {
+export const KnownAllergiesPatientColumn: FC = () => {
   const theme = useTheme();
 
   const { questionnaireResponse, isAppointmentLoading, chartData } = getSelectors(useAppointmentStore, [
@@ -15,6 +15,8 @@ export const KnownAllergiesPatientColumn: FC<{ noItemsMessage?: string }> = ({ n
     'isAppointmentLoading',
     'chartData',
   ]);
+
+  console.log(questionnaireResponse);
 
   const knownAllergies = getQuestionnaireResponseByLinkId(
     'allergies',
@@ -27,6 +29,31 @@ export const KnownAllergiesPatientColumn: FC<{ noItemsMessage?: string }> = ({ n
     (observation) => observation.field === AiObservationField.Allergies
   ) as ObservationTextFieldDTO;
 
+  const isInPersonPaperwork = questionnaireResponse?.questionnaire?.startsWith(
+    'https://ottehr.com/FHIR/Questionnaire/intake-paperwork-inperson'
+  );
+
+  const renderAllergies = (): ReactElement | ReactElement[] => {
+    if (isAppointmentLoading) {
+      return <PatientSideListSkeleton />;
+    }
+    if (questionnaireResponse == null || questionnaireResponse.status === 'in-progress' || isInPersonPaperwork) {
+      return <Typography color={theme.palette.text.secondary}>No answer</Typography>;
+    }
+    if (knownAllergies == null || knownAllergies?.length === 0) {
+      return <Typography color={theme.palette.text.secondary}>Patient has no known allergies</Typography>;
+    }
+    return knownAllergies.map((answer, index, arr) => (
+      <Box key={index}>
+        <Typography>
+          {answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']} (
+          {answer['allergies-form-agent-substance-medications'] ? 'medication' : 'other'})
+        </Typography>
+        {index + 1 !== arr.length && <Divider sx={{ pt: 1 }} />}
+      </Box>
+    ));
+  };
+
   return (
     <Box
       sx={{
@@ -36,23 +63,7 @@ export const KnownAllergiesPatientColumn: FC<{ noItemsMessage?: string }> = ({ n
       }}
       data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList}
     >
-      {isAppointmentLoading ? (
-        <PatientSideListSkeleton />
-      ) : knownAllergies ? (
-        knownAllergies.map((answer, index, arr) => (
-          <Box key={index}>
-            <Typography>
-              {answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']} (
-              {answer['allergies-form-agent-substance-medications'] ? 'medication' : 'other'})
-            </Typography>
-            {index + 1 !== arr.length && <Divider sx={{ pt: 1 }} />}
-          </Box>
-        ))
-      ) : (
-        <Typography color={theme.palette.text.secondary}>
-          {noItemsMessage || 'Patient has no known allergies'}
-        </Typography>
-      )}
+      {renderAllergies()}
       {aiAllergies ? (
         <>
           <hr style={{ border: '0.5px solid #DFE5E9', margin: '0 -16px 0 -16px' }} />

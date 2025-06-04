@@ -145,6 +145,31 @@ export const AppointmentSidePanel: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
   };
 
+  console.log(questionnaireResponse);
+
+  const paperworkAllergies = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
+  console.log('paperworkAllergies');
+  console.log(paperworkAllergies?.answer?.[0].valueString);
+
+  const allergiesStatus = (): string => {
+    if (isChartDataLoading) {
+      return 'Loading...';
+    }
+    if (questionnaireResponse?.status === 'in-progress') {
+      return 'No answer';
+    }
+    if (paperworkAllergies?.answer?.[0].valueString === 'Patient has no known current allergies') {
+      return 'Answer unconfirmed';
+    }
+    if (allergies == null || allergies.length === 0) {
+      return 'No known allergies';
+    }
+    return allergies
+      .filter((allergy) => allergy.current === true)
+      .map((allergy) => allergy.name)
+      .join(', ');
+  };
+
   return (
     <Drawer
       variant="permanent"
@@ -223,15 +248,7 @@ export const AppointmentSidePanel: FC = () => {
           </Typography>
 
           <Typography variant="body2" fontWeight={500}>
-            Allergies:{' '}
-            {isChartDataLoading
-              ? 'Loading...'
-              : allergies && allergies.length > 0
-              ? allergies
-                  .filter((allergy) => allergy.current === true)
-                  .map((allergy) => allergy.name)
-                  .join(', ')
-              : 'No known allergies'}
+            Allergies: {allergiesStatus()}
           </Typography>
 
           {location?.name && <Typography variant="body2">Location: {location.name}</Typography>}
