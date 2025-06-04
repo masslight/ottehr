@@ -18,6 +18,7 @@ interface SampleCollectionInstructionsCardProps {
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   updateSpecimenLoadingState?: (specimenId: string, state: 'saving' | 'saved') => void;
   printLabelVisible: boolean;
+  isDateEditable: boolean;
 }
 
 export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstructionsCardProps> = ({
@@ -27,6 +28,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
   saveSpecimenDate,
   updateSpecimenLoadingState,
   printLabelVisible,
+  isDateEditable,
 }) => {
   const { specimen, definition } = sample;
   const [collapsed, setCollapsed] = useState(false);
@@ -129,6 +131,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
               type="date"
               value={date.toFormat('yyyy-MM-dd')}
               onChange={(e) => handleDateChange('collectionDate', e.target.value)}
+              disabled={!isDateEditable}
             />
           </Grid>
           <Grid item xs={12} md={6}>
@@ -141,6 +144,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
               type="time"
               value={date.toFormat('HH:mm')}
               onChange={(e) => handleDateChange('collectionTime', e.target.value)}
+              disabled={!isDateEditable}
             />
           </Grid>
         </Grid>

@@ -145,6 +145,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                 saveSpecimenDate={saveSpecimenDate}
                 updateSpecimenLoadingState={updateSpecimenLoadingState}
                 printLabelVisible={orderStatus === 'sent'}
+                isDateEditable={orderStatus === 'pending'}
               />
             </Box>
           ))}
