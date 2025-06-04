@@ -145,29 +145,37 @@ export const AppointmentSidePanel: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
   };
 
-  console.log(questionnaireResponse);
+  const paperworkAllergiesYesNo = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
 
-  const paperworkAllergies = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
-  console.log('paperworkAllergies');
-  console.log(paperworkAllergies?.answer?.[0].valueString);
+  const paperworkAllergies =
+    getQuestionnaireResponseByLinkId('allergies', questionnaireResponse)
+      ?.answer?.[0]?.valueArray?.filter(
+        (answer) =>
+          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
+      )
+      ?.map(
+        (answer) =>
+          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
+      ) ?? [];
 
   const allergiesStatus = (): string => {
     if (isChartDataLoading) {
       return 'Loading...';
     }
-    if (questionnaireResponse?.status === 'in-progress') {
+    if (questionnaireResponse?.status === 'in-progress' && (allergies == null || allergies.length === 0)) {
       return 'No answer';
     }
-    if (paperworkAllergies?.answer?.[0].valueString === 'Patient has no known current allergies') {
-      return 'Answer unconfirmed';
-    }
-    if (allergies == null || allergies.length === 0) {
+    if (
+      allergies == null ||
+      allergies.length === 0 ||
+      paperworkAllergiesYesNo?.answer?.[0].valueString === 'Patient has no known current allergies'
+    ) {
       return 'No known allergies';
     }
-    return allergies
-      .filter((allergy) => allergy.current === true)
-      .map((allergy) => allergy.name)
-      .join(', ');
+    return [
+      ...allergies.filter((allergy) => allergy.current === true).map((allergy) => allergy.name),
+      ...paperworkAllergies,
+    ].join(', ');
   };
 
   return (
