@@ -191,7 +191,6 @@ export default function ProceduresNew(): ReactElement {
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
     setState({
-      consentObtained: procedure.consentObtained,
       procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
@@ -214,6 +213,7 @@ export default function ProceduresNew(): ReactElement {
       otherPostInstructions: getOtherValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
+      consentObtained: procedure.consentObtained,
     });
     setInitialValuesSet(true);
   }, [procedureId, chartData?.procedures, setState, initialValuesSet]);
