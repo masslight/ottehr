@@ -1,4 +1,15 @@
 {
   "typescript.tsdk": "node_modules/typescript/lib",
-  "cSpell.words": ["ottehr", "oystehr", "telemed", "unbundle", "zambda", "zambdas"]
+  "cSpell.words": [
+    "Codeable",
+    "fhir",
+    "luxon",
+    "ottehr",
+    "oystehr",
+    "TELEMED",
+    "unbundle",
+    "walkin",
+    "zambda",
+    "zambdas"
+  ]
 }
