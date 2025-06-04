@@ -16,8 +16,6 @@ export const KnownAllergiesPatientColumn: FC = () => {
     'chartData',
   ]);
 
-  console.log(questionnaireResponse);
-
   const knownAllergies = getQuestionnaireResponseByLinkId(
     'allergies',
     questionnaireResponse
