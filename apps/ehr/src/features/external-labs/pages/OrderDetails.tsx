@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
-import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
+import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
 export const OrderDetailsPage: React.FC = () => {
@@ -29,26 +29,28 @@ export const OrderDetailsPage: React.FC = () => {
     return null;
   }
 
+  const pageName = `${labOrder.testItem}${labOrder.reflexResultsCount > 0 ? ' + Reflex' : ''}`;
+
   if (status === 'pending' || status === 'sent') {
     return (
       <DetailPageContainer>
-        <WithLabBreadcrumbs sectionName={labOrder.testItem}>
+        <LabBreadcrumbs sectionName={pageName}>
           <DetailsWithoutResults labOrder={labOrder} saveSpecimenDate={saveSpecimenDate} />
-        </WithLabBreadcrumbs>
+        </LabBreadcrumbs>
       </DetailPageContainer>
     );
   }
 
   return (
     <DetailPageContainer>
-      <WithLabBreadcrumbs sectionName={labOrder.testItem}>
+      <LabBreadcrumbs sectionName={pageName}>
         <DetailsWithResults
           labOrder={labOrder}
           markTaskAsReviewed={markTaskAsReviewed}
           saveSpecimenDate={saveSpecimenDate}
           loading={loading}
         />
-      </WithLabBreadcrumbs>
+      </LabBreadcrumbs>
     </DetailPageContainer>
   );
 };

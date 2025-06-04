@@ -72,12 +72,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (accounts.length !== 1)
       // there should only be one active account
       throw EXTERNAL_LAB_ERROR(
-        'Please update responsible party information - patient must have one active account record to represent a guarantor to order labs'
+        'Please update responsible party information - patient must have one active account record to represent a guarantor to external lab orders'
       );
     const patientAccount = accounts[0];
     if (!patientAccount.guarantor) {
       throw EXTERNAL_LAB_ERROR(
-        'Please update responsible party information - patient must have an account with a guarantor resource to order labs'
+        'Please update responsible party information - patient must have an account with a guarantor resource to external lab orders'
       );
     }
     const isSelfPay = !patientAccount.coverage?.length ? true : false;
@@ -87,7 +87,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     )?.name;
     if (!patientPrimaryInsurance && !isSelfPay)
       throw EXTERNAL_LAB_ERROR(
-        'Please update patient payment information - patient must have insurance or have designated self pay to order labs'
+        'Please update patient payment information - patient must have insurance or have designated self pay to external lab orders'
       );
     if (patientPrimaryInsurance && !primaryInsuranceName)
       throw EXTERNAL_LAB_ERROR('Insurance appears to be malformed, cannot reconcile insurance class name');

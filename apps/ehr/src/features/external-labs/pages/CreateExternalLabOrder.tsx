@@ -34,7 +34,7 @@ import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { enqueueSnackbar } from 'notistack';
-import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
+import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
@@ -190,7 +190,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       <Stack spacing={2}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-            Order Lab
+            Order External Lab
           </Typography>
         </Box>
         <Paper sx={{ p: 3 }}>
@@ -212,10 +212,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   return (
     <DetailPageContainer>
-      <WithLabBreadcrumbs sectionName="Order Lab">
+      <LabBreadcrumbs sectionName="Order External Lab">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-            Order Lab
+            Order External Lab
           </Typography>
         </Box>
 
@@ -392,7 +392,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
             </Paper>
           </form>
         )}
-      </WithLabBreadcrumbs>
+      </LabBreadcrumbs>
     </DetailPageContainer>
   );
 };

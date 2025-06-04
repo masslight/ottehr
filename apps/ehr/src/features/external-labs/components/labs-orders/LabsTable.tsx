@@ -218,7 +218,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           color="primary.dark"
           sx={{ mb: -2, mt: 2, width: '100%', display: 'flex', justifyContent: 'flex-start' }}
         >
-          Labs
+          {titleText}
         </Typography>
       )}
 

@@ -506,7 +506,7 @@ const getAdditionalResources = async (
 
   if (accountSearchResults.length !== 1)
     throw EXTERNAL_LAB_ERROR(
-      'Please update responsible party information - patient must have one active account record to represent a guarantor to order labs'
+      'Please update responsible party information - patient must have one active account record to represent a guarantor to external lab orders'
     );
 
   const patientAccount = accountSearchResults[0];
