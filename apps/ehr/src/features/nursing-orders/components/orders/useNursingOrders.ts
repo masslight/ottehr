@@ -59,7 +59,13 @@ export const useGetNursingOrders = ({
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useUpdateNursingOrder = ({ serviceRequestId, action }: { serviceRequestId?: string; action: string }) => {
+export const useUpdateNursingOrder = ({
+  serviceRequestId,
+  action,
+}: {
+  serviceRequestId?: string;
+  action: 'CANCEL ORDER' | 'COMPLETE ORDER';
+}) => {
   const { oystehrZambda } = useApiClients();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
