@@ -49,8 +49,14 @@ export const FinalResultCard: React.FC<FinalResultCardProps> = ({ testDetails })
           </Box>
         </Box>
         <FormProvider {...methods}>
-          {testDetails.labDetails.components.radioComponents.map((component) => {
-            return <ResultEntryRadioButton testItemComponent={component} disabled={true} />;
+          {testDetails.labDetails.components.radioComponents.map((component, idx) => {
+            return (
+              <ResultEntryRadioButton
+                key={`radio-btn-result-${idx}-${component.componentName}`}
+                testItemComponent={component}
+                disabled={true}
+              />
+            );
           })}
 
           {testDetails.labDetails.components.groupedComponents.length > 0 && (
