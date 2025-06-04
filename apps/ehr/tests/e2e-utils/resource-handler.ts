@@ -78,6 +78,7 @@ export const PATIENT_PHONE_NUMBER = '21' + EightDigitsString;
 export const PATIENT_EMAIL = `john.doe.${EightDigitsString}3@example.com`;
 export const PATIENT_CITY = 'New York';
 export const PATIENT_LINE = `${EightDigitsString} Test Line`;
+export const PATIENT_LINE_2 = 'Apt 4B';
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';

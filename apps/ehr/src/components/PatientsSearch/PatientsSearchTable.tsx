@@ -218,11 +218,15 @@ export const PatientsSearchTable: React.FC<{
                   const newItemsPerPage = parseInt(event.target.value, 10);
                   void search({ pagination: { pageSize: newItemsPerPage, offset: 0 } });
                 }}
-                nextIconButtonProps={{
-                  disabled: !searchResult?.pagination.next || arePatientsLoading,
-                }}
-                backIconButtonProps={{
-                  disabled: !searchResult?.pagination.prev || arePatientsLoading,
+                slotProps={{
+                  actions: {
+                    nextButton: {
+                      disabled: !searchResult?.pagination.next || arePatientsLoading,
+                    },
+                    previousButton: {
+                      disabled: !searchResult?.pagination.prev || arePatientsLoading,
+                    },
+                  },
                 }}
                 data-testid={dataTestIds.pagination.paginationContainer}
               />

@@ -6,6 +6,7 @@ import {
   InPersonExamObservationFieldItem,
   InPersonExamTabProviderCardNames,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  QuantityComponent,
   VitalsVisitNoteData,
 } from 'utils';
 
@@ -119,6 +120,7 @@ export interface ExternalLabsData {
   locationPhone?: string;
   locationFax?: string;
   labOrganizationName: string;
+  serviceRequestID: string;
   reqId: string;
   providerName: string;
   providerTitle: string;
@@ -156,9 +158,11 @@ export interface ExternalLabResult {
 
 export interface InHouseLabResult {
   name: string;
+  type: string;
   value: string | undefined;
   units?: string;
-  range: string;
+  rangeString?: string[];
+  rangeQuantity?: QuantityComponent;
 }
 
 export interface LabResultsData extends ExternalLabsData {
@@ -171,6 +175,7 @@ export interface LabResultsData extends ExternalLabsData {
   testName: string;
   // specimenDescription: string;
   specimenReferenceRange?: string;
+  specimenSource: string;
   resultPhase: string;
   resultStatus: string;
   reviewed?: boolean;

@@ -158,6 +158,7 @@ export function makeAllergyResource(
     resourceType: 'AllergyIntolerance',
     patient: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
+    type: 'allergy',
     // category: allergyType ? [allergyType] : undefined,
     meta: getMetaWFieldName(fieldName),
     note: data.note ? [{ text: data.note }] : undefined,
