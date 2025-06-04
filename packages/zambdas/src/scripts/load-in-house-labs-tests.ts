@@ -84,7 +84,7 @@ const makeUnitCoding = (unitStr: string): CodeableConcept => {
   };
 };
 
-const makeQuantitativeDetails = (item: QuantityTestItem | MixedComponent): ObservationDefinitionQuantitativeDetails => {
+const makeQuantitativeDetails = (item: QuantityComponent): ObservationDefinitionQuantitativeDetails => {
   if (!item.normalRange) {
     throw new Error(`Cannot make quantitativeDetails for ${JSON.stringify(item)}`);
   }
@@ -94,7 +94,7 @@ const makeQuantitativeDetails = (item: QuantityTestItem | MixedComponent): Obser
   };
 };
 
-const makeQualifiedInterval = (item: QuantityTestItem | MixedComponent): ObservationDefinitionQualifiedInterval => {
+const makeQualifiedInterval = (item: QuantityComponent): ObservationDefinitionQualifiedInterval => {
   if (!item.normalRange) {
     throw new Error(`Cannot make QualifiedInterval for ${JSON.stringify(item)}`);
   }
@@ -107,7 +107,7 @@ const makeQualifiedInterval = (item: QuantityTestItem | MixedComponent): Observa
   };
 };
 
-const makeObsDefExtension = (item: TestItem | MixedComponent): Extension[] => {
+const makeObsDefExtension = (item: TestItemComponent): Extension[] => {
   const display = item.display?.type as string;
   if (!display) throw new Error(`Missing display on ${item.loincCode.join(',')} item`);
   const displayExt: Extension = {
@@ -134,111 +134,17 @@ const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] 
   return extension;
 };
 
-const getUnitForCodeableConceptType = (item: TestItem | MixedComponent): CodeableConcept | undefined => {
+const getUnitForCodeableConceptType = (item: CodeableConceptComponent): CodeableConcept | undefined => {
   if (item.dataType !== 'CodeableConcept') return undefined;
   if (!item.unit) return undefined;
 
   return makeUnitCoding(item.unit);
 };
 
-const getQuantityObservationDefinition = (
-  item: TestItem
-): { obsDef: ObservationDefinition; contained: ObservationDefinition[] } => {
-  if (item.dataType !== 'Quantity') {
-    throw new Error('Cannot get quantity obs def from non-quantity test item');
-  }
-
-  const obsDef: ObservationDefinition = {
-    id: `contained-${sanitizeForId(item.name)}-quantity-observationDef-id`,
-    resourceType: 'ObservationDefinition',
-    code: {
-      coding: [
-        ...item.loincCode.map((loincCode) => {
-          return { system: 'http://loinc.org', code: loincCode };
-        }),
-      ],
-      text: item.name,
-    },
-    permittedDataType: [item.dataType],
-    quantitativeDetails: makeQuantitativeDetails(item),
-    qualifiedInterval: [makeQualifiedInterval(item)],
-    extension: makeObsDefExtension(item),
-  };
-
-  return {
-    obsDef,
-    contained: [obsDef],
-  };
-};
-
-const getCodeableConceptObservationDefinition = (
-  item: TestItem
-): { obsDef: ObservationDefinition; contained: (ValueSet | ObservationDefinition)[] } => {
-  if (item.dataType !== 'CodeableConcept') {
-    throw new Error('Cannot get codeable concept obs def from non-codeable concept test item');
-  }
-
-  const { valueSetId: validValueSetId, valueSet: validValueSet } = makeValueSet(item.name, item.valueSet, 'valid');
-  const { valueSetId: abnormalValueSetId, valueSet: abnormalValueSet } = makeValueSet(
-    item.name,
-    item.abnormalValues,
-    'abnormal'
-  );
-
-  // the normalValueSet will serve as the reference range
-  const validSet = new Set(item.valueSet);
-  const abnormalSet = new Set(item.abnormalValues);
-  const { valueSetId: refRangeValueSetId, valueSet: refRangeValueSet } = makeValueSet(
-    item.name,
-    [...setDifference(validSet, abnormalSet)],
-    'reference-range'
-  );
-
-  const containedItems: (ValueSet | ObservationDefinition)[] = [validValueSet, abnormalValueSet, refRangeValueSet];
-
-  const obsDef: ObservationDefinition = {
-    id: `contained-${sanitizeForId(item.name)}-codeableConcept-observationDef-id`,
-    resourceType: 'ObservationDefinition',
-    code: {
-      coding: [
-        ...item.loincCode.map((loincCode) => {
-          return { system: 'http://loinc.org', code: loincCode };
-        }),
-      ],
-      text: item.name,
-    },
-    permittedDataType: [item.dataType],
-    validCodedValueSet: {
-      type: 'ValueSet',
-      reference: `#${validValueSetId}`,
-    },
-    abnormalCodedValueSet: {
-      type: 'ValueSet',
-      reference: `#${abnormalValueSetId}`,
-    },
-    normalCodedValueSet: {
-      type: 'ValueSet',
-      reference: `#${refRangeValueSetId}`,
-    },
-    extension: makeObsDefExtension(item),
-  };
-
-  if (item.unit) {
-    obsDef.quantitativeDetails = { unit: getUnitForCodeableConceptType(item) };
-  }
-
-  containedItems.push(obsDef);
-
-  return {
-    obsDef,
-    contained: containedItems,
-  };
-};
-
 const getComponentObservationDefinition = (
-  componentName: string,
-  item: MixedComponent
+  item: TestItemComponent
 ): { obsDef: ObservationDefinition; contained: (ValueSet | ObservationDefinition)[] } => {
+  const { componentName } = item;
   const obsDef: ObservationDefinition = {
     id: `contained-${sanitizeForId(
       componentName.toLowerCase()
@@ -330,40 +236,19 @@ function getObservationRequirement(item: TestItem): {
   const obsDefReferences: Reference[] = [];
   const contained: (ValueSet | ObservationDefinition)[] = [];
 
-  if (!item.components) {
-    const { obsDef, contained: containedItems } =
-      item.dataType === 'CodeableConcept'
-        ? getCodeableConceptObservationDefinition(item)
-        : getQuantityObservationDefinition(item);
+  item.components.forEach((item) => {
+    const { obsDef, contained: componentContained } = getComponentObservationDefinition(item);
 
     if (!obsDef.id) {
-      throw new Error('Error in obsDef generation, no id found');
+      throw new Error(`Error in obsDef generation, no id found for component ${JSON.stringify(item)}`);
     }
-
     obsDefReferences.push({
       type: 'ObservationDefinition',
       reference: `#${obsDef.id}`,
     });
 
-    contained.push(...containedItems);
-  } else {
-    // made typescript happy to have this
-    const components = item.components;
-
-    Object.keys(item.components).forEach((key: string) => {
-      const { obsDef, contained: componentContained } = getComponentObservationDefinition(key, components[key]);
-
-      if (!obsDef.id) {
-        throw new Error(`Error in obsDef generation, no id found for component ${JSON.stringify(components[key])}`);
-      }
-      obsDefReferences.push({
-        type: 'ObservationDefinition',
-        reference: `#${obsDef.id}`,
-      });
-
-      contained.push(...componentContained);
-    });
-  }
+    contained.push(...componentContained);
+  });
 
   return {
     obsDefReferences,
@@ -452,10 +337,10 @@ async function main(): Promise<void> {
 
   const activityDefinitions: ActivityDefinition[] = [];
 
-  for (const [_key, testData] of Object.entries(testItems)) {
-    const { obsDefReferences, contained } = getObservationRequirement(testData);
+  for (const testItem of testItems) {
+    const { obsDefReferences, contained } = getObservationRequirement(testItem);
 
-    const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(testData, adUrlVersionMap);
+    const { url: activityDefUrl, version: activityDefVersion } = getUrlAndVersion(testItem, adUrlVersionMap);
 
     const activityDef: ActivityDefinition = {
       resourceType: 'ActivityDefinition',
@@ -465,9 +350,9 @@ async function main(): Promise<void> {
         coding: [
           {
             system: IN_HOUSE_TEST_CODE_SYSTEM,
-            code: testData.name,
+            code: testItem.name,
           },
-          ...testData.cptCode.map((cptCode: string) => {
+          ...testItem.cptCode.map((cptCode: string) => {
             return {
               system: 'http://www.ama-assn.org/go/cpt',
               code: cptCode,
@@ -475,14 +360,14 @@ async function main(): Promise<void> {
           }),
         ],
       },
-      title: testData.name,
-      name: testData.name,
+      title: testItem.name,
+      name: testItem.name,
       participant: [
         {
           type: 'device',
           role: {
             coding: [
-              ...Object.entries(testData.methods)
+              ...Object.entries(testItem.methods)
                 .filter((entry): entry is [string, { device: string }] => entry[1] !== undefined)
                 .map(([key, value]) => ({
                   system: IN_HOUSE_PARTICIPANT_ROLE_SYSTEM,
@@ -506,7 +391,7 @@ async function main(): Promise<void> {
           },
         ],
       },
-      extension: makeActivityDefinitionRepeatableExtension(testData),
+      extension: makeActivityDefinitionRepeatableExtension(testItem),
     };
 
     activityDefinitions.push(activityDef);
@@ -544,24 +429,37 @@ interface QuantityRange {
   unit: string;
   precision?: number;
 }
-
-interface MixedComponent {
+interface TestItemMethods {
+  manual?: { device: string };
+  analyzer?: { device: string };
+  machine?: { device: string };
+}
+interface BaseComponent {
+  componentName: string;
   loincCode: string[];
-  dataType: 'CodeableConcept' | 'Quantity'; // Using literal types instead of ResultType['dataType']
-  display: componentDisplay;
-  valueSet?: string[];
-  abnormalValues?: string[];
-  normalRange?: QuantityRange;
-  quantitativeReference?: Record<string, string>;
+}
+export interface CodeableConceptComponent extends BaseComponent {
+  dataType: 'CodeableConcept';
+  valueSet: string[];
+  abnormalValues: string[];
+  display: {
+    type: 'Radio' | 'Select';
+    nullOption: boolean;
+  };
   unit?: string;
+  quantitativeReference?: Record<string, string>;
+}
+interface QuantityComponent extends BaseComponent {
+  dataType: 'Quantity';
+  normalRange: QuantityRange;
+  display: {
+    type: 'Numeric';
+    nullOption: boolean;
+  };
 }
 
-interface componentDisplay {
-  type: 'Numeric' | 'Radio' | 'Select';
-  nullOption?: boolean;
-}
-
-interface BaseTestItem {
+type TestItemComponent = CodeableConceptComponent | QuantityComponent;
+interface TestItem {
   name: string;
   methods: TestItemMethods;
   method: string;
@@ -569,37 +467,12 @@ interface BaseTestItem {
   cptCode: string[];
   loincCode: string[];
   repeatTest: boolean;
-  // if components are present this display will be defined there
-  display?: componentDisplay;
+  components: TestItemComponent[];
   note?: string;
-  components?: Record<string, MixedComponent>;
 }
 
-interface TestItemMethods {
-  manual?: { device: string };
-  analyzer?: { device: string };
-  machine?: { device: string };
-}
-
-interface CodeableConceptTestItem extends BaseTestItem {
-  dataType: 'CodeableConcept';
-  valueSet: string[];
-  abnormalValues: string[];
-  unit?: string;
-}
-
-interface QuantityTestItem extends BaseTestItem {
-  dataType: 'Quantity';
-  unit: string;
-  normalRange: QuantityRange;
-}
-
-type TestItem = CodeableConceptTestItem | QuantityTestItem;
-
-type TestItemsType = Record<string, TestItem>;
-
-const testItems: TestItemsType = {
-  'Rapid Strep A': {
+const testItems: TestItem[] = [
+  {
     name: 'Rapid Strep A',
     methods: {
       manual: { device: 'Strip Test (reagent strip)' },
@@ -609,15 +482,21 @@ const testItems: TestItemsType = {
     cptCode: ['87880'],
     loincCode: ['78012-2'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Rapid Strep A',
+        loincCode: ['78012-2'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Rapid Influenza A': {
+  {
     name: 'Rapid Influenza A',
     methods: {
       manual: { device: 'Strip Test (reagent strip)' },
@@ -628,15 +507,21 @@ const testItems: TestItemsType = {
     cptCode: ['87804'],
     loincCode: ['80382-5'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Rapid Influenza A',
+        loincCode: ['80382-5'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Rapid Influenza B': {
+  {
     name: 'Rapid Influenza B',
     methods: {
       manual: { device: 'Strip Test (reagent strip)' },
@@ -647,15 +532,21 @@ const testItems: TestItemsType = {
     cptCode: ['87804'],
     loincCode: ['80381-7'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Rapid Influenza B',
+        loincCode: ['80381-7'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Rapid RSV': {
+  {
     name: 'Rapid RSV',
     methods: {
       manual: { device: 'Strip Test (reagent strip)' },
@@ -666,15 +557,21 @@ const testItems: TestItemsType = {
     cptCode: ['87807'],
     loincCode: ['72885-7'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Rapid RSV',
+        loincCode: ['72885-7'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Rapid COVID-19 Antigen': {
+  {
     name: 'Rapid COVID-19 Antigen',
     methods: {
       manual: { device: 'Strip Test (reagent strip)' },
@@ -685,15 +582,21 @@ const testItems: TestItemsType = {
     cptCode: ['87426'],
     loincCode: ['94558-4'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Rapid COVID-19 Antigen',
+        loincCode: ['94558-4'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Flu-Vid': {
+  {
     name: 'Flu-Vid',
     methods: {
       analyzer: { device: 'Sofia' },
@@ -703,15 +606,21 @@ const testItems: TestItemsType = {
     cptCode: ['87428'],
     loincCode: ['80382-5', '94558-4'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Flu-Vid',
+        loincCode: ['80382-5', '94558-4'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Stool Guaiac': {
+  {
     name: 'Stool Guaiac',
     methods: {
       manual: { device: 'None' },
@@ -721,15 +630,21 @@ const testItems: TestItemsType = {
     cptCode: ['82270'],
     loincCode: ['50196-5'],
     repeatTest: true,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Stool Guaiac',
+        loincCode: ['50196-5'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Monospot test': {
+  {
     name: 'Monospot test',
     methods: {
       manual: { device: 'Test well / tube' },
@@ -739,15 +654,21 @@ const testItems: TestItemsType = {
     cptCode: ['86308'],
     loincCode: ['31418-7'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Monospot test',
+        loincCode: ['31418-7'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Glucose Finger/Heel Stick': {
+  {
     name: 'Glucose Finger/Heel Stick',
     methods: {
       manual: { device: 'Stick & glucometer' },
@@ -757,18 +678,24 @@ const testItems: TestItemsType = {
     cptCode: ['82962'],
     loincCode: ['32016-8'],
     repeatTest: true,
-    dataType: 'Quantity' as const,
-    unit: 'mg/dL',
-    normalRange: {
-      low: 70,
-      high: 140,
-      unit: 'mg/dL',
-    },
-    display: {
-      type: 'Numeric',
-    },
+    components: [
+      {
+        componentName: 'Glucose',
+        loincCode: ['32016-8'],
+        dataType: 'Quantity' as const,
+        normalRange: {
+          low: 70,
+          high: 140,
+          unit: 'mg/dL',
+        },
+        display: {
+          type: 'Numeric',
+          nullOption: false,
+        },
+      },
+    ],
   },
-  'Urinalysis (UA)': {
+  {
     name: 'Urinalysis (UA)',
     methods: {
       analyzer: { device: 'Clinitek / Multitsix' },
@@ -778,11 +705,9 @@ const testItems: TestItemsType = {
     cptCode: ['81003'],
     loincCode: ['24356-8'],
     repeatTest: true,
-    dataType: 'CodeableConcept' as const,
-    valueSet: [], // empty value set, because the test itself has no values, only components
-    abnormalValues: [],
-    components: {
-      Glucose: {
+    components: [
+      {
+        componentName: 'Glucose',
         loincCode: ['2350-7'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
@@ -799,9 +724,11 @@ const testItems: TestItemsType = {
         },
         display: {
           type: 'Select',
+          nullOption: false,
         },
       },
-      Bilirubin: {
+      {
+        componentName: 'Bilirubin',
         loincCode: ['1977-8'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Not detected', '1+', '2+', '3+'],
@@ -813,9 +740,11 @@ const testItems: TestItemsType = {
         },
         display: {
           type: 'Select',
+          nullOption: false,
         },
       },
-      Ketone: {
+      {
+        componentName: 'Ketone',
         loincCode: ['49779-2'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
@@ -829,9 +758,11 @@ const testItems: TestItemsType = {
         },
         display: {
           type: 'Select',
+          nullOption: false,
         },
       },
-      'Specific gravity': {
+      {
+        componentName: 'Specific gravity',
         loincCode: ['2965-2'],
         dataType: 'Quantity' as const,
         normalRange: {
@@ -842,18 +773,22 @@ const testItems: TestItemsType = {
         },
         display: {
           type: 'Numeric',
+          nullOption: false,
         },
       },
-      Blood: {
+      {
+        componentName: 'Blood',
         loincCode: ['105906-2'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         display: {
           type: 'Select',
+          nullOption: false,
         },
       },
-      pH: {
+      {
+        componentName: 'pH',
         loincCode: ['2756-5'],
         dataType: 'Quantity' as const,
         normalRange: {
@@ -864,9 +799,11 @@ const testItems: TestItemsType = {
         },
         display: {
           type: 'Numeric',
+          nullOption: false,
         },
       },
-      Protein: {
+      {
+        componentName: 'Protein',
         loincCode: ['2888-6'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
@@ -881,9 +818,11 @@ const testItems: TestItemsType = {
         },
         display: {
           type: 'Select',
+          nullOption: false,
         },
       },
-      Urobilinogen: {
+      {
+        componentName: 'Urobilinogen',
         loincCode: ['32727-0'],
         dataType: 'Quantity' as const,
         normalRange: {
@@ -894,29 +833,34 @@ const testItems: TestItemsType = {
         },
         display: {
           type: 'Numeric',
+          nullOption: false,
         },
       },
-      Nitrite: {
+      {
+        componentName: 'Nitrite',
         loincCode: ['32710-6'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Detected', 'Not detected'],
         abnormalValues: ['Detected'],
         display: {
           type: 'Select',
+          nullOption: false,
         },
       },
-      Leukocytes: {
+      {
+        componentName: 'Leukocytes',
         loincCode: ['105105-1'],
         dataType: 'CodeableConcept' as const,
         valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         display: {
           type: 'Select',
+          nullOption: false,
         },
       },
-    },
+    ],
   },
-  'Urine Pregnancy Test (HCG)': {
+  {
     name: 'Urine Pregnancy Test (HCG)',
     methods: {
       manual: { device: 'Strip/stick' },
@@ -926,15 +870,21 @@ const testItems: TestItemsType = {
     cptCode: ['81025'],
     loincCode: ['2106-3'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: [], // empty array, because both results are normal in the context of the test
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Urine Pregnancy Test (HCG)',
+        loincCode: ['2106-3'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: [], // empty array, because both results are normal in the context of the test
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  Strep: {
+  {
     name: 'Strep',
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
@@ -944,15 +894,21 @@ const testItems: TestItemsType = {
     cptCode: ['87651'],
     loincCode: ['104724-0'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Strep',
+        loincCode: ['104724-0'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Flu A': {
+  {
     name: 'Flu A',
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
@@ -963,15 +919,21 @@ const testItems: TestItemsType = {
     loincCode: ['104730-7'],
     repeatTest: false,
     note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Flu A',
+        loincCode: ['104730-7'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'Flu B': {
+  {
     name: 'Flu B',
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
@@ -982,15 +944,21 @@ const testItems: TestItemsType = {
     loincCode: ['106618-2'],
     repeatTest: false,
     note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'Flu B',
+        loincCode: ['106618-2'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  RSV: {
+  {
     name: 'RSV',
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
@@ -1000,15 +968,21 @@ const testItems: TestItemsType = {
     cptCode: ['87634'],
     loincCode: ['33045-6', '31949-1'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'RSV',
+        loincCode: ['33045-6', '31949-1'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-  'COVID-19 Antigen': {
+  {
     name: 'COVID-19 Antigen',
     methods: {
       analyzer: { device: 'Abbott ID NOW' },
@@ -1018,12 +992,18 @@ const testItems: TestItemsType = {
     cptCode: ['87635'],
     loincCode: ['96119-3'],
     repeatTest: false,
-    dataType: 'CodeableConcept' as const,
-    valueSet: ['Detected', 'Not detected'],
-    abnormalValues: ['Detected'],
-    display: {
-      type: 'Radio',
-      nullOption: true,
-    },
+    components: [
+      {
+        componentName: 'COVID-19 Antigen',
+        loincCode: ['96119-3'],
+        dataType: 'CodeableConcept' as const,
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
+        display: {
+          type: 'Radio',
+          nullOption: true,
+        },
+      },
+    ],
   },
-};
+];
