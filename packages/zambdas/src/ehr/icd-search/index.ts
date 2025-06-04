@@ -21,7 +21,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     // search codes
     try {
       const icdResponse = await fetch(
-        `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${search}&sabs=${sabs}&searchType=rightTruncation`
+        `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${search}&sabs=${sabs}&searchType=normalizedWords&partialSearch=true`
       );
       if (!icdResponse.ok) {
         throw new Error(icdResponse.statusText);
