@@ -158,6 +158,7 @@ export function makeAllergyResource(
     resourceType: 'AllergyIntolerance',
     patient: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
+    type: 'allergy',
     // category: allergyType ? [allergyType] : undefined,
     meta: getMetaWFieldName(fieldName),
     note: data.note ? [{ text: data.note }] : undefined,
@@ -688,7 +689,6 @@ export function updateEncounterDiagnosis(encounter: Encounter, conditionId: stri
     }
   });
   if (!foundDiagnosis) {
-    if (!encounter.diagnosis) resultOperations.push(addEmptyArrOperation('/diagnosis'));
     resultOperations.push(
       addOperation('/diagnosis/-', {
         condition: { reference: conditionReference },

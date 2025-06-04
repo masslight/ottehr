@@ -21,13 +21,19 @@ import {
   ListScheduleOwnersResponse,
   ScheduleDTO,
   UpdateScheduleParams,
+  CreateRadiologyZambdaOrderInput,
+  GetRadiologyOrderListZambdaInput,
+  GetRadiologyOrderListZambdaOutput,
   GetLabOrdersParameters,
   DeleteLabOrderParams,
   SubmitLabOrderDTO,
-  CreateSlotParams,
-  apiErrorToThrow,
   CreateAppointmentInputParams,
   UpdateLabOrderResourcesParameters,
+  CreateSlotParams,
+  apiErrorToThrow,
+  CancelRadiologyOrderZambdaInput,
+  RadiologyLaunchViewerZambdaInput,
+  RadiologyLaunchViewerZambdaOutput,
   GetInHouseOrdersParameters,
   CollectInHouseLabSpecimenParameters,
   GetCreateInHouseLabOrderResourcesParameters,
@@ -38,7 +44,8 @@ import {
   GetLabelPdfParameters,
   LabelPdf,
   GetVisitLabelInput,
-  InHouseOrdersListResponse,
+  CreateInHouseLabOrderResponse,
+  InHouseGetOrdersResponseDTO,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -706,6 +713,77 @@ export const updateLabOrderResources = async (
   }
 };
 
+export const createRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: CreateRadiologyZambdaOrderInput
+): Promise<any> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-create-order',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const cancelRadiologyOrder = async (
+  oystehr: Oystehr,
+  parameters: CancelRadiologyOrderZambdaInput
+): Promise<void> => {
+  try {
+    await oystehr.zambda.execute({
+      id: 'radiology-cancel-order',
+      ...parameters,
+    });
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const radiologyLaunchViewer = async (
+  oystehr: Oystehr,
+  parameters: RadiologyLaunchViewerZambdaInput
+): Promise<RadiologyLaunchViewerZambdaOutput> => {
+  try {
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-launch-viewer',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
+export const getRadiologyOrders = async (
+  oystehr: Oystehr,
+  parameters: GetRadiologyOrderListZambdaInput
+): Promise<GetRadiologyOrderListZambdaOutput> => {
+  try {
+    const searchBy = parameters.encounterId || parameters.patientId || parameters.serviceRequestId;
+    if (!searchBy) {
+      throw new Error(
+        `Missing one of the required parameters (serviceRequestId | encounterId | patientId): ${JSON.stringify(
+          parameters
+        )}`
+      );
+    }
+    const response = await oystehr.zambda.execute({
+      id: 'radiology-order-list',
+      ...parameters,
+    });
+    return chooseJson(response);
+  } catch (error: unknown) {
+    console.log(error);
+    throw error;
+  }
+};
+
 export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Promise<Slot> => {
   try {
     const response = await oystehr.zambda.executePublic({ id: CREATE_SLOT_ZAMBDA_ID, ...input });
@@ -719,7 +797,7 @@ export const createSlot = async (input: CreateSlotParams, oystehr: Oystehr): Pro
 export const createInHouseLabOrder = async (
   oystehr: Oystehr,
   parameters: CreateInHouseLabOrderParameters
-): Promise<any> => {
+): Promise<CreateInHouseLabOrderResponse> => {
   try {
     if (CREATE_IN_HOUSE_LAB_ORDER_ZAMBDA_ID == null) {
       throw new Error('create in house lab order zambda environment variable could not be loaded');
@@ -738,7 +816,7 @@ export const createInHouseLabOrder = async (
 export const getInHouseOrders = async <RequestParameters extends GetInHouseOrdersParameters>(
   oystehr: Oystehr,
   parameters: RequestParameters
-): Promise<InHouseOrdersListResponse<RequestParameters>> => {
+): Promise<InHouseGetOrdersResponseDTO<RequestParameters>> => {
   try {
     if (GET_IN_HOUSE_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get in house orders zambda environment variable could not be loaded');

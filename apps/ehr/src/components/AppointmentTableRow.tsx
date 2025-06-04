@@ -38,6 +38,7 @@ import {
   PRACTITIONER_CODINGS,
   getPatchBinary,
   ROOM_EXTENSION_URL,
+  InHouseOrderListPageItemDTO,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -61,6 +62,8 @@ import ReasonsForVisit from './ReasonForVisit';
 import { Operation } from 'fast-json-patch';
 import GoToButton from './GoToButton';
 import { progressNoteIcon, startIntakeIcon } from '@theme/icons';
+import { InHouseLabsAppointmentTooltip } from 'src/features/in-house-labs/components/tracking-board/InHouseLabsAppointmentTooltip';
+import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -71,6 +74,7 @@ interface AppointmentTableProps {
   tab: ApptTab;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
+  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
 }
 
 const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
@@ -235,6 +239,7 @@ export default function AppointmentTableRow({
   tab,
   updateAppointments,
   setEditingComment,
+  inHouseLabOrders,
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -789,30 +794,57 @@ export default function AppointmentTableRow({
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.group}</Typography>
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'center' }}>
-        <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
-          <Box sx={{ display: 'flex', gap: 0 }}>
-            <AccountCircleOutlinedIcon
-              sx={{ ml: 0, mr: 0.5, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
-              fill={otherColors.cardChip}
-            ></AccountCircleOutlinedIcon>
+      <TableCell
+        sx={{
+          verticalAlign: 'center',
+          cursor: 'pointer',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+          <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
+            <Box sx={{ display: 'flex', gap: 0 }}>
+              <AccountCircleOutlinedIcon
+                sx={{ ml: 0, mr: 0.5, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
+                fill={otherColors.cardChip}
+              ></AccountCircleOutlinedIcon>
 
-            <HealthAndSafetyOutlinedIcon
-              sx={{ mx: 0.5, color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
-              fill={otherColors.cardChip}
-            ></HealthAndSafetyOutlinedIcon>
+              <HealthAndSafetyOutlinedIcon
+                sx={{ mx: 0.5, color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
+                fill={otherColors.cardChip}
+              ></HealthAndSafetyOutlinedIcon>
 
-            <BadgeOutlinedIcon
-              sx={{ mx: 0.5, color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
-              fill={otherColors.cardChip}
-            ></BadgeOutlinedIcon>
+              <BadgeOutlinedIcon
+                sx={{ mx: 0.5, color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
+                fill={otherColors.cardChip}
+              ></BadgeOutlinedIcon>
 
-            <AssignmentTurnedInOutlinedIcon
-              sx={{ mx: 0.5, color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
-              fill={otherColors.cardChip}
-            ></AssignmentTurnedInOutlinedIcon>
-          </Box>
-        </GenericToolTip>
+              <AssignmentTurnedInOutlinedIcon
+                sx={{ mx: 0.5, color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
+                fill={otherColors.cardChip}
+              ></AssignmentTurnedInOutlinedIcon>
+            </Box>
+          </GenericToolTip>
+
+          {!!inHouseLabOrders?.length && (
+            <GenericToolTip title={<InHouseLabsAppointmentTooltip items={inHouseLabOrders} />} customWidth="none">
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 0,
+                  color: '#0F347C',
+                  backgroundColor: '#2169F514',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {sidebarMenuIcons['In-house Labs']}
+              </Box>
+            </GenericToolTip>
+          )}
+        </div>
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <AppointmentNote

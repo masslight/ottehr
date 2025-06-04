@@ -73,7 +73,41 @@ const PROCEDURE_TYPES = [
   'Nasal Packing (Epistaxis Control)',
   'Eye Irrigation or Eye Foreign Body Removal',
   'Nasal Lavage (schnozzle)',
+  'EKG',
 ];
+const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
+  'Nebulizer Treatment (e.g., Albuterol)': {
+    code: '94640',
+    display:
+      'Pressurized or nonpressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device',
+  },
+  'Wart Treatment (Cryotherapy with Liquid Nitrogen': {
+    code: '17110',
+    display:
+      'Destruction (eg, laser surgery, electrosurgery, cryosurgery, chemosurgery, surgical curettement), of benign lesions other than skin tags or cutaneous vascular proliferative lesions; up to 14 lesions',
+  },
+  'Nail Trephination (Subungual Hematoma Drainage)': {
+    code: '11740',
+    display: 'Evacuation of subungual hematoma',
+  },
+  'Tick or Insect Removal': {
+    code: '10120',
+    display: 'Incision and removal of foreign body, subcutaneous tissues; simple',
+  },
+  'Nasal Packing (Epistaxis Control)': {
+    code: '30901',
+    display: 'Control nasal hemorrhage, anterior, simple (limited cautery and/or packing) any method',
+  },
+  EKG: {
+    code: '93000',
+    display: 'Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report',
+  },
+  'Intramuscular (IM) Medication Injection': {
+    code: '96372',
+    display:
+      'Therapeutic, prophylactic, or diagnostic injection (specify substance or drug); subcutaneous or intramuscular',
+  },
+};
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
 const MEDICATIONS_USED = ['None', 'Topical', 'Local', 'Oral', 'IV', 'IM'];
 const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', OTHER];
@@ -487,12 +521,12 @@ export default function ProceduresNew(): ReactElement {
             <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Procedure Type & CPT Code
             </Typography>
-            {dropdown(
-              'Procedure type',
-              PROCEDURE_TYPES,
-              state.procedureType,
-              (value, state) => (state.procedureType = value)
-            )}
+            {dropdown('Procedure type', PROCEDURE_TYPES, state.procedureType, (value, state) => {
+              state.procedureType = value;
+              if (PRE_POPULATED_CPT_CODE[value] != null) {
+                state.cptCodes = [PRE_POPULATED_CPT_CODE[value]];
+              }
+            })}
             {cptWidget()}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx

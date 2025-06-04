@@ -36,6 +36,7 @@ import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { enqueueSnackbar } from 'notistack';
 import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
 enum LoadingState {
   initial,
@@ -186,7 +187,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
 
   if (loadingState === LoadingState.loadedWithError) {
     return (
-      <Stack spacing={2} sx={{ p: 3 }}>
+      <Stack spacing={2}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
             Order Lab
@@ -210,8 +211,8 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   }
 
   return (
-    <WithLabBreadcrumbs sectionName="Order Lab">
-      <Stack spacing={2} sx={{ p: 3 }}>
+    <DetailPageContainer>
+      <WithLabBreadcrumbs sectionName="Order Lab">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
             Order Lab
@@ -391,7 +392,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
             </Paper>
           </form>
         )}
-      </Stack>
-    </WithLabBreadcrumbs>
+      </WithLabBreadcrumbs>
+    </DetailPageContainer>
   );
 };

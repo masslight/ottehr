@@ -30,11 +30,10 @@ import {
   Task,
   FhirResource,
   Practitioner,
-  Bundle,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPrimaryInsurance } from '../shared/labs';
-import { BatchInputRequest, ZambdaExecuteResult } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { getAttendingPractionerId } from '../shared/inhouse-labs';
 
@@ -65,7 +64,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
+
     const {
       encounterId,
       testItem,
@@ -150,7 +149,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               },
               {
                 name: 'code',
-                value: `${cptCode},${testItem.name}`,
+                value: cptCode,
+              },
+              {
+                name: 'code',
+                value: testItem.name,
               },
             ],
           })
@@ -308,7 +311,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: activityDefinition.code?.coding,
         text: activityDefinition.name,
       },
-      reasonCode: [...diagnosesAll, ...diagnosesNew].map((diagnosis) => {
+      reasonCode: [...diagnosesAll].map((diagnosis) => {
         return {
           coding: [
             {
@@ -418,17 +421,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         })
       : {};
 
-    // todo: add common response type
-    const response: {
-      transactionResponse: Bundle<FhirResource>;
-      saveChartDataResponse: ZambdaExecuteResult | Record<string, never>;
-      serviceRequestId?: string;
-    } = {
+    const response = {
       transactionResponse,
       saveChartDataResponse,
+      ...(newServiceRequest && { serviceRequestId: newServiceRequest.id }),
     };
-
-    if (newServiceRequest) response['serviceRequestId'] = newServiceRequest.id;
 
     return {
       statusCode: 200,

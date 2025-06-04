@@ -10,7 +10,7 @@ import {
   Paper,
   Button,
 } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNursingOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { useAppointmentStore } from 'src/telemed';
@@ -22,14 +22,12 @@ export type NursingOrdersTableColumn = 'order' | 'orderAdded' | 'status';
 type NursingOrdersTableProps = {
   columns: NursingOrdersTableColumn[];
   allowDelete?: boolean;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
-  onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
+  onCreateOrder?: () => void;
 };
 
 export const NursingOrdersTable = ({
   columns,
   allowDelete = true,
-  redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: NursingOrdersTableProps): ReactElement => {
   const navigateTo = useNavigate();
@@ -43,17 +41,6 @@ export const NursingOrdersTable = ({
     }
     navigateTo(getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId));
   };
-
-  // Redirect to create order page if needed
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && nursingOrders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder({ isAutoRedirected: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, nursingOrders.length, error, onCreateOrder]);
 
   if (loading) {
     return (

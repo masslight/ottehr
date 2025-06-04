@@ -5,7 +5,7 @@ import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement, Suspense, lazy, useState } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType } from 'utils';
+import { RoleType, setupSentry } from 'utils';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import { LoadingScreen } from './components/LoadingScreen';
 import Navbar from './components/navigation/Navbar';
@@ -41,6 +41,19 @@ import AddSchedulePage from './pages/AddSchedulePage';
 import AddEmployeePage from './pages/AddEmployeePage';
 import GroupPage from './pages/GroupPage';
 import('@photonhealth/elements').catch(console.log);
+
+const { MODE: environment, VITE_APP_SENTRY_DSN } = import.meta.env;
+
+const isLowerEnvs = ['dev', 'testing', 'staging', 'training'].includes(environment);
+
+const isLowerEnvsOrProd = isLowerEnvs || import.meta.env.MODE === 'production';
+
+if (isLowerEnvsOrProd) {
+  setupSentry({
+    dsn: VITE_APP_SENTRY_DSN,
+    environment,
+  });
+}
 
 const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
 

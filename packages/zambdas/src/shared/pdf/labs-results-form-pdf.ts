@@ -36,8 +36,11 @@ import {
 } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
+import { compareDates } from '../../ehr/get-lab-orders/helpers';
 
-function formatResultValue(result: string | undefined): string | undefined {
+const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
+
+function formatResultValue(result: string): string {
   if (result === 'Positive') {
     return 'Detected';
   } else if (result === 'Negative') {
@@ -120,7 +123,7 @@ export async function createLabResultPDF(
     throw new Error('practitioner is not found');
   }
 
-  const taskProvenancePST = taskProvenanceTemp[0];
+  const taskProvenance = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
 
   const taskRequestTemp = (
@@ -137,28 +140,31 @@ export async function createLabResultPDF(
         },
         {
           name: 'code',
-          value: LAB_ORDER_TASK.code.reviewFinalResult,
+          value: `${LAB_ORDER_TASK.code.reviewFinalResult},${LAB_ORDER_TASK.code.reviewCorrectedResult}`,
         },
       ],
     })
   )?.unbundle();
 
-  const taskRequestsRFRT: Task[] | undefined = taskRequestTemp?.filter(
+  const reviewTasksFinalOrCorrected: Task[] | undefined = taskRequestTemp?.filter(
     (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
 
-  const taskRFRT = taskRequestsRFRT?.[0];
-  let provenanceRFRT = undefined;
+  const latestReviewTask = reviewTasksFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
 
-  if (taskRFRT) {
-    const provenanceRFRTID = taskRFRT.relevantHistory?.[0].reference?.replace('Provenance/', '');
-    if (provenanceRFRTID) {
-      provenanceRFRT = await oystehr.fhir.get<Provenance>({
+  let provenanceReviewTask = undefined;
+
+  if (latestReviewTask) {
+    const provenanceReviewTaskId = latestReviewTask.relevantHistory?.[0].reference?.replace('Provenance/', '');
+    if (provenanceReviewTaskId) {
+      provenanceReviewTask = await oystehr.fhir.get<Provenance>({
         resourceType: 'Provenance',
-        id: provenanceRFRTID,
+        id: provenanceReviewTaskId,
       });
     }
   }
+
+  console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, JSON.stringify(provenanceReviewTask));
 
   let location: Location | undefined;
   if (locationID) {
@@ -177,14 +183,13 @@ export async function createLabResultPDF(
     timezone = getTimezone(location);
   }
 
-  const orderSubmitDate = DateTime.fromISO(taskProvenancePST.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
+  const orderSubmitDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
   const orderCreateDate = serviceRequest.authoredOn
     ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a')
     : undefined;
-  const reviewDate = provenanceRFRT
-    ? DateTime.fromISO(provenanceRFRT.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a')
+  const reviewDate = provenanceReviewTask
+    ? DateTime.fromISO(provenanceReviewTask.recorded).toFormat('MM/dd/yyyy hh:mm a')
     : undefined;
-  const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
   const resultInterpretationDisplays: string[] = [];
   let externalLabResults: ExternalLabResult[] | undefined = undefined;
@@ -199,14 +204,24 @@ export async function createLabResultPDF(
       )
       .forEach((observation) => {
         const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
+        let value = undefined;
+        if (observation.valueQuantity) {
+          value = `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
+            observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
+          }`;
+        } else if (observation.valueString) {
+          value = observation.valueString;
+        } else if (observation.valueCodeableConcept) {
+          value =
+            observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') ||
+            ORDER_RESULT_ITEM_UNKNOWN;
+        }
         const labResult: ExternalLabResult = {
           resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
           resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
           resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
           resultInterpretationDisplay: interpretationDisplay,
-          resultValue: `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
-            observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
-          }`,
+          resultValue: value || ORDER_RESULT_ITEM_UNKNOWN,
         };
         resultsTemp.push(labResult);
         if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
@@ -222,31 +237,32 @@ export async function createLabResultPDF(
     components.radioComponents.forEach((item) => {
       resultsTemp.push({
         name: item.componentName,
-        value: formatResultValue(item.result?.entry),
+        type: item.dataType,
+        value: formatResultValue(item.result?.entry || ''),
         units: item.unit,
-        range: item.valueSet
+        rangeString: item.valueSet
           .filter((value) => !item.abnormalValues.includes(value))
-          .map((value) => formatResultValue(value))
-          .join(', '),
+          .map((value) => formatResultValue(value)),
       });
     });
     components.groupedComponents.forEach((item) => {
       if (item.dataType === 'CodeableConcept') {
         resultsTemp.push({
           name: item.componentName,
-          value: formatResultValue(item.result?.entry),
+          type: item.dataType,
+          value: formatResultValue(item.result?.entry || ''),
           units: item.unit,
-          range: item.valueSet
+          rangeString: item.valueSet
             .filter((value) => !item.abnormalValues.includes(value))
-            .map((value) => formatResultValue(value))
-            .join(', '),
+            .map((value) => formatResultValue(value)),
         });
       } else if (item.dataType === 'Quantity') {
         resultsTemp.push({
           name: item.componentName,
+          type: item.dataType,
           value: item.result?.entry,
           units: item.unit,
-          range: quantityRangeFormat(item),
+          rangeQuantity: item,
         });
       }
     });
@@ -277,6 +293,7 @@ export async function createLabResultPDF(
       locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
       labOrganizationName: organization?.name || ORDER_RESULT_ITEM_UNKNOWN,
       reqId: orderID || ORDER_RESULT_ITEM_UNKNOWN,
+      serviceRequestID: serviceRequest.id || ORDER_RESULT_ITEM_UNKNOWN,
       providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_RESULT_ITEM_UNKNOWN,
       providerTitle:
         provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') ||
@@ -304,6 +321,8 @@ export async function createLabResultPDF(
         labType === 'external'
           ? diagnosticReport.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN
           : activityDefinition?.title || ORDER_RESULT_ITEM_UNKNOWN,
+      specimenSource:
+        specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
       orderAssessments: serviceRequest.reasonCode.map((code) => ({
         code: code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
         name: code.text || ORDER_RESULT_ITEM_UNKNOWN,
@@ -772,24 +791,23 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     drawFieldLineLeft('Req ID:', data.reqId);
     drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
     addNewLine();
-    drawFieldLineLeft('Order priority:', data.orderPriority.toUpperCase());
+    drawFieldLineLeft('Order Priority:', data.orderPriority.toUpperCase());
     // drawFieldLineRight('Order Received:', data.orderReceived);
     addNewLine();
     // drawFieldLineRight('Specimen Received', data.specimenReceived);
     addNewLine();
     // drawFieldLineRight('Reported:', data.reportDate);
   } else if (type === 'in-house') {
-    drawFieldLineLeft('Requesting physician:', data.providerName);
-    drawFieldLineRight('Order Create Date:', data.orderCreateDate);
+    drawFieldLineLeft('Order ID:', data.serviceRequestID);
+    drawFieldLineRight('Order date:', data.orderCreateDate);
     addNewLine();
     drawFieldLineLeft('Ordering physician:', data.providerName);
-    drawFieldLineRight('Collection Date:', data.collectionDate);
+    drawFieldLineRight('Collection date:', data.collectionDate);
     addNewLine();
-    drawFieldLineLeft('Order Submit Date:', data.orderSubmitDate);
-    drawFieldLineRight('Order Printed:', data.todayDate);
+    drawRegularTextLeft('IQC Valid', styles.regularTextBold.font);
+    drawFieldLineRight('Final results:', data.orderSubmitDate);
     addNewLine();
     addNewLine();
-    drawFieldLineLeft('Order priority:', data.orderPriority.toUpperCase());
     // drawFieldLineRight('Order Received:', data.orderReceived);
     addNewLine();
     // drawFieldLineRight('Specimen Received', data.specimenReceived);
@@ -808,7 +826,11 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     'Dx:',
     data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
   );
-  addNewLine(undefined, 3);
+  addNewLine();
+  if (type === 'in-house') {
+    drawFieldLineLeft('Specimen source:', data.specimenSource);
+    addNewLine(undefined, 3);
+  }
   drawLargeHeader(data.testName.toUpperCase());
   addNewLine(undefined, 2);
   drawSeparatorLine(styles.margin.x, width - styles.margin.x);
@@ -857,7 +879,24 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     addNewLine(undefined, 1);
     for (const labResult of data.inHouseLabResults) {
       addNewLine(undefined, 1.5);
-      drawFiveColumnText('', labResult.name, labResult.value || '', labResult.units || '', labResult.range);
+      let resultRange = undefined;
+      if (labResult.rangeString) {
+        resultRange = labResult.rangeString.join(', ');
+      } else if (labResult.rangeQuantity) {
+        resultRange = quantityRangeFormat(labResult.rangeQuantity);
+      } else {
+        resultRange = ORDER_RESULT_ITEM_UNKNOWN;
+      }
+      drawFiveColumnText(
+        '',
+        labResult.name,
+        labResult.value || '',
+        labResult.units || '',
+        resultRange,
+        styles.regularTextBold.font,
+        14,
+        getInHouseResultRowDisplayColor(labResult, styles.colors)
+      );
     }
   }
   addNewLine(undefined, 1.5);
@@ -909,6 +948,22 @@ function getResultRowDisplayColor(resultInterpretations: string[], colors: { [ke
   } else {
     return colors.red;
   }
+}
+
+function getInHouseResultRowDisplayColor(labResult: InHouseLabResult, colors: { [key: string]: Color }): Color {
+  if (labResult.value && labResult.rangeString?.includes(labResult.value)) {
+    return colors.black;
+  } else if (labResult.type === 'Quantity') {
+    if (labResult.value && labResult.rangeQuantity) {
+      const value = parseFloat(labResult.value);
+      const { low, high } = labResult.rangeQuantity.normalRange;
+      if (value >= low && value <= high) {
+        return colors.black;
+      }
+    }
+    return colors.red;
+  }
+  return colors.red;
 }
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {

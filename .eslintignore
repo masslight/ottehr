@@ -11,3 +11,4 @@ dist/
 .esbuild/
 old-ottehr/
 .serverless/
+cdk.out/
