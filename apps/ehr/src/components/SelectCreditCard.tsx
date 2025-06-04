@@ -6,7 +6,6 @@ import {
   AutocompleteRenderInputParams,
   TextField,
   CircularProgress,
-  Typography,
 } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, useState } from 'react';
@@ -65,7 +64,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     },
   });
 
-  const initializing = isSetupDataFetching || isSetupDataLoading || cardsAreLoading;
+  const initializing = isSetupDataFetching || isSetupDataLoading;
 
   const cardOptions = [
     ...cards.map((card) => ({ id: card.id, label: labelForCard(card) })),
@@ -73,10 +72,10 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
   ];
 
   const selectedCard = cardOptions.find((card) => card.id === selectedCardId);
+  const someDefault = cards.some((card) => card.default);
 
   const handleNewPaymentMethod = async (id: string, makeDefault: boolean): Promise<void> => {
     if (makeDefault) {
-      console.log('setting default payment method', id);
       setDefault({
         paymentMethodId: id,
         onSuccess: async () => {
@@ -94,8 +93,6 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     setAddingNewCard(false);
   };
 
-  console.log('cards are loading', cardsAreLoading);
-  console.log('isSettingUpStripe', isSetupDataLoading);
   if (initializing) {
     return (
       <Box
@@ -110,6 +107,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       </Box>
     );
   }
+  const currentValue = selectedCard ?? (addingNewCard ? NEW_CARD : null);
   return (
     <>
       <Autocomplete
@@ -129,7 +127,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             {option.label}
           </li>
         )}
-        value={selectedCard ?? addingNewCard ? NEW_CARD : null}
+        value={currentValue}
         renderInput={(params: AutocompleteRenderInputParams) => {
           return (
             <TextField
@@ -148,6 +146,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         onChange={(_event, value) => {
           if (value?.id === NEW_CARD.id) {
             setAddingNewCard(true);
+            console.log('Adding new card set');
             return;
           }
           handleCardSelected(value?.id);
@@ -157,28 +156,28 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         }}
       />
 
-      <Box
-        sx={{
-          width: '100%',
-          display: addingNewCard ? 'flex' : 'none',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-          flexDirection: 'column',
-          marginTop: 2,
-        }}
-      >
-        <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
+      <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
+        <Box
+          sx={{
+            width: '100%',
+            display: addingNewCard ? 'flex' : 'none',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+            flexDirection: 'column',
+            marginTop: 2,
+          }}
+        >
           <AddCreditCardForm
             clientSecret={setupData ?? ''}
             isLoading={false}
             disabled={false}
             selectPaymentMethod={(id) => {
-              void handleNewPaymentMethod(id, false);
+              void handleNewPaymentMethod(id, !someDefault);
             }}
             condition="I have obtained the consent to add a card on file from the patient"
           />
-        </Elements>
-      </Box>
+        </Box>
+      </Elements>
 
       <Snackbar
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}

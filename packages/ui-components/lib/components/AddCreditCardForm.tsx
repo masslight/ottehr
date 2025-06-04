@@ -24,7 +24,7 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
     e.preventDefault();
 
     if (!stripe || !elements) {
-      throw new Error('Stripe ro stripe elements not provided');
+      throw new Error('Stripe or stripe elements not provided');
     }
 
     const card = elements.getElement(CardElement);
@@ -53,7 +53,7 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
       <Box sx={{ width: '100%' }}>
         <CardElement
           options={{
-            disabled: disabled || Boolean(condition && !conditionAccepted),
+            disabled: disabled,
             disableLink: true,
             hidePostalCode: true,
           }}

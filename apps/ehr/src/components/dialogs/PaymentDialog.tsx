@@ -19,6 +19,7 @@ import { ReactElement } from 'react';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { Patient } from 'fhir/r4b';
 import {
+  CashOrCardPayment,
   DOB_DATE_FORMAT,
   formatPhoneNumberDisplay,
   getFirstName,
@@ -32,6 +33,7 @@ import SelectCreditCard from '../SelectCreditCard';
 
 interface PaymentDialogProps {
   handleClose: () => void;
+  submitPayment: (data: CashOrCardPayment) => Promise<void>;
   open: boolean;
   patient: Patient;
 }
@@ -75,7 +77,7 @@ const PatientHeader = (props: { patient: Patient }): ReactElement => {
   );
 };
 
-export default function ({ handleClose, open, patient }: PaymentDialogProps): ReactElement {
+export default function ({ submitPayment, handleClose, open, patient }: PaymentDialogProps): ReactElement {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const buttonSx = {
     fontWeight: 500,
@@ -83,7 +85,7 @@ export default function ({ handleClose, open, patient }: PaymentDialogProps): Re
     borderRadius: 6,
   };
 
-  const { handleSubmit, register, watch, control, getValues, setValue } = useForm({
+  const { handleSubmit, register, watch, control, setValue } = useForm({
     defaultValues: {
       amount: '',
       paymentMethod: 'card',
@@ -94,9 +96,23 @@ export default function ({ handleClose, open, patient }: PaymentDialogProps): Re
   const paymentMethod = watch('paymentMethod'); // Default to 'card'
   const creditCard = watch('creditCard');
 
-  console.log('Payment method selected:', paymentMethod);
-  console.log('Credit card selected:', creditCard);
-  console.log('Form values:', getValues());
+  /*
+    console.log('Payment method selected:', paymentMethod);
+    console.log('Credit card selected:', creditCard);
+    console.log('Form values:', getValues());
+  */
+
+  const structureDataAndSubmit = async (data: any): Promise<void> => {
+    const amount = parseFloat(data.amount);
+    const paymentMethod = data.paymentMethod;
+    const creditCard = data.creditCard;
+    const paymentData: CashOrCardPayment = {
+      amountInCents: Math.round(amount * 100),
+      paymentMethod,
+      paymentMethodId: creditCard || undefined,
+    };
+    await submitPayment(paymentData);
+  };
 
   const handleDialogClose = (): void => {
     handleClose();
@@ -115,7 +131,7 @@ export default function ({ handleClose, open, patient }: PaymentDialogProps): Re
         },
       }}
     >
-      <form onSubmit={handleSubmit((event) => console.log(event))} noValidate>
+      <form onSubmit={handleSubmit(structureDataAndSubmit)} noValidate>
         <DialogTitle variant="h4" color="primary.dark" sx={{ width: '100%' }}>
           Payment
         </DialogTitle>
@@ -158,17 +174,20 @@ export default function ({ handleClose, open, patient }: PaymentDialogProps): Re
               </FormControl>
             </Grid>
           </Grid>
-          {paymentMethod === 'card' && (
-            <Grid item>
-              <SelectCreditCard
-                patient={patient}
-                selectedCardId={creditCard}
-                handleCardSelected={(newVal: string | undefined) => {
-                  setValue('creditCard', newVal ?? '');
-                }}
-              />
-            </Grid>
-          )}
+          <Grid
+            item
+            sx={{
+              display: paymentMethod === 'card' ? 'initial' : 'none',
+            }}
+          >
+            <SelectCreditCard
+              patient={patient}
+              selectedCardId={creditCard}
+              handleCardSelected={(newVal: string | undefined) => {
+                setValue('creditCard', newVal ?? '');
+              }}
+            />
+          </Grid>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
           <Button variant="text" onClick={handleDialogClose} size="medium" sx={buttonSx}>

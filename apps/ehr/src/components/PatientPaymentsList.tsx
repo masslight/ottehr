@@ -15,30 +15,14 @@ import {
 import { DateTime } from 'luxon';
 import PaymentDialog from './dialogs/PaymentDialog';
 import { Patient } from 'fhir/r4b';
-
-interface CardPaymentDTO {
-  paymentMethod: 'card';
-  amountInCents: number;
-  dateISO: string;
-  maskedCardNumber: string;
-  stripePaymentId: string;
-  stripePaymentMethodId: string;
-  description?: string;
-}
-
-interface CashPaymentDTO {
-  paymentMethod: 'cash' | 'check';
-  amountInCents: number;
-  dateISO: string;
-  fhirPaymentNotificationId: string;
-  description?: string;
-}
-
-export type PatientPaymentDTO = CardPaymentDTO | CashPaymentDTO;
+import { CashOrCardPayment, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
+import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
+import { useMutation } from 'react-query';
+import { useApiClients } from 'src/hooks/useAppClients';
 
 export interface PaymentListProps {
   patient: Patient;
-  appointmentId: string;
+  encounterId: string;
   loading?: boolean;
 }
 
@@ -46,36 +30,51 @@ const idForPaymentDTO = (payment: PatientPaymentDTO): string => {
   if (payment.paymentMethod === 'card') {
     return payment.stripePaymentId;
   } else {
-    return payment.fhirPaymentNotificationId;
+    return payment.fhirPaymentNotificationId ?? 'unknown-payment-id'; //todo: should get something from candid
   }
 };
 
-const dummyPaymentList: PatientPaymentDTO[] = [
-  { paymentMethod: 'cash', amountInCents: 1000, dateISO: '2023-10-01T12:00:00Z', fhirPaymentNotificationId: '1' },
-  {
-    paymentMethod: 'card',
-    amountInCents: 500,
-    dateISO: '2023-10-01T12:00:00Z',
-    maskedCardNumber: 'xxxx xxxx xxxx 1234',
-    stripePaymentId: 'stripe1',
-    stripePaymentMethodId: 'pm_1',
-  },
-  { paymentMethod: 'cash', amountInCents: 3000, dateISO: '2023-10-02T12:00:00Z', fhirPaymentNotificationId: '3' },
-  { paymentMethod: 'check', amountInCents: 2500, dateISO: '2023-10-02T12:00:00Z', fhirPaymentNotificationId: '4' },
-];
-
 const getLabelForPayment = (payment: PatientPaymentDTO): string => {
   if (payment.paymentMethod === 'card') {
-    return payment.maskedCardNumber;
+    return `XXXX - XXXX - XXXX - ${payment.cardLast4}`;
   } else {
     return capitalize(payment.paymentMethod);
   }
 };
 
-export default function PatientPaymentList({ loading, patient }: PaymentListProps): ReactElement {
+export default function PatientPaymentList({ loading, patient, encounterId }: PaymentListProps): ReactElement {
   const theme = useTheme();
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const payments = dummyPaymentList; // Replace with actual payments when available
+
+  const { data: paymentData, refetch: refetchPaymentList } = useGetPatientPaymentsList({
+    patientId: patient.id ?? '',
+    encounterId,
+    disabled: !encounterId || !patient.id,
+  });
+  const payments = paymentData?.payments ?? []; // Replace with actual payments when available
+
+  const { oystehrZambda: oystehr } = useApiClients();
+
+  const createNewPayment = useMutation({
+    mutationFn: async (input: PostPatientPaymentInput) => {
+      if (oystehr && input) {
+        return oystehr.zambda
+          .execute({
+            id: 'patient-payments-post',
+            ...input,
+          })
+          .then(async () => {
+            await refetchPaymentList();
+            setPaymentDialogOpen(false);
+          })
+          .catch((error) => {
+            console.error('Error creating new payment: ', error);
+            // todo: handle error
+          });
+      }
+    },
+    retry: 0,
+  });
 
   return (
     <Paper
@@ -145,7 +144,19 @@ export default function PatientPaymentList({ loading, patient }: PaymentListProp
       <Button sx={{ marginTop: 2 }} onClick={() => setPaymentDialogOpen(true)} variant="contained" color="primary">
         $ Add Payment
       </Button>
-      <PaymentDialog open={paymentDialogOpen} patient={patient} handleClose={() => setPaymentDialogOpen(false)} />
+      <PaymentDialog
+        open={paymentDialogOpen}
+        patient={patient}
+        handleClose={() => setPaymentDialogOpen(false)}
+        submitPayment={async (data: CashOrCardPayment) => {
+          const postInput: PostPatientPaymentInput = {
+            patientId: patient.id ?? '',
+            encounterId,
+            paymentDetails: data,
+          };
+          createNewPayment.mutate(postInput);
+        }}
+      />
     </Paper>
   );
 }

@@ -637,7 +637,7 @@ export default function AppointmentPage(): ReactElement {
     try {
       interval = setInterval(async () => {
         if (encounter?.id && oystehr) {
-          const { startedFlag, inProgressFlag } = await checkInProgressFlag(encounter.id, oystehr);
+          const { startedFlag, inProgressFlag } = await checkInProgressFlag(encounter?.id, oystehr);
           setPaperworkInProgressFlag(inProgressFlag);
           if (!paperworkStartedFlag) setPaperworkStartedFlag(startedFlag);
         }
@@ -750,7 +750,6 @@ export default function AppointmentPage(): ReactElement {
       return documents;
     }
 
-    console.log('z3Documents', z3Documents);
     if (z3Documents.length) {
       documents.photoIdCards = z3Documents
         .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
@@ -1401,7 +1400,7 @@ export default function AppointmentPage(): ReactElement {
               <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
                 {/* credit cards and copay */}
                 {appointmentID && patient && (
-                  <PatientPaymentList patient={patient} loading={loading} appointmentId={appointmentID} />
+                  <PatientPaymentList patient={patient} loading={loading} encounterId={encounter.id ?? ''} />
                 )}
                 {/* Insurance information */}
                 {!selfPay && (
