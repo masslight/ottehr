@@ -37,7 +37,6 @@ import {
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
 import { EncounterLabResult } from '../lab';
-import { boolean } from 'yup';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
