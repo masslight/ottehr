@@ -218,7 +218,8 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await expectPatientsPage(page);
   });
 
-  test.skip('Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
+  test('Click on [Discard changes] button, Patient Record page is opened', async ({ page }) => {
+    await page.goto('/patient/' + resourceHandler.patient.id);
     let patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
     await patientInformationPage.enterPatientFirstName(NEW_PATIENT_FIRST_NAME);
     await patientInformationPage.clickCloseButton();
