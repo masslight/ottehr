@@ -23,10 +23,6 @@ export interface NursingOrder {
   orderAddedDate: string;
   orderingPhysician: string;
   encounterTimezone?: string;
-  orderDetails?: {
-    orderedBy: string;
-    orderedDate: string;
-  };
 }
 
 export type NursingOrderDetailedDTO = NursingOrder & {

@@ -8,12 +8,9 @@ let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
-    console.log(`Input: ${JSON.stringify(input)}`);
-    console.group('validateRequestParameters');
+    console.log(`get-nursing-orders started, input: ${JSON.stringify(input)}`);
     const validatedParameters = validateRequestParameters(input);
     const { secrets, searchBy } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);

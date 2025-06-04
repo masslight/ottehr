@@ -1,14 +1,11 @@
-import { Secrets } from 'utils';
+import { Secrets, UpdateNursingOrderParameters } from 'utils';
 import { ZambdaInput } from '../../shared';
-
-export interface UpdateNursingOrderParams {
-  serviceRequestId: string;
-  action: 'CANCEL ORDER' | 'COMPLETE ORDER';
-}
 
 export function validateRequestParameters(
   input: ZambdaInput
-): UpdateNursingOrderParams & { secrets: Secrets | null; userToken: string } {
+): UpdateNursingOrderParameters & { secrets: Secrets | null; userToken: string } {
+  console.group('validateRequestParameters');
+
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -20,7 +17,8 @@ export function validateRequestParameters(
   const userToken = input.headers.Authorization.replace('Bearer ', '');
   const secrets = input.secrets;
 
-  let params: UpdateNursingOrderParams;
+  let params: UpdateNursingOrderParameters;
+
   try {
     params = JSON.parse(input.body);
   } catch (error) {
@@ -43,5 +41,7 @@ export function validateRequestParameters(
     throw new Error('Action is required');
   }
 
+  console.groupEnd();
+  console.log('validateRequestParameters success');
   return { userToken, secrets, ...params };
 }

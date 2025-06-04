@@ -41,6 +41,8 @@ import {
   InHouseOrdersListResponse,
   GetNursingOrdersInput,
   NursingOrdersSearchBy,
+  CreateNursingOrderParameters,
+  UpdateNursingOrderParameters,
 } from 'utils';
 import {
   CancelAppointmentParameters,
@@ -864,7 +866,7 @@ export const getNursingOrders = async (
   }
 };
 
-export const createNursingOrder = async (oystehr: Oystehr, parameters: any): Promise<any> => {
+export const createNursingOrder = async (oystehr: Oystehr, parameters: CreateNursingOrderParameters): Promise<any> => {
   try {
     if (CREATE_NURSING_ORDER_ZAMBDA_ID == null) {
       throw new Error('create nursing order zambda environment variable could not be loaded');
@@ -880,7 +882,7 @@ export const createNursingOrder = async (oystehr: Oystehr, parameters: any): Pro
   }
 };
 
-export const updateNursingOrder = async (oystehr: Oystehr, parameters: any): Promise<any> => {
+export const updateNursingOrder = async (oystehr: Oystehr, parameters: UpdateNursingOrderParameters): Promise<any> => {
   try {
     if (UPDATE_NURSING_ORDER == null) {
       throw new Error('update nursing order zambda environment variable could not be loaded');

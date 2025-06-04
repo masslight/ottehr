@@ -21,7 +21,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
   try {
     validatedParameters = validateRequestParameters(input);
-    console.log('validateRequestParameters success');
   } catch (error: any) {
     return {
       statusCode: 400,
@@ -33,7 +32,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
   try {
     const { userToken, serviceRequestId, action, secrets } = validatedParameters;
-    console.log(action);
+
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
 
@@ -70,9 +69,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       nursingOrderResourcesRequest(),
       userPractitionerIdRequest(),
     ]);
-
-    console.log('resources', JSON.stringify(orderResources, null, 2));
-    console.log('userPractitionerId', userPractitionerId);
 
     const { serviceReqestSearchResults, taskSerchResults } = orderResources.reduce(
       (acc, resource) => {
@@ -129,6 +125,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         },
       ],
     };
+
     const requestStatus = getRequestStatusForAction(action);
     const serviceRequestPatchRequest = getPatchBinary({
       resourceType: 'ServiceRequest',
@@ -196,8 +193,7 @@ const getRequestStatusForAction = (action: string): string => {
   }
 };
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const getProvenanceActivity = (action: string) => {
+const getProvenanceActivity = (action: string): { code: string; display: string; system: string } => {
   switch (action) {
     case 'COMPLETE ORDER':
       return NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY.completeOrder;

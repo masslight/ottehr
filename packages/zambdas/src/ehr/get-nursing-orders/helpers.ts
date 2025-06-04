@@ -1,6 +1,7 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Practitioner, ServiceRequest, Task, Provenance } from 'fhir/r4b';
 import {
+  compareDates,
   NursingOrder,
   NursingOrderDetailedDTO,
   NursingOrderHistoryRow,
@@ -10,7 +11,6 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils';
 import { GetZambdaNursingOrdersParams } from './validateRequestParameters';
-import { DateTime } from 'luxon';
 
 export const mapResourcesNursingOrderDTOs = (
   serviceRequests: ServiceRequest[],
@@ -261,18 +261,4 @@ const mapProvenanceActivityToOrderStatus = (activity: string): NursingOrdersStat
     default:
       return NursingOrdersStatus.unknown;
   }
-};
-
-export const compareDates = (a: string | undefined, b: string | undefined): number => {
-  const dateA = DateTime.fromISO(a || '');
-  const dateB = DateTime.fromISO(b || '');
-  const isDateAValid = dateA.isValid;
-  const isDateBValid = dateB.isValid;
-
-  // if one date is valid and the other is not, the valid date should be first
-  if (isDateAValid && !isDateBValid) return -1;
-  if (!isDateAValid && isDateBValid) return 1;
-  if (!isDateAValid && !isDateBValid) return 0;
-
-  return dateB.toMillis() - dateA.toMillis();
 };
