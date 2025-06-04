@@ -37,6 +37,7 @@ import {
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
 import { EncounterLabResult } from '../lab';
+import { boolean } from 'yup';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -540,4 +541,5 @@ export interface ProcedureDTO extends SaveableDTO {
   postInstructions?: string;
   timeSpent?: string;
   documentedBy?: string;
+  consentObtained?: boolean;
 }

@@ -1352,6 +1352,7 @@ export function makeProceduresDTOFromFhirResources(
       postInstructions: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
       timeSpent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
       documentedBy: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
+      consentObtained: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
     };
   });
 }
@@ -1405,6 +1406,10 @@ export const createProcedureServiceRequest = (
     {
       url: FHIR_EXTENSION.ServiceRequest.documentedBy.url,
       valueString: procedure.documentedBy,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
+      valueBoolean: procedure.consentObtained,
     },
   ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
   const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => {
