@@ -5,6 +5,7 @@ import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo, rgbNormalized } from './pdf-utils';
 import { LabResultsData, ExternalLabResult, InHouseLabResult } from './types';
 import {
+  compareDates,
   createFilesDocumentReferences,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
@@ -36,7 +37,6 @@ import {
 } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
-import { compareDates } from '../../ehr/get-lab-orders/helpers';
 
 function formatResultValue(result: string | undefined): string | undefined {
   if (result === 'Positive') {
