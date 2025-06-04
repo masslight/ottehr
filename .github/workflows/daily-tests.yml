@@ -86,8 +86,8 @@ jobs:
         run: |
           setup_env() {
             local app=$1
-            mkdir -p "packages/$app/zambdas/.env"
-            cp secrets/zambdas/* "packages/$app/zambdas/.env"
+            mkdir -p "packages/zambdas/.env"
+            cp secrets/zambdas/* "packages/zambdas/.env"
             mkdir -p "apps/$app/env"
             cp "secrets/$app/app/tests."*.json "apps/$app/env/"
             cp "secrets/$app/app/.env.local" "apps/$app/env/"
@@ -106,7 +106,7 @@ jobs:
       - name: Run test-setup script
         run: |
           chmod +x scripts/e2e-test-setup.sh
-          ./scripts/e2e-test-setup.sh --skip-prompts    
+          ./scripts/e2e-test-setup.sh --skip-prompts
 
       - name: Run E2E tests on the EHR application
         run: npm run ehr:e2e:local
@@ -148,23 +148,23 @@ jobs:
 
           try {
             console.log("Starting user.json processing...");
-            
+
             if (!fs.existsSync(path)) {
               console.log(`File ${path} does not exist, exiting`);
               process.exit(1);
             }
-            
+
             console.log("Reading user.json file...");
             const data = JSON.parse(fs.readFileSync(path, "utf8"));
             console.log("Successfully parsed user.json");
-            
-            const hasAuth0Token = data.origins?.some(origin => 
-              origin.localStorage && 
+
+            const hasAuth0Token = data.origins?.some(origin =>
+              origin.localStorage &&
               Object.values(origin.localStorage)?.some?.(value => value?.name?.includes?.("auth0"))
             );
-            
+
             console.log("Has Auth0 token:", hasAuth0Token);
-            
+
             if (!hasAuth0Token) {
               console.log("No Auth0 token found, exiting");
               process.exit(1);
