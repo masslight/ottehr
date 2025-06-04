@@ -69,10 +69,9 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
 
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
     const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
-    const currentValue = options.find((option) => option.value === value);
-    console.log('options', JSON.stringify(options));
-    console.log('value', JSON.stringify(value));
-    console.log('currentValue', JSON.stringify(currentValue));
+    const currentValue = renderValue
+      ? options.find((option) => option.label === renderValue)
+      : options.find((option) => option.value === value);
 
     const autocomplete = isOptionsLoaded ? (
       <Autocomplete
