@@ -1,13 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { DateTime } from 'luxon';
 import { Box, Grid, Paper, TextField, Stack, Typography, useTheme } from '@mui/material';
-import {
-  APIError,
-  SpecimenDateChangedParameters,
-  sampleDTO,
-  EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
-  LabelPdf,
-} from 'utils';
+import { APIError, SpecimenDateChangedParameters, sampleDTO, EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE } from 'utils';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
 import { useDebounce } from 'src/telemed/hooks/useDebounce';
@@ -38,118 +32,90 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
   const [collapsed, setCollapsed] = useState(false);
   const { debounce } = useDebounce(1000);
   const [labelLoading, setLabelLoading] = useState(false);
-  const [error, setError] = useState<string[] | undefined>(undefined);
+  const [error, setError] = useState<string[]>();
   const { oystehrZambda: oystehr } = useApiClients();
   const theme = useTheme();
 
-  const initialDateTime = specimen.collectionDate
-    ? DateTime.fromISO(specimen.collectionDate, { zone: timezone })
-    : DateTime.now().setZone(timezone);
+  const [date, setDate] = useState(() =>
+    specimen.collectionDate
+      ? DateTime.fromISO(specimen.collectionDate, { zone: timezone })
+      : DateTime.now().setZone(timezone)
+  );
 
-  const [date, setDate] = useState(initialDateTime);
-  const dateValue = date.toFormat('yyyy-MM-dd');
-  const timeValue = date.toFormat('HH:mm');
+  const validateWithLuxon = (field: 'collectionDate' | 'collectionTime', value: string): boolean => {
+    if (field === 'collectionDate') {
+      const parsed = DateTime.fromFormat(value, 'yyyy-MM-dd');
+      return parsed.isValid && parsed.year >= 1900 && parsed.year <= 2100;
+    } else {
+      const parsed = DateTime.fromFormat(value, 'HH:mm');
+      return parsed.isValid;
+    }
+  };
 
-  const saveDateHandler = ({ field, value }: { field: 'collectionDate' | 'collectionTime'; value: string }): void => {
-    setDate((prevDate) => {
-      let newDate: DateTime = prevDate;
+  const handleDateChange = (field: 'collectionDate' | 'collectionTime', value: string): void => {
+    setDate((prev) => {
+      const parts = value.split(field === 'collectionDate' ? '-' : ':').map(Number);
+      const updated =
+        field === 'collectionDate'
+          ? prev.set({ year: parts[0] || prev.year, month: parts[1] || prev.month, day: parts[2] || prev.day })
+          : prev.set({ hour: parts[0] || prev.hour, minute: parts[1] || prev.minute });
 
-      if (field === 'collectionDate') {
-        const [year, month, day] = value.split('-').map((v) => parseInt(v, 10));
-        newDate = newDate.set({ year, month, day });
-      } else if (field === 'collectionTime') {
-        const [hour, minute] = value.split(':').map((v) => parseInt(v, 10));
-        newDate = newDate.set({ hour, minute });
-      }
-
-      if (!newDate.isValid) {
-        console.error('Invalid new date');
-        return prevDate;
-      }
-
-      if (newDate.toISO() === prevDate.toISO()) {
-        return prevDate;
-      }
-
-      updateSpecimenLoadingState?.(specimen.id, 'saving');
-
-      debounce(async () => {
-        try {
-          const dateISOToSave = newDate.toISO();
-
-          if (!dateISOToSave) {
-            throw Error('Invalid date to save');
+      if (validateWithLuxon(field, value) && updated.isValid && updated.toISO() !== prev.toISO()) {
+        updateSpecimenLoadingState?.(specimen.id, 'saving');
+        debounce(async () => {
+          try {
+            await saveSpecimenDate({ specimenId: specimen.id, serviceRequestId, date: updated.toISO()! });
+          } catch {
+            setDate(prev);
+            enqueueSnackbar('Date was not saved. Please try again.', { variant: 'error' });
+          } finally {
+            updateSpecimenLoadingState?.(specimen.id, 'saved');
           }
+        });
+      }
 
-          await saveSpecimenDate({
-            specimenId: specimen.id,
-            serviceRequestId,
-            date: dateISOToSave,
-          });
-        } catch (error) {
-          setDate(prevDate);
-          enqueueSnackbar('Date was not saved. Please try again.', {
-            variant: 'error',
-          });
-          console.error('Error updating specimen date', error);
-        } finally {
-          updateSpecimenLoadingState?.(specimen.id, 'saved');
-        }
-      });
-
-      return newDate;
+      return updated.isValid ? updated : prev;
     });
   };
 
-  const printLabelHandler = useCallback(async () => {
-    setLabelLoading(true);
-    if (!oystehr) {
-      setError(['Oystehr client is undefined']);
-      return;
-    }
+  const printLabel = useCallback(async () => {
+    if (!oystehr) return setError(['Oystehr client is undefined']);
 
-    let labelPdfs: LabelPdf[] | undefined = undefined;
+    setLabelLoading(true);
     try {
-      labelPdfs = await getLabelPdf(oystehr, {
+      const labelPdfs = await getLabelPdf(oystehr, {
         contextRelatedReference: { reference: `ServiceRequest/${serviceRequestId}` },
         searchParams: [
           { name: 'status', value: 'current' },
           { name: 'type', value: EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE.code },
         ],
       });
+
+      if (labelPdfs?.length !== 1) throw new Error('Unexpected number of label pdfs');
+
+      await openPdf(labelPdfs[0].presignedURL);
     } catch (error) {
       const apiError = error as APIError;
-      console.error(JSON.stringify(apiError));
       setError([`Unable to load label pdf. Error: ${apiError.message}`]);
-      return;
+    } finally {
+      setLabelLoading(false);
     }
-
-    if (labelPdfs?.length !== 1) {
-      setError(['Received unexpected number of label pdfs']);
-      return;
-    }
-
-    await openPdf(labelPdfs[0].presignedURL);
-
-    setLabelLoading(false);
-  }, [oystehr, setLabelLoading, setError, serviceRequestId]);
+  }, [oystehr, serviceRequestId]);
 
   return (
     <AccordionCard
-      label={'Sample Collection Instructions'}
+      label="Sample Collection Instructions"
       collapsed={collapsed}
       withBorder={false}
-      onSwitch={() => {
-        setCollapsed((prevState) => !prevState);
-      }}
+      onSwitch={() => setCollapsed((prev) => !prev)}
     >
       <Paper sx={{ p: 3 }}>
         <Stack spacing={1}>
-          <BoldedTitleText title={'Container'} description={definition.container} />
-          <BoldedTitleText title={'Volume'} description={definition.volume} />
-          <BoldedTitleText title={'Minimum Volume'} description={definition.minimumVolume} />
-          <BoldedTitleText title={'Storage Requirements'} description={definition.storageRequirements} />
-          <BoldedTitleText title={'Collection Instructions'} description={definition.collectionInstructions} />
+          <BoldedTitleText title="Container" description={definition.container} />
+          <BoldedTitleText title="Volume" description={definition.volume} />
+          <BoldedTitleText title="Minimum Volume" description={definition.minimumVolume} />
+          <BoldedTitleText title="Storage Requirements" description={definition.storageRequirements} />
+          <BoldedTitleText title="Collection Instructions" description={definition.collectionInstructions} />
         </Stack>
 
         <Grid container spacing={2} sx={{ mt: 2 }}>
@@ -161,8 +127,8 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
               fullWidth
               variant="outlined"
               type="date"
-              value={dateValue}
-              onChange={(e) => saveDateHandler({ field: 'collectionDate', value: e.target.value })}
+              value={date.toFormat('yyyy-MM-dd')}
+              onChange={(e) => handleDateChange('collectionDate', e.target.value)}
             />
           </Grid>
           <Grid item xs={12} md={6}>
@@ -173,19 +139,18 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
               fullWidth
               variant="outlined"
               type="time"
-              value={timeValue}
-              onChange={(e) => saveDateHandler({ field: 'collectionTime', value: e.target.value })}
+              value={date.toFormat('HH:mm')}
+              onChange={(e) => handleDateChange('collectionTime', e.target.value)}
             />
           </Grid>
         </Grid>
+
         {printLabelVisible && (
           <LoadingButton
             variant="outlined"
             type="button"
             sx={{ width: 170, borderRadius: '50px', textTransform: 'none', mt: 3 }}
-            onClick={async () => {
-              await printLabelHandler();
-            }}
+            onClick={printLabel}
             loading={labelLoading}
           >
             Print label
