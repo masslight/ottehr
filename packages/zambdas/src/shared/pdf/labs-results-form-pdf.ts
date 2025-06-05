@@ -511,9 +511,6 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     // center: true,
   };
 
-  // const drawBlockHeader = (text: string): void => {
-  //   pdfClient.drawText(text, textStyles.blockHeader);
-  // };
 
   const drawFieldLine = (fieldName: string, fieldValue: string): void => {
     pdfClient.drawTextSequential(fieldName, textStyles.text);
