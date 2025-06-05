@@ -599,6 +599,7 @@ export function fillVitalObservationAttributes(baseResource: Observation, vitalD
     const weightDTO = vitalDTO as VitalsWeightObservationDTO;
     return {
       ...baseResource,
+      code: { coding: [{ system: VITAL_LOINC_SYSTEM, code: '29463-7', display: 'Body weight' }] },
       valueQuantity: { value: weightDTO.value, system: 'http://unitsofmeasure.org', unit: 'kg' },
     };
   }
@@ -607,6 +608,7 @@ export function fillVitalObservationAttributes(baseResource: Observation, vitalD
     const heightDTO = vitalDTO as VitalsHeightObservationDTO;
     return {
       ...baseResource,
+      code: { coding: [{ system: VITAL_LOINC_SYSTEM, code: '8302-2', display: 'Body height' }] },
       valueQuantity: { value: heightDTO.value, system: 'http://unitsofmeasure.org', unit: 'cm' },
     };
   }
