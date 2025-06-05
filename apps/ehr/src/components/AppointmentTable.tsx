@@ -21,18 +21,28 @@ import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableRow from './AppointmentTableRow';
 import { ApptTab } from './AppointmentTabs';
 import {
-  NEXT_WIDTH,
-  TYPE_WIDTH,
-  TIME_WIDTH,
-  PATIENT_AND_REASON_WIDTH,
-  INTAKE_WIDTH,
-  VISIT_ICONS_WIDTH,
-  NOTES_WIDTH,
-  CHAT_WIDTH,
   ACTION_WIDTH,
-  PROVIDER_WIDTH,
+  ACTION_WIDTH_MIN,
+  CHAT_WIDTH,
+  CHAT_WIDTH_MIN,
+  GO_TO_WIDTH,
+  GO_TO_WIDTH_MIN,
   GROUP_WIDTH,
+  GROUP_WIDTH_MIN,
+  NEXT_WIDTH,
+  NOTES_WIDTH,
+  NOTES_WIDTH_MIN,
+  PATIENT_AND_REASON_WIDTH_MIN,
+  PROVIDER_WIDTH,
+  PROVIDER_WIDTH_MIN,
   ROOM_WIDTH,
+  ROOM_WIDTH_MIN,
+  TIME_WIDTH,
+  TIME_WIDTH_MIN,
+  TYPE_WIDTH,
+  TYPE_WIDTH_MIN,
+  VISIT_ICONS_WIDTH,
+  VISIT_ICONS_WIDTH_MIN,
 } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 
@@ -73,62 +83,62 @@ export default function AppointmentTable({
                 sx={{ '& .MuiTableCell-root': { px: '8px' }, display: { xs: 'none', sm: 'none', md: 'table-row' } }}
               >
                 <TableCell style={{ width: NEXT_WIDTH }}></TableCell>
-                <TableCell style={{ width: TYPE_WIDTH }}>
+                <TableCell style={{ width: TYPE_WIDTH, minWidth: TYPE_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     {tab !== ApptTab.prebooked ? 'Type & Status' : 'Type'}
                   </Typography>
                 </TableCell>
                 {showTime && (
-                  <TableCell style={{ width: TIME_WIDTH }}>
+                  <TableCell style={{ width: TIME_WIDTH, minWidth: TIME_WIDTH_MIN }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Time
                     </Typography>
                   </TableCell>
                 )}
-                <TableCell style={{ width: PATIENT_AND_REASON_WIDTH }}>
+                <TableCell style={{ minWidth: PATIENT_AND_REASON_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Patient & Reason
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: INTAKE_WIDTH, textAlign: 'center' }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Intake
-                  </Typography>
-                </TableCell>
                 {(tab === ApptTab['in-office'] || tab === ApptTab.completed) && (
-                  <TableCell style={{ width: ROOM_WIDTH }}>
+                  <TableCell style={{ width: ROOM_WIDTH, minWidth: ROOM_WIDTH_MIN }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Room
                     </Typography>
                   </TableCell>
                 )}
-                <TableCell style={{ width: PROVIDER_WIDTH }}>
+                <TableCell style={{ width: PROVIDER_WIDTH, minWidth: PROVIDER_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Provider
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: GROUP_WIDTH }}>
+                <TableCell style={{ width: GROUP_WIDTH, minWidth: GROUP_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Group
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: VISIT_ICONS_WIDTH }}>
+                <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Visit Components
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: NOTES_WIDTH }}>
+                <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Notes
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: CHAT_WIDTH }}>
+                <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Chat
                   </Typography>
                 </TableCell>
+                <TableCell style={{ width: GO_TO_WIDTH, minWidth: GO_TO_WIDTH_MIN }}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                    Go to...
+                  </Typography>
+                </TableCell>
                 {tab === ApptTab.prebooked && (
-                  <TableCell style={{ width: ACTION_WIDTH }}>
+                  <TableCell style={{ width: ACTION_WIDTH, minWidth: ACTION_WIDTH_MIN }}>
                     <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                       Arrived
                     </Typography>
@@ -217,16 +227,16 @@ export default function AppointmentTable({
                   sx={{ '& .MuiTableCell-root': { px: '8px' }, display: { xs: 'none', sm: 'none', md: 'table-row' } }}
                 >
                   <TableCell style={{ width: NEXT_WIDTH }}></TableCell>
-                  <TableCell style={{ width: TYPE_WIDTH }}></TableCell>
-                  {showTime && <TableCell style={{ width: TIME_WIDTH }}></TableCell>}
-                  <TableCell style={{ width: PATIENT_AND_REASON_WIDTH }}></TableCell>
-                  <TableCell style={{ width: INTAKE_WIDTH }}></TableCell>
-                  <TableCell style={{ width: ROOM_WIDTH }}></TableCell>
-                  <TableCell style={{ width: PROVIDER_WIDTH }}></TableCell>
-                  <TableCell style={{ width: GROUP_WIDTH }}></TableCell>
-                  <TableCell style={{ width: VISIT_ICONS_WIDTH }}></TableCell>
-                  <TableCell style={{ width: NOTES_WIDTH }}></TableCell>
-                  <TableCell style={{ width: CHAT_WIDTH }}></TableCell>
+                  <TableCell style={{ width: TYPE_WIDTH, minWidth: TYPE_WIDTH_MIN }}></TableCell>
+                  {showTime && <TableCell style={{ width: TIME_WIDTH, minWidth: TIME_WIDTH_MIN }}></TableCell>}
+                  <TableCell style={{ minWidth: PATIENT_AND_REASON_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ width: ROOM_WIDTH, minWidth: ROOM_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ width: PROVIDER_WIDTH, minWidth: PROVIDER_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ width: GROUP_WIDTH, minWidth: GROUP_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}></TableCell>
+                  <TableCell style={{ width: GO_TO_WIDTH, minWidth: GO_TO_WIDTH_MIN }}></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
