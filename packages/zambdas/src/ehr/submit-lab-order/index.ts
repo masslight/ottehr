@@ -13,6 +13,7 @@ import {
   getPatientLastName,
   isPSCOrder,
   getTimezone,
+  allLicensesForPractitioner,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -357,6 +358,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
+    const allPractitionerLicenses = allLicensesForPractitioner(provider);
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -371,8 +373,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
-        providerTitle:
-          provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text)?.[0] || ORDER_ITEM_UNKNOWN,
+        providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',
         providerNPI: 'test',
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
