@@ -11,7 +11,7 @@ import {
   useGetIcd10Search,
   useSaveChartData,
 } from 'src/telemed';
-import { Box, Stack } from '@mui/system';
+import { Box, Stack, useTheme } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
@@ -43,7 +43,7 @@ import {
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
 import { InfoAlert } from '../components/InfoAlert';
 import { enqueueSnackbar } from 'notistack';
@@ -149,6 +149,7 @@ interface PageState {
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
   const { chartData, setPartialChartData, appointment, encounter } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -513,7 +514,12 @@ export default function ProceduresNew(): ReactElement {
                 onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
                 disabled={isReadOnly}
               />
-              <Typography>I have obtained the Consent for Procedure</Typography>
+              <Typography>
+                I have obtained the{' '}
+                <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
+                  Consent for Procedure
+                </Link>
+              </Typography>
             </Box>
             <InfoAlert
               text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
