@@ -81,7 +81,14 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         value={currentValue ?? null}
         getOptionLabel={(option) => option.label}
         onChange={(_e, val) => handleChange(val?.value)}
-        renderInput={(params) => <TextField {...params} label={mappedLabel} placeholder="Search E&M code" />}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={mappedLabel}
+            placeholder={`Search ${mappedLabel}`}
+            error={showError && required && !value}
+          />
+        )}
       />
     ) : (
       <Skeleton variant="rectangular" width="100%" height={56} />
@@ -94,7 +101,6 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
         required={required}
         error={showError && required && !value}
       >
-        {/*<InputLabel id={`${field}-label`}>{mappedLabel}</InputLabel>*/}
         {autocomplete}
         {showError && required && !value && <FormHelperText>This field is required</FormHelperText>}
       </StyledFormControl>

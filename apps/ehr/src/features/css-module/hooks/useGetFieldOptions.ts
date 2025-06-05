@@ -81,6 +81,7 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
       label: value,
     }))
     .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+  medicationListOptions.unshift({ value: '', label: 'Select Medication' });
 
   return {
     medicationId: {

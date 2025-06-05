@@ -33,9 +33,9 @@ export class EditMedicationCard {
   }
 
   async verifyMedication(medication: string): Promise<void> {
-    await expect(
-      this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.MEDICATION)!).locator('div:text("' + medication + '")')
-    ).toBeVisible();
+    await expect(this.#page.getByTestId(FIELD_TO_TEST_ID.get(Field.MEDICATION)!).locator('input')).toHaveValue(
+      medication
+    );
   }
 
   async selectAssociatedDx(diagnosis: string): Promise<void> {
