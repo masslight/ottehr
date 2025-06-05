@@ -1,12 +1,11 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { FC, useRef } from 'react';
+import { FC } from 'react';
 import { Navigate } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../App';
 import { ErrorFallbackScreen, LoadingScreen } from '../features/common';
 
 const AuthPage: FC = () => {
-  const { isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0();
-  const authRef = useRef<Promise<void> | null>(null);
+  const { isLoading, error } = useAuth0();
 
   if (error) {
     return <ErrorFallbackScreen />;
@@ -16,14 +15,13 @@ const AuthPage: FC = () => {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated) {
-    if (!authRef.current) {
-      authRef.current = loginWithRedirect();
-    }
-    return <LoadingScreen />;
-  }
+  const redirectDestination = localStorage.getItem('redirectDestination');
 
-  return <Navigate to={intakeFlowPageRoute.Homepage.path} />;
+  if (redirectDestination) {
+    return <Navigate to={redirectDestination} replace />;
+  } else {
+    return <Navigate to={intakeFlowPageRoute.Homepage.path} replace />;
+  }
 };
 
 export default AuthPage;
