@@ -57,12 +57,11 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS);
   await orderMedicationPage.editMedicationCard.selectUnits(UNITS);
   await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
-  await orderMedicationPage.editMedicationCard.enterManufacturer(MANUFACTURER);
-  await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE);
   await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.clickOrderMedicationButton();
+
+  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
   await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
 });
 
