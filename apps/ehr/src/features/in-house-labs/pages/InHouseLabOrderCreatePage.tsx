@@ -29,7 +29,7 @@ import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '.
 import { enqueueSnackbar } from 'notistack';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { InHouseLabsBreadcrums } from '../components/InHouseLabsBreadcrums';
+import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -242,7 +242,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   return (
     <DetailPageContainer>
-      <InHouseLabsBreadcrums pageName="Order In-House Lab">
+      <InHouseLabsBreadcrumbs pageName="Order In-House Lab">
         <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
           Order In-house Lab
         </Typography>
@@ -627,7 +627,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
             </form>
           )}
         </Paper>
-      </InHouseLabsBreadcrums>
+      </InHouseLabsBreadcrumbs>
     </DetailPageContainer>
   );
 };

@@ -3,7 +3,7 @@ import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 import { getInHouseLabsUrl } from 'src/features/css-module/routing/helpers';
 import { useAppointmentStore } from 'src/telemed';
 
-export const InHouseLabsBreadcrums: React.FC<{ children: React.ReactNode; pageName: string }> = ({
+export const InHouseLabsBreadcrumbs: React.FC<{ children: React.ReactNode; pageName: string }> = ({
   children,
   pageName,
 }) => {

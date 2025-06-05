@@ -9,7 +9,7 @@ import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPage
 import { useAppointmentStore } from 'src/telemed';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { InHouseLabsBreadcrums } from '../components/InHouseLabsBreadcrums';
+import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -106,7 +106,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
 
   return (
     <DetailPageContainer>
-      <InHouseLabsBreadcrums pageName={pageName}>
+      <InHouseLabsBreadcrumbs pageName={pageName}>
         {(() => {
           switch (testDetails.status) {
             case 'ORDERED':
@@ -124,7 +124,7 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
               return <p>Status could not be parsed: {testDetails.status}</p>;
           }
         })()}
-      </InHouseLabsBreadcrums>
+      </InHouseLabsBreadcrumbs>
     </DetailPageContainer>
   );
 };
