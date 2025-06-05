@@ -76,7 +76,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     await topLevelCatch('get-lab-orders', error, input.secrets);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error fetching lab orders: ${error}` }),
+      body: JSON.stringify({ message: `Error fetching external lab orders: ${error}` }),
     };
   }
 };

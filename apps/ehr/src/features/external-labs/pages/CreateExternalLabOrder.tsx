@@ -30,10 +30,10 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
-import { createLabOrder } from '../../../api/api';
+import { createExternalLabOrder } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { enqueueSnackbar } from 'notistack';
-import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
+import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 interface CreateExternalLabOrdersProps {
@@ -97,7 +97,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     if (oystehrZambda && paramsSatisfied) {
       try {
         await addAdditionalDxToEncounter();
-        await createLabOrder(oystehrZambda, {
+        await createExternalLabOrder(oystehrZambda, {
           dx: orderDx,
           encounter,
           orderableItem: selectedLab,
@@ -106,7 +106,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const oyError = e as OystehrSdkError;
-        console.log('error creating lab order', oyError.code, oyError.message);
+        console.log('error creating external lab order', oyError.code, oyError.message);
         const errorMessage = [oyError.message];
         setError(errorMessage);
       }
@@ -115,7 +115,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
+      if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
     }
     setSubmitting(false);
@@ -162,10 +162,10 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   if (isError || resourceFetchError) {
     return (
       <DetailPageContainer>
-        <WithLabBreadcrumbs sectionName="Order Lab">
+        <LabBreadcrumbs sectionName="Order Lab">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-              Order Lab
+              Order External Lab
             </Typography>
           </Box>
           <Paper sx={{ p: 3 }}>
@@ -177,17 +177,17 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
               </Grid>
             )}
           </Paper>
-        </WithLabBreadcrumbs>
+        </LabBreadcrumbs>
       </DetailPageContainer>
     );
   }
 
   return (
     <DetailPageContainer>
-      <WithLabBreadcrumbs sectionName="Order Lab">
+      <LabBreadcrumbs sectionName="Order External Lab">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-            Order Lab
+            Order External Lab
           </Typography>
         </Box>
 
@@ -363,7 +363,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
             </Paper>
           </form>
         )}
-      </WithLabBreadcrumbs>
+      </LabBreadcrumbs>
     </DetailPageContainer>
   );
 };
