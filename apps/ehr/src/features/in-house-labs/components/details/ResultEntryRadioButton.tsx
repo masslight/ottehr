@@ -33,7 +33,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     return curValueCode === selectedValue;
   };
 
-  const isNeutral = !!testItemComponent.abnormalValues;
+  const isNeutral = !testItemComponent.abnormalValues.length;
 
   const isAbnormal = (curValueCode: string): boolean => {
     if (isNeutral) return false;
