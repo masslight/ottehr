@@ -185,6 +185,16 @@ export async function getChartData(
     );
   }
 
+  // Practitioners
+  if (requestedFields?.practitioners) {
+    encounter?.participant?.forEach((participant) => {
+      const [participantType, participantId] = participant.individual?.reference?.split('/') ?? [];
+      if (participantType === 'Practitioner' && participantId != null) {
+        chartDataRequests.push(createFindResourceRequestById(participantId, 'Practitioner'));
+      }
+    });
+  }
+
   if (requestedFields?.labResults && encounter.id) {
     const labRequests = configLabRequestsForGetChartData(encounter.id);
     chartDataRequests.push(...labRequests);

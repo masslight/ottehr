@@ -1,9 +1,14 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
+import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { InHouseOrderListPageItemDTO } from 'utils';
-import { getStatusColor, InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
+import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 
-export const InHouseLabsAppointmentTooltip: React.FC<{ items: InHouseOrderListPageItemDTO[] }> = ({ items }) => {
+export const InHouseLabsAppointmentTooltip: React.FC<{
+  items: InHouseOrderListPageItemDTO[];
+  appointmentId: string;
+}> = ({ items, appointmentId }) => {
   if (!items || items.length === 0) {
     return null;
   }
@@ -63,7 +68,7 @@ export const InHouseLabsAppointmentTooltip: React.FC<{ items: InHouseOrderListPa
 
       {items.map((item, index) => {
         return (
-          <div
+          <Link
             key={item.serviceRequestId}
             style={{
               display: 'flex',
@@ -72,7 +77,9 @@ export const InHouseLabsAppointmentTooltip: React.FC<{ items: InHouseOrderListPa
               paddingTop: '12px',
               paddingBottom: '12px',
               borderBottom: index < items.length - 1 ? '1px solid #E5E7EB' : 'none',
+              textDecoration: 'none',
             }}
+            to={getInHouseLabOrderDetailsUrl(appointmentId, item.serviceRequestId)}
           >
             <div
               style={{
@@ -96,16 +103,18 @@ export const InHouseLabsAppointmentTooltip: React.FC<{ items: InHouseOrderListPa
             >
               <InHouseLabsStatusChip status={item.status} />
 
-              <div
+              {/* 
+                // TODO: the dots will be needed later after the tasks will be implemented
+                <div
                 style={{
                   width: '12px',
                   height: '12px',
                   borderRadius: '50%',
                   backgroundColor: getStatusColor(item.status).backgroundColor,
                 }}
-              />
+              /> */}
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>

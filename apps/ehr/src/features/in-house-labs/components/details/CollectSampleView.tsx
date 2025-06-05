@@ -49,7 +49,6 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
   const currentUser = useEvolveUser();
-  console.log('currentUser', currentUser);
 
   // set default collected by to current user if no choice made
   useEffect(() => {
