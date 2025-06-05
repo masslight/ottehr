@@ -566,8 +566,16 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     drawBlockHeader('Procedures');
     data.procedures.forEach((procedure) => {
       drawBlockHeader(procedure.procedureType ?? '', textStyles.blockSubHeader);
-      regularText(procedure.cptCodes != null ? 'CPT: ' + procedure.cptCodes.join('; ') : undefined);
-      regularText(procedure.diagnoses != null ? 'Dx: ' + procedure.diagnoses.join('; ') : undefined);
+      regularText(
+        procedure.cptCodes != null && procedure.cptCodes.length > 0
+          ? 'CPT: ' + procedure.cptCodes.join('; ')
+          : undefined
+      );
+      regularText(
+        procedure.diagnoses != null && procedure.diagnoses.length > 0
+          ? 'Dx: ' + procedure.diagnoses.join('; ')
+          : undefined
+      );
 
       regularText(
         procedure.procedureDateTime != null

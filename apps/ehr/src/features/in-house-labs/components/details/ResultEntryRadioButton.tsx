@@ -133,6 +133,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     <Controller
       name={testItemComponent.observationDefinitionId}
       control={control}
+      rules={{ required: 'Please select a value' }}
       defaultValue={''}
       render={({ field }) => (
         <>
