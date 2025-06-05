@@ -101,7 +101,9 @@ const useBookingData = (
   isSlotsLoading: boolean;
   inPersonData?: { items: BookableItem[]; categorized: boolean };
 } => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useZapEHRAPIClient({ tokenless: true });
+
+  console.log('apiClient', apiClient);
 
   const { data: inPersonData, status: inPersonStatus } = useGetBookableItems(
     apiClient,

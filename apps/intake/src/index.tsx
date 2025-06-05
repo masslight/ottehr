@@ -35,6 +35,14 @@ root.render(
       // adding cache location so that auth persists on page refresh
       // https://stackoverflow.com/questions/63537913/auth0-does-not-persist-login-on-page-refresh-for-email-password
       cacheLocation="localstorage"
+      onRedirectCallback={(appState) => {
+        // If the appState is not defined, we can just return
+        if (!appState || !appState.target) {
+          return;
+        }
+        // Otherwise, we can stick appState.target in local storage so that it can be used in the auth landing page
+        localStorage.setItem('redirectDestination', appState.target);
+      }}
     >
       <App />
     </Auth0Provider>
