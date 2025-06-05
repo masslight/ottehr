@@ -64,7 +64,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
   const typographyStyling = (curValue: string, selectedValue: string): SxProps<Theme> => {
     if (selectedValue) {
       const valIsChecked = isChecked(curValue, selectedValue);
-      if (valIsChecked && isNeutral) return {};
+      if (valIsChecked && isNeutral) return { fontWeight: 'bold' };
       if (valIsChecked) {
         if (isAbnormal(curValue)) {
           return {
@@ -84,7 +84,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
         };
       }
     } else {
-      if (isNeutral) return {};
+      if (isNeutral) return { fontWeight: 'bold' };
       if (isAbnormal(curValue)) {
         return {
           color: ABNORMAL_FONT_COLOR,
