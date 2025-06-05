@@ -135,6 +135,7 @@
     "aws-cdk-lib": "2.198.0",
     "aws-lambda": "^1.0.7",
     "cross-env": "^7.0.3",
+    "constructs": "^10.0.0",
     "env-cmd": "^10.1.0",
     "eslint": "^8.51.0",
     "eslint-config-prettier": "^9.0.0",
