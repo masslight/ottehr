@@ -25,6 +25,16 @@ const NORMAL_RADIO_COLOR_STYLING = {
   },
 };
 
+const NEUTRAL_RADIO_STYLING = {
+  color: 'primary.main',
+  '&.Mui-disabled': {
+    color: 'primary.main',
+    '& .MuiSvgIcon-root': {
+      fill: 'primary.main',
+    },
+  },
+};
+
 export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent, disabled }) => {
   const nullCode = testItemComponent.nullOption?.code;
   const { control } = useFormContext();
@@ -41,16 +51,21 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
   };
 
   const radioStylingColor = (curValue: string, selectedValue: string): SxProps<Theme> | undefined => {
-    if (isChecked(curValue, selectedValue) && !isNeutral) {
-      return isAbnormal(curValue) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
+    if (isChecked(curValue, selectedValue)) {
+      if (!isNeutral) {
+        return isAbnormal(curValue) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
+      } else {
+        return NEUTRAL_RADIO_STYLING;
+      }
     }
     return undefined;
   };
 
   const typographyStyling = (curValue: string, selectedValue: string): SxProps<Theme> => {
-    if (isNeutral) return {};
     if (selectedValue) {
-      if (isChecked(curValue, selectedValue)) {
+      const valIsChecked = isChecked(curValue, selectedValue);
+      if (valIsChecked && isNeutral) return {};
+      if (valIsChecked) {
         if (isAbnormal(curValue)) {
           return {
             color: ABNORMAL_FONT_COLOR,
@@ -69,6 +84,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
         };
       }
     } else {
+      if (isNeutral) return {};
       if (isAbnormal(curValue)) {
         return {
           color: ABNORMAL_FONT_COLOR,
@@ -96,15 +112,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     if (isFinalView) {
       const isChecked = curValue === nullCode;
       if (isChecked) {
-        return {
-          color: 'primary.main',
-          '&.Mui-disabled': {
-            color: 'primary.main',
-            '& .MuiSvgIcon-root': {
-              fill: 'primary.main',
-            },
-          },
-        };
+        return NEUTRAL_RADIO_STYLING;
       } else {
         return {};
       }
