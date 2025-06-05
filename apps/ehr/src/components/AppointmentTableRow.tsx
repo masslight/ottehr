@@ -64,6 +64,7 @@ import GoToButton from './GoToButton';
 import { progressNoteIcon, startIntakeIcon } from '@theme/icons';
 import { InHouseLabsAppointmentTooltip } from 'src/features/in-house-labs/components/tracking-board/InHouseLabsAppointmentTooltip';
 import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
+import { getInHouseLabsUrl } from 'src/features/css-module/routing/helpers';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -826,22 +827,29 @@ export default function AppointmentTableRow({
           </GenericToolTip>
 
           {!!inHouseLabOrders?.length && (
-            <GenericToolTip title={<InHouseLabsAppointmentTooltip items={inHouseLabOrders} />} customWidth="none">
-              <Box
-                sx={{
-                  display: 'flex',
-                  gap: 0,
-                  color: '#0F347C',
-                  backgroundColor: '#2169F514',
-                  borderRadius: '50%',
-                  width: '28px',
-                  height: '28px',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {sidebarMenuIcons['In-house Labs']}
-              </Box>
+            <GenericToolTip
+              title={<InHouseLabsAppointmentTooltip appointmentId={appointment.id} items={inHouseLabOrders} />}
+              customWidth="none"
+              placement="top"
+              leaveDelay={300}
+            >
+              <Link to={getInHouseLabsUrl(appointment.id)} style={{ textDecoration: 'none' }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 0,
+                    color: '#0F347C',
+                    backgroundColor: '#2169F514',
+                    borderRadius: '50%',
+                    width: '28px',
+                    height: '28px',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {sidebarMenuIcons['In-house Labs']}
+                </Box>
+              </Link>
             </GenericToolTip>
           )}
         </div>
