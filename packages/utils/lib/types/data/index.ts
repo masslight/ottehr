@@ -10,3 +10,4 @@ export * from './appointments';
 export * from './labs';
 export * from './account';
 export * from './in-house';
+export * from './orders';

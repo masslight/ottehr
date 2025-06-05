@@ -160,3 +160,22 @@ export const formatDOB = (birthDate: string | undefined): string | undefined => 
   const age = calculatePatientAge(birthDate);
   return `${birthday} (${age})`;
 };
+
+/**
+ * Compares two dates.
+ * The most recent date will be first,
+ * invalid dates will be last
+ */
+export const compareDates = (a: string | undefined, b: string | undefined): number => {
+  const dateA = DateTime.fromISO(a || '');
+  const dateB = DateTime.fromISO(b || '');
+  const isDateAValid = dateA.isValid;
+  const isDateBValid = dateB.isValid;
+
+  // if one date is valid and the other is not, the valid date should be first
+  if (isDateAValid && !isDateBValid) return -1;
+  if (!isDateAValid && isDateBValid) return 1;
+  if (!isDateAValid && !isDateBValid) return 0;
+
+  return dateB.toMillis() - dateA.toMillis();
+};

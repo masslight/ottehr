@@ -16,6 +16,7 @@ import {
   DiagnosticReport,
 } from 'fhir/r4b';
 import {
+  compareDates,
   fetchLabOrderPDFs,
   fetchDocumentReferencesForDiagnosticReports,
   LabOrderPDF,
@@ -42,7 +43,6 @@ import {
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
-import { DateTime } from 'luxon';
 import { determineOrderStatus, buildOrderHistory } from '../shared/inhouse-labs';
 
 // cache for the service request context
@@ -670,19 +670,6 @@ export const mapProvenanceStatusToTestStatus = (provenanceStatus: any): TestStat
 };
 
 // Utility functions
-export const compareDates = (a: string | undefined, b: string | undefined): number => {
-  const dateA = DateTime.fromISO(a || '');
-  const dateB = DateTime.fromISO(b || '');
-  const isDateAValid = dateA.isValid;
-  const isDateBValid = dateB.isValid;
-
-  if (isDateAValid && !isDateBValid) return -1;
-  if (!isDateAValid && isDateBValid) return 1;
-  if (!isDateAValid && !isDateBValid) return 0;
-
-  return dateB.toMillis() - dateA.toMillis();
-};
-
 export const parsePaginationFromResponse = (data: {
   total?: number;
   link?: Array<{ relation: string; url: string }>;
