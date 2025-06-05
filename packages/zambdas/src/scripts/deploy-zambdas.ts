@@ -54,7 +54,7 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
   }
 
   const allowableEnvironments = ['staging', 'demo'];
-  if (!allowableEnvironments.includes(process.env.environment as string) && spec.name === 'SEND-MESSAGE-CRON') {
+  if (!allowableEnvironments.includes(process.env.ENVIRONMENT as string) && spec.name === 'SEND-MESSAGE-CRON') {
     console.log(
       'TODO Skipping zambda because we only want it in these envs:',
       allowableEnvironments.join(', '),
