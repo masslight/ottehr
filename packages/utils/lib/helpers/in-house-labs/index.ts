@@ -14,12 +14,13 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   DiagnosisDTO,
+  valueConfig,
 } from 'utils';
 
 export const extractAbnormalValueSetValues = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[]
-): string[] => {
+): valueConfig[] => {
   const abnormalValueSetRef = obsDef.abnormalCodedValueSet?.reference?.substring(1);
   const abnormalValueSet = containedResources.find(
     (res) => res.resourceType === 'ValueSet' && res.id === abnormalValueSetRef
@@ -28,12 +29,12 @@ export const extractAbnormalValueSetValues = (
   return abnormalValues;
 };
 
-const extractValueSetValues = (valueSet: ValueSet): string[] => {
+const extractValueSetValues = (valueSet: ValueSet): valueConfig[] => {
   if (!valueSet.compose?.include?.[0]?.concept) {
     return [];
   }
 
-  return valueSet.compose.include[0].concept.map((concept) => concept.code || '').filter(Boolean);
+  return valueSet.compose.include[0].concept.map((concept) => (concept as valueConfig) || '').filter(Boolean);
 };
 
 export const extractQuantityRange = (
@@ -125,6 +126,7 @@ const processObservationDefinition = (
     ) as ValueSet | undefined;
 
     const valueSet = validValueSet ? extractValueSetValues(validValueSet) : [];
+    console.log('valueSet check', valueSet);
     const abnormalValues = extractAbnormalValueSetValues(obsDef, containedResources);
 
     const refRangeValueSet = containedResources.find(

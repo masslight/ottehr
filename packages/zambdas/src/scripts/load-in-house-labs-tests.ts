@@ -38,13 +38,14 @@ const sanitizeForId = (str: string): string => {
 };
 
 // why does TS not have a set difference method >:(
-const setDifference = <T>(a: Set<T>, b: Set<T>): Set<T> => {
-  return new Set([...a].filter((x) => !b.has(x)));
+const setDifference = (a: Set<valueConfig>, b: Set<valueConfig>): Set<valueConfig> => {
+  const bCodes = new Set([...b].map((x) => x.code));
+  return new Set([...a].filter((x) => !bCodes.has(x.code)));
 };
 
 const makeValueSet = (
   itemName: string,
-  values: string[],
+  values: valueConfig[],
   valueSetName: string
 ): { valueSetId: string; valueSet: ValueSet } => {
   const valueSetId = `contained-${sanitizeForId(itemName)}-${valueSetName.toLowerCase()}-valueSet`;
@@ -59,7 +60,8 @@ const makeValueSet = (
           system: IN_HOUSE_RESULTS_VALUESET_SYSTEM,
           concept: values.map((valueStr) => {
             return {
-              code: valueStr,
+              code: valueStr.code,
+              display: valueStr.display,
             };
           }),
         },
@@ -146,6 +148,7 @@ const getComponentObservationDefinition = (
 ): { obsDef: ObservationDefinition; contained: (ValueSet | ObservationDefinition)[] } => {
   const { componentName } = item;
   const obsDef: ObservationDefinition = {
+    // changing these ids will create a backwards compatibility issue for the results page
     id: `contained-${sanitizeForId(
       componentName.toLowerCase()
     )}-component-${item.dataType.toLowerCase()}-observationDef-id`,
@@ -421,8 +424,7 @@ main().catch((error) => {
   process.exit(1);
 });
 
-// there are separated types and seed object which is used for the creation script only:
-
+// types - there are separated types and seed object which is used for the creation script only:
 interface QuantityRange {
   low: number;
   high: number;
@@ -438,10 +440,15 @@ interface BaseComponent {
   componentName: string;
   loincCode: string[];
 }
+
+interface valueConfig {
+  code: string; // this should remain constant, changing it could cause backward compatibility issues
+  display: string;
+}
 export interface CodeableConceptComponent extends BaseComponent {
   dataType: 'CodeableConcept';
-  valueSet: string[];
-  abnormalValues: string[];
+  valueSet: valueConfig[];
+  abnormalValues: valueConfig[];
   display: {
     type: 'Radio' | 'Select';
     nullOption: boolean;
@@ -471,6 +478,7 @@ interface TestItem {
   note?: string;
 }
 
+// seed data
 const testItems: TestItem[] = [
   {
     name: 'Rapid Strep A',
@@ -487,8 +495,11 @@ const testItems: TestItem[] = [
         componentName: 'Rapid Strep A',
         loincCode: ['78012-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -512,8 +523,11 @@ const testItems: TestItem[] = [
         componentName: 'Rapid Influenza A',
         loincCode: ['80382-5'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -537,8 +551,11 @@ const testItems: TestItem[] = [
         componentName: 'Rapid Influenza B',
         loincCode: ['80381-7'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -562,8 +579,11 @@ const testItems: TestItem[] = [
         componentName: 'Rapid RSV',
         loincCode: ['72885-7'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -587,8 +607,11 @@ const testItems: TestItem[] = [
         componentName: 'Rapid COVID-19 Antigen',
         loincCode: ['94558-4'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -611,8 +634,11 @@ const testItems: TestItem[] = [
         componentName: 'Flu-Vid',
         loincCode: ['80382-5', '94558-4'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -635,8 +661,11 @@ const testItems: TestItem[] = [
         componentName: 'Stool Guaiac',
         loincCode: ['50196-5'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -659,8 +688,11 @@ const testItems: TestItem[] = [
         componentName: 'Monospot test',
         loincCode: ['31418-7'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -710,8 +742,21 @@ const testItems: TestItem[] = [
         componentName: 'Glucose',
         loincCode: ['2350-7'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
-        abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
+        valueSet: [
+          { code: 'Not detected', display: 'Not detected' },
+          { code: 'Trace', display: 'Trace' },
+          { code: '1+', display: '1+' },
+          { code: '2+', display: '2+' },
+          { code: '3+', display: '3+' },
+          { code: '4+', display: '4+' },
+        ],
+        abnormalValues: [
+          { code: 'Trace', display: 'Trace' },
+          { code: '1+', display: '1+' },
+          { code: '2+', display: '2+' },
+          { code: '3+', display: '3+' },
+          { code: '4+', display: '4+' },
+        ],
         unit: 'mg/dL',
         // currently quantitativeReference is not being mapped into the fhir resource
         // in the future, if we want we could map into the valueSet like "1+ 100 mg/dL" but not needed at the moment
@@ -731,8 +776,17 @@ const testItems: TestItem[] = [
         componentName: 'Bilirubin',
         loincCode: ['1977-8'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Not detected', '1+', '2+', '3+'],
-        abnormalValues: ['1+', '2+', '3+'],
+        valueSet: [
+          { code: 'Not detected', display: 'Not detected' },
+          { code: '1+', display: '1+' },
+          { code: '2+', display: '2+' },
+          { code: '3+', display: '3+' },
+        ],
+        abnormalValues: [
+          { code: '1+', display: '1+' },
+          { code: '2+', display: '2+' },
+          { code: '3+', display: '3+' },
+        ],
         quantitativeReference: {
           '1+': 'small',
           '2+': 'moderate',
@@ -747,8 +801,19 @@ const testItems: TestItem[] = [
         componentName: 'Ketone',
         loincCode: ['49779-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
-        abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: [
+          { code: 'Not detected', display: 'Not detected' },
+          { code: 'Trace', display: 'Trace' },
+          { code: 'Small', display: 'Small' },
+          { code: 'Moderate', display: 'Moderate' },
+          { code: 'Large', display: 'Large' },
+        ],
+        abnormalValues: [
+          { code: 'Trace', display: 'Trace' },
+          { code: 'Small', display: 'Small' },
+          { code: 'Moderate', display: 'Moderate' },
+          { code: 'Large', display: 'Large' },
+        ],
         unit: 'mg/dL',
         quantitativeReference: {
           Trace: '5 mg/dL',
@@ -780,8 +845,19 @@ const testItems: TestItem[] = [
         componentName: 'Blood',
         loincCode: ['105906-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
-        abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: [
+          { code: 'Not detected', display: 'Not detected' },
+          { code: 'Trace', display: 'Trace' },
+          { code: 'Small', display: 'Small' },
+          { code: 'Moderate', display: 'Moderate' },
+          { code: 'Large', display: 'Large' },
+        ],
+        abnormalValues: [
+          { code: 'Trace', display: 'Trace' },
+          { code: 'Small', display: 'Small' },
+          { code: 'Moderate', display: 'Moderate' },
+          { code: 'Large', display: 'Large' },
+        ],
         display: {
           type: 'Select',
           nullOption: false,
@@ -806,8 +882,21 @@ const testItems: TestItem[] = [
         componentName: 'Protein',
         loincCode: ['2888-6'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
-        abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
+        valueSet: [
+          { code: 'Not detected', display: 'Not detected' },
+          { code: 'Trace', display: 'Trace' },
+          { code: '1+', display: '1+' },
+          { code: '2+', display: '2+' },
+          { code: '3+', display: '3+' },
+          { code: '4+', display: '4+' },
+        ],
+        abnormalValues: [
+          { code: 'Trace', display: 'Trace' },
+          { code: '1+', display: '1+' },
+          { code: '2+', display: '2+' },
+          { code: '3+', display: '3+' },
+          { code: '4+', display: '4+' },
+        ],
         unit: 'mg/dL',
         quantitativeReference: {
           Trace: '10 mg/dL',
@@ -840,8 +929,11 @@ const testItems: TestItem[] = [
         componentName: 'Nitrite',
         loincCode: ['32710-6'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Select',
           nullOption: false,
@@ -851,8 +943,19 @@ const testItems: TestItem[] = [
         componentName: 'Leukocytes',
         loincCode: ['105105-1'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
-        abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: [
+          { code: 'Not detected', display: 'Not detected' },
+          { code: 'Trace', display: 'Trace' },
+          { code: 'Small', display: 'Small' },
+          { code: 'Moderate', display: 'Moderate' },
+          { code: 'Large', display: 'Large' },
+        ],
+        abnormalValues: [
+          { code: 'Trace', display: 'Trace' },
+          { code: 'Small', display: 'Small' },
+          { code: 'Moderate', display: 'Moderate' },
+          { code: 'Large', display: 'Large' },
+        ],
         display: {
           type: 'Select',
           nullOption: false,
@@ -875,7 +978,10 @@ const testItems: TestItem[] = [
         componentName: 'Urine Pregnancy Test (HCG)',
         loincCode: ['2106-3'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
         abnormalValues: [], // empty array, because both results are normal in the context of the test
         display: {
           type: 'Radio',
@@ -899,8 +1005,11 @@ const testItems: TestItem[] = [
         componentName: 'Strep',
         loincCode: ['104724-0'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -924,8 +1033,11 @@ const testItems: TestItem[] = [
         componentName: 'Flu A',
         loincCode: ['104730-7'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -949,8 +1061,11 @@ const testItems: TestItem[] = [
         componentName: 'Flu B',
         loincCode: ['106618-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -973,8 +1088,11 @@ const testItems: TestItem[] = [
         componentName: 'RSV',
         loincCode: ['33045-6', '31949-1'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,
@@ -997,8 +1115,11 @@ const testItems: TestItem[] = [
         componentName: 'COVID-19 Antigen',
         loincCode: ['96119-3'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Detected', 'Not detected'],
-        abnormalValues: ['Detected'],
+        valueSet: [
+          { code: 'Detected', display: 'Detected' },
+          { code: 'Not detected', display: 'Not detected' },
+        ],
+        abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {
           type: 'Radio',
           nullOption: true,

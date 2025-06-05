@@ -29,25 +29,25 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
   const nullCode = testItemComponent.nullOption?.code;
   const { control } = useFormContext();
 
-  const isChecked = (curValue: string, selectedValue: string): boolean => {
-    return curValue === selectedValue;
+  const isChecked = (curValueCode: string, selectedValue: string): boolean => {
+    return curValueCode === selectedValue;
   };
 
-  const isAbnormal = (curValue: string): boolean => {
-    return testItemComponent.abnormalValues.includes(curValue);
+  const isAbnormal = (curValueCode: string): boolean => {
+    return testItemComponent.abnormalValues.map((val) => val.code).includes(curValueCode);
   };
 
-  const radioStylingColor = (curValue: string, selectedValue: string): SxProps<Theme> | undefined => {
-    if (isChecked(curValue, selectedValue)) {
-      return isAbnormal(curValue) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
+  const radioStylingColor = (curValueCode: string, selectedValue: string): SxProps<Theme> | undefined => {
+    if (isChecked(curValueCode, selectedValue)) {
+      return isAbnormal(curValueCode) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
     }
     return undefined;
   };
 
-  const typographyStyling = (curValue: string, selectedValue: string): SxProps<Theme> => {
+  const typographyStyling = (curValueCode: string, selectedValue: string): SxProps<Theme> => {
     if (selectedValue) {
-      if (isChecked(curValue, selectedValue)) {
-        if (isAbnormal(curValue)) {
+      if (isChecked(curValueCode, selectedValue)) {
+        if (isAbnormal(curValueCode)) {
           return {
             color: ABNORMAL_FONT_COLOR,
             fontWeight: 'bold',
@@ -65,7 +65,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
         };
       }
     } else {
-      if (isAbnormal(curValue)) {
+      if (isAbnormal(curValueCode)) {
         return {
           color: ABNORMAL_FONT_COLOR,
           fontWeight: 'bold',
@@ -143,18 +143,20 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
           >
             <Grid container spacing={2}>
               {testItemComponent.valueSet.map((valueCode) => (
-                <Grid item xs={6} key={valueCode}>
+                <Grid item xs={6} key={valueCode.code}>
                   <FormControlLabel
-                    value={valueCode}
-                    control={<Radio sx={radioStylingColor(valueCode, field.value)} disabled={!!disabled} />}
-                    label={<Typography sx={typographyStyling(valueCode, field.value)}>{valueCode}</Typography>}
+                    value={valueCode.code}
+                    control={<Radio sx={radioStylingColor(valueCode.code, field.value)} disabled={!!disabled} />}
+                    label={
+                      <Typography sx={typographyStyling(valueCode.code, field.value)}>{valueCode.display}</Typography>
+                    }
                     sx={{
                       margin: 0,
                       padding: 2,
                       width: '100%',
                       border: '1px solid #E0E0E0',
                       borderRadius: 1,
-                      backgroundColor: getBackgroundColor(valueCode, field.value),
+                      backgroundColor: getBackgroundColor(valueCode.code, field.value),
                     }}
                   />
                 </Grid>
