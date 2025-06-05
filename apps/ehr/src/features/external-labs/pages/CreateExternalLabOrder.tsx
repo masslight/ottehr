@@ -31,7 +31,7 @@ import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS } from 'u
 import { useApiClients } from '../../../hooks/useAppClients';
 import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
-import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
+import { createExternalLabOrder, getCreateLabOrderResources } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { enqueueSnackbar } from 'notistack';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
@@ -123,7 +123,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     if (oystehrZambda && paramsSatisfied) {
       try {
         await addAdditionalDxToEncounter();
-        await createLabOrder(oystehrZambda, {
+        await createExternalLabOrder(oystehrZambda, {
           dx: orderDx,
           encounter,
           orderableItem: selectedLab,
@@ -132,7 +132,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const oyError = e as OystehrSdkError;
-        console.log('error creating lab order', oyError.code, oyError.message);
+        console.log('error creating external lab order', oyError.code, oyError.message);
         const errorMessage = [oyError.message];
         setError(errorMessage);
       }
@@ -141,7 +141,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
+      if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
     }
     setSubmitting(false);

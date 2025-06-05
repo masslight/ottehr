@@ -25,7 +25,7 @@ export const OrderDetailsPage: React.FC = () => {
   }
 
   if (!labOrder) {
-    console.error('No lab order found');
+    console.error('No external lab order found');
     return null;
   }
 

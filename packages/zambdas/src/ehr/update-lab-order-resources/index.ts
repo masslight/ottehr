@@ -98,7 +98,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
     }
   } catch (error: any) {
-    console.error('Error updating lab order resource:', error);
+    console.error('Error updating external lab order resource:', error);
     await topLevelCatch('update-lab-order-resources', error, secrets);
     return {
       statusCode: 500,

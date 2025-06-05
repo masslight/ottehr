@@ -118,7 +118,7 @@ if (!VITE_APP_IS_LOCAL) {
 export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrderInput): Promise<SubmitLabOrderDTO> => {
   try {
     if (SUBMIT_LAB_ORDER_ZAMBDA_ID == null) {
-      throw new Error('submit lab order zambda environment variable could not be loaded');
+      throw new Error('submit external lab order zambda environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
@@ -616,10 +616,10 @@ export const getSignedPatientProfilePhotoUrl = async (
   }
 };
 
-export const createLabOrder = async (oystehr: Oystehr, parameters: CreateLabOrderParameters): Promise<any> => {
+export const createExternalLabOrder = async (oystehr: Oystehr, parameters: CreateLabOrderParameters): Promise<any> => {
   try {
     if (CREATE_LAB_ORDER_ZAMBDA_ID == null) {
-      throw new Error('create lab order environment variable could not be loaded');
+      throw new Error('create external lab order environment variable could not be loaded');
     }
     const response = await oystehr.zambda.execute({
       id: CREATE_LAB_ORDER_ZAMBDA_ID,
@@ -651,13 +651,13 @@ export const getCreateLabOrderResources = async (
   }
 };
 
-export const getLabOrders = async <RequestParameters extends GetLabOrdersParameters>(
+export const getExternalLabOrders = async <RequestParameters extends GetLabOrdersParameters>(
   oystehr: Oystehr,
   parameters: RequestParameters
 ): Promise<PaginatedResponse<RequestParameters>> => {
   try {
     if (GET_LAB_ORDERS_ZAMBDA_ID == null) {
-      throw new Error('get lab orders zambda environment variable could not be loaded');
+      throw new Error('get external lab orders zambda environment variable could not be loaded');
     }
     const { searchBy } = parameters;
     if (!searchBy) {

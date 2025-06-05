@@ -106,7 +106,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         navigate(`/in-person/${appointmentID}/external-lab-orders`);
       } catch (e) {
         const oyError = e as OystehrSdkError;
-        console.log('error creating lab order1', oyError.code, oyError.message);
+        console.log('error creating external lab order1', oyError.code, oyError.message);
         const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
         setError(errorMessage);
         setSubmitLoading(false);
@@ -114,7 +114,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     }
     updateFhir().catch((e) => {
       const oyError = e as OystehrSdkError;
-      console.log('error creating lab order2', oyError.code, oyError.message);
+      console.log('error creating external lab order2', oyError.code, oyError.message);
       const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
       setError(errorMessage);
     });

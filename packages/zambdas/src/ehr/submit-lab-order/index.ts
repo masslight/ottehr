@@ -451,9 +451,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log(error);
-    console.log('submit lab order error:', JSON.stringify(error));
+    console.log('submit external lab order error:', JSON.stringify(error));
     await topLevelCatch('admin-submit-lab-order', error, input.secrets);
-    let body = JSON.stringify({ message: 'Error submitting a lab order' });
+    let body = JSON.stringify({ message: 'Error submitting external lab order' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
       body = JSON.stringify({ message, code });

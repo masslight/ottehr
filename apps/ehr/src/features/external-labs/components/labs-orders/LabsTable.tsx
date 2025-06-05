@@ -133,11 +133,11 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="error" variant="body1" gutterBottom>
-          {error.message || 'Failed to fetch lab orders. Please try again later.'}
+          {error.message || 'Failed to fetch external lab orders. Please try again later.'}
         </Typography>
         {onCreateOrder && (
           <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-            Create New Lab Order
+            Create New External Lab Order
           </Button>
         )}
       </Paper>
@@ -274,11 +274,11 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         {!Array.isArray(labOrders) || labOrders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" gutterBottom>
-              No lab orders to display
+              No External Lab Orders to display
             </Typography>
             {onCreateOrder && (
               <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                Create New Lab Order
+                Create New External Lab Order
               </Button>
             )}
           </Box>
