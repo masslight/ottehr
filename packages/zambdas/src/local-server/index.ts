@@ -22,6 +22,11 @@ Object.entries(ottehrSpec.zambdas).forEach(([_key, spec]) => {
     const { index } = await import(`../../${spec.src}`);
     await expressLambda(index, req, res);
   });
+  app.head('/', async (req, res) => {
+    res.send({
+      status: 200,
+    });
+  });
   console.log(`Registered POST: ${path}`);
 });
 

@@ -29,6 +29,10 @@
       ]
     },
     "lint": {},
+    "integration:zambdas": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
     "e2e:login": {
       "cache": false,
       "dependsOn": ["^build"]

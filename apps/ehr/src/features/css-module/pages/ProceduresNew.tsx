@@ -191,7 +191,6 @@ export default function ProceduresNew(): ReactElement {
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
     setState({
-      consentObtained: true,
       procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
@@ -214,6 +213,7 @@ export default function ProceduresNew(): ReactElement {
       otherPostInstructions: getOtherValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
+      consentObtained: procedure.consentObtained,
     });
     setInitialValuesSet(true);
   }, [procedureId, chartData?.procedures, setState, initialValuesSet]);
@@ -274,6 +274,7 @@ export default function ProceduresNew(): ReactElement {
             postInstructions: state.postInstructions !== OTHER ? state.postInstructions : state.otherPostInstructions,
             timeSpent: state.timeSpent,
             documentedBy: state.documentedBy,
+            consentObtained: state.consentObtained,
           },
         ],
       });
@@ -512,7 +513,7 @@ export default function ProceduresNew(): ReactElement {
                 onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
                 disabled={isReadOnly}
               />
-              <Typography>I have obtained the Consent for Procedure *</Typography>
+              <Typography>I have obtained the Consent for Procedure</Typography>
             </Box>
             <InfoAlert
               text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
@@ -646,12 +647,7 @@ export default function ProceduresNew(): ReactElement {
               <RoundedButton color="primary" onClick={onCancel}>
                 Cancel
               </RoundedButton>
-              <RoundedButton
-                color="primary"
-                variant="contained"
-                disabled={!state.consentObtained || isReadOnly}
-                onClick={onSave}
-              >
+              <RoundedButton color="primary" variant="contained" disabled={isReadOnly} onClick={onSave}>
                 Save
               </RoundedButton>
             </Box>
