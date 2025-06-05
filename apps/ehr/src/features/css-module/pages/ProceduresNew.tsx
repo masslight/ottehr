@@ -526,6 +526,8 @@ export default function ProceduresNew(): ReactElement {
               state.procedureType = value;
               if (PRE_POPULATED_CPT_CODE[value] != null) {
                 state.cptCodes = [PRE_POPULATED_CPT_CODE[value]];
+              } else {
+                state.cptCodes = [];
               }
             })}
             {cptWidget()}
