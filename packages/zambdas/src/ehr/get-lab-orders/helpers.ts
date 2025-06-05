@@ -1084,8 +1084,6 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
     return NOT_FOUND;
   }
 
-  console.log('name', name);
-
   return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || NOT_FOUND;
 };
 
