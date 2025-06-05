@@ -3,3 +3,5 @@ export { default as logo } from './logo.png';
 export { default as deleteIcon } from './delete-1x.png';
 export { default as ottehrAiIcon } from './ottehr-ai-icon.svg';
 export { default as ottehrDarkBlue } from './ottehr-dark-blue.svg';
+export { default as startIntakeIcon } from './start-intake-icon.svg';
+export { default as progressNoteIcon } from './progress-note-icon.svg';
