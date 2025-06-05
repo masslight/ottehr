@@ -11,6 +11,7 @@ import {
 } from 'utils/lib/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { deleteInHouseLabOrder, getInHouseOrders } from '../../../../api/api';
+import { FEATURE_FLAGS } from 'src/constants/feature-flags';
 
 interface UseInHouseLabOrdersResult {
   labOrders: InHouseOrderListPageItemDTO[];
@@ -82,9 +83,21 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
 
   const fetchLabOrders = useCallback(
     async (searchParams: GetInHouseOrdersParameters): Promise<void> => {
+      if (FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED !== true) {
+        return;
+      }
+
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         setError(new Error('API client not available'));
+        return;
+      }
+
+      if (
+        !searchParams.searchBy.value ||
+        (Array.isArray(searchParams.searchBy.value) && searchParams.searchBy.value.length === 0)
+      ) {
+        // search params are not ready yet, that's ok probably
         return;
       }
 

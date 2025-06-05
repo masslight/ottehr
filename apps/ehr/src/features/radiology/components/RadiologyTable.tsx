@@ -19,7 +19,7 @@ import { RadiologyOrderLoading } from './RadiologyOrderLoading';
 import { RadiologyTableRow } from './RadiologyTableRow';
 import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
 
-export type RadiologyTableColumn = 'studyType' | 'dx' | 'ordered' | 'status' | 'actions';
+export type RadiologyTableColumn = 'studyType' | 'dx' | 'ordered' | 'stat' | 'status' | 'actions';
 
 type RadiologyTableProps = {
   patientId?: string;
@@ -104,10 +104,12 @@ export const RadiologyTable = ({
         return '25%';
       case 'ordered':
         return '25%';
-      case 'status':
-        return '15%';
-      case 'actions':
+      case 'stat':
         return '10%';
+      case 'status':
+        return '10%';
+      case 'actions':
+        return '5%';
       default:
         return '10%';
     }
@@ -121,6 +123,8 @@ export const RadiologyTable = ({
         return 'Dx';
       case 'ordered':
         return 'Ordered';
+      case 'stat':
+        return 'Stat';
       case 'status':
         return 'Status';
       case 'actions':

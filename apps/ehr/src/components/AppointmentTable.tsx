@@ -16,7 +16,7 @@ import {
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InPersonAppointmentInformation } from 'utils';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableRow from './AppointmentTableRow';
 import { ApptTab } from './AppointmentTabs';
@@ -43,6 +43,7 @@ interface AppointmentTableProps {
   now: DateTime;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
+  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
 }
 
 export default function AppointmentTable({
@@ -52,6 +53,7 @@ export default function AppointmentTable({
   now,
   updateAppointments,
   setEditingComment,
+  inHouseLabOrdersByAppointmentId,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
@@ -179,6 +181,7 @@ export default function AppointmentTable({
                             updateAppointments={updateAppointments}
                             setEditingComment={setEditingComment}
                             tab={tab}
+                            inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                           ></AppointmentTableRow>
                         );
                       })}
@@ -196,6 +199,7 @@ export default function AppointmentTable({
                       updateAppointments={updateAppointments}
                       setEditingComment={setEditingComment}
                       tab={tab}
+                      inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                     ></AppointmentTableRow>
                   );
                 })
@@ -268,6 +272,7 @@ export default function AppointmentTable({
                           updateAppointments={updateAppointments}
                           setEditingComment={setEditingComment}
                           tab={tab}
+                          inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                         ></AppointmentTableRow>
                       );
                     })}

@@ -8,9 +8,8 @@ import {
   APIError,
   BookableItem,
   CreateSlotParams,
-  getAppointmentDurationFromSlot,
+  createSlotParamsFromSlotAndOptions,
   GetScheduleResponse,
-  getServiceModeFromSlot,
   isApiError,
   ScheduleType,
   ServiceMode,
@@ -198,15 +197,10 @@ const PrebookVisit: FC = () => {
 
   const handleSlotSelection = async (slot?: Slot): Promise<void> => {
     if (slot && tokenlessZambdaClient) {
-      const createSlotInput: CreateSlotParams = {
-        scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
-        startISO: slot.start,
-        serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
-        lengthInMinutes: getAppointmentDurationFromSlot(slot),
-        status: 'busy-tentative',
-        walkin: false,
+      const createSlotInput: CreateSlotParams = createSlotParamsFromSlotAndOptions(slot, {
         originalBookingUrl: getUrl(),
-      };
+        status: 'busy-tentative',
+      });
 
       try {
         const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);
