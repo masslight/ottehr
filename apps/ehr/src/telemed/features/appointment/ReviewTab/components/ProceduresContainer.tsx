@@ -34,13 +34,13 @@ export const ProceduresContainer: FC = () => {
             <Typography sx={{ color: '#0F347C', fontWeight: '500' }}>{procedure.procedureType}</Typography>
             {renderProperty(
               'CPT',
-              procedure.cptCodes != null
+              procedure.cptCodes != null && procedure.cptCodes.length > 0
                 ? procedure.cptCodes.map((cptCode) => cptCode.code + ' ' + cptCode.display).join('; ')
                 : undefined
             )}
             {renderProperty(
               'Dx',
-              procedure.diagnoses != null
+              procedure.diagnoses != null && procedure.diagnoses.length > 0
                 ? procedure.diagnoses.map((diagnosis) => diagnosis.code + ' ' + diagnosis.display).join('; ')
                 : undefined
             )}
