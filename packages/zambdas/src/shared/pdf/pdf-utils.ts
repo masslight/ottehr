@@ -71,14 +71,6 @@ export function splitLongStringToPageSize(
 
 export const rgbNormalized = (r: number, g: number, b: number): Color => rgb(r / 255, g / 255, b / 255);
 
-export const getTextDimensions = (text: string, textStyle: TextStyle): { width: number; height: number } => {
-  const { font, fontSize } = textStyle;
-  return {
-    width: font.widthOfTextAtSize(text, fontSize),
-    height: font.heightAtSize(fontSize),
-  };
-};
-
 export async function createPdfClient(initialStyles: PdfClientStyles): Promise<PdfClient> {
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -289,6 +281,14 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
 
   const setRightBound = (newBound: number): void => {
     pageRightBound = newBound;
+  };
+
+  const getTextDimensions = (text: string, textStyle: TextStyle): { width: number; height: number } => {
+    const { font, fontSize } = textStyle;
+    return {
+      width: font.widthOfTextAtSize(text, fontSize),
+      height: font.heightAtSize(fontSize),
+    };
   };
 
   const save = async (): Promise<Uint8Array> => {

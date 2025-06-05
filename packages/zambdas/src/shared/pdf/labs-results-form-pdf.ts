@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { Color, PageSizes } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { createPdfClient, getTextDimensions, PdfInfo, rgbNormalized } from './pdf-utils';
+import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
 import {
   LabResultsData,
   ExternalLabResult,
@@ -223,12 +223,25 @@ export async function createLabResultPDF(
             observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') ||
             ORDER_RESULT_ITEM_UNKNOWN;
         }
+
+        const referenceRangeText = observation.referenceRange
+          ? observation.referenceRange
+              .reduce((acc, refRange) => {
+                if (refRange.text) {
+                  acc.push(refRange.text);
+                }
+                return acc;
+              }, [] as string[])
+              .join('. ')
+          : undefined;
+
         const labResult: ExternalLabResult = {
           resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
           resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
           resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
           resultInterpretationDisplay: interpretationDisplay,
           resultValue: value || ORDER_RESULT_ITEM_UNKNOWN,
+          referenceRangeText,
         };
         resultsTemp.push(labResult);
         if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
@@ -340,7 +353,6 @@ export async function createLabResultPDF(
       // reportDate: '10/10/2024',
       // specimenSource: 'Throat',
       // specimenDescription: 'Throat culture',
-      specimenReferenceRange: undefined,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
       resultStatus: diagnosticReport.status.toUpperCase(),
       reviewed,
@@ -415,62 +427,66 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
   const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
   const faxIcon = await pdfClient.embedImage(fs.readFileSync('./assets/fax.png'));
 
+  const standardFontSize = 12;
+  const standardFontSpacing = 12;
+  const standardNewline = 17;
+
   const textStyles: Record<string, TextStyle> = {
     blockHeader: {
-      fontSize: 12,
-      spacing: 12,
+      fontSize: standardFontSize,
+      spacing: standardFontSpacing,
       font: RubikFontBold,
       newLineAfter: true,
     },
     header: {
       fontSize: 17,
-      spacing: 12,
+      spacing: standardFontSpacing,
       font: RubikFontBold,
       color: styles.color.purple,
       newLineAfter: true,
     },
     headerRight: {
       fontSize: 17,
-      spacing: 12,
+      spacing: standardFontSpacing,
       font: RubikFontBold,
       side: 'right',
       color: styles.color.purple,
     },
     fieldHeader: {
-      fontSize: 12,
+      fontSize: standardFontSize,
       font: RubikFont,
       spacing: 1,
     },
     fieldHeaderRight: {
-      fontSize: 12,
+      fontSize: standardFontSize,
       font: RubikFont,
       spacing: 1,
       side: 'right',
     },
     text: {
-      fontSize: 12,
+      fontSize: standardFontSize,
       spacing: 6,
       font: RubikFont,
     },
     textBold: {
-      fontSize: 12,
+      fontSize: standardFontSize,
       spacing: 6,
       font: RubikFontBold,
     },
     textBoldRight: {
-      fontSize: 12,
+      fontSize: standardFontSize,
       spacing: 6,
       font: RubikFontBold,
       side: 'right',
     },
     textRight: {
-      fontSize: 12,
+      fontSize: standardFontSize,
       spacing: 6,
       font: RubikFont,
       side: 'right',
     },
     fieldText: {
-      fontSize: 12,
+      fontSize: standardFontSize,
       spacing: 6,
       font: RubikFont,
       side: 'right',
@@ -489,14 +505,6 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     return age;
   };
 
-  const referenceRangeText = (): string => {
-    if (data.specimenReferenceRange) {
-      return data.specimenReferenceRange;
-    } else {
-      return '';
-    }
-  };
-
   const referenceRangeTitle = (): string => {
     if (data.specimenReferenceRange) {
       return 'Reference Range'.toUpperCase();
@@ -511,7 +519,6 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     // center: true,
   };
 
-
   const drawFieldLine = (fieldName: string, fieldValue: string): void => {
     pdfClient.drawTextSequential(fieldName, textStyles.text);
     pdfClient.drawTextSequential(' ', textStyles.textBold);
@@ -519,7 +526,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
   };
 
   const drawFieldLineRight = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 270);
+    pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
     pdfClient.drawTextSequential(' ', textStyles.textBold);
     pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
   };
@@ -536,11 +543,11 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     color?: Color
   ): void => {
     const font = columnFont || textStyles.text;
-    const fontSize = columnFontSize || 12;
+    const fontSize = columnFontSize || standardFontSize;
     const fontStyleTemp = { ...font, fontSize: fontSize, color: color };
     pdfClient.drawStartXPosSpecifiedText(columnOneName, fontStyleTemp, 0);
-    pdfClient.drawStartXPosSpecifiedText(columnTwoName, fontStyleTemp, 70);
-    pdfClient.drawStartXPosSpecifiedText(columnThreeName, fontStyleTemp, type === 'external' ? 340 : 200);
+    pdfClient.drawStartXPosSpecifiedText(columnTwoName, fontStyleTemp, type === 'external' ? 70 : 100);
+    pdfClient.drawStartXPosSpecifiedText(columnThreeName, fontStyleTemp, type === 'external' ? 340 : 230);
     pdfClient.drawStartXPosSpecifiedText(columnFourName, fontStyleTemp, 350);
     pdfClient.drawStartXPosSpecifiedText(columnFiveName, fontStyleTemp, type === 'external' ? 490 : 410);
   };
@@ -565,7 +572,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
   }
 
   pdfClient.drawText(`Ottehr${data.locationName || ''}`, textStyles.textBoldRight);
-  pdfClient.newLine(15);
+  pdfClient.newLine(standardNewline);
 
   const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
     data.locationState?.toUpperCase() || ''
@@ -574,7 +581,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
   pdfClient.drawText(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`, textStyles.text);
   pdfClient.drawText(locationCityStateZip, textStyles.textRight);
 
-  pdfClient.newLine(15);
+  pdfClient.newLine(standardNewline);
 
   pdfClient.drawText(`ID: ${data.patientId}`, textStyles.text);
 
@@ -582,11 +589,11 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     pdfClient.getRightBound() -
     pdfClient.getLeftBound() -
     iconStyle.width -
-    getTextDimensions(` ${data.locationPhone}`, textStyles.text).width -
+    pdfClient.getTextDimensions(` ${data.locationPhone}`, textStyles.text).width -
     5;
 
   if (data.locationFax) {
-    margin -= iconStyle.width + getTextDimensions(` ${data.locationFax}`, textStyles.text).width + 10;
+    margin -= iconStyle.width + pdfClient.getTextDimensions(` ${data.locationFax}`, textStyles.text).width + 10;
   }
 
   let iconStyleTemp = { ...iconStyle, margin: { left: margin } };
@@ -603,7 +610,7 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
         pdfClient.getRightBound() -
         pdfClient.getLeftBound() -
         iconStyle.width -
-        getTextDimensions(` ${data.locationFax}`, textStyles.text).width -
+        pdfClient.getTextDimensions(` ${data.locationFax}`, textStyles.text).width -
         5;
     }
 
@@ -612,12 +619,12 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     pdfClient.drawTextSequential(` ${data.locationFax}`, textStyles.text);
   }
 
-  pdfClient.newLine(15);
+  pdfClient.newLine(standardNewline);
 
   pdfClient.drawText(data.patientPhone, textStyles.text);
-  pdfClient.newLine(17);
+  pdfClient.newLine(standardNewline);
   pdfClient.drawText(`${data.resultStatus} RESULT`, textStyles.headerRight);
-  pdfClient.newLine(17);
+  pdfClient.newLine(standardNewline);
   pdfClient.drawSeparatedLine(separatedLineStyle);
   // pdfClient.newLine(5);
 
@@ -625,33 +632,33 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
   if (type === 'external') {
     drawFieldLine('Accession ID:', data.accessionNumber);
     drawFieldLineRight('Order Create Date:', data.orderCreateDate);
-    pdfClient.newLine(15);
+    pdfClient.newLine(standardNewline);
     drawFieldLine('Requesting physician:', data.providerName);
     drawFieldLineRight('Collection Date:', data.collectionDate);
-    pdfClient.newLine(15);
+    pdfClient.newLine(standardNewline);
     drawFieldLine('Ordering physician:', data.providerName);
     drawFieldLineRight('Order Printed:', data.todayDate);
-    pdfClient.newLine(15);
+    pdfClient.newLine(standardNewline);
     drawFieldLine('Req ID:', data.reqId);
     drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
-    pdfClient.newLine(15);
+    pdfClient.newLine(standardNewline);
     drawFieldLine('Order Priority:', data.orderPriority.toUpperCase());
     // drawFieldLineRight('Order Received:', data.orderReceived);
-    pdfClient.newLine(12);
+    pdfClient.newLine(standardFontSize);
     // drawFieldLineRight('Specimen Received', data.specimenReceived);
-    pdfClient.newLine(12);
+    pdfClient.newLine(standardFontSize);
     // drawFieldLineRight('Reported:', data.reportDate);
   } else if (type === 'in-house') {
     drawFieldLine('Order ID:', data.serviceRequestID);
-    pdfClient.newLine(12);
+    pdfClient.newLine(standardFontSize);
     drawFieldLine('Ordering physician:', data.providerName);
     drawFieldLineRight('Order date:', data.orderCreateDate);
-    pdfClient.newLine(12);
+    pdfClient.newLine(standardFontSize);
     drawFieldLineRight('Collection date:', data.collectionDate);
-    pdfClient.newLine(12);
+    pdfClient.newLine(standardFontSize);
     pdfClient.drawText('IQC Valid', textStyles.textBold);
     drawFieldLineRight('Final results:', data.orderSubmitDate);
-    pdfClient.newLine(12);
+    pdfClient.newLine(standardFontSize);
     // addNewLine();
     // addNewLine();
     // drawFieldLineRight('Order Received:', data.orderReceived);
@@ -669,10 +676,10 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
   pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
   if (type === 'in-house') {
     drawFieldLine('Specimen source:', data.specimenSource);
-    pdfClient.newLine(12);
+    pdfClient.newLine(standardFontSize);
   }
 
-  pdfClient.newLine(17);
+  pdfClient.newLine(standardNewline);
   pdfClient.drawSeparatedLine(separatedLineStyle);
 
   if (type === 'external') {
@@ -680,28 +687,28 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
       throw new Error('external lab results is undefined');
     }
     drawFiveColumnText('', 'NAME', 'VALUE', referenceRangeTitle(), 'LAB', type);
-    pdfClient.newLine(17);
+    pdfClient.newLine(standardNewline);
     pdfClient.drawSeparatedLine(separatedLineStyle);
-    pdfClient.newLine(17);
+    pdfClient.newLine(standardNewline);
     drawFiveColumnText(
       data.resultPhase,
       data.testName.toUpperCase(),
       getResultValueToDiplay(data.resultInterpretations),
-      referenceRangeText(),
+      '',
       data.testItemCode,
       type,
       textStyles.text,
       12,
       getResultRowDisplayColor(data.resultInterpretations)
     );
-    pdfClient.newLine(17);
+    pdfClient.newLine(standardNewline);
     for (const labResult of data.externalLabResults) {
       pdfClient.newLine(14);
       pdfClient.drawSeparatedLine(separatedLineStyle);
       pdfClient.newLine(5);
       pdfClient.drawText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`, textStyles.text);
       if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
-        pdfClient.newLine(17);
+        pdfClient.newLine(standardNewline);
         const fontStyleTemp = {
           ...textStyles.text,
           color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
@@ -711,19 +718,22 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
           fontStyleTemp
         );
       }
-      pdfClient.newLine(17);
+      pdfClient.newLine(standardNewline);
       pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+
+      if (labResult.referenceRangeText) {
+        pdfClient.newLine(standardNewline);
+        pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+      }
     }
   } else if (type === 'in-house') {
     if (!data.inHouseLabResults) {
       throw new Error('in-house lab results is undefined');
     }
-    drawFiveColumnText('', 'NAME', 'VALUE', 'UNITS', 'REFERENCE RANGE', type);
-    pdfClient.newLine(17);
+    drawFiveColumnText('NAME', '', 'VALUE', 'UNITS', 'REFERENCE RANGE', type);
+    pdfClient.newLine(standardNewline);
     pdfClient.drawSeparatedLine(separatedLineStyle);
-    pdfClient.newLine(17);
     for (const labResult of data.inHouseLabResults) {
-      pdfClient.newLine(17);
       let resultRange = undefined;
       if (labResult.rangeString) {
         resultRange = labResult.rangeString.join(', ');
@@ -733,41 +743,42 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
         resultRange = ORDER_RESULT_ITEM_UNKNOWN;
       }
       drawFiveColumnText(
-        '',
         labResult.name,
+        '',
         labResult.value || '',
         labResult.units || '',
         resultRange,
         type,
-        textStyles.textBold,
-        14,
+        textStyles.text,
+        undefined,
         getInHouseResultRowDisplayColor(labResult)
       );
+      pdfClient.newLine(standardNewline);
     }
   }
-  pdfClient.newLine(17);
+  pdfClient.newLine(standardNewline);
   pdfClient.drawSeparatedLine(separatedLineStyle);
-  pdfClient.newLine(17);
+  pdfClient.newLine(standardNewline);
 
   if (type === 'external') {
     // Performing lab details
     pdfClient.drawText(`PERFORMING LAB: ${data.performingLabName}`, textStyles.textRight);
-    pdfClient.newLine(17);
+    pdfClient.newLine(standardNewline);
     pdfClient.drawText(
       `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip}`,
       textStyles.textRight
     );
-    pdfClient.newLine(17);
+    pdfClient.newLine(standardNewline);
     pdfClient.drawText(
       `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`,
       textStyles.textRight
     );
-    pdfClient.newLine(17);
+    pdfClient.newLine(standardNewline);
 
     // Reviewed by
     if (data.reviewed) {
       pdfClient.drawSeparatedLine(separatedLineStyle);
-      pdfClient.newLine(17);
+      pdfClient.newLine(standardNewline);
       drawFieldLine(
         `Reviewed: ${data.reviewDate} by`,
         `${data.reviewingProviderTitle} ${data.reviewingProviderFirst} ${data.reviewingProviderLast}`
