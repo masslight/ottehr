@@ -25,6 +25,7 @@ import {
   convertActivityDefinitionToTestItem,
   quantityRangeFormat,
   getTimezone,
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
@@ -730,7 +731,8 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     if (!data.inHouseLabResults) {
       throw new Error('in-house lab results is undefined');
     }
-    drawFiveColumnText('NAME', '', 'VALUE', 'UNITS', 'REFERENCE RANGE', type);
+    const resultHasUnits = data.inHouseLabResults.some((result) => result.units);
+    drawFiveColumnText('NAME', '', 'VALUE', resultHasUnits ? 'UNITS' : '', 'REFERENCE RANGE', type);
     pdfClient.newLine(standardNewline);
     pdfClient.drawSeparatedLine(separatedLineStyle);
     for (const labResult of data.inHouseLabResults) {
@@ -742,10 +744,14 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
       } else {
         resultRange = ORDER_RESULT_ITEM_UNKNOWN;
       }
+
+      const valueStringToWrite =
+        labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode ? 'Inconclusive' : labResult.value;
+
       drawFiveColumnText(
         labResult.name,
         '',
-        labResult.value || '',
+        valueStringToWrite || '',
         labResult.units || '',
         resultRange,
         type,
@@ -829,7 +835,11 @@ const styles = {
 };
 
 function getInHouseResultRowDisplayColor(labResult: InHouseLabResult): Color {
-  if (labResult.value && labResult.rangeString?.includes(labResult.value)) {
+  console.log('>>>in getInHouseReslutRowDisplayCOlor, this is the result value ', labResult.value);
+  if (
+    (labResult.value && labResult.rangeString?.includes(labResult.value)) ||
+    labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode
+  ) {
     return styles.color.black;
   } else if (labResult.type === 'Quantity') {
     if (labResult.value && labResult.rangeQuantity) {
