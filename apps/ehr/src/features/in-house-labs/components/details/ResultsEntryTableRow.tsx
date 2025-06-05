@@ -14,7 +14,6 @@ const ROW_STYLING = { paddingLeft: 0 };
 
 export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component, disabled, isLastRow }) => {
   const [isAbnormal, setIsAbnormal] = useState<boolean>(false);
-  console.log('component', component.result);
 
   useEffect(() => {
     if (component.result?.interpretationCode) {

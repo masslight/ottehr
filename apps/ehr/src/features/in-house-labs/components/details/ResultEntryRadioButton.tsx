@@ -33,12 +33,15 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     return curValueCode === selectedValue;
   };
 
+  const isNeutral = !!testItemComponent.abnormalValues;
+
   const isAbnormal = (curValueCode: string): boolean => {
+    if (isNeutral) return false;
     return testItemComponent.abnormalValues.map((val) => val.code).includes(curValueCode);
   };
 
   const radioStylingColor = (curValueCode: string, selectedValue: string): SxProps<Theme> | undefined => {
-    if (isChecked(curValueCode, selectedValue)) {
+    if (isChecked(curValueCode, selectedValue) && !isNeutral) {
       return isAbnormal(curValueCode) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
     }
     return undefined;
@@ -46,6 +49,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
 
   const typographyStyling = (curValueCode: string, selectedValue: string): SxProps<Theme> => {
     if (selectedValue) {
+      if (isNeutral) return {};
       if (isChecked(curValueCode, selectedValue)) {
         if (isAbnormal(curValueCode)) {
           return {
@@ -65,6 +69,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
         };
       }
     } else {
+      if (isNeutral) return {};
       if (isAbnormal(curValueCode)) {
         return {
           color: ABNORMAL_FONT_COLOR,
@@ -80,7 +85,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
   };
 
   const getBackgroundColor = (curValue: string, selectedValue: string): string => {
-    if (isChecked(curValue, selectedValue)) {
+    if (isChecked(curValue, selectedValue) && !isNeutral) {
       return isAbnormal(curValue) ? '#FFEBEE' : '#E8F5E9';
     } else {
       return 'transparent';
