@@ -16,7 +16,7 @@ import { Appointment } from '../types';
 import { useBookingContext } from './BookingHome';
 import PatientList from '../features/patients/components/selectable-list';
 import { ottehrLightBlue } from '@theme/icons';
-import { intakeFlowPageRoute } from 'src/App';
+import { intakeFlowPageRoute } from '../App';
 
 const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
