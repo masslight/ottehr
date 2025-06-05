@@ -18,11 +18,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const response: IcdSearchResponse = { codes: [] };
-    // search codes
+    const encodedSearchString = encodeURIComponent(search);
+    const queryParams = `apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${encodedSearchString}&sabs=${sabs}&searchType=normalizedWords&partialSearch=true`;
+    const urlToFetch = `https://uts-ws.nlm.nih.gov/rest/search/current?${queryParams}`;
     try {
-      const icdResponse = await fetch(
-        `https://uts-ws.nlm.nih.gov/rest/search/current?apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${search}&sabs=${sabs}&searchType=normalizedWords&partialSearch=true`
-      );
+      const icdResponse = await fetch(urlToFetch);
       if (!icdResponse.ok) {
         throw new Error(icdResponse.statusText);
       }

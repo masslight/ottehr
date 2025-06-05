@@ -459,6 +459,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     id="select-additional-dx"
                     size="small"
                     fullWidth
+                    filterOptions={(x) => x}
                     noOptionsText={
                       debouncedSearchTerm && icdSearchOptions.length === 0
                         ? 'Nothing found for this search criteria'

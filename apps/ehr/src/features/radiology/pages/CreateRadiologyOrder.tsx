@@ -160,6 +160,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   id="select-dx"
                   size="small"
                   fullWidth
+                  filterOptions={(x) => x}
                   noOptionsText={
                     dxDebouncedSearchTerm && icdSearchOptions.length === 0
                       ? 'Nothing found for this search criteria'
@@ -193,6 +194,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   id="select-cpt"
                   size="small"
                   fullWidth
+                  filterOptions={(x) => x}
                   noOptionsText={
                     cptDebouncedSearchTerm && cptSearchOptions.length === 0
                       ? 'Nothing found for this search criteria'
@@ -211,11 +213,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      onBlur={() => {
-                        if (orderCpt) {
-                          setOrderCpt(orderCpt);
-                        }
-                      }}
                       onChange={(e) => debouncedCptHandleInputChange(e.target.value)}
                       label="Study Type"
                       placeholder="Search for CPT Code"
