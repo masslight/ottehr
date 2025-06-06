@@ -20,8 +20,8 @@ import { useAppointmentStore } from '../../../../telemed/state/appointment/appoi
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { getOrCreateVisitLabel } from 'src/api/api';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData } from 'utils';
-import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
+import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData, PageName } from 'utils';
+import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 
 interface CollectSampleViewProps {
@@ -39,7 +39,6 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
   const [date, setDate] = useState(initialDateTime);
   const timeValue = date.toFormat('HH:mm');
 
-  const [notes, setNotes] = useState(testDetails.notes || '');
   const [showDetails, setShowDetails] = useState(false);
   const [labelButtonLoading, setLabelButtonLoading] = useState(false);
   const [error, setError] = useState('');
@@ -70,10 +69,6 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
     setShowSampleCollection(!showSampleCollection);
   };
 
-  const handleToggleDetails = (): void => {
-    setShowDetails(!showDetails);
-  };
-
   const handleMarkAsCollected = (): void => {
     onSubmit({
       specimen: {
@@ -81,7 +76,9 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
         collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
         collectionDate: date.toISO(),
       },
-      notes,
+      // todo - will this be editable in the future? if no we should just remove it from the params
+      // right now notes are readonly on the sample collection page
+      notes: testDetails.notes,
     });
   };
 
@@ -386,77 +383,12 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
               </Collapse>
             </Box>
 
-            <Box sx={{ mt: 3 }}>
-              <TextField
-                InputProps={{
-                  readOnly: true,
-                }}
-                fullWidth
-                multiline
-                rows={3}
-                label="Notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                variant="outlined"
-                sx={{
-                  '& .MuiInputLabel-root': {
-                    color: '#5F6368',
-                    fontSize: '0.875rem',
-                    '&.Mui-focused': {
-                      color: '#5F6368',
-                    },
-                  },
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#FFFFFF',
-                    '& fieldset': {
-                      borderColor: '#DADCE0',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: '#DADCE0',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#DADCE0',
-                      borderWidth: '1px',
-                    },
-                    '& .MuiInputBase-input': {
-                      fontSize: '0.875rem',
-                    },
-                  },
-                  '& .MuiInputLabel-shrink': {
-                    backgroundColor: '#FFFFFF',
-                    px: 1,
-                    fontSize: '0.75rem',
-                  },
-                }}
-              />
-            </Box>
-
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                alignItems: 'center',
-                mt: 3,
-                cursor: 'pointer',
-              }}
-              onClick={handleToggleDetails}
-            >
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  color: '#1A73E8',
-                  fontSize: '0.875rem',
-                  mr: 0.5,
-                }}
-              >
-                Details
-              </Typography>
-              <IconButton size="small" sx={{ color: '#1A73E8', p: 0 }}>
-                {showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-              </IconButton>
-            </Box>
-
-            <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
+            <InHouseLabsDetailsCard
+              testDetails={testDetails}
+              page={PageName.collectSample}
+              showDetails={showDetails}
+              setShowDetails={setShowDetails}
+            />
 
             <Stack direction="row" spacing={2} justifyContent="space-between" mt={4}>
               <Button
