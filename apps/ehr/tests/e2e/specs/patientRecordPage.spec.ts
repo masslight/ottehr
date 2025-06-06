@@ -588,7 +588,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Common Law Spouse';
   const INSURANCE_POLICY_HOLDER_STATE = 'AK';
   const INSURANCE_POLICY_HOLDER_ZIP = '78956';
-  //const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
+  const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO = 'testing';
   const INSURANCE_CARRIER = '6 Degrees Health Incorporated';
 
   const INSURANCE_MEMBER_ID_2 = '987548ert';
@@ -603,7 +603,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2 = 'Injured Party';
   const INSURANCE_POLICY_HOLDER_STATE_2 = 'CO';
   const INSURANCE_POLICY_HOLDER_ZIP_2 = '21211';
-  //const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2  = 'testing2';
+  const INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2 = 'testing2';
   const INSURANCE_CARRIER_2 = 'ACTIN Care Groups';
 
   test('Check validation error is displayed if any required field in Add insurance dialog is missing', async ({
@@ -696,7 +696,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.selectPolicyHoldersBirthSex(INSURANCE_POLICY_HOLDER_BIRTH_SEX);
     await addInsuranceDialog.selectPatientsRelationship(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
     await addInsuranceDialog.selectPolicyHoldersState(INSURANCE_POLICY_HOLDER_STATE);
-    //await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
+    await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
@@ -717,7 +717,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await primaryInsuranceCard.verifyInsuranceState(INSURANCE_POLICY_HOLDER_STATE);
     await primaryInsuranceCard.verifyInsuranceZip(INSURANCE_POLICY_HOLDER_ZIP);
     await primaryInsuranceCard.verifyPatientsRelationshipToInjured(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED);
-    //await primaryInsuranceCard.verifyAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
+    await primaryInsuranceCard.verifyAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO);
 
     await patientInformationPage.clickAddInsuranceButton();
     await addInsuranceDialog.verifyTypeField('Secondary', false);
@@ -734,7 +734,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await addInsuranceDialog.selectPolicyHoldersBirthSex(INSURANCE_POLICY_HOLDER_BIRTH_SEX_2);
     await addInsuranceDialog.selectPatientsRelationship(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2);
     await addInsuranceDialog.selectPolicyHoldersState(INSURANCE_POLICY_HOLDER_STATE_2);
-    //await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
+    await addInsuranceDialog.enterAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
     await addInsuranceDialog.clickAddInsuranceButtonFromAddInsuranceDialog();
 
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
@@ -755,7 +755,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await secondaryInsuranceCard.verifyInsuranceState(INSURANCE_POLICY_HOLDER_STATE_2);
     await secondaryInsuranceCard.verifyInsuranceZip(INSURANCE_POLICY_HOLDER_ZIP_2);
     await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2);
-    //await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
+    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation(INSURANCE_POLICY_HOLDER_ADDITIONAL_INFO_2);
   });
 });
 

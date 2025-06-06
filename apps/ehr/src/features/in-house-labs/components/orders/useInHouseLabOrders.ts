@@ -190,7 +190,7 @@ export const useInHouseLabOrders = <SearchBy extends InHouseOrdersSearchBy>(
 
         return true;
       } catch (err) {
-        console.error('Error deleting lab order:', err);
+        console.error('Error deleting In-house Lab Order:', err);
 
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');

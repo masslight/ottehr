@@ -48,7 +48,7 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
                 }}
               >
                 <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                  {providerName}
+                  {providerName ? `by ${providerName}` : ''}
                 </Typography>
               </TableCell>
               <TableCell

@@ -1,4 +1,4 @@
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -24,14 +24,8 @@ import { useNavigate } from 'react-router-dom';
 import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabsAutocomplete } from '../LabsAutocomplete';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { getCreateLabOrderResources } from '../../../../api/api';
-import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useApiClients } from '../../../../hooks/useAppClients';
 import { LabOrderLoading } from './LabOrderLoading';
 import { DateTime } from 'luxon';
-import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 
 export type LabsTableColumn =
   | 'testType'
@@ -63,6 +57,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
+  console.log('searchBy', searchBy);
 
   const {
     labOrders,
@@ -76,8 +71,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
   } = usePatientLabOrders(searchBy);
-
-  const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
 
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
 
@@ -101,25 +94,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     navigateTo(getExternalLabOrderEditUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
-  const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-
-  const { oystehrZambda } = useApiClients();
-
-  useEffect(() => {
-    async function getResources(oystehrZambda: Oystehr): Promise<void> {
-      try {
-        const { labs } = await getCreateLabOrderResources(oystehrZambda, { encounter });
-        setLabs(labs);
-      } catch (e) {
-        console.error('error loading resources', e);
-      }
-    }
-
-    if (encounter.id && oystehrZambda) {
-      void getResources(oystehrZambda);
-    }
-  }, [encounter, oystehrZambda]);
-
   const handleOrderableItemCodeChange = (value: OrderableItemSearchResult | null): void => {
     setSelectedOrderedItem(value || null);
     setSearchParams({ pageNumber: 1, testTypeFilter: value?.item.itemLoinc || '' });
@@ -133,11 +107,11 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="error" variant="body1" gutterBottom>
-          {error.message || 'Failed to fetch lab orders. Please try again later.'}
+          {error.message || 'Failed to fetch external lab orders. Please try again later.'}
         </Typography>
         {onCreateOrder && (
           <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-            Create New Lab Order
+            Create New External Lab Order
           </Button>
         )}
       </Paper>
@@ -218,7 +192,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           color="primary.dark"
           sx={{ mb: -2, mt: 2, width: '100%', display: 'flex', justifyContent: 'flex-start' }}
         >
-          Labs
+          {titleText}
         </Typography>
       )}
 
@@ -227,15 +201,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4}>
-                {labs.length ? (
-                  <LabsAutocomplete
-                    selectedLab={selectedOrderedItem}
-                    setSelectedLab={handleOrderableItemCodeChange}
-                    labs={labs}
-                  />
-                ) : (
-                  <DropdownPlaceholder />
-                )}
+                <LabsAutocomplete selectedLab={selectedOrderedItem} setSelectedLab={handleOrderableItemCodeChange} />
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
@@ -274,11 +240,11 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
         {!Array.isArray(labOrders) || labOrders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" gutterBottom>
-              No lab orders to display
+              No External Lab Orders to display
             </Typography>
             {onCreateOrder && (
               <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                Create New Lab Order
+                Create New External Lab Order
               </Button>
             )}
           </Box>

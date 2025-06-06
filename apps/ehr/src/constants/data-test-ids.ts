@@ -26,6 +26,8 @@ export const dataTestIds = {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
     intakeButton: `intake-button`,
+    visitDetailsButton: `visit-details-button`,
+    progressNoteButton: `progress-note-button`,
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
@@ -39,6 +41,7 @@ export const dataTestIds = {
     arrivedButton: 'arrived-button',
     appointmentStatus: 'appointment-status',
     chatButton: 'Chat-outlined-icon',
+    patientName: 'patient-name',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',

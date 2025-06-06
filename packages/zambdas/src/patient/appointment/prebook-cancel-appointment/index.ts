@@ -1,4 +1,4 @@
-import { BatchInputGetRequest } from '@oystehr/sdk';
+import { BatchInputDeleteRequest, BatchInputGetRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
@@ -23,12 +23,14 @@ import {
   getPatientFirstName,
   getRelatedPersonForPatient,
   getSecret,
+  isAppointmentVirtual,
   isPostTelemedAppointment,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
   ZambdaInput,
   captureSentryException,
+  checkIsEHRUser,
   configSentry,
   createAuditEvent,
   createOystehrClient,
@@ -68,7 +70,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('getting user');
     const userToken = input.headers.Authorization?.replace('Bearer ', '');
     const user = userToken && (await getUser(input.headers.Authorization.replace('Bearer ', ''), input.secrets));
-    const isEHRUser = userToken && !user.name.startsWith('+');
+    const isEHRUser = checkIsEHRUser(user);
     const validatedParameters = validateRequestParameters(input);
     const { appointmentID, language: languageInput, cancellationReason, silent, secrets } = validatedParameters;
     const language = languageInput || 'en';
@@ -99,7 +101,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
       console.log(`checking appointment with id ${appointmentID} is not checked in`);
       if (appointment.status !== 'booked') {
-        throw CANT_CANCEL_CHECKEDIN_APT_ERROR;
+        if (isAppointmentVirtual(appointment)) {
+          // https://github.com/masslight/ottehr/issues/2431
+          // todo: remove this once prebooked virtual appointments begin in 'booked' status
+          console.log(`appointment is virtual, allowing cancellation`);
+        } else {
+          throw CANT_CANCEL_CHECKEDIN_APT_ERROR;
+        }
       }
     } else {
       console.log('cancelled by EHR user');
@@ -176,6 +184,16 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       resourceId: encounter.id || 'Unknown',
       patchOperations: encounterPatchOperations,
     });
+
+    const slotId = appointment.slot?.[0]?.reference?.split('/')[1];
+    const deleteSlotRequests: BatchInputDeleteRequest[] = [];
+    if (slotId) {
+      deleteSlotRequests.push({
+        url: `/Slot/${slotId}`,
+        method: 'DELETE',
+      });
+    }
+
     const getAppointmentRequest: BatchInputGetRequest = {
       url: `/Appointment?_id=${appointmentID}&_include=Appointment:patient&_include=Appointment:actor`,
       method: 'GET',
@@ -184,7 +202,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const transactionBundle = await oystehr.fhir.transaction<
       Appointment | Encounter | Schedule | ScheduleOwnerFhirResource
     >({
-      requests: [getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest],
+      requests: [getAppointmentRequest, appointmentPatchRequest, encounterPatchRequest, ...deleteSlotRequests],
     });
     console.log('getting appointment from transaction bundle');
     const {

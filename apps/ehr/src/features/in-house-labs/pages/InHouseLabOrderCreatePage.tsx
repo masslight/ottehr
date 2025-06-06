@@ -29,7 +29,7 @@ import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '.
 import { enqueueSnackbar } from 'notistack';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { WithInHouseLabsBreadcrums } from '../components/WithInHouseLabsBreadcrums';
+import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -61,11 +61,11 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const { diagnosis = [] } = chartData || {};
   const didPrimaryDiagnosisInit = useRef(false);
 
-  // already added diagnoses may have "added via lab order" flag with true and false values
+  // already added diagnoses may have "added via in-house lab order" flag with true and false values
   // so, the "select dx" dropdown will show all diagnoses that are displayed on the Assessment page regardless of their source
   const [selectedAssessmentDiagnoses, setSelectedAssessmentDiagnoses] = useState<DiagnosisDTO[]>([]);
 
-  // new diagnoses, the will have "added via lab order" flag with true value,
+  // new diagnoses, the will have "added via in-house lab order" flag with true value,
   // and they will be linked to appointment resources in the create-in-house-lab-order zambda
   const [selectedNewDiagnoses, setSelectedNewDiagnoses] = useState<DiagnosisDTO[]>([]);
 
@@ -154,7 +154,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent | React.MouseEvent, shouldPrintLabel = false): Promise<void> => {
     e.preventDefault();
     setLoading(true);
-    const GENERIC_ERROR_MSG = 'There was an error creating this lab order';
+    const GENERIC_ERROR_MSG = 'There was an error creating in-house lab order';
     const encounterId = encounter.id;
     const canBeSubmitted =
       encounterId &&
@@ -242,7 +242,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
 
   return (
     <DetailPageContainer>
-      <WithInHouseLabsBreadcrums pageName="Order In-House Lab">
+      <InHouseLabsBreadcrumbs pageName="Order In-House Lab">
         <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
           Order In-house Lab
         </Typography>
@@ -627,7 +627,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
             </form>
           )}
         </Paper>
-      </WithInHouseLabsBreadcrums>
+      </InHouseLabsBreadcrumbs>
     </DetailPageContainer>
   );
 };

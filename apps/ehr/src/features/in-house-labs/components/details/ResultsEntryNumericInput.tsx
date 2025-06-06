@@ -38,6 +38,7 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
     <Controller
       name={testItemComponent.observationDefinitionId}
       control={control}
+      rules={{ required: 'Please enter a value' }}
       defaultValue=""
       render={({ field }) => (
         <TextField
