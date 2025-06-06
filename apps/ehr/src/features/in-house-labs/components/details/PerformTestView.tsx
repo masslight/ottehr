@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Box, Paper, Typography, Button } from '@mui/material';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { ResultEntryInput, LoadingState, InHouseOrderDetailPageItemDTO, getFormattedDiagnoses } from 'utils';
+import { ResultEntryInput, LoadingState, InHouseOrderDetailPageItemDTO, getFormattedDiagnoses, PageName } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
 import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
@@ -11,7 +9,7 @@ import { useApiClients } from 'src/hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import { useParams } from 'react-router-dom';
-import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
+import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface PerformTestViewProps {
   testDetails: InHouseOrderDetailPageItemDTO;
@@ -101,18 +99,12 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
               {testDetails.labDetails.components.groupedComponents.length > 0 && (
                 <ResultEntryTable testItemComponents={testDetails.labDetails.components.groupedComponents} />
               )}
-
-              <Box display="flex" justifyContent="flex-end" mt={2} mb={3}>
-                <Button
-                  variant="text"
-                  color="primary"
-                  onClick={() => setShowDetails(!showDetails)}
-                  endIcon={showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                >
-                  Details
-                </Button>
-              </Box>
-              <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
+              <InHouseLabsDetailsCard
+                testDetails={testDetails}
+                page={PageName.performEnterResults}
+                showDetails={showDetails}
+                setShowDetails={setShowDetails}
+              />
             </Box>
           </Paper>
           <Box display="flex" justifyContent="space-between">

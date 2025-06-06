@@ -140,7 +140,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           ],
         },
       },
-      ...(data.notes && { note: [{ text: data.notes }] }),
     };
 
     const serviceRequestUpdateConfig: ServiceRequest = {
