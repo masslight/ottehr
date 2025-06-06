@@ -117,7 +117,7 @@ jobs:
           path: 'secrets'
 
       - name: Move zambda secrets file into zambdas dir.
-        run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env
+        run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env; cp secrets/zambdas/.sentry-build-plugin packages/zambdas
 
       - name: Move app secrets file into app dirs.
         run: |
