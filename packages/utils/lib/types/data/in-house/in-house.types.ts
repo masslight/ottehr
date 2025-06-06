@@ -15,7 +15,10 @@ export interface QuantityRange {
 }
 
 export type ObservationCode = (typeof OBSERVATION_CODES)[keyof typeof OBSERVATION_CODES];
-
+export interface valueConfig {
+  code: string; // this should remain constant, changing it could cause backward compatibility issues
+  display: string;
+}
 export interface TestComponentResult {
   entry: string;
   interpretationCode: ObservationCode;
@@ -29,15 +32,15 @@ export interface BaseComponent {
 
 export interface CodeableConceptComponent extends BaseComponent {
   dataType: 'CodeableConcept';
-  valueSet: string[];
-  abnormalValues: string[];
+  valueSet: valueConfig[];
+  abnormalValues: valueConfig[];
   displayType: 'Radio' | 'Select';
   nullOption?: {
     text: string;
     code: string;
   };
   unit?: string;
-  referenceRangeValues?: string[];
+  referenceRangeValues?: valueConfig[];
 }
 
 export interface QuantityComponent extends BaseComponent {

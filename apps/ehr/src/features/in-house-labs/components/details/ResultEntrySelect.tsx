@@ -1,5 +1,5 @@
 import { Select, FormControl, MenuItem, useTheme } from '@mui/material';
-import { TestItemComponent } from 'utils';
+import { TestItemComponent, valueConfig } from 'utils';
 import { useFormContext, Controller } from 'react-hook-form';
 
 interface ResultEntrySelectProps {
@@ -20,7 +20,8 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
 
   const assessAbnormality = (entry: string): void => {
     if (testItemComponent.dataType === 'CodeableConcept' && testItemComponent.abnormalValues) {
-      if (testItemComponent.abnormalValues.includes(entry)) {
+      console.log('entry', entry);
+      if (testItemComponent.abnormalValues.map((val) => val.code).includes(entry)) {
         setIsAbnormal(true);
       } else {
         setIsAbnormal(false);
@@ -28,7 +29,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
     }
   };
 
-  let values: string[] = [];
+  let values: valueConfig[] = [];
   if (testItemComponent.dataType === 'CodeableConcept') {
     values = testItemComponent.valueSet;
   }
@@ -79,8 +80,8 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
             }}
           >
             {values?.map((val, idx) => (
-              <MenuItem id={`${val}-${idx}-id`} key={`${val}-${idx}-key`} value={val}>
-                {val}
+              <MenuItem id={`${val}-${idx}-id`} key={`${val}-${idx}-key`} value={val.code}>
+                {val.display}
               </MenuItem>
             ))}
           </Select>
