@@ -2,7 +2,7 @@ import React from 'react';
 import { Typography, Stack, Grid } from '@mui/material';
 import { OrderCollection } from '../OrderCollection';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
-import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters } from 'utils';
+import { LabOrderDetailedPageDTO, PSC_LOCALE, SpecimenDateChangedParameters } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 export const DetailsWithoutResults: React.FC<{
@@ -23,7 +23,7 @@ export const DetailsWithoutResults: React.FC<{
         <Typography variant="body1">{labOrder.diagnoses}</Typography>
         <Grid container justifyContent="end" spacing={2}>
           <Grid item>
-            <Typography variant="body1">{labOrder.isPSC ? 'PSC' : ''}</Typography>
+            <Typography variant="body1">{labOrder.isPSC ? PSC_LOCALE : ''}</Typography>
           </Grid>
           <Grid item>
             <LabsOrderStatusChip status={labOrder.orderStatus} />
