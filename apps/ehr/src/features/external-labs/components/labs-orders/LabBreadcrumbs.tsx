@@ -1,44 +1,27 @@
-import { Link } from 'react-router-dom';
-import { Box, Typography, Link as MuiLink } from '@mui/material';
-import { styled } from '@mui/material/styles';
-import { FC } from 'react';
+import { FC, useMemo } from 'react';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
+import { BaseBreadcrumbs } from 'src/components/BaseBreadcrumbs';
 
 interface LabBreadcrumbsProps {
   sectionName: string;
-  disableLabsLink?: boolean;
   children: React.ReactNode;
 }
 
-const BreadcrumbsContainer = styled(Box)({
-  display: 'flex',
-  gap: '8px',
-  alignSelf: 'flex-start',
-});
-
-const Separator = styled(Typography)({
-  color: '#666',
-});
-
-export const WithLabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, disableLabsLink = false, children }) => {
+export const LabBreadcrumbs: FC<LabBreadcrumbsProps> = ({ sectionName, children }) => {
   const { appointment } = getSelectors(useAppointmentStore, ['appointment']);
 
-  return (
-    <>
-      <BreadcrumbsContainer>
-        {!disableLabsLink && appointment?.id ? (
-          <MuiLink component={Link} to={`/in-person/${appointment.id}/external-lab-orders`} color="text.primary">
-            Labs
-          </MuiLink>
-        ) : (
-          <Typography color="text.primary">Labs</Typography>
-        )}
-        <Separator>/</Separator>
-        <Typography color="text.primary">{sectionName}</Typography>
-      </BreadcrumbsContainer>
+  const baseCrumb = useMemo(
+    () => ({
+      label: 'External Labs',
+      path: appointment?.id ? `/in-person/${appointment.id}/external-lab-orders` : null,
+    }),
+    [appointment?.id]
+  );
 
+  return (
+    <BaseBreadcrumbs sectionName={sectionName} baseCrumb={baseCrumb}>
       {children}
-    </>
+    </BaseBreadcrumbs>
   );
 };

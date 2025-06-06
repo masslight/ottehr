@@ -11,9 +11,11 @@ import {
   tryFormatDateToISO,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
+import { getExternalLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
 import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
+import { getExternalLabOrdersUrl } from 'src/features/css-module/routing/helpers';
+import { useNavigate } from 'react-router-dom';
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
@@ -39,7 +41,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
 }
 
@@ -49,6 +51,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   _searchBy: SearchBy
 ): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
+  const navigate = useNavigate();
   const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -99,13 +102,13 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       try {
         let response;
         try {
-          response = await getLabOrders(oystehrZambda, searchParams);
+          response = await getExternalLabOrders(oystehrZambda, searchParams);
         } catch (err) {
           response = {
             data: [],
             pagination: EMPTY_PAGINATION,
           };
-          console.error('Error fetching lab orders:', err);
+          console.error('Error fetching external lab orders:', err);
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
         }
 
@@ -125,7 +128,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           setShowPagination(false);
         }
       } catch (error) {
-        console.error('error with setting lab orders:', error);
+        console.error('error with setting external lab orders:', error);
         setError(error instanceof Error ? error : new Error('Unknown error occurred'));
         setLabOrders([]);
         setTotalPages(1);
@@ -187,7 +190,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
         return true;
       } catch (err) {
-        console.error('Error deleting lab order:', err);
+        console.error('Error deleting external lab order:', err);
 
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
@@ -208,7 +211,12 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   });
 
   const markTaskAsReviewed = useCallback(
-    async ({ taskId, serviceRequestId, diagnosticReportId }: TaskReviewedParameters): Promise<void> => {
+    async ({
+      taskId,
+      serviceRequestId,
+      diagnosticReportId,
+      appointmentId,
+    }: TaskReviewedParameters & { appointmentId: string }): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
@@ -218,8 +226,9 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
       setSearchParams({ pageNumber: 1 });
+      navigate(getExternalLabOrdersUrl(appointmentId));
     },
-    [oystehrZambda, setSearchParams]
+    [oystehrZambda, setSearchParams, navigate]
   );
 
   const saveSpecimenDate = useCallback(

@@ -26,7 +26,7 @@ export const ExternalLabOrdersListPage: React.FC = () => {
     <ListViewContainer>
       <Box>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <PageTitle label="Labs" showIntakeNotesButton={false} />
+          <PageTitle label="External Labs" showIntakeNotesButton={false} />
           <Stack direction="row" spacing={2} alignItems="center">
             <ButtonRounded
               variant="contained"

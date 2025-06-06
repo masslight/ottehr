@@ -1066,7 +1066,7 @@ export const parseReviewerNameFromTask = (task: Task, practitioners: Practitione
 };
 
 export const parsePractitionerName = (practitionerId: string | undefined, practitioners: Practitioner[]): string => {
-  const NOT_FOUND = '-';
+  const NOT_FOUND = '';
 
   if (!practitionerId) {
     return NOT_FOUND;
@@ -1123,7 +1123,7 @@ export const parseReflexTestsCount = (
 };
 
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
-  const NOT_FOUND = '-';
+  const NOT_FOUND = '';
 
   const collectedById = specimen.collection?.collector?.reference?.replace('Practitioner/', '');
   if (collectedById) {
@@ -1384,7 +1384,7 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  let performedBy = '-';
+  let performedBy = '';
   let performedByDate = '-';
   if (parseIsPSC(serviceRequest)) {
     performedBy = 'psc';
@@ -1481,7 +1481,7 @@ export const parseTaskReceivedOrCorrectedInfo = (task: Task): Omit<LabOrderHisto
     action: task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult)
       ? 'corrected'
       : 'received',
-    performer: '-',
+    performer: '',
     date: task.authoredOn || '',
   };
 };

@@ -25,6 +25,16 @@ const NORMAL_RADIO_COLOR_STYLING = {
   },
 };
 
+const NEUTRAL_RADIO_STYLING = {
+  color: 'primary.main',
+  '&.Mui-disabled': {
+    color: 'primary.main',
+    '& .MuiSvgIcon-root': {
+      fill: 'primary.main',
+    },
+  },
+};
+
 export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ testItemComponent, disabled }) => {
   const nullCode = testItemComponent.nullOption?.code;
   const { control } = useFormContext();
@@ -33,20 +43,29 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     return curValueCode === selectedValue;
   };
 
+  const isNeutral = !testItemComponent.abnormalValues.length;
+
   const isAbnormal = (curValueCode: string): boolean => {
+    if (isNeutral) return false;
     return testItemComponent.abnormalValues.map((val) => val.code).includes(curValueCode);
   };
 
   const radioStylingColor = (curValueCode: string, selectedValue: string): SxProps<Theme> | undefined => {
     if (isChecked(curValueCode, selectedValue)) {
-      return isAbnormal(curValueCode) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
+      if (!isNeutral) {
+        return isAbnormal(curValueCode) ? ABNORMAL_RADIO_COLOR_STYLING : NORMAL_RADIO_COLOR_STYLING;
+      } else {
+        return NEUTRAL_RADIO_STYLING;
+      }
     }
     return undefined;
   };
 
   const typographyStyling = (curValueCode: string, selectedValue: string): SxProps<Theme> => {
     if (selectedValue) {
-      if (isChecked(curValueCode, selectedValue)) {
+      const valIsChecked = isChecked(curValueCode, selectedValue);
+      if (valIsChecked && isNeutral) return { fontWeight: 'bold' };
+      if (valIsChecked) {
         if (isAbnormal(curValueCode)) {
           return {
             color: ABNORMAL_FONT_COLOR,
@@ -65,6 +84,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
         };
       }
     } else {
+      if (isNeutral) return { fontWeight: 'bold' };
       if (isAbnormal(curValueCode)) {
         return {
           color: ABNORMAL_FONT_COLOR,
@@ -80,7 +100,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
   };
 
   const getBackgroundColor = (curValue: string, selectedValue: string): string => {
-    if (isChecked(curValue, selectedValue)) {
+    if (isChecked(curValue, selectedValue) && !isNeutral) {
       return isAbnormal(curValue) ? '#FFEBEE' : '#E8F5E9';
     } else {
       return 'transparent';
@@ -92,15 +112,7 @@ export const ResultEntryRadioButton: React.FC<ResultEntryRadioButtonProps> = ({ 
     if (isFinalView) {
       const isChecked = curValue === nullCode;
       if (isChecked) {
-        return {
-          color: 'primary.main',
-          '&.Mui-disabled': {
-            color: 'primary.main',
-            '& .MuiSvgIcon-root': {
-              fill: 'primary.main',
-            },
-          },
-        };
+        return NEUTRAL_RADIO_STYLING;
       } else {
         return {};
       }

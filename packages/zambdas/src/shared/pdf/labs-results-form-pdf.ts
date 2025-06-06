@@ -1,9 +1,16 @@
-import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
-import { Color, PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
+import { Color, PageSizes } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import { PdfInfo, rgbNormalized } from './pdf-utils';
-import { LabResultsData, ExternalLabResult, InHouseLabResult } from './types';
+import { createPdfClient, PdfInfo, rgbNormalized } from './pdf-utils';
+import {
+  LabResultsData,
+  ExternalLabResult,
+  InHouseLabResult,
+  TextStyle,
+  PdfClientStyles,
+  LineStyle,
+  ImageStyle,
+} from './types';
 import {
   createFilesDocumentReferences,
   LAB_ORDER_DOC_REF_CODING_CODE,
@@ -18,6 +25,7 @@ import {
   convertActivityDefinitionToTestItem,
   quantityRangeFormat,
   getTimezone,
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
@@ -174,12 +182,12 @@ export async function createLabResultPDF(
     timezone = getTimezone(location);
   }
 
-  const orderSubmitDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
+  const orderSubmitDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
   const orderCreateDate = serviceRequest.authoredOn
-    ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a')
+    ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
     : undefined;
   const reviewDate = provenanceReviewTask
-    ? DateTime.fromISO(provenanceReviewTask.recorded).toFormat('MM/dd/yyyy hh:mm a')
+    ? DateTime.fromISO(provenanceReviewTask.recorded).toFormat(LABS_DATE_STRING_FORMAT)
     : undefined;
 
   const resultInterpretationDisplays: string[] = [];
@@ -197,9 +205,9 @@ export async function createLabResultPDF(
         const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
         let value = undefined;
         if (observation.valueQuantity) {
-          value = `${observation.valueQuantity?.value || ORDER_RESULT_ITEM_UNKNOWN} ${
-            observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN
-          }`;
+          value = `${
+            observation.valueQuantity?.value !== undefined ? observation.valueQuantity.value : ORDER_RESULT_ITEM_UNKNOWN
+          } ${observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN}`;
         } else if (observation.valueString) {
           value = observation.valueString;
         } else if (observation.valueCodeableConcept) {
@@ -207,12 +215,25 @@ export async function createLabResultPDF(
             observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') ||
             ORDER_RESULT_ITEM_UNKNOWN;
         }
+
+        const referenceRangeText = observation.referenceRange
+          ? observation.referenceRange
+              .reduce((acc, refRange) => {
+                if (refRange.text) {
+                  acc.push(refRange.text);
+                }
+                return acc;
+              }, [] as string[])
+              .join('. ')
+          : undefined;
+
         const labResult: ExternalLabResult = {
           resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
           resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
           resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
           resultInterpretationDisplay: interpretationDisplay,
           resultValue: value || ORDER_RESULT_ITEM_UNKNOWN,
+          referenceRangeText,
         };
         resultsTemp.push(labResult);
         if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
@@ -324,7 +345,6 @@ export async function createLabResultPDF(
       // reportDate: '10/10/2024',
       // specimenSource: 'Throat',
       // specimenDescription: 'Throat culture',
-      specimenReferenceRange: undefined,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
       resultStatus: diagnosticReport.status.toUpperCase(),
       reviewed,
@@ -380,312 +400,90 @@ export async function createLabResultPDF(
 }
 
 async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type: LabType): Promise<Uint8Array> {
-  const pdfDoc = await PDFDocument.create();
-  pdfDoc.registerFontkit(fontkit);
-  const page = pdfDoc.addPage();
-  page.setSize(PageSizes.A4[0], PageSizes.A4[1]);
-  const { height, width } = page.getSize();
-  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const helveticaBoldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const callIcon = './assets/call.png';
-  const faxIcon = './assets/fax.png';
-
-  const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
-    data.locationState?.toUpperCase() || ''
-  }${data.locationState ? ' ' : ''}${data.locationZip?.toUpperCase() || ''}`;
-
-  const styles = {
-    image: {
-      width: 110,
-      height: 28,
-    },
-    largeHeader: {
-      font: helveticaBoldFont,
-      fontSize: 18,
-    },
-    subHeader: {
-      font: helveticaBoldFont,
-      fontSize: 14,
-    },
-    regularText: {
-      font: helveticaFont,
-      fontSize: 12,
-    },
-    regularTextBold: {
-      font: helveticaBoldFont,
-      fontSize: 12,
-    },
-    spacing: {
-      image: 12,
-      regularText: 2,
-      header: 25,
-      paragraph: 3,
-      block: 60,
-    },
-    margin: {
-      x: 20,
-      y: 20,
-    },
-    colors: {
-      lightGrey: rgbNormalized(223, 229, 233),
-      purple: rgbNormalized(77, 21, 183),
-      red: rgbNormalized(198, 40, 40),
-      black: rgbNormalized(0, 0, 0),
+  const pdfClientStyles: PdfClientStyles = {
+    initialPage: {
+      width: PageSizes.A4[0],
+      height: PageSizes.A4[1],
+      pageMargins: {
+        left: 40,
+        top: 40,
+        right: 40,
+        bottom: 40,
+      },
     },
   };
+  const pdfClient = await createPdfClient(pdfClientStyles);
 
-  let currYPos = height - styles.margin.y;
-  let currXPos = styles.margin.x;
-  const regularLineHeight = 14;
-  const regularTextWidth = 5;
-  const pageTextWidth = width - styles.margin.x * 2;
-  const imageWidth = 12;
-  const imageHeight = 12;
+  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
+  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
+  const callIcon = await pdfClient.embedImage(fs.readFileSync('./assets/call.png'));
+  const faxIcon = await pdfClient.embedImage(fs.readFileSync('./assets/fax.png'));
 
-  const addNewLine = (height?: number, count?: number): void => {
-    const heightOfLines = height || regularLineHeight;
-    const numberOfLines = count || 1;
-    currYPos -= heightOfLines * numberOfLines;
-  };
+  const standardFontSize = 12;
+  const standardFontSpacing = 12;
+  const standardNewline = 17;
 
-  const drawHeader = (text: string): void => {
-    const font = styles.subHeader.font;
-    const size = styles.subHeader.fontSize;
-    const textWidth = font.widthOfTextAtSize(text, size);
-    const xPosition = width - styles.margin.x - textWidth;
-
-    page.drawText(text, {
-      font: font,
-      size: size,
-      x: xPosition,
-      y: currYPos,
-      color: styles.colors.purple,
-    });
-  };
-
-  const drawLargeHeader = (text: string): void => {
-    const font = styles.largeHeader.font;
-    const size = styles.largeHeader.fontSize;
-
-    page.drawText(text, {
-      font: font,
-      size: size,
-      x: currXPos,
-      y: currYPos,
-      color: styles.colors.purple,
-    });
-  };
-  const drawSubHeaderLeft = (text: string): void => {
-    const font = styles.subHeader.font;
-    const size = styles.subHeader.fontSize;
-
-    page.drawText(text, {
-      font: font,
-      size: size,
-      x: currXPos,
-      y: currYPos,
-    });
-  };
-
-  const drawSubHeaderRight = (text: string): void => {
-    const font = styles.subHeader.font;
-    const size = styles.subHeader.fontSize;
-
-    page.drawText(text, {
-      font: font,
-      size: size,
-      x: width - (styles.margin.x + font.widthOfTextAtSize(text, size)),
-      y: currYPos,
-    });
-  };
-
-  const drawFieldLineLeft = (fieldName: string, fieldValue: string): void => {
-    const font = styles.regularText.font;
-    const size = styles.regularText.fontSize;
-    const maxWidth = pageTextWidth - font.widthOfTextAtSize(fieldName, size) - regularTextWidth;
-
-    const splitTextIntoLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
-      const words = text.split(' ');
-      const lines: string[] = [];
-      let currentLine = '';
-
-      words.forEach((word) => {
-        const lineWithWord = currentLine ? `${currentLine} ${word}` : word;
-        if (font.widthOfTextAtSize(lineWithWord, size) <= maxWidth) {
-          currentLine = lineWithWord;
-        } else {
-          lines.push(currentLine);
-          currentLine = word;
-        }
-      });
-
-      if (currentLine) lines.push(currentLine);
-      return lines;
-    };
-
-    page.drawText(fieldName, {
-      font,
-      size,
-      x: currXPos,
-      y: currYPos,
-    });
-
-    const lines = splitTextIntoLines(fieldValue, font, size, maxWidth);
-    lines.forEach((line, index) => {
-      page.drawText(line, {
-        font: styles.regularTextBold.font,
-        size: styles.regularTextBold.fontSize,
-        x: currXPos + font.widthOfTextAtSize(fieldName, size) + regularTextWidth,
-        y: currYPos - index * regularLineHeight,
-      });
-    });
-
-    currYPos -= regularLineHeight * (lines.length - 1);
-  };
-
-  const drawFieldLineRight = (fieldName: string, fieldValue: string): void => {
-    const font = styles.regularText.font;
-    const size = styles.regularText.fontSize;
-    const namePosition = pageTextWidth * 0.6;
-    const valuePosition = namePosition + (regularTextWidth + font.widthOfTextAtSize(fieldName, size));
-    page.drawText(fieldName, {
-      font: styles.regularText.font,
-      size: styles.regularText.fontSize,
-      x: namePosition,
-      y: currYPos,
-    });
-    page.drawText(fieldValue, {
-      font: styles.regularTextBold.font,
-      size: styles.regularTextBold.fontSize,
-      x: valuePosition,
-      y: currYPos,
-    });
-  };
-
-  const drawRegularTextLeft = (text: string, textFont?: PDFFont): void => {
-    page.drawText(text, {
-      font: textFont || styles.regularText.font,
-      size: styles.regularText.fontSize,
-      x: currXPos,
-      y: currYPos,
-    });
-  };
-
-  const drawRegularTextRight = (text: string, textFont?: PDFFont): void => {
-    textFont = textFont || styles.regularText.font;
-    const textWidth = textFont.widthOfTextAtSize(text, styles.regularText.fontSize);
-    const xPosition = width - (styles.margin.x + textWidth);
-
-    page.drawText(text, {
-      font: textFont,
-      size: styles.regularText.fontSize,
-      x: xPosition,
-      y: currYPos,
-    });
-  };
-
-  const drawFiveColumnText = (
-    columnOneName: string,
-    columnTwoName: string,
-    columnThreeName: string,
-    columnFourName: string,
-    columnFiveName: string,
-    columnFont?: PDFFont,
-    columnFontSize?: number,
-    color?: Color
-  ): void => {
-    const font = columnFont || styles.regularText.font;
-    const fontSize = columnFontSize || styles.regularText.fontSize;
-    const fontColor = color || styles.colors.black;
-    const PADDING_PX = 8;
-    const COL_TWO_WIDTH = 8;
-    const COL_THREE_WIDTH = 2;
-    const COL_FOUR_WIDTH = 1.6;
-    const COL_FIVE_WIDTH = 1.4;
-
-    // test name potentially maps to column two, and this might be quite long
-    const columnTwoMaxWidth = pageTextWidth / COL_THREE_WIDTH - pageTextWidth / COL_TWO_WIDTH - PADDING_PX;
-    const columnTwoWrappedText = splitTextIntoLines(columnTwoName, font, fontSize, columnTwoMaxWidth);
-
-    page.drawText(columnOneName, {
-      font: font,
-      size: fontSize,
-      x: currXPos,
-      y: currYPos,
-      color: styles.colors.black,
-    });
-    columnTwoWrappedText.forEach((line, index) => {
-      page.drawText(line, {
-        font: font,
-        size: fontSize,
-        x: pageTextWidth / COL_TWO_WIDTH,
-        y: currYPos - index * (fontSize * 1.2), // Stack lines vertically
-        color: fontColor,
-      });
-    });
-    page.drawText(columnThreeName, {
-      font: font,
-      size: fontSize,
-      x: pageTextWidth / COL_THREE_WIDTH,
-      y: currYPos,
-      color: fontColor,
-    });
-    page.drawText(columnFourName, {
-      font: font,
-      size: fontSize,
-      x: pageTextWidth / COL_FOUR_WIDTH,
-      y: currYPos,
-      color: fontColor,
-    });
-    page.drawText(columnFiveName, {
-      font: font,
-      size: fontSize,
-      x: pageTextWidth / COL_FIVE_WIDTH,
-      y: currYPos,
-      color: fontColor,
-    });
-  };
-
-  const drawFreeText = (freeText: string, textColor?: Color): void => {
-    const font = styles.regularText.font;
-    const size = styles.regularText.fontSize;
-    const maxWidth = pageTextWidth - styles.margin.x * 2;
-
-    const lines = splitTextIntoLines(freeText, font, size, maxWidth);
-    lines.forEach((line, index) => {
-      page.drawText(line, {
-        font,
-        size,
-        x: currXPos + styles.margin.x,
-        y: currYPos - index * regularLineHeight,
-        color: textColor || styles.colors.black,
-      });
-    });
-
-    currYPos -= regularLineHeight * (lines.length - 1);
-  };
-
-  const drawImage = async (imgPath: string): Promise<void> => {
-    const imgBytes = fs.readFileSync(imgPath);
-    const img = pdfDoc.embedPng(imgBytes);
-    currYPos -= 1.5;
-    page.drawImage(await img, {
-      x: currXPos,
-      y: currYPos,
-      width: imageWidth,
-      height: imageHeight,
-    });
-    currYPos += 1.5;
-  };
-
-  const drawSeparatorLine = (paddingLeft?: number, paddingRight?: number): void => {
-    page.drawLine({
-      start: { x: paddingLeft || 0, y: currYPos },
-      end: { x: paddingRight || width, y: currYPos },
-      thickness: 1,
-      color: styles.colors.lightGrey,
-    });
-    currYPos -= regularLineHeight / 2;
+  const textStyles: Record<string, TextStyle> = {
+    blockHeader: {
+      fontSize: standardFontSize,
+      spacing: standardFontSpacing,
+      font: RubikFontBold,
+      newLineAfter: true,
+    },
+    header: {
+      fontSize: 17,
+      spacing: standardFontSpacing,
+      font: RubikFontBold,
+      color: styles.color.purple,
+      newLineAfter: true,
+    },
+    headerRight: {
+      fontSize: 17,
+      spacing: standardFontSpacing,
+      font: RubikFontBold,
+      side: 'right',
+      color: styles.color.purple,
+    },
+    fieldHeader: {
+      fontSize: standardFontSize,
+      font: RubikFont,
+      spacing: 1,
+    },
+    fieldHeaderRight: {
+      fontSize: standardFontSize,
+      font: RubikFont,
+      spacing: 1,
+      side: 'right',
+    },
+    text: {
+      fontSize: standardFontSize,
+      spacing: 6,
+      font: RubikFont,
+    },
+    textBold: {
+      fontSize: standardFontSize,
+      spacing: 6,
+      font: RubikFontBold,
+    },
+    textBoldRight: {
+      fontSize: standardFontSize,
+      spacing: 6,
+      font: RubikFontBold,
+      side: 'right',
+    },
+    textRight: {
+      fontSize: standardFontSize,
+      spacing: 6,
+      font: RubikFont,
+      side: 'right',
+    },
+    fieldText: {
+      fontSize: standardFontSize,
+      spacing: 6,
+      font: RubikFont,
+      side: 'right',
+      newLineAfter: true,
+    },
   };
 
   const calculateAge = (dob: string): number => {
@@ -699,14 +497,6 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     return age;
   };
 
-  const referenceRangeText = (): string => {
-    if (data.specimenReferenceRange) {
-      return data.specimenReferenceRange;
-    } else {
-      return '';
-    }
-  };
-
   const referenceRangeTitle = (): string => {
     if (data.specimenReferenceRange) {
       return 'Reference Range'.toUpperCase();
@@ -715,161 +505,228 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
     }
   };
 
-  // --- add all sections to PDF ---
-  // ===============================
-  // Main header
-  addNewLine();
-  // name
+  const iconStyle: ImageStyle = {
+    width: 10,
+    height: 10,
+    // center: true,
+  };
+
+  const drawFieldLine = (fieldName: string, fieldValue: string): void => {
+    pdfClient.drawTextSequential(fieldName, textStyles.text);
+    pdfClient.drawTextSequential(' ', textStyles.textBold);
+    pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
+  };
+
+  const drawFieldLineRight = (fieldName: string, fieldValue: string): void => {
+    pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
+    pdfClient.drawTextSequential(' ', textStyles.textBold);
+    pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
+  };
+
+  const drawFiveColumnText = (
+    columnOneName: string,
+    columnTwoName: string,
+    columnThreeName: string,
+    columnFourName: string,
+    columnFiveName: string,
+    type: 'external' | 'in-house',
+    columnFont?: TextStyle,
+    columnFontSize?: number,
+    color?: Color
+  ): void => {
+    const font = columnFont || textStyles.text;
+    const fontSize = columnFontSize || standardFontSize;
+    const fontStyleTemp = { ...font, fontSize: fontSize, color: color };
+    pdfClient.drawStartXPosSpecifiedText(columnOneName, fontStyleTemp, 0);
+    pdfClient.drawStartXPosSpecifiedText(columnTwoName, fontStyleTemp, type === 'external' ? 70 : 100);
+    pdfClient.drawStartXPosSpecifiedText(columnThreeName, fontStyleTemp, type === 'external' ? 340 : 230);
+    pdfClient.drawStartXPosSpecifiedText(columnFourName, fontStyleTemp, 350);
+    pdfClient.drawStartXPosSpecifiedText(columnFiveName, fontStyleTemp, type === 'external' ? 490 : 410);
+  };
+
+  const separatedLineStyle: LineStyle = {
+    thickness: 1,
+    color: rgbNormalized(227, 230, 239),
+    margin: {
+      top: 8,
+      bottom: 8,
+    },
+  };
+
+  // drawFieldLine('Patient Name:', 'test');
   if (data.patientMiddleName) {
-    drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`);
+    pdfClient.drawText(
+      `${data.patientLastName}, ${data.patientFirstName}, ${data.patientMiddleName}`,
+      textStyles.textBold
+    );
   } else {
-    drawSubHeaderLeft(`${data.patientLastName}, ${data.patientFirstName}`);
+    pdfClient.drawText(`${data.patientLastName}, ${data.patientFirstName}`, textStyles.textBold);
   }
-  drawSubHeaderRight(`Ottehr${data.locationName || ''}`);
-  addNewLine();
-  drawRegularTextLeft(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`);
-  drawRegularTextRight(locationCityStateZip);
-  addNewLine();
-  drawRegularTextLeft(`ID: ${data.patientId}`);
-  currXPos =
-    width -
-    styles.margin.x -
-    imageWidth * 2 -
-    regularTextWidth * 3 -
-    styles.regularText.font.widthOfTextAtSize(data?.locationPhone || '', styles.regularText.fontSize) -
-    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
-  if (data?.locationPhone) await drawImage(callIcon);
-  currXPos =
-    width -
-    styles.margin.x -
-    imageWidth -
-    regularTextWidth * 2 -
-    styles.regularText.font.widthOfTextAtSize(data?.locationPhone || '', styles.regularText.fontSize) -
-    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
-  drawRegularTextLeft(data?.locationPhone || '');
-  currXPos =
-    width -
-    styles.margin.x -
-    imageWidth -
-    regularTextWidth -
-    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
-  if (data?.locationFax) await drawImage(faxIcon);
-  currXPos =
-    width -
-    styles.margin.x -
-    styles.regularText.font.widthOfTextAtSize(data?.locationFax || '', styles.regularText.fontSize);
-  drawRegularTextLeft(data?.locationFax || '');
-  currXPos = styles.margin.x;
-  addNewLine();
-  drawRegularTextLeft(data.patientPhone);
-  addNewLine(undefined, 2);
-  drawHeader(`${data.resultStatus} RESULT`);
-  addNewLine();
-  drawSeparatorLine();
-  addNewLine();
+
+  pdfClient.drawText(`Ottehr${data.locationName || ''}`, textStyles.textBoldRight);
+  pdfClient.newLine(standardNewline);
+
+  const locationCityStateZip = `${data.locationCity?.toUpperCase() || ''}${data.locationCity ? ', ' : ''}${
+    data.locationState?.toUpperCase() || ''
+  }${data.locationState ? ' ' : ''}${data.locationZip?.toUpperCase() || ''}`;
+
+  pdfClient.drawText(`${data.patientDOB}, ${calculateAge(data.patientDOB)} Y, ${data.patientSex}`, textStyles.text);
+  pdfClient.drawText(locationCityStateZip, textStyles.textRight);
+
+  pdfClient.newLine(standardNewline);
+
+  pdfClient.drawText(`ID: ${data.patientId}`, textStyles.text);
+
+  let margin =
+    pdfClient.getRightBound() -
+    pdfClient.getLeftBound() -
+    iconStyle.width -
+    pdfClient.getTextDimensions(` ${data.locationPhone}`, textStyles.text).width -
+    5;
+
+  if (data.locationFax) {
+    margin -= iconStyle.width + pdfClient.getTextDimensions(` ${data.locationFax}`, textStyles.text).width + 10;
+  }
+
+  let iconStyleTemp = { ...iconStyle, margin: { left: margin } };
+  if (data.locationPhone) {
+    pdfClient.drawImage(callIcon, iconStyleTemp, textStyles.text);
+    pdfClient.drawTextSequential(` ${data.locationPhone}`, textStyles.text);
+  }
+
+  if (data.locationFax) {
+    if (data.locationPhone) {
+      margin = 10;
+    } else {
+      margin =
+        pdfClient.getRightBound() -
+        pdfClient.getLeftBound() -
+        iconStyle.width -
+        pdfClient.getTextDimensions(` ${data.locationFax}`, textStyles.text).width -
+        5;
+    }
+
+    iconStyleTemp = { ...iconStyleTemp, margin: { left: margin } };
+    pdfClient.drawImage(faxIcon, iconStyleTemp, textStyles.text);
+    pdfClient.drawTextSequential(` ${data.locationFax}`, textStyles.text);
+  }
+
+  pdfClient.newLine(standardNewline);
+
+  pdfClient.drawText(data.patientPhone, textStyles.text);
+  pdfClient.newLine(standardNewline);
+  pdfClient.drawText(`${data.resultStatus} RESULT`, textStyles.headerRight);
+  pdfClient.newLine(standardNewline);
+  pdfClient.drawSeparatedLine(separatedLineStyle);
+  // pdfClient.newLine(5);
 
   // Order details
   if (type === 'external') {
-    drawFieldLineLeft('Accession ID:', data.accessionNumber);
+    drawFieldLine('Accession ID:', data.accessionNumber);
     drawFieldLineRight('Order Create Date:', data.orderCreateDate);
-    addNewLine();
-    drawFieldLineLeft('Requesting physician:', data.providerName);
+    pdfClient.newLine(standardNewline);
+    drawFieldLine('Requesting physician:', data.providerName);
     drawFieldLineRight('Collection Date:', data.collectionDate);
-    addNewLine();
-    drawFieldLineLeft('Ordering physician:', data.providerName);
+    pdfClient.newLine(standardNewline);
+    drawFieldLine('Ordering physician:', data.providerName);
     drawFieldLineRight('Order Printed:', data.todayDate);
-    addNewLine();
-    drawFieldLineLeft('Req ID:', data.reqId);
+    pdfClient.newLine(standardNewline);
+    drawFieldLine('Req ID:', data.reqId);
     drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
-    addNewLine();
-    drawFieldLineLeft('Order Priority:', data.orderPriority.toUpperCase());
+    pdfClient.newLine(standardNewline);
+    drawFieldLine('Order Priority:', data.orderPriority.toUpperCase());
     // drawFieldLineRight('Order Received:', data.orderReceived);
-    addNewLine();
+    pdfClient.newLine(standardFontSize);
     // drawFieldLineRight('Specimen Received', data.specimenReceived);
-    addNewLine();
+    pdfClient.newLine(standardFontSize);
     // drawFieldLineRight('Reported:', data.reportDate);
   } else if (type === 'in-house') {
-    drawFieldLineLeft('Order ID:', data.serviceRequestID);
+    drawFieldLine('Order ID:', data.serviceRequestID);
+    pdfClient.newLine(standardFontSize);
+    drawFieldLine('Ordering physician:', data.providerName);
     drawFieldLineRight('Order date:', data.orderCreateDate);
-    addNewLine();
-    drawFieldLineLeft('Ordering physician:', data.providerName);
+    pdfClient.newLine(standardFontSize);
     drawFieldLineRight('Collection date:', data.collectionDate);
-    addNewLine();
-    drawRegularTextLeft('IQC Valid', styles.regularTextBold.font);
+    pdfClient.newLine(standardFontSize);
+    pdfClient.drawText('IQC Valid', textStyles.textBold);
     drawFieldLineRight('Final results:', data.orderSubmitDate);
-    addNewLine();
-    addNewLine();
+    pdfClient.newLine(standardFontSize);
+    // addNewLine();
+    // addNewLine();
     // drawFieldLineRight('Order Received:', data.orderReceived);
-    addNewLine();
+    // addNewLine();
     // drawFieldLineRight('Specimen Received', data.specimenReceived);
-    addNewLine();
+    // addNewLine();
     // drawFieldLineRight('Reported:', data.reportDate);
   }
-  addNewLine();
-  drawSeparatorLine();
-  addNewLine();
-
-  // Specimen details block
-  // drawFieldLineLeft('Specimen source:', data.specimenSource.toUpperCase());
-  // drawFieldLineRight('Specimen description:', data.specimenDescription);
-  addNewLine();
-  drawFieldLineLeft(
-    'Dx:',
-    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
-  );
-  addNewLine();
+  pdfClient.drawSeparatedLine(separatedLineStyle);
+  // addNewLine();
+  // drawSeparatorLine();
+  // addNewLine();
+  drawFieldLine('Dx:', data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '));
+  pdfClient.newLine(30);
+  pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
   if (type === 'in-house') {
-    drawFieldLineLeft('Specimen source:', data.specimenSource);
-    addNewLine(undefined, 3);
+    drawFieldLine('Specimen source:', data.specimenSource);
+    pdfClient.newLine(standardFontSize);
   }
-  drawLargeHeader(data.testName.toUpperCase());
-  addNewLine(undefined, 2);
-  drawSeparatorLine(styles.margin.x, width - styles.margin.x);
-  addNewLine();
+
+  pdfClient.newLine(standardNewline);
+  pdfClient.drawSeparatedLine(separatedLineStyle);
+
   if (type === 'external') {
     if (!data.externalLabResults) {
       throw new Error('external lab results is undefined');
     }
-    drawFiveColumnText('', 'NAME', 'VALUE', referenceRangeTitle(), 'LAB');
-    addNewLine();
-    drawSeparatorLine(styles.margin.x, width - styles.margin.x);
-    addNewLine();
+    drawFiveColumnText('', 'NAME', 'VALUE', referenceRangeTitle(), 'LAB', type);
+    pdfClient.newLine(standardNewline);
+    pdfClient.drawSeparatedLine(separatedLineStyle);
+    pdfClient.newLine(standardNewline);
     drawFiveColumnText(
       data.resultPhase,
       data.testName.toUpperCase(),
       getResultValueToDiplay(data.resultInterpretations),
-      referenceRangeText(),
+      '',
       data.testItemCode,
-      styles.regularTextBold.font,
-      14,
-      getResultRowDisplayColor(data.resultInterpretations, styles.colors)
+      type,
+      textStyles.text,
+      12,
+      getResultRowDisplayColor(data.resultInterpretations)
     );
-    addNewLine(undefined, 1);
+    pdfClient.newLine(standardNewline);
     for (const labResult of data.externalLabResults) {
-      addNewLine(undefined, 1.5);
-      drawSeparatorLine(styles.margin.x, width - styles.margin.x);
-      addNewLine();
-      drawFreeText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`);
+      pdfClient.newLine(14);
+      pdfClient.drawSeparatedLine(separatedLineStyle);
+      pdfClient.newLine(5);
+      pdfClient.drawText(`Code: ${labResult.resultCode} (${labResult.resultCodeDisplay})`, textStyles.text);
       if (labResult.resultInterpretation && labResult.resultInterpretationDisplay) {
-        addNewLine(undefined, 1.5);
-        drawFreeText(
+        pdfClient.newLine(standardNewline);
+        const fontStyleTemp = {
+          ...textStyles.text,
+          color: getResultRowDisplayColor([labResult.resultInterpretationDisplay]),
+        };
+        pdfClient.drawText(
           `Interpretation: ${labResult.resultInterpretation} (${labResult.resultInterpretationDisplay})`,
-          getResultRowDisplayColor([labResult.resultInterpretationDisplay], styles.colors)
+          fontStyleTemp
         );
       }
-      addNewLine(undefined, 1.5);
-      drawFreeText(`Value: ${labResult.resultValue}`);
+      pdfClient.newLine(standardNewline);
+      pdfClient.drawText(`Value: ${labResult.resultValue}`, textStyles.text);
+
+      if (labResult.referenceRangeText) {
+        pdfClient.newLine(standardNewline);
+        pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+      }
     }
   } else if (type === 'in-house') {
     if (!data.inHouseLabResults) {
       throw new Error('in-house lab results is undefined');
     }
-    drawFiveColumnText('', 'NAME', 'VALUE', 'UNITS', 'REFERENCE RANGE');
-    addNewLine();
-    drawSeparatorLine(styles.margin.x, width - styles.margin.x);
-    addNewLine(undefined, 1);
+    const resultHasUnits = data.inHouseLabResults.some((result) => result.units);
+    drawFiveColumnText('NAME', '', 'VALUE', resultHasUnits ? 'UNITS' : '', 'REFERENCE RANGE', type);
+    pdfClient.newLine(standardNewline);
+    pdfClient.drawSeparatedLine(separatedLineStyle);
     for (const labResult of data.inHouseLabResults) {
-      addNewLine(undefined, 1.5);
       let resultRange = undefined;
       if (labResult.rangeString) {
         resultRange = labResult.rangeString.join(', ');
@@ -878,47 +735,65 @@ async function createExternalLabsResultsFormPdfBytes(data: LabResultsData, type:
       } else {
         resultRange = ORDER_RESULT_ITEM_UNKNOWN;
       }
+
+      const valueStringToWrite =
+        labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode ? 'Inconclusive' : labResult.value;
+
       drawFiveColumnText(
-        '',
         labResult.name,
-        labResult.value || '',
+        '',
+        valueStringToWrite || '',
         labResult.units || '',
         resultRange,
-        styles.regularTextBold.font,
-        14,
-        getInHouseResultRowDisplayColor(labResult, styles.colors)
+        type,
+        textStyles.text,
+        undefined,
+        getInHouseResultRowDisplayColor(labResult)
       );
+      pdfClient.newLine(standardNewline);
     }
   }
-  addNewLine(undefined, 1.5);
-  drawSeparatorLine(styles.margin.x, width - styles.margin.x);
-  addNewLine();
+  pdfClient.newLine(standardNewline);
+  pdfClient.drawSeparatedLine(separatedLineStyle);
+  pdfClient.newLine(standardNewline);
 
   if (type === 'external') {
     // Performing lab details
-    drawRegularTextRight(`PERFORMING LAB: ${data.performingLabName}`);
-    addNewLine();
-    drawRegularTextRight(
-      `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip}`
+    pdfClient.drawText(`PERFORMING LAB: ${data.performingLabName}`, textStyles.textRight);
+    pdfClient.newLine(standardNewline);
+    pdfClient.drawText(
+      `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip}`,
+      textStyles.textRight
     );
-    addNewLine();
-    drawRegularTextRight(
-      `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`
+    pdfClient.newLine(standardNewline);
+    pdfClient.drawText(
+      `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`,
+      textStyles.textRight
     );
-    addNewLine();
+    pdfClient.newLine(standardNewline);
 
     // Reviewed by
     if (data.reviewed) {
-      drawSeparatorLine();
-      addNewLine();
-      drawFieldLineLeft(
+      pdfClient.drawSeparatedLine(separatedLineStyle);
+      pdfClient.newLine(standardNewline);
+      drawFieldLine(
         `Reviewed: ${data.reviewDate} by`,
         `${data.reviewingProviderTitle} ${data.reviewingProviderFirst} ${data.reviewingProviderLast}`
       );
     }
   }
+  return await pdfClient.save();
 
-  return await pdfDoc.save();
+  // // Specimen details block
+  // // drawFieldLineLeft('Specimen source:', data.specimenSource.toUpperCase());
+  // // drawFieldLineRight('Specimen description:', data.specimenDescription);
+  // addNewLine();
+  // addNewLine();
+  // addNewLine(undefined, 2);
+  // drawSeparatorLine(styles.margin.x, width - styles.margin.x);
+  // addNewLine();
+
+  // return await pdfDoc.save();
 }
 
 function getResultValueToDiplay(resultInterpretations: string[]): string {
@@ -933,28 +808,41 @@ function getResultValueToDiplay(resultInterpretations: string[]): string {
   }
 }
 
-function getResultRowDisplayColor(resultInterpretations: string[], colors: { [key: string]: Color }): Color {
+function getResultRowDisplayColor(resultInterpretations: string[]): Color {
   if (resultInterpretations.every((interpretation) => interpretation.toUpperCase() === 'NORMAL')) {
-    return colors.black;
+    // return colors.black;
+    return styles.color.black;
   } else {
-    return colors.red;
+    return styles.color.red;
   }
 }
 
-function getInHouseResultRowDisplayColor(labResult: InHouseLabResult, colors: { [key: string]: Color }): Color {
-  if (labResult.value && labResult.rangeString?.includes(labResult.value)) {
-    return colors.black;
+const styles = {
+  color: {
+    red: rgbNormalized(255, 0, 0),
+    purple: rgbNormalized(77, 21, 183),
+    black: rgbNormalized(0, 0, 0),
+  },
+};
+
+function getInHouseResultRowDisplayColor(labResult: InHouseLabResult): Color {
+  console.log('>>>in getInHouseReslutRowDisplayCOlor, this is the result value ', labResult.value);
+  if (
+    (labResult.value && labResult.rangeString?.includes(labResult.value)) ||
+    labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode
+  ) {
+    return styles.color.black;
   } else if (labResult.type === 'Quantity') {
     if (labResult.value && labResult.rangeQuantity) {
       const value = parseFloat(labResult.value);
       const { low, high } = labResult.rangeQuantity.normalRange;
       if (value >= low && value <= high) {
-        return colors.black;
+        return styles.color.black;
       }
     }
-    return colors.red;
+    return styles.color.red;
   }
-  return colors.red;
+  return styles.color.red;
 }
 
 async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: string): Promise<void> {
@@ -1067,22 +955,3 @@ export async function makeLabPdfDocumentReference({
   });
   return docRefs[0];
 }
-
-const splitTextIntoLines = (text: string, font: PDFFont, size: number, maxWidth: number): string[] => {
-  const words = text.split(' ');
-  const lines: string[] = [];
-  let currentLine = '';
-
-  words.forEach((word) => {
-    const lineWithWord = currentLine ? `${currentLine} ${word}` : word;
-    if (font.widthOfTextAtSize(lineWithWord, size) <= maxWidth) {
-      currentLine = lineWithWord;
-    } else {
-      lines.push(currentLine);
-      currentLine = word;
-    }
-  });
-
-  if (currentLine) lines.push(currentLine);
-  return lines;
-};

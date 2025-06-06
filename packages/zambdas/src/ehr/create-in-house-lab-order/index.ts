@@ -127,7 +127,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         return await getMyPractitionerId(oystehrCurrentUser);
       } catch (e) {
         throw Error(
-          'Resource configuration error - user creating this lab order must have a Practitioner resource linked'
+          'Resource configuration error - user creating this in-house lab order must have a Practitioner resource linked'
         );
       }
     };

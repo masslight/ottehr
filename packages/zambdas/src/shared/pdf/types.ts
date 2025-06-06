@@ -154,6 +154,7 @@ export interface ExternalLabResult {
   resultInterpretation?: string;
   resultInterpretationDisplay?: string;
   resultValue: string;
+  referenceRangeText?: string;
 }
 
 export interface InHouseLabResult {

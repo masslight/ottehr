@@ -1,39 +1,60 @@
-import { FC, useState, useMemo } from 'react';
+import { FC, useState } from 'react';
 import { OrderableItemSearchResult, nameLabTest } from 'utils';
-import { Autocomplete, TextField, Box } from '@mui/material';
+import { Autocomplete, TextField } from '@mui/material';
+import { useGetCreateExternalLabResources } from 'src/telemed';
+import { useDebounce } from 'src/telemed';
 
 type LabsAutocompleteProps = {
   selectedLab: OrderableItemSearchResult | null;
   setSelectedLab: (value: OrderableItemSearchResult | null) => void;
-  labs: OrderableItemSearchResult[];
 };
 
 export const LabsAutocomplete: FC<LabsAutocompleteProps> = (props) => {
-  const { selectedLab, setSelectedLab, labs } = props;
-  const [inputValue, setInputValue] = useState('');
+  const { selectedLab, setSelectedLab } = props;
+  const [debouncedLabSearchTerm, setDebouncedLabSearchTerm] = useState<string | undefined>(undefined);
 
-  const filterOptions = useMemo(() => {
-    if (inputValue === '') return [];
-    return labs.filter((item) => {
-      return item.item.itemName.toLowerCase().includes(inputValue.toLowerCase());
+  const {
+    isFetching,
+    data,
+    isError,
+    error: resourceFetchError,
+  } = useGetCreateExternalLabResources({
+    search: debouncedLabSearchTerm,
+  });
+
+  const labs = data?.labs || [];
+
+  const { debounce } = useDebounce(800);
+  const debouncedHandleLabInputChange = (searchValue: string): void => {
+    debounce(() => {
+      setDebouncedLabSearchTerm(searchValue);
     });
-  }, [inputValue, labs]);
+  };
+
+  if (resourceFetchError) console.log('resourceFetchError', resourceFetchError);
 
   return (
-    <Box sx={{ paddingTop: '8px' }}>
-      <Autocomplete
-        size="small"
-        options={filterOptions}
-        getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
-        noOptionsText={
-          inputValue && filterOptions.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
-        }
-        value={selectedLab}
-        onChange={(_, newValue) => setSelectedLab(newValue)}
-        inputValue={inputValue}
-        onInputChange={(_, newValue) => setInputValue(newValue)}
-        renderInput={(params) => <TextField required {...params} label="Lab" variant="outlined" />}
-      />
-    </Box>
+    <Autocomplete
+      size="small"
+      options={labs}
+      getOptionLabel={(option) => nameLabTest(option.item.itemName, option.lab.labName, false)}
+      noOptionsText={
+        debouncedLabSearchTerm && labs.length === 0 ? 'No labs based on input' : 'Start typing to load labs'
+      }
+      value={selectedLab}
+      onChange={(_, newValue) => setSelectedLab(newValue)}
+      loading={isFetching}
+      renderInput={(params) => (
+        <TextField
+          required
+          {...params}
+          label="Lab"
+          variant="outlined"
+          error={isError}
+          helperText={isError ? 'Failed to load labs list' : ''}
+          onChange={(e) => debouncedHandleLabInputChange(e.target.value)}
+        />
+      )}
+    />
   );
 };
