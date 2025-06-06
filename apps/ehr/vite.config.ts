@@ -41,8 +41,8 @@ export default ({ mode }: { mode: string }): UserConfig => {
     },
     resolve: {
       alias: {
-        '@ehrTheme': path.resolve(__dirname, env.THEME_PATH || '/src/themes/ottehr'),
-        '@ehrDefaultTheme': path.resolve(__dirname, '/src/themes/ottehr'),
+        '@ehrTheme': path.resolve(__dirname, env.THEME_PATH || 'src/themes/ottehr'),
+        '@ehrDefaultTheme': path.resolve(__dirname, 'src/themes/ottehr'),
       },
     },
   });

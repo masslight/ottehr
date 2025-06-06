@@ -4,7 +4,7 @@ import { LabOrderListPageDTO, formatDateForLabs } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];

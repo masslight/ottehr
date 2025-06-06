@@ -15,7 +15,7 @@ import {
   musculoskeletalAbnormalOptions,
 } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 type FormValues = {
   side: string;

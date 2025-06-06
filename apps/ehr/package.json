@@ -20,11 +20,11 @@
     ]
   },
   "scripts": {
-    "start": "vite --mode default --force",
+    "start": "vite --mode default",
     "preview": "vite preview --port 4002",
     "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
     "prettier": "prettier --write .",
-    "build": "npm run build:env --env=default",
+    "build": "tsc && vite clean && vite build --mode default",
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
@@ -80,6 +80,7 @@
     "styled-system": "^5.1.5",
     "tsconfig": "*",
     "utils": "*",
+    "ui-components": "*",
     "uuid": "^11.0.3"
   },
   "devDependencies": {

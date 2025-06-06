@@ -21,9 +21,10 @@ import {
   useSetupPaymentMethod,
 } from '../../../telemed/features/paperwork/paperwork.queries';
 import { otherColors } from '../../../IntakeThemeProvider';
-import { BoldPurpleInputLabel, usePaperworkContext } from 'ui-components';
+import { BoldPurpleInputLabel } from 'ui-components';
 import { dataTestIds } from '../../../helpers/data-test-ids';
 import { AddCreditCardForm } from 'ui-components';
+import { usePaperworkContext } from '../context';
 
 const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 

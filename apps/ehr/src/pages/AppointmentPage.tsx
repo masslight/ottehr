@@ -54,7 +54,7 @@ import {
   getUnconfirmedDOBIdx,
   getVisitStatus,
 } from 'utils';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
 import { getAppointmentStatusChip } from '../components/AppointmentTableRow';
 import CardGridItem from '../components/CardGridItem';
