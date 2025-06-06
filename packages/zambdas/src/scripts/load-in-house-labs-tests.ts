@@ -37,8 +37,7 @@ const sanitizeForId = (str: string): string => {
   return str.replace(/[ ()\/\\]/g, '');
 };
 
-// why does TS not have a set difference method >:(
-const setDifference = (a: Set<valueConfig>, b: Set<valueConfig>): Set<valueConfig> => {
+const valConfigDiff = (a: Set<valueConfig>, b: Set<valueConfig>): Set<valueConfig> => {
   const bCodes = new Set([...b].map((x) => x.code));
   return new Set([...a].filter((x) => !bCodes.has(x.code)));
 };
@@ -190,7 +189,7 @@ const getComponentObservationDefinition = (
     const abnormalSet = new Set(item.abnormalValues);
     const { valueSetId: refRangeValueSetId, valueSet: refRangeValueSet } = makeValueSet(
       componentName,
-      [...setDifference(validSet, abnormalSet)],
+      [...valConfigDiff(validSet, abnormalSet)],
       'reference-range'
     );
 
