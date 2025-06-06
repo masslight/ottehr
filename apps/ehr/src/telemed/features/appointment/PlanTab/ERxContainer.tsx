@@ -14,13 +14,13 @@ import {
 import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useState } from 'react';
 import { formatDateToMDYWithTime, RoleType } from 'utils';
+import { CompleteConfiguration } from '../../../../components/CompleteConfiguration';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
-import { CompleteConfiguration } from '../../../../components/CompleteConfiguration';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
@@ -202,6 +202,11 @@ export const ERxContainer: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
   };
 
+  const onNewOrderClick = async (): Promise<void> => {
+    // await oystehr?.erx.unenrollPractitioner({ practitionerId: user!.profileResource!.id! });
+    setIsERXOpen(true);
+  };
+
   return (
     <>
       <Stack gap={1}>
@@ -221,8 +226,8 @@ export const ERxContainer: FC = () => {
               <RoundedButton
                 disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
                 variant="contained"
-                onClick={() => setIsERXOpen(true)}
-                startIcon={<AddIcon />}
+                onClick={() => onNewOrderClick()}
+                startIcon={isERXLoading ? <CircularProgress size={16} /> : <AddIcon />}
               >
                 New Order
               </RoundedButton>
@@ -308,7 +313,15 @@ export const ERxContainer: FC = () => {
         )}
       </Stack>
 
-      {isERXOpen && <ERX onClose={() => setIsERXOpen(false)} onLoadingStatusChange={handleERXLoadingStatusChange} />}
+      {isERXOpen && (
+        <ERX
+          onClose={() => {
+            setIsERXOpen(false);
+            setIsERXLoading(false);
+          }}
+          onLoadingStatusChange={handleERXLoadingStatusChange}
+        />
+      )}
     </>
   );
 };

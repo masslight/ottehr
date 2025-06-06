@@ -1,54 +1,54 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
+  apiErrorToThrow,
   chooseJson,
+  CollectInHouseLabSpecimenParameters,
   ConversationMessage,
-  SubmitLabOrderInput,
+  CreateAppointmentInputParams,
+  CreateInHouseLabOrderParameters,
+  CreateLabOrderParameters,
   CreateScheduleParams,
+  CreateSlotParams,
   CreateUserOutput,
   CreateUserParams,
+  DeleteInHouseLabOrderParameters,
+  DeleteLabOrderParams,
+  GetCreateInHouseLabOrderResourcesParameters,
+  GetCreateInHouseLabOrderResourcesResponse,
+  GetCreateLabOrderResources,
   GetEmployeesResponse,
+  GetInHouseOrdersParameters,
+  GetLabelPdfParameters,
+  GetLabOrdersParameters,
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
-  PaginatedResponse,
-  CreateLabOrderParameters,
-  GetCreateLabOrderResources,
+  GetVisitLabelInput,
+  HandleInHouseLabResultsParameters,
+  InHouseOrdersListResponse,
+  LabelPdf,
   LabOrderResourcesRes,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
+  PaginatedResponse,
   ScheduleDTO,
-  UpdateScheduleParams,
-  GetLabOrdersParameters,
-  DeleteLabOrderParams,
   SubmitLabOrderDTO,
-  CreateSlotParams,
-  apiErrorToThrow,
-  CreateAppointmentInputParams,
+  SubmitLabOrderInput,
   UpdateLabOrderResourcesParameters,
-  GetInHouseOrdersParameters,
-  CollectInHouseLabSpecimenParameters,
-  GetCreateInHouseLabOrderResourcesParameters,
-  HandleInHouseLabResultsParameters,
-  DeleteInHouseLabOrderParameters,
-  GetCreateInHouseLabOrderResourcesResponse,
-  CreateInHouseLabOrderParameters,
-  GetLabelPdfParameters,
-  LabelPdf,
-  GetVisitLabelInput,
-  InHouseOrdersListResponse,
+  UpdateScheduleParams,
+  UpdateUserParams,
 } from 'utils';
 import {
+  AssignPractitionerParameters,
   CancelAppointmentParameters,
+  ChangeInPersonVisitStatusParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
-  AssignPractitionerParameters,
   UnassignPractitionerParameters,
-  ChangeInPersonVisitStatusParameters,
-  UpdateUserParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -274,7 +274,7 @@ export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams)
   }
 };
 
-export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParameters): Promise<any> => {
+export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams): Promise<any> => {
   try {
     if (UPDATE_USER_ZAMBDA_ID == null) {
       throw new Error('update user environment variable could not be loaded');

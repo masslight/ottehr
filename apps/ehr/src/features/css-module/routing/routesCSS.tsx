@@ -5,7 +5,7 @@ import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLab
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
 import { RouteCSS } from '../context/NavigationContext';
 import { Allergies } from '../pages/Allergies';
-import { ERX } from '../pages/ERX';
+import { ERXPage } from '../pages/ERXPage';
 import { Examination } from '../pages/Examination';
 import { Hospitalization } from '../pages/Hospitalization';
 import { InHouseMedication } from '../pages/InHouseMedication';
@@ -189,7 +189,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
     modes: ['provider', 'readonly'],
-    element: <ERX />,
+    element: <ERXPage />,
     text: 'eRX',
     iconKey: 'eRX',
   },

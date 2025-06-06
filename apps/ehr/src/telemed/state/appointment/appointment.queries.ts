@@ -658,6 +658,7 @@ export const useSyncERXPatient = ({
         try {
           await oystehr.erx.syncPatient({ patientId: patient.id! });
           console.log('Successfuly synced erx patient');
+          return;
         } catch (err) {
           console.error('Error during syncing erx patient: ', err);
           throw err;
@@ -704,7 +705,7 @@ export const useConnectPractitionerToERX = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useCheckPractitionerEnrollment = () => {
+export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }) => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
 
@@ -731,6 +732,7 @@ export const useCheckPractitionerEnrollment = () => {
     },
     {
       retry: 2,
+      enabled,
     }
   );
 };

@@ -30,6 +30,7 @@ export const useChartData = ({
   isFetching: boolean;
   error: any;
   queryKey: QueryKey;
+  isFetched: boolean;
 } => {
   const apiClient = useZapEHRAPIClient();
   const { update: updateExamObservations } = useExamObservations();
@@ -42,6 +43,7 @@ export const useChartData = ({
     refetch,
     data: chartData,
     queryKey,
+    isFetched,
   } = useGetChartData(
     { apiClient, encounterId, requestedFields, enabled, refetchInterval },
     (data) => {
@@ -82,5 +84,5 @@ export const useChartData = ({
     }
   }, [chartData, isFetching, requestedFields, enabled]);
 
-  return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching };
+  return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching, isFetched };
 };
