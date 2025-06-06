@@ -18,11 +18,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const responseCodes = (
-      await Promise.all([searchCodesByName(apiKey, search, sabs), searchCodesByCode(apiKey, search, sabs)])
+      await Promise.all([
+        // fetching both NAME and CODE search results in parallel
+        searchTerminology(apiKey, search, sabs, 'NAME'),
+        searchTerminology(apiKey, search, sabs, 'CODE'),
+      ])
     )
-      .flatMap((result) => result.codes)
-      .filter((codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code))
-      .sort((a, b) => a.code.localeCompare(b.code));
+      .flatMap((result) => result.codes) // Flatten the array of arrays into a single array and map to codes.
+      .filter((codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code)) // Remove duplicates based on code
+      .sort((a, b) => a.code.localeCompare(b.code)); // Sort alphabetically by code.
 
     const response: IcdSearchResponse = {
       codes: responseCodes,
@@ -38,51 +42,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   }
 };
 
-const searchCodesByName = async (
+const searchTerminology = async (
   apiKey: string,
   search: string,
-  sabs: 'ICD10CM' | 'CPT'
+  sabs: 'ICD10CM' | 'CPT',
+  codeOrName: 'CODE' | 'NAME'
 ): Promise<IcdSearchResponse> => {
   const results: IcdSearchResponse = { codes: [] };
   const encodedSearchString = encodeURIComponent(search);
-  const queryParams = `apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${encodedSearchString}&sabs=${sabs}&searchType=normalizedWords&partialSearch=true`;
-  const urlToFetch = `https://uts-ws.nlm.nih.gov/rest/search/current?${queryParams}`;
-  try {
-    const icdResponse = await fetch(urlToFetch);
-    if (!icdResponse.ok) {
-      throw new Error(icdResponse.statusText);
-    }
-    const icdResponseBody = (await icdResponse.json()) as {
-      pageSize: number;
-      pageNumber: number;
-      result: {
-        results: {
-          ui: string;
-          name: string;
-        }[];
-      };
-    };
-    results.codes = icdResponseBody.result.results.map((entry) => ({
-      code: entry.ui,
-      display: entry.name,
-    }));
-  } catch (error) {
-    console.error('Error while trying to request NLM ICD10 search endpoint', error, JSON.stringify(error));
-    throw new Error('Error while trying to get ICD-10 codes');
+  const baseQueryParams = `apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${encodedSearchString}&sabs=${sabs}`;
+  let completeQueryParams: string;
+  if (codeOrName === 'NAME') {
+    completeQueryParams = `${baseQueryParams}&searchType=normalizedWords&partialSearch=true`;
+  } else {
+    // codeOrName === 'CODE'
+    completeQueryParams = `${baseQueryParams}&searchType=rightTruncation&partialSearch=true`;
   }
-
-  return results;
-};
-
-const searchCodesByCode = async (
-  apiKey: string,
-  search: string,
-  sabs: 'ICD10CM' | 'CPT'
-): Promise<IcdSearchResponse> => {
-  const results: IcdSearchResponse = { codes: [] };
-  const encodedSearchString = encodeURIComponent(search);
-  const queryParams = `apiKey=${apiKey}&pageSize=50&returnIdType=code&inputType=sourceUi&string=${encodedSearchString}&sabs=${sabs}&searchType=rightTruncation&partialSearch=true`;
-  const urlToFetch = `https://uts-ws.nlm.nih.gov/rest/search/current?${queryParams}`;
+  const urlToFetch = `https://uts-ws.nlm.nih.gov/rest/search/current?${completeQueryParams}`;
   try {
     const icdResponse = await fetch(urlToFetch);
     if (!icdResponse.ok) {
