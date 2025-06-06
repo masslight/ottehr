@@ -171,6 +171,11 @@ export type SubmitLabOrderInput = {
   serviceRequestID: string;
   accountNumber: string;
   data: DynamicAOEInput;
+  specimens: {
+    [specimenId: string]: {
+      date: string;
+    };
+  };
 };
 
 export type SubmitLabOrderDTO = {

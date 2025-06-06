@@ -11,7 +11,7 @@ export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
   const serviceRequestId = urlParams.serviceRequestID as string;
 
-  const { labOrders, loading, markTaskAsReviewed, saveSpecimenDate } = usePatientLabOrders({
+  const { labOrders, loading, markTaskAsReviewed } = usePatientLabOrders({
     searchBy: { field: 'serviceRequestId', value: serviceRequestId },
   });
 
@@ -35,7 +35,7 @@ export const OrderDetailsPage: React.FC = () => {
     return (
       <DetailPageContainer>
         <LabBreadcrumbs sectionName={pageName}>
-          <DetailsWithoutResults labOrder={labOrder} saveSpecimenDate={saveSpecimenDate} />
+          <DetailsWithoutResults labOrder={labOrder} />
         </LabBreadcrumbs>
       </DetailPageContainer>
     );
@@ -44,12 +44,7 @@ export const OrderDetailsPage: React.FC = () => {
   return (
     <DetailPageContainer>
       <LabBreadcrumbs sectionName={pageName}>
-        <DetailsWithResults
-          labOrder={labOrder}
-          markTaskAsReviewed={markTaskAsReviewed}
-          saveSpecimenDate={saveSpecimenDate}
-          loading={loading}
-        />
+        <DetailsWithResults labOrder={labOrder} markTaskAsReviewed={markTaskAsReviewed} loading={loading} />
       </LabBreadcrumbs>
     </DetailPageContainer>
   );

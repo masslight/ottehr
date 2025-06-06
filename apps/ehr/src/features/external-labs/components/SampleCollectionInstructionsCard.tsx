@@ -1,11 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { DateTime } from 'luxon';
 import { Box, Grid, Paper, TextField, Stack, Typography, useTheme } from '@mui/material';
-import { APIError, SpecimenDateChangedParameters, sampleDTO, EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE } from 'utils';
+import { APIError, sampleDTO, EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE } from 'utils';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
-import { useDebounce } from 'src/telemed/hooks/useDebounce';
-import { enqueueSnackbar } from 'notistack';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { getLabelPdf } from '../../../api/api';
 import { openPdf } from './OrderCollection';
@@ -15,8 +13,7 @@ interface SampleCollectionInstructionsCardProps {
   sample: sampleDTO;
   serviceRequestId: string;
   timezone?: string;
-  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
-  updateSpecimenLoadingState?: (specimenId: string, state: 'saving' | 'saved') => void;
+  setSpecimenData: (specimenId: string, date: string) => void;
   printLabelVisible: boolean;
   isDateEditable: boolean;
 }
@@ -25,14 +22,12 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
   sample,
   serviceRequestId,
   timezone,
-  saveSpecimenDate,
-  updateSpecimenLoadingState,
+  setSpecimenData,
   printLabelVisible,
   isDateEditable,
 }) => {
   const { specimen, definition } = sample;
   const [collapsed, setCollapsed] = useState(false);
-  const { debounce } = useDebounce(1000);
   const [labelLoading, setLabelLoading] = useState(false);
   const [error, setError] = useState<string[]>();
   const { oystehrZambda: oystehr } = useApiClients();
@@ -44,15 +39,9 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
       : DateTime.now().setZone(timezone)
   );
 
-  const validateWithLuxon = (field: 'collectionDate' | 'collectionTime', value: string): boolean => {
-    if (field === 'collectionDate') {
-      const parsed = DateTime.fromFormat(value, 'yyyy-MM-dd');
-      return parsed.isValid && parsed.year >= 1900 && parsed.year <= 2100;
-    } else {
-      const parsed = DateTime.fromFormat(value, 'HH:mm');
-      return parsed.isValid;
-    }
-  };
+  useEffect(() => {
+    date.isValid && setSpecimenData(specimen.id, date.toISO());
+  }, [date, setSpecimenData, specimen.id]);
 
   const handleDateChange = (field: 'collectionDate' | 'collectionTime', value: string): void => {
     setDate((prev) => {
@@ -61,20 +50,6 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
         field === 'collectionDate'
           ? prev.set({ year: parts[0] || prev.year, month: parts[1] || prev.month, day: parts[2] || prev.day })
           : prev.set({ hour: parts[0] || prev.hour, minute: parts[1] || prev.minute });
-
-      if (validateWithLuxon(field, value) && updated.isValid && updated.toISO() !== prev.toISO()) {
-        updateSpecimenLoadingState?.(specimen.id, 'saving');
-        debounce(async () => {
-          try {
-            await saveSpecimenDate({ specimenId: specimen.id, serviceRequestId, date: updated.toISO()! });
-          } catch {
-            setDate(prev);
-            enqueueSnackbar('Date was not saved. Please try again.', { variant: 'error' });
-          } finally {
-            updateSpecimenLoadingState?.(specimen.id, 'saved');
-          }
-        });
-      }
 
       return updated.isValid ? updated : prev;
     });
