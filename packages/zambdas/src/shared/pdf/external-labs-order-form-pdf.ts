@@ -331,16 +331,26 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   addNewLine();
 
   // Insurance details, conditionally displayed
-  if (data.primaryInsuranceName) drawFieldLineLeft('Primary Insurance Name:', data.primaryInsuranceName.toUpperCase());
-  addNewLine();
-  if (data.primaryInsuranceAddress) drawFieldLineLeft('Insurance Address:', data.primaryInsuranceAddress.toUpperCase());
-  addNewLine();
-  if (data.primaryInsuranceSubNum) drawFieldLineLeft('Subscriber Number:', data.primaryInsuranceSubNum);
-  addNewLine();
-  if (data.insuredName) drawFieldLineLeft('Insured Name:', data.insuredName);
-  addNewLine();
-  if (data.insuredAddress) drawFieldLineLeft('Address:', data.insuredAddress);
-  addNewLine();
+  if (data.primaryInsuranceName) {
+    drawFieldLineLeft('Primary Insurance Name:', data.primaryInsuranceName.toUpperCase());
+    addNewLine();
+  }
+  if (data.primaryInsuranceAddress) {
+    drawFieldLineLeft('Insurance Address:', data.primaryInsuranceAddress.toUpperCase());
+    addNewLine();
+  }
+  if (data.primaryInsuranceSubNum) {
+    drawFieldLineLeft('Subscriber Number:', data.primaryInsuranceSubNum);
+    addNewLine();
+  }
+  if (data.insuredName) {
+    drawFieldLineLeft('Insured Name:', data.insuredName);
+    addNewLine();
+  }
+  if (data.insuredAddress) {
+    drawFieldLineLeft('Address:', data.insuredAddress);
+    addNewLine();
+  }
   if (
     data.primaryInsuranceName ||
     data.primaryInsuranceAddress ||
@@ -352,18 +362,16 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     addNewLine();
   }
 
-  drawSubHeader('AOE Answers');
-  addNewLine();
+  // AOE Answers section
   if (data.aoeAnswers?.length) {
-    // AOE Answers section
+    drawSubHeader('AOE Answers');
+    addNewLine();
     data.aoeAnswers.forEach((item) => {
-      drawFieldLineLeft(`${item.question}:`, item.answer.toString());
+      drawFieldLineLeft(`${item.question}: `, item.answer.toString());
       addNewLine();
     });
-  } else {
-    drawRegularTextLeft('No AOE questions');
+    addNewLine();
   }
-  addNewLine();
 
   // Additional fields
   drawSeparatorLine(lightGreyOpacity);
