@@ -31,10 +31,31 @@ export class VisitsPage {
       .click();
   }
 
+  async clickVisitDetailsButton(appointmentId: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.dashboard.visitDetailsButton)
+      .click();
+  }
+
+  async clickProgressNoteButton(appointmentId: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.dashboard.progressNoteButton)
+      .click();
+  }
+
   async clickArrivedButton(appointmentId: string): Promise<void> {
     await this.#page
       .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
       .getByTestId(dataTestIds.dashboard.arrivedButton)
+      .click();
+  }
+
+  async clickOnPatientName(appointmentId: string): Promise<void> {
+    await this.#page
+      .getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId))
+      .getByTestId(dataTestIds.dashboard.patientName)
       .click();
   }
 
@@ -74,15 +95,6 @@ export class VisitsPage {
 
   async clickAddPatientButton(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.dashboard.addPatientButton).click();
-  }
-
-  async clickOnVisit(appointmentId: string): Promise<void> {
-    await this.#page.getByTestId(dataTestIds.dashboard.tableRowWrapper(appointmentId)).click({
-      position: {
-        x: 25,
-        y: 25,
-      },
-    });
   }
 }
 

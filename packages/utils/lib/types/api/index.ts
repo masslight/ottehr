@@ -20,6 +20,7 @@ export * from './patient-account';
 export * from './patient-instructions';
 export * from './practitioner.types';
 export * from './prebook-create-appointment';
+export * from './radiology';
 export * from './rcm-claims';
 export * from './schedules';
 export * from './send-fax.types';

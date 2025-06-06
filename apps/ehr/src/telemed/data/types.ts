@@ -22,6 +22,7 @@ export type GetOystehrTelemedAPIParams = {
   updatePatientAccountZambdaID?: string;
   removePatientCoverageZambdaID?: string;
   sendFaxZambdaID?: string;
+  externalLabResourceSearchID?: string;
 };
 
 export type { PromiseReturnType } from 'utils';

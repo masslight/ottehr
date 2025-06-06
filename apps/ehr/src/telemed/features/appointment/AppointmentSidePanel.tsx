@@ -143,6 +143,39 @@ export const AppointmentSidePanel: FC = () => {
     window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
   };
 
+  const paperworkAllergiesYesNo = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
+
+  const paperworkAllergies =
+    getQuestionnaireResponseByLinkId('allergies', questionnaireResponse)
+      ?.answer?.[0]?.valueArray?.filter(
+        (answer) =>
+          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
+      )
+      ?.map(
+        (answer) =>
+          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
+      ) ?? [];
+
+  const allergiesStatus = (): string => {
+    if (isChartDataLoading) {
+      return 'Loading...';
+    }
+    if (questionnaireResponse?.status === 'in-progress' && (allergies == null || allergies.length === 0)) {
+      return 'No answer';
+    }
+    if (
+      allergies == null ||
+      allergies.length === 0 ||
+      paperworkAllergiesYesNo?.answer?.[0].valueString === 'Patient has no known current allergies'
+    ) {
+      return 'No known allergies';
+    }
+    return [
+      ...allergies.filter((allergy) => allergy.current === true).map((allergy) => allergy.name),
+      ...paperworkAllergies,
+    ].join(', ');
+  };
+
   return (
     <Drawer
       variant="permanent"
@@ -221,15 +254,7 @@ export const AppointmentSidePanel: FC = () => {
           </Typography>
 
           <Typography variant="body2" fontWeight={500}>
-            Allergies:{' '}
-            {isChartDataLoading
-              ? 'Loading...'
-              : allergies && allergies.length > 0
-              ? allergies
-                  .filter((allergy) => allergy.current === true)
-                  .map((allergy) => allergy.name)
-                  .join(', ')
-              : 'No known allergies'}
+            Allergies: {allergiesStatus()}
           </Typography>
 
           {location?.name && <Typography variant="body2">Location: {location.name}</Typography>}

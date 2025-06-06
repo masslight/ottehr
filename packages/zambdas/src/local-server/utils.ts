@@ -53,6 +53,8 @@ function parseArgs(args: string[]): Record<string, string> {
 const cliParams = parseArgs(process.argv.slice(2));
 const pathToEnvFile = cliParams['env'];
 
+console.log('pathToEnvFile', pathToEnvFile);
+
 // Setup env vars for express
 // env file path to be specified from the root of the zambdas package.
 const configString = readFileSync(resolve(__dirname, `../../${pathToEnvFile}`), {

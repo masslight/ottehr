@@ -248,7 +248,7 @@ export interface CheckOfficeOpenOutput {
 
 export const getHoursOfOperationForToday = (item: Schedule): ScheduleListItem['todayHoursISO'] => {
   const tz = getTimezone(item) ?? TIMEZONES[0];
-  const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }).toLowerCase();
+  const dayOfWeek = DateTime.now().setZone(tz).toLocaleString({ weekday: 'long' }, { locale: 'en-US' }).toLowerCase();
 
   const scheduleTemp = getScheduleExtension(item);
   if (!scheduleTemp) {

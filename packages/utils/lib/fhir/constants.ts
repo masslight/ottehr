@@ -186,6 +186,9 @@ export const FHIR_EXTENSION = {
     documentedBy: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/documented-by`,
     },
+    consentObtained: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
+    },
   },
 } as const;
 

@@ -11,7 +11,7 @@ import {
   useGetIcd10Search,
   useSaveChartData,
 } from 'src/telemed';
-import { Box, Stack } from '@mui/system';
+import { Box, Stack, useTheme } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
@@ -43,7 +43,7 @@ import {
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
 import { InfoAlert } from '../components/InfoAlert';
 import { enqueueSnackbar } from 'notistack';
@@ -73,7 +73,41 @@ const PROCEDURE_TYPES = [
   'Nasal Packing (Epistaxis Control)',
   'Eye Irrigation or Eye Foreign Body Removal',
   'Nasal Lavage (schnozzle)',
+  'EKG',
 ];
+const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
+  'Nebulizer Treatment (e.g., Albuterol)': {
+    code: '94640',
+    display:
+      'Pressurized or nonpressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device',
+  },
+  'Wart Treatment (Cryotherapy with Liquid Nitrogen': {
+    code: '17110',
+    display:
+      'Destruction (eg, laser surgery, electrosurgery, cryosurgery, chemosurgery, surgical curettement), of benign lesions other than skin tags or cutaneous vascular proliferative lesions; up to 14 lesions',
+  },
+  'Nail Trephination (Subungual Hematoma Drainage)': {
+    code: '11740',
+    display: 'Evacuation of subungual hematoma',
+  },
+  'Tick or Insect Removal': {
+    code: '10120',
+    display: 'Incision and removal of foreign body, subcutaneous tissues; simple',
+  },
+  'Nasal Packing (Epistaxis Control)': {
+    code: '30901',
+    display: 'Control nasal hemorrhage, anterior, simple (limited cautery and/or packing) any method',
+  },
+  EKG: {
+    code: '93000',
+    display: 'Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report',
+  },
+  'Intramuscular (IM) Medication Injection': {
+    code: '96372',
+    display:
+      'Therapeutic, prophylactic, or diagnostic injection (specify substance or drug); subcutaneous or intramuscular',
+  },
+};
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
 const MEDICATIONS_USED = ['None', 'Topical', 'Local', 'Oral', 'IV', 'IM'];
 const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', OTHER];
@@ -115,6 +149,7 @@ interface PageState {
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
   const { chartData, setPartialChartData, appointment, encounter } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -157,7 +192,6 @@ export default function ProceduresNew(): ReactElement {
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
     setState({
-      consentObtained: true,
       procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
@@ -180,6 +214,7 @@ export default function ProceduresNew(): ReactElement {
       otherPostInstructions: getOtherValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
+      consentObtained: procedure.consentObtained,
     });
     setInitialValuesSet(true);
   }, [procedureId, chartData?.procedures, setState, initialValuesSet]);
@@ -240,6 +275,7 @@ export default function ProceduresNew(): ReactElement {
             postInstructions: state.postInstructions !== OTHER ? state.postInstructions : state.otherPostInstructions,
             timeSpent: state.timeSpent,
             documentedBy: state.documentedBy,
+            consentObtained: state.consentObtained,
           },
         ],
       });
@@ -478,21 +514,24 @@ export default function ProceduresNew(): ReactElement {
                 onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
                 disabled={isReadOnly}
               />
-              <Typography>I have obtained the Consent for Procedure *</Typography>
+              <Typography>
+                I have obtained the{' '}
+                <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
+                  Consent for Procedure
+                </Link>
+              </Typography>
             </Box>
-            <InfoAlert
-              text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
-              and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
-            />
             <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Procedure Type & CPT Code
             </Typography>
-            {dropdown(
-              'Procedure type',
-              PROCEDURE_TYPES,
-              state.procedureType,
-              (value, state) => (state.procedureType = value)
-            )}
+            {dropdown('Procedure type', PROCEDURE_TYPES, state.procedureType, (value, state) => {
+              state.procedureType = value;
+              if (PRE_POPULATED_CPT_CODE[value] != null) {
+                state.cptCodes = [PRE_POPULATED_CPT_CODE[value]];
+              } else {
+                state.cptCodes = [];
+              }
+            })}
             {cptWidget()}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
@@ -532,6 +571,7 @@ export default function ProceduresNew(): ReactElement {
               </LocalizationProvider>
             </Stack>
             {radio('Performed by', PERFORMED_BY, state.performerType, (value, state) => (state.performerType = value))}
+            <InfoAlert text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type and quantity) used, technique, findings, complications, specimen sent, and after-procedure status." />
             {dropdown(
               'Anaesthesia / medication used',
               MEDICATIONS_USED,
@@ -612,12 +652,7 @@ export default function ProceduresNew(): ReactElement {
               <RoundedButton color="primary" onClick={onCancel}>
                 Cancel
               </RoundedButton>
-              <RoundedButton
-                color="primary"
-                variant="contained"
-                disabled={!state.consentObtained || isReadOnly}
-                onClick={onSave}
-              >
+              <RoundedButton color="primary" variant="contained" disabled={isReadOnly} onClick={onSave}>
                 Save
               </RoundedButton>
             </Box>

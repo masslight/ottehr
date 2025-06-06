@@ -21,6 +21,7 @@ import {
   APIError,
   ChartDataFields,
   ChartDataRequestedFields,
+  GetCreateLabOrderResources,
   GetMedicationOrdersResponse,
   INVENTORY_MEDICATION_TYPE_CODE,
   IcdSearchRequestParams,
@@ -519,6 +520,22 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
         });
       },
       enabled: Boolean(allergiesSearchTerm),
+      keepPreviousData: true,
+      staleTime: QUERY_STALE_TIME,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreateLabOrderResources) => {
+  const apiClient = useZapEHRAPIClient();
+  return useQuery(
+    ['external lab resource search', { patientId, search }],
+    async () => {
+      return apiClient?.getCreateExternalLabResources({ patientId, search });
+    },
+    {
+      enabled: Boolean(apiClient && (patientId || search)),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
     }

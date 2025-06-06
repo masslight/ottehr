@@ -40,7 +40,7 @@ export const Allergies: React.FC<AllergiesProps> = () => {
       <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3, gap: 3 }}>
         <InfoAlert text="Ask: Does the patient have any known allergies to medications, latex, or food?" />
         <MedicalHistoryDoubleCard
-          patientSide={<KnownAllergiesPatientColumn noItemsMessage="No allergies" />}
+          patientSide={<KnownAllergiesPatientColumn />}
           patientSideLabel="Patient provided"
           providerSide={<KnownAllergiesProviderColumn />}
           providerSideLabel="Clinical support input"

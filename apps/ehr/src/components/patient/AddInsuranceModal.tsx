@@ -366,7 +366,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
               <LabeledField label="Additional insurance information">
                 <FormTextField
                   variant="outlined"
-                  name="Coverage/additionalInformation"
+                  name={FormFields.additionalInformation.key}
                   control={control}
                   defaultValue={''}
                 />

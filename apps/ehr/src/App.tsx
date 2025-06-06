@@ -6,7 +6,7 @@ import { SnackbarProvider } from 'notistack';
 import { ReactElement, Suspense, lazy, useState } from 'react';
 import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
-import { RoleType } from 'utils';
+import { RoleType, setupSentry } from 'utils';
 import { CustomThemeProvider } from './CustomThemeProvider';
 import Banner from './components/Banner';
 import { LoadingScreen } from './components/LoadingScreen';
@@ -40,6 +40,19 @@ import { useNavStore } from './state/nav.store';
 import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
 import EditStatePage from './telemed/features/telemed-admin/EditState';
 import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
+
+const { MODE: environment, VITE_APP_SENTRY_DSN } = import.meta.env;
+
+const isLowerEnvs = ['dev', 'testing', 'staging', 'training'].includes(environment);
+
+const isLowerEnvsOrProd = isLowerEnvs || import.meta.env.MODE === 'production';
+
+if (isLowerEnvsOrProd) {
+  setupSentry({
+    dsn: VITE_APP_SENTRY_DSN,
+    environment,
+  });
+}
 
 const CSSRoutingLazy = lazy(() => import('./features/css-module/routing/CSSRouting'));
 

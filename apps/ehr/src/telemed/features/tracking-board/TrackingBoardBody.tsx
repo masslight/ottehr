@@ -34,7 +34,7 @@ export function TrackingBoardBody(): ReactElement {
   const updateNotificationSettingsMutation = useUpdateProviderNotificationSettingsMutation((params) => {
     useProviderNotificationsStore.setState({ notificationsEnabled: params.enabled, notificationMethod: params.method });
   });
-  const phoneNumber = user?.profileResource?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
+  const phoneNumber = user?.profileResource?.telecom?.find((telecom) => telecom.system === 'sms')?.value;
 
   return (
     <form>
@@ -85,8 +85,8 @@ export function TrackingBoardBody(): ReactElement {
                 label="Send alerts to:"
                 InputLabelProps={{ shrink: true }}
                 placeholder="(XXX) XXX-XXXX"
-                readOnly={true}
-                disabled={true}
+                readOnly={!notificationsEnabled || notificationMethod === ProviderNotificationMethod['computer']}
+                disabled={!notificationsEnabled || notificationMethod === ProviderNotificationMethod['computer']}
               />
               <FormControl sx={{ marginLeft: 2, width: 250 }}>
                 <InputLabel id="alert-setting-label">Notify me by:</InputLabel>
