@@ -41,7 +41,7 @@ test.afterEach(async () => {
 
 test('Open Order Medication screen, check all fields are required', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
-  await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+  // we have selected dx by default now so we can proceed to verification
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
   await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
@@ -63,6 +63,12 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS);
+});
+
+test('"Order" button is disabled when all fields are empty', async ({ page }) => {
+  const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
+  await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
+  await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
 });
 
 test('Non-selected diagnosis on Assessment page is not present in Order Medication screen on associatedDx dropdown', async ({

@@ -207,8 +207,6 @@ export const EditableMedicationCard: React.FC<{
       Object.entries(fieldsConfig[type]).map(([field]) => {
         const defaultOption = selectsOptions[field as keyof OrderFieldsSelectsOptions]?.defaultOption?.value;
         if (defaultOption) {
-          console.log(`we got here ${defaultOption}`);
-
           const value = getFieldValue(field as keyof MedicationData);
           if (!value || value < 0) setLocalValues((prev) => ({ ...prev, [field]: defaultOption }));
         }
