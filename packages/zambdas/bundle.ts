@@ -1,12 +1,12 @@
 /* eslint-disable no-undef */
-import { sentryVitePlugin } from '@sentry/vite-plugin';
+import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import fs from 'fs';
 import ottehrSpec from './ottehr-spec.json';
 
-const sentryPlugin = sentryVitePlugin({
+const sentryPlugin = sentryEsbuildPlugin({
   authToken: process.env.SENTRY_AUTH_TOKEN,
   org: 'zapehr',
   project: 'ottehr-lambda',
