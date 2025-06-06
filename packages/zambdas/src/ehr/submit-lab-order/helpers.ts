@@ -46,7 +46,10 @@ export const populateQuestionnaireResponseItems = async (
     if (!question) {
       throw new Error('question is not found');
     }
+
     let answer: QuestionnaireResponseItemAnswer[] | undefined = undefined;
+    let answerForDisplay = data[questionResponse] !== undefined ? data[questionResponse] : 'UNKNOWN';
+
     const multiSelect = question.extension?.find(
       (currentExtension) =>
         currentExtension.url === 'https://fhir.zapehr.com/r4/StructureDefinitions/data-type' &&
@@ -61,6 +64,7 @@ export const populateQuestionnaireResponseItems = async (
     }
     if (multiSelect) {
       answer = data[questionResponse].map((item: string) => ({ valueString: item }));
+      answerForDisplay = data[questionResponse].join(', ');
     }
 
     if (question.type === 'boolean') {
@@ -69,6 +73,7 @@ export const populateQuestionnaireResponseItems = async (
           valueBoolean: data[questionResponse],
         },
       ];
+      answerForDisplay = answerForDisplay === true ? 'Yes' : answerForDisplay === false ? 'No' : answerForDisplay;
     }
 
     if (question.type === 'date') {
@@ -101,7 +106,7 @@ export const populateQuestionnaireResponseItems = async (
 
     questionsAndAnswersForFormDisplay.push({
       question: question.text || 'UNKNOWN',
-      answer: data[questionResponse] || 'UNKNOWN',
+      answer: answerForDisplay,
     });
 
     return {
