@@ -89,8 +89,13 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
                 </Box>
               </Box>
 
-              {testDetails.labDetails.components.radioComponents.map((component) => {
-                return <ResultEntryRadioButton testItemComponent={component} />;
+              {testDetails.labDetails.components.radioComponents.map((component, idx) => {
+                return (
+                  <ResultEntryRadioButton
+                    key={`radio-btn-${idx}-${component.componentName}`}
+                    testItemComponent={component}
+                  />
+                );
               })}
 
               {testDetails.labDetails.components.groupedComponents.length > 0 && (

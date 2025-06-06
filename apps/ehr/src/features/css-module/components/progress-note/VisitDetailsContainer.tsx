@@ -1,17 +1,34 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getProviderNameWithProfession, getQuestionnaireResponseByLinkId, getSelectors } from 'utils';
+import { getProviderNameWithProfession, getQuestionnaireResponseByLinkId, getSelectors, PARTICIPANT_TYPE } from 'utils';
 import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
 import { ActionsList, useAppointmentStore } from '../../../../telemed';
 import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
+import { useChartData } from '../../hooks/useChartData';
 
 export const VisitDetailsContainer: FC = () => {
-  const { appointment, practitioner, location, questionnaireResponse } = getSelectors(useAppointmentStore, [
-    'appointment',
-    'practitioner',
-    'location',
-    'questionnaireResponse',
-  ]);
+  const { appointment, practitioner, location, questionnaireResponse, encounter, chartData, setPartialChartData } =
+    getSelectors(useAppointmentStore, [
+      'appointment',
+      'practitioner',
+      'location',
+      'questionnaireResponse',
+      'encounter',
+      'chartData',
+      'setPartialChartData',
+    ]);
+
+  useChartData({
+    encounterId: encounter.id || '',
+    requestedFields: {
+      practitioners: {},
+    },
+    onSuccess: (data) => {
+      setPartialChartData({
+        practitioners: data.practitioners,
+      });
+    },
+  });
 
   const insuranceCompanyID = getQuestionnaireResponseByLinkId('insurance-carrier', questionnaireResponse)?.answer?.[0]
     .valueString;
@@ -20,6 +37,11 @@ export const VisitDetailsContainer: FC = () => {
   const date = formatDateUsingSlashes(appointment?.start);
   const provider = practitioner && getProviderNameWithProfession(practitioner);
   const facility = location?.name;
+  const admitterId = encounter.participant
+    ?.find((participant) => participant.type?.[0]?.coding?.[0].code === PARTICIPANT_TYPE.ADMITTER)
+    ?.individual?.reference?.split('/')?.[1];
+  const addmitterPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === admitterId);
+  const addmitterPractitionerName = addmitterPractitioner && getProviderNameWithProfession(addmitterPractitioner);
 
   return (
     <Stack spacing={2}>
@@ -33,6 +55,7 @@ export const VisitDetailsContainer: FC = () => {
           { label: 'Subscriber ID', value: subscriberID },
           { label: 'Encounter Date', value: date },
           { label: 'Provider', value: provider },
+          { label: 'Intake completed by', value: addmitterPractitionerName },
           { label: 'Appointment Facility', value: facility },
         ]}
         getKey={(item) => item.label}

@@ -9,6 +9,7 @@ import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPage
 import { useAppointmentStore } from 'src/telemed';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -101,23 +102,29 @@ export const InHouseLabTestDetailsPage: React.FC = () => {
     );
   }
 
+  const pageName = `${testDetails.testItemName}${(allTestDetails || []).length > 1 ? ' + Repeat' : ''}`;
+
   return (
     <DetailPageContainer>
-      {(() => {
-        switch (testDetails.status) {
-          case 'ORDERED':
-            return (
-              <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
-            );
-          case 'COLLECTED':
-            return <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />;
-          case 'FINAL':
-            return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
-          default:
-            // temp for debugging
-            return <p>Status could not be parsed: {testDetails.status}</p>;
-        }
-      })()}
+      <InHouseLabsBreadcrumbs pageName={pageName}>
+        {(() => {
+          switch (testDetails.status) {
+            case 'ORDERED':
+              return (
+                <CollectSampleView testDetails={testDetails} onBack={handleBack} onSubmit={handleCollectSampleSubmit} />
+              );
+            case 'COLLECTED':
+              return (
+                <PerformTestView testDetails={testDetails} onBack={handleBack} setLoadingState={setLoadingState} />
+              );
+            case 'FINAL':
+              return <FinalResultView testDetails={allTestDetails} onBack={handleBack} />;
+            default:
+              // temp for debugging
+              return <p>Status could not be parsed: {testDetails.status}</p>;
+          }
+        })()}
+      </InHouseLabsBreadcrumbs>
     </DetailPageContainer>
   );
 };

@@ -52,7 +52,7 @@ export abstract class BaseTelemedFlow {
   abstract startVisitFullFlow(): Promise<StartVisitResponse>;
 
   async selectVisitAndContinue(): Promise<void> {
-    await this.page.goto(`/`);
+    await this.page.goto(`/home`);
     await this.clickVisitButton();
   }
 

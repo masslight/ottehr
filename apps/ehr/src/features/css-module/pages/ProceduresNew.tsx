@@ -11,7 +11,7 @@ import {
   useGetIcd10Search,
   useSaveChartData,
 } from 'src/telemed';
-import { Box, Stack } from '@mui/system';
+import { Box, Stack, useTheme } from '@mui/system';
 import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
@@ -43,7 +43,7 @@ import {
   TelemedAppointmentStatusEnum,
 } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ROUTER_PATH } from '../routing/routesCSS';
 import { InfoAlert } from '../components/InfoAlert';
 import { enqueueSnackbar } from 'notistack';
@@ -149,6 +149,7 @@ interface PageState {
 
 export default function ProceduresNew(): ReactElement {
   const navigate = useNavigate();
+  const theme = useTheme();
   const { id: appointmentId, procedureId } = useParams();
   const { chartData, setPartialChartData, appointment, encounter } = getSelectors(useAppointmentStore, [
     'chartData',
@@ -191,7 +192,6 @@ export default function ProceduresNew(): ReactElement {
     const procedureDateTime =
       procedure.procedureDateTime != null ? DateTime.fromISO(procedure.procedureDateTime) : undefined;
     setState({
-      consentObtained: true,
       procedureType: procedure.procedureType,
       cptCodes: procedure.cptCodes,
       diagnoses: procedure.diagnoses,
@@ -214,6 +214,7 @@ export default function ProceduresNew(): ReactElement {
       otherPostInstructions: getOtherValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
+      consentObtained: procedure.consentObtained,
     });
     setInitialValuesSet(true);
   }, [procedureId, chartData?.procedures, setState, initialValuesSet]);
@@ -274,6 +275,7 @@ export default function ProceduresNew(): ReactElement {
             postInstructions: state.postInstructions !== OTHER ? state.postInstructions : state.otherPostInstructions,
             timeSpent: state.timeSpent,
             documentedBy: state.documentedBy,
+            consentObtained: state.consentObtained,
           },
         ],
       });
@@ -512,12 +514,13 @@ export default function ProceduresNew(): ReactElement {
                 onChange={(_e: any, checked: boolean) => updateState((state) => (state.consentObtained = checked))}
                 disabled={isReadOnly}
               />
-              <Typography>I have obtained the Consent for Procedure *</Typography>
+              <Typography>
+                I have obtained the{' '}
+                <Link target="_blank" to={`/consent_procedure.pdf`} style={{ color: theme.palette.primary.main }}>
+                  Consent for Procedure
+                </Link>
+              </Typography>
             </Box>
-            <InfoAlert
-              text="Please include body part including laterality, type and quantity of anesthesia used, specific materials (type
-              and quantity) used, technique, findings, complications, specimen sent, and after-procedure status."
-            />
             <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Procedure Type & CPT Code
             </Typography>
@@ -525,6 +528,8 @@ export default function ProceduresNew(): ReactElement {
               state.procedureType = value;
               if (PRE_POPULATED_CPT_CODE[value] != null) {
                 state.cptCodes = [PRE_POPULATED_CPT_CODE[value]];
+              } else {
+                state.cptCodes = [];
               }
             })}
             {cptWidget()}
@@ -566,6 +571,7 @@ export default function ProceduresNew(): ReactElement {
               </LocalizationProvider>
             </Stack>
             {radio('Performed by', PERFORMED_BY, state.performerType, (value, state) => (state.performerType = value))}
+            <InfoAlert text="Please include body part including laterality, type and quantity anesthesia used, specific materials (type and quantity) used, technique, findings, complications, specimen sent, and after-procedure status." />
             {dropdown(
               'Anaesthesia / medication used',
               MEDICATIONS_USED,
@@ -646,12 +652,7 @@ export default function ProceduresNew(): ReactElement {
               <RoundedButton color="primary" onClick={onCancel}>
                 Cancel
               </RoundedButton>
-              <RoundedButton
-                color="primary"
-                variant="contained"
-                disabled={!state.consentObtained || isReadOnly}
-                onClick={onSave}
-              >
+              <RoundedButton color="primary" variant="contained" disabled={isReadOnly} onClick={onSave}>
                 Save
               </RoundedButton>
             </Box>

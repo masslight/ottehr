@@ -56,13 +56,12 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS);
   await orderMedicationPage.editMedicationCard.selectUnits(UNITS);
   await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MANUFACTURER);
-  await orderMedicationPage.editMedicationCard.enterManufacturer(MANUFACTURER);
-  await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE);
   await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS);
+
+  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
+  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
 });
 
 test('"Order" button is disabled when all fields are empty', async ({ page }) => {
@@ -159,9 +158,9 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS, false);
-    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MANUFACTURER, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE, false);
-    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
   });
 
   await test.step('Edit order page is opened after clicking on pencil icon for order in "pending" status', async () => {

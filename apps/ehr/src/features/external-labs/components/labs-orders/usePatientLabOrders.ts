@@ -11,7 +11,7 @@ import {
   tryFormatDateToISO,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
+import { getExternalLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
 import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
 
@@ -99,13 +99,13 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       try {
         let response;
         try {
-          response = await getLabOrders(oystehrZambda, searchParams);
+          response = await getExternalLabOrders(oystehrZambda, searchParams);
         } catch (err) {
           response = {
             data: [],
             pagination: EMPTY_PAGINATION,
           };
-          console.error('Error fetching lab orders:', err);
+          console.error('Error fetching external lab orders:', err);
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
         }
 
@@ -125,7 +125,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           setShowPagination(false);
         }
       } catch (error) {
-        console.error('error with setting lab orders:', error);
+        console.error('error with setting external lab orders:', error);
         setError(error instanceof Error ? error : new Error('Unknown error occurred'));
         setLabOrders([]);
         setTotalPages(1);
@@ -187,7 +187,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
         return true;
       } catch (err) {
-        console.error('Error deleting lab order:', err);
+        console.error('Error deleting external lab order:', err);
 
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');

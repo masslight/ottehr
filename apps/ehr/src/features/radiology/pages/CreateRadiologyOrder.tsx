@@ -88,7 +88,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           encounterId: encounter.id,
           stat: stat,
         });
-        navigate(`/in-person/${appointment?.id}/radiology-orders`);
+        navigate(`/in-person/${appointment?.id}/radiology`);
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
@@ -149,11 +149,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
         <form onSubmit={handleSubmit}>
           <Paper sx={{ p: 3 }}>
             <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
-              <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                  Dx
-                </Typography>
-              </Grid>
               <Grid item xs={12}>
                 <Autocomplete
                   blurOnSelect
@@ -229,7 +224,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <FormControlLabel
                   sx={{ fontSize: '14px' }}
                   control={<Switch checked={stat} onChange={() => setStat(!stat)} />}
-                  label={<Typography variant="body2">Stat</Typography>}
+                  label={<Typography variant="body2">STAT</Typography>}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -237,7 +232,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   variant="outlined"
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   onClick={() => {
-                    navigate(`/in-person/${appointment?.id}/external-lab-orders`);
+                    navigate(`/in-person/${appointment?.id}/radiology`);
                   }}
                 >
                   Cancel
