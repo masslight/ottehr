@@ -79,7 +79,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
   }, [allFields, questionnaireItems]);
   const { getValues, setValue } = useFormContext();
   return useEffect(() => {
-    console.log('autofill effect fired', itemsToFill, Object.entries(replacedValues));
+    console.log('autofill effect fired', itemsToFill);
     if (itemsToFill.length === 0) {
       replacedValues.forEach((val) => {
         const pathNodes = val.id.split('.');
@@ -107,7 +107,9 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       });
       return;
     }
-    let shouldUpdateValue = false;
+
+    const itemsToUpdate: Array<{ id: string; currentValue: any; autoFilled: any }> = [];
+
     itemsToFill.forEach((item) => {
       const autofillSource = item.autofillFromWhenDisabled; // the name of the field that's the source of the auto fill value
       if (!autofillSource) {
@@ -124,21 +126,31 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
 
       const autoFilled = autoFill(autofillValue, item);
       console.log('autofilled', autoFilled);
-      shouldUpdateValue = // the comparison bewteen autofillValue and currentValue is necessary to avoid an infinite render loop
+      const shouldUpdateValue = // the comparison bewteen autofillValue and currentValue is necessary to avoid an infinite render loop
         autofillSource && autofillValue && typeof autofillValue === 'object' && !objectsEqual(autoFilled, currentValue);
       console.log('should update', shouldUpdateValue, item.linkId);
 
       if (shouldUpdateValue) {
+        itemsToUpdate.push({ id, currentValue, autoFilled });
+      }
+
+      if (itemsToUpdate.length > 0) {
         setReplacedValues((rp) => {
-          return [
-            ...rp,
-            {
-              id,
-              value: currentValue,
-            },
-          ];
+          const newReplacedValues = [...rp];
+
+          itemsToUpdate.forEach(({ id, currentValue, autoFilled }) => {
+            const existingIndex = newReplacedValues.findIndex((existing) => existing.id === id);
+            if (existingIndex >= 0) {
+              newReplacedValues[existingIndex] = { id, value: currentValue };
+            } else {
+              newReplacedValues.push({ id, value: currentValue });
+            }
+
+            setValue(id, autoFilled, { shouldValidate: true });
+          });
+
+          return newReplacedValues;
         });
-        setValue(id, autoFilled, { shouldValidate: true });
       }
     });
     // replace previously autofilled values
