@@ -111,7 +111,7 @@ const makeFormInputPropsForItem = (item: StyledQuestionnaireItem): FormInputProp
     },
   };
 
-  // (`input props for item ${item.linkId}`, inputProps);
+  console.log(`input props for item ${item.linkId}`, inputProps);
   return inputProps;
 };
 
@@ -167,10 +167,10 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
 }) => {
   const { paperwork, allItems } = usePaperworkContext();
 
-  // console.log('questionnaireResponse', questionnaireResponse?.questionnaire, questionnaireResponse?.id);
+  console.log('defaultValues', JSON.stringify(defaultValues, null, 2));
 
-  // console.log('paperwork', JSON.stringify(paperwork, null, 2));
-  // console.log('items', JSON.stringify(allItems, null, 2));
+  console.log('paperwork', JSON.stringify(paperwork, null, 2));
+  console.log('items', JSON.stringify(allItems, null, 2));
 
   const validationSchema = makeValidationSchema(items, pageId, {
     values: paperwork,
@@ -226,7 +226,7 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
 
   const { saveButtonDisabled } = usePaperworkContext();
   //console.log('questionnaire response.q', questionnaireResponse?.questionnaire);
-  //console.log('all items', allItems);
+  console.log('all items', items);
 
   const { handleSubmit, formState } = useFormContext();
 
@@ -235,9 +235,9 @@ const PaperworkFormRoot: FC<PaperworkRootInput> = ({
   const { isSubmitting, isLoading, errors } = formState;
 
   const errorMessage = makeFormErrorMessage(items, errors);
-  // console.log('errors', errors);
+  console.log('errors', errors);
   const { formValues } = useQRState();
-  // console.log('form values', formValues);
+  console.log('form values', formValues);
 
   const submitHandler = useCallback(async () => {
     setIsSavingProgress(true);
@@ -291,8 +291,8 @@ export interface RenderItemsProps {
 const RenderItems: FC<RenderItemsProps> = (props: RenderItemsProps) => {
   const { items, parentItem, fieldId } = props;
   const styledItems = useStyledItems({ formItems: items });
-  // console.log('styledItems', styledItems);
-  // console.log('all items', items);
+  console.log('styledItems', styledItems);
+  console.log('all items', items);
   useAutoFillValues({ questionnaireItems: items, fieldId, parentItem });
 
   return (
@@ -359,9 +359,9 @@ const NestedInput: FC<NestedInputProps> = (props) => {
 
   // fieldId returns the path to the scalar value (the thing that the inputs manipulate directly)
   // call site 2: ignores result when no parent item
-  //console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
+  console.log('item, parentItem', item.linkId, parentItem?.linkId, inheritedFieldId);
   const fieldId = getPaperworkFieldId({ item, parentItem, parentFieldId: inheritedFieldId });
-  //console.log('linkId, fieldId', item.linkId, fieldId);
+  console.log('linkId, fieldId', item.linkId, fieldId);
 
   const { hasError, errorMessage } = useFieldError(parentItem ? fieldId : item.linkId);
 

@@ -61,7 +61,7 @@ interface AutofillInputs {
 export const useAutoFillValues = (input: AutofillInputs): void => {
   const { questionnaireItems, fieldId, parentItem } = input;
   const { formValues, allFields } = useQRState();
-  // console.log('all fields', allFields);
+  console.log('all fields', allFields);
   const [replacedValues, setReplacedValues] = useState<{ id: string; value: string }[]>([]);
 
   const itemsToFill = useMemo(() => {
@@ -69,7 +69,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       if (!allFields) {
         return false;
       }
-      // console.log('allFields useitems to auto fill', allFields);
+      console.log('allFields useitems to auto fill', allFields);
       const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields);
       if (displayStrategy === 'hidden' || displayStrategy === 'protected') {
         return qi.autofillFromWhenDisabled !== undefined;
@@ -79,25 +79,26 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
   }, [allFields, questionnaireItems]);
   const { getValues, setValue } = useFormContext();
   return useEffect(() => {
-    // console.log('autofill effect fired', itemsToFill, Object.entries(replacedValues.current));
+    console.log('autofill effect fired', itemsToFill, Object.entries(replacedValues));
     if (itemsToFill.length === 0) {
       replacedValues.forEach((val) => {
         const pathNodes = val.id.split('.');
+        let newVal;
         const currentVal = pathNodes.reduce((accum, current) => {
           if (accum === undefined) {
             return undefined;
           }
-          const newVal = (accum as any)[current];
+          newVal = (accum as any)[current];
           if (newVal) {
             return newVal;
           }
           return (accum.item ?? []).find((i: any) => i?.linkId && i.linkId === current);
         }, allFields as any);
-        // console.log('autofill currentVal', currentVal);
+        console.log('autofill currentVal', currentVal);
         // const currentVal = allFields[key];
-        // console.log('new val, current val', newVal, currentVal);
+        console.log('new val, current val', newVal, currentVal);
         if (currentVal?.answer !== undefined || currentVal?.item !== undefined) {
-          // console.log('autofill unsetting a value', val || undefined);
+          console.log('autofill unsetting a value', val || undefined);
           setValue(val.id, val.value);
           setReplacedValues((rp) => {
             return rp.filter((v) => v.id !== val.id);
@@ -122,10 +123,10 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       const currentValue = getValues(id) || makeEmptyResponseItem(item);
 
       const autoFilled = autoFill(autofillValue, item);
-      // console.log('autofilled', autoFilled);
+      console.log('autofilled', autoFilled);
       shouldUpdateValue = // the comparison bewteen autofillValue and currentValue is necessary to avoid an infinite render loop
         autofillSource && autofillValue && typeof autofillValue === 'object' && !objectsEqual(autoFilled, currentValue);
-      // console.log('should update', shouldUpdateValue, item.linkId);
+      console.log('should update', shouldUpdateValue, item.linkId);
 
       if (shouldUpdateValue) {
         setReplacedValues((rp) => {

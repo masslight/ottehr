@@ -226,6 +226,6 @@ export const useQRState: () => QRState = () => {
     accum[curr.linkId] = { ...curr };
     return accum;
   }, {} as any);
-  // console.log('form values', JSON.stringify(formValues));
+  console.log('form values', JSON.stringify(formValues));
   return { formValues, allFields: { ...paperworkObj, ...formValues } };
 };
