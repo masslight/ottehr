@@ -176,7 +176,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
     testItemName: testItem.name,
     status: orderStatus,
     visitDate: parseVisitDate(appointment),
-    orderingPhysicianFullName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '-' : '-',
+    orderingPhysicianFullName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '' : '',
     resultReceivedDate: parseResultsReceivedDate(serviceRequest, tasks),
     diagnosesDTO: diagnosisDTO,
     timezone: timezone,

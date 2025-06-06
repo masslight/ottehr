@@ -16,6 +16,7 @@ import {
 } from 'utils';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { InHouseMedicationFieldType } from './utils';
 
 type MedicationCardViewProps = {
   type: 'dispense' | 'order-new' | 'order-edit';
@@ -38,7 +39,7 @@ type MedicationCardViewProps = {
   getFieldValue: <Field extends keyof MedicationData>(field: Field, type?: string) => MedicationData[Field] | '';
   showErrors: boolean;
   fieldErrors: Record<string, boolean>;
-  getFieldType: (field: keyof MedicationData) => 'text' | 'number' | 'select' | 'date' | 'time' | 'month';
+  getFieldType: (field: keyof MedicationData) => InHouseMedicationFieldType;
   isEditable: boolean;
   saveButtonText: string;
   isSaveButtonDisabled: boolean;

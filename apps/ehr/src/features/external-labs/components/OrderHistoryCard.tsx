@@ -35,7 +35,7 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = fa
                   {<LabsOrderStatusChip status={row.action} />}
                   {isReviewOrReceiveAction ? ` (${row.testType})` : ''}
                 </TableCell>
-                <TableCell>{row.performer}</TableCell>
+                <TableCell>{row.performer ? `by ${row.performer}` : ''}</TableCell>
                 <TableCell>{formatDateForLabs(row.date, timezone)}</TableCell>
               </TableRow>
             );

@@ -121,6 +121,7 @@ export interface ScheduleDTOOwner {
   infoMessage?: string;
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
+  isVirtual?: boolean;
 }
 export interface ScheduleDTO {
   id: string;

@@ -174,7 +174,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <ExternalLabOrdersListPage /> : null,
-    text: 'Labs',
+    text: 'External Labs',
     iconKey: 'External Labs',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {

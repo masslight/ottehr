@@ -78,8 +78,11 @@ export default function SchedulePage(): ReactElement {
   const [timezone, setTimezone] = useState<string>(TIMEZONES[0]);
   const defaultIntakeUrl = (() => {
     const fhirType = item?.owner.type;
+    const locationType = item?.owner.isVirtual ? 'virtual' : 'in-person';
     if (slug && fhirType) {
-      return `${INTAKE_URL}/prebook/in-person?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(fhirType)}`;
+      return `${INTAKE_URL}/prebook/${locationType}?bookingOn=${slug}&scheduleType=${scheduleTypeFromFHIRType(
+        fhirType
+      )}`;
     }
     return '';
   })();
@@ -117,6 +120,7 @@ export default function SchedulePage(): ReactElement {
     {
       onSuccess: (response) => {
         if (response !== null) {
+          console.log('schedule response', response);
           setItem(response);
         }
       },
