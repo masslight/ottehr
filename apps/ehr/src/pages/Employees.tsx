@@ -26,7 +26,7 @@ import { default as React, ReactElement, useCallback, useMemo, useState } from '
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
 import { AllStates, EmployeeDetails, RoleType, State } from 'utils';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { getEmployees } from '../api/api';
 import Loading from '../components/Loading';
 import { EMPLOYEE_ROWS_PER_PAGE, PROVIDER_ROWS_PER_PAGE } from '../constants';

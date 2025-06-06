@@ -10,7 +10,7 @@ import { getPresignedFileUrl } from '../../../../helpers/files.helper';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
 import { DocumentInfo, DocumentType } from '../../../../types/types';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 function compareCards(
   cardBackType: DocumentType.PhotoIdBack | DocumentType.InsuranceBack | DocumentType.InsuranceBackSecondary
 ) {

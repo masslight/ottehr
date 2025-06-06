@@ -7,7 +7,7 @@ import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } fro
 import { useAppointmentStore } from '../../state';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
-import { ottehrAiIcon } from '@theme/icons';
+import { ottehrAiIcon } from '@ehrTheme/icons';
 
 export const AppointmentTabsHeader: FC = () => {
   const { currentTab, chartData } = getSelectors(useAppointmentStore, ['currentTab', 'chartData']);

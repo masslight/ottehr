@@ -1006,6 +1006,20 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/delete-in-house-lab-order/index",
       "zip": ".dist/zips/delete-in-house-lab-order.zip"
+    },
+    "PATIENT-PAYMENTS-LIST": {
+      "name": "PATIENT-PAYMENTS-LIST",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-payments/list/index",
+      "zip": ".dist/zips/patient-payments-list.zip"
+    },
+    "PATIENT-PAYMENTS-POST": {
+      "name": "PATIENT-PAYMENTS-POST",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-payments/post/index",
+      "zip": ".dist/zips/patient-payments-post.zip"
     }
   },
   "fhirResources": {

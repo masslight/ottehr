@@ -5,16 +5,7 @@ import { t } from 'i18next';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import {
-  ErrorDialog,
-  ErrorDialogConfig,
-  FormValidationErrorObject,
-  getFormValidationErrors,
-  getValueBoolean,
-  PageForm,
-  ReviewItem,
-  usePaperworkContext,
-} from 'ui-components';
+import { ErrorDialog, ErrorDialogConfig, getValueBoolean, PageForm, ReviewItem } from 'ui-components';
 import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { makeValidationSchema, pickFirstValueFromAnswerItem, ServiceMode, uuidRegex, VisitType } from 'utils';
 import { ValidationError } from 'yup';
@@ -34,6 +25,7 @@ import { useCreateInviteMutation } from '../telemed/features/waiting-room';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { slugFromLinkId } from './PaperworkPage';
 import { useAppointmentStore } from '../telemed/features/appointments/appointment.store';
+import { FormValidationErrorObject, usePaperworkContext, getFormValidationErrors } from 'src/features/paperwork';
 
 const ReviewPaperwork = (): JSX.Element => {
   const openExternalLink = useOpenExternalLink();

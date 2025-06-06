@@ -2,7 +2,6 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { dataTestIds } from '../../../../apps/intake/src/helpers/data-test-ids';
 // import { LanguagePicker } from './LanguagePicker';
 
 export interface ContainerProps {
@@ -137,7 +136,6 @@ export const CustomContainer: FC<ContainerProps> = ({
           )}
         </Grid>
       </AppBar>
-
       <Box
         display="flex"
         flexDirection="column"
@@ -171,7 +169,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                           }}
                           variant={isFirstPage ? 'h1' : 'h2'}
                           color="primary.main"
-                          data-testid={isFirstPage ? dataTestIds.firstFlowPageTitle : dataTestIds.flowPageTitle}
+                          data-testid={isFirstPage ? 'first-flow-page-title' : 'flow-page-title'}
                         >
                           {title}
                         </Typography>

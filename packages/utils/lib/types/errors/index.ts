@@ -45,6 +45,9 @@ export enum APIErrorCode {
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
   IN_HOUSE_LAB_GENERAL = 4402,
+
+  // 50xx
+  MISCONFIGURED_ENVIRONMENT = 5000,
 }
 
 export interface APIError {
@@ -304,6 +307,13 @@ export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
 export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.IN_HOUSE_LAB_GENERAL,
+    message,
+  };
+};
+
+export const MISCONFIGURED_ENVIRONMENT_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MISCONFIGURED_ENVIRONMENT,
     message,
   };
 };

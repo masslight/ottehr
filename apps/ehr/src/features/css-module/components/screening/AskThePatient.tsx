@@ -11,7 +11,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import React, { useEffect, useState } from 'react';
 
 import { enqueueSnackbar } from 'notistack';

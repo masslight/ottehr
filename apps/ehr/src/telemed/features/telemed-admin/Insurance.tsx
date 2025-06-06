@@ -22,7 +22,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { InsurancePlan } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';

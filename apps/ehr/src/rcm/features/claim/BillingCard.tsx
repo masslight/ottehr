@@ -4,7 +4,7 @@ import { ClaimCard } from './ClaimCard';
 import { BillingModal } from './modals';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimStore } from '../../state';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 export const BillingCard: FC = () => {
   const { organizations, facilities, claimData, coverageData } = getSelectors(useClaimStore, [

@@ -9,4 +9,3 @@ export * from './data';
 export * from './helpers';
 export * from './assets';
 export * from './types';
-export * from '../../../apps/intake/src/features/paperwork';

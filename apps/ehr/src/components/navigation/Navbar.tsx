@@ -6,8 +6,8 @@ import { PROJECT_NAME, RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
-import { otherColors } from '@theme/colors';
-import { logo } from '@theme/icons';
+import { otherColors } from '@ehrTheme/colors';
+import { logo } from '@ehrTheme/icons';
 import { UserMenu } from './UserMenu';
 import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 
