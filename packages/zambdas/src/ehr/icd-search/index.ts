@@ -21,7 +21,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       await Promise.all([searchCodesByName(apiKey, search, sabs), searchCodesByCode(apiKey, search, sabs)])
     )
       .flatMap((result) => result.codes)
-      .filter((codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code));
+      .filter((codeValues, index, self) => index === self.findIndex((t) => t.code === codeValues.code))
+      .sort((a, b) => a.code.localeCompare(b.code));
 
     const response: IcdSearchResponse = {
       codes: responseCodes,
