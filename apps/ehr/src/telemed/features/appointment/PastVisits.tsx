@@ -21,7 +21,7 @@ export const PastVisits: FC = () => {
 
   if (!appointments?.length || appointments.length == 1) {
     return (
-      <Typography data-testid={dataTestIds.telemedEhrFlow.telemedNewPatient} variant="body2">
+      <Typography data-testid={dataTestIds.telemedEhrFlow.telemedNewOrExistingPatient} variant="body2">
         New patient
       </Typography>
     );
@@ -31,7 +31,11 @@ export const PastVisits: FC = () => {
     <>
       <Typography variant="body2">
         Established patient:{' '}
-        <Link sx={{ cursor: 'pointer', color: 'inherit' }} onClick={() => setOpen(true)}>
+        <Link
+          sx={{ cursor: 'pointer', color: 'inherit' }}
+          onClick={() => setOpen(true)}
+          data-testid={dataTestIds.telemedEhrFlow.telemedNewOrExistingPatient}
+        >
           {appointments.length} visit{appointments.length > 1 && 's'}
         </Link>
       </Typography>

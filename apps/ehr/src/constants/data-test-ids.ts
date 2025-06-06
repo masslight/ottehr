@@ -325,7 +325,7 @@ export const dataTestIds = {
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
     chatModalDescription: 'telemed-chat-modal-description',
-    telemedNewPatient: 'telemed-new-patient',
+    telemedNewOrExistingPatient: 'telemed-new-or-existing-patient',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',
