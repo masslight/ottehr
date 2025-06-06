@@ -6,13 +6,6 @@ import { copy } from 'esbuild-plugin-copy';
 import fs from 'fs';
 import ottehrSpec from './ottehr-spec.json';
 
-const sentryPlugin = sentryEsbuildPlugin({
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  org: 'zapehr',
-  project: 'ottehr-lambda',
-  // debug: true,
-});
-
 interface ZambdaSpec {
   name: string;
   type: string;
@@ -39,13 +32,18 @@ const build = async (zambdas: ZambdaSpec[]): Promise<void> => {
       external: ['@aws-sdk/*'],
       treeShaking: true,
       plugins: [
-        sentryPlugin,
         copy({
           resolveFrom: 'cwd',
           assets: {
             from: ['assets/*'],
             to: ['.dist/assets'],
           },
+        }),
+        sentryEsbuildPlugin({
+          authToken: process.env.SENTRY_AUTH_TOKEN,
+          org: 'zapehr',
+          project: 'ottehr-lambda',
+          // debug: true,
         }),
       ],
     })
