@@ -23,7 +23,7 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { RoundedButton } from '../RoundedButton';
 import { DateTime } from 'luxon';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 const displaystates = AllStates.map((state) => state.value);
 

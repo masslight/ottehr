@@ -4,7 +4,7 @@ import {
   AdditionalQuestionsPatientColumn,
   AdditionalQuestionsProviderColumn,
 } from '../../../../telemed/features/appointment';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 interface PatientInfoProps {
   appointmentID?: string;
 }

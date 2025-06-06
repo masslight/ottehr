@@ -18,7 +18,7 @@ import Snackbar from '@mui/material/Snackbar';
 import React, { ReactElement, useMemo } from 'react';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { ScheduleOverridesComponent, UpdateOverridesInput } from './ScheduleOverridesComponent';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { DateTime } from 'luxon';
 import { Day, Weekday } from '../../types/types';
 import { DailySchedule, DOW, HourOfDay, ScheduleDTO, UpdateScheduleParams } from 'utils';

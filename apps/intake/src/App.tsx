@@ -33,7 +33,6 @@ import { IOSPatientPhotosEditPage } from './telemed/pages/IOS/IOSPatientPhotosEd
 import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
 import PastVisits from './pages/PastVisits';
 import VisitDetails from './pages/VisitDetails';
-// import UserFlowRoot from './telemed/pages/UserFlowRoot';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';

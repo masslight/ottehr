@@ -12,7 +12,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { MouseEventHandler, ReactElement } from 'react';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 interface ScheduleOverridesDialogProps {
   loading: boolean;

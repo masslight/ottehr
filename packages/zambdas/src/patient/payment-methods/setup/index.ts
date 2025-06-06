@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
-import { getStripeClient, makeStripeCustomerId, validateUserHasAccessToPatienAccount } from '../helpers';
+import { getStripeClient, makeStripeCustomerId, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Account, Identifier } from 'fhir/r4b';
 import { FHIR_RESOURCE_NOT_FOUND, getStripeCustomerIdFromAccount, getEmailForIndividual, getFullName } from 'utils';
@@ -25,7 +25,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('already have a token, no need to update');
     }
     const oystehrClient = createOystehrClient(m2mClientToken, secrets);
-    void (await validateUserHasAccessToPatienAccount(
+    void (await validateUserHasAccessToPatientAccount(
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient
     ));

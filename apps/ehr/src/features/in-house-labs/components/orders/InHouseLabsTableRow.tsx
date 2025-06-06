@@ -3,7 +3,7 @@ import { TableCell, TableRow, Box, Typography, Tooltip, useTheme, Button } from 
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { InHouseOrderListPageItemDTO, formatDateForLabs } from 'utils';
 
 interface InHouseLabsTableRowProps {

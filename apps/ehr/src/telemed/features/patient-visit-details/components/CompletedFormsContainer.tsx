@@ -7,7 +7,7 @@ import { getPresignedFileUrl } from '../../../../helpers/files.helper';
 import { InformationCard } from './InformationCard';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
   return (
     <Button

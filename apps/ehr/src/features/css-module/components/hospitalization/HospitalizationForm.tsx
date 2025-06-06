@@ -11,7 +11,7 @@ import {
   useGetAppointmentAccessibility,
 } from '../../../../telemed';
 import { ProviderSideListSkeleton } from '../../../../telemed/features/appointment';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 const HospitalizationOptions: HospitalizationDTO[] = [
   {
