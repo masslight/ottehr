@@ -76,9 +76,6 @@ export const CollectSampleView: React.FC<CollectSampleViewProps> = ({ testDetail
         collectedBy: { id: collectedById, name: providers.find((p) => p.id === collectedById)?.name || '' },
         collectionDate: date.toISO(),
       },
-      // todo - will this be editable in the future? if no we should just remove it from the params
-      // right now notes are readonly on the sample collection page
-      notes: testDetails.notes,
     });
   };
 
