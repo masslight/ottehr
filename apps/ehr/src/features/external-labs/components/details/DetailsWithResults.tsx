@@ -1,5 +1,5 @@
 import React from 'react';
-import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters, TaskReviewedParameters } from 'utils';
+import { LabOrderDetailedPageDTO, TaskReviewedParameters } from 'utils';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
 import { ResultItem } from './ResultItem';
 import { Button, Typography } from '@mui/material';
@@ -9,9 +9,8 @@ import { OrderCollection } from '../OrderCollection';
 export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
   markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
-  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   loading: boolean;
-}> = ({ labOrder, markTaskAsReviewed, saveSpecimenDate, loading }) => {
+}> = ({ labOrder, markTaskAsReviewed, loading }) => {
   const navigate = useNavigate();
 
   const handleBack = (): void => {
@@ -41,13 +40,7 @@ export const DetailsWithResults: React.FC<{
         />
       ))}
 
-      <OrderCollection
-        showActionButtons={false}
-        showOrderInfo={false}
-        isAOECollapsed={true}
-        labOrder={labOrder}
-        saveSpecimenDate={saveSpecimenDate}
-      />
+      <OrderCollection showActionButtons={false} showOrderInfo={false} isAOECollapsed={true} labOrder={labOrder} />
 
       <Button
         variant="outlined"
