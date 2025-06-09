@@ -15,7 +15,7 @@ interface ResultItemProps {
 export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading }: ResultItemProps): ReactElement => {
   const theme = useTheme();
   return (
-    <div style={{ marginTop: '42px' }}>
+    <>
       <Box
         sx={{
           display: 'flex',
@@ -64,6 +64,6 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
         />
       )}
-    </div>
+    </>
   );
 };

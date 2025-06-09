@@ -47,7 +47,7 @@ export const responsiblePartyInfoData = {
 };
 
 export const appointment = 'f21ad419-d8ab-4a41-8dbd-2e2e3a7b4333';
-export const DEFAULT_TEST_TIMEOUT = 100000;
+export const DEFAULT_TEST_TIMEOUT = 200000;
 
 describe.skip('paperwork tests', () => {
   let oystehr: Oystehr | null = null;

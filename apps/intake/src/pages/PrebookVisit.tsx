@@ -8,9 +8,8 @@ import {
   APIError,
   BookableItem,
   CreateSlotParams,
-  getAppointmentDurationFromSlot,
+  createSlotParamsFromSlotAndOptions,
   GetScheduleResponse,
-  getServiceModeFromSlot,
   isApiError,
   ScheduleType,
   ServiceMode,
@@ -33,6 +32,10 @@ import { Slot } from 'fhir/r4b';
 import ottehrApi from '../api/ottehrApi';
 
 const SERVICE_MODES: ServiceMode[] = [ServiceMode['in-person'], ServiceMode['virtual']];
+
+const getUrl = (): string => {
+  return `${window.location.pathname}${window.location.search}`;
+};
 
 const findSelectedSlotFromAvailable = (available: SlotListItem[], selectedSlotId?: string): Slot | undefined => {
   if (!selectedSlotId) {
@@ -98,7 +101,9 @@ const useBookingData = (
   isSlotsLoading: boolean;
   inPersonData?: { items: BookableItem[]; categorized: boolean };
 } => {
-  const apiClient = useZapEHRAPIClient();
+  const apiClient = useZapEHRAPIClient({ tokenless: true });
+
+  console.log('apiClient', apiClient);
 
   const { data: inPersonData, status: inPersonStatus } = useGetBookableItems(
     apiClient,
@@ -184,8 +189,6 @@ const PrebookVisit: FC = () => {
     isSlotsLoading,
   } = useBookingData(serviceMode, slugToFetch, scheduleType);
 
-  // console.log('slotData', slotData);
-
   const handleBookableSelection = (_e: any, newValue: BookableItem | null): void => {
     const serviceType = newValue?.serviceMode ?? serviceModeFromParam ?? serviceMode;
     const setLocation = serviceType === 'in-person' ? setSelectedInPersonLocation : setSelectedVirtualLocation;
@@ -194,14 +197,10 @@ const PrebookVisit: FC = () => {
 
   const handleSlotSelection = async (slot?: Slot): Promise<void> => {
     if (slot && tokenlessZambdaClient) {
-      const createSlotInput: CreateSlotParams = {
-        scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
-        startISO: slot.start,
-        serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
-        lengthInMinutes: getAppointmentDurationFromSlot(slot),
+      const createSlotInput: CreateSlotParams = createSlotParamsFromSlotAndOptions(slot, {
+        originalBookingUrl: getUrl(),
         status: 'busy-tentative',
-        walkin: false,
-      };
+      });
 
       try {
         const slot = await ottehrApi.createSlot(createSlotInput, tokenlessZambdaClient);

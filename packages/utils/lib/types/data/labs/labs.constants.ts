@@ -1,4 +1,5 @@
-import { LabelConfig, Pagination } from './labs.types';
+import { Pagination } from '..';
+import { LabelConfig } from './labs.types';
 
 export const PSC_HOLD_CONFIG = {
   system: 'psc-identifier',
@@ -62,7 +63,8 @@ export const ADDED_VIA_LAB_ORDER_SYSTEM = 'http://ottehr.org/fhir/StructureDefin
 export const RELATED_SPECIMEN_DEFINITION_SYSTEM =
   'http://ottehr.org/fhir/StructureDefinition/related-specimen-definition';
 
-export const LAB_RESTULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
+export const IN_HOUSE_LAB_RESULT_PDF_BASE_NAME = 'LabsResultsForm';
+export const EXTERNAL_LAB_RESULT_PDF_BASE_NAME = 'ExternalLabsResultsForm';
 
 export const EXTERNAL_LAB_LABEL_PDF_BASE_NAME = 'ExternalLabsLabel';
 
@@ -112,12 +114,14 @@ export const PROVENANCE_ACTIVITY_CODES = {
   submit: 'SUBMIT',
   createOrder: 'CREATE ORDER',
   inputResults: 'INPUT RESULTS',
+  collectSpecimen: 'COLLECT SPECIMEN',
 } as const;
 
 export const PROVENANCE_ACTIVITY_DISPLAY = {
   review: 'review',
   submit: 'submit',
-  createOrder: 'CREATE ORDER',
+  createOrder: 'create order',
+  collectSpecimen: 'collect sample',
   inputResults: 'input results',
 } as const;
 
@@ -142,6 +146,9 @@ export const PROVENANCE_ACTIVITY_CODING_ENTITY = {
     display: PROVENANCE_ACTIVITY_CODES.inputResults,
     system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
   },
+  collectSpecimen: {
+    code: PROVENANCE_ACTIVITY_CODES.collectSpecimen,
+    display: PROVENANCE_ACTIVITY_DISPLAY.collectSpecimen,
+    system: PROVENANCE_ACTIVITY_TYPE_SYSTEM,
+  },
 } as const;
-
-export const AUTO_REDIRECTED_PARAM = 'auto-redirected';

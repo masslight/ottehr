@@ -362,6 +362,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: '5px' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: '0px' }}>
               <Controller
+                key={sameAsPatientAddress}
                 name={FormFields.policyHolderAddressAsPatient.key}
                 control={control}
                 render={({ field: { value, ...field } }) => (

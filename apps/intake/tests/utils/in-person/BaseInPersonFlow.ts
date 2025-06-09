@@ -39,7 +39,7 @@ export abstract class BaseInPersonFlow {
     selectedSlot?: { buttonName: string | null; selectedSlot: string | undefined };
     location?: string | null;
   }> {
-    await this.page.goto(`/`);
+    await this.page.goto(`/home`);
     await this.clickVisitButton();
     const additionalData = await this.additionalStepsForPrebook();
     const bookingData = await this.fillPatientDetailsAndContinue();

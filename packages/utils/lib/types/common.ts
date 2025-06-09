@@ -762,3 +762,6 @@ export interface CanonicalUrl {
 }
 
 export type Timezone = (typeof TIMEZONES)[number];
+export interface GetVisitLabelInput {
+  encounterId: string;
+}

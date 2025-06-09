@@ -158,6 +158,7 @@ export function makeAllergyResource(
     resourceType: 'AllergyIntolerance',
     patient: { reference: `Patient/${patientId}` },
     encounter: { reference: `Encounter/${encounterId}` },
+    type: 'allergy',
     // category: allergyType ? [allergyType] : undefined,
     meta: getMetaWFieldName(fieldName),
     note: data.note ? [{ text: data.note }] : undefined,
@@ -175,7 +176,7 @@ export function makeAllergyResource(
     code: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-allergy-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-allergen-id',
           code: data.id,
           display: data.name,
         },
@@ -220,7 +221,7 @@ export function makeMedicationResource(
     medicationCodeableConcept: {
       coding: [
         {
-          system: 'http://api.zapehr.com/photon-medication-id',
+          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id',
           code: data.id,
           display: data.name,
         },
@@ -688,7 +689,6 @@ export function updateEncounterDiagnosis(encounter: Encounter, conditionId: stri
     }
   });
   if (!foundDiagnosis) {
-    if (!encounter.diagnosis) resultOperations.push(addEmptyArrOperation('/diagnosis'));
     resultOperations.push(
       addOperation('/diagnosis/-', {
         condition: { reference: conditionReference },
@@ -1352,6 +1352,7 @@ export function makeProceduresDTOFromFhirResources(
       postInstructions: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.postInstructions.url)?.valueString,
       timeSpent: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.timeSpent.url)?.valueString,
       documentedBy: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.documentedBy.url)?.valueString,
+      consentObtained: getExtension(serviceRequests, FHIR_EXTENSION.ServiceRequest.consentObtained.url)?.valueBoolean,
     };
   });
 }
@@ -1405,6 +1406,10 @@ export const createProcedureServiceRequest = (
     {
       url: FHIR_EXTENSION.ServiceRequest.documentedBy.url,
       valueString: procedure.documentedBy,
+    },
+    {
+      url: FHIR_EXTENSION.ServiceRequest.consentObtained.url,
+      valueBoolean: procedure.consentObtained,
     },
   ].filter((extension) => extension.valueString != null || extension.valueBoolean != null);
   const diagnosesReferences = procedure.diagnoses?.map((diagnosis) => {

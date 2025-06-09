@@ -1,20 +1,35 @@
-import { ReactElement } from 'react';
+import { ReactElement, useMemo } from 'react';
 import { PageTitle } from 'src/telemed/components/PageTitle';
-import { AccordionCard, useAppointmentStore } from 'src/telemed';
+import { AccordionCard, useAppointmentStore, useGetAppointmentAccessibility } from 'src/telemed';
 import { Box, Stack } from '@mui/system';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import AddIcon from '@mui/icons-material/Add';
 import { ROUTER_PATH } from '../routing/routesCSS';
-import { getSelectors } from 'utils';
+import { getSelectors, getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
 import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { CSSLoader } from '../components/CSSLoader';
+import { useFeatureFlags } from '../context/featureFlags';
 
 export default function Procedures(): ReactElement {
   const navigate = useNavigate();
   const { id: appointmentId } = useParams();
-  const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
+  const { chartData, isChartDataLoading, appointment, encounter } = getSelectors(useAppointmentStore, [
+    'chartData',
+    'isChartDataLoading',
+    'appointment',
+    'encounter',
+  ]);
+  const inPersonStatus = useMemo(() => appointment && getVisitStatus(appointment, encounter), [appointment, encounter]);
+  const appointmentAccessibility = useGetAppointmentAccessibility();
+  const { css } = useFeatureFlags();
+  const isReadOnly = useMemo(() => {
+    if (css) {
+      return inPersonStatus === 'completed';
+    }
+    return appointmentAccessibility.status === TelemedAppointmentStatusEnum.complete;
+  }, [css, inPersonStatus, appointmentAccessibility.status]);
 
   const onNewProcedureClick = (): void => {
     navigate(`/in-person/${appointmentId}/${ROUTER_PATH.PROCEDURES_NEW}`);
@@ -27,7 +42,7 @@ export default function Procedures(): ReactElement {
     <>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <PageTitle label="Procedures" showIntakeNotesButton={false} />
-        <RoundedButton variant="contained" onClick={onNewProcedureClick} startIcon={<AddIcon />}>
+        <RoundedButton variant="contained" onClick={onNewProcedureClick} startIcon={<AddIcon />} disabled={isReadOnly}>
           Procedure
         </RoundedButton>
       </Box>

@@ -7,6 +7,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["lib", "test", "env", "../../scripts/setup"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": [".", "../../scripts/setup", ".eslintrc.cjs"]
 }

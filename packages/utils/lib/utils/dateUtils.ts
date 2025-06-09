@@ -47,9 +47,6 @@ const divideHourlyCapacityBySlotInterval = (capacity: number, slotLength = 15): 
   const lowUnitsPerBucket = Math.floor(capacity / numBuckets);
   // this is how much slots additional capacity units we would need to fill all the buckets evenly
   const capacityShortage = Math.max(numBuckets - (capacity % numBuckets), 0);
-  if (capacity === 1) {
-    console.log('capacity shortage', capacityShortage, capacity % numBuckets);
-  }
 
   for (let i = 0; i < numBuckets; i += 1) {
     const key = i * slotLength;
@@ -162,4 +159,27 @@ export const formatDOB = (birthDate: string | undefined): string | undefined => 
   const birthday = DateTime.fromFormat(birthDate, DATE_FORMAT).toFormat(DISPLAY_DATE_FORMAT);
   const age = calculatePatientAge(birthDate);
   return `${birthday} (${age})`;
+};
+
+/**
+ * Compares two dates.
+ * The most recent date will be first,
+ * invalid dates will be last
+ */
+export const compareDates = (a: string | undefined, b: string | undefined): number => {
+  const dateA = DateTime.fromISO(a || '');
+  const dateB = DateTime.fromISO(b || '');
+  const isDateAValid = dateA.isValid;
+  const isDateBValid = dateB.isValid;
+
+  if (isDateAValid && !isDateBValid) return -1;
+  if (!isDateAValid && isDateBValid) return 1;
+  if (!isDateAValid && !isDateBValid) return 0;
+
+  return dateB.toMillis() - dateA.toMillis();
+};
+
+export const formatDateForLabs = (datetime: string | undefined, timezone: string | undefined): string => {
+  if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
+  return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
 };

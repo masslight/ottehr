@@ -1,4 +1,3 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import {
   Appointment,
   Bundle,
@@ -18,8 +17,10 @@ import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
 import { useMutation, useQuery } from 'react-query';
 import {
+  APIError,
   ChartDataFields,
   ChartDataRequestedFields,
+  GetCreateLabOrderResources,
   GetMedicationOrdersResponse,
   INVENTORY_MEDICATION_TYPE_CODE,
   IcdSearchRequestParams,
@@ -470,56 +471,19 @@ export const useDeleteChartData = () => {
   });
 };
 
-export type MedicationSearchResponse = {
-  medications: {
-    brandName: string;
-    codes: {
-      HCPCS: string;
-      SKU: string;
-      packageNDC: string;
-      productNDC: string;
-      rxcui: string;
-    };
-    concept: 'DRUG' | 'NON-DRUG';
-    controlled: boolean;
-    description: string;
-    form: string;
-    genericName: string;
-    id: string;
-    manufacturer: string;
-    name: string;
-    strength: string;
-    type: string;
-  }[];
-};
+export type ExtractObjectType<T> = T extends (infer U)[] ? U : never;
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetMedicationsSearch = (medicationSearchTerm: string) => {
-  const { getAccessTokenSilently } = useAuth0();
+  const { oystehr } = useApiClients();
 
   return useQuery(
     ['medications-search', { medicationSearchTerm }],
-    async ({ signal }) => {
-      const token = await getAccessTokenSilently();
-      const headers = {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
-      const resp = await fetch(
-        `${import.meta.env.VITE_APP_PROJECT_API_URL}/erx/medication/search?first=10&name=${medicationSearchTerm}`,
-        {
-          method: 'GET',
-          headers: headers,
-          signal,
-        }
-      );
-
-      if (!resp.ok) {
-        throw new Error();
+    async () => {
+      if (oystehr) {
+        return oystehr.erx.searchMedications({ name: medicationSearchTerm });
       }
-
-      return resp.json() as Promise<MedicationSearchResponse>;
+      throw new Error('api client not defined');
     },
     {
       onError: (_err) => {
@@ -534,41 +498,17 @@ export const useGetMedicationsSearch = (medicationSearchTerm: string) => {
   );
 };
 
-export type AllergiesSearchResponse = {
-  allergens: {
-    id: string;
-    name: string;
-    rxcui: string;
-  }[];
-};
-
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
-  const { getAccessTokenSilently } = useAuth0();
+  const { oystehr } = useApiClients();
 
   return useQuery(
     ['allergies-search', { allergiesSearchTerm }],
-    async ({ signal }) => {
-      const token = await getAccessTokenSilently();
-      const headers = {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      };
-      const resp = await fetch(
-        `${import.meta.env.VITE_APP_PROJECT_API_URL}/erx/allergy/search?first=10&name=${allergiesSearchTerm}`,
-        {
-          method: 'GET',
-          headers: headers,
-          signal,
-        }
-      );
-
-      if (!resp.ok) {
-        throw new Error();
+    async () => {
+      if (oystehr) {
+        return oystehr.erx.searchAllergens({ name: allergiesSearchTerm });
       }
-
-      return resp.json() as Promise<AllergiesSearchResponse>;
+      throw new Error('api client not defined');
     },
     {
       onError: (_err) => {
@@ -577,6 +517,22 @@ export const useGetAllergiesSearch = (allergiesSearchTerm: string) => {
         });
       },
       enabled: Boolean(allergiesSearchTerm),
+      keepPreviousData: true,
+      staleTime: QUERY_STALE_TIME,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useGetCreateExternalLabResources = ({ patientId, search }: GetCreateLabOrderResources) => {
+  const apiClient = useZapEHRAPIClient();
+  return useQuery(
+    ['external lab resource search', { patientId, search }],
+    async () => {
+      return apiClient?.getCreateExternalLabResources({ patientId, search });
+    },
+    {
+      enabled: Boolean(apiClient && (patientId || search)),
       keepPreviousData: true,
       staleTime: QUERY_STALE_TIME,
     }
@@ -598,8 +554,9 @@ export const useGetIcd10Search = ({ search, sabs }: IcdSearchRequestParams) => {
       return apiClient?.icdSearch({ search, sabs });
     },
     {
-      onError: (_err) => {
+      onError: (error: APIError) => {
         openError();
+        return error;
       },
       enabled: Boolean(apiClient && search),
       keepPreviousData: true,

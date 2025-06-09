@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Schedule } from 'fhir/r4b';
+import { Schedule, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
@@ -15,6 +15,7 @@ import {
   getTimezone,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
+  isLocationVirtual,
   SecretsKeys,
   SlotListItem,
 } from 'utils';
@@ -27,7 +28,6 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
-import '../../shared/instrument.mjs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -61,10 +61,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.time('get-schedule-from-slug');
     const scheduleData = await getSchedules(oystehr, scheduleType, slug);
-    const { scheduleList, owner: scheduleOwner, metadata } = scheduleData;
+    const { scheduleList, metadata, rootScheduleOwner: scheduleOwner } = scheduleData;
     console.timeEnd('get-schedule-from-slug');
     console.log('groupItems retrieved from getScheduleUtil:', JSON.stringify(scheduleList, null, 2));
-    console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
+    //console.log('owner retrieved from getScheduleUtil:', JSON.stringify(scheduleOwner, null, 2));
     console.log('scheduleMetaData', JSON.stringify(metadata, null, 2));
 
     console.time('synchronous_data_processing');
@@ -75,7 +75,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       },
       oystehr
     );
-    telemedAvailable.push(...tmSlots);
+    if (scheduleOwner.resourceType === 'Location' && !isLocationVirtual(scheduleOwner as Location)) {
+      telemedAvailable.push(...tmSlots);
+    }
     availableSlots.push(...regularSlots);
     console.timeEnd('synchronous_data_processing');
 

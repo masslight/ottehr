@@ -1,48 +1,832 @@
-// import Oystehr, { SearchParam } from '@oystehr/sdk';
+import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
-  // InHouseOrderDetailedPageDTO,
-  //  InHouseOrderListPageDTO,
-  InHouseOrdersSearchBy,
+  ActivityDefinition,
+  Appointment,
+  BundleEntry,
+  Encounter,
+  Resource,
+  Practitioner,
+  ServiceRequest,
+  Task,
+  Provenance,
+  Location,
+  FhirResource,
+  Specimen,
+  Observation,
+  DiagnosticReport,
+} from 'fhir/r4b';
+import {
+  fetchLabOrderPDFs,
+  fetchDocumentReferencesForDiagnosticReports,
+  LabOrderPDF,
+  getTimezone,
+  DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
+  Secrets,
+  compareDates,
+  InHouseGetOrdersResponseDTO,
 } from 'utils';
-import { InHouseOrderDTO } from 'utils';
+import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
+import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
+import {
+  EMPTY_PAGINATION,
+  isPositiveNumberOrZero,
+  InHouseOrderListPageItemDTO,
+  InHouseOrdersSearchBy,
+  Pagination,
+  DiagnosisDTO,
+  convertActivityDefinitionToTestItem,
+  getFullestAvailableName,
+  PRACTITIONER_CODINGS,
+  TestStatus,
+  IN_HOUSE_TAG_DEFINITION,
+  IN_HOUSE_TEST_CODE_SYSTEM,
+} from 'utils';
+import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
+import { determineOrderStatus, buildOrderHistory } from '../shared/inhouse-labs';
 
-// // cache for the service request context: contains parsed tasks and results
-// type Cache = {
-//   parsedResults?: ReturnType<typeof parseResults>;
-//   parsedTasks?: ReturnType<typeof parseTasks>;
-// };
+// cache for the service request context
+type Cache = {
+  parsedTasks?: ReturnType<typeof parseTasks>;
+  activityDefinition?: ActivityDefinition;
+};
 
-// type InHouseOrderPDF = {
-//   url: string;
-//   diagnosticReportId: string;
-// };
+export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSearchBy>(
+  searchBy: SearchBy,
+  serviceRequests: ServiceRequest[],
+  tasks: Task[],
+  practitioners: Practitioner[],
+  encounters: Encounter[],
+  appointments: Appointment[],
+  provenances: Provenance[],
+  activityDefinitions: ActivityDefinition[],
+  specimens: Specimen[],
+  observations: Observation[],
+  diagnosticReports: DiagnosticReport[],
+  resultsPDFs: LabOrderPDF[],
+  secrets: Secrets | null,
+  currentPractitioner?: Practitioner,
+  timezone?: string
+): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
+  const result: InHouseGetOrdersResponseDTO<SearchBy>['data'] = [];
 
-// export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSearchBy>(
-//   searchBy: SearchBy
-// ): InHouseOrderDTO<SearchBy>[] => {
-//   return serviceRequests.map((serviceRequest) => {
-//     return parseOrderData({
-//       searchBy,
-//     });
-//   });
-// };
+  for (const serviceRequest of serviceRequests) {
+    try {
+      const parsedTasks = parseTasks(tasks, serviceRequest);
+
+      const activityDefinition = findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
+
+      const cache: Cache = {
+        parsedTasks,
+        activityDefinition,
+      };
+
+      const relatedDiagnosticReports = diagnosticReports.filter(
+        (dr) => dr.basedOn?.some((ref) => ref.reference === `ServiceRequest/${serviceRequest.id}`)
+      );
+
+      const resultsPDF = resultsPDFs.find((pdf) => pdf.diagnosticReportId === relatedDiagnosticReports[0]?.id);
+
+      result.push(
+        parseOrderData({
+          searchBy,
+          serviceRequest,
+          tasks,
+          practitioners,
+          encounters,
+          appointments,
+          provenances,
+          activityDefinitions,
+          specimens,
+          observations,
+          cache,
+          resultsPDF,
+          currentPractitionerName: currentPractitioner ? getFullestAvailableName(currentPractitioner) || '' : '',
+          currentPractitionerId: currentPractitioner?.id || '',
+          timezone,
+        })
+      );
+    } catch (error) {
+      console.error(
+        `Error parsing order data for service request ${serviceRequest.id}:`,
+        typeof error === 'string' ? error : JSON.stringify(error, null, 2)
+      );
+      void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
+    }
+  }
+
+  return result;
+};
 
 export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
-  _searchBy,
+  searchBy,
+  serviceRequest,
+  tasks,
+  practitioners,
+  encounters,
+  appointments,
+  provenances,
+  activityDefinitions,
+  specimens,
+  observations,
+  cache,
+  resultsPDF,
+  currentPractitionerName,
+  currentPractitionerId,
+  timezone,
 }: {
-  _searchBy: SearchBy;
-}): InHouseOrderDTO<SearchBy> => {
-  // if (!serviceRequest.id) {
-  //   throw new Error('ServiceRequest ID is required');
-  // }
+  searchBy: SearchBy;
+  serviceRequest: ServiceRequest;
+  tasks: Task[];
+  practitioners: Practitioner[];
+  encounters: Encounter[];
+  appointments: Appointment[];
+  provenances: Provenance[];
+  activityDefinitions: ActivityDefinition[];
+  specimens: Specimen[];
+  observations: Observation[];
+  cache?: Cache;
+  resultsPDF?: LabOrderPDF;
+  currentPractitionerName?: string;
+  currentPractitionerId?: string;
+  timezone?: string;
+}): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
+  if (!serviceRequest.id) {
+    throw new Error('ServiceRequest ID is required');
+  }
 
-  // const listPageDTO: InHouseOrderListPageDTO = {};
+  const appointmentId = parseAppointmentId(serviceRequest, encounters);
+  const appointment = appointments.find((a) => a.id === appointmentId);
+  const encounter = encounters.find((e) => e.id === parseEncounterId(serviceRequest));
 
-  // if (searchBy.searchBy.field === 'serviceRequestId') {
-  //   const detailedPageDTO: InHouseOrderDetailedPageDTO = {};
+  const activityDefinition =
+    cache?.activityDefinition || findActivityDefinitionForServiceRequest(serviceRequest, activityDefinitions);
 
-  //   return detailedPageDTO as InHouseOrderDTO<SearchBy>;
-  // }
+  if (!activityDefinition) {
+    console.error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
+    throw new Error(`ActivityDefinition not found for ServiceRequest ${serviceRequest.id}`);
+  }
 
-  return {} as InHouseOrderDTO<SearchBy>;
+  const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
+  const orderStatus = determineOrderStatus(serviceRequest, tasks);
+  const attendingPractitioner = parseAttendingPractitioner(encounter, practitioners);
+  const diagnosisDTO = parseDiagnoses(serviceRequest);
+
+  const listPageDTO: InHouseOrderListPageItemDTO = {
+    appointmentId: appointmentId,
+    testItemName: testItem.name,
+    status: orderStatus,
+    visitDate: parseVisitDate(appointment),
+    orderingPhysicianFullName: attendingPractitioner ? getFullestAvailableName(attendingPractitioner) || '' : '',
+    resultReceivedDate: parseResultsReceivedDate(serviceRequest, tasks),
+    diagnosesDTO: diagnosisDTO,
+    timezone: timezone,
+    orderAddedDate: parseOrderAddedDate(serviceRequest, tasks),
+    serviceRequestId: serviceRequest.id,
+  };
+
+  if (searchBy.searchBy.field === 'serviceRequestId') {
+    const relatedSpecimen = specimens.find(
+      (specimen) => specimen.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
+    );
+    const orderHistory = buildOrderHistory(provenances, serviceRequest, relatedSpecimen); // Pass specimen if available
+    const relatedSpecimens = specimens.filter(
+      (s) => s.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
+    );
+
+    const detailedPageDTO = {
+      ...listPageDTO,
+      labDetails: testItem,
+      orderingPhysicianId: attendingPractitioner?.id || '',
+      currentUserFullName: currentPractitionerName || '',
+      currentUserId: currentPractitionerId || '',
+      resultsPDFUrl: resultsPDF?.url,
+      orderHistory,
+      specimen: relatedSpecimens[0] ? getSpecimenDetails(relatedSpecimens[0]) : undefined,
+      notes: serviceRequest.note?.[0]?.text || '',
+    };
+
+    return detailedPageDTO;
+  }
+
+  return listPageDTO;
+};
+
+export const parseTasks = (
+  tasks: Task[],
+  serviceRequest: ServiceRequest
+): {
+  allTasks: Task[];
+  latestTask: Task | null;
+} => {
+  if (!serviceRequest.id) {
+    return {
+      allTasks: [],
+      latestTask: null,
+    };
+  }
+
+  const relatedTasks = tasks
+    .filter((task) => taskIsBasedOnServiceRequest(task, serviceRequest))
+    .sort((a, b) => compareDates(a.authoredOn, b.authoredOn));
+
+  return {
+    allTasks: relatedTasks,
+    latestTask: relatedTasks[0] || null,
+  };
+};
+
+export const getInHouseResources = async (
+  oystehr: Oystehr,
+  params: GetZambdaInHouseOrdersParams,
+  searchBy: InHouseOrdersSearchBy,
+  userToken: string,
+  m2mtoken: string
+): Promise<{
+  serviceRequests: ServiceRequest[];
+  tasks: Task[];
+  practitioners: Practitioner[];
+  encounters: Encounter[];
+  locations: Location[];
+  appointments: Appointment[];
+  provenances: Provenance[];
+  activityDefinitions: ActivityDefinition[];
+  specimens: Specimen[];
+  observations: Observation[];
+  pagination: Pagination;
+  diagnosticReports: DiagnosticReport[];
+  resultsPDFs: LabOrderPDF[];
+  currentPractitioner?: Practitioner;
+  timezone: string | undefined;
+}> => {
+  const searchParams = createInHouseServiceRequestSearchParams(params);
+
+  const inHouseOrdersResponse = await oystehr.fhir.search({
+    resourceType: 'ServiceRequest',
+    params: searchParams,
+  });
+
+  const resources = inHouseOrdersResponse.unbundle().filter((res): res is FhirResource => Boolean(res)) || [];
+
+  const pagination = parsePaginationFromResponse(inHouseOrdersResponse);
+
+  const { serviceRequests, tasks, encounters, locations, provenances, specimens, observations, diagnosticReports } =
+    extractInHouseResources(resources);
+
+  const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
+
+  let currentPractitioner: Practitioner | undefined;
+  let resultsPDFs: LabOrderPDF[] = [];
+
+  if (isDetailPageRequest && userToken) {
+    // if more than one ServiceRequest is returned for when this is called from the detail page
+    // we can assume that there are related tests via the repeat test workflow
+    // either the service request id passed was the initial test (no basedOn)
+    // or it was a repeat test (will have a baseOn property)
+    if (serviceRequests.length > 1) {
+      const repeatTestingSrs = getSrsRelatedToRepeat(serviceRequests, searchBy.searchBy.value as string);
+      // we need to grab additional resources for these additional SRs that will be rendered on the detail page
+      const { repeatDiagnosticReports, repeatObservations, repeatProvenances, repeatTasks, repeatSpecimens } =
+        await fetchResultResourcesForRepeatServiceRequest(oystehr, repeatTestingSrs);
+      diagnosticReports.push(...repeatDiagnosticReports);
+      observations.push(...repeatObservations);
+      provenances.push(...repeatProvenances);
+      tasks.push(...repeatTasks);
+      specimens.push(...repeatSpecimens);
+    }
+
+    const oystehrCurrentUser = createOystehrClient(userToken, params.secrets);
+    const myPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
+
+    if (myPractitionerId) {
+      currentPractitioner = await oystehr.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: myPractitionerId,
+      });
+    }
+
+    if (diagnosticReports.length > 0) {
+      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports);
+      resultsPDFs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
+    }
+  }
+
+  const timezone = locations[0] ? getTimezone(locations[0]) : undefined;
+
+  const [practitioners, appointments, activityDefinitions] = await Promise.all([
+    fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
+    fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
+    fetchActivityDefinitions(oystehr),
+  ]);
+
+  return {
+    serviceRequests,
+    tasks,
+    practitioners,
+    encounters,
+    locations,
+    appointments,
+    provenances,
+    activityDefinitions,
+    specimens,
+    observations,
+    pagination,
+    diagnosticReports,
+    resultsPDFs,
+    currentPractitioner,
+    timezone,
+  };
+};
+
+export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouseOrdersParams): SearchParam[] => {
+  const { searchBy, visitDate, itemsPerPage = DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE, pageIndex = 0 } = params;
+
+  const searchParams: SearchParam[] = [
+    {
+      name: '_total',
+      value: 'accurate',
+    },
+    {
+      name: '_offset',
+      value: `${pageIndex * itemsPerPage}`,
+    },
+    {
+      name: '_count',
+      value: `${itemsPerPage}`,
+    },
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
+    {
+      name: 'code:missing',
+      value: 'false',
+    },
+    {
+      name: 'code',
+      // empty value will search any code value for given system
+      value: `${IN_HOUSE_TEST_CODE_SYSTEM}|${params.orderableItemCode || ''}`,
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:encounter',
+    },
+    {
+      name: '_revinclude',
+      value: 'Task:based-on',
+    },
+    {
+      name: '_revinclude',
+      value: 'Provenance:target',
+    },
+    {
+      name: '_include:iterate',
+      value: 'Encounter:location',
+    },
+  ];
+
+  // Search by specific criteria
+  if (searchBy.field === 'encounterId') {
+    searchParams.push({
+      name: 'encounter',
+      value: `Encounter/${searchBy.value}`,
+    });
+  }
+
+  if (searchBy.field === 'encounterIds') {
+    searchParams.push({
+      name: 'encounter',
+      value: searchBy.value.map((id) => `Encounter/${id}`).join(','),
+    });
+  }
+
+  if (searchBy.field === 'patientId') {
+    searchParams.push({
+      name: 'subject',
+      value: `Patient/${searchBy.value}`,
+    });
+  }
+
+  if (searchBy.field === 'serviceRequestId') {
+    searchParams.push({
+      name: '_id',
+      value: searchBy.value,
+    });
+
+    // Include specimens for detailed view
+    searchParams.push({
+      name: '_include',
+      value: 'ServiceRequest:specimen',
+    });
+
+    // Include observations for lab details
+    searchParams.push({
+      name: '_revinclude',
+      value: 'Observation:based-on',
+    });
+
+    // Include the DR for grabbing pdf url
+    searchParams.push({
+      name: '_revinclude',
+      value: 'DiagnosticReport:based-on',
+    });
+
+    // Include any related repeat test SRs
+    searchParams.push({
+      name: '_include:iterate',
+      value: 'ServiceRequest:based-on',
+    });
+    searchParams.push({
+      name: '_revinclude:iterate',
+      value: 'ServiceRequest:based-on',
+    });
+  }
+
+  if (visitDate) {
+    searchParams.push({
+      name: 'encounter.appointment.date',
+      value: visitDate,
+    });
+  }
+
+  return searchParams;
+};
+
+export const extractInHouseResources = (
+  resources: FhirResource[]
+): {
+  serviceRequests: ServiceRequest[];
+  tasks: Task[];
+  encounters: Encounter[];
+  locations: Location[];
+  provenances: Provenance[];
+  specimens: Specimen[];
+  observations: Observation[];
+  diagnosticReports: DiagnosticReport[];
+} => {
+  const serviceRequests: ServiceRequest[] = [];
+  const tasks: Task[] = [];
+  const encounters: Encounter[] = [];
+  const locations: Location[] = [];
+  const provenances: Provenance[] = [];
+  const specimens: Specimen[] = [];
+  const observations: Observation[] = [];
+  const diagnosticReports: DiagnosticReport[] = [];
+
+  for (const resource of resources) {
+    if (resource.resourceType === 'ServiceRequest') {
+      serviceRequests.push(resource);
+    } else if (resource.resourceType === 'Task' && resource.status !== 'cancelled') {
+      tasks.push(resource);
+    } else if (resource.resourceType === 'Encounter') {
+      encounters.push(resource);
+    } else if (resource.resourceType === 'Location') {
+      locations.push(resource);
+    } else if (resource.resourceType === 'Provenance') {
+      provenances.push(resource);
+    } else if (resource.resourceType === 'Specimen') {
+      specimens.push(resource);
+    } else if (resource.resourceType === 'Observation') {
+      observations.push(resource);
+    } else if (resource.resourceType === 'DiagnosticReport') {
+      diagnosticReports.push(resource);
+    }
+  }
+
+  return {
+    serviceRequests,
+    tasks,
+    encounters,
+    locations,
+    provenances,
+    specimens,
+    observations,
+    diagnosticReports,
+  };
+};
+
+export const fetchPractitionersForServiceRequests = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[],
+  encounters: Encounter[]
+): Promise<Practitioner[]> => {
+  const practitionerIds = new Set<string>();
+
+  serviceRequests.forEach((sr) => {
+    const practitionerId = sr.requester?.reference?.replace('Practitioner/', '');
+    if (practitionerId) practitionerIds.add(practitionerId);
+  });
+
+  encounters.forEach((encounter) => {
+    const attendingPractitionerId = encounter.participant
+      ?.find(
+        (participant) =>
+          participant.type?.find(
+            (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
+          )
+      )
+      ?.individual?.reference?.replace('Practitioner/', '');
+
+    if (attendingPractitionerId) practitionerIds.add(attendingPractitionerId);
+  });
+
+  if (practitionerIds.size === 0) {
+    return [];
+  }
+
+  const practitionerRequests = Array.from(practitionerIds).map((id) => ({
+    method: 'GET' as const,
+    url: `Practitioner/${id}`,
+  }));
+
+  try {
+    const practitionerResponse = await oystehr.fhir.batch({
+      requests: practitionerRequests,
+    });
+
+    return mapResourcesFromBundleEntry<Practitioner>(practitionerResponse.entry as BundleEntry<Practitioner>[]).filter(
+      (resource): resource is Practitioner => resource?.resourceType === 'Practitioner'
+    );
+  } catch (error) {
+    console.error('Failed to fetch Practitioners', JSON.stringify(error, null, 2));
+    return [];
+  }
+};
+
+export const fetchAppointmentsForServiceRequests = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[],
+  encounters: Encounter[]
+): Promise<Appointment[]> => {
+  const appointmentIds = serviceRequests.map((sr) => parseAppointmentId(sr, encounters)).filter(Boolean);
+
+  if (!appointmentIds.length) {
+    return [];
+  }
+
+  const appointmentsResponse = await oystehr.fhir.search<Appointment>({
+    resourceType: 'Appointment',
+    params: [
+      {
+        name: '_id',
+        value: appointmentIds.join(','),
+      },
+    ],
+  });
+
+  return appointmentsResponse.unbundle();
+};
+
+export const fetchActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
+  return oystehr.fhir
+    .search<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      params: [
+        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+        { name: 'status', value: 'active' },
+      ],
+    })
+    .then((response) => response.unbundle());
+};
+
+export const findActivityDefinitionForServiceRequest = (
+  serviceRequest: ServiceRequest,
+  activityDefinitions: ActivityDefinition[]
+): ActivityDefinition | undefined => {
+  const canonicalUrl = serviceRequest.instantiatesCanonical?.[0];
+  if (!canonicalUrl) return undefined;
+
+  return activityDefinitions.find((ad) => ad.url === canonicalUrl);
+};
+
+const fetchResultResourcesForRepeatServiceRequest = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[]
+): Promise<{
+  repeatDiagnosticReports: DiagnosticReport[];
+  repeatObservations: Observation[];
+  repeatProvenances: Provenance[];
+  repeatTasks: Task[];
+  repeatSpecimens: Specimen[];
+}> => {
+  console.log('making requests for additional service requests representing related repeat tests');
+  const resources = (
+    await oystehr.fhir.search<ServiceRequest | DiagnosticReport | Observation | Provenance | Task | Specimen>({
+      resourceType: 'ServiceRequest',
+      params: [
+        {
+          name: '_id',
+          value: serviceRequests.map((sr) => sr.id).join(','),
+        },
+        {
+          name: '_revinclude',
+          value: 'DiagnosticReport:based-on',
+        },
+        {
+          name: '_revinclude',
+          value: 'Observation:based-on',
+        },
+        {
+          name: '_revinclude',
+          value: 'Provenance:target',
+        },
+        {
+          name: '_revinclude',
+          value: 'Task:based-on',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:specimen',
+        },
+      ],
+    })
+  ).unbundle();
+  const repeatDiagnosticReports: DiagnosticReport[] = [];
+  const repeatObservations: Observation[] = [];
+  const repeatProvenances: Provenance[] = [];
+  const repeatTasks: Task[] = [];
+  const repeatSpecimens: Specimen[] = [];
+  resources.forEach((r) => {
+    if (r.resourceType === 'DiagnosticReport') repeatDiagnosticReports.push(r);
+    if (r.resourceType === 'Observation') repeatObservations.push(r);
+    if (r.resourceType === 'Provenance') repeatProvenances.push(r);
+    if (r.resourceType === 'Task') repeatTasks.push(r);
+    if (r.resourceType === 'Specimen') repeatSpecimens.push(r);
+  });
+  return { repeatDiagnosticReports, repeatObservations, repeatProvenances, repeatTasks, repeatSpecimens };
+};
+
+const getSrsRelatedToRepeat = (serviceRequests: ServiceRequest[], serviceRequestSearchId: string): ServiceRequest[] => {
+  let serviceRequestSearched: ServiceRequest | undefined;
+  const additionalServiceRequests = serviceRequests.reduce((acc: ServiceRequest[], sr) => {
+    if (sr.id) {
+      if (sr.id !== serviceRequestSearchId) {
+        acc.push(sr);
+      } else {
+        serviceRequestSearched = sr;
+      }
+    }
+    return acc;
+  }, []);
+
+  const srsRelatedToRepeat: ServiceRequest[] = [];
+  if (additionalServiceRequests.length > 0 && serviceRequestSearched) {
+    // was the service request passed as the search param the initial test or ran as repeat?
+    const intialServiceRequestId = serviceRequestSearched?.basedOn
+      ? serviceRequestSearched.basedOn[0].reference?.replace('ServiceRequest/', '')
+      : serviceRequestSearched?.id;
+    console.log('intialServiceRequestId,', intialServiceRequestId);
+    additionalServiceRequests.forEach((sr) => {
+      // confirm its indeed related to the repeat testing group
+      // tbh this check might be overkill - todo dicuss if necessary
+      const basedOn = sr.basedOn?.[0].reference?.replace('ServiceRequest/', '');
+      if (sr.id === intialServiceRequestId || (basedOn && basedOn === intialServiceRequestId)) {
+        srsRelatedToRepeat.push(sr);
+      }
+    });
+  }
+  return srsRelatedToRepeat;
+};
+
+export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {
+  const encounterId = parseEncounterId(serviceRequest);
+  if (!encounterId) return '';
+
+  const encounter = encounters.find((e) => e.id === encounterId);
+  return encounter?.appointment?.[0]?.reference?.split('/').pop() || '';
+};
+
+export const parseEncounterId = (serviceRequest: ServiceRequest): string => {
+  return serviceRequest.encounter?.reference?.split('/').pop() || '';
+};
+
+export const parseVisitDate = (appointment: Appointment | undefined): string => {
+  return appointment?.start || '';
+};
+
+export const parseOrderAddedDate = (serviceRequest: ServiceRequest, tasks: Task[]): string => {
+  // Use the first task's authoredOn date, or service request's authoredOn
+  const relatedTasks = tasks.filter((task) => taskIsBasedOnServiceRequest(task, serviceRequest));
+
+  const earliestTask = relatedTasks.sort(
+    (a, b) => compareDates(b.authoredOn, a.authoredOn) // reverse to get earliest
+  )[0];
+
+  return earliestTask?.authoredOn || serviceRequest.authoredOn || '';
+};
+
+export const parseResultsReceivedDate = (serviceRequest: ServiceRequest, tasks: Task[]): string | null => {
+  const relatedTasks = tasks.filter((task) => taskIsBasedOnServiceRequest(task, serviceRequest));
+
+  const latestTask = relatedTasks.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
+
+  return latestTask?.authoredOn || null;
+};
+
+export const parseAttendingPractitioner = (
+  encounter: Encounter | undefined,
+  practitioners: Practitioner[]
+): Practitioner | undefined => {
+  if (!encounter) return undefined;
+
+  const practitionerId = encounter.participant
+    ?.find(
+      (participant) =>
+        participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
+    )
+    ?.individual?.reference?.replace('Practitioner/', '');
+
+  if (!practitionerId) return undefined;
+
+  return practitioners.find((p) => p.id === practitionerId);
+};
+
+export const parseDiagnoses = (serviceRequest: ServiceRequest): DiagnosisDTO[] => {
+  if (!serviceRequest.reasonCode || serviceRequest.reasonCode.length === 0) {
+    return [];
+  }
+
+  return serviceRequest.reasonCode.map((reasonCode) => {
+    const coding = reasonCode.coding?.[0];
+    return {
+      code: coding?.code || '',
+      display: coding?.display || reasonCode.text || '',
+      system: coding?.system || '',
+      isPrimary: false,
+    };
+  });
+};
+
+export const parseSpecimenSource = (specimen: Specimen): unknown => {
+  return (
+    specimen.collection?.bodySite?.coding?.find((c) => c.system === 'https://hl7.org/fhir/R4B/valueset-body-site')
+      ?.display || 'Unknown'
+  );
+};
+
+export const parseSpecimenCollectedBy = (_specimen: Specimen): unknown => {
+  // todo: This would need to be implemented
+  return 'Staff';
+};
+
+export const mapProvenanceStatusToTestStatus = (provenanceStatus: any): TestStatus => {
+  // This mapping would depend on how provenance statuses map to TestStatus
+  // This is a placeholder implementation
+  switch (provenanceStatus) {
+    case 'ordered':
+      return 'ORDERED';
+    case 'collected':
+      return 'COLLECTED';
+    case 'final':
+      return 'FINAL';
+    default:
+      return 'ORDERED';
+  }
+};
+
+// Utility functions
+export const parsePaginationFromResponse = (data: {
+  total?: number;
+  link?: Array<{ relation: string; url: string }>;
+}): Pagination => {
+  if (!data || typeof data.total !== 'number' || !Array.isArray(data.link)) {
+    return EMPTY_PAGINATION;
+  }
+
+  const selfLink = data.link.find((link) => link && link.relation === 'self');
+
+  if (!selfLink || !selfLink.url) {
+    return EMPTY_PAGINATION;
+  }
+
+  const totalItems = data.total;
+  const selfUrl = new URL(selfLink.url);
+  const itemsPerPageStr = selfUrl.searchParams.get('_count');
+
+  if (!itemsPerPageStr) {
+    return EMPTY_PAGINATION;
+  }
+
+  const itemsPerPage = parseInt(itemsPerPageStr, 10);
+
+  if (!isPositiveNumberOrZero(itemsPerPage)) {
+    return EMPTY_PAGINATION;
+  }
+
+  const selfOffsetStr = selfUrl.searchParams.get('_offset');
+  const selfOffset = selfOffsetStr ? parseInt(selfOffsetStr, 10) : 0;
+  const currentPageIndex = !isNaN(selfOffset) ? Math.floor(selfOffset / itemsPerPage) : 0;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  return {
+    currentPageIndex,
+    totalItems,
+    totalPages,
+  };
+};
+
+export const mapResourcesFromBundleEntry = <T = Resource>(bundleEntry: BundleEntry<T>[] | undefined): T[] => {
+  return (bundleEntry || ([] as BundleEntry<T>[]))
+    .filter((entry) => entry.response?.status?.startsWith('2'))
+    .map((entry) => entry.resource)
+    .filter(Boolean) as T[];
 };

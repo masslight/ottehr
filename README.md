@@ -153,7 +153,7 @@ This repository uses a monorepo structure.
 - `apps` &mdash; Frontend web apps
   - intake &mdash; The patient's side
   - ehr &mdash; The provider's side
-- `packages/{ehr|intake}/zambdas` &mdash; The application's backend endpoints, deployed on [Oystehr Zambda](https://docs.oystehr.com/oystehr/services/zambda/).
+- `packages/zambdas` &mdash; The application's backend endpoints, deployed on [Oystehr Zambda](https://docs.oystehr.com/oystehr/services/zambda/).
 - `packages/{other folders}` &mdash; Other modules that are imported by apps like `utils`, `ui-components`
 
 ## Apps

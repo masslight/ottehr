@@ -24,7 +24,7 @@ import {
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { DateTime } from 'luxon';
-import { createLabResultPDF } from '../../shared/pdf/external-labs-results-form-pdf';
+import { createLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
 
@@ -98,7 +98,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }
     }
   } catch (error: any) {
-    console.error('Error updating lab order resource:', error);
+    console.error('Error updating external lab order resource:', error);
     await topLevelCatch('update-lab-order-resources', error, secrets);
     return {
       statusCode: 500,
@@ -237,7 +237,7 @@ const handleReviewedEvent = async ({
     requests,
   });
 
-  await createLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mtoken);
+  await createLabResultPDF(oystehr, 'external', serviceRequestId, diagnosticReport, true, secrets, m2mtoken);
 
   return updateTransactionRequest;
 };

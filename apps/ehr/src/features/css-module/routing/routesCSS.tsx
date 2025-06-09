@@ -3,6 +3,9 @@ import { AssessmentCard } from '../../../telemed/features/appointment/Assessment
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
 import { ExternalLabOrdersListPage } from '../../external-labs/pages/ExternalLabOrdersListPage';
 import { OrderDetailsPage } from '../../external-labs/pages/OrderDetails';
+import { CreateRadiologyOrder } from '../../radiology/pages/CreateRadiologyOrder';
+import { RadiologyOrderDetailsPage } from '../../radiology/pages/RadiologyOrderDetails';
+import { RadiologyOrdersListPage } from '../../radiology/pages/RadiologyOrdersListPage';
 import { RouteCSS } from '../context/NavigationContext';
 import { Allergies } from '../pages/Allergies';
 import { ERX } from '../pages/ERX';
@@ -13,18 +16,21 @@ import { InHouseOrderEdit } from '../pages/InHouseOrderEdit';
 import { InHouseOrderNew } from '../pages/InHouseOrderNew';
 import { MedicalConditions } from '../pages/MedicalConditions';
 import { Medications } from '../pages/Medications';
+import { OttehrAi } from '../pages/OttehrAi';
 import { PatientInfo } from '../pages/PatientInfo';
 import { PatientVitals } from '../pages/PatientVitals';
 import { Plan } from '../pages/Plan';
 import { ProgressNote } from '../pages/ProgressNote';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
-import { OttehrAi } from '../pages/OttehrAi';
 import Procedures from '../pages/Procedures';
 import ProceduresNew from '../pages/ProceduresNew';
 import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
 import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPage';
 import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
+import { NursingOrderCreatePage } from 'src/features/nursing-orders/pages/NursingOrderCreatePage';
+import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
+import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/NursingOrderDetailsPage';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',
@@ -49,6 +55,10 @@ export enum ROUTER_PATH {
   EXTERNAL_LAB_ORDER_CREATE = `external-lab-orders/create`,
   EXTERNAL_LAB_ORDER_DETAILS = `external-lab-orders/:serviceRequestID/order-details`,
 
+  RADIOLOGY_ORDER = 'radiology',
+  RADIOLOGY_ORDER_CREATE = `radiology/create`,
+  RADIOLOGY_ORDER_DETAILS = `radiology/:serviceRequestID/order-details`,
+
   PROCEDURES = 'procedures',
   PROCEDURES_NEW = 'procedures/new',
   PROCEDURES_EDIT = 'procedures/:procedureId',
@@ -56,6 +66,10 @@ export enum ROUTER_PATH {
   IN_HOUSE_LAB_ORDERS = 'in-house-lab-orders',
   IN_HOUSE_LAB_ORDER_CREATE = `in-house-lab-orders/create`,
   IN_HOUSE_LAB_ORDER_DETAILS = `in-house-lab-orders/:serviceRequestID/order-details`,
+
+  NURSING_ORDERS = 'nursing-orders',
+  NURSING_ORDER_CREATE = 'nursing-orders/create',
+  NURSING_ORDER_DETAILS = 'nursing-orders/:serviceRequestID/order-details',
 }
 
 export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
@@ -160,7 +174,7 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     path: ROUTER_PATH.EXTERNAL_LAB_ORDER,
     modes: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? ['provider', 'readonly'] : [],
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <ExternalLabOrdersListPage /> : null,
-    text: 'Labs',
+    text: 'External Labs',
     iconKey: 'External Labs',
   },
   [ROUTER_PATH.EXTERNAL_LAB_ORDER_CREATE]: {
@@ -178,6 +192,29 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: FEATURE_FLAGS.LAB_ORDERS_ENABLED ? <OrderDetailsPage /> : null,
     text: 'Order Details',
     iconKey: 'External Labs',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER,
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly'] : [],
+    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrdersListPage /> : null,
+    text: 'Radiology',
+    iconKey: 'Radiology',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER_CREATE]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER_CREATE,
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <CreateRadiologyOrder /> : null,
+    text: 'Radiology',
+    iconKey: 'Radiology',
+  },
+  [ROUTER_PATH.RADIOLOGY_ORDER_DETAILS]: {
+    path: ROUTER_PATH.RADIOLOGY_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.RADIOLOGY_ENABLED ? ['provider', 'readonly'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.RADIOLOGY_ENABLED ? <RadiologyOrderDetailsPage /> : null,
+    text: 'Radiology',
+    iconKey: 'Radiology',
   },
   [ROUTER_PATH.ERX]: {
     path: ROUTER_PATH.ERX,
@@ -231,6 +268,29 @@ export const routesCSS: Record<ROUTER_PATH, RouteCSS> = {
     element: FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED ? <InHouseLabTestDetailsPage /> : null,
     text: 'In-house Labs',
     iconKey: 'In-house Labs',
+  },
+  [ROUTER_PATH.NURSING_ORDERS]: {
+    path: ROUTER_PATH.NURSING_ORDERS,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider'] : [],
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrdersPage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
+  },
+  [ROUTER_PATH.NURSING_ORDER_CREATE]: {
+    path: ROUTER_PATH.NURSING_ORDER_CREATE,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderCreatePage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
+  },
+  [ROUTER_PATH.NURSING_ORDER_DETAILS]: {
+    path: ROUTER_PATH.NURSING_ORDER_DETAILS,
+    modes: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? ['provider'] : [],
+    isSkippedInNavigation: true,
+    element: FEATURE_FLAGS.NURSING_ORDERS_ENABLED ? <NursingOrderDetailsPage /> : null,
+    text: 'Nursing Orders',
+    iconKey: 'Nursing Orders',
   },
   [ROUTER_PATH.EXAMINATION]: {
     path: ROUTER_PATH.EXAMINATION,

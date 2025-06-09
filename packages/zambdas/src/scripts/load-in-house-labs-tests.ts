@@ -7,6 +7,7 @@ import {
   ObservationDefinitionQuantitativeDetails,
   ObservationDefinitionQualifiedInterval,
   Extension,
+  CodeableConcept,
 } from 'fhir/r4b';
 import fs from 'fs';
 import { getAuth0Token, createOystehrClient } from '../shared';
@@ -18,6 +19,7 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   OD_DISPLAY_CONFIG,
+  REPEATABLE_TEXT_EXTENSION_CONFIG,
 } from 'utils';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
@@ -35,12 +37,17 @@ const sanitizeForId = (str: string): string => {
   return str.replace(/[ ()\/\\]/g, '');
 };
 
+// why does TS not have a set difference method >:(
+const setDifference = <T>(a: Set<T>, b: Set<T>): Set<T> => {
+  return new Set([...a].filter((x) => !b.has(x)));
+};
+
 const makeValueSet = (
   itemName: string,
   values: string[],
-  isAbnormal: boolean
+  valueSetName: string
 ): { valueSetId: string; valueSet: ValueSet } => {
-  const valueSetId = `contained-${sanitizeForId(itemName)}-${isAbnormal ? 'abnormal' : 'normal'}-valueSet`;
+  const valueSetId = `contained-${sanitizeForId(itemName)}-${valueSetName.toLowerCase()}-valueSet`;
 
   const valueSet: ValueSet = {
     id: valueSetId,
@@ -66,22 +73,24 @@ const makeValueSet = (
   };
 };
 
+const makeUnitCoding = (unitStr: string): CodeableConcept => {
+  return {
+    coding: [
+      {
+        system: IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+        code: unitStr,
+      },
+    ],
+  };
+};
+
 const makeQuantitativeDetails = (item: QuantityTestItem | MixedComponent): ObservationDefinitionQuantitativeDetails => {
   if (!item.normalRange) {
     throw new Error(`Cannot make quantitativeDetails for ${JSON.stringify(item)}`);
   }
   return {
     decimalPrecision: item.normalRange.precision,
-    unit: item.normalRange.unit
-      ? {
-          coding: [
-            {
-              system: IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
-              code: item.normalRange.unit,
-            },
-          ],
-        }
-      : undefined,
+    unit: item.normalRange.unit ? makeUnitCoding(item.normalRange.unit) : undefined,
   };
 };
 
@@ -111,6 +120,25 @@ const makeObsDefExtension = (item: TestItem | MixedComponent): Extension[] => {
   }
 
   return extension;
+};
+
+const makeActivityDefinitionRepeatableExtension = (item: TestItem): Extension[] => {
+  const extension: Extension[] = [];
+  if (item.repeatTest) {
+    extension.push({
+      url: REPEATABLE_TEXT_EXTENSION_CONFIG.url,
+      valueString: REPEATABLE_TEXT_EXTENSION_CONFIG.valueString,
+    });
+  }
+
+  return extension;
+};
+
+const getUnitForCodeableConceptType = (item: TestItem | MixedComponent): CodeableConcept | undefined => {
+  if (item.dataType !== 'CodeableConcept') return undefined;
+  if (!item.unit) return undefined;
+
+  return makeUnitCoding(item.unit);
 };
 
 const getQuantityObservationDefinition = (
@@ -150,14 +178,23 @@ const getCodeableConceptObservationDefinition = (
     throw new Error('Cannot get codeable concept obs def from non-codeable concept test item');
   }
 
-  const { valueSetId: normalValueSetId, valueSet: normalValueSet } = makeValueSet(item.name, item.valueSet, false);
+  const { valueSetId: validValueSetId, valueSet: validValueSet } = makeValueSet(item.name, item.valueSet, 'valid');
   const { valueSetId: abnormalValueSetId, valueSet: abnormalValueSet } = makeValueSet(
     item.name,
     item.abnormalValues,
-    true
+    'abnormal'
   );
 
-  const containedItems: (ValueSet | ObservationDefinition)[] = [normalValueSet, abnormalValueSet];
+  // the normalValueSet will serve as the reference range
+  const validSet = new Set(item.valueSet);
+  const abnormalSet = new Set(item.abnormalValues);
+  const { valueSetId: refRangeValueSetId, valueSet: refRangeValueSet } = makeValueSet(
+    item.name,
+    [...setDifference(validSet, abnormalSet)],
+    'reference-range'
+  );
+
+  const containedItems: (ValueSet | ObservationDefinition)[] = [validValueSet, abnormalValueSet, refRangeValueSet];
 
   const obsDef: ObservationDefinition = {
     id: `contained-${sanitizeForId(item.name)}-codeableConcept-observationDef-id`,
@@ -173,14 +210,22 @@ const getCodeableConceptObservationDefinition = (
     permittedDataType: [item.dataType],
     validCodedValueSet: {
       type: 'ValueSet',
-      reference: `#${normalValueSetId}`,
+      reference: `#${validValueSetId}`,
     },
     abnormalCodedValueSet: {
       type: 'ValueSet',
       reference: `#${abnormalValueSetId}`,
     },
+    normalCodedValueSet: {
+      type: 'ValueSet',
+      reference: `#${refRangeValueSetId}`,
+    },
     extension: makeObsDefExtension(item),
   };
+
+  if (item.unit) {
+    obsDef.quantitativeDetails = { unit: getUnitForCodeableConceptType(item) };
+  }
 
   containedItems.push(obsDef);
 
@@ -219,29 +264,49 @@ const getComponentObservationDefinition = (
       );
     }
 
-    const { valueSetId: normalValueSetId, valueSet: normalValueSet } = makeValueSet(
+    const { valueSetId: validValueSetId, valueSet: validValueSet } = makeValueSet(
       componentName,
       item.valueSet,
-      false
+      'valid'
     );
 
     const { valueSetId: abnormalValueSetId, valueSet: abnormalValueSet } = makeValueSet(
       componentName,
       item.abnormalValues,
-      true
+      'abnormal'
+    );
+
+    // the normalValueSet will serve as the reference range
+    const validSet = new Set(item.valueSet);
+    const abnormalSet = new Set(item.abnormalValues);
+    const { valueSetId: refRangeValueSetId, valueSet: refRangeValueSet } = makeValueSet(
+      componentName,
+      [...setDifference(validSet, abnormalSet)],
+      'reference-range'
     );
 
     obsDef.validCodedValueSet = {
       type: 'ValueSet',
-      reference: `#${normalValueSetId}`,
+      reference: `#${validValueSetId}`,
     };
 
     obsDef.abnormalCodedValueSet = {
       type: 'ValueSet',
       reference: `#${abnormalValueSetId}`,
     };
+
+    obsDef.normalCodedValueSet = {
+      type: 'ValueSet',
+      reference: `#${refRangeValueSetId}`,
+    };
+
     obsDef.extension = makeObsDefExtension(item);
-    contained.push(normalValueSet, abnormalValueSet, obsDef);
+
+    if (item.unit) {
+      obsDef.quantitativeDetails = { unit: getUnitForCodeableConceptType(item) };
+    }
+
+    contained.push(validValueSet, abnormalValueSet, refRangeValueSet, obsDef);
   } else {
     if (!item.normalRange) {
       throw new Error(`No normalRange for quantity type component ${componentName} ${JSON.stringify(item)}`);
@@ -441,6 +506,7 @@ async function main(): Promise<void> {
           },
         ],
       },
+      extension: makeActivityDefinitionRepeatableExtension(testData),
     };
 
     activityDefinitions.push(activityDef);
@@ -487,6 +553,7 @@ interface MixedComponent {
   abnormalValues?: string[];
   normalRange?: QuantityRange;
   quantitativeReference?: Record<string, string>;
+  unit?: string;
 }
 
 interface componentDisplay {
@@ -501,7 +568,7 @@ interface BaseTestItem {
   device: string;
   cptCode: string[];
   loincCode: string[];
-  // repeatTest: boolean;
+  repeatTest: boolean;
   // if components are present this display will be defined there
   display?: componentDisplay;
   note?: string;
@@ -518,6 +585,7 @@ interface CodeableConceptTestItem extends BaseTestItem {
   dataType: 'CodeableConcept';
   valueSet: string[];
   abnormalValues: string[];
+  unit?: string;
 }
 
 interface QuantityTestItem extends BaseTestItem {
@@ -540,10 +608,10 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip)',
     cptCode: ['87880'],
     loincCode: ['78012-2'],
-    // repeatTest: true,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -559,10 +627,10 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87804'],
     loincCode: ['80382-5'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -578,10 +646,10 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87804'],
     loincCode: ['80381-7'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -597,10 +665,10 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87807'],
     loincCode: ['72885-7'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -616,10 +684,10 @@ const testItems: TestItemsType = {
     device: 'Strip Test (reagent strip) or Sofia (analyzer)',
     cptCode: ['87426'],
     loincCode: ['94558-4'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -634,10 +702,10 @@ const testItems: TestItemsType = {
     device: 'Sofia',
     cptCode: ['87428'],
     loincCode: ['80382-5', '94558-4'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -652,10 +720,10 @@ const testItems: TestItemsType = {
     device: '',
     cptCode: ['82270'],
     loincCode: ['50196-5'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -670,10 +738,10 @@ const testItems: TestItemsType = {
     device: 'Test well / tube',
     cptCode: ['86308'],
     loincCode: ['31418-7'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -688,7 +756,7 @@ const testItems: TestItemsType = {
     device: 'Glucometer brand unknown',
     cptCode: ['82962'],
     loincCode: ['32016-8'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'Quantity' as const,
     unit: 'mg/dL',
     normalRange: {
@@ -709,7 +777,7 @@ const testItems: TestItemsType = {
     device: 'Clinitek',
     cptCode: ['81003'],
     loincCode: ['24356-8'],
-    // repeatTest: true,
+    repeatTest: true,
     dataType: 'CodeableConcept' as const,
     valueSet: [], // empty value set, because the test itself has no values, only components
     abnormalValues: [],
@@ -717,8 +785,9 @@ const testItems: TestItemsType = {
       Glucose: {
         loincCode: ['2350-7'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
+        valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
+        unit: 'mg/dL',
         // currently quantitativeReference is not being mapped into the fhir resource
         // in the future, if we want we could map into the valueSet like "1+ 100 mg/dL" but not needed at the moment
         quantitativeReference: {
@@ -735,7 +804,7 @@ const testItems: TestItemsType = {
       Bilirubin: {
         loincCode: ['1977-8'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', '1+', '2+', '3+'],
+        valueSet: ['Not detected', '1+', '2+', '3+'],
         abnormalValues: ['1+', '2+', '3+'],
         quantitativeReference: {
           '1+': 'small',
@@ -749,8 +818,9 @@ const testItems: TestItemsType = {
       Ketone: {
         loincCode: ['49779-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
+        unit: 'mg/dL',
         quantitativeReference: {
           Trace: '5 mg/dL',
           Small: '15 mg/dL',
@@ -777,7 +847,7 @@ const testItems: TestItemsType = {
       Blood: {
         loincCode: ['105906-2'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         display: {
           type: 'Select',
@@ -799,8 +869,9 @@ const testItems: TestItemsType = {
       Protein: {
         loincCode: ['2888-6'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', '1+', '2+', '3+', '4+'],
+        valueSet: ['Not detected', 'Trace', '1+', '2+', '3+', '4+'],
         abnormalValues: ['Trace', '1+', '2+', '3+', '4+'],
+        unit: 'mg/dL',
         quantitativeReference: {
           Trace: '10 mg/dL',
           '1+': '30 mg/dL',
@@ -828,8 +899,8 @@ const testItems: TestItemsType = {
       Nitrite: {
         loincCode: ['32710-6'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Positive', 'Negative'],
-        abnormalValues: ['Positive'],
+        valueSet: ['Detected', 'Not detected'],
+        abnormalValues: ['Detected'],
         display: {
           type: 'Select',
         },
@@ -837,7 +908,7 @@ const testItems: TestItemsType = {
       Leukocytes: {
         loincCode: ['105105-1'],
         dataType: 'CodeableConcept' as const,
-        valueSet: ['Negative', 'Trace', 'Small', 'Moderate', 'Large'],
+        valueSet: ['Not detected', 'Trace', 'Small', 'Moderate', 'Large'],
         abnormalValues: ['Trace', 'Small', 'Moderate', 'Large'],
         display: {
           type: 'Select',
@@ -854,9 +925,9 @@ const testItems: TestItemsType = {
     device: 'Strip/stick',
     cptCode: ['81025'],
     loincCode: ['2106-3'],
-    // repeatTest: false,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
+    valueSet: ['Detected', 'Not detected'],
     abnormalValues: [], // empty array, because both results are normal in the context of the test
     display: {
       type: 'Radio',
@@ -872,10 +943,10 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87651'],
     loincCode: ['104724-0'],
-    // repeatTest: true,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -890,11 +961,11 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87501'],
     loincCode: ['104730-7'],
-    // repeatTest: true,
+    repeatTest: false,
     note: 'Same CPT as Flu B, same test sample/test as B, but separate result',
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -909,11 +980,11 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87501'],
     loincCode: ['106618-2'],
-    // repeatTest: true,
+    repeatTest: false,
     note: 'Same CPT as Flu A, same test sample/test as A, but separate result',
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -928,10 +999,10 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87634'],
     loincCode: ['33045-6', '31949-1'],
-    // repeatTest: true,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,
@@ -946,10 +1017,10 @@ const testItems: TestItemsType = {
     device: 'Abbot ID Now',
     cptCode: ['87635'],
     loincCode: ['96119-3'],
-    // repeatTest: true,
+    repeatTest: false,
     dataType: 'CodeableConcept' as const,
-    valueSet: ['Positive', 'Negative'],
-    abnormalValues: ['Positive'],
+    valueSet: ['Detected', 'Not detected'],
+    abnormalValues: ['Detected'],
     display: {
       type: 'Radio',
       nullOption: true,

@@ -2,13 +2,21 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Secrets,
   CreateInHouseLabOrderParameters,
-  PRACTITIONER_CODINGS,
   FHIR_IDC10_VALUESET_SYSTEM,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
-  IN_HOUSE_LAB_DOCREF_CATEGORY,
+  getFullestAvailableName,
+  IN_HOUSE_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken, createOystehrClient, getMyPractitionerId } from '../../shared';
+import {
+  ZambdaInput,
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getMyPractitionerId,
+  parseCreatedResourcesBundle,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   Account,
@@ -19,14 +27,15 @@ import {
   Location,
   ActivityDefinition,
   Provenance,
-  DocumentReference,
   Task,
   FhirResource,
+  Practitioner,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPrimaryInsurance } from '../shared/labs';
 import { BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
+import { getAttendingPractionerId } from '../shared/inhouse-labs';
 
 let m2mtoken: string;
 
@@ -55,9 +64,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
 
-    const { encounterId, testItem, cptCode: _cptCode, diagnoses, notes } = validatedParameters;
+    const {
+      encounterId,
+      testItem,
+      cptCode: cptCode,
+      diagnosesAll,
+      diagnosesNew,
+      isRepeatTest,
+      notes,
+    } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -111,16 +127,52 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         return await getMyPractitionerId(oystehrCurrentUser);
       } catch (e) {
         throw Error(
-          'Resource configuration error - user creating this lab order must have a Practitioner resource linked'
+          'Resource configuration error - user creating this in-house lab order must have a Practitioner resource linked'
         );
       }
     };
 
-    const [encounterResources, activeDefinitionResources, userPractitionerId] = await Promise.all([
-      encounterResourcesRequest(),
-      activeDefinitionRequest(),
-      userPractitionerIdRequest(),
-    ]);
+    const requests: any[] = [encounterResourcesRequest(), activeDefinitionRequest(), userPractitionerIdRequest()];
+
+    if (isRepeatTest) {
+      console.log('run as repeat for', cptCode, testItem.name);
+      // tests being run as repeat need to be linked via basedOn to the original test that was run
+      // so we are looking for a test with the same cptCode that does not have any value in basedOn - this will be the initialServiceRequest
+      const intialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
+        (
+          await oystehr.fhir.search({
+            resourceType: 'ServiceRequest',
+            params: [
+              {
+                name: 'encounter',
+                value: `Encounter/${encounterId}`,
+              },
+              {
+                name: 'code',
+                value: cptCode,
+              },
+              {
+                name: 'code',
+                value: testItem.name,
+              },
+            ],
+          })
+        ).unbundle() as ServiceRequest[];
+      requests.push(intialServiceRequestSearch());
+    }
+
+    const results = await Promise.all(requests);
+    const [
+      encounterResources,
+      activeDefinitionResources,
+      userPractitionerId,
+      initialServiceRequestResources, // only exists if runAsRepeat is true
+    ] = results as [
+      (Encounter | Patient | Location | Coverage | Account)[],
+      ActivityDefinition[],
+      string,
+      ServiceRequest[]?,
+    ];
 
     const {
       encounterSearchResults,
@@ -154,7 +206,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const activityDefinition = (() => {
       if (activeDefinitionResources.length !== 1) {
         throw Error(
-          `ActivityDefinition not found, results contain ${activeDefinitionResources.length} activity definitions`
+          `ActivityDefinition not found, results contain ${
+            activeDefinitionResources.length
+          } activity definitions, ids: ${activeDefinitionResources
+            .map((resource) => `ActivityDefinition/${resource.id}`)
+            .join(', ')}`
         );
       }
 
@@ -189,19 +245,46 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return accountSearchResults[0];
     })();
 
-    const attendingPractitionerId = (() => {
-      const practitionerId = encounter.participant
-        ?.find(
-          (participant) =>
-            participant.type?.find(
-              (type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system)
-            )
-        )
-        ?.individual?.reference?.replace('Practitioner/', '');
-
-      if (!practitionerId) throw Error('Attending practitioner not found');
-      return practitionerId;
+    const initialServiceRequest = (() => {
+      if (isRepeatTest) {
+        if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
+          throw IN_HOUSE_LAB_ERROR(
+            'You cannot run this as repeat, no initial tests could be found for this encounter.'
+          );
+        }
+        const possibleInitialSRs = initialServiceRequestResources.reduce((acc: ServiceRequest[], sr) => {
+          if (!sr.basedOn) acc.push(sr);
+          return acc;
+        }, []);
+        if (possibleInitialSRs.length > 1) {
+          throw new Error('More than one initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+        }
+        if (possibleInitialSRs.length === 0) {
+          throw new Error('No initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+        }
+        const initialSR = possibleInitialSRs[0];
+        return initialSR;
+      }
+      return;
     })();
+
+    const attendingPractitionerId = getAttendingPractionerId(encounter);
+
+    const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
+      oystehrCurrentUser.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: userPractitionerId,
+      }),
+      oystehrCurrentUser.fhir.get<Practitioner>({
+        resourceType: 'Practitioner',
+        id: attendingPractitionerId,
+      }),
+    ]).then(([currentUserPractitioner, attendingPractitioner]) => {
+      return {
+        currentUserPractitionerName: getFullestAvailableName(currentUserPractitioner),
+        attendingPractitionerName: getFullestAvailableName(attendingPractitioner),
+      };
+    });
 
     const coverage = getPrimaryInsurance(account, coverageSearchResults);
 
@@ -228,7 +311,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: activityDefinition.code?.coding,
         text: activityDefinition.name,
       },
-      reasonCode: diagnoses.map((diagnosis) => {
+      reasonCode: [...diagnosesAll].map((diagnosis) => {
         return {
           coding: [
             {
@@ -252,6 +335,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
       instantiatesCanonical: [`${activityDefinition.url}`], // todo in the future - we should add |${activityDefinition.version}
     };
+    // if an initialServiceRequest is defined, the test being ordered is repeat and should be linked to the
+    // original test represented by initialServiceRequest
+    if (initialServiceRequest) {
+      serviceRequestConfig.basedOn = [
+        {
+          reference: `ServiceRequest/${initialServiceRequest.id}`,
+        },
+      ];
+    }
 
     const taskConfig: Task = {
       resourceType: 'Task',
@@ -281,45 +373,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       recorded: DateTime.now().toISO(),
       agent: [
         {
-          who: { reference: `Practitioner/${userPractitionerId}` },
-          onBehalfOf: { reference: `Practitioner/${attendingPractitionerId}` },
-        },
-      ],
-    };
-
-    const documentReferenceConfig: DocumentReference = {
-      resourceType: 'DocumentReference',
-      context: {
-        related: [{ reference: serviceRequestFullUrl }],
-      },
-      // todo: will be implemented later - https://github.com/masslight/ottehr/issues/2152
-      content: [
-        {
-          attachment: {
-            contentType: 'text/plain',
-            data: Buffer.from(
-              'Placeholder for future content https://github.com/masslight/ottehr/issues/2152'
-            ).toString('base64'),
+          who: {
+            reference: `Practitioner/${userPractitionerId}`,
+            display: currentUserPractitionerName,
           },
-        },
-      ],
-      date: DateTime.now().toISO(),
-      status: 'current',
-      docStatus: 'final',
-      category: [
-        {
-          coding: [
-            {
-              // todo: check is it valid?
-              system: IN_HOUSE_LAB_DOCREF_CATEGORY.system,
-              code: IN_HOUSE_LAB_DOCREF_CATEGORY.code.sampleLabel,
-            },
-            {
-              // todo: check is it valid?
-              system: IN_HOUSE_LAB_DOCREF_CATEGORY.system,
-              code: IN_HOUSE_LAB_DOCREF_CATEGORY.code.resultForm,
-            },
-          ],
+          onBehalfOf: {
+            reference: `Practitioner/${attendingPractitionerId}`,
+            display: attendingPractitionerName,
+          },
         },
       ],
     };
@@ -342,38 +403,48 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           url: '/Provenance',
           resource: provenanceConfig,
         },
-        {
-          method: 'POST',
-          url: '/DocumentReference',
-          resource: documentReferenceConfig,
-        },
       ] as BatchInputRequest<FhirResource>[],
     });
+
+    const resources = parseCreatedResourcesBundle(transactionResponse);
+    const newServiceRequest = resources.find((r) => r.resourceType === 'ServiceRequest');
 
     if (!transactionResponse.entry?.every((entry) => entry.response?.status[0] === '2')) {
       throw Error('Error creating in-house lab order in transaction');
     }
 
-    const saveChartDataResponse = await oystehrCurrentUser.zambda.execute({
-      id: 'save-chart-data',
-      encounterId,
-      diagnosis: diagnoses,
-    });
+    const saveChartDataResponse = diagnosesNew.length
+      ? await oystehrCurrentUser.zambda.execute({
+          id: 'save-chart-data',
+          encounterId,
+          diagnosis: diagnosesNew,
+        })
+      : {};
+
+    const response = {
+      transactionResponse,
+      saveChartDataResponse,
+      ...(newServiceRequest && { serviceRequestId: newServiceRequest.id }),
+    };
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        transactionResponse,
-        saveChartDataResponse,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.error('Error creating in-house lab order:', JSON.stringify(error));
+    console.error('Error creating in-house lab order:', JSON.stringify(error), error);
+    let body = JSON.stringify({ message: `Error creating in-house lab order: ${error.message || error}` });
+    let statusCode = 500;
+
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+      statusCode = 400;
+    }
+
     return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
+      statusCode,
+      body,
     };
   }
 };

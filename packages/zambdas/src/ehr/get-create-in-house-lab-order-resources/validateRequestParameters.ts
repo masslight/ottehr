@@ -19,8 +19,8 @@ export function validateRequestParameters(
     throw Error('Invalid JSON in request body');
   }
 
-  if (!params.encounterId) {
-    throw Error('Encounter ID is required');
+  if (params.encounterId && typeof params.encounterId !== 'string') {
+    throw Error('Encounter ID must be a string');
   }
 
   return { userToken, secrets, ...params };

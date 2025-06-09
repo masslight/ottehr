@@ -443,7 +443,7 @@ export default function AddPatient(): JSX.Element {
                           variant="h4"
                           sx={{ fontWeight: '600 !important', color: theme.palette.primary.main, marginBottom: '4px' }}
                         >
-                          Select an Existing QRS Patient
+                          Select an Existing Patient
                         </Typography>
                       </Box>
                       <Box>
@@ -492,7 +492,7 @@ export default function AddPatient(): JSX.Element {
                             setOpenSearchResults(false);
                           }}
                         >
-                          Patient Not Found in QRS - Add Manually
+                          Patient Not Found - Add Manually
                         </Button>
                       </Box>
                     </Box>

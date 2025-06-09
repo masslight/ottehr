@@ -12,6 +12,8 @@ import {
   getPatientFirstName,
   getPatientLastName,
   isPSCOrder,
+  getTimezone,
+  allLicensesForPractitioner,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -20,7 +22,7 @@ import { Coverage, FhirResource, Location, Organization, Patient, Provenance, Se
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
-import { makeLabPdfDocumentReference } from '../../shared/pdf/external-labs-results-form-pdf';
+import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
 import { getLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
@@ -29,6 +31,7 @@ import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../share
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
+export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -55,7 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounter,
       organization: labOrganization,
       specimens,
-    } = await getLabOrderResources(oystehr, serviceRequestID);
+    } = await getLabOrderResources(oystehr, 'external', serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
@@ -143,6 +146,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
+    let timezone = undefined;
+    if (location) {
+      timezone = getTimezone(location);
+    }
     const sampleCollectionDates: DateTime[] = [];
 
     const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
@@ -339,7 +346,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ?.value;
 
     const orderCreateDate = serviceRequest.authoredOn
-      ? DateTime.fromISO(serviceRequest.authoredOn).toFormat('MM/dd/yyyy hh:mm a')
+      ? DateTime.fromISO(serviceRequest.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
       : undefined;
 
     const ORDER_ITEM_UNKNOWN = 'UNKNOWN';
@@ -351,6 +358,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
+    const allPractitionerLicenses = allLicensesForPractitioner(provider);
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -360,12 +368,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationZip: location?.address?.postalCode,
         locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
-        labOrganizationName: labOrganization.name || ORDER_ITEM_UNKNOWN,
+        labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
+        serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
-        providerTitle:
-          provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') ||
-          ORDER_ITEM_UNKNOWN,
+        // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
+        providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',
         providerNPI: 'test',
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
@@ -377,10 +385,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         patientId: patient.id,
         patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_ITEM_UNKNOWN,
         patientPhone: patient.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_ITEM_UNKNOWN,
-        todayDate: now.toFormat('MM/dd/yy hh:mm a'),
-        orderSubmitDate: now.toFormat('MM/dd/yy hh:mm a'),
+        todayDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
+        orderSubmitDate: now.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT),
         orderCreateDate: orderCreateDate || ORDER_ITEM_UNKNOWN,
-        sampleCollectionDate: mostRecentSampleCollectionDate?.toFormat('MM/dd/yy hh:mm a') || undefined,
+        sampleCollectionDate:
+          mostRecentSampleCollectionDate?.setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT) || undefined,
         primaryInsuranceName: organization?.name,
         primaryInsuranceAddress: organization?.address
           ? oystehr.fhir.formatAddress(organization.address?.[0])
@@ -443,9 +452,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log(error);
-    console.log('submit lab order error:', JSON.stringify(error));
+    console.log('submit external lab order error:', JSON.stringify(error));
     await topLevelCatch('admin-submit-lab-order', error, input.secrets);
-    let body = JSON.stringify({ message: 'Error submitting a lab order' });
+    let body = JSON.stringify({ message: 'Error submitting external lab order' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
       body = JSON.stringify({ message, code });

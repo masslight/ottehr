@@ -1,6 +1,5 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import { CircularProgress, Typography } from '@mui/material';
-import { FC, useEffect, useMemo, useState } from 'react';
+import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, generatePath, useLocation, useOutletContext, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig } from 'ui-components';
@@ -97,8 +96,7 @@ interface BookAppointmentContext
   endISO: string;
   waitingMinutes: number | undefined;
   patientsLoading: boolean;
-  bookingGroupId?: string;
-  bookingGroupSlug?: string;
+  originalBookingUrl?: string;
 }
 
 export const useBookingContext = (): BookAppointmentContext => {
@@ -117,21 +115,15 @@ const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): bool
 };
 
 const BookingHome: FC = () => {
-  const {
-    patientInfo,
-    unconfirmedDateOfBirth,
-    setPatientInfo,
-    setUnconfirmedDateOfBirth,
-    completeBooking,
-    handleLogout,
-  } = getSelectors(useBookingStore, [
-    'patientInfo',
-    'unconfirmedDateOfBirth',
-    'setPatientInfo',
-    'setUnconfirmedDateOfBirth',
-    'completeBooking',
-    'handleLogout',
-  ]);
+  const { patientInfo, unconfirmedDateOfBirth, setPatientInfo, setUnconfirmedDateOfBirth, completeBooking } =
+    getSelectors(useBookingStore, [
+      'patientInfo',
+      'unconfirmedDateOfBirth',
+      'setPatientInfo',
+      'setUnconfirmedDateOfBirth',
+      'completeBooking',
+      'handleLogout',
+    ]);
   const { [BOOKING_SLOT_ID_PARAM]: slotIdParam } = useParams();
 
   const { pathname } = useLocation();
@@ -140,7 +132,7 @@ const BookingHome: FC = () => {
   const tokenfulZambdaClient = useUCZambdaClient({ tokenless: false });
   const [pageNotFound, _setPageNotFound] = useState(false);
   const [errorConfig, setErrorConfig] = useState<ErrorDialogConfig | undefined>(undefined);
-  const { isAuthenticated, isLoading: authIsLoading } = useAuth0();
+  // const { isAuthenticated, isLoading: authIsLoading } = useAuth0();
   const { t } = useTranslation();
 
   const {
@@ -186,7 +178,7 @@ const BookingHome: FC = () => {
       onSuccess: (response) => {
         console.log('get patients response:', response);
       },
-      enabled: Boolean(tokenfulZambdaClient) && isAuthenticated && !authIsLoading,
+      enabled: Boolean(tokenfulZambdaClient),
     }
   );
 
@@ -216,8 +208,7 @@ const BookingHome: FC = () => {
       ownerName,
       ownerType,
       ownerId,
-      bookingGroupId,
-      bookingGroupSlug,
+      originalBookingUrl,
     } = slotDetailsData;
     let scheduleOwnerType = 'Location';
     if (ownerType === 'Practitioner') {
@@ -242,8 +233,7 @@ const BookingHome: FC = () => {
       scheduleOwnerName: ownerName,
       scheduleOwnerType,
       scheduleOwnerId: ownerId,
-      bookingGroupId,
-      bookingGroupSlug,
+      originalBookingUrl,
       setPatientInfo,
       setUnconfirmedDateOfBirth,
       completeBooking,
@@ -258,12 +248,6 @@ const BookingHome: FC = () => {
     setUnconfirmedDateOfBirth,
     completeBooking,
   ]);
-
-  useEffect(() => {
-    if (!isAuthenticated && !authIsLoading) {
-      handleLogout();
-    }
-  }, [authIsLoading, handleLogout, isAuthenticated]);
 
   // console.log('outlet context in root', outletContext);
 

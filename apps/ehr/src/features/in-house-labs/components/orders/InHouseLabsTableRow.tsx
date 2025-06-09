@@ -1,72 +1,42 @@
 import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Typography, Tooltip, useTheme, Chip } from '@mui/material';
-import { LabOrderListPageDTO } from 'utils/lib/types/data/labs';
+import { TableCell, TableRow, Box, Typography, Tooltip, useTheme, Button } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { InHouseLabsTableColumn } from './InHouseLabsTable';
-import { DateTime } from 'luxon';
+import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
+import { otherColors } from '@theme/colors';
+import { InHouseOrderListPageItemDTO, formatDateForLabs } from 'utils';
 
 interface InHouseLabsTableRowProps {
   columns: InHouseLabsTableColumn[];
-  labOrderData: LabOrderListPageDTO;
+  labOrderData: InHouseOrderListPageItemDTO;
   onRowClick?: () => void;
   allowDelete?: boolean;
+  onDeleteOrder?: () => void;
 }
 
-export const InHouseLabsTableRow = ({ labOrderData, columns, onRowClick }: InHouseLabsTableRowProps): ReactElement => {
+export const InHouseLabsTableRow = ({
+  labOrderData,
+  columns,
+  onRowClick,
+  allowDelete,
+  onDeleteOrder,
+}: InHouseLabsTableRowProps): ReactElement => {
   const theme = useTheme();
-
-  const formatDate = (datetime: string): string => {
-    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(labOrderData.encounterTimezone).toFormat('MM/dd/yyyy hh:mm a');
-  };
-
-  const getStatusChip = (status: string): ReactElement => {
-    let color = 'default';
-    let label = status;
-
-    switch (status.toLowerCase()) {
-      case 'final':
-        color = 'primary';
-        label = 'FINAL';
-        break;
-      case 'collected':
-      case 'preliminary':
-        color = 'warning';
-        label = 'COLLECTED';
-        break;
-      default:
-        color = 'secondary';
-        label = 'COLLECTED';
-    }
-
-    return (
-      <Chip
-        label={label}
-        color={color as any}
-        size="small"
-        sx={{
-          borderRadius: '4px',
-          fontWeight: 'bold',
-          backgroundColor: color === 'primary' ? '#e6f4ff' : '#e8deff',
-          color: color === 'primary' ? '#1976d2' : '#5e35b1',
-        }}
-      />
-    );
-  };
 
   const renderCellContent = (column: InHouseLabsTableColumn): React.ReactNode => {
     switch (column) {
       case 'testType':
         return (
           <Box>
-            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.testItem}</Box>
+            <Box sx={{ fontWeight: 'bold' }}>{labOrderData.testItemName}</Box>
           </Box>
         );
       case 'visit':
-        return <Box>{formatDate(labOrderData.visitDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.visitDate, labOrderData.timezone)}</Box>;
       case 'orderAdded':
-        return <Box>{formatDate(labOrderData.orderAddedDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.timezone)}</Box>;
       case 'provider':
-        return labOrderData.orderingPhysician || '';
+        return labOrderData.orderingPhysicianFullName || '';
       case 'dx': {
         const firstDx = labOrderData.diagnosesDTO[0]?.display || '';
         const firstDxCode = labOrderData.diagnosesDTO[0]?.code || '';
@@ -86,9 +56,28 @@ export const InHouseLabsTableRow = ({ labOrderData, columns, onRowClick }: InHou
         return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <Box>{formatDate(labOrderData.lastResultReceivedDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.resultReceivedDate || '-', labOrderData.timezone)}</Box>;
       case 'status':
-        return getStatusChip(labOrderData.orderStatus);
+        return <InHouseLabsStatusChip status={labOrderData.status} />;
+      case 'actions':
+        if (allowDelete && labOrderData.status === 'ORDERED') {
+          return (
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeleteOrder?.();
+              }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 28,
+                fontWeight: 'bold',
+              }}
+            >
+              <DeleteIcon sx={{ color: otherColors.priorityHighText }} />
+            </Button>
+          );
+        }
+        return null;
       default:
         return null;
     }

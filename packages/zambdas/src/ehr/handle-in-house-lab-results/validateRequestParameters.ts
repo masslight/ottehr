@@ -19,7 +19,7 @@ export function validateRequestParameters(
   if (!data) missingResources.push('data');
   if (missingResources.length) {
     // throw MISSING_REQUIRED_PARAMETERS(missingResources);
-    new Error(`missing resources: ${missingResources.join(',')}`);
+    throw new Error(`missing resources: ${missingResources.join(',')}`);
   }
 
   return { userToken, secrets, serviceRequestId, data };

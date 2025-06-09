@@ -15,6 +15,7 @@ import {
   IconButton,
   TextField,
   InputAdornment,
+  Autocomplete,
 } from '@mui/material';
 import ClearIcon from '@mui/icons-material/Clear';
 import SearchIcon from '@mui/icons-material/Search';
@@ -24,10 +25,13 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderListPageDTO, LabOrdersSearchBy } from 'utils/lib/types/data/labs';
+import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
 import { DateTime } from 'luxon';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { useAppointmentStore } from 'src/telemed';
+import { InHouseOrderListPageItemDTO, TestItem } from 'utils';
+import { getCreateInHouseLabOrderResources } from 'src/api/api';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { DropdownPlaceholder } from 'src/features/common/DropdownPlaceholder';
 
 export type InHouseLabsTableColumn =
   | 'testType'
@@ -36,7 +40,8 @@ export type InHouseLabsTableColumn =
   | 'provider'
   | 'dx'
   | 'resultsReceived'
-  | 'status';
+  | 'status'
+  | 'actions';
 
 type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   searchBy: SearchBy;
@@ -44,8 +49,7 @@ type InHouseLabsTableProps<SearchBy extends LabOrdersSearchBy> = {
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
-  onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
+  onCreateOrder?: () => void;
 };
 
 export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
@@ -54,72 +58,75 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
   showFilters = false,
   allowDelete = false,
   titleText,
-  redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: InHouseLabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
-  const appointmentId = useAppointmentStore((state) => state.appointment?.id);
 
   const {
     labOrders,
     loading,
     totalPages,
     page,
-    setPage,
-    setTestTypeFilter,
+    setSearchParams,
     visitDateFilter,
-    setVisitDateFilter,
     showPagination,
     error,
+    showDeleteLabOrderDialog,
+    DeleteOrderDialog,
   } = useInHouseLabOrders(searchBy);
 
   const [testTypeQuery, setTestTypeQuery] = useState<string>('');
   const [tempDateFilter, setTempDateFilter] = useState<DateTime | null>(visitDateFilter);
 
-  const submitFilterByDate = (): void => {
-    setVisitDateFilter(tempDateFilter);
+  const [availableTests, setAvailableTests] = useState<TestItem[]>([]);
+  const [loadingTests, setLoadingTests] = useState(false);
+
+  const { oystehrZambda } = useApiClients();
+
+  // set data for filters
+  useEffect(() => {
+    if (!oystehrZambda || !showFilters) {
+      return;
+    }
+
+    const fetchTests = async (): Promise<void> => {
+      try {
+        setLoadingTests(true);
+        const response = await getCreateInHouseLabOrderResources(oystehrZambda, {});
+        const testItems = response.labs || [];
+        setAvailableTests(testItems.sort((a, b) => a.name.localeCompare(b.name)));
+      } catch (error) {
+        console.error('Error fetching tests:', error);
+      } finally {
+        setLoadingTests(false);
+      }
+    };
+
+    void fetchTests();
+  }, [oystehrZambda, showFilters]);
+
+  const submitFilterByDate = (date?: DateTime | null): void => {
+    const dateToSet = date || tempDateFilter;
+    setSearchParams({ pageNumber: 1, visitDateFilter: dateToSet });
   };
 
   const handleClearDate = (): void => {
     setTempDateFilter(null);
-    setVisitDateFilter(null);
+    setSearchParams({ pageNumber: 1, visitDateFilter: null });
   };
 
-  const handleTestTypeSearch = (): void => {
-    setTestTypeFilter(testTypeQuery);
-  };
-
-  const handleClearTestType = (): void => {
-    setTestTypeQuery('');
-    setTestTypeFilter('');
-  };
-
-  const onRowClick = (labOrderData: LabOrderListPageDTO): void => {
-    if (!appointmentId) {
-      return;
-    }
-    navigateTo(getInHouseLabOrderDetailsUrl(appointmentId, labOrderData.serviceRequestId));
+  const onRowClick = (labOrderData: InHouseOrderListPageItemDTO): void => {
+    navigateTo(getInHouseLabOrderDetailsUrl(labOrderData.appointmentId, labOrderData.serviceRequestId));
   };
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
-    setPage(value);
+    setSearchParams({ pageNumber: value });
   };
-
-  // Redirect to create order page if needed
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && labOrders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder({ isAutoRedirected: true });
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, labOrders.length, error, onCreateOrder]);
 
   if (loading) {
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
-        <Typography variant="body1">Loading lab orders...</Typography>
+        <Typography variant="body1">Loading In-house Lab Orders...</Typography>
       </Paper>
     );
   }
@@ -128,11 +135,11 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
     return (
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <Typography color="error" variant="body1" gutterBottom>
-          {error.message || 'Failed to fetch lab orders. Please try again later.'}
+          {error.message || 'Failed to fetch In-house Lab Orders. Please try again later.'}
         </Typography>
         {onCreateOrder && (
           <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-            Create New Lab Order
+            Create New In-house Lab Order
           </Button>
         )}
       </Paper>
@@ -155,6 +162,8 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         return '12%';
       case 'status':
         return '8%';
+      case 'actions':
+        return '5%';
       default:
         return '10%';
     }
@@ -199,7 +208,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
           color="primary.dark"
           sx={{ mb: -2, mt: 2, width: '100%', display: 'flex', justifyContent: 'flex-start' }}
         >
-          Labs
+          {titleText}
         </Typography>
       )}
 
@@ -208,32 +217,43 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4}>
-                <TextField
-                  label="Test type"
-                  value={testTypeQuery}
-                  onChange={(e) => setTestTypeQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleTestTypeSearch();
-                    }
-                  }}
-                  fullWidth
-                  size="small"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                    endAdornment: testTypeQuery && (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={handleClearTestType} edge="end">
-                          <ClearIcon fontSize="small" />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
+                {availableTests.length ? (
+                  <Autocomplete
+                    size="small"
+                    fullWidth
+                    loading={loadingTests}
+                    options={availableTests}
+                    getOptionLabel={(option) => option.name}
+                    value={availableTests.find((test) => test.name === testTypeQuery) || null}
+                    onChange={(_, newValue) => {
+                      setTestTypeQuery(newValue?.name || '');
+                      setSearchParams({ pageNumber: 1, testTypeFilter: newValue?.name || '' });
+                    }}
+                    inputValue={testTypeQuery}
+                    onInputChange={(_, newInputValue) => {
+                      setTestTypeQuery(newInputValue);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Test type"
+                        InputProps={{
+                          ...params.InputProps,
+                          startAdornment: (
+                            <>
+                              <InputAdornment position="start">
+                                <SearchIcon />
+                              </InputAdornment>
+                              {params.InputProps.startAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                ) : (
+                  <DropdownPlaceholder />
+                )}
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
@@ -245,7 +265,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                   slotProps={{
                     textField: (params) => ({
                       ...params,
-                      onBlur: submitFilterByDate,
+                      onBlur: () => submitFilterByDate(),
                       fullWidth: true,
                       size: 'small',
                       InputProps: {
@@ -272,11 +292,11 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         {!Array.isArray(labOrders) || labOrders.length === 0 ? (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body1" gutterBottom>
-              No lab orders to display
+              No In-house Lab Orders to display
             </Typography>
             {onCreateOrder && (
               <Button variant="contained" onClick={() => onCreateOrder()} sx={{ mt: 2 }}>
-                Create New Lab Order
+                Create New In-house Lab Order
               </Button>
             )}
           </Box>
@@ -308,6 +328,12 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
                     onRowClick={() => onRowClick(order)}
                     columns={columns}
                     allowDelete={allowDelete}
+                    onDeleteOrder={() =>
+                      showDeleteLabOrderDialog({
+                        serviceRequestId: order.serviceRequestId,
+                        testItemName: order.testItemName,
+                      })
+                    }
                   />
                 ))}
               </TableBody>
@@ -316,7 +342,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
         )}
 
         {showPagination && totalPages > 1 && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, width: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 2, width: '100%' }}>
             <Pagination
               count={totalPages}
               page={page}
@@ -333,6 +359,7 @@ export const InHouseLabsTable = <SearchBy extends LabOrdersSearchBy>({
           </Box>
         )}
       </Box>
+      {DeleteOrderDialog}
     </Paper>
   );
 };
