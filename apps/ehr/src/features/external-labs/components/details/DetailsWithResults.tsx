@@ -8,7 +8,7 @@ import { OrderCollection } from '../OrderCollection';
 
 export const DetailsWithResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
   loading: boolean;
 }> = ({ labOrder, markTaskAsReviewed, loading }) => {
   const navigate = useNavigate();
@@ -32,6 +32,7 @@ export const DetailsWithResults: React.FC<{
               taskId: result.taskId,
               serviceRequestId: labOrder.serviceRequestId,
               diagnosticReportId: result.diagnosticReportId,
+              appointmentId: labOrder.appointmentId,
             })
           }
           resultDetails={result}
