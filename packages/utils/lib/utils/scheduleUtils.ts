@@ -7,7 +7,6 @@ import {
   Location,
   LocationHoursOfOperation,
   Practitioner,
-  Resource,
   Schedule,
   Slot,
 } from 'fhir/r4b';
