@@ -51,6 +51,7 @@ import {
   TIME_SPENT_VALUE_SET_URL,
   getVisitStatus,
   TelemedAppointmentStatusEnum,
+  PROCEDURE_TYPE_CPT_EXTENSION_URL,
 } from 'utils';
 import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -90,7 +91,7 @@ const OTHER = 'Other';
   'Nasal Lavage (schnozzle)',
   'EKG',
 ];*/
-const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
+/*const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
   'Nebulizer Treatment (e.g., Albuterol)': {
     code: '94640',
     display:
@@ -122,7 +123,7 @@ const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
     display:
       'Therapeutic, prophylactic, or diagnostic injection (specify substance or drug); subcutaneous or intramuscular',
   },
-};
+};*/
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
 //const MEDICATIONS_USED = ['None', 'Topical', 'Local', 'Oral', 'IV', 'IM'];
 //const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', OTHER];
@@ -162,8 +163,16 @@ interface PageState {
   documentedBy?: string;
 }
 
+interface ProcedureType {
+  name: string;
+  cpt?: {
+    code: string;
+    display: string;
+  };
+}
+
 interface SelectOptions {
-  procedureTypes: string[];
+  procedureTypes: ProcedureType[];
   medicationsUsed: string[];
   bodySites: string[];
   bodySides: string[];
@@ -557,14 +566,20 @@ export default function ProceduresNew(): ReactElement {
             <Typography style={{ marginTop: '16px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Procedure Type & CPT Code
             </Typography>
-            {dropdown('Procedure type', selectOptions?.procedureTypes, state.procedureType, (value, state) => {
-              state.procedureType = value;
-              if (PRE_POPULATED_CPT_CODE[value] != null) {
-                state.cptCodes = [PRE_POPULATED_CPT_CODE[value]];
-              } else {
-                state.cptCodes = [];
+            {dropdown(
+              'Procedure type',
+              selectOptions?.procedureTypes.map((procedureType) => procedureType.name),
+              state.procedureType,
+              (value, state) => {
+                state.procedureType = value;
+                const cpt = selectOptions?.procedureTypes.find((procedureType) => procedureType.name === value)?.cpt;
+                if (cpt != null) {
+                  state.cptCodes = [cpt];
+                } else {
+                  state.cptCodes = [];
+                }
               }
-            })}
+            )}
             {cptWidget()}
             <Typography style={{ marginTop: '8px', color: '#0F347C', fontSize: '16px', fontWeight: '500' }}>
               Dx
@@ -761,7 +776,7 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
         })
       ).unbundle();
       return {
-        procedureTypes: getValueSetValues(PROCEDURE_TYPES_VALUE_SET_URL, valueSets),
+        procedureTypes: getProcedureTypes(valueSets),
         medicationsUsed: getValueSetValues(MEDICATIONS_USED_VALUE_SET_URL, valueSets),
         bodySites: getValueSetValues(BODY_SITES_VALUE_SET_URL, valueSets),
         bodySides: getValueSetValues(BODY_SIDES_VALUE_SET_URL, valueSets),
@@ -788,4 +803,24 @@ function getValueSetValues(identifierSystem: string, valueSets: ValueSet[] | und
     (valueSet) => valueSet.identifier?.find((identifier) => identifier.system === identifierSystem) != null
   );
   return valueSet?.expansion?.contains?.flatMap((item) => (item.display != null ? [item.display] : [])) ?? [];
+}
+
+function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
+  const valueSet = valueSets?.find(
+    (valueSet) => valueSet.identifier?.find((identifier) => identifier.system === PROCEDURE_TYPES_VALUE_SET_URL) != null
+  );
+  return (
+    valueSet?.expansion?.contains?.flatMap((item) => {
+      const name = item.display;
+      if (name == null) {
+        return [];
+      }
+      const cptCodeableConcept = item.extension?.find((extension) => extension.url === PROCEDURE_TYPE_CPT_EXTENSION_URL)
+        ?.valueCodeableConcept;
+      const cptCode = cptCodeableConcept?.coding?.[0].code;
+      const cptDisplay = cptCodeableConcept?.coding?.[0].display;
+      const cpt = cptCode != null && cptDisplay != null ? { code: cptCode, display: cptDisplay } : undefined;
+      return [{ name, cpt }];
+    }) ?? []
+  );
 }

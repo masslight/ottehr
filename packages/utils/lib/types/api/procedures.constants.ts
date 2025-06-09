@@ -9,3 +9,4 @@ export const PATIENT_RESPONSES_VALUE_SET_URL = 'https://ottehr.com/FHIR/ValueSet
 export const POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL =
   'https://ottehr.com/FHIR/ValueSet/procedure/post-procedure-instructions';
 export const TIME_SPENT_VALUE_SET_URL = 'https://ottehr.com/FHIR/ValueSet/procedure/time-spent';
+export const PROCEDURE_TYPE_CPT_EXTENSION_URL = 'https://ottehr.com/FHIR/Procedures/procedure-type-cpt';
