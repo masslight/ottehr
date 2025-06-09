@@ -1396,10 +1396,11 @@ export const parseLabOrdersHistory = (
 
   pushPerformedHistory(specimens[0]);
 
-  // handle if there are multiple specimens (the first one is handled above):
-  specimens.slice(1).forEach((specimen) => {
-    pushPerformedHistory(specimen);
-  });
+  // todo: design is required https://github.com/masslight/ottehr/issues/2177
+  // handle if there are multiple specimens (the first one is handled above)
+  // specimens.slice(1).forEach((specimen) => {
+  //   pushPerformedHistory(specimen);
+  // });
 
   const taggedReflexTasks = [...reflexFinalTasks, ...reflexCorrectedTasks].map(
     (task) => ({ ...task, testType: 'reflex' }) as const
