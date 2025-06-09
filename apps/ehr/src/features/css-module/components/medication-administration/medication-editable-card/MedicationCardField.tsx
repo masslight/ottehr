@@ -117,7 +117,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       <Select
         disabled={!isEditable}
         labelId={`${field}-label`}
-        value={value}
+        value={value ?? ''}
         {...(renderValue
           ? {
               renderValue: () => renderValue,
