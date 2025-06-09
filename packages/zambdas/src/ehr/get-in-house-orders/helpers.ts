@@ -23,7 +23,6 @@ import {
   getTimezone,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
   Secrets,
-  compareDates,
   InHouseGetOrdersResponseDTO,
 } from 'utils';
 import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
