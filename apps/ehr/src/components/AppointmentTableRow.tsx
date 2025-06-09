@@ -61,7 +61,7 @@ import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
 import { Operation } from 'fast-json-patch';
 import GoToButton from './GoToButton';
-import { progressNoteIcon, startIntakeIcon } from '@theme/icons';
+import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import { InHouseLabsAppointmentTooltip } from 'src/features/in-house-labs/components/tracking-board/InHouseLabsAppointmentTooltip';
 import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
 import { getInHouseLabsUrl } from 'src/features/css-module/routing/helpers';

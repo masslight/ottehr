@@ -1,9 +1,9 @@
 import Oystehr, { OystehrConfig } from '@oystehr/sdk';
-import { Appointment, Extension, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
+import { Appointment, Extension, PaymentNotice, QuestionnaireResponseItemAnswer, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { phone } from 'phone';
-import { OTTEHR_MODULE } from '../fhir';
-import { PatchPaperworkParameters } from '../types';
+import { OTTEHR_MODULE, PAYMENT_METHOD_EXTENSION_URL } from '../fhir';
+import { CashPaymentDTO, PatchPaperworkParameters } from '../types';
 import { phoneRegex, zipRegex } from '../validation';
 
 export function createOystehrClient(token: string, fhirAPI: string, projectAPI: string): Oystehr {
@@ -1067,3 +1067,52 @@ export function getPrimaryCarePhysicianStepAnswers({
     ],
   };
 }
+
+const cashPaymentDTOFromFhirPaymentNotice = (paymentNotice: PaymentNotice): CashPaymentDTO | undefined => {
+  const { extension, amount, created, id } = paymentNotice;
+
+  if (!extension || !amount || !amount.value || !created || !id) {
+    return undefined;
+  }
+
+  const paymentMethod = extension.find((ext) => ext.url === PAYMENT_METHOD_EXTENSION_URL)?.valueString;
+
+  if (!paymentMethod || (paymentMethod !== 'cash' && paymentMethod !== 'check')) {
+    return undefined;
+  }
+
+  return {
+    paymentMethod: paymentMethod as 'cash' | 'check',
+    amountInCents: Math.round(amount.value * 100),
+    dateISO: created,
+    fhirPaymentNotificationId: id,
+  };
+};
+
+export const convertPaymentNoticeListToCashPaymentDTOs = (
+  paymentNotices: PaymentNotice[],
+  encounterId?: string
+): CashPaymentDTO[] => {
+  return paymentNotices.flatMap((notice) => {
+    const mapped = cashPaymentDTOFromFhirPaymentNotice(notice);
+    if (!mapped) {
+      return [];
+    }
+
+    if (!encounterId) {
+      return mapped;
+    }
+
+    const { request } = notice;
+    if (request && request.reference) {
+      const [resourceType, resourceId] = request.reference.split('/');
+      if (resourceType !== 'Encounter' || !resourceId) {
+        return [];
+      }
+      if (resourceId !== encounterId) {
+        return [];
+      }
+    }
+    return mapped;
+  });
+};
