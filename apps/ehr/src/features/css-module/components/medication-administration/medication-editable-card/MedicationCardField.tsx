@@ -162,7 +162,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       fullWidth
       label={label}
       variant="outlined"
-      value={value}
+      value={value ?? ''}
       onChange={(e) => handleChange(e.target.value)}
       type={type}
       {...(type === 'number' ? { inputProps: { min: 0 } } : {})}
