@@ -1,5 +1,5 @@
 import { Select, FormControl, MenuItem, useTheme } from '@mui/material';
-import { TestItemComponent, valueConfig } from 'utils';
+import { TestItemComponent, LabComponentValueSetConfig } from 'utils';
 import { useFormContext, Controller } from 'react-hook-form';
 
 interface ResultEntrySelectProps {
@@ -29,7 +29,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
     }
   };
 
-  let values: valueConfig[] = [];
+  let values: LabComponentValueSetConfig[] = [];
   if (testItemComponent.dataType === 'CodeableConcept') {
     values = testItemComponent.valueSet;
   }

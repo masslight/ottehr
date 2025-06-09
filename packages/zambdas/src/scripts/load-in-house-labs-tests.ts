@@ -20,6 +20,7 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   OD_DISPLAY_CONFIG,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
+  LabComponentValueSetConfig,
 } from 'utils';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
@@ -37,14 +38,17 @@ const sanitizeForId = (str: string): string => {
   return str.replace(/[ ()\/\\]/g, '');
 };
 
-const valConfigDiff = (a: Set<valueConfig>, b: Set<valueConfig>): Set<valueConfig> => {
+const valueSetConfigDiff = (
+  a: Set<LabComponentValueSetConfig>,
+  b: Set<LabComponentValueSetConfig>
+): Set<LabComponentValueSetConfig> => {
   const bCodes = new Set([...b].map((x) => x.code));
   return new Set([...a].filter((x) => !bCodes.has(x.code)));
 };
 
 const makeValueSet = (
   itemName: string,
-  values: valueConfig[],
+  values: LabComponentValueSetConfig[],
   valueSetName: string
 ): { valueSetId: string; valueSet: ValueSet } => {
   const valueSetId = `contained-${sanitizeForId(itemName)}-${valueSetName.toLowerCase()}-valueSet`;
@@ -189,7 +193,7 @@ const getComponentObservationDefinition = (
     const abnormalSet = new Set(item.abnormalValues);
     const { valueSetId: refRangeValueSetId, valueSet: refRangeValueSet } = makeValueSet(
       componentName,
-      [...valConfigDiff(validSet, abnormalSet)],
+      [...valueSetConfigDiff(validSet, abnormalSet)],
       'reference-range'
     );
 
@@ -440,14 +444,10 @@ interface BaseComponent {
   loincCode: string[];
 }
 
-interface valueConfig {
-  code: string; // this should remain constant, changing it could cause backward compatibility issues
-  display: string;
-}
 export interface CodeableConceptComponent extends BaseComponent {
   dataType: 'CodeableConcept';
-  valueSet: valueConfig[];
-  abnormalValues: valueConfig[];
+  valueSet: LabComponentValueSetConfig[];
+  abnormalValues: LabComponentValueSetConfig[];
   display: {
     type: 'Radio' | 'Select';
     nullOption: boolean;

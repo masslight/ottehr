@@ -14,13 +14,13 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   DiagnosisDTO,
-  valueConfig,
+  LabComponentValueSetConfig,
 } from 'utils';
 
 export const extractAbnormalValueSetValues = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[]
-): valueConfig[] => {
+): LabComponentValueSetConfig[] => {
   const abnormalValueSetRef = obsDef.abnormalCodedValueSet?.reference?.substring(1);
   const abnormalValueSet = containedResources.find(
     (res) => res.resourceType === 'ValueSet' && res.id === abnormalValueSetRef
@@ -29,12 +29,14 @@ export const extractAbnormalValueSetValues = (
   return abnormalValues;
 };
 
-const extractValueSetValues = (valueSet: ValueSet): valueConfig[] => {
+const extractValueSetValues = (valueSet: ValueSet): LabComponentValueSetConfig[] => {
   if (!valueSet.compose?.include?.[0]?.concept) {
     return [];
   }
 
-  return valueSet.compose.include[0].concept.map((concept) => (concept as valueConfig) || '').filter(Boolean);
+  return valueSet.compose.include[0].concept
+    .map((concept) => (concept as LabComponentValueSetConfig) || '')
+    .filter(Boolean);
 };
 
 export const extractQuantityRange = (
