@@ -67,74 +67,8 @@ import { QUERY_STALE_TIME } from 'src/constants';
 import { useFeatureFlags } from '../context/featureFlags';
 
 const OTHER = 'Other';
-/*const PROCEDURE_TYPES = [
-  'Laceration Repair (Suturing/Stapling)',
-  'Wound Care / Dressing Change',
-  'Splint Application / Immobilization',
-  'Incision and Drainage (I&D) of Abscess',
-  'Reduction of Nursemaid’s Elbow',
-  'Burn Treatment / Dressing',
-  'Foreign Body Removal (Skin, Ear, Nose, Eye)',
-  'Nail Trephination (Subungual Hematoma Drainage)',
-  'Tick or Insect Removal',
-  'Staple or Suture Removal',
-  'Intravenous (IV) Catheter Placement',
-  'IV Fluid Administration',
-  'Intramuscular (IM) Medication Injection',
-  'Nebulizer Treatment (e.g., Albuterol)',
-  'Oral Rehydration / Medication Administration (including challenge doses)',
-  'Wart Treatment (Cryotherapy with Liquid Nitrogen',
-  'Urinary Catheterization',
-  'Ear Lavage / Cerumen Removal',
-  'Nasal Packing (Epistaxis Control)',
-  'Eye Irrigation or Eye Foreign Body Removal',
-  'Nasal Lavage (schnozzle)',
-  'EKG',
-];*/
-/*const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
-  'Nebulizer Treatment (e.g., Albuterol)': {
-    code: '94640',
-    display:
-      'Pressurized or nonpressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device',
-  },
-  'Wart Treatment (Cryotherapy with Liquid Nitrogen': {
-    code: '17110',
-    display:
-      'Destruction (eg, laser surgery, electrosurgery, cryosurgery, chemosurgery, surgical curettement), of benign lesions other than skin tags or cutaneous vascular proliferative lesions; up to 14 lesions',
-  },
-  'Nail Trephination (Subungual Hematoma Drainage)': {
-    code: '11740',
-    display: 'Evacuation of subungual hematoma',
-  },
-  'Tick or Insect Removal': {
-    code: '10120',
-    display: 'Incision and removal of foreign body, subcutaneous tissues; simple',
-  },
-  'Nasal Packing (Epistaxis Control)': {
-    code: '30901',
-    display: 'Control nasal hemorrhage, anterior, simple (limited cautery and/or packing) any method',
-  },
-  EKG: {
-    code: '93000',
-    display: 'Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report',
-  },
-  'Intramuscular (IM) Medication Injection': {
-    code: '96372',
-    display:
-      'Therapeutic, prophylactic, or diagnostic injection (specify substance or drug); subcutaneous or intramuscular',
-  },
-};*/
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
-//const MEDICATIONS_USED = ['None', 'Topical', 'Local', 'Oral', 'IV', 'IM'];
-//const SITES = ['Head', 'Face', 'Arm', 'Leg', 'Torso', 'Genital', 'Ear', 'Nose', 'Eye', OTHER];
-//const SIDES_OF_BODY = ['Left', 'Right', 'Midline', 'Not Applicable'];
-//const TECHNIQUES = ['Sterile', 'Clean', 'Aseptic', 'Field'];
-//const SUPPLIES = ['Suture Kit', 'Splint', 'Irrigation Syringe', 'Speculum', 'Forceps', 'IV Kit', OTHER];
 const SPECIMEN_SENT = ['Yes', 'No'];
-//const COMPLICATIONS = ['None', 'Bleeding', 'Incomplete Removal', 'Allergic Reaction', OTHER];
-//const PATIENT_RESPONSES = ['Tolerated Well', 'Mild Distress', 'Severe Distress', 'Improved', 'Stable', 'Worsened'];
-//const POST_PROCEDURE_INSTRUCTIONS = ['Wound Care', 'F/U with PCP', 'Return if worsening', OTHER];
-//const TIME_SPENT = ['< 5 min', '5-10 min', '10-20 min', '20-30 min', '> 30 min'];
 const DOCUMENTED_BY = ['Provider', 'Clinical support staff'];
 
 interface PageState {
@@ -758,7 +692,7 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
           resourceType: 'ValueSet',
           params: [
             {
-              name: 'identifier',
+              name: 'url',
               value: [
                 PROCEDURE_TYPES_VALUE_SET_URL,
                 MEDICATIONS_USED_VALUE_SET_URL,
@@ -770,7 +704,7 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
                 PATIENT_RESPONSES_VALUE_SET_URL,
                 POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
                 TIME_SPENT_VALUE_SET_URL,
-              ].join('|'),
+              ].join(','),
             },
           ],
         })
@@ -798,17 +732,13 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
   );
 }
 
-function getValueSetValues(identifierSystem: string, valueSets: ValueSet[] | undefined): string[] {
-  const valueSet = valueSets?.find(
-    (valueSet) => valueSet.identifier?.find((identifier) => identifier.system === identifierSystem) != null
-  );
+function getValueSetValues(valueSetUrl: string, valueSets: ValueSet[] | undefined): string[] {
+  const valueSet = valueSets?.find((valueSet) => valueSet.url === valueSetUrl);
   return valueSet?.expansion?.contains?.flatMap((item) => (item.display != null ? [item.display] : [])) ?? [];
 }
 
 function getProcedureTypes(valueSets: ValueSet[] | undefined): ProcedureType[] {
-  const valueSet = valueSets?.find(
-    (valueSet) => valueSet.identifier?.find((identifier) => identifier.system === PROCEDURE_TYPES_VALUE_SET_URL) != null
-  );
+  const valueSet = valueSets?.find((valueSet) => valueSet.url === PROCEDURE_TYPES_VALUE_SET_URL);
   return (
     valueSet?.expansion?.contains?.flatMap((item) => {
       const name = item.display;
