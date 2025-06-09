@@ -236,7 +236,7 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                 />
               </LabeledField>
             </Grid>
-            <Grid item xs={3}>
+            <Grid item xs={3} data-testid={dataTestIds.addInsuranceDialog.policyHoldersDateOfBirth}>
               <LabeledField label="Policy holder's date of birth" required error={!!errors[FormFields.birthDate.key]}>
                 <DatePicker
                   name={FormFields.birthDate.key}
@@ -244,7 +244,6 @@ export const AddInsuranceModal: React.FC<AddInsuranceModalProps> = ({
                   control={control}
                   rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
                   defaultValue={''}
-                  data-testid={dataTestIds.addInsuranceDialog.policyHoldersDateOfBirth}
                 />
               </LabeledField>
             </Grid>
