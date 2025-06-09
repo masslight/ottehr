@@ -19,6 +19,7 @@ export const NursingOrdersPage: React.FC = () => {
       console.error('No appointment ID found');
       return;
     }
+
     navigate(getNursingOrderCreateUrl(appointmentId));
   }, [navigate, appointmentId]);
 

@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Schedule } from 'fhir/r4b';
+import { Schedule, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   AvailableLocationInformation,
@@ -15,6 +15,7 @@ import {
   getTimezone,
   getWaitingMinutesAtSchedule,
   isLocationOpen,
+  isLocationVirtual,
   SecretsKeys,
   SlotListItem,
 } from 'utils';
@@ -74,7 +75,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       },
       oystehr
     );
-    telemedAvailable.push(...tmSlots);
+    if (scheduleOwner.resourceType === 'Location' && !isLocationVirtual(scheduleOwner as Location)) {
+      telemedAvailable.push(...tmSlots);
+    }
     availableSlots.push(...regularSlots);
     console.timeEnd('synchronous_data_processing');
 

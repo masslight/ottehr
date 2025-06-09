@@ -23,7 +23,7 @@ export type NursingOrdersTableColumn = 'order' | 'orderAdded' | 'status';
 type NursingOrdersTableProps = {
   columns: NursingOrdersTableColumn[];
   allowDelete?: boolean;
-  onCreateOrder?: (params?: { isAutoRedirected: boolean }) => void;
+  onCreateOrder?: () => void;
 };
 
 export const NursingOrdersTable = ({ columns, onCreateOrder }: NursingOrdersTableProps): ReactElement => {

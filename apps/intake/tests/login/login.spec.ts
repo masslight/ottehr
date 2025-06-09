@@ -6,13 +6,11 @@ test('Should log in if not authorized', async ({ context, page }) => {
     await page.goto('/home');
 
     try {
-      await page.getByRole('button', { name: 'Start a Virtual Visit' }).click();
-      await expect(page.getByRole('heading', { name: 'Request a Virtual Visit', level: 2 })).toBeVisible({
-        timeout: 15000,
-      });
+      await page.getByRole('button', { name: 'In-Person Check-In' }).click();
+      await page.getByTestId('loading-button').click({ timeout: 20000 });
       // select patient page may be shown if user is not logged in for a several milliseconds, so recheck to ensure that user is logged in
       await page.waitForTimeout(3000);
-      await expect(page.getByRole('heading', { name: 'Request a Virtual Visit', level: 2 })).toBeVisible({
+      await expect(page.getByTestId('flow-page-title')).toBeVisible({
         timeout: 15000,
       });
 
@@ -30,6 +28,7 @@ test('Should log in if not authorized', async ({ context, page }) => {
           await context.clearPermissions();
           await page.goto('/');
           await page.getByTestId('loading-button').click({ timeout: 20000 });
+          await page.getByRole('button', { name: 'Past Visits' }).click();
           await login(page, process.env.PHONE_NUMBER, process.env.TEXT_USERNAME, process.env.TEXT_PASSWORD);
           successLogin = true;
         } catch (error) {

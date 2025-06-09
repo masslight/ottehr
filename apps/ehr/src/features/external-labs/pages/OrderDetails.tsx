@@ -4,7 +4,8 @@ import { useParams } from 'react-router-dom';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
-import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
+import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
 export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();
@@ -24,26 +25,32 @@ export const OrderDetailsPage: React.FC = () => {
   }
 
   if (!labOrder) {
-    console.error('No lab order found');
+    console.error('No external lab order found');
     return null;
   }
 
+  const pageName = `${labOrder.testItem}${labOrder.reflexResultsCount > 0 ? ' + Reflex' : ''}`;
+
   if (status === 'pending' || status === 'sent') {
     return (
-      <WithLabBreadcrumbs sectionName={labOrder.testItem}>
-        <DetailsWithoutResults labOrder={labOrder} saveSpecimenDate={saveSpecimenDate} />
-      </WithLabBreadcrumbs>
+      <DetailPageContainer>
+        <LabBreadcrumbs sectionName={pageName}>
+          <DetailsWithoutResults labOrder={labOrder} saveSpecimenDate={saveSpecimenDate} />
+        </LabBreadcrumbs>
+      </DetailPageContainer>
     );
   }
 
   return (
-    <WithLabBreadcrumbs sectionName={labOrder.testItem}>
-      <DetailsWithResults
-        labOrder={labOrder}
-        markTaskAsReviewed={markTaskAsReviewed}
-        saveSpecimenDate={saveSpecimenDate}
-        loading={loading}
-      />
-    </WithLabBreadcrumbs>
+    <DetailPageContainer>
+      <LabBreadcrumbs sectionName={pageName}>
+        <DetailsWithResults
+          labOrder={labOrder}
+          markTaskAsReviewed={markTaskAsReviewed}
+          saveSpecimenDate={saveSpecimenDate}
+          loading={loading}
+        />
+      </LabBreadcrumbs>
+    </DetailPageContainer>
   );
 };

@@ -1,28 +1,23 @@
 import React from 'react';
 import { Typography, Collapse, Table, TableBody, TableRow, TableCell } from '@mui/material';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
-import { DateTime } from 'luxon';
-import { InHouseOrderDetailPageDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { formatDateForLabs } from 'utils';
+import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
 
 interface InHouseLabOrderHistoryProps {
   showDetails: boolean;
-  testDetails: InHouseOrderDetailPageDTO;
+  testDetails: InHouseOrderDetailPageItemDTO;
 }
 
 export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ showDetails, testDetails }) => {
-  const formatDate = (datetime: string | undefined): string => {
-    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(testDetails.timezone).toFormat('MM/dd/yyyy hh:mm a');
-  };
-
   return (
     <Collapse in={showDetails}>
       <Table
         sx={{
-          mt: 2,
-          p: '8px 16px 8px 16px',
+          p: '8px 16px',
           borderCollapse: 'separate',
           backgroundColor: '#F8F9FA',
+          borderRadius: '8px',
         }}
       >
         <TableBody>
@@ -36,16 +31,35 @@ export const InHouseLabOrderHistory: React.FC<InHouseLabOrderHistoryProps> = ({ 
                 },
               }}
             >
-              <TableCell sx={{ p: '8px 0 8px 0', width: '33%' }}>
+              <TableCell
+                sx={{
+                  p: '8px 0',
+                  width: '33%',
+                  verticalAlign: 'middle',
+                }}
+              >
                 <InHouseLabsStatusChip status={status} />
               </TableCell>
-              <TableCell sx={{ p: '8px 0 8px 0', width: '33%' }}>
+              <TableCell
+                sx={{
+                  p: '8px 0',
+                  width: '33%',
+                  verticalAlign: 'middle',
+                }}
+              >
                 <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                  {providerName}
+                  {providerName ? `by ${providerName}` : ''}
                 </Typography>
               </TableCell>
-              <TableCell sx={{ p: '8px 0 8px 0', width: '33%' }}>
-                <Typography variant="body2">{formatDate(date)}</Typography>
+              <TableCell
+                sx={{
+                  p: '8px 0',
+                  width: '33%',
+                  verticalAlign: 'middle',
+                  textAlign: 'right',
+                }}
+              >
+                <Typography variant="body2">{formatDateForLabs(date, testDetails.timezone)}</Typography>
               </TableCell>
             </TableRow>
           ))}

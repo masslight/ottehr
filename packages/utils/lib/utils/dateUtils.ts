@@ -172,10 +172,14 @@ export const compareDates = (a: string | undefined, b: string | undefined): numb
   const isDateAValid = dateA.isValid;
   const isDateBValid = dateB.isValid;
 
-  // if one date is valid and the other is not, the valid date should be first
   if (isDateAValid && !isDateBValid) return -1;
   if (!isDateAValid && isDateBValid) return 1;
   if (!isDateAValid && !isDateBValid) return 0;
 
   return dateB.toMillis() - dateA.toMillis();
+};
+
+export const formatDateForLabs = (datetime: string | undefined, timezone: string | undefined): string => {
+  if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
+  return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
 };

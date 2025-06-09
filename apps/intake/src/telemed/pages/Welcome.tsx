@@ -12,7 +12,7 @@ const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean
   const navigate = useNavigate();
 
   const onSubmit = (): void => {
-    navigate(intakeFlowPageRoute.AuthPage.path);
+    navigate(intakeFlowPageRoute.Homepage.path);
   };
 
   return (

@@ -65,6 +65,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
       <Controller
         name={testItemComponent.observationDefinitionId}
         control={control}
+        rules={{ required: 'Please select a value' }}
         defaultValue=""
         render={({ field }) => (
           <Select

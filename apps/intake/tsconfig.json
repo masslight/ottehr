@@ -9,5 +9,5 @@
       "@defaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": ["."]
+  "include": [".", ".eslintrc.cjs"]
 }

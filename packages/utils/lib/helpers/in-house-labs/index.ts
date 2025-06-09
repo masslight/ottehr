@@ -1,4 +1,4 @@
-import { ValueSet, ObservationDefinition, ActivityDefinition, Observation } from 'fhir/r4b';
+import { ValueSet, ObservationDefinition, ActivityDefinition, Observation, ServiceRequest } from 'fhir/r4b';
 import {
   TestItem,
   TestItemComponent,
@@ -13,10 +13,8 @@ import {
   TestComponentResult,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
+  DiagnosisDTO,
 } from 'utils';
-
-// TODO TEMP PUTTING THIS HERE WHILE I TEST THE FRONT END
-// when done with front end testing this can be moved to a shared file in the zambdas package (no need for the front end to have it)
 
 export const extractAbnormalValueSetValues = (
   obsDef: ObservationDefinition,
@@ -191,7 +189,8 @@ export function quantityRangeFormat(quantity: QuantityComponent): string {
 
 export const convertActivityDefinitionToTestItem = (
   activityDef: ActivityDefinition,
-  observations?: Observation[]
+  observations?: Observation[],
+  serviceRequest?: ServiceRequest
 ): TestItem => {
   const name = activityDef.name || '';
 
@@ -228,8 +227,11 @@ export const convertActivityDefinitionToTestItem = (
   const observationMap: { [obsDefId: string]: Observation } = {};
   if (observations) {
     observations.forEach((obs) => {
-      const obsDefIdFromExt = obs.extension?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)?.valueString;
-      if (obsDefIdFromExt) observationMap[obsDefIdFromExt] = obs;
+      const observationIsBasedOnSr = serviceRequest ? observationIsBasedOnServiceRequest(obs, serviceRequest) : true;
+      if (observationIsBasedOnSr) {
+        const obsDefIdFromExt = obs.extension?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)?.valueString;
+        if (obsDefIdFromExt) observationMap[obsDefIdFromExt] = obs;
+      }
     });
   }
 
@@ -272,6 +274,13 @@ export const convertActivityDefinitionToTestItem = (
   return testItem;
 };
 
+export const observationIsBasedOnServiceRequest = (
+  observation: Observation,
+  serviceRequest: ServiceRequest
+): boolean => {
+  return !!observation.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
+};
+
 const getResult = (
   observation: Observation | undefined,
   dataType: 'CodeableConcept' | 'Quantity'
@@ -300,4 +309,8 @@ const getResult = (
     };
   }
   return result;
+};
+
+export const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): string => {
+  return diagnoses.map((d) => `${d.code} ${d.display}`).join(', ');
 };

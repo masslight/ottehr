@@ -6,6 +6,7 @@ import { useAppointmentStore } from '../../../telemed/state/appointment/appointm
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { InHouseLabsTable, InHouseLabsTableColumn } from '../components/orders/InHouseLabsTable';
 import { getInHouseLabOrderCreateUrl } from 'src/features/css-module/routing/helpers';
+import ListViewContainer from 'src/features/common/ListViewContainer';
 
 const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'dx', 'orderAdded', 'status', 'actions'];
 
@@ -14,17 +15,14 @@ export const InHouseLabsPage: React.FC = () => {
   const appointmentId = useAppointmentStore((state) => state.appointment?.id);
   const encounterId = useAppointmentStore((state) => state.encounter?.id);
 
-  const handleCreateOrder = useCallback(
-    ({ _isAutoRedirected }: { _isAutoRedirected?: boolean } = {}): void => {
-      if (!appointmentId) {
-        console.error('No appointment ID found');
-        return;
-      }
+  const handleCreateOrder = useCallback((): void => {
+    if (!appointmentId) {
+      console.error('No appointment ID found');
+      return;
+    }
 
-      navigate(getInHouseLabOrderCreateUrl(appointmentId));
-    },
-    [navigate, appointmentId]
-  );
+    navigate(getInHouseLabOrderCreateUrl(appointmentId));
+  }, [navigate, appointmentId]);
 
   if (!appointmentId) {
     console.error('No appointment ID found');
@@ -37,30 +35,33 @@ export const InHouseLabsPage: React.FC = () => {
   }
 
   return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <PageTitle label="In-House Labs" showIntakeNotesButton={false} />
-        <Stack direction="row" spacing={2} alignItems="center">
-          <ButtonRounded
-            variant="contained"
-            color="primary"
-            size={'medium'}
-            onClick={() => handleCreateOrder()}
-            sx={{
-              py: 1,
-              px: 5,
-            }}
-          >
-            Order
-          </ButtonRounded>
-        </Stack>
-      </Box>
-      <InHouseLabsTable
-        searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
-        columns={inHouseLabsColumns}
-        showFilters={false}
-        allowDelete={true}
-      />
-    </Box>
+    <ListViewContainer>
+      <>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <PageTitle label="In-House Labs" showIntakeNotesButton={false} />
+          <Stack direction="row" spacing={2} alignItems="center">
+            <ButtonRounded
+              variant="contained"
+              color="primary"
+              size={'medium'}
+              onClick={() => handleCreateOrder()}
+              sx={{
+                py: 1,
+                px: 5,
+              }}
+            >
+              Order
+            </ButtonRounded>
+          </Stack>
+        </Box>
+        <InHouseLabsTable
+          searchBy={{ searchBy: { field: 'encounterId', value: encounterId } }}
+          columns={inHouseLabsColumns}
+          showFilters={false}
+          allowDelete={true}
+          onCreateOrder={handleCreateOrder}
+        />
+      </>
+    </ListViewContainer>
   );
 };

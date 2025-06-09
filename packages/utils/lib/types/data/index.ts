@@ -9,5 +9,6 @@ export * from './zapehr-api.types.ts';
 export * from './appointments';
 export * from './labs';
 export * from './account';
+export * from './pagination.types';
 export * from './in-house';
 export * from './orders';

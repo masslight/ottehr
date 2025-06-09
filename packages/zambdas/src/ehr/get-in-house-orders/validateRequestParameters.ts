@@ -25,11 +25,27 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaInHouseO
     throw new Error(`Missing searchBy field or value: ${JSON.stringify(searchBy)}`);
   }
 
+  if (searchBy.field === 'encounterIds' && !Array.isArray(searchBy.value)) {
+    throw new Error('Invalid encounterIds. Must be an array');
+  }
+
+  if (searchBy.field === 'encounterId' && typeof searchBy.value !== 'string') {
+    throw new Error('Invalid encounterId. Must be a string');
+  }
+
+  if (searchBy.field === 'patientId' && typeof searchBy.value !== 'string') {
+    throw new Error('Invalid patientId. Must be a string');
+  }
+
+  if (searchBy.field === 'serviceRequestId' && typeof searchBy.value !== 'string') {
+    throw new Error('Invalid serviceRequestId. Must be a string');
+  }
+
   if (visitDate && typeof visitDate !== 'string') {
     throw new Error('Invalid visitDate. Must be a string');
   }
 
-  const validFields = ['encounterId', 'patientId', 'serviceRequestId'];
+  const validFields = ['encounterId', 'patientId', 'serviceRequestId', 'encounterIds'];
   if (!validFields.includes(searchBy.field)) {
     throw new Error(`Invalid searchBy field. Must be one of: ${validFields.join(', ')}`);
   }
