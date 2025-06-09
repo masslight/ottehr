@@ -9,6 +9,8 @@ import {
   TaskReviewedParameters,
   SpecimenDateChangedParameters,
   tryFormatDateToISO,
+  PatientLabItem,
+  PaginatedResponse,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { getExternalLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
@@ -43,11 +45,10 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   DeleteOrderDialog: ReactElement | null;
   markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+  patientLabItems: PatientLabItem[];
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
-  // don't use this directly, use memoized searchBy instead,
-  // if parent component is re-rendered, _searchBy will be a new object and will trigger unnecessary effects
   _searchBy: SearchBy
 ): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
@@ -56,6 +57,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
+  const [patientLabItems, setPatientLabItems] = useState<PatientLabItem[]>([]);
 
   /**
    * Search state management strategy:
@@ -100,13 +102,14 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       setError(null);
 
       try {
-        let response;
+        let response: PaginatedResponse<SearchBy>;
         try {
           response = await getExternalLabOrders(oystehrZambda, searchParams);
         } catch (err) {
           response = {
             data: [],
             pagination: EMPTY_PAGINATION,
+            patientLabItems: [],
           };
           console.error('Error fetching external lab orders:', err);
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
@@ -114,6 +117,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
         if (response?.data) {
           setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
+          setPatientLabItems(response.patientLabItems || []);
 
           if (response.pagination) {
             setTotalPages(response.pagination.totalPages || 1);
@@ -124,6 +128,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           }
         } else {
           setLabOrders([]);
+          setPatientLabItems([]);
           setTotalPages(1);
           setShowPagination(false);
         }
@@ -131,6 +136,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
         console.error('error with setting external lab orders:', error);
         setError(error instanceof Error ? error : new Error('Unknown error occurred'));
         setLabOrders([]);
+        setPatientLabItems([]);
         setTotalPages(1);
         setShowPagination(false);
       } finally {
@@ -272,5 +278,6 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     DeleteOrderDialog,
     markTaskAsReviewed,
     saveSpecimenDate,
+    patientLabItems,
   };
 };

@@ -23,9 +23,9 @@ import { usePatientLabOrders } from './usePatientLabOrders';
 import { useNavigate } from 'react-router-dom';
 import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
-import { LabsAutocomplete } from '../LabsAutocomplete';
 import { LabOrderLoading } from './LabOrderLoading';
 import { DateTime } from 'luxon';
+import { LabsAutocompleteForPatient } from '../LabsAutocompleteForPatient';
 
 export type LabsTableColumn =
   | 'testType'
@@ -70,6 +70,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
     error,
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
+    patientLabItems,
   } = usePatientLabOrders(searchBy);
 
   const [selectedOrderedItem, setSelectedOrderedItem] = useState<OrderableItemSearchResult | null>(null);
@@ -201,7 +202,13 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
           <LocalizationProvider dateAdapter={AdapterLuxon}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 1 }}>
               <Grid item xs={4}>
-                <LabsAutocomplete selectedLab={selectedOrderedItem} setSelectedLab={handleOrderableItemCodeChange} />
+                {searchBy.searchBy.field === 'patientId' ? (
+                  <LabsAutocompleteForPatient
+                    patientLabItems={patientLabItems}
+                    selectedLabItem={selectedOrderedItem}
+                    setSelectedLabItem={handleOrderableItemCodeChange}
+                  />
+                ) : null}
               </Grid>
               <Grid item xs={4}>
                 <DatePicker
