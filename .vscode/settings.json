@@ -1,14 +1,17 @@
 {
   "typescript.tsdk": "node_modules/typescript/lib",
   "cSpell.words": [
-    "Codeable",
+    "EHRAPI",
     "fhir",
-    "luxon",
+    "Millis",
     "ottehr",
     "oystehr",
+    "telemed",
     "TELEMED",
     "tokenless",
     "unbundle",
+    "Codeable",
+    "luxon",
     "walkin",
     "zambda",
     "zambdas"
