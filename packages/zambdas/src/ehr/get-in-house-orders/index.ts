@@ -68,6 +68,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         body: JSON.stringify({
           data: [],
           pagination: EMPTY_PAGINATION,
+          ...(searchBy.field === 'patientId' && { patientLabItems: [] }),
         }),
       };
     }
