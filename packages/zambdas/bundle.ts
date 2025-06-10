@@ -1,10 +1,21 @@
 /* eslint-disable no-undef */
-import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
+// import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
 import fs from 'fs';
 import ottehrSpec from './ottehr-spec.json';
+
+// let plugins = [];
+
+// const sentryPlugin = sentryEsbuildPlugin({
+//   authToken: process.env.SENTRY_AUTH_TOKEN,
+//   org: 'org',
+//   project: 'proj',
+//   // debug: true,
+// });
+
+// plugins.push(sentryPlugin);
 
 interface ZambdaSpec {
   name: string;
@@ -38,12 +49,6 @@ const build = async (zambdas: ZambdaSpec[]): Promise<void> => {
             from: ['assets/*'],
             to: ['.dist/assets'],
           },
-        }),
-        sentryEsbuildPlugin({
-          authToken: process.env.SENTRY_AUTH_TOKEN,
-          org: 'zapehr',
-          project: 'ottehr-lambda',
-          // debug: true,
         }),
       ],
     })
