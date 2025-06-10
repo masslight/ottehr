@@ -95,6 +95,7 @@ export const ResponsibleInformationContainer: FC = () => {
           defaultValue={''}
           disabled={selfSelected}
           dataTestId={dataTestIds.responsiblePartyInformationContainer.dateOfBirthDropdown}
+          component="Field"
         />
       </Row>
       <Row

@@ -21,7 +21,12 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { LabsTableRow } from './LabsTableRow';
 import { usePatientLabOrders } from './usePatientLabOrders';
 import { useNavigate } from 'react-router-dom';
-import { LabOrderListPageDTO, LabOrdersSearchBy, OrderableItemSearchResult } from 'utils/lib/types/data/labs';
+import {
+  LabOrderListPageDTO,
+  LabOrdersSearchBy,
+  OrderableItemSearchResult,
+  PSC_LOCALE,
+} from 'utils/lib/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabOrderLoading } from './LabOrderLoading';
 import { DateTime } from 'luxon';
@@ -122,15 +127,15 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   const getColumnWidth = (column: LabsTableColumn): string => {
     switch (column) {
       case 'testType':
-        return '15%';
+        return '13%';
       case 'visit':
         return '10%';
       case 'orderAdded':
         return '10%';
       case 'provider':
-        return '15%';
+        return '13%';
       case 'dx':
-        return '20%';
+        return '18%';
       case 'resultsReceived':
         return '10%';
       case 'accessionNumber':
@@ -138,7 +143,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
       case 'status':
         return '5%';
       case 'psc':
-        return '5%';
+        return '6%';
       case 'actions':
         return '5%';
       default:
@@ -165,7 +170,7 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
       case 'status':
         return 'Status';
       case 'psc':
-        return 'PSC';
+        return PSC_LOCALE;
       case 'actions':
         return '';
       default:
