@@ -2,9 +2,9 @@ import React, { FC, useState } from 'react';
 import { Box, IconButton, Typography, useTheme } from '@mui/material';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import CloseIcon from '@mui/icons-material/Close';
-import { ottehrAiIcon } from '@theme/icons';
+import { ottehrAiIcon } from '@ehrTheme/icons';
 
 export const AiPotentialDiagnosesCard: FC = () => {
   const theme = useTheme();

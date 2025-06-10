@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
-import { getStripeClient, validateUserHasAccessToPatienAccount } from '../helpers';
+import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
@@ -14,7 +14,7 @@ import Stripe from 'stripe';
 import { DateTime } from 'luxon';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrM2MClientToken: string;
+let oystehrM2MClientToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -31,15 +31,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    if (!zapehrM2MClientToken) {
+    if (!oystehrM2MClientToken) {
       console.log('getting m2m token for service calls');
-      zapehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
+      oystehrM2MClientToken = await getAuth0Token(secrets); // keeping token externally for reuse
     } else {
       console.log('already have a token, no need to update');
     }
 
-    const oystehrClient = createOystehrClient(zapehrM2MClientToken, secrets);
-    void (await validateUserHasAccessToPatienAccount(
+    const oystehrClient = createOystehrClient(oystehrM2MClientToken, secrets);
+    void (await validateUserHasAccessToPatientAccount(
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient
     ));
@@ -87,6 +87,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               default: pm.id === defaultPaymentMethod.id,
             };
           });
+          console.log('all cards', allCards);
           output.cards = filterExpired(allCards).sort((a, b) => {
             if (a.default && !b.default) {
               return -1;
@@ -96,7 +97,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             }
             return 0;
           });
+        } else {
+          console.log('no default payment method found');
         }
+      } else {
+        console.log('no default payment method found in customer invoice settings');
       }
     }
 
