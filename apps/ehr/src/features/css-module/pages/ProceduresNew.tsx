@@ -330,6 +330,7 @@ export default function ProceduresNew(): ReactElement {
           fullWidth
           blurOnSelect
           options={cptSearchOptions}
+          filterOptions={(x) => x}
           noOptionsText={
             debouncedSearchTerm && cptSearchOptions.length === 0
               ? 'Nothing found for this search criteria'

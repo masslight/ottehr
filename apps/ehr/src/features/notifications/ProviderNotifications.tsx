@@ -12,7 +12,7 @@ import useEvolveUser from '../../hooks/useEvolveUser';
 import { IconButtonContained } from '../../telemed/components/IconButtonContained';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 import { useProviderNotificationsStore } from './notifications.store';
-import { notificationSound } from '@theme/index';
+import { notificationSound } from '@ehrTheme/index';
 
 type ProviderNotificationDisplay = {
   id: string;

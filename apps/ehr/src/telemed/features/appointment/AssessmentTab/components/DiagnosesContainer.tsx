@@ -12,7 +12,7 @@ import { AssessmentTitle } from './AssessmentTitle';
 import { DiagnosesField } from './DiagnosesField';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { GenericToolTip } from '../../../../../components/GenericToolTip';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 
 export const DiagnosesContainer: FC = () => {
