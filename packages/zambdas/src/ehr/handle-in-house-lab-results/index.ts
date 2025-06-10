@@ -21,6 +21,7 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   getFullestAvailableName,
+  LabComponentValueSetConfig,
 } from 'utils';
 import {
   ServiceRequest,
@@ -426,11 +427,16 @@ const determineQuantInterpretation = (
 };
 
 // todo should also validate that the value passed is contained within normal values
-const deteremineCodeableConceptInterpretation = (value: string, abnormalValues: string[]): CodeableConcept => {
+const deteremineCodeableConceptInterpretation = (
+  value: string,
+  abnormalValues: LabComponentValueSetConfig[]
+): CodeableConcept => {
   if (value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode) {
     return INDETERMINATE_OBSERVATION_INTERPRETATION;
   } else {
-    return abnormalValues.includes(value) ? ABNORMAL_OBSERVATION_INTERPRETATION : NORMAL_OBSERVATION_INTERPRETATION;
+    return abnormalValues.map((val) => val.code).includes(value)
+      ? ABNORMAL_OBSERVATION_INTERPRETATION
+      : NORMAL_OBSERVATION_INTERPRETATION;
   }
 };
 

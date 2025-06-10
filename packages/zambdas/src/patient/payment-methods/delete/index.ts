@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
-import { getStripeClient, validateUserHasAccessToPatienAccount } from '../helpers';
+import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 import { STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR } from 'utils';
 
@@ -31,7 +31,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const oystehrClient = createOystehrClient(m2MClientToken, secrets);
 
-    void (await validateUserHasAccessToPatienAccount(
+    void (await validateUserHasAccessToPatientAccount(
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient
     ));

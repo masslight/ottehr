@@ -18,6 +18,7 @@ export * from './medication-administration.types';
 export * from './messaging.types';
 export * from './patient-account';
 export * from './patient-instructions';
+export * from './patient-payment-types';
 export * from './practitioner.types';
 export * from './prebook-create-appointment';
 export * from './radiology';

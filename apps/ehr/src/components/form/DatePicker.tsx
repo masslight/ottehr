@@ -1,5 +1,6 @@
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { Box, InputLabelProps } from '@mui/material';
+import { DateField } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -19,6 +20,7 @@ interface BasicDatePickerProps {
   InputLabelProps?: InputLabelProps;
   id?: string;
   dataTestId?: string;
+  component?: 'Picker' | 'Field';
 }
 
 export function BasicDatePicker({
@@ -33,6 +35,7 @@ export function BasicDatePicker({
   InputLabelProps,
   id,
   dataTestId,
+  component = 'Picker',
 }: BasicDatePickerProps): JSX.Element {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -42,43 +45,72 @@ export function BasicDatePicker({
           control={control}
           defaultValue={defaultValue || ''}
           rules={rules}
-          render={({ field, fieldState: { error } }) => (
-            <DatePicker
-              value={field.value ? dayjs(field.value) : null}
-              onChange={(newValue) => {
-                const dateStr = newValue ? newValue.format('YYYY-MM-DD') : '';
-                field.onChange(dateStr);
-                onChange?.(dateStr);
-              }}
-              onClose={() => {
-                field.onBlur();
-              }}
-              disabled={disabled}
-              sx={{ width: '100%', scrollbarWidth: 'none' }}
-              slots={{
-                openPickerIcon: ArrowDropDownIcon,
-              }}
-              slotProps={{
-                textField: {
-                  id: id,
-                  variant,
-                  error: !!error,
-                  helperText: error?.message,
-                  onBlur: () => {
+          render={({ field, fieldState: { error } }) => {
+            if (component === 'Picker') {
+              return (
+                <DatePicker
+                  value={field.value ? dayjs(field.value) : null}
+                  onChange={(newValue) => {
+                    const dateStr = newValue ? newValue.format('YYYY-MM-DD') : '';
+                    field.onChange(dateStr);
+                    onChange?.(dateStr);
+                  }}
+                  onClose={() => {
                     field.onBlur();
-                  },
-                  InputLabelProps,
-                },
-                openPickerButton: {
-                  sx: {
-                    padding: 0,
-                    marginRight: 0,
-                  },
-                },
-              }}
-              label={label}
-            />
-          )}
+                  }}
+                  disabled={disabled}
+                  sx={{ width: '100%', scrollbarWidth: 'none' }}
+                  slots={{
+                    openPickerIcon: ArrowDropDownIcon,
+                  }}
+                  slotProps={{
+                    textField: {
+                      id: id,
+                      variant,
+                      error: !!error,
+                      helperText: error?.message,
+                      onBlur: () => {
+                        field.onBlur();
+                      },
+                      InputLabelProps,
+                    },
+                    openPickerButton: {
+                      sx: {
+                        padding: 0,
+                        marginRight: 0,
+                      },
+                    },
+                  }}
+                  label={label}
+                />
+              );
+            } else {
+              return (
+                <DateField
+                  value={field.value ? dayjs(field.value) : null}
+                  onChange={(newValue) => {
+                    const dateStr = newValue ? newValue.format('YYYY-MM-DD') : '';
+                    field.onChange(dateStr);
+                    onChange?.(dateStr);
+                  }}
+                  disabled={disabled}
+                  label={label}
+                  slotProps={{
+                    textField: {
+                      id: id,
+                      variant,
+                      error: !!error,
+                      helperText: error?.message,
+                      onBlur: () => {
+                        field.onBlur();
+                      },
+                      InputLabelProps,
+                    },
+                  }}
+                />
+              );
+            }
+          }}
         />
       </Box>
     </LocalizationProvider>
