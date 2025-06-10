@@ -1384,21 +1384,23 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  let performedBy = '';
-  let performedByDate = '-';
-  if (parseIsPSC(serviceRequest)) {
-    performedBy = 'psc';
-  } else if (specimens.length > 0) {
-    // todo update in the future when we are handling multiple specimens
-    const specimen = specimens[0];
-    performedBy = parsePerformed(specimen, practitioners);
-    performedByDate = parsePerformedDate(specimen);
-  }
-  history.push({
-    action: 'performed',
-    performer: performedBy,
-    date: performedByDate,
-  });
+  const isPSC = parseIsPSC(serviceRequest);
+
+  const pushPerformedHistory = (specimen: Specimen): void => {
+    history.push({
+      action: 'performed',
+      performer: isPSC ? '' : parsePerformed(specimen, practitioners),
+      date: isPSC ? '-' : parsePerformedDate(specimen),
+    });
+  };
+
+  pushPerformedHistory(specimens[0]);
+
+  // todo: design is required https://github.com/masslight/ottehr/issues/2177
+  // handle if there are multiple specimens (the first one is handled above)
+  // specimens.slice(1).forEach((specimen) => {
+  //   pushPerformedHistory(specimen);
+  // });
 
   const taggedReflexTasks = [...reflexFinalTasks, ...reflexCorrectedTasks].map(
     (task) => ({ ...task, testType: 'reflex' }) as const

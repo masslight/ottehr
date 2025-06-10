@@ -141,7 +141,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         {showOrderInfo && <OrderInformationCard />}
 
         <Box sx={{ mt: 2 }}>
-          <OrderHistoryCard orderHistory={labOrder?.history} timezone={labOrder.encounterTimezone} />
+          <OrderHistoryCard
+            isPSCPerformed={labOrder.isPSC}
+            orderHistory={labOrder?.history}
+            timezone={labOrder.encounterTimezone}
+          />
         </Box>
 
         {showActionButtons && (
