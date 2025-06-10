@@ -9,7 +9,6 @@ End-to-End testing guide for the Ottehr platform using Playwright in a Turborepo
 | **QA Engineers**   | [Quick Start](#quick-start), [Test Execution](#test-execution-commands), [Writing Tests](#writing-tests)                       |
 | **Developers**     | [Architecture](#architecture), [Fast Testing Mode](#fast-testing-mode), [Writing Tests](#writing-tests)                        |
 | **DevOps**         | [Environment Management](#environment-management), [CI/CD Integration](#cicd-integration), [Troubleshooting](#troubleshooting) |
-| **Healthcare SME** | [Healthcare Domain](#healthcare-domain-specifics), [Application Testing](#application-specific-testing)                        |
 
 ## Table of Contents
 
