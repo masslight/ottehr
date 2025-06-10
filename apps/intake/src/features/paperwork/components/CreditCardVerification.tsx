@@ -1,4 +1,3 @@
-import LoadingButton from '@mui/lab/LoadingButton';
 import {
   Alert,
   Box,
@@ -12,9 +11,9 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
-import { FC, MouseEvent, useState } from 'react';
+import { FC, useState } from 'react';
 import { CreditCardInfo } from 'utils';
 import {
   useGetPaymentMethods,
@@ -22,8 +21,10 @@ import {
   useSetupPaymentMethod,
 } from '../../../telemed/features/paperwork/paperwork.queries';
 import { otherColors } from '../../../IntakeThemeProvider';
-import { BoldPurpleInputLabel, usePaperworkContext } from 'ui-components';
+import { BoldPurpleInputLabel } from 'ui-components';
 import { dataTestIds } from '../../../helpers/data-test-ids';
+import { AddCreditCardForm } from 'ui-components';
+import { usePaperworkContext } from '../context';
 
 const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
@@ -42,7 +43,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
 
   const { data: setupData, isFetching: isSetupDataLoading } = useSetupPaymentMethod(patient?.id);
 
-  const { isFetching: isCardsLoading, refetch: refetchPaymentMethods } = useGetPaymentMethods({
+  const { isFetching: cardsAreLoading, refetch: refetchPaymentMethods } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
     setupCompleted: Boolean(setupData),
     onSuccess: (data) => {
@@ -59,7 +60,7 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
 
   const { mutate: setDefault, isLoading: isSetDefaultLoading } = useSetDefaultPaymentMethod(patient?.id);
 
-  const disabled = isCardsLoading || isSetDefaultLoading || isSetupDataLoading;
+  const disabled = cardsAreLoading || isSetDefaultLoading || isSetupDataLoading;
 
   const onMakePrimary = (id: string, refreshOnSuccess?: boolean): void => {
     setPendingSelection(id);
@@ -87,8 +88,21 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
     onMakePrimary(id, true);
   };
 
-  const isInitialLoad = (setupData === undefined && isSetupDataLoading) || (cards.length === 0 && isCardsLoading);
-
+  const isInitialLoad = (setupData === undefined && isSetupDataLoading) || (cards.length === 0 && cardsAreLoading);
+  if (isInitialLoad) {
+    console.log(
+      'botleneck check (setupData === undefined && isSetupDataLoading)',
+      setupData === undefined && isSetupDataLoading,
+      setupData === undefined,
+      isSetupDataLoading
+    );
+    console.log(
+      'botleneck check (cards.length === 0 && cardsAreLoading)',
+      cards.length === 0 && cardsAreLoading,
+      cards.length === 0,
+      cardsAreLoading
+    );
+  }
   return (
     <Box
       sx={{
@@ -224,7 +238,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       </Box>
 
       <Elements stripe={stripePromise} options={{ clientSecret: setupData }}>
-        <CreditCardForm
+        <AddCreditCardForm
           clientSecret={setupData ?? ''}
           isLoading={disabled}
           disabled={disabled}
@@ -242,65 +256,5 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         </Alert>
       </Snackbar>
     </>
-  );
-};
-
-type CreditCardFormProps = {
-  clientSecret: string;
-  isLoading: boolean;
-  disabled: boolean;
-  selectPaymentMethod: (id: string) => void;
-};
-
-const CreditCardForm: FC<CreditCardFormProps> = (props) => {
-  const { clientSecret, isLoading, disabled, selectPaymentMethod } = props;
-
-  const stripe = useStripe();
-  const elements = useElements();
-
-  const handleSubmit = async (e: MouseEvent<HTMLButtonElement>): Promise<void> => {
-    e.preventDefault();
-
-    if (!stripe || !elements) {
-      throw new Error('Stripe ro stripe elements not provided');
-    }
-
-    const card = elements.getElement(CardElement);
-    if (!card) {
-      throw new Error('Stripe card element not found');
-    }
-
-    const { error, setupIntent } = await stripe.confirmCardSetup(clientSecret, { payment_method: { card } });
-    if (!error) {
-      if (typeof setupIntent.payment_method === 'string') {
-        selectPaymentMethod(setupIntent.payment_method);
-      }
-
-      card.clear();
-    }
-  };
-
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-        alignItems: 'end',
-      }}
-    >
-      <Box sx={{ width: '100%' }}>
-        <CardElement
-          options={{
-            disableLink: true,
-            hidePostalCode: true,
-          }}
-        />
-      </Box>
-
-      <LoadingButton loading={isLoading} disabled={disabled} variant="outlined" type="submit" onClick={handleSubmit}>
-        Add card
-      </LoadingButton>
-    </Box>
   );
 };

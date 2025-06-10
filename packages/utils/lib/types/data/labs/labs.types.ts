@@ -140,6 +140,7 @@ export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
 export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
+  patientLabItems?: PatientLabItem[];
 };
 
 export type LabOrdersSearchBy = {
@@ -193,6 +194,11 @@ export type GetCreateLabOrderResources = {
 export type LabOrderResourcesRes = {
   coverageName?: string;
   labs: OrderableItemSearchResult[];
+};
+
+export type PatientLabItem = {
+  code: string; // ActivityDefinition.code.coding[0].code
+  display: string; // ActivityDefinition.code.coding[0].display
 };
 
 export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {
