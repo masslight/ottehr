@@ -1,4 +1,4 @@
-import { ErxConnectPractitionerParams } from '@oystehr/sdk';
+import { ErxConnectPractitionerParams, ErxEnrollPractitionerParams } from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
@@ -687,6 +687,9 @@ export const useSyncERXPatient = ({
       retry: 2,
       enabled,
       onError,
+      staleTime: 0,
+      cacheTime: 0,
+      refetchOnMount: true,
     }
   );
 };
@@ -722,6 +725,38 @@ export const useConnectPractitionerToERX = () => {
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const useEnrollPractitionerToERX = ({ onError }: { onError?: (err: any) => void }) => {
+  const { oystehr } = useApiClients();
+
+  return useMutation(
+    ['erx-enroll-practitioner'],
+    async (practitionerId: string) => {
+      if (oystehr) {
+        console.log(`Start enrolling practitioner to erx`);
+        try {
+          const params: ErxEnrollPractitionerParams = { practitionerId };
+          await oystehr.erx.enrollPractitioner(params);
+          console.log('Successfuly enrolled practitioner to erx');
+          return;
+        } catch (err: any) {
+          if (err && err.code === '4006') {
+            // Practitioner is already enrolled to erx
+            return;
+          }
+          console.error('Error during enrolling practitioner to erx: ', err);
+          throw err;
+        }
+      }
+      throw new Error('oystehr client is not defined');
+    },
+    {
+      retry: 2,
+      onError,
+    }
+  );
+};
+
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }) => {
   const { oystehr } = useApiClients();
   const user = useEvolveUser();
@@ -750,6 +785,9 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
     {
       retry: 2,
       enabled,
+      staleTime: 0,
+      cacheTime: 0,
+      refetchOnMount: true,
     }
   );
 };

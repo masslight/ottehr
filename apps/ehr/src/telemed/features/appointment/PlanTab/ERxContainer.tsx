@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   CircularProgress,
   Paper,
@@ -223,14 +224,28 @@ export const ERxContainer: FC = () => {
             onOpen={handleOpenTooltip}
           >
             <Stack>
-              <RoundedButton
-                disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
-                variant="contained"
-                onClick={() => onNewOrderClick()}
-                startIcon={isERXLoading ? <CircularProgress size={16} /> : <AddIcon />}
-              >
-                New Order
-              </RoundedButton>
+              {isERXOpen && !isERXLoading ? (
+                <RoundedButton
+                  disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
+                  variant="contained"
+                  onClick={() => {
+                    setIsERXOpen(false);
+                    setIsERXLoading(false);
+                  }}
+                  startIcon={isERXLoading ? <CircularProgress size={16} /> : <CloseIcon />}
+                >
+                  Close eRX
+                </RoundedButton>
+              ) : (
+                <RoundedButton
+                  disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
+                  variant="contained"
+                  onClick={() => onNewOrderClick()}
+                  startIcon={isERXLoading ? <CircularProgress size={16} /> : <AddIcon />}
+                >
+                  Open eRX
+                </RoundedButton>
+              )}
             </Stack>
           </Tooltip>
         </Stack>
