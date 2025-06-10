@@ -34,7 +34,6 @@ import {
   getUnconfirmedDOBForAppointment,
   mapQuestionnaireAndValueSetsToItemsList,
   serviceModeForHealthcareService,
-  userHasAccessToPatient,
 } from 'utils';
 import {
   createOystehrClient,
@@ -43,7 +42,7 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
-import { getUser } from '../../../shared/auth';
+import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
