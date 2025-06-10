@@ -2,11 +2,12 @@ import { DocumentReference } from 'fhir/r4b';
 import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
+import { Y_POS_GAP, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING } from './pdf-consts';
 import fs from 'fs';
 
 export type PdfInfo = { uploadURL: string; title: string };
 
-export const Y_POS_GAP = 30;
+export type LabsPDFTextStyleConfig = Record<string, TextStyle>;
 
 // For testing needs
 export function savePdfLocally(pdfBytes: Uint8Array): void {
@@ -349,3 +350,100 @@ export async function createPdfClient(initialStyles: PdfClientStyles): Promise<P
     setPageStyles,
   };
 }
+
+export const LAB_PDF_STYLES = {
+  color: {
+    red: rgbNormalized(255, 0, 0),
+    purple: rgbNormalized(77, 21, 183),
+    black: rgbNormalized(0, 0, 0),
+  },
+};
+
+export const SEPARATED_LINE_STYLE: LineStyle = {
+  thickness: 1,
+  color: rgbNormalized(227, 230, 239),
+  margin: {
+    top: 8,
+    bottom: 8,
+  },
+};
+
+export async function getTextStylesForLabsPDF(pdfClient: PdfClient): Promise<LabsPDFTextStyleConfig> {
+  const RubikFont = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Regular.otf'));
+  const RubikFontBold = await pdfClient.embedFont(fs.readFileSync('./assets/Rubik-Bold.otf'));
+
+  const textStyles: Record<string, TextStyle> = {
+    blockHeader: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: STANDARD_FONT_SPACING,
+      font: RubikFontBold,
+      newLineAfter: true,
+    },
+    header: {
+      fontSize: 17,
+      spacing: STANDARD_FONT_SPACING,
+      font: RubikFontBold,
+      color: LAB_PDF_STYLES.color.purple,
+      newLineAfter: true,
+    },
+    headerRight: {
+      fontSize: 17,
+      spacing: STANDARD_FONT_SPACING,
+      font: RubikFontBold,
+      side: 'right',
+      color: LAB_PDF_STYLES.color.purple,
+    },
+    fieldHeader: {
+      fontSize: STANDARD_FONT_SIZE,
+      font: RubikFont,
+      spacing: 1,
+    },
+    fieldHeaderRight: {
+      fontSize: STANDARD_FONT_SIZE,
+      font: RubikFont,
+      spacing: 1,
+      side: 'right',
+    },
+    text: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: 6,
+      font: RubikFont,
+    },
+    textBold: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: 6,
+      font: RubikFontBold,
+    },
+    textBoldRight: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: 6,
+      font: RubikFontBold,
+      side: 'right',
+    },
+    textRight: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: 6,
+      font: RubikFont,
+      side: 'right',
+    },
+    fieldText: {
+      fontSize: STANDARD_FONT_SIZE,
+      spacing: 6,
+      font: RubikFont,
+      side: 'right',
+      newLineAfter: true,
+    },
+  };
+  return textStyles;
+}
+
+export const calculateAge = (dob: string): number => {
+  const dobDate = new Date(dob);
+  const today = new Date();
+  const age = today.getFullYear() - dobDate.getFullYear();
+  const monthDiff = today.getMonth() - dobDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+    return age - 1;
+  }
+  return age;
+};

@@ -8,6 +8,7 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
   VitalsVisitNoteData,
+  LabType,
 } from 'utils';
 
 export interface PageElementStyle {
@@ -111,7 +112,9 @@ export interface ExaminationBlockData {
   examination: TelemedExamBlockData | InPersonExamBlockData;
 }
 
-export interface ExternalLabsData {
+// todo might make sense to have a separate interface for the order pdf base
+// and the result pdf base
+export interface LabsData {
   locationName?: string;
   locationStreetAddress?: string;
   locationCity?: string;
@@ -119,9 +122,9 @@ export interface ExternalLabsData {
   locationZip?: string;
   locationPhone?: string;
   locationFax?: string;
-  labOrganizationName: string;
+  labOrganizationName: string; // this is only mapped for order pdf
   serviceRequestID: string;
-  reqId: string;
+  reqId: string; // this is only for external
   providerName: string;
   providerTitle: string;
   providerNPI: string;
@@ -142,11 +145,11 @@ export interface ExternalLabsData {
   primaryInsuranceSubNum?: string;
   insuredName?: string;
   insuredAddress?: string;
-  aoeAnswers?: { question: string; answer: any }[];
+  aoeAnswers?: { question: string; answer: any }[]; // this is only for external
   orderName?: string | undefined;
   orderAssessments: { code: string; name: string }[];
   orderPriority: string;
-} // TODO: change this based on the actual data we need to send to submit-labs endpoint
+}
 
 export interface ExternalLabResult {
   resultCode: string;
@@ -166,28 +169,24 @@ export interface InHouseLabResult {
   rangeQuantity?: QuantityComponent;
 }
 
-export interface LabResultsData extends ExternalLabsData {
-  accessionNumber: string;
-  requisitionNumber?: string;
-  // orderReceived: string;
-  // specimenReceived: string;
-  // reportDate: string;
-  // specimenSource: string;
+export interface LabResultsData extends Omit<LabsData, 'aoeAnswers' | 'reqId' | 'labOrganizationName'> {
   testName: string;
-  // specimenDescription: string;
-  specimenReferenceRange?: string;
-  specimenSource: string;
-  resultPhase: string;
   resultStatus: string;
+  collectionDate: string;
+  abnormalResult?: boolean;
+}
+export interface ExternalLabResultsData extends LabResultsData {
+  reqId: string;
+  accessionNumber: string;
+  specimenReferenceRange?: string; // do we even need this ?
+  resultPhase: string;
   reviewed?: boolean;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
-  collectionDate: string;
   reviewDate: string | undefined;
   resultInterpretations: string[];
-  externalLabResults?: ExternalLabResult[];
-  inHouseLabResults?: InHouseLabResult[];
+  externalLabResults: ExternalLabResult[];
   testItemCode: string;
   performingLabName: string;
   performingLabStreetAddress: string;
@@ -199,8 +198,15 @@ export interface LabResultsData extends ExternalLabsData {
   performingLabDirectorFirstName: string;
   performingLabDirectorLastName: string;
   performingLabDirectorTitle: string;
-  abnormalResult?: boolean;
-} // TODO: change this based on the actual data brought in by the DORN webhook
+}
+export interface InHouseLabResultsData extends LabResultsData {
+  specimenSource: string;
+  inHouseLabResults: InHouseLabResult[];
+}
+
+export type ResultDataConfig =
+  | { type: LabType.external; data: ExternalLabResultsData }
+  | { type: LabType.inhouse; data: InHouseLabResultsData };
 
 export interface VisitNoteData extends ExaminationBlockData {
   patientName: string;

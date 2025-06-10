@@ -3,11 +3,11 @@ import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo } from './pdf-utils';
-import { ExternalLabsData } from './types';
+import { LabsData } from './types';
 import { Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 
-async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Promise<Uint8Array> {
+async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint8Array> {
   if (!data.orderName) {
     throw new Error('Order name is required');
   }
@@ -407,7 +407,7 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 }
 
 export async function createExternalLabsOrderFormPDF(
-  input: ExternalLabsData,
+  input: LabsData,
   patientID: string,
   secrets: Secrets | null,
   token: string

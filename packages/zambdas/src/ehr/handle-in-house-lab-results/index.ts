@@ -38,12 +38,14 @@ import {
   ValueSet,
   Encounter,
   Practitioner,
+  Patient,
+  Location,
 } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
 import { getAttendingPractionerId } from '../shared/inhouse-labs';
-import { createLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
+import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
 
@@ -64,13 +66,18 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const {
       serviceRequest,
+      encounter,
+      patient,
       inputRequestTask: irtTask,
       specimen,
       activityDefinition,
-      currentUserPractitionerName,
-      attendingPractitionerId,
-      attendingPractitionerName,
-    } = await getResources(serviceRequestId, curUserPractitionerId, oystehr);
+      currentUserPractitioner,
+      attendingPractitioner,
+      location,
+    } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
+
+    const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
+    const attendingPractitionerName = getFullestAvailableName(attendingPractitioner);
 
     const requests = makeResultEntryRequests(
       serviceRequest,
@@ -79,28 +86,53 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       activityDefinition,
       resultsEntryData,
       { id: curUserPractitionerId, name: currentUserPractitionerName },
-      { id: attendingPractitionerId, name: attendingPractitionerName }
+      { id: attendingPractitioner.id || '', name: attendingPractitionerName }
     );
-
-    // console.log('check whats going on here!', JSON.stringify(requests));
 
     const res = await oystehr.fhir.transaction({ requests });
     console.log('check the res', JSON.stringify(res));
 
-    const diagnosticReport = res.entry?.find((resource) => resource.resource?.resourceType === 'DiagnosticReport')
-      ?.resource as DiagnosticReport;
+    let diagnosticReport: DiagnosticReport | undefined;
+    let updatedIrtTask: Task | undefined;
+    const observations: Observation[] = [];
+    res.entry?.forEach((entry) => {
+      if (entry.resource?.resourceType === 'DiagnosticReport') diagnosticReport = entry.resource as DiagnosticReport;
+      if (entry.resource?.resourceType === 'Task') {
+        const task = entry.resource as Task;
+        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)) updatedIrtTask = task;
+      }
+      if (entry.resource?.resourceType === 'Observation') observations.push(entry.resource as Observation);
+    });
+    if (!diagnosticReport)
+      throw new Error(
+        `There was an issue creating and parsing the diagnostic report for this service request: ${serviceRequest.id}`
+      );
+    if (!updatedIrtTask)
+      throw new Error(
+        `There was an issue updating and parsing the irt task for this service request: ${serviceRequest.id}`
+      );
 
-    await createLabResultPDF(
-      oystehr,
-      'in-house',
-      serviceRequestId,
-      diagnosticReport,
-      undefined,
-      secrets,
-      m2mtoken,
-      specimen,
-      activityDefinition
-    );
+    try {
+      await createInHouseLabResultPDF(
+        oystehr,
+        serviceRequest,
+        encounter,
+        patient,
+        location,
+        attendingPractitioner,
+        attendingPractitionerName,
+        updatedIrtTask,
+        observations,
+        diagnosticReport,
+        secrets,
+        m2mtoken,
+        activityDefinition,
+        specimen
+      );
+    } catch (e) {
+      console.log('there was an error creating the result pdf for this service request', serviceRequest.id);
+      console.log('error:', e, JSON.stringify(e));
+    }
 
     return {
       statusCode: 200,
@@ -121,21 +153,23 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 };
 
 // todo better errors
-const getResources = async (
+const getInHouseLabResultResources = async (
   serviceRequestId: string,
   curUserPractitionerId: string,
   oystehr: Oystehr
 ): Promise<{
   serviceRequest: ServiceRequest;
+  encounter: Encounter;
+  patient: Patient;
   inputRequestTask: Task;
   specimen: Specimen;
   activityDefinition: ActivityDefinition;
-  currentUserPractitionerName: string | undefined;
-  attendingPractitionerId: string;
-  attendingPractitionerName: string | undefined;
+  currentUserPractitioner: Practitioner;
+  attendingPractitioner: Practitioner;
+  location: Location | undefined;
 }> => {
   const labOrderResources = (
-    await oystehr.fhir.search<ServiceRequest | Encounter | Specimen | Task>({
+    await oystehr.fhir.search<ServiceRequest | Patient | Encounter | Specimen | Task | Location>({
       resourceType: 'ServiceRequest',
       params: [
         {
@@ -154,6 +188,15 @@ const getResources = async (
           name: '_include',
           value: 'ServiceRequest:specimen',
         },
+        {
+          name: '_include',
+          value: 'ServiceRequest:patient',
+        },
+        {
+          name: '_revinclude',
+          value: 'Task:based-on',
+        },
+        { name: '_include:iterate', value: 'Encounter:location' },
       ],
     })
   ).unbundle();
@@ -161,14 +204,18 @@ const getResources = async (
   console.log('labOrderResources', JSON.stringify(labOrderResources));
 
   const serviceRequests: ServiceRequest[] = [];
+  const patients: Patient[] = [];
   const inputRequestTasks: Task[] = []; // IRT tasks
   const specimens: Specimen[] = [];
   const encounters: Encounter[] = [];
+  const locations: Location[] = [];
 
   labOrderResources.forEach((resource) => {
     if (resource.resourceType === 'ServiceRequest') serviceRequests.push(resource);
+    if (resource.resourceType === 'Patient') patients.push(resource);
     if (resource.resourceType === 'Specimen') specimens.push(resource);
     if (resource.resourceType === 'Encounter') encounters.push(resource);
+    if (resource.resourceType === 'Location') locations.push(resource);
     if (
       resource.resourceType === 'Task' &&
       resource.status === 'ready' &&
@@ -179,6 +226,7 @@ const getResources = async (
   });
 
   if (serviceRequests.length !== 1) throw new Error('Only one service request should be returned');
+  if (patients.length !== 1) throw new Error('Only one patient should be returned');
   if (encounters.length !== 1) throw new Error('Only one encounter should be returned');
   if (specimens.length !== 1)
     throw new Error(`Only one specimen should be returned - specimen ids: ${specimens.map((s) => s.id)}`);
@@ -186,11 +234,13 @@ const getResources = async (
     throw new Error(`Only one ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
 
   const serviceRequest = serviceRequests[0];
+  const patient = patients[0];
 
   const encounter = encounters[0];
   const attendingPractitionerId = getAttendingPractionerId(encounter);
+  const location = locations.length ? locations[0] : undefined;
 
-  const { currentUserPractitionerName, attendingPractitionerName, activityDefinitionSearch } = await Promise.all([
+  const [currentUserPractitioner, attendingPractitioner, activityDefinitionSearch] = await Promise.all([
     oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
       id: curUserPractitionerId,
@@ -214,25 +264,21 @@ const getResources = async (
         },
       ],
     }),
-  ]).then(([currentUserPractitioner, attendingPractitioner, activityDefinitionSearch]) => {
-    return {
-      currentUserPractitionerName: getFullestAvailableName(currentUserPractitioner),
-      attendingPractitionerName: getFullestAvailableName(attendingPractitioner),
-      activityDefinitionSearch,
-    };
-  });
+  ]);
 
   const activityDefinitions = activityDefinitionSearch.unbundle();
   if (activityDefinitions.length !== 1) throw new Error('Only one active activity definition should be returned');
 
   return {
     serviceRequest,
+    encounter,
+    patient,
     inputRequestTask: inputRequestTasks[0],
     specimen: specimens[0],
     activityDefinition: activityDefinitions[0],
-    currentUserPractitionerName,
-    attendingPractitionerId,
-    attendingPractitionerName,
+    currentUserPractitioner,
+    attendingPractitioner,
+    location,
   };
 };
 
