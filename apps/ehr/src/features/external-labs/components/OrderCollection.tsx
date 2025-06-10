@@ -2,16 +2,8 @@ import React, { useState } from 'react';
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Stack, Typography, useTheme } from '@mui/material';
 import { AOECard } from './AOECard';
-// import { SampleCollectionInstructionsCard } from './SampleCollectionInstructionsCard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
-import {
-  DynamicAOEInput,
-  ExternalLabsStatus,
-  LabOrderDetailedPageDTO,
-  LabQuestionnaireResponse,
-  SpecimenDateChangedParameters,
-} from 'utils';
-// import useEvolveUser from '../../../hooks/useEvolveUser';
+import { DynamicAOEInput, ExternalLabsStatus, LabOrderDetailedPageDTO, LabQuestionnaireResponse } from 'utils';
 import { submitLabOrder } from '../../../api/api';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { OrderInformationCard } from './OrderInformationCard';
@@ -22,7 +14,6 @@ import { SampleCollectionInstructionsCard } from './SampleCollectionInstructions
 
 interface SampleCollectionProps {
   labOrder: LabOrderDetailedPageDTO;
-  saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
   showActionButtons?: boolean;
   showOrderInfo?: boolean;
   isAOECollapsed?: boolean;
@@ -34,7 +25,6 @@ export async function openPdf(url: string): Promise<void> {
 
 export const OrderCollection: React.FC<SampleCollectionProps> = ({
   labOrder,
-  saveSpecimenDate,
   showActionButtons = true,
   showOrderInfo = true,
   isAOECollapsed = false,
@@ -52,15 +42,11 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const labQuestionnaireResponses = questionnaireData?.questionnaireResponseItems;
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
-  const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
+  const [specimensData, setSpecimensData] = useState<{ [specimenId: string]: { date: string } }>({});
   const shouldShowSampleCollectionInstructions =
     !labOrder.isPSC &&
     (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
-
-  const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
-    setSpecimensLoadingState((prevState) => ({ ...prevState, [specimenId]: state }));
-  };
 
   const sampleCollectionSubmit: SubmitHandler<DynamicAOEInput> = (data) => {
     setSubmitLoading(true);
@@ -70,11 +56,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         setError(['Oystehr client is undefined']);
         return;
       }
+
       Object.keys(data).forEach((item) => {
         if (!data[item]) {
           delete data[item];
           return;
         }
+
         const question = aoe.find((question) => question.linkId === item);
 
         if (question && question.type === 'boolean') {
@@ -95,7 +83,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
-          data: data,
+          data,
+          ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
         });
 
         if (labelPdfUrl) await openPdf(labelPdfUrl);
@@ -121,8 +110,6 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     console.log(`data at submit: ${JSON.stringify(data)}`);
   };
 
-  const isSpecimenSaving = Object.values(specimensLoadingState).some((state) => state === 'saving');
-
   return (
     <FormProvider {...methods}>
       <form onSubmit={methods.handleSubmit(sampleCollectionSubmit)}>
@@ -142,8 +129,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                 sample={sample}
                 serviceRequestId={labOrder.serviceRequestId}
                 timezone={labOrder.encounterTimezone}
-                saveSpecimenDate={saveSpecimenDate}
-                updateSpecimenLoadingState={updateSpecimenLoadingState}
+                setSpecimenData={(specimenId: string, date: string) =>
+                  setSpecimensData((prev) => ({ ...prev, [specimenId]: { date } }))
+                }
                 printLabelVisible={orderStatus === 'sent'}
                 isDateEditable={orderStatus === 'pending'}
               />
@@ -174,9 +162,8 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   variant="contained"
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   type="submit"
-                  disabled={isSpecimenSaving}
                 >
-                  {isSpecimenSaving ? 'Saving changes...' : 'Submit & Print order'}
+                  Submit & Print Order
                 </LoadingButton>
               </Stack>
             )}
