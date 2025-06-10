@@ -168,14 +168,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
             }
 
             // There is an option to edit the date through the update-lab-order-resources zambda as well.
-            const specimenFromSubmitDate = DateTime.fromISO(specimensFromSubmit[specimen.id].date);
+            const specimenFromSubmitDate = specimensFromSubmit?.[specimen.id]?.date
+              ? DateTime.fromISO(specimensFromSubmit[specimen.id].date)
+              : undefined;
             const specimeCollection = specimen.collection;
             const collectedDateTime = specimeCollection?.collectedDateTime;
             const collector = specimeCollection?.collector;
             const specimenCollector = { reference: currentUser?.profile };
             const requests: Operation[] = [];
 
-            sampleCollectionDates.push(specimenFromSubmitDate);
+            specimenFromSubmitDate && sampleCollectionDates.push(specimenFromSubmitDate);
 
             if (specimeCollection) {
               requests.push(
