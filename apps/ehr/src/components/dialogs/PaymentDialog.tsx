@@ -1,5 +1,6 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import {
+  Box,
   Button,
   capitalize,
   Dialog,
@@ -8,6 +9,7 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
+  FormHelperText,
   Grid,
   InputLabel,
   OutlinedInput,
@@ -30,6 +32,8 @@ import {
 import { DateTime } from 'luxon';
 import { Controller, useForm } from 'react-hook-form';
 import SelectCreditCard from '../SelectCreditCard';
+import * as yup from 'yup';
+import { yupResolver } from '@hookform/resolvers/yup';
 
 interface PaymentDialogProps {
   handleClose: () => void;
@@ -77,6 +81,27 @@ const PatientHeader = (props: { patient: Patient }): ReactElement => {
   );
 };
 
+const paymentSchema = yup.object().shape({
+  amount: yup
+    .number()
+    .typeError('Amount must be a number')
+    .required('Amount is required')
+    .positive('Amount must be greater than 0'),
+  paymentMethod: yup
+    .string()
+    .oneOf(['card', 'cash', 'check'], 'Invalid payment method')
+    .required('Payment method is required'),
+  creditCard: yup.string().when('paymentMethod', {
+    is: (val: string) => val === 'card',
+    then: (schema) =>
+      schema
+        .required('Credit card selection required')
+        .matches(RegExp('pm_[a-zA-Z0-9]{24,24}'), 'Credit card selection required')
+        .required(),
+    otherwise: (schema) => schema.notRequired().nullable(),
+  }),
+});
+
 export default function ({ submitPayment, handleClose, open, patient }: PaymentDialogProps): ReactElement {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const buttonSx = {
@@ -85,22 +110,18 @@ export default function ({ submitPayment, handleClose, open, patient }: PaymentD
     borderRadius: 6,
   };
 
-  const { handleSubmit, register, watch, control, setValue } = useForm({
+  const { handleSubmit, register, watch, formState, control, setValue } = useForm({
     defaultValues: {
       amount: '',
       paymentMethod: 'card',
       creditCard: '',
     },
+    resolver: yupResolver(paymentSchema),
+    mode: 'onBlur',
   });
 
   const paymentMethod = watch('paymentMethod'); // Default to 'card'
   const creditCard = watch('creditCard');
-
-  /*
-    console.log('Payment method selected:', paymentMethod);
-    console.log('Credit card selected:', creditCard);
-    console.log('Form values:', getValues());
-  */
 
   const structureDataAndSubmit = async (data: any): Promise<void> => {
     const amount = parseFloat(data.amount);
@@ -142,16 +163,21 @@ export default function ({ submitPayment, handleClose, open, patient }: PaymentD
             </Grid>
             <Grid item sx={{ marginBottom: 1 }}>
               <FormControl variant="outlined" fullWidth required>
-                <InputLabel shrink>Amount</InputLabel>
+                <InputLabel shrink required error={Boolean(formState.errors.amount)}>
+                  Amount
+                </InputLabel>
                 <OutlinedInput
                   id="amount"
                   label="Amount, $"
                   placeholder="Enter amount in dollars"
-                  inputMode="numeric"
                   size="small"
                   notched
+                  error={Boolean(formState.errors.amount)}
                   {...register('amount', { required: true })}
                 />
+                {formState.errors.amount && (
+                  <FormHelperText error={true}>{formState.errors.amount?.message}</FormHelperText>
+                )}
               </FormControl>
             </Grid>
             <Grid item>
@@ -177,16 +203,23 @@ export default function ({ submitPayment, handleClose, open, patient }: PaymentD
           <Grid
             item
             sx={{
-              display: paymentMethod === 'card' ? 'initial' : 'none',
+              minHeight: '150px',
             }}
           >
-            <SelectCreditCard
-              patient={patient}
-              selectedCardId={creditCard}
-              handleCardSelected={(newVal: string | undefined) => {
-                setValue('creditCard', newVal ?? '');
+            <Box
+              sx={{
+                display: paymentMethod === 'card' ? 'initial' : 'none',
               }}
-            />
+            >
+              <SelectCreditCard
+                patient={patient}
+                selectedCardId={creditCard}
+                handleCardSelected={(newVal: string | undefined) => {
+                  setValue('creditCard', newVal ?? '');
+                }}
+                error={formState.errors.creditCard?.message}
+              />
+            </Box>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
