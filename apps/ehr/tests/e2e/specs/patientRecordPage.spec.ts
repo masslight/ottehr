@@ -325,18 +325,20 @@ test.describe('Patient Record Page mutating tests', () => {
     */
   });
 
-  test('Check validation error is displayed if any required field in Patient info block is missing', async ({
-    page,
-  }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.clearPatientLastName();
-    await patientInformationPage.clearPatientFirstName();
-    await patientInformationPage.clearPatientDateOfBirth();
-    await patientInformationPage.clickSaveChangesButton();
-    await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_LAST_NAME);
-    await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_FIRST_NAME);
-    await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
-  });
+  test(
+    'Check validation error is displayed if any required field in Patient info block is missing',
+    { tag: '@flaky' },
+    async ({ page }) => {
+      const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+      await patientInformationPage.clearPatientLastName();
+      await patientInformationPage.clearPatientFirstName();
+      await patientInformationPage.clearPatientDateOfBirth();
+      await patientInformationPage.clickSaveChangesButton();
+      await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_LAST_NAME);
+      await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_FIRST_NAME);
+      await patientInformationPage.verifyValidationErrorShown(Field.PATIENT_DOB);
+    }
+  );
 
   test('Updated values from Patient info block are saved and displayed correctly', async ({ page }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);

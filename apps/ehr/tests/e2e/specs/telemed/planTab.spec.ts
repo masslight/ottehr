@@ -139,7 +139,7 @@ test.describe('Disposition', async () => {
       await waitForSaveChartDataResponse(page);
     });
 
-    test('Should check reason for transfer and note are saved on Review&Sign tab', async () => {
+    test('Should check reason for transfer and note are saved on Review&Sign tab', { tag: '@flaky' }, async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
       const patientInstructionsContainer = page.getByTestId(
         dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer
@@ -203,13 +203,19 @@ test.describe('Disposition', async () => {
       await waitForSaveChartDataResponse(page);
     });
 
-    test('Should check follow up message and transfer note are saved on Review&Sign tab', async () => {
-      await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign)).click();
-      const patientInstructionsContainer = page.getByTestId(
-        dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer
-      );
-      await expect(patientInstructionsContainer).toHaveText(new RegExp(updatedNote));
-      await expect(patientInstructionsContainer).toHaveText(new RegExp(followUpMessage));
-    });
+    test(
+      'Should check follow up message and transfer note are saved on Review&Sign tab',
+      { tag: '@flaky' },
+      async () => {
+        await page
+          .getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.sign))
+          .click();
+        const patientInstructionsContainer = page.getByTestId(
+          dataTestIds.telemedEhrFlow.reviewTabPatientInstructionsContainer
+        );
+        await expect(patientInstructionsContainer).toHaveText(new RegExp(updatedNote));
+        await expect(patientInstructionsContainer).toHaveText(new RegExp(followUpMessage));
+      }
+    );
   });
 });

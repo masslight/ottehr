@@ -36,7 +36,7 @@ test.afterAll(async () => {
   await resourceHandler.cleanupResources();
 });
 
-test('Check assessment page initial state and default MDM saving', async () => {
+test('Check assessment page initial state and default MDM saving', { tag: '@flaky' }, async () => {
   await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
   await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page, { forceWaitForAssignButton: true });
   await page

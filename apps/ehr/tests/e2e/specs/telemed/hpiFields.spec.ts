@@ -669,15 +669,19 @@ test.describe("Additional questions. Check cases where patient didn't answered o
 
   test.describe.configure({ mode: 'serial' });
 
-  test("Should check provider doesn't have selected by default option. Patient didn't answer", async () => {
-    for (const question of ADDITIONAL_QUESTIONS) {
-      const patientAnswer = page.getByTestId(
-        dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field)
-      );
-      await expect(patientAnswer).toBeVisible();
-      await expect(patientAnswer).toHaveText(question.label); // here we're checking strictly for question text without answer
+  test(
+    "Should check provider doesn't have selected by default option. Patient didn't answer",
+    { tag: '@flaky' },
+    async () => {
+      for (const question of ADDITIONAL_QUESTIONS) {
+        const patientAnswer = page.getByTestId(
+          dataTestIds.telemedEhrFlow.hpiAdditionalQuestionsPatientProvided(question.field)
+        );
+        await expect(patientAnswer).toBeVisible();
+        await expect(patientAnswer).toHaveText(question.label); // here we're checking strictly for question text without answer
+      }
     }
-  });
+  );
 
   test('Update answers', async () => {
     // here we are setting all answers to "Yes"
@@ -725,7 +729,7 @@ test.describe('Chief complaint', () => {
 
   test.describe.configure({ mode: 'serial' });
 
-  test('Should add HPI provider notes and ROS', async () => {
+  test('Should add HPI provider notes and ROS', { tag: '@flaky' }, async () => {
     await page
       .getByTestId(dataTestIds.telemedEhrFlow.hpiChiefComplaintNotes)
       .locator('textarea')

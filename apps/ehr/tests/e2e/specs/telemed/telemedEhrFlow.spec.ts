@@ -519,46 +519,48 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
       await resourceHandler.cleanupResources();
     });
 
-    test('Appointment is present in tracking board, can be assigned and connection to patient is happening', async ({
-      page,
-    }) => {
-      await page.goto(`telemed/appointments`);
-      await awaitAppointmentsTableToBeVisible(page);
+    test(
+      'Appointment is present in tracking board, can be assigned and connection to patient is happening',
+      { tag: '@flaky' },
+      async ({ page }) => {
+        await page.goto(`telemed/appointments`);
+        await awaitAppointmentsTableToBeVisible(page);
 
-      await test.step('Find and assign my appointment', async () => {
-        const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
+        await test.step('Find and assign my appointment', async () => {
+          const table = page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTable).locator('table');
 
-        const appointmentRow = table.locator('tbody tr').filter({ hasText: resourceHandler.appointment?.id ?? '' });
+          const appointmentRow = table.locator('tbody tr').filter({ hasText: resourceHandler.appointment?.id ?? '' });
 
-        await expect(
-          appointmentRow.filter({ has: page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton) })
-        ).toBeVisible(DEFAULT_TIMEOUT);
+          await expect(
+            appointmentRow.filter({ has: page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton) })
+          ).toBeVisible(DEFAULT_TIMEOUT);
 
-        await appointmentRow.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton).click(DEFAULT_TIMEOUT);
-      });
-
-      await telemedDialogConfirm(page);
-
-      await test.step('Appointment has connect-to-patient button', async () => {
-        const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
-        await expect(statusChip).toBeVisible(DEFAULT_TIMEOUT);
-        // todo: is it ok to have check like this that rely on status text??
-        await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
-        await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).toBeVisible(
-          DEFAULT_TIMEOUT
-        );
-      });
-
-      await test.step('Connect to patient', async () => {
-        const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
-        await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);
-        await connectButton.click(DEFAULT_TIMEOUT);
+          await appointmentRow.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardAssignButton).click(DEFAULT_TIMEOUT);
+        });
 
         await telemedDialogConfirm(page);
 
-        await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible(DEFAULT_TIMEOUT);
-      });
-    });
+        await test.step('Appointment has connect-to-patient button', async () => {
+          const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
+          await expect(statusChip).toBeVisible(DEFAULT_TIMEOUT);
+          // todo: is it ok to have check like this that rely on status text??
+          await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
+          await expect(page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient)).toBeVisible(
+            DEFAULT_TIMEOUT
+          );
+        });
+
+        await test.step('Connect to patient', async () => {
+          const connectButton = page.getByTestId(dataTestIds.telemedEhrFlow.footerButtonConnectToPatient);
+          await expect(connectButton).toBeVisible(DEFAULT_TIMEOUT);
+          await connectButton.click(DEFAULT_TIMEOUT);
+
+          await telemedDialogConfirm(page);
+
+          await expect(page.getByTestId(dataTestIds.telemedEhrFlow.videoRoomContainer)).toBeVisible(DEFAULT_TIMEOUT);
+        });
+      }
+    );
   });
 });
 

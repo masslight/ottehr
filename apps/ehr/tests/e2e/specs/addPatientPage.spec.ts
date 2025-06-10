@@ -55,13 +55,15 @@ test('Open "Add patient page", click "Cancel", validation error on "Mobile phone
   await expectVisitsPage(page);
 });
 
-test('Open "Add patient page", click "Search patient", validation error on "Mobile phone" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.verifyMobilePhoneNumberValidationErrorShown();
-});
+test(
+  'Open "Add patient page", click "Search patient", validation error on "Mobile phone" field shown',
+  { tag: '@flaky' },
+  async ({ page }) => {
+    const addPatientPage = await expectAddPatientPage(page);
+    await addPatientPage.clickSearchForPatientsButton();
+    await addPatientPage.verifyMobilePhoneNumberValidationErrorShown();
+  }
+);
 
 test('Open "Add patient page" then enter invalid phone number, click "Search patient", validation error on "Mobile phone" field shown', async ({
   page,
