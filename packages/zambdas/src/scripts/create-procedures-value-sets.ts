@@ -17,7 +17,7 @@ import {
 } from 'utils';
 
 const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
-const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
+const USAGE_STR = `Usage: npm run create-procedures-value-sets [${VALID_ENVS.join(' | ')}]\n`;
 const STUB = 'stub';
 
 const checkEnvPassedIsValid = (env: string | undefined): boolean => {
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
     await oystehrClient.fhir.search<ActivityDefinition>({
       resourceType: 'ValueSet',
       params: [
-        { name: 'url', value: valueSets.map((valueSet) => valueSet.url).join(',') },
+        { name: 'url', value: VALUE_SETS.map((valueSet) => valueSet.url).join(',') },
         { name: 'status', value: 'active' },
       ],
     })
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
       });
     });
 
-  valueSets.forEach((valueSet) => {
+  VALUE_SETS.forEach((valueSet) => {
     requests.push({
       method: 'POST',
       url: '/ValueSet',
@@ -111,23 +111,80 @@ main().catch((error) => {
   process.exit(1);
 });
 
-const valueSets: ValueSet[] = [
+const OTHER = 'Other';
+const VALUE_SETS: ValueSet[] = [
   createProcedureTypeValueSet(),
-  createSimpleValueSet(MEDICATIONS_USED_VALUE_SET_URL, []),
-  createSimpleValueSet(BODY_SITES_VALUE_SET_URL, []),
-  createSimpleValueSet(BODY_SIDES_VALUE_SET_URL, []),
-  createSimpleValueSet(TECHNIQUES_VALUE_SET_URL, []),
-  createSimpleValueSet(SUPPLIES_VALUE_SET_URL, []),
-  createSimpleValueSet(COMPLICATIONS_VALUE_SET_URL, []),
-  createSimpleValueSet(PATIENT_RESPONSES_VALUE_SET_URL, []),
-  createSimpleValueSet(POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL, []),
-  createSimpleValueSet(TIME_SPENT_VALUE_SET_URL, []),
+  createSimpleValueSet('Procedures - Medication used', MEDICATIONS_USED_VALUE_SET_URL, [
+    'None',
+    'Topical',
+    'Local',
+    'Oral',
+    'IV',
+    'IM',
+  ]),
+  createSimpleValueSet('Procedures - Body site', BODY_SITES_VALUE_SET_URL, [
+    'Head',
+    'Face',
+    'Arm',
+    'Leg',
+    'Torso',
+    'Genital',
+    'Ear',
+    'Nose',
+    'Eye',
+    OTHER,
+  ]),
+  createSimpleValueSet('Procedures - Body side', BODY_SIDES_VALUE_SET_URL, [
+    'Left',
+    'Right',
+    'Midline',
+    'Not Applicable',
+  ]),
+  createSimpleValueSet('Procedures - Technique', TECHNIQUES_VALUE_SET_URL, ['Sterile', 'Clean', 'Aseptic', 'Field']),
+  createSimpleValueSet('Procedures - Supplies used', SUPPLIES_VALUE_SET_URL, [
+    'Suture Kit',
+    'Splint',
+    'Irrigation Syringe',
+    'Speculum',
+    'Forceps',
+    'IV Kit',
+    OTHER,
+  ]),
+  createSimpleValueSet('Procedures - Complications', COMPLICATIONS_VALUE_SET_URL, [
+    'None',
+    'Bleeding',
+    'Incomplete Removal',
+    'Allergic Reaction',
+    OTHER,
+  ]),
+  createSimpleValueSet('Procedures - Patient response', PATIENT_RESPONSES_VALUE_SET_URL, [
+    'Tolerated Well',
+    'Mild Distress',
+    'Severe Distress',
+    'Improved',
+    'Stable',
+    'Worsened',
+  ]),
+  createSimpleValueSet('Procedures - Post-procedure instructions', POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL, [
+    'Wound Care',
+    'F/U with PCP',
+    'Return if worsening',
+    OTHER,
+  ]),
+  createSimpleValueSet('Procedures - Time spent', TIME_SPENT_VALUE_SET_URL, [
+    '< 5 min',
+    '5-10 min',
+    '10-20 min',
+    '20-30 min',
+    '> 30 min',
+  ]),
 ];
 
 function createProcedureTypeValueSet(): ValueSet {
   return {
     resourceType: 'ValueSet',
     url: PROCEDURE_TYPES_VALUE_SET_URL,
+    name: 'Procedures - Procedure type',
     status: 'active',
     expansion: {
       timestamp: new Date().toISOString(),
@@ -222,10 +279,11 @@ function procedureCptCodeExtension(code: string, display: string): Extension {
   };
 }
 
-function createSimpleValueSet(url: string, values: string[]): ValueSet {
+function createSimpleValueSet(name: string, url: string, values: string[]): ValueSet {
   const valueSet: ValueSet = {
     resourceType: 'ValueSet',
     url: url,
+    name: name,
     status: 'active',
     expansion: {
       timestamp: new Date().toISOString(),
