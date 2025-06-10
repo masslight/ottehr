@@ -7,7 +7,7 @@ export const ErrorFallbackScreen = (): JSX.Element => {
   const navigate = useNavigate();
 
   const onSubmit = async (): Promise<void> => {
-    navigate(intakeFlowPageRoute.AuthPage.path);
+    navigate(intakeFlowPageRoute.Homepage.path);
   };
 
   return (

@@ -11,7 +11,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder } from 'utils';
 import { getRadiologyOrderEditUrl } from '../../css-module/routing/helpers';
@@ -19,7 +19,7 @@ import { RadiologyOrderLoading } from './RadiologyOrderLoading';
 import { RadiologyTableRow } from './RadiologyTableRow';
 import { usePatientRadiologyOrders } from './usePatientRadiologyOrders';
 
-export type RadiologyTableColumn = 'studyType' | 'dx' | 'ordered' | 'status' | 'actions';
+export type RadiologyTableColumn = 'studyType' | 'dx' | 'ordered' | 'stat' | 'status' | 'actions';
 
 type RadiologyTableProps = {
   patientId?: string;
@@ -28,7 +28,6 @@ type RadiologyTableProps = {
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
   onCreateOrder?: () => void;
 };
 
@@ -38,7 +37,6 @@ export const RadiologyTable = ({
   columns,
   allowDelete = false,
   titleText,
-  redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
@@ -61,17 +59,6 @@ export const RadiologyTable = ({
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
     navigateTo(getRadiologyOrderEditUrl(order.appointmentId, order.serviceRequestId));
   };
-
-  // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && orders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, orders.length, error, onCreateOrder]);
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
     setPage(value);
@@ -104,10 +91,12 @@ export const RadiologyTable = ({
         return '25%';
       case 'ordered':
         return '25%';
-      case 'status':
-        return '15%';
-      case 'actions':
+      case 'stat':
         return '10%';
+      case 'status':
+        return '10%';
+      case 'actions':
+        return '5%';
       default:
         return '10%';
     }
@@ -121,6 +110,8 @@ export const RadiologyTable = ({
         return 'Dx';
       case 'ordered':
         return 'Ordered';
+      case 'stat':
+        return 'Stat';
       case 'status':
         return 'Status';
       case 'actions':

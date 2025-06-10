@@ -88,7 +88,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           encounterId: encounter.id,
           stat: stat,
         });
-        navigate(`/in-person/${appointment?.id}/radiology-orders`);
+        navigate(`/in-person/${appointment?.id}/radiology`);
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
@@ -150,16 +150,12 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           <Paper sx={{ p: 3 }}>
             <Grid container sx={{ width: '100%' }} spacing={1} rowSpacing={2}>
               <Grid item xs={12}>
-                <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-                  Dx
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
                 <Autocomplete
                   blurOnSelect
                   id="select-dx"
                   size="small"
                   fullWidth
+                  filterOptions={(x) => x}
                   noOptionsText={
                     dxDebouncedSearchTerm && icdSearchOptions.length === 0
                       ? 'Nothing found for this search criteria'
@@ -193,6 +189,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   id="select-cpt"
                   size="small"
                   fullWidth
+                  filterOptions={(x) => x}
                   noOptionsText={
                     cptDebouncedSearchTerm && cptSearchOptions.length === 0
                       ? 'Nothing found for this search criteria'
@@ -211,11 +208,6 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      onBlur={() => {
-                        if (orderCpt) {
-                          setOrderCpt(orderCpt);
-                        }
-                      }}
                       onChange={(e) => debouncedCptHandleInputChange(e.target.value)}
                       label="Study Type"
                       placeholder="Search for CPT Code"
@@ -229,7 +221,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                 <FormControlLabel
                   sx={{ fontSize: '14px' }}
                   control={<Switch checked={stat} onChange={() => setStat(!stat)} />}
-                  label={<Typography variant="body2">Stat</Typography>}
+                  label={<Typography variant="body2">STAT</Typography>}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -237,7 +229,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
                   variant="outlined"
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   onClick={() => {
-                    navigate(`/in-person/${appointment?.id}/external-lab-orders`);
+                    navigate(`/in-person/${appointment?.id}/radiology`);
                   }}
                 >
                   Cancel

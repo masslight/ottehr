@@ -61,7 +61,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
     } catch (e) {
       throw EXTERNAL_LAB_ERROR(
-        'Resource configuration error - user creating this lab order must have a Practitioner resource linked'
+        'Resource configuration error - user creating this external lab order must have a Practitioner resource linked'
       );
     }
     const attendingPractitionerId = encounter.participant
@@ -276,11 +276,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     return {
       statusCode: 200,
-      body: JSON.stringify('successfully created fhir resources for lab order'),
+      body: JSON.stringify('successfully created fhir resources for external lab order'),
     };
   } catch (error: any) {
     await topLevelCatch('admin-create-lab-order', error, input.secrets);
-    let body = JSON.stringify({ message: `Error creating lab order: ${error}` });
+    let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
       body = JSON.stringify({ message, code });
@@ -506,7 +506,7 @@ const getAdditionalResources = async (
 
   if (accountSearchResults.length !== 1)
     throw EXTERNAL_LAB_ERROR(
-      'Please update responsible party information - patient must have one active account record to represent a guarantor to order labs'
+      'Please update responsible party information - patient must have one active account record to represent a guarantor to external lab orders'
     );
 
   const patientAccount = accountSearchResults[0];

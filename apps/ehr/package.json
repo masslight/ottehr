@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.10.5",
+  "version": "1.10.12",
   "private": true,
   "type": "module",
   "engines": {
@@ -56,7 +56,7 @@
     "@oystehr/sdk": "^4.0.0-alpha.2",
     "@photonhealth/elements": "^0.12.3",
     "@twilio/conversations": "^2.4.1",
-    "amazon-chime-sdk-component-library-react": "^3.7.0",
+    "amazon-chime-sdk-component-library-react": "^3.10.0",
     "amazon-chime-sdk-js": "^3.20.0",
     "chart.js": "^4.4.1",
     "fast-json-patch": "^3.1.1",

@@ -1036,7 +1036,7 @@ export default function AppointmentPage(): ReactElement {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
-                { link: '/visits', children: 'Visit Details' },
+                { link: `/patient/${patient?.id}`, children: 'Visit Details' },
                 { link: '#', children: appointment?.id || <Skeleton width={150} /> },
               ]}
             />

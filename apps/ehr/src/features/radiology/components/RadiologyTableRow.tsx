@@ -1,5 +1,5 @@
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
-import { Box, Button, TableCell, TableRow, Typography } from '@mui/material';
+import { Box, Button, Chip, TableCell, TableRow, Typography, useTheme } from '@mui/material';
 import { otherColors } from '@theme/colors';
 import { ReactElement } from 'react';
 import { formatDate, GetRadiologyOrderListZambdaOrder } from 'utils';
@@ -21,6 +21,8 @@ export const RadiologyTableRow = ({
   allowDelete = false,
   onRowClick,
 }: RadiologyTableRowProps): ReactElement => {
+  const theme = useTheme();
+
   const handleDeleteClick = (e: React.MouseEvent): void => {
     e.stopPropagation();
     if (onDeleteOrder) {
@@ -47,6 +49,30 @@ export const RadiologyTableRow = ({
             >{`${order.providerName}`}</Typography>
           </Box>
         );
+      case 'stat':
+        if (order.isStat) {
+          return (
+            <Chip
+              size="small"
+              label="STAT"
+              sx={{
+                borderRadius: '4px',
+                border: 'none',
+                fontWeight: 900,
+                fontSize: '14px',
+                textTransform: 'uppercase',
+                background: theme.palette.error.main,
+                color: 'white',
+                padding: '8px',
+                height: '24px',
+                width: 'fit-content',
+              }}
+              variant="outlined"
+            />
+          );
+        } else {
+          return <></>;
+        }
       case 'status':
         return <RadiologyTableStatusChip status={order.status} />;
       case 'actions':

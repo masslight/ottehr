@@ -167,7 +167,7 @@ export async function sendInPersonMessages(
   );
 
   let selectedMessage;
-  switch (language.split('-')[0]) {
+  switch (language?.split('-')?.[0] ?? 'en') {
     case 'es':
       selectedMessage = messageSpanish;
       break;
@@ -211,7 +211,7 @@ export const sendInPersonConfirmationEmail = async (input: InPersonConfirmationE
   let templateId = SENDGRID_CONFIRMATION_EMAIL_TEMPLATE_ID;
 
   // In case of e.g. en-US or en-GB, ignore local dialect
-  switch (language.split('-')[0]) {
+  switch (language?.split('-')?.[0] ?? 'en') {
     case 'es':
       subject = `Confirmación de su consulta en ${PROJECT_NAME}`;
       templateId = SENDGRID_SPANISH_CONFIRMATION_EMAIL_TEMPLATE_ID;

@@ -1,4 +1,3 @@
-import { useAuth0 } from '@auth0/auth0-react';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
@@ -8,22 +7,21 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { CustomLoadingButton, ErrorDialog, ErrorDialogConfig, useUCZambdaClient, ZambdaClient } from 'ui-components';
 import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, VisitType } from 'utils';
-import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { otherColors } from '../IntakeThemeProvider';
 import { ottehrApi } from '../api';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
 import { safelyCaptureException } from '../helpers/sentry';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
-import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { Appointment } from '../types';
 import { useBookingContext } from './BookingHome';
 import PatientList from '../features/patients/components/selectable-list';
 import { ottehrLightBlue } from '@theme/icons';
+import { intakeFlowPageRoute } from '../App';
 
 const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();
   const zambdaClient = useUCZambdaClient({ tokenless: false });
-  const { isAuthenticated, isLoading: authIsLoading, loginWithRedirect } = useAuth0();
+
   const {
     startISO,
     patients,
@@ -43,7 +41,6 @@ const ChoosePatient = (): JSX.Element => {
   const [bookedAppointment, setBookedAppointment] = useState<Appointment>();
   const [cancellingAppointment, setCancellingAppointment] = useState<boolean>(false);
   const [errorDialog, setErrorDialog] = useState<ErrorDialogConfig | undefined>(undefined);
-  const preserveQueryParams = usePreserveQueryParams();
   const { t } = useTranslation();
 
   const navigateInFlow = useNavigateInFlow();
@@ -328,21 +325,7 @@ const ChoosePatient = (): JSX.Element => {
     return undefined;
   }, [bookedAppointment]);
 
-  // console.log('loading, authIsLoading', loading, authIsLoading);
-  // console.log('patients loading?', patientsLoading);
-
-  if (!isAuthenticated && !authIsLoading) {
-    // if the user is not signed in, redirect them to auth0
-    loginWithRedirect({
-      appState: {
-        target: preserveQueryParams(`/${bookingBasePath}/${slotId}/patients`),
-      },
-    }).catch((error) => {
-      throw new Error(`Error calling loginWithRedirect Auth0: ${error}`);
-    });
-  }
-
-  if (patientsLoading || authIsLoading || appointmentsLoading) {
+  if (patientsLoading || appointmentsLoading) {
     return (
       <PageContainer title={t('welcomeBack.loading')}>
         <CircularProgress />

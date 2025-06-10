@@ -5,7 +5,7 @@ import { PageTitle } from 'src/telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { RadiologyTable, RadiologyTableColumn } from '../components/RadiologyTable';
 
-const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'status', 'actions'];
+const radiologyColumns: RadiologyTableColumn[] = ['studyType', 'dx', 'ordered', 'stat', 'status', 'actions'];
 
 export const RadiologyOrdersListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -39,7 +39,6 @@ export const RadiologyOrdersListPage: React.FC = () => {
         columns={radiologyColumns}
         showFilters={false}
         allowDelete={true}
-        redirectToOrderCreateIfOrdersEmpty={true}
         onCreateOrder={handleCreateOrder}
       />
     </Stack>
