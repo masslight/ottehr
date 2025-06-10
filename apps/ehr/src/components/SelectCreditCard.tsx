@@ -182,6 +182,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             }}
             condition="I have obtained the consent to add a card on file from the patient"
           />
+          {error && !showCardList && <FormHelperText error={Boolean(error)}>{error}</FormHelperText>}
         </Box>
       </Elements>
 
