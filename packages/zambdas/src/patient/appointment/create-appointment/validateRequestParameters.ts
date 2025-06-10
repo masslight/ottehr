@@ -23,10 +23,9 @@ import {
   Secrets,
   SecretsKeys,
   ServiceMode,
-  userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { checkIsEHRUser, isTestUser, phoneRegex, ZambdaInput } from '../../../shared';
+import { checkIsEHRUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
 import Oystehr, { User } from '@oystehr/sdk';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 
@@ -158,14 +157,14 @@ export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient } = input;
+  const { slotId, user, patient } = input;
 
   let locationState = input.locationState;
 
   // patient input complex validation
   if (patient.id) {
     const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
-    if (!userAccess && !isEHRUser && !isTestUser(user)) {
+    if (!userAccess) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
     }
   }

@@ -54,7 +54,6 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     beneficiaryPatientId: patient?.id,
     setupCompleted: Boolean(setupData),
     onSuccess: (data) => {
-      console.group('card data', data);
       setCards(data.cards ?? []);
       const defaultCard = data.cards.find((card) => card.default);
       if (defaultCard && !selectedCardId) {
@@ -95,10 +94,6 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     setAddingNewCard(false);
   };
 
-  console.log('initializing', initializing);
-  console.log('cards', cards);
-  console.log('cardsAreLoading', cardsAreLoading);
-
   if (initializing) {
     return (
       <Box
@@ -115,7 +110,6 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
   }
   const currentValue = addingNewCard ? NEW_CARD : selectedCard ?? null;
   const showCardList = cards.length > 0;
-  console.log('currentValue', currentValue);
   return (
     <>
       <Autocomplete
@@ -160,7 +154,6 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         onChange={(_event, value) => {
           if (value?.id === NEW_CARD.id) {
             setAddingNewCard(true);
-            console.log('Adding new card set');
           }
           handleCardSelected(value?.id);
           if (addingNewCard) {

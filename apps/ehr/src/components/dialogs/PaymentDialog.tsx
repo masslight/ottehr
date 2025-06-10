@@ -17,7 +17,7 @@ import {
   RadioGroup,
   Typography,
 } from '@mui/material';
-import { ReactElement } from 'react';
+import { ReactElement, useEffect } from 'react';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { Patient } from 'fhir/r4b';
 import {
@@ -28,6 +28,7 @@ import {
   getLastName,
   getMiddleName,
   getPhoneNumberForIndividual,
+  sleep,
 } from 'utils';
 import { DateTime } from 'luxon';
 import { Controller, useForm } from 'react-hook-form';
@@ -38,6 +39,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 interface PaymentDialogProps {
   handleClose: () => void;
   submitPayment: (data: CashOrCardPayment) => Promise<void>;
+  isSubmitting: boolean;
   open: boolean;
   patient: Patient;
 }
@@ -102,7 +104,13 @@ const paymentSchema = yup.object().shape({
   }),
 });
 
-export default function ({ submitPayment, handleClose, open, patient }: PaymentDialogProps): ReactElement {
+export default function ({
+  submitPayment,
+  handleClose,
+  open,
+  patient,
+  isSubmitting,
+}: PaymentDialogProps): ReactElement {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const buttonSx = {
     fontWeight: 500,
@@ -110,7 +118,7 @@ export default function ({ submitPayment, handleClose, open, patient }: PaymentD
     borderRadius: 6,
   };
 
-  const { handleSubmit, register, watch, formState, control, setValue } = useForm({
+  const { handleSubmit, register, watch, formState, control, setValue, reset } = useForm({
     defaultValues: {
       amount: '',
       paymentMethod: 'card',
@@ -119,6 +127,16 @@ export default function ({ submitPayment, handleClose, open, patient }: PaymentD
     resolver: yupResolver(paymentSchema),
     mode: 'onBlur',
   });
+
+  useEffect(() => {
+    const resetFormAfterDelay = async (): Promise<void> => {
+      await sleep(250);
+      reset();
+    };
+    if (!open) {
+      void resetFormAfterDelay();
+    }
+  }, [open, reset]);
 
   const paymentMethod = watch('paymentMethod'); // Default to 'card'
   const creditCard = watch('creditCard');
@@ -222,13 +240,13 @@ export default function ({ submitPayment, handleClose, open, patient }: PaymentD
             </Box>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'flex-start', marginLeft: 1 }}>
+        <DialogActions sx={{ justifyContent: 'space-between', marginLeft: 1 }}>
           <Button variant="text" onClick={handleDialogClose} size="medium" sx={buttonSx}>
             Cancel
           </Button>
           <LoadingButton
             data-testid={dataTestIds.visitDetailsPage.cancelVisitDialogue}
-            loading={false}
+            loading={isSubmitting}
             type="submit"
             variant="contained"
             color="primary"
