@@ -1,4 +1,9 @@
-import Oystehr, { BatchInputPatchRequest, BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
+import Oystehr, {
+  BatchInputDeleteRequest,
+  BatchInputPatchRequest,
+  BatchInputPostRequest,
+  SearchParam,
+} from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -265,6 +270,8 @@ export async function updateAppointmentTime(
   try {
     const currentSlotRef = appointment?.slot?.[0]?.reference;
     let newSlotReference: Reference | undefined;
+    const patchSlotRequests: BatchInputPatchRequest<Slot>[] = [];
+    const deleteSlotRequests: BatchInputDeleteRequest[] = [];
     const postSlotRequests: BatchInputPostRequest<Slot>[] = [];
     if (slot && `Slot/${slot.id}` !== currentSlotRef) {
       // we need to update the Appointment with the passed in Slot
@@ -273,6 +280,24 @@ export async function updateAppointmentTime(
         newSlotReference = {
           reference: `Slot/${slot.id}`,
         };
+        patchSlotRequests.push({
+          method: 'PATCH',
+          url: `Slot/${slot.id}`,
+          operations: [
+            {
+              op: 'replace',
+              path: '/status',
+              value: 'busy',
+            },
+          ],
+        });
+        const currenSlotId = currentSlotRef?.split('/')[1];
+        if (currenSlotId) {
+          deleteSlotRequests.push({
+            method: 'DELETE',
+            url: `Slot/${currentSlotRef?.split('/')[1]}`,
+          });
+        }
       } else if (slot) {
         postSlotRequests.push({
           method: 'POST',
@@ -318,7 +343,7 @@ export async function updateAppointmentTime(
       ],
     };
     const json = await oystehr.fhir.transaction<Appointment | Slot>({
-      requests: [...postSlotRequests, patchRequest],
+      requests: [...postSlotRequests, patchRequest, ...patchSlotRequests, ...deleteSlotRequests],
     });
     const flattened = unbundleBatchPostOutput<Appointment | Slot>(json);
     const apt = flattened.find((res): res is Appointment => res.resourceType === 'Appointment');

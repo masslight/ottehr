@@ -7,42 +7,44 @@ import {
   Location,
   LocationHoursOfOperation,
   Practitioner,
-  Resource,
   Schedule,
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {
-  BookableScheduleData,
-  Closure,
-  ClosureType,
-  codingContainedInList,
-  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
-  getDateTimeFromDateAndTime,
-  getFullName,
-  getPatchOperationForNewMetaTag,
-  isLocationVirtual,
-  makeBookingOriginExtensionEntry,
-  OVERRIDE_DATE_FORMAT,
-  SCHEDULE_EXTENSION_URL,
-  SCHEDULE_NUM_DAYS,
-  ScheduleOwnerFhirResource,
-  ScheduleStrategy,
-  scheduleStrategyForHealthcareService,
-  ScheduleType,
-  ServiceMode,
-  SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
-  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
-  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
-  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  SlotServiceCategory,
-  Timezone,
-  TIMEZONE_EXTENSION_URL,
-  TIMEZONES,
-  VisitType,
-  WALKIN_APPOINTMENT_TYPE_CODE,
-} from 'utils';
 import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
+import {
+  SCHEDULE_EXTENSION_URL,
+  TIMEZONE_EXTENSION_URL,
+  getPatchOperationForNewMetaTag,
+  BookableScheduleData,
+  SCHEDULE_NUM_DAYS,
+  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
+  scheduleStrategyForHealthcareService,
+  ScheduleStrategy,
+  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
+  makeBookingOriginExtensionEntry,
+  getFullName,
+  WALKIN_APPOINTMENT_TYPE_CODE,
+  isLocationVirtual,
+  SlotServiceCategory,
+  codingContainedInList,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
+  SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+} from '../fhir';
+import {
+  Closure,
+  Timezone,
+  TIMEZONES,
+  OVERRIDE_DATE_FORMAT,
+  ClosureType,
+  VisitType,
+  ScheduleType,
+  ScheduleOwnerFhirResource,
+  ServiceMode,
+  CreateSlotParams,
+} from '../types';
+import { getDateTimeFromDateAndTime } from './date';
 
 export interface WaitTimeRange {
   low: number;
@@ -118,6 +120,7 @@ export interface ScheduleDTOOwner {
   infoMessage?: string;
   hoursOfOperation?: Location['hoursOfOperation'];
   timezone: Timezone;
+  isVirtual?: boolean;
 }
 export interface ScheduleDTO {
   id: string;
@@ -247,24 +250,6 @@ export function getTimezone(
   }
   return timezone;
 }
-
-export const getAppointmentTimezone = (appointment: Appointment, scheduleResources: Resource[]): string => {
-  const participantReferences =
-    appointment.participant?.map((participant) => participant.actor?.reference).filter(Boolean) ?? [];
-
-  const scheduleResource = scheduleResources.find(
-    (resource) =>
-      resource.resourceType && resource.id && participantReferences.includes(`${resource.resourceType}/${resource.id}`)
-  );
-
-  if (!scheduleResource) {
-    console.error('Resource with Schedule extension not found in appointment.participant resources', scheduleResources);
-  }
-
-  const timezone = getTimezone(scheduleResource as Location | HealthcareService | Practitioner);
-
-  return timezone;
-};
 
 // creates a map where each open hour in the day's schedule is a key and the capacity for that hour is the value
 export function getSlotCapacityMapForDayAndSchedule(
@@ -1734,4 +1719,25 @@ const removeSlotsAfter = (slots: SlotCapacityMap, time: DateTime): SlotCapacityM
 
 export const getOriginalBookingUrlFromSlot = (slot: Slot): string | undefined => {
   return slot.extension?.find((ext) => ext.url === SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL)?.valueString;
+};
+
+interface CreateSlotOptions {
+  status: Slot['status'];
+  originalBookingUrl?: string;
+  postTelemedLabOnly?: boolean;
+}
+export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
+  const { status, originalBookingUrl, postTelemedLabOnly } = options;
+  const walkin = getSlotIsWalkin(slot);
+  console.log('service modality from slot', getServiceModeFromSlot(slot));
+  return {
+    scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
+    startISO: slot.start,
+    serviceModality: getServiceModeFromSlot(slot) ?? ServiceMode['in-person'],
+    lengthInMinutes: getAppointmentDurationFromSlot(slot),
+    status,
+    walkin,
+    originalBookingUrl,
+    postTelemedLabOnly,
+  };
 };

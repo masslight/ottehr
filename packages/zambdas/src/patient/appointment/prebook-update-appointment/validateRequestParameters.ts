@@ -1,22 +1,29 @@
-import { isISODateTime } from 'utils';
+import { INVALID_INPUT_ERROR, isISODateTime, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../../shared';
 import { UpdateAppointmentInput } from '.';
 
 // Note that this file is copied from BH and needs significant changes
 export function validateRequestParameters(input: ZambdaInput): UpdateAppointmentInput {
   if (!input.body) {
-    throw new Error('No request body provided');
+    throw MISSING_REQUEST_BODY;
   }
 
   const { appointmentID, language, slot } = JSON.parse(input.body);
 
-  // Check existence of necessary fields
-  if (appointmentID === undefined || slot === undefined) {
-    throw new Error('These fields are required: "appointmentID", "slot"');
+  const missingFields = [];
+  if (appointmentID === undefined) {
+    missingFields.push('appointmentID');
+  }
+  if (slot === undefined) {
+    missingFields.push('slot');
+  }
+
+  if (missingFields.length > 0) {
+    throw MISSING_REQUIRED_PARAMETERS(missingFields);
   }
 
   if (!isISODateTime(slot.start)) {
-    throw new Error(`"slot.start" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS)`);
+    throw INVALID_INPUT_ERROR(`"slot.start" must be in ISO date and time format (YYYY-MM-DDTHH:MM:SS)`);
   }
 
   return {

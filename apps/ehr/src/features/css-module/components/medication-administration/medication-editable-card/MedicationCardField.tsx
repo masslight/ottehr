@@ -1,15 +1,24 @@
 import React from 'react';
-import { TextField, Select, MenuItem, FormControl, InputLabel, FormHelperText, Skeleton } from '@mui/material';
+import {
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormHelperText,
+  Skeleton,
+  Autocomplete,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { medicationOrderFieldsWithOptions } from './utils';
+import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 interface MedicationCardFieldProps {
   field: keyof MedicationData;
   label: string;
-  type?: 'text' | 'number' | 'select' | 'date' | 'time' | 'month';
+  type?: InHouseMedicationFieldType;
   value: string | number | undefined;
   onChange: <Field extends keyof MedicationData>(field: Field, value: MedicationData[Field]) => void;
   required?: boolean;
@@ -54,6 +63,49 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
   };
 
   const isInstruction = field === 'instructions';
+
+  if (type === 'autocomplete') {
+    const mappedLabel = label === 'medicationId' ? 'Medication' : label;
+
+    const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
+    const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
+    const currentValue = renderValue
+      ? options.find((option) => option.label === renderValue)
+      : options.find((option) => option.value === value);
+
+    const autocomplete = isOptionsLoaded ? (
+      <Autocomplete
+        disabled={!isOptionsLoaded}
+        options={options}
+        isOptionEqualToValue={(option, value) => option.value === value.value}
+        value={currentValue ?? null}
+        getOptionLabel={(option) => option.label}
+        onChange={(_e, val) => handleChange(val?.value)}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={mappedLabel}
+            placeholder={`Search ${mappedLabel}`}
+            error={showError && required && !value}
+          />
+        )}
+      />
+    ) : (
+      <Skeleton variant="rectangular" width="100%" height={56} />
+    );
+
+    return (
+      <StyledFormControl
+        data-testid={dataTestIds.orderMedicationPage.inputField(field)}
+        disabled={!isEditable}
+        required={required}
+        error={showError && required && !value}
+      >
+        {autocomplete}
+        {showError && required && !value && <FormHelperText>This field is required</FormHelperText>}
+      </StyledFormControl>
+    );
+  }
 
   if (type === 'select' && medicationOrderFieldsWithOptions.includes(field)) {
     const mappedLabel = label === 'medicationId' ? 'Medication' : label;

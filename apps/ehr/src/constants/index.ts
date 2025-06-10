@@ -76,18 +76,28 @@ export const MOBILE_MODAL_STYLE = {
   p: 4,
 };
 
-export const NEXT_WIDTH = '1%';
-export const TYPE_WIDTH = '13%';
-export const TIME_WIDTH = '12%';
-export const PATIENT_AND_REASON_WIDTH = '26%';
-export const INTAKE_WIDTH = '8%';
-export const ROOM_WIDTH = '12%';
-export const PROVIDER_WIDTH = '14%';
-export const GROUP_WIDTH = '14%';
-export const VISIT_ICONS_WIDTH = '19%';
-export const NOTES_WIDTH = '19%';
-export const CHAT_WIDTH = '8%';
-export const ACTION_WIDTH = '11%';
+export const NEXT_WIDTH = '14px';
+export const TYPE_WIDTH = '10%';
+export const TYPE_WIDTH_MIN = '150px';
+export const TIME_WIDTH = '8%';
+export const TIME_WIDTH_MIN = '120px';
+export const PATIENT_AND_REASON_WIDTH_MIN = '220px';
+export const ROOM_WIDTH = '7%';
+export const ROOM_WIDTH_MIN = '100px';
+export const PROVIDER_WIDTH = '9%';
+export const PROVIDER_WIDTH_MIN = '120px';
+export const GROUP_WIDTH = '8%';
+export const GROUP_WIDTH_MIN = '100px';
+export const VISIT_ICONS_WIDTH = '10%';
+export const VISIT_ICONS_WIDTH_MIN = '150px';
+export const NOTES_WIDTH = '12%';
+export const NOTES_WIDTH_MIN = '170px';
+export const CHAT_WIDTH = '6%';
+export const CHAT_WIDTH_MIN = '80px';
+export const GO_TO_WIDTH = '12%';
+export const GO_TO_WIDTH_MIN = '180px';
+export const ACTION_WIDTH = '8%';
+export const ACTION_WIDTH_MIN = '110px';
 
 // Constants for default page sizes. Could also consider adding constants for the page size options
 export const LOCATION_ROWS_PER_PAGE = 25;

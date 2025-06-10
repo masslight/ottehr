@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 
 const tokenlessClient = new Oystehr({
   projectApiUrl: import.meta.env.VITE_APP_PROJECT_API_URL,
+  projectId: import.meta.env.VITE_APP_PROJECT_ID,
 });
 
 let clientWithToken: Oystehr | null = null;

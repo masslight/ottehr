@@ -93,9 +93,17 @@ jobs:
       - name: Run linting
         run: npm run lint:eslint
 
+
       - name: Run unit tests
         run: npm run test
         env:
+          CI: true
+          NODE_OPTIONS: '--max-old-space-size=8192'
+
+      - name: Run integration tests
+        run: npm run integration:zambdas
+        env:
+          ENV: 'local'
           CI: true
           NODE_OPTIONS: '--max-old-space-size=8192'
 

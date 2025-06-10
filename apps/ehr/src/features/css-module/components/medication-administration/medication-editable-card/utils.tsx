@@ -19,11 +19,14 @@ export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationD
 
 export type MedicationOrderFieldWithOptionsType = (typeof medicationOrderFieldsWithOptions)[number];
 
-export const getFieldType = (field: keyof MedicationData): 'text' | 'number' | 'select' | 'date' | 'time' | 'month' => {
+export type InHouseMedicationFieldType = 'text' | 'number' | 'select' | 'date' | 'time' | 'month' | 'autocomplete';
+
+export const getFieldType = (field: keyof MedicationData): InHouseMedicationFieldType => {
   if (field === 'dose') return 'number';
   if (field === 'expDate') return 'month';
   if (field === 'dateGiven') return 'date';
   if (field === 'timeGiven') return 'time';
+  if (field === 'medicationId') return 'autocomplete';
   if (medicationOrderFieldsWithOptions.includes(field)) return 'select';
   return 'text';
 };
