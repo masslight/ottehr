@@ -291,15 +291,6 @@ const getCommonLabResultDataPoints = async (
   return { reviewingProviderFirst, reviewingProviderLast, reviewDate, orderSubmitDate };
 };
 
-function formatResultValue(result: string): string {
-  if (result === 'Positive') {
-    return 'Detected';
-  } else if (result === 'Negative') {
-    return 'Not detected';
-  }
-  return result;
-}
-
 export async function createExternalLabResultPDF(
   oystehr: Oystehr,
   serviceRequestID: string,
@@ -491,11 +482,11 @@ export async function createInHouseLabResultPDF(
     inHouseLabResults.push({
       name: item.componentName,
       type: item.dataType,
-      value: formatResultValue(item.result?.entry || ''),
+      value: item.result?.entry || '',
       units: item.unit,
       rangeString: item.valueSet
-        .filter((value) => !item.abnormalValues.includes(value))
-        .map((value) => formatResultValue(value)),
+        .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
+        .map((value) => value.display),
     });
   });
   components.groupedComponents.forEach((item) => {
@@ -503,11 +494,11 @@ export async function createInHouseLabResultPDF(
       inHouseLabResults.push({
         name: item.componentName,
         type: item.dataType,
-        value: formatResultValue(item.result?.entry || ''),
+        value: item.result?.entry || '',
         units: item.unit,
         rangeString: item.valueSet
-          .filter((value) => !item.abnormalValues.includes(value))
-          .map((value) => formatResultValue(value)),
+          .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
+          .map((value) => value.display),
       });
     } else if (item.dataType === 'Quantity') {
       inHouseLabResults.push({

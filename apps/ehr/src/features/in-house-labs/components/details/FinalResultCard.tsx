@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Button } from '@mui/material';
-import { ResultEntryInput, formatDateForLabs, InHouseOrderDetailPageItemDTO } from 'utils';
+import { Box, Paper, Typography } from '@mui/material';
+import { ResultEntryInput, formatDateForLabs, InHouseOrderDetailPageItemDTO, PageName } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { useForm, FormProvider } from 'react-hook-form';
-import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
-import { BiotechOutlined } from '@mui/icons-material';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
+import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface FinalResultCardProps {
   testDetails: InHouseOrderDetailPageItemDTO;
@@ -66,28 +63,13 @@ export const FinalResultCard: React.FC<FinalResultCardProps> = ({ testDetails })
             />
           )}
         </FormProvider>
-
-        <Box display="flex" justifyContent="space-between" mt={2} mb={3}>
-          <Button
-            variant="outlined"
-            color="primary"
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-            onClick={() => openPdf()}
-            startIcon={<BiotechOutlined />}
-            disabled={!testDetails.resultsPDFUrl}
-          >
-            Results PDF
-          </Button>
-          <Button
-            variant="text"
-            color="primary"
-            onClick={() => setShowDetails(!showDetails)}
-            endIcon={showDetails ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-          >
-            Details
-          </Button>
-        </Box>
-        <InHouseLabOrderHistory showDetails={showDetails} testDetails={testDetails} />
+        <InHouseLabsDetailsCard
+          testDetails={testDetails}
+          page={PageName.final}
+          showDetails={showDetails}
+          setShowDetails={setShowDetails}
+          openPdf={openPdf}
+        />
       </Box>
     </Paper>
   );

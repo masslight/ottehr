@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.11.0",
+  "version": "1.11.3",
   "private": true,
   "type": "module",
   "engines": {
@@ -24,7 +24,7 @@
     "preview": "vite preview --port 4002",
     "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
     "prettier": "prettier --write .",
-    "build": "npm run build:env --env=default",
+    "build": "tsc && vite build --mode default",
     "build:env": "ENV=$npm_config_env npm run build-skeleton",
     "build:development": "ENV=development npm run build-skeleton",
     "build:testing": "ENV=testing npm run build-skeleton",
@@ -55,6 +55,8 @@
     "@mui/x-date-pickers-pro": "^6.3.0",
     "@oystehr/sdk": "^4.0.0-alpha.2",
     "@photonhealth/elements": "^0.12.3",
+    "@stripe/react-stripe-js": "^3.0.0",
+    "@stripe/stripe-js": "^3.5.0",
     "@twilio/conversations": "^2.4.1",
     "amazon-chime-sdk-component-library-react": "^3.10.0",
     "amazon-chime-sdk-js": "^3.20.0",
@@ -78,6 +80,7 @@
     "styled-system": "^5.1.5",
     "tsconfig": "*",
     "utils": "*",
+    "ui-components": "*",
     "uuid": "^11.0.3"
   },
   "devDependencies": {
