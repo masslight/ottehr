@@ -170,10 +170,8 @@ const getComponentObservationDefinition = (
   const contained: (ValueSet | ObservationDefinition)[] = [];
 
   if (item.dataType === 'CodeableConcept') {
-    if (!item.valueSet?.length || !item.abnormalValues?.length) {
-      throw new Error(
-        `valueSet or abnormalValues not defined on codeableConcept component ${componentName} ${JSON.stringify(item)}`
-      );
+    if (!item.valueSet?.length) {
+      throw new Error(`valueSet not defined on codeableConcept component ${componentName} ${JSON.stringify(item)}`);
     }
 
     const { valueSetId: validValueSetId, valueSet: validValueSet } = makeValueSet(
