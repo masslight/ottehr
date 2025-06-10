@@ -8,7 +8,7 @@ import { InHouseLabsTable, InHouseLabsTableColumn } from '../components/orders/I
 import { getInHouseLabOrderCreateUrl } from 'src/features/css-module/routing/helpers';
 import ListViewContainer from 'src/features/common/ListViewContainer';
 
-const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'actions'];
+const inHouseLabsColumns: InHouseLabsTableColumn[] = ['testType', 'dx', 'orderAdded', 'status', 'actions'];
 
 export const InHouseLabsPage: React.FC = () => {
   const navigate = useNavigate();

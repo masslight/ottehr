@@ -14,8 +14,6 @@ import { useApiClients } from '../../../../hooks/useAppClients';
 import { getExternalLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
 import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
-import { getExternalLabOrdersUrl } from 'src/features/css-module/routing/helpers';
-import { useNavigate } from 'react-router-dom';
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
@@ -41,7 +39,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
 }
 
@@ -51,7 +49,6 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   _searchBy: SearchBy
 ): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
-  const navigate = useNavigate();
   const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -211,12 +208,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   });
 
   const markTaskAsReviewed = useCallback(
-    async ({
-      taskId,
-      serviceRequestId,
-      diagnosticReportId,
-      appointmentId,
-    }: TaskReviewedParameters & { appointmentId: string }): Promise<void> => {
+    async ({ taskId, serviceRequestId, diagnosticReportId }: TaskReviewedParameters): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
@@ -226,9 +218,8 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
       setSearchParams({ pageNumber: 1 });
-      navigate(getExternalLabOrdersUrl(appointmentId));
     },
-    [oystehrZambda, setSearchParams, navigate]
+    [oystehrZambda, setSearchParams]
   );
 
   const saveSpecimenDate = useCallback(

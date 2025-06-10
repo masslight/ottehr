@@ -18,10 +18,6 @@ export const getAssessmentUrl = (appointmentId: string): string => {
   return `/in-person/${appointmentId}/assessment`;
 };
 
-export const getExternalLabOrdersUrl = (appointmentId: string): string => {
-  return `/in-person/${appointmentId}/external-lab-orders/`;
-};
-
 export const getExternalLabOrderEditUrl = (appointmentId: string, orderId: string): string => {
   return `/in-person/${appointmentId}/external-lab-orders/${orderId}/order-details`;
 };
