@@ -123,6 +123,7 @@ test.describe('Disposition', async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionReasonForTransferDropdown).click();
       const option = await getDropdownOption(page, reasonForTransferOption);
       await option.click();
+      await page.waitForTimeout(5000);
       await waitForSaveChartDataResponse(page);
     });
 
@@ -134,7 +135,7 @@ test.describe('Disposition', async () => {
         .getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)
         .locator('textarea')
         .first()
-        .fill(updatedNote);
+        .fill(updatedNote, { timeout: 5000 });
       await waitForSaveChartDataResponse(page);
     });
 
