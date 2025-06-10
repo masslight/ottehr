@@ -13,7 +13,7 @@ export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInp
   if (!accountNumber) missingResources.push('accountNumber');
   if (!data) missingResources.push('data');
 
-  if (!Object.values(specimens).every((specimen) => typeof specimen.date === 'string')) {
+  if (specimens && !Object.values(specimens).every((specimen) => typeof specimen.date === 'string')) {
     missingResources.push('specimens');
   }
 

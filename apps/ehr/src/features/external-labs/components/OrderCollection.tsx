@@ -84,7 +84,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data,
-          specimens: specimensData,
+          ...(!labOrder.isPSC && { specimens: specimensData }), // non PSC orders require specimens, validation is handled in the zambda
         });
 
         if (labelPdfUrl) await openPdf(labelPdfUrl);
