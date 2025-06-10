@@ -1,10 +1,10 @@
 import { ReactElement } from 'react';
 import { TableCell, TableRow, Box, Button, Typography, Tooltip, useTheme } from '@mui/material';
-import { LabOrderListPageDTO, formatDateForLabs } from 'utils';
+import { LabOrderListPageDTO, formatDateForLabs, PSC_LOCALE } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
@@ -72,7 +72,7 @@ export const LabsTableRow = ({
       case 'status':
         return <LabsOrderStatusChip status={labOrderData.orderStatus} />;
       case 'psc':
-        return labOrderData.isPSC ? 'PSC' : '';
+        return labOrderData.isPSC ? PSC_LOCALE : '';
       case 'actions':
         if (allowDelete && labOrderData.orderStatus === 'pending') {
           return (

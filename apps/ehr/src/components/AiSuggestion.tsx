@@ -1,5 +1,5 @@
 import { Box, Typography } from '@mui/material';
-import { ottehrAiIcon } from '@theme/icons';
+import { ottehrAiIcon } from '@ehrTheme/icons';
 import React from 'react';
 
 export interface AiSuggestionProps {

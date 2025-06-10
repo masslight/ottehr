@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 import { Add } from '@mui/icons-material';
 import Oystehr from '@oystehr/sdk';

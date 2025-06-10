@@ -11,7 +11,7 @@ import { getSelectors, getVisitStatus, PRACTITIONER_CODINGS } from 'utils';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useAppointmentStore } from '../../../telemed';
-import { ottehrAiIcon } from '@theme/icons';
+import { ottehrAiIcon } from '@ehrTheme/icons';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">

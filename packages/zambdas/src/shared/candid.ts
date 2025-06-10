@@ -475,3 +475,11 @@ async function fetchBillingProviderData(
 function getSelfPayBillingProvider(): BillingProviderData {
   return STUB_BILLING_PROVIDER_DATA;
 }
+
+export const CANDID_PAYMENT_ID_SYSTEM = 'https://fhir.oystehr.com/PaymentIdSystem/candid';
+export const makeBusinessIdentifierForCandidPayment = (candidPaymentId: string): Identifier => {
+  return {
+    system: CANDID_PAYMENT_ID_SYSTEM,
+    value: candidPaymentId,
+  };
+};

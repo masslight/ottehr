@@ -63,6 +63,7 @@ export const AboutPatientContainer: FC = () => {
           control={control}
           rules={{ required: REQUIRED_FIELD_ERROR_MESSAGE }}
           dataTestId={dataTestIds.patientInformationContainer.patientDateOfBirth}
+          component="Field"
         />
       </Row>
       <Row label="Preferred pronouns">
