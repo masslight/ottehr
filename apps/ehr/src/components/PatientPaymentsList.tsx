@@ -11,11 +11,13 @@ import {
   useTheme,
   Box,
   capitalize,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import PaymentDialog from './dialogs/PaymentDialog';
 import { Patient } from 'fhir/r4b';
-import { CashOrCardPayment, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
+import { APIError, CashOrCardPayment, isApiError, PatientPaymentDTO, PostPatientPaymentInput } from 'utils';
 import { useGetPatientPaymentsList } from 'src/hooks/useGetPatientPaymentsList';
 import { useMutation } from 'react-query';
 import { useApiClients } from 'src/hooks/useAppClients';
@@ -66,15 +68,22 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
           .then(async () => {
             await refetchPaymentList();
             setPaymentDialogOpen(false);
-          })
-          .catch((error) => {
-            console.error('Error creating new payment: ', error);
-            // todo: handle error
           });
       }
     },
     retry: 0,
   });
+
+  const errorMessage = (() => {
+    const networkError = createNewPayment.error;
+    if (networkError) {
+      if (isApiError(networkError)) {
+        return (networkError as APIError).message;
+      }
+      return 'Something went wrong. Payment was not completed.';
+    }
+    return null;
+  })();
 
   return (
     <Paper
@@ -148,6 +157,7 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
         open={paymentDialogOpen}
         patient={patient}
         handleClose={() => setPaymentDialogOpen(false)}
+        isSubmitting={createNewPayment.isLoading}
         submitPayment={async (data: CashOrCardPayment) => {
           const postInput: PostPatientPaymentInput = {
             patientId: patient.id ?? '',
@@ -157,6 +167,16 @@ export default function PatientPaymentList({ loading, patient, encounterId }: Pa
           createNewPayment.mutate(postInput);
         }}
       />
+      <Snackbar
+        // anchorOrigin={{ vertical: snackbarOpen.vertical, horizontal: snackbarOpen.horizontal }}
+        open={errorMessage !== null}
+        autoHideDuration={6000}
+        onClose={() => createNewPayment.reset()}
+      >
+        <Alert severity="error" onClose={() => createNewPayment.reset()} sx={{ width: '100%' }}>
+          {errorMessage}
+        </Alert>
+      </Snackbar>
     </Paper>
   );
 }
