@@ -59,7 +59,11 @@ export default function AddSchedulePage(): ReactElement {
     }
     const resource = await oystehr.fhir.create<Location | Practitioner | HealthcareService>(resourceData);
     setLoading(false);
-    navigate(`/schedule/new/${scheduleType}/${resource.id}`);
+    if (scheduleType === 'group') {
+      navigate(`/group/id/${resource.id}`);
+    } else {
+      navigate(`/schedule/new/${scheduleType}/${resource.id}`);
+    }
   }
 
   return (
