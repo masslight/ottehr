@@ -566,10 +566,16 @@ export class ResourceHandler {
 const addProcessIdMetaTagToResource = (resource: FhirResource, processId: string): FhirResource => {
   const existingMeta = resource.meta || { tag: [] };
   const existingTags = existingMeta.tag ?? [];
-  existingTags.push({
-    system: 'E2E_TEST_RESOURCE_PROCESS_ID',
-    code: processId,
-  });
+  resource.meta = {
+    ...existingMeta,
+    tag: [
+      ...existingTags,
+      {
+        system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+        code: processId,
+      },
+    ],
+  };
   return resource;
 };
 

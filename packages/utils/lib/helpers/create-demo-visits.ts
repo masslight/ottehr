@@ -178,6 +178,16 @@ export const createSampleAppointments = async ({
 
         if (appointmentMetadata) {
           randomPatientInfo.appointmentMetadata = appointmentMetadata;
+        } else {
+          const sampleAppointmentMeta = {
+            tag: [
+              {
+                system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+                code: `sample-appointments-from-outside-E2E-${DateTime.now().toISO()}`,
+              },
+            ],
+          };
+          randomPatientInfo.appointmentMetadata = sampleAppointmentMeta;
         }
 
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {

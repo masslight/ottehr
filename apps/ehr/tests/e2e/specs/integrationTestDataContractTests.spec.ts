@@ -15,14 +15,14 @@ import {
   Slot,
   Consent,
   Account,
+  FhirResource,
 } from 'fhir/r4b';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { DateTime } from 'luxon';
 
-const e2e_PROCESS_ID = `contractTests-e2e-${DateTime.now().toMillis()}`;
-const integration_PROCESS_ID = `contractTests-integration-${DateTime.now().toMillis()}`;
-const e2eHandler = new ResourceHandler(e2e_PROCESS_ID);
-const integrationHandler = new ResourceHandler(integration_PROCESS_ID);
+const PROCESS_ID = `contractTests-${DateTime.now().toMillis()}`;
+const e2eHandler = new ResourceHandler(PROCESS_ID);
+const integrationHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeAll(async () => {
   await Promise.all([await integrationHandler.setResourcesFast(), await e2eHandler.setResources()]);
@@ -279,7 +279,35 @@ const accountTests = (e2eResources: Resource[], integrationResources: Resource[]
 const checkKeysAndValuesBothWays = (e2eResource: any, integrationResource: any, label: string): void => {
   Object.entries(e2eResource).forEach(([key, value]) => {
     expect(integrationResource[key], `expect integration ${label}.${key} value to be defined`).toBeDefined();
-    expect(integrationResource[key], `expect integration ${label}.${key} value to be equal`).toEqual(value);
+    // same meta tag sorting logic
+    if (key === 'meta') {
+      const valueMetaTags = (value as FhirResource['meta'])?.tag;
+      const integrationMetaTags = (integrationResource[key] as FhirResource['meta'])?.tag;
+      if (valueMetaTags && integrationMetaTags) {
+        const valueTagsSorted = valueMetaTags.sort((a, b) => a!.system!.localeCompare(b!.system!));
+        const integrationTagsSorted = integrationMetaTags.sort((a, b) => a!.system!.localeCompare(b!.system!));
+
+        const newVal = {
+          ...(value as any),
+          meta: {
+            ...((value as any).meta || {}),
+            tag: valueTagsSorted,
+          },
+        };
+        const compValue = {
+          ...(integrationResource[key] as any),
+          meta: {
+            ...((integrationResource[key] as any).meta || {}),
+            tag: integrationTagsSorted,
+          },
+        };
+        expect(compValue, `expect integration ${label}.${key} value to be equal`).toEqual(newVal);
+      } else {
+        expect(integrationResource[key], `expect integration ${label}.${key} value to be equal`).toEqual(value);
+      }
+    } else {
+      expect(integrationResource[key], `expect integration ${label}.${key} value to be equal`).toEqual(value);
+    }
   });
   Object.entries(integrationResource).forEach(([key, value]) => {
     expect(e2eResource[key], `expect e2e ${label}.${key} value to be defined`).toBeDefined();

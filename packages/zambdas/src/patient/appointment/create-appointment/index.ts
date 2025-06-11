@@ -177,6 +177,7 @@ export async function createAppointment(
     unconfirmedDateOfBirth,
     serviceMode,
     questionnaireCanonical: questionnaireUrl,
+    appointmentMetadata,
   } = input;
 
   const { verifiedPhoneNumber, listRequests, createPatientRequest, updatePatientRequest, isEHRUser, maybeFhirPatient } =
@@ -237,6 +238,7 @@ export async function createAppointment(
     newPatientDob: (createPatientRequest?.resource as Patient | undefined)?.birthDate,
     createdBy,
     slot,
+    appointmentMetadata,
   });
 
   let relatedPersonId = '';

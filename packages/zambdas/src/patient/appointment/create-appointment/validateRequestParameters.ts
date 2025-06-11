@@ -167,6 +167,8 @@ export const createAppointmentComplexValidation = async (
 ): Promise<CreateAppointmentEffectInput> => {
   const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
 
+  console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
+
   let locationState = input.locationState;
 
   // patient input complex validation
