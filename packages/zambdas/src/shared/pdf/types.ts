@@ -168,16 +168,24 @@ export interface InHouseLabResult {
   rangeString?: string[];
   rangeQuantity?: QuantityComponent;
 }
+export interface InHouseLabResultConfig {
+  collectionDate: string;
+  finalResultDateTime: string;
+  specimenSource: string;
+  results: InHouseLabResult[];
+}
 
-export interface LabResultsData extends Omit<LabsData, 'aoeAnswers' | 'reqId' | 'labOrganizationName'> {
+export interface LabResultsData
+  extends Omit<LabsData, 'aoeAnswers' | 'reqId' | 'labOrganizationName' | 'orderSubmitDate'> {
   testName: string;
   resultStatus: string;
-  collectionDate: string;
   abnormalResult?: boolean;
 }
 export interface ExternalLabResultsData extends LabResultsData {
   reqId: string;
   accessionNumber: string;
+  orderSubmitDate: string;
+  collectionDate: string;
   specimenReferenceRange?: string; // do we even need this ?
   resultPhase: string;
   reviewed?: boolean;
@@ -200,8 +208,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   performingLabDirectorTitle: string;
 }
 export interface InHouseLabResultsData extends LabResultsData {
-  specimenSource: string;
-  inHouseLabResults: InHouseLabResult[];
+  inHouseLabResults: InHouseLabResultConfig[];
 }
 
 export type ResultDataConfig =

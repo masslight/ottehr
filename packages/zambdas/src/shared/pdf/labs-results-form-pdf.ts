@@ -5,6 +5,7 @@ import {
   LabResultsData,
   ExternalLabResult,
   InHouseLabResult,
+  InHouseLabResultConfig,
   TextStyle,
   InHouseLabResultsData,
   ExternalLabResultsData,
@@ -26,6 +27,8 @@ import {
   quantityRangeFormat,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  TestItemComponent,
+  IN_HOUSE_LAB_TASK,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
@@ -66,6 +69,7 @@ import {
 } from './pdf-utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 import { compareDates } from '../../ehr/get-lab-orders/helpers';
+import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/inhouse-labs';
 
 interface CommonDataConfigResources {
   oystehr: Oystehr;
@@ -74,11 +78,8 @@ interface CommonDataConfigResources {
   serviceRequest: ServiceRequest;
   patient: Patient;
   diagnosticReport: DiagnosticReport;
-  specimen: Specimen | undefined;
   providerName: string | undefined;
   provider: Practitioner;
-  collectionDate: string | undefined;
-  orderSubmitDate: string;
   testName: string | undefined;
 }
 
@@ -88,6 +89,8 @@ type LabTypeSpecificResources =
       specificResources: {
         externalLabResults: ExternalLabResult[];
         organization: Organization | undefined;
+        collectionDate: string;
+        orderSubmitDate: string;
         reviewed: boolean;
         reviewingProviderFirst: string;
         reviewingProviderLast: string;
@@ -95,7 +98,7 @@ type LabTypeSpecificResources =
         resultInterpretations: string[];
       };
     }
-  | { type: LabType.inhouse; specificResources: { inHouseLabResults: InHouseLabResult[] } };
+  | { type: LabType.inhouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } };
 
 const getResultDataConfig = (
   commonResourceConfig: CommonDataConfigResources,
@@ -105,20 +108,8 @@ const getResultDataConfig = (
   let config: ResultDataConfig | undefined;
   const now = DateTime.now();
 
-  const {
-    oystehr,
-    location,
-    timezone,
-    serviceRequest,
-    patient,
-    diagnosticReport,
-    specimen,
-    providerName,
-    provider,
-    collectionDate,
-    orderSubmitDate,
-    testName,
-  } = commonResourceConfig;
+  const { oystehr, location, timezone, serviceRequest, patient, diagnosticReport, providerName, provider, testName } =
+    commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
   if (!serviceRequest.reasonCode) throw new Error('service request reasonCode is undefined');
@@ -154,8 +145,6 @@ const getResultDataConfig = (
     patientPhone:
       patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
-    collectionDate: collectionDate || ORDER_RESULT_ITEM_UNKNOWN,
-    orderSubmitDate: orderSubmitDate,
     orderCreateDate: orderCreateDate || ORDER_RESULT_ITEM_UNKNOWN,
     orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
     testName: testName || ORDER_RESULT_ITEM_UNKNOWN,
@@ -169,8 +158,6 @@ const getResultDataConfig = (
   if (type === LabType.inhouse) {
     const { inHouseLabResults } = specificResources;
     const inhouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
-      specimenSource:
-        specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || ORDER_RESULT_ITEM_UNKNOWN,
       inHouseLabResults,
     };
     const data: InHouseLabResultsData = { ...baseData, ...inhouseData };
@@ -181,6 +168,8 @@ const getResultDataConfig = (
     const {
       externalLabResults,
       organization,
+      collectionDate,
+      orderSubmitDate,
       reviewed,
       reviewingProviderFirst,
       reviewingProviderLast,
@@ -194,6 +183,8 @@ const getResultDataConfig = (
       accessionNumber:
         diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value ||
         ORDER_RESULT_ITEM_UNKNOWN,
+      collectionDate,
+      orderSubmitDate,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
       reviewed,
       reviewingProviderFirst,
@@ -238,15 +229,14 @@ const getResultDataConfig = (
   return config;
 };
 
-const getCommonLabResultDataPoints = async (
+const getTaskCompletedByAndWhen = async (
   oystehr: Oystehr,
   task: Task,
   timezone: string | undefined
 ): Promise<{
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
-  reviewDate: string | undefined;
-  orderSubmitDate: string;
+  reviewDate: string;
 }> => {
   console.log('getting provenance for task', task.id);
   console.log('task relevant history', task.relevantHistory);
@@ -281,14 +271,11 @@ const getCommonLabResultDataPoints = async (
   const taskProvenance = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
 
-  // currently we aren't mapping this for inhouse but if we ever want to display who recorded the results, we will already have the data points
   const reviewingProviderFirst = taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN;
   const reviewingProviderLast = taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN;
-  const reviewDate = DateTime.fromISO(taskProvenance.recorded).toFormat(LABS_DATE_STRING_FORMAT);
+  const reviewDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
 
-  const orderSubmitDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
-
-  return { reviewingProviderFirst, reviewingProviderLast, reviewDate, orderSubmitDate };
+  return { reviewingProviderFirst, reviewingProviderLast, reviewDate };
 };
 
 export async function createExternalLabResultPDF(
@@ -297,14 +284,13 @@ export async function createExternalLabResultPDF(
   diagnosticReport: DiagnosticReport,
   reviewed: boolean,
   secrets: Secrets | null,
-  token: string,
-  specimen?: Specimen
+  token: string
 ): Promise<void> {
   const {
     serviceRequest,
     patient,
     practitioner: provider,
-    // task, // for external labs this is the Pre-Submission Task or the PST // todo figure out what to do about this
+    task: pstTask,
     appointment,
     encounter,
     organization,
@@ -357,8 +343,13 @@ export async function createExternalLabResultPDF(
   const latestReviewTask = reviewTasksFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, JSON.stringify(latestReviewTask));
 
-  const { reviewingProviderFirst, reviewingProviderLast, reviewDate, orderSubmitDate } =
-    await getCommonLabResultDataPoints(oystehr, latestReviewTask, timezone);
+  // grabs the provenance for this task and parses the user who completed it and when that was recorded
+  const { reviewingProviderFirst, reviewingProviderLast, reviewDate } = await getTaskCompletedByAndWhen(
+    oystehr,
+    latestReviewTask,
+    timezone
+  );
+  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
 
   const resultInterpretationDisplays: string[] = [];
   const externalLabResults: ExternalLabResult[] = [];
@@ -413,6 +404,8 @@ export async function createExternalLabResultPDF(
     specificResources: {
       externalLabResults,
       organization,
+      collectionDate,
+      orderSubmitDate,
       reviewed,
       reviewingProviderFirst,
       reviewingProviderLast,
@@ -427,11 +420,8 @@ export async function createExternalLabResultPDF(
     serviceRequest,
     patient,
     diagnosticReport,
-    specimen,
     providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : undefined,
     provider: provider,
-    collectionDate,
-    orderSubmitDate,
     testName: diagnosticReport.code.coding?.[0].display,
   };
   const dataConfig = getResultDataConfig(commonResources, externalSpecificResources);
@@ -462,7 +452,8 @@ export async function createInHouseLabResultPDF(
   secrets: Secrets | null,
   token: string,
   activityDefinition: ActivityDefinition,
-  specimen?: Specimen
+  serviceRequestsRelatedViaRepeat: ServiceRequest[] | undefined,
+  specimen: Specimen
 ): Promise<void> {
   console.log('starting create inhouse lab result pdf');
   if (!encounter.id) throw new Error('encounter id is undefined');
@@ -474,53 +465,29 @@ export async function createInHouseLabResultPDF(
     timezone = getTimezone(location);
   }
 
-  const { orderSubmitDate } = await getCommonLabResultDataPoints(oystehr, inputRequestTask, timezone);
+  const inHouseLabResults = await getFormattedInHouseLabResults(
+    oystehr,
+    activityDefinition,
+    observations,
+    specimen,
+    inputRequestTask,
+    timezone
+  );
 
-  const inHouseLabResults: InHouseLabResult[] = [];
-  const components = convertActivityDefinitionToTestItem(activityDefinition, observations).components;
-  components.radioComponents.forEach((item) => {
-    inHouseLabResults.push({
-      name: item.componentName,
-      type: item.dataType,
-      value: item.result?.entry || '',
-      units: item.unit,
-      rangeString: item.valueSet
-        .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
-        .map((value) => value.display),
-    });
-  });
-  components.groupedComponents.forEach((item) => {
-    if (item.dataType === 'CodeableConcept') {
-      inHouseLabResults.push({
-        name: item.componentName,
-        type: item.dataType,
-        value: item.result?.entry || '',
-        units: item.unit,
-        rangeString: item.valueSet
-          .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
-          .map((value) => value.display),
-      });
-    } else if (item.dataType === 'Quantity') {
-      inHouseLabResults.push({
-        name: item.componentName,
-        type: item.dataType,
-        value: item.result?.entry,
-        units: item.unit,
-        rangeQuantity: item,
-      });
-    }
-  });
-
-  if (!specimen?.collection?.collectedDateTime) {
-    throw new Error('in-house lab collection date is not defined');
+  let additionalResultsForRelatedSrs: InHouseLabResultConfig[] = [];
+  if (serviceRequestsRelatedViaRepeat) {
+    console.log('configuring additional results for related repeat tests');
+    additionalResultsForRelatedSrs = await getAdditionalResultsForRepeats(
+      oystehr,
+      serviceRequestsRelatedViaRepeat,
+      activityDefinition,
+      timezone
+    );
   }
-  const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
-    .setZone(timezone)
-    .toFormat(LABS_DATE_STRING_FORMAT);
 
   const inhouseSpecificResources: LabTypeSpecificResources = {
     type: LabType.inhouse,
-    specificResources: { inHouseLabResults },
+    specificResources: { inHouseLabResults: [inHouseLabResults, ...additionalResultsForRelatedSrs] },
   };
   const commonResources: CommonDataConfigResources = {
     oystehr,
@@ -529,11 +496,8 @@ export async function createInHouseLabResultPDF(
     serviceRequest,
     patient,
     diagnosticReport,
-    specimen,
     providerName: attendingPractitionerName,
     provider: attendingPractitioner,
-    collectionDate,
-    orderSubmitDate,
     testName: activityDefinition.title,
   };
   const dataConfig = getResultDataConfig(commonResources, inhouseSpecificResources);
@@ -822,57 +786,58 @@ async function createInHouseLabsResultsFormPdfBytes(
   drawFieldLine('Ordering physician:', data.providerName);
   drawFieldLineRight('Order date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
-  drawFieldLineRight('Collection date:', data.collectionDate);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.drawText('IQC Valid', textStyles.textBold);
-  drawFieldLineRight('Final results:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
   drawFieldLine('Dx:', data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '));
   pdfClient.newLine(30);
-  pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
 
-  drawFieldLine('Specimen source:', data.specimenSource);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
-
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-
-  const resultHasUnits = data.inHouseLabResults.some((result) => result.units);
-  drawFiveColumnText('NAME', '', 'VALUE', resultHasUnits ? 'UNITS' : '', 'REFERENCE RANGE');
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   for (const labResult of data.inHouseLabResults) {
-    let resultRange = undefined;
-    if (labResult.rangeString) {
-      resultRange = labResult.rangeString.join(', ');
-    } else if (labResult.rangeQuantity) {
-      resultRange = quantityRangeFormat(labResult.rangeQuantity);
-    } else {
-      resultRange = ORDER_RESULT_ITEM_UNKNOWN;
-    }
+    pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
 
-    const valueStringToWrite =
-      labResult.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode ? 'Inconclusive' : labResult.value;
+    drawFieldLine('Specimen source:', labResult.specimenSource);
+    pdfClient.newLine(STANDARD_FONT_SIZE);
 
-    drawFiveColumnText(
-      labResult.name,
-      '',
-      valueStringToWrite || '',
-      labResult.units || '',
-      resultRange,
-      textStyles.text,
-      undefined,
-      getInHouseResultRowDisplayColor(labResult)
-    );
     pdfClient.newLine(STANDARD_NEW_LINE);
-  }
+    pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
-  pdfClient.newLine(STANDARD_NEW_LINE);
+    const resultHasUnits = labResult.results.some((result) => result.units);
+    drawFiveColumnText('NAME', '', 'VALUE', resultHasUnits ? 'UNITS' : '', 'REFERENCE RANGE');
+    pdfClient.newLine(STANDARD_NEW_LINE);
+    pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+    for (const resultDetail of labResult.results) {
+      let resultRange = undefined;
+      if (resultDetail.rangeString) {
+        resultRange = resultDetail.rangeString.join(', ');
+      } else if (resultDetail.rangeQuantity) {
+        resultRange = quantityRangeFormat(resultDetail.rangeQuantity);
+      } else {
+        resultRange = ORDER_RESULT_ITEM_UNKNOWN;
+      }
+
+      const valueStringToWrite =
+        resultDetail.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode ? 'Inconclusive' : resultDetail.value;
+
+      drawFiveColumnText(
+        resultDetail.name,
+        '',
+        valueStringToWrite || '',
+        resultDetail.units || '',
+        resultRange,
+        textStyles.text,
+        undefined,
+        getInHouseResultRowDisplayColor(resultDetail)
+      );
+      pdfClient.newLine(STANDARD_NEW_LINE);
+      pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
+    }
+    drawFieldLineRight('Collected:', labResult.collectionDate);
+    pdfClient.newLine(STANDARD_FONT_SIZE);
+    drawFieldLineRight('Final result:', labResult.finalResultDateTime);
+    pdfClient.newLine(24);
+  }
 
   return await pdfClient.save();
 }
@@ -1025,3 +990,89 @@ export async function makeLabPdfDocumentReference({
   });
   return docRefs[0];
 }
+
+const getFormattedInHouseLabResults = async (
+  oystehr: Oystehr,
+  activityDefinition: ActivityDefinition,
+  observations: Observation[],
+  specimen: Specimen,
+  task: Task,
+  timezone: string | undefined
+): Promise<InHouseLabResultConfig> => {
+  if (!specimen?.collection?.collectedDateTime) {
+    throw new Error('in-house lab collection date is not defined');
+  }
+
+  const specimenSource =
+    specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || ORDER_RESULT_ITEM_UNKNOWN;
+  const { reviewDate: finalResultDateTime } = await getTaskCompletedByAndWhen(oystehr, task, timezone);
+
+  const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
+    .setZone(timezone)
+    .toFormat(LABS_DATE_STRING_FORMAT);
+
+  const results: InHouseLabResult[] = [];
+  const components = convertActivityDefinitionToTestItem(activityDefinition, observations).components;
+  const componentsAll: TestItemComponent[] = [...components.radioComponents, ...components.groupedComponents];
+  componentsAll.forEach((item) => {
+    if (item.dataType === 'CodeableConcept') {
+      results.push({
+        name: item.componentName,
+        type: item.dataType,
+        value: item.result?.entry || '',
+        units: item.unit,
+        rangeString: item.valueSet
+          .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
+          .map((value) => value.display),
+      });
+    } else if (item.dataType === 'Quantity') {
+      results.push({
+        name: item.componentName,
+        type: item.dataType,
+        value: item.result?.entry,
+        units: item.unit,
+        rangeQuantity: item,
+      });
+    }
+  });
+
+  const resultConfig: InHouseLabResultConfig = {
+    collectionDate,
+    finalResultDateTime,
+    specimenSource,
+    results,
+  };
+
+  return resultConfig;
+};
+
+const getAdditionalResultsForRepeats = async (
+  oystehr: Oystehr,
+  repeatTestingSrs: ServiceRequest[],
+  activityDefinition: ActivityDefinition,
+  timezone: string | undefined
+): Promise<InHouseLabResultConfig[]> => {
+  const { srResourceMap } = await fetchResultResourcesForRepeatServiceRequest(oystehr, repeatTestingSrs);
+  const configs: InHouseLabResultConfig[] = [];
+
+  for (const [srId, resources] of Object.entries(srResourceMap)) {
+    const { observations, tasks, specimens } = resources;
+    const inputRequestTask = tasks.find(
+      (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
+    );
+    const specimen = specimens[0];
+    if (!inputRequestTask || !specimen) {
+      throw new Error(`issue getting inputRequestTask or specimen for repeat service request: ${srId}`);
+    }
+    const config = await getFormattedInHouseLabResults(
+      oystehr,
+      activityDefinition,
+      observations,
+      specimen,
+      inputRequestTask,
+      timezone
+    );
+    configs.push(config);
+  }
+  return configs;
+};

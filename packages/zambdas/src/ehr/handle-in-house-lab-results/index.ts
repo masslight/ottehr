@@ -45,7 +45,7 @@ import {
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
-import { getAttendingPractionerId } from '../shared/inhouse-labs';
+import { getAttendingPractionerId, getServiceRequestsRelatedViaRepeat } from '../shared/inhouse-labs';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
@@ -75,6 +75,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       currentUserPractitioner,
       attendingPractitioner,
       location,
+      serviceRequestsRelatedViaRepeat,
     } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
 
     const currentUserPractitionerName = getFullestAvailableName(currentUserPractitioner);
@@ -128,6 +129,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         secrets,
         m2mtoken,
         activityDefinition,
+        serviceRequestsRelatedViaRepeat,
         specimen
       );
     } catch (e) {
@@ -168,6 +170,7 @@ const getInHouseLabResultResources = async (
   currentUserPractitioner: Practitioner;
   attendingPractitioner: Practitioner;
   location: Location | undefined;
+  serviceRequestsRelatedViaRepeat: ServiceRequest[] | undefined;
 }> => {
   const labOrderResources = (
     await oystehr.fhir.search<ServiceRequest | Patient | Encounter | Specimen | Task | Location>({
@@ -198,6 +201,15 @@ const getInHouseLabResultResources = async (
           value: 'Task:based-on',
         },
         { name: '_include:iterate', value: 'Encounter:location' },
+        // Include any related repeat test SRs
+        {
+          name: '_include:iterate',
+          value: 'ServiceRequest:based-on',
+        },
+        {
+          name: '_revinclude:iterate',
+          value: 'ServiceRequest:based-on',
+        },
       ],
     })
   ).unbundle();
@@ -226,15 +238,22 @@ const getInHouseLabResultResources = async (
     }
   });
 
-  if (serviceRequests.length !== 1) throw new Error('Only one service request should be returned');
+  const serviceRequest = serviceRequests.find((sr) => sr.id === serviceRequestId);
+
+  if (!serviceRequest) throw new Error(`service request not found for id ${serviceRequestId}`);
   if (patients.length !== 1) throw new Error('Only one patient should be returned');
   if (encounters.length !== 1) throw new Error('Only one encounter should be returned');
   if (specimens.length !== 1)
     throw new Error(`Only one specimen should be returned - specimen ids: ${specimens.map((s) => s.id)}`);
-  if (inputRequestTasks.length !== 1)
+  if (inputRequestTasks.length !== 1) {
+    console.log('inputRequestTasks', inputRequestTasks);
     throw new Error(`Only one ready IRT task should exist for ServiceRequest/${serviceRequestId}`);
+  }
 
-  const serviceRequest = serviceRequests[0];
+  const serviceRequestsRelatedViaRepeat =
+    serviceRequests.length > 1 ? getServiceRequestsRelatedViaRepeat(serviceRequests, serviceRequestId) : undefined;
+  console.log('serviceRequestsRelatedViaRepeat ids ', serviceRequestsRelatedViaRepeat?.map((sr) => sr.id));
+
   const patient = patients[0];
 
   const encounter = encounters[0];
@@ -280,6 +299,7 @@ const getInHouseLabResultResources = async (
     currentUserPractitioner,
     attendingPractitioner,
     location,
+    serviceRequestsRelatedViaRepeat,
   };
 };
 
