@@ -782,12 +782,12 @@ async function createInHouseLabsResultsFormPdfBytes(
 
   // Order details
   drawFieldLine('Order ID:', data.serviceRequestID);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
+  pdfClient.newLine(STANDARD_FONT_SIZE + 4);
   drawFieldLine('Ordering physician:', data.providerName);
   drawFieldLineRight('Order date:', data.orderCreateDate);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
+  pdfClient.newLine(STANDARD_FONT_SIZE + 4);
   pdfClient.drawText('IQC Valid', textStyles.textBold);
-  pdfClient.newLine(STANDARD_FONT_SIZE);
+  pdfClient.newLine(STANDARD_FONT_SIZE + 4);
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
@@ -833,7 +833,7 @@ async function createInHouseLabsResultsFormPdfBytes(
       pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     }
     drawFieldLineRight('Collected:', labResult.collectionDate);
-    pdfClient.newLine(STANDARD_FONT_SIZE);
+    pdfClient.newLine(STANDARD_FONT_SIZE + 3);
     drawFieldLineRight('Final result:', labResult.finalResultDateTime);
     pdfClient.newLine(24);
   }
