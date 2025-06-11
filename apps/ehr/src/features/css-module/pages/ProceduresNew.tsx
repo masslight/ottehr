@@ -707,7 +707,6 @@ function useSelectOptions(oystehr: Oystehr | undefined): UseQueryResult<SelectOp
                 TIME_SPENT_VALUE_SET_URL,
               ].join(','),
             },
-            { name: 'status', value: 'active' },
           ],
         })
       ).unbundle();
