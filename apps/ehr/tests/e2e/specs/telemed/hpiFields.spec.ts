@@ -63,7 +63,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
     await expect(page.locator('.MuiAutocomplete-noOptions')).toHaveText(startTypingMessage);
   });
 
-  test('Medical conditions. Should check not-in-list item search try', { tag: '@flaky' }, async ({ page }) => {
+  test('Medical conditions. Should check not-in-list item search try', async ({ page }) => {
     await checkDropdownNoOptions(
       page,
       dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput,
@@ -77,7 +77,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
     await expect(page.locator('.MuiAutocomplete-noOptions')).toHaveText(startTypingMessage);
   });
 
-  test('Current medications. Should check not-in-list item search try', { tag: '@flaky' }, async ({ page }) => {
+  test('Current medications. Should check not-in-list item search try', async ({ page }) => {
     await checkDropdownNoOptions(
       page,
       dataTestIds.telemedEhrFlow.hpiCurrentMedicationsInput,
@@ -86,11 +86,11 @@ test.describe('Check all hpi fields common functionality, without changing data'
     );
   });
 
-  test('Known allergies. Should display message before typing in field', { tag: '@flaky' }, async ({ page }) => {
+  test('Known allergies. Should display message before typing in field', async ({ page }) => {
     await checkDropdownNoOptions(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, '', startTypingMessage);
   });
 
-  test('Known allergies. Should check not-in-list item search try', { tag: '@flaky' }, async ({ page }) => {
+  test('Known allergies. Should check not-in-list item search try', async ({ page }) => {
     await checkDropdownNoOptions(
       page,
       dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput,
@@ -99,7 +99,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
     );
   });
 
-  test('Surgical history. Should check not-in-list item search try', { tag: '@flaky' }, async ({ page }) => {
+  test('Surgical history. Should check not-in-list item search try', async ({ page }) => {
     await checkDropdownNoOptions(
       page,
       dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput,
