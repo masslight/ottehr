@@ -819,7 +819,6 @@ async function createInHouseLabsResultsFormPdfBytes(
 
       const valueStringToWrite =
         resultDetail.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode ? 'Inconclusive' : resultDetail.value;
-
       drawFiveColumnText(
         resultDetail.name,
         '',
@@ -1019,7 +1018,7 @@ const getFormattedInHouseLabResults = async (
       results.push({
         name: item.componentName,
         type: item.dataType,
-        value: item.result?.entry || '',
+        value: item.result?.entry !== undefined ? item.result?.entry : '',
         units: item.unit,
         rangeString: item.valueSet
           .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
