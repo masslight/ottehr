@@ -21,7 +21,7 @@ export async function assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(
     const statusChip = page.getByTestId(dataTestIds.telemedEhrFlow.appointmentStatusChip);
     await expect(statusChip).toBeVisible();
     // todo: is it ok to have check like this that rely on status text??
-    await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video'], { timeout: 15000 });
+    await expect(statusChip).toHaveText(TelemedAppointmentStatusEnum['pre-video']);
   }
 }
 
