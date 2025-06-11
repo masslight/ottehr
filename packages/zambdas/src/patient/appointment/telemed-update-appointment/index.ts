@@ -13,7 +13,6 @@ import {
   SecretsKeys,
   UpdateAppointmentRequestParams,
   UpdateAppointmentResponse,
-  userHasAccessToPatient,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -21,6 +20,7 @@ import {
   creatingPatientUpdateRequest,
   getUser,
   topLevelCatch,
+  userHasAccessToPatient,
   ZambdaInput,
 } from '../../../shared';
 import { validateUpdateAppointmentParams } from './validateRequestParameters';

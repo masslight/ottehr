@@ -21,7 +21,7 @@ import { getSelectors } from '../../../../shared/store/getSelectors';
 import { ClaimState, useClaimStore, useEditClaimInformationMutation } from '../../../state';
 import { BillingFormValues, mapBillingToClaimResource } from '../../../utils';
 import { DateTime } from 'luxon';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 const getDefaultValues = (claimData: ClaimState['claimData']): BillingFormValues => ({
   items: claimData?.billingItems || [],
   payment: claimData?.patientPaid || NaN,

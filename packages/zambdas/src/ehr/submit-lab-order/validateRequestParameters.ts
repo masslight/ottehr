@@ -6,12 +6,17 @@ export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInp
     throw MISSING_REQUEST_BODY;
   }
 
-  const { serviceRequestID, accountNumber, data } = JSON.parse(input.body);
+  const { serviceRequestID, accountNumber, data, specimens } = JSON.parse(input.body) as SubmitLabOrderInput;
 
   const missingResources = [];
   if (!serviceRequestID) missingResources.push('serviceRequestID');
   if (!accountNumber) missingResources.push('accountNumber');
   if (!data) missingResources.push('data');
+
+  if (specimens && !Object.values(specimens).every((specimen) => typeof specimen.date === 'string')) {
+    missingResources.push('specimens');
+  }
+
   if (missingResources.length) {
     throw MISSING_REQUIRED_PARAMETERS(missingResources);
   }
@@ -21,5 +26,6 @@ export function validateRequestParameters(input: ZambdaInput): SubmitLabOrderInp
     accountNumber,
     data,
     secrets: input.secrets,
+    specimens,
   };
 }

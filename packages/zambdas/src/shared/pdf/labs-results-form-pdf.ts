@@ -48,15 +48,6 @@ import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 
 const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
-function formatResultValue(result: string): string {
-  if (result === 'Positive') {
-    return 'Detected';
-  } else if (result === 'Negative') {
-    return 'Not detected';
-  }
-  return result;
-}
-
 export async function createLabResultPDF(
   oystehr: Oystehr,
   labType: LabType,
@@ -259,11 +250,11 @@ export async function createLabResultPDF(
       resultsTemp.push({
         name: item.componentName,
         type: item.dataType,
-        value: formatResultValue(item.result?.entry || ''),
+        value: item.result?.entry || '',
         units: item.unit,
         rangeString: item.valueSet
-          .filter((value) => !item.abnormalValues.includes(value))
-          .map((value) => formatResultValue(value)),
+          .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
+          .map((value) => value.display),
       });
     });
     components.groupedComponents.forEach((item) => {
@@ -271,11 +262,11 @@ export async function createLabResultPDF(
         resultsTemp.push({
           name: item.componentName,
           type: item.dataType,
-          value: formatResultValue(item.result?.entry || ''),
+          value: item.result?.entry || '',
           units: item.unit,
           rangeString: item.valueSet
-            .filter((value) => !item.abnormalValues.includes(value))
-            .map((value) => formatResultValue(value)),
+            .filter((value) => !item.abnormalValues.map((val) => val.code).includes(value.code))
+            .map((value) => value.display),
         });
       } else if (item.dataType === 'Quantity') {
         resultsTemp.push({
