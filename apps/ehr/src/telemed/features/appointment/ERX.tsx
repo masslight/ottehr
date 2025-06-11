@@ -1,6 +1,6 @@
-import { Alert, AlertTitle, Box } from '@mui/material';
+import { Alert, Box } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useEffect } from 'react';
+import { FC, useCallback, useEffect, useState } from 'react';
 import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { VitalFieldNames } from 'utils';
@@ -9,7 +9,7 @@ import { getSelectors } from '../../../shared/store/getSelectors';
 import {
   useAppointmentStore,
   useCheckPractitionerEnrollment,
-  useConnectPractitionerToERX,
+  useConnectPractitionerToERX as useConnectPractitionerToToConfirmEnrollment,
   useEnrollPractitionerToERX,
   useSyncERXPatient,
 } from '../../state';
@@ -23,6 +23,9 @@ export const ERX: FC<{
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
 
+  const [alertMessage, setAlertMessage] = useState<string | null>(
+    'If something goes wrong - please close and open the eRx again.'
+  );
   // todo: check if provider has everything to be enrolled and give alert if not
   // const isProviderHasEverythingToBeEnrolled = Boolean(user?.profileResource?.id && phoneNumber && encounter?.id);
 
@@ -59,7 +62,7 @@ export const ERX: FC<{
 
   // Step 2: Check practitioner enrollment
   const {
-    data: isPractitionerEnrolled,
+    data: practitionerEnrollmentStatus,
     isLoading: isCheckingPractitionerEnrollment,
     isFetched: isPractitionerEnrollmentChecked,
     refetch: refetchPractitionerEnrollment,
@@ -70,9 +73,9 @@ export const ERX: FC<{
   // Step 3: Sync patient
   const { isLoading: isSyncingPatient, isFetched: isPatientSynced } = useSyncERXPatient({
     patient: patient!,
-    enabled: Boolean(isPractitionerEnrolled && hasVitals),
+    enabled: Boolean(practitionerEnrollmentStatus?.confirmed && hasVitals),
     onError: (error) => {
-      let errorMsg = 'Something went wrong while trying to open eRX';
+      let errorMsg = 'Something went wrong while trying to sync patient to eRx';
 
       if (error.status === 400) {
         if (error.message?.includes('phone')) {
@@ -90,7 +93,12 @@ export const ERX: FC<{
   });
 
   // Step 4: Handle practitioner enrollment
-  const { mutateAsync: enrollPractitioner, isLoading: isEnrollingPractitioner } = useEnrollPractitionerToERX({
+  const {
+    mutateAsync: enrollPractitioner,
+    isLoading: isEnrollingPractitioner,
+    isError: isEnrollPractitionerError,
+    isSuccess: isEnrollPractitionerSuccess,
+  } = useEnrollPractitionerToERX({
     onError: () => {
       enqueueSnackbar('Enrolling practitioner to eRx failed', { variant: 'error' });
       onClose();
@@ -115,18 +123,30 @@ export const ERX: FC<{
     isLoading: isConnectingPractitioner,
     mutateAsync: connectPractitioner,
     isSuccess: isPractitionerConnected,
-  } = useConnectPractitionerToERX();
+  } = useConnectPractitionerToToConfirmEnrollment({ patientId: patient?.id });
+
+  const {
+    data: ssoLinkForEnrollment,
+    isLoading: isConnectingPractitionerForConfirmation,
+    mutateAsync: connectPractitionerForConfirmation,
+    isSuccess: isPractitionerConnectedForConfirmation,
+  } = useConnectPractitionerToToConfirmEnrollment({});
 
   const connectPractitionerFn = useCallback(
-    async (mode: 'enrollment' | 'ordering') => {
+    async (mode: 'confirmation' | 'ordering') => {
       try {
-        await connectPractitioner(mode === 'enrollment' ? undefined : patient);
+        await (mode === 'confirmation' ? connectPractitionerForConfirmation() : connectPractitioner());
+        if (mode === 'confirmation') {
+          setAlertMessage(
+            'When you complete the RxLink Agreement, please close the eRx by clicking the "Close eRx" button and open it again to start prescribing.'
+          );
+        }
       } catch (error) {
         enqueueSnackbar('Something went wrong while trying to connect practitioner to eRx', { variant: 'error' });
         console.error('Error trying to connect practitioner to eRx: ', error);
       }
     },
-    [connectPractitioner, patient]
+    [connectPractitioner, connectPractitionerForConfirmation]
   );
 
   // Handle vitals validation
@@ -143,31 +163,57 @@ export const ERX: FC<{
   useEffect(() => {
     if (
       isPractitionerEnrollmentChecked &&
-      !isPractitionerEnrolled &&
+      !practitionerEnrollmentStatus?.registered &&
       user?.profileResource?.id &&
-      !isEnrollingPractitioner
+      !isEnrollingPractitioner &&
+      !isEnrollPractitionerError &&
+      !isEnrollPractitionerSuccess
     ) {
       void enrollPractitionerFn(user.profileResource.id);
     }
   }, [
     isPractitionerEnrollmentChecked,
-    isPractitionerEnrolled,
+    practitionerEnrollmentStatus?.registered,
     user?.profileResource?.id,
     enrollPractitionerFn,
     isEnrollingPractitioner,
+    isEnrollPractitionerError,
+    isEnrollPractitionerSuccess,
   ]);
 
-  // Handle practitioner connection
+  // Handle practitioner connection for eRx
   useEffect(() => {
-    if (isPractitionerEnrolled && isPatientSynced && !isConnectingPractitioner && !isPractitionerConnected) {
+    if (
+      practitionerEnrollmentStatus?.confirmed &&
+      isPatientSynced &&
+      !isConnectingPractitioner &&
+      !isPractitionerConnected
+    ) {
       void connectPractitionerFn('ordering');
     }
   }, [
-    isPractitionerEnrolled,
+    practitionerEnrollmentStatus?.confirmed,
     isPatientSynced,
     connectPractitionerFn,
     isConnectingPractitioner,
     isPractitionerConnected,
+  ]);
+
+  // Handle practitioner connection for confirmation
+  useEffect(() => {
+    if (
+      practitionerEnrollmentStatus?.registered &&
+      !isConnectingPractitionerForConfirmation &&
+      !isPractitionerConnectedForConfirmation
+    ) {
+      void connectPractitionerFn('confirmation');
+    }
+  }, [
+    isPatientSynced,
+    connectPractitionerFn,
+    isConnectingPractitionerForConfirmation,
+    isPractitionerConnectedForConfirmation,
+    practitionerEnrollmentStatus?.registered,
   ]);
 
   // Handle loading state
@@ -199,11 +245,8 @@ export const ERX: FC<{
   return (
     <>
       <Box>
-        <Alert severity="info">
-          <AlertTitle>eRX is an integration with a third party service</AlertTitle>
-          If something goes wrong - please close and open the eRX again.
-        </Alert>
-        {ssoLink && <ERXDialog ssoLink={ssoLink} />}
+        {alertMessage && <Alert severity="info">{alertMessage}</Alert>}
+        {(ssoLink || ssoLinkForEnrollment) && <ERXDialog ssoLink={ssoLink || ssoLinkForEnrollment || ''} />}
       </Box>
     </>
   );

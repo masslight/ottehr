@@ -1,3 +1,4 @@
+import { Box } from '@mui/material';
 import { ReactElement, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FHIR_EXTENSION } from 'utils';
@@ -29,5 +30,15 @@ export const ERXDialog = ({ ssoLink }: { ssoLink: string }): ReactElement => {
     };
   }, []); // Empty dependency array since we only want to set up and clean up once
 
-  return <>{erxPortalElement && createPortal(<iframe src={ssoLink} width="100%" height="100%" />, erxPortalElement)}</>;
+  return (
+    <>
+      {erxPortalElement &&
+        createPortal(
+          <Box sx={{ minHeight: '600px', flex: '1 0 auto' }}>
+            <iframe src={ssoLink} width="100%" height="100%" />
+          </Box>,
+          erxPortalElement
+        )}
+    </>
+  );
 };

@@ -29,7 +29,6 @@ export const ERXPage: React.FC<ERXProps> = () => {
   return (
     <Stack spacing={1} sx={{ flex: '1 0 auto' }}>
       <ERxContainer />
-      <div id="prescribe-dialog" style={{ flex: '1 0 auto' }} />
     </Stack>
   );
 };

@@ -695,18 +695,18 @@ export const useSyncERXPatient = ({
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useConnectPractitionerToERX = () => {
+export const useConnectPractitionerToERX = ({ patientId }: { patientId?: string }) => {
   const { oystehr } = useApiClients();
 
   return useMutation(
-    ['erx-connect-practitioner'],
-    async (patient?: Patient) => {
+    ['erx-connect-practitioner', { patientId }],
+    async () => {
       if (oystehr) {
         console.log(`Start connecting practitioner to erx`);
         try {
           const params: ErxConnectPractitionerParams = {};
-          if (patient) {
-            params.patientId = patient.id;
+          if (patientId) {
+            params.patientId = patientId;
           }
           const resp = await oystehr.erx.connectPractitioner(params);
           console.log('Successfuly connected practitioner to erx');
@@ -774,7 +774,7 @@ export const useCheckPractitionerEnrollment = ({ enabled }: { enabled: boolean }
             practitionerId: user?.profileResource?.id,
           });
           console.log('Successfuly checked practitioner enrollment');
-          return resp.confirmed;
+          return resp;
         } catch (err) {
           console.error('Error during checking practitioner enrollment: ', err);
           throw err;

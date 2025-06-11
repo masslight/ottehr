@@ -250,6 +250,16 @@ export const ERxContainer: FC = () => {
           </Tooltip>
         </Stack>
         {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />}
+        {isERXOpen && (
+          <ERX
+            onClose={() => {
+              setIsERXOpen(false);
+              setIsERXLoading(false);
+            }}
+            onLoadingStatusChange={handleERXLoadingStatusChange}
+          />
+        )}
+        <div id="prescribe-dialog" style={{ flex: '1 0 auto', display: 'flex' }} />
 
         {chartData?.prescribedMedications && chartData.prescribedMedications.length > 0 && (
           <TableContainer component={Paper}>
@@ -327,16 +337,6 @@ export const ERxContainer: FC = () => {
           </TableContainer>
         )}
       </Stack>
-
-      {isERXOpen && (
-        <ERX
-          onClose={() => {
-            setIsERXOpen(false);
-            setIsERXLoading(false);
-          }}
-          onLoadingStatusChange={handleERXLoadingStatusChange}
-        />
-      )}
     </>
   );
 };
