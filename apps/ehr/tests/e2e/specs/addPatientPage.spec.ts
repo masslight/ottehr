@@ -15,6 +15,7 @@ import {
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
+import { DateTime } from 'luxon';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
 const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
@@ -32,7 +33,9 @@ const VISIT_TYPES = {
   POST_TELEMED: 'Post Telemed lab Only',
 };
 
-const resourceHandler = new ResourceHandler();
+const PROCESS_ID = `addPatientPage.spec.ts-${DateTime.now().toMillis()}`;
+
+const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 let appointmentIds: string[] = [];
 
@@ -158,7 +161,7 @@ test.describe('For new patient', () => {
     await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
-  // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
+  // skipping post-telemed visits tests cause they are unstable for some reason. TODO: investigate
   test.skip('Add post-telemed visit for new patient', async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(
       page,
@@ -205,7 +208,7 @@ test.describe('For existing patient', () => {
     await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
-  // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
+  // skipping post-telemed visits tests cause they are unstable for some reason. TODO: investigate
   test('Add post-telemed visit for existing patient', async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.POST_TELEMED, true);
 

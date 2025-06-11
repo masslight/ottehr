@@ -75,6 +75,7 @@ interface CreateAppointmentInput {
   language?: string;
   locationState?: string;
   unconfirmedDateOfBirth?: string;
+  appointmentMetadata?: Appointment['meta'];
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -105,7 +106,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.time('performing-complex-validation');
     const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
-    const { slot, scheduleOwner, serviceMode, patient, questionnaireCanonical, visitType } = effectInput;
+    const { slot, scheduleOwner, serviceMode, patient, questionnaireCanonical, visitType, appointmentMetadata } =
+      effectInput;
     console.log('effectInput', effectInput);
     console.timeEnd('performing-complex-validation');
 
@@ -123,6 +125,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         visitType,
         unconfirmedDateOfBirth,
         questionnaireCanonical,
+        appointmentMetadata,
       },
       oystehr
     );
@@ -300,6 +303,7 @@ interface TransactionInput {
   updatePatientRequest?: BatchInputRequest<Patient>;
   formUser?: string;
   slot?: Slot;
+  appointmentMetadata?: Appointment['meta'];
 }
 interface TransactionOutput {
   appointment: Appointment;
@@ -332,6 +336,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
     createdBy,
     serviceMode,
     slot,
+    appointmentMetadata,
   } = input;
 
   if (!patient && !createPatientRequest?.fullUrl) {
@@ -425,10 +430,10 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
   }
 
   const otherMetaTags = performPreProcessing ? [FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG] : [];
-
   const apptResource: Appointment = {
     resourceType: 'Appointment',
     meta: {
+      ...(appointmentMetadata ?? {}),
       tag: [
         { code: serviceMode === ServiceMode.virtual ? OTTEHR_MODULE.TM : OTTEHR_MODULE.IP },
         {
@@ -436,6 +441,7 @@ export const performTransactionalFhirRequests = async (input: TransactionInput):
           display: createdBy,
         },
         ...otherMetaTags,
+        ...(appointmentMetadata?.tag ?? []),
       ],
     },
     participant: participants,

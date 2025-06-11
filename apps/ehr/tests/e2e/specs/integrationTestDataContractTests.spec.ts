@@ -17,9 +17,12 @@ import {
   Account,
 } from 'fhir/r4b';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import { DateTime } from 'luxon';
 
-const e2eHandler = new ResourceHandler();
-const integrationHandler = new ResourceHandler();
+const e2e_PROCESS_ID = `contractTests-e2e-${DateTime.now().toMillis()}`;
+const integration_PROCESS_ID = `contractTests-integration-${DateTime.now().toMillis()}`;
+const e2eHandler = new ResourceHandler(e2e_PROCESS_ID);
+const integrationHandler = new ResourceHandler(integration_PROCESS_ID);
 
 test.beforeAll(async () => {
   await Promise.all([await integrationHandler.setResourcesFast(), await e2eHandler.setResources()]);

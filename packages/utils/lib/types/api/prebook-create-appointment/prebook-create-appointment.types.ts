@@ -9,6 +9,7 @@ export interface CreateAppointmentInputParams {
   language?: string;
   locationState?: string;
   unconfirmedDateOfBirth?: string | undefined;
+  appointmentMetadata?: Appointment['meta'];
 }
 
 export interface CreateAppointmentResponse {

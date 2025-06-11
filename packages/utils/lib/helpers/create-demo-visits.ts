@@ -127,6 +127,7 @@ export const createSampleAppointments = async ({
   projectId,
   paperworkAnswers,
   serviceMode,
+  appointmentMetadata,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -139,6 +140,7 @@ export const createSampleAppointments = async ({
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
   serviceMode?: ServiceMode;
+  appointmentMetadata?: Appointment['meta'];
 }): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -173,6 +175,10 @@ export const createSampleAppointments = async ({
           selectedLocationId,
           locationState
         );
+
+        if (appointmentMetadata) {
+          randomPatientInfo.appointmentMetadata = appointmentMetadata;
+        }
 
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',

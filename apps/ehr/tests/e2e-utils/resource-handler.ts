@@ -135,6 +135,7 @@ export class ResourceHandler {
   #flow: 'telemed' | 'in-person';
   #initPromise: Promise<void>;
   #paperworkAnswers?: GetPaperworkAnswers;
+  #processId?: string;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
@@ -153,11 +154,12 @@ export class ResourceHandler {
     return this.#apiClient;
   }
 
-  constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
+  constructor(processId: string, flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.#flow = flow;
     this.#paperworkAnswers = paperworkAnswers;
 
     this.#initPromise = this.initApi();
+    this.#processId = processId;
 
     this.#createAppointmentZambdaId = 'create-appointment';
   }
@@ -226,6 +228,7 @@ export class ResourceHandler {
         demoData: patientData,
         projectId: process.env.PROJECT_ID!,
         paperworkAnswers: this.#paperworkAnswers,
+        appointmentMetadata: getProcessMetaTag(this.#processId!),
       });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -555,3 +558,24 @@ export class ResourceHandler {
     };
   }
 }
+
+export const addProcessIdMetaTagToResource = (resource: FhirResource, processId: string): FhirResource => {
+  const existingMeta = resource.meta || { tag: [] };
+  const existingTags = existingMeta.tag ?? [];
+  existingTags.push({
+    system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+    code: processId,
+  });
+  return resource;
+};
+
+export const getProcessMetaTag = (processId: string): Appointment['meta'] => {
+  return {
+    tag: [
+      {
+        system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+        code: processId,
+      },
+    ],
+  };
+};
