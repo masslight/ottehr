@@ -1,0 +1,47 @@
+{
+    "resourceType": "ValueSet",
+    "url": "https://fhir.ottehr.com/ValueSet/procedure-supplies",
+    "version": "1.0.0",
+    "name": "Procedures - Supplies used",
+    "status": "active",
+    "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Suture Kit"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Splint"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Irrigation Syringe"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Speculum"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Forceps"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "IV Kit"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Other"
+            }
+        ]
+    }
+}

@@ -1,0 +1,42 @@
+{
+    "resourceType": "ValueSet",
+    "url": "https://fhir.ottehr.com/ValueSet/procedure-patient-responses",
+    "version": "1.0.0",
+    "name": "Procedures - Patient response",
+    "status": "active",
+    "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Tolerated Well"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Mild Distress"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Severe Distress"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Improved"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Stable"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Worsened"
+            }
+        ]
+    }
+}
