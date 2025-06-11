@@ -111,7 +111,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('effectInput', effectInput);
     console.timeEnd('performing-complex-validation');
 
-    console.log('creating appointment');
+    console.log('creating appointment with metadata: ', JSON.stringify(appointmentMetadata, null, 2));
 
     const data_appointment = await createAppointment(
       {

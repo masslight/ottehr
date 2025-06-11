@@ -315,6 +315,10 @@ export class ResourceHandler {
             if (entry.request.method !== 'POST') {
               throw new Error('Only POST method is supported in fast mode');
             }
+            let resource: FhirResource = entry.resource;
+            if (resource.resourceType === 'Appointment') {
+              resource = addProcessIdMetaTagToResource(resource, this.#processId!);
+            }
             return {
               method: entry.request.method,
               url: entry.request.url,
@@ -559,7 +563,7 @@ export class ResourceHandler {
   }
 }
 
-export const addProcessIdMetaTagToResource = (resource: FhirResource, processId: string): FhirResource => {
+const addProcessIdMetaTagToResource = (resource: FhirResource, processId: string): FhirResource => {
   const existingMeta = resource.meta || { tag: [] };
   const existingTags = existingMeta.tag ?? [];
   existingTags.push({
@@ -569,7 +573,7 @@ export const addProcessIdMetaTagToResource = (resource: FhirResource, processId:
   return resource;
 };
 
-export const getProcessMetaTag = (processId: string): Appointment['meta'] => {
+const getProcessMetaTag = (processId: string): Appointment['meta'] => {
   return {
     tag: [
       {
