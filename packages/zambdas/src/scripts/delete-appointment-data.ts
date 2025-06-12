@@ -12,6 +12,7 @@ import {
 } from 'fhir/r4b';
 import { getParticipantIdFromAppointment } from 'utils';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
+import _ from 'lodash';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {
   const oystehr = await createOystehrClientFromConfig(config);

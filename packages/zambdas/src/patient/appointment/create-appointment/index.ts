@@ -106,12 +106,32 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.time('performing-complex-validation');
     const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
-    const { slot, scheduleOwner, serviceMode, patient, questionnaireCanonical, visitType, appointmentMetadata } =
-      effectInput;
+    const {
+      slot,
+      scheduleOwner,
+      serviceMode,
+      patient,
+      questionnaireCanonical,
+      visitType,
+      appointmentMetadata: maybeMetadata,
+    } = effectInput;
     console.log('effectInput', effectInput);
     console.timeEnd('performing-complex-validation');
 
-    console.log('creating appointment with metadata: ', JSON.stringify(appointmentMetadata, null, 2));
+    console.log('creating appointment with metadata: ', JSON.stringify(maybeMetadata, null, 2));
+
+    let appointmentMetadata: Appointment['meta'] = maybeMetadata;
+    if (process.env.INTEGRATION_TEST === 'true' && !maybeMetadata) {
+      appointmentMetadata = {
+        tag: [
+          {
+            system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+            code: 'outside-resource-handler-scope',
+          },
+        ],
+      };
+      console.log('using test metadata: ', JSON.stringify(appointmentMetadata, null, 2));
+    }
 
     const data_appointment = await createAppointment(
       {

@@ -219,6 +219,7 @@ test.describe('For existing patient', () => {
   });
 });
 
+// todo: don't write this here, create function in resource-handler
 async function createAppointment(
   page: Page,
   visitType: (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES],

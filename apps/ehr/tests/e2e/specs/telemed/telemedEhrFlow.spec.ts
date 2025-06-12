@@ -517,7 +517,7 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
   test.describe('Tests interacting with appointment state', () => {
     const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-appointment-state-${DateTime.now().toMillis()}`;
     const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
-    test.beforeEach(async () => {
+    test.beforeAll(async () => {
       await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
     });
 
@@ -596,7 +596,7 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
           reject(error);
         });
     }),
-    resourceHandler.setResources(),
+    await resourceHandler.setResources(),
   ]);
 
   await oystehr.fhir.patch({

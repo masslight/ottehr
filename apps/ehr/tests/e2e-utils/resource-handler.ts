@@ -20,7 +20,7 @@ import {
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
-import { cleanAppointment } from 'test-utils';
+import { cleanAppointment, cleanAppointmentGraph } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
@@ -41,7 +41,6 @@ import {
   TEST_EMPLOYEE_1,
   TEST_EMPLOYEE_2,
 } from './resource/employees';
-import { getInHouseMedicationsResources } from './resource/in-house-medications';
 import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 
@@ -347,31 +346,9 @@ export class ResourceHandler {
   public async cleanupResources(): Promise<void> {
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
-    if (this.#resources.appointment) {
-      const inHouseMedicationsResources = await getInHouseMedicationsResources(
-        this.#apiClient,
-        'encounter',
-        this.#resources.appointment.id!
-      );
-
-      await Promise.allSettled([
-        ...inHouseMedicationsResources.map((resource) => {
-          if (resource.id && resource.resourceType) {
-            return this.#apiClient.fhir
-              .delete({ id: resource.id, resourceType: resource.resourceType })
-              .then(() => {
-                console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
-              })
-              .catch((error) => {
-                console.error(`❌ 🗑️ ${resource.resourceType} not deleted ${resource.id}`, error);
-              });
-          } else {
-            console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
-            return Promise.resolve();
-          }
-        }),
-        this.cleanAppointment(this.#resources.appointment.id!),
-      ]);
+    const metaTagCoding = getProcessMetaTag(this.#processId!);
+    if (metaTagCoding?.tag?.[0]) {
+      await cleanAppointmentGraph(metaTagCoding.tag[0], this.#apiClient);
     }
   }
 
@@ -495,23 +472,6 @@ export class ResourceHandler {
     }
 
     return resource;
-  }
-
-  async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
-    const appointments = (
-      await this.#apiClient.fhir.search({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: 'actor',
-            value: 'Patient/' + patientId,
-          },
-        ],
-      })
-    ).unbundle();
-    for (const appointment of appointments) {
-      await cleanAppointment(appointment.id!, process.env.ENV!);
-    }
   }
 
   async cleanAppointment(appointmentId: string): Promise<boolean> {
