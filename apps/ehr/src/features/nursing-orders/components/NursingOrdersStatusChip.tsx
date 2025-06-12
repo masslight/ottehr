@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Chip, ChipProps } from '@mui/material';
-import { NursingOrdersStatus } from '../nursingOrderTypes';
+import { NursingOrdersStatus } from 'utils';
 
 interface NursingOrdersStatusChipProps {
   status: NursingOrdersStatus | string;
@@ -9,7 +9,7 @@ interface NursingOrdersStatusChipProps {
 export const NursingOrdersStatusChip = ({ status }: NursingOrdersStatusChipProps): ReactElement => {
   const getChipProps = (): ChipProps & { label: string } => {
     switch (status.toLowerCase()) {
-      case 'pending':
+      case NursingOrdersStatus.pending:
         return {
           label: 'PENDING',
           sx: {
@@ -19,7 +19,7 @@ export const NursingOrdersStatusChip = ({ status }: NursingOrdersStatusChipProps
             borderRadius: '4px',
           },
         };
-      case 'completed':
+      case NursingOrdersStatus.completed:
         return {
           label: 'COMPLETED',
           sx: {
@@ -29,7 +29,7 @@ export const NursingOrdersStatusChip = ({ status }: NursingOrdersStatusChipProps
             borderRadius: '4px',
           },
         };
-      case 'cancelled':
+      case NursingOrdersStatus.cancelled:
         return {
           label: 'CANCELLED',
           sx: {
