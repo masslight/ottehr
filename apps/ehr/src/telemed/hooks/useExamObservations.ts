@@ -195,7 +195,8 @@ export function useExamObservations(param?: AllExamNames | AllExamNames[]): {
         const field = (param as ExamObservationDTO).field;
         // Create a new state without the field
         const { [field]: _removed, ...rest } = prevState;
-        return rest;
+
+        return { [field]: { field: _removed.field, note: '' }, ...rest };
       }
 
       // If param is an ExamRecord

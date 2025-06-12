@@ -7,7 +7,6 @@ import {
   Location,
   LocationHoursOfOperation,
   Practitioner,
-  Resource,
   Schedule,
   Slot,
 } from 'fhir/r4b';
@@ -251,24 +250,6 @@ export function getTimezone(
   }
   return timezone;
 }
-
-export const getAppointmentTimezone = (appointment: Appointment, scheduleResources: Resource[]): string => {
-  const participantReferences =
-    appointment.participant?.map((participant) => participant.actor?.reference).filter(Boolean) ?? [];
-
-  const scheduleResource = scheduleResources.find(
-    (resource) =>
-      resource.resourceType && resource.id && participantReferences.includes(`${resource.resourceType}/${resource.id}`)
-  );
-
-  if (!scheduleResource) {
-    console.error('Resource with Schedule extension not found in appointment.participant resources', scheduleResources);
-  }
-
-  const timezone = getTimezone(scheduleResource as Location | HealthcareService | Practitioner);
-
-  return timezone;
-};
 
 // creates a map where each open hour in the day's schedule is a key and the capacity for that hour is the value
 export function getSlotCapacityMapForDayAndSchedule(

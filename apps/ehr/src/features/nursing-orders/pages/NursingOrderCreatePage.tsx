@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { Box, Paper, Typography, Button, Grid, TextField, CircularProgress, Stack } from '@mui/material';
+import { Box, Paper, Typography, TextField, CircularProgress, Stack, Divider } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
+import { BreadCrumbs } from '../components/BreadCrumbs';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { createNursingOrder } from 'src/api/api';
+import { CreateNursingOrderParameters } from 'utils';
 
 export const NursingOrderCreatePage: React.FC = () => {
+  const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [orderNote, setOrderNote] = useState<string>('');
-  const { patient, encounter } = getSelectors(useAppointmentStore, ['chartData', 'patient', 'encounter']);
+  const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
 
   const handleBack = (): void => {
     navigate(-1);
@@ -19,18 +25,25 @@ export const NursingOrderCreatePage: React.FC = () => {
     setLoading(true);
 
     try {
-      // In a real implementation, this would submit the order to the API
+      if (!oystehrZambda) throw new Error('Zambda client not found');
       console.log('Order submitted:', {
         notes: orderNote,
         patientId: patient?.id,
         encounterId: encounter?.id,
       });
 
-      // Mock API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!encounter?.id) {
+        throw new Error('Missing encounter ID');
+      }
 
-      // Navigate back to the nursing orders list
-      navigate(-1);
+      const zambdaParams: CreateNursingOrderParameters = {
+        encounterId: encounter?.id,
+        notes: orderNote,
+      };
+
+      await createNursingOrder(oystehrZambda, zambdaParams);
+
+      handleBack();
     } catch (error) {
       console.error('Error submitting order:', error);
     } finally {
@@ -39,65 +52,69 @@ export const NursingOrderCreatePage: React.FC = () => {
   };
 
   return (
-    <Box>
-      <Typography variant="h4" color="primary.dark" sx={{ mb: 3 }}>
-        Nursing Order
-      </Typography>
+    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, maxWidth: '680px' }}>
+        <BreadCrumbs />
 
-      <Paper sx={{ p: 4 }}>
-        {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-            <CircularProgress />
-          </Box>
-        ) : (
-          <form onSubmit={handleSubmit}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  id="notes"
-                  label="Order note"
-                  multiline
-                  rows={4}
-                  value={orderNote}
-                  onChange={(e) => setOrderNote(e.target.value)}
-                  required
-                />
-              </Grid>
+        <Typography variant="h4" color="primary.dark">
+          Nursing Order
+        </Typography>
 
-              <Grid item xs={12} sx={{ mt: 3 }}>
-                <Stack direction="row" spacing={2} justifyContent="space-between">
-                  <Button
-                    variant="outlined"
-                    onClick={handleBack}
-                    sx={{
-                      borderRadius: '50px',
-                      px: 4,
-                      py: 1,
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Box>
-                    <Button
-                      variant="contained"
-                      type="submit"
-                      disabled={orderNote.length === 0}
+        <Paper>
+          {loading ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+              <CircularProgress />
+            </Box>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <Box sx={{ p: 3 }}>
+                  <TextField
+                    fullWidth
+                    id="notes"
+                    label="Order note"
+                    multiline
+                    rows={4}
+                    value={orderNote}
+                    onChange={(e) => setOrderNote(e.target.value)}
+                    required
+                  />
+                </Box>
+                <Divider />
+                <Box sx={{ px: 3, py: 2 }}>
+                  <Stack direction="row" spacing={2} justifyContent="space-between">
+                    <ButtonRounded
+                      variant="outlined"
+                      onClick={handleBack}
                       sx={{
                         borderRadius: '50px',
                         px: 4,
                         py: 1,
                       }}
                     >
-                      Order
-                    </Button>
-                  </Box>
-                </Stack>
-              </Grid>
-            </Grid>
-          </form>
-        )}
-      </Paper>
+                      Cancel
+                    </ButtonRounded>
+                    <Box>
+                      <ButtonRounded
+                        variant="contained"
+                        type="submit"
+                        disabled={orderNote.length === 0 || loading}
+                        sx={{
+                          borderRadius: '50px',
+                          px: 4,
+                          py: 1,
+                        }}
+                      >
+                        Order
+                      </ButtonRounded>
+                    </Box>
+                  </Stack>
+                </Box>
+              </Box>
+            </form>
+          )}
+        </Paper>
+      </Box>
     </Box>
   );
 };
