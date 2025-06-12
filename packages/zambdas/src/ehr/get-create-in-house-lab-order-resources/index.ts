@@ -3,7 +3,6 @@ import {
   Secrets,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
-  IN_HOUSE_TAG_DEFINITION,
   convertActivityDefinitionToTestItem,
   PRACTITIONER_CODINGS,
   getFullestAvailableName,
@@ -18,7 +17,9 @@ import {
   getMyPractitionerId,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ActivityDefinition, Encounter, Practitioner, Location } from 'fhir/r4b';
+import { Encounter, Practitioner, Location } from 'fhir/r4b';
+import { fetchInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
+
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -135,15 +136,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     })();
 
-    const activityDefinitions = (
-      await oystehr.fhir.search<ActivityDefinition>({
-        resourceType: 'ActivityDefinition',
-        params: [
-          { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
-          { name: 'status', value: 'active' },
-        ],
-      })
-    ).unbundle();
+    const activityDefinitions = await fetchInHouseLabActivityDefinitions(oystehr);
 
     console.log(`Found ${activityDefinitions.length} ActivityDefinition resources`);
 

@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import {
   TestStatus,
   IN_HOUSE_LAB_TASK,
@@ -6,8 +7,9 @@ import {
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   InHouseOrderDetailPageItemDTO,
+  IN_HOUSE_TAG_DEFINITION,
 } from 'utils';
-import { Coding, Task, ServiceRequest, Provenance, Encounter, Specimen } from 'fhir/r4b';
+import { Coding, Task, ServiceRequest, Provenance, Encounter, Specimen, ActivityDefinition } from 'fhir/r4b';
 
 export function getAttendingPractionerId(encounter: Encounter): string {
   const practitionerId = encounter.participant
@@ -168,4 +170,27 @@ export const taskIsBasedOnServiceRequest = (task: Task, serviceRequest: ServiceR
 
 export const provenanceIsTargetOfServiceRequest = (provenance: Provenance, serviceRequest: ServiceRequest): boolean => {
   return !!provenance.target?.some((target) => target.reference === `ServiceRequest/${serviceRequest.id}`);
+};
+
+export const fetchInHouseLabActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
+  return oystehr.fhir
+    .search<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      params: [
+        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+        { name: 'status', value: 'active' },
+      ],
+    })
+    .then((response) => response.unbundle());
+};
+
+export const getUrlAndVersionForADFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { url: string; version: string | undefined } => {
+  const adUrl = serviceRequest.instantiatesCanonical?.[0].split('|')[0];
+  if (!adUrl) throw new Error(`error parsing instantiatesCanonical url for SR ${serviceRequest.id}`);
+  // version is not included in older SR.instantiatesCanonical urls
+  const version = serviceRequest.instantiatesCanonical?.[0].split('|')[1];
+  console.log('AD url and version parsed:', adUrl, version);
+  return { url: adUrl, version };
 };

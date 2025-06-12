@@ -26,7 +26,11 @@ import {
   InHouseGetOrdersResponseDTO,
 } from 'utils';
 import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
-import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
+import {
+  getSpecimenDetails,
+  taskIsBasedOnServiceRequest,
+  fetchInHouseLabActivityDefinitions,
+} from '../shared/inhouse-labs';
 import {
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
@@ -38,11 +42,14 @@ import {
   getFullestAvailableName,
   PRACTITIONER_CODINGS,
   TestStatus,
-  IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
-import { determineOrderStatus, buildOrderHistory } from '../shared/inhouse-labs';
+import {
+  determineOrderStatus,
+  buildOrderHistory,
+  getUrlAndVersionForADFromServiceRequest,
+} from '../shared/inhouse-labs';
 
 // cache for the service request context
 type Cache = {
@@ -315,7 +322,7 @@ export const getInHouseResources = async (
   const [practitioners, appointments, activityDefinitions] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchActivityDefinitions(oystehr),
+    fetchInHouseLabActivityDefinitions(oystehr),
   ]);
 
   return {
@@ -576,26 +583,17 @@ export const fetchAppointmentsForServiceRequests = async (
   return appointmentsResponse.unbundle();
 };
 
-export const fetchActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
-  return oystehr.fhir
-    .search<ActivityDefinition>({
-      resourceType: 'ActivityDefinition',
-      params: [
-        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
-        { name: 'status', value: 'active' },
-      ],
-    })
-    .then((response) => response.unbundle());
-};
-
 export const findActivityDefinitionForServiceRequest = (
   serviceRequest: ServiceRequest,
   activityDefinitions: ActivityDefinition[]
 ): ActivityDefinition | undefined => {
-  const canonicalUrl = serviceRequest.instantiatesCanonical?.[0];
-  if (!canonicalUrl) return undefined;
+  const { url, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
 
-  return activityDefinitions.find((ad) => ad.url === canonicalUrl);
+  return activityDefinitions.find((ad) => {
+    let versionMatch = true;
+    if (version) versionMatch = ad.version === version;
+    return versionMatch && ad.url === url;
+  });
 };
 
 const fetchResultResourcesForRepeatServiceRequest = async (

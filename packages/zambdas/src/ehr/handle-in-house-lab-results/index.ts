@@ -43,7 +43,7 @@ import {
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
-import { getAttendingPractionerId } from '../shared/inhouse-labs';
+import { getAttendingPractionerId, getUrlAndVersionForADFromServiceRequest } from '../shared/inhouse-labs';
 import { createLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
@@ -191,6 +191,12 @@ const getResources = async (
   const encounter = encounters[0];
   const attendingPractitionerId = getAttendingPractionerId(encounter);
 
+  const { url: adUrl, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
+  if (!version)
+    throw new Error(
+      `Missing version for AD canonical url written in instantiatesCanonical for ServiceRequest ${serviceRequest.id}`
+    );
+
   const { currentUserPractitionerName, attendingPractitionerName, activityDefinitionSearch } = await Promise.all([
     oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
@@ -207,12 +213,9 @@ const getResources = async (
       params: [
         {
           name: 'url',
-          value: serviceRequest.instantiatesCanonical?.join(',') || '',
+          value: adUrl,
         },
-        {
-          name: 'status',
-          value: 'active',
-        },
+        { name: 'version', value: version },
       ],
     }),
   ]).then(([currentUserPractitioner, attendingPractitioner, activityDefinitionSearch]) => {
@@ -224,6 +227,7 @@ const getResources = async (
   });
 
   const activityDefinitions = activityDefinitionSearch.unbundle();
+
   if (activityDefinitions.length !== 1) throw new Error('Only one active activity definition should be returned');
 
   return {
