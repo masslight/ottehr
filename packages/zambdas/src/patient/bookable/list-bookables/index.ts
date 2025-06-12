@@ -17,21 +17,21 @@ import {
 } from 'utils';
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
     const { serviceMode: serviceType } = validateRequestParameters(input);
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting m2m token for service calls');
-      zapehrToken = await getAuth0Token(input.secrets);
+      oystehrToken = await getAuth0Token(input.secrets);
     } else {
       console.log('already have a token, no need to update');
     }
 
-    const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
+    const oystehr = createOystehrClient(oystehrToken, fhirAPI, projectAPI);
 
     let response: BookableItemListResponse;
     if (serviceType === 'virtual') {

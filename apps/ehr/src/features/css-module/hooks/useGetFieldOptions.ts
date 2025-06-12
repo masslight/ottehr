@@ -75,10 +75,13 @@ export const useFieldsSelectsOptions = (): OrderFieldsSelectsOptions => {
     void getLocationsResults(oystehr);
   }, [encounterId, oystehr]);
 
-  const medicationListOptions: Option[] = Object.entries(medicationList || {}).map(([id, value]) => ({
-    value: id,
-    label: value,
-  }));
+  const medicationListOptions: Option[] = Object.entries(medicationList || {})
+    .map(([id, value]) => ({
+      value: id,
+      label: value,
+    }))
+    .sort((a, b) => a.label.toLowerCase().localeCompare(b.label.toLowerCase()));
+  medicationListOptions.unshift({ value: '', label: 'Select Medication' });
 
   return {
     medicationId: {

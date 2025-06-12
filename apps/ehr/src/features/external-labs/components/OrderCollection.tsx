@@ -6,6 +6,7 @@ import { AOECard } from './AOECard';
 import { useForm, SubmitHandler, FormProvider } from 'react-hook-form';
 import {
   DynamicAOEInput,
+  ExternalLabsStatus,
   LabOrderDetailedPageDTO,
   LabQuestionnaireResponse,
   SpecimenDateChangedParameters,
@@ -52,7 +53,9 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
   const [submitLoading, setSubmitLoading] = useState(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [specimensLoadingState, setSpecimensLoadingState] = useState<{ [specimenId: string]: 'saving' | 'saved' }>({});
-  const shouldShowSampleCollectionInstructions = !labOrder.isPSC;
+  const shouldShowSampleCollectionInstructions =
+    !labOrder.isPSC &&
+    (labOrder.orderStatus === ExternalLabsStatus.pending || labOrder.orderStatus === ExternalLabsStatus.sent);
   const showAOECard = aoe.length > 0;
 
   const updateSpecimenLoadingState = (specimenId: string, state: 'saving' | 'saved'): void => {
@@ -89,11 +92,13 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
       });
 
       try {
-        const { orderPdfUrl } = await submitLabOrder(oystehr, {
+        const { orderPdfUrl, labelPdfUrl } = await submitLabOrder(oystehr, {
           serviceRequestID: labOrder.serviceRequestId,
           accountNumber: labOrder.accountNumber,
           data: data,
         });
+
+        if (labelPdfUrl) await openPdf(labelPdfUrl);
 
         await openPdf(orderPdfUrl);
         setSubmitLoading(false);
@@ -101,7 +106,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         navigate(`/in-person/${appointmentID}/external-lab-orders`);
       } catch (e) {
         const oyError = e as OystehrSdkError;
-        console.log('error creating lab order1', oyError.code, oyError.message);
+        console.log('error creating external lab order1', oyError.code, oyError.message);
         const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
         setError(errorMessage);
         setSubmitLoading(false);
@@ -109,7 +114,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
     }
     updateFhir().catch((e) => {
       const oyError = e as OystehrSdkError;
-      console.log('error creating lab order2', oyError.code, oyError.message);
+      console.log('error creating external lab order2', oyError.code, oyError.message);
       const errorMessage = [oyError.message || 'There was an error submitting the lab order'];
       setError(errorMessage);
     });
@@ -140,6 +145,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                 saveSpecimenDate={saveSpecimenDate}
                 updateSpecimenLoadingState={updateSpecimenLoadingState}
                 printLabelVisible={orderStatus === 'sent'}
+                isDateEditable={orderStatus === 'pending'}
               />
             </Box>
           ))}

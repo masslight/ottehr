@@ -172,6 +172,22 @@
     "ANTHROPIC_API_KEY": {
       "name": "ANTHROPIC_API_KEY",
       "value": "#var/ANTHROPIC_API_KEY"
+    },
+    "ADVAPACS_CLIENT_ID": {
+      "name": "ADVAPACS_CLIENT_ID",
+      "value": "#var/ADVAPACS_CLIENT_ID"
+    },
+    "ADVAPACS_CLIENT_SECRET": {
+      "name": "ADVAPACS_CLIENT_SECRET",
+      "value": "#var/ADVAPACS_CLIENT_SECRET"
+    },
+    "ADVAPACS_WEBHOOK_SECRET": {
+      "name": "ADVAPACS_WEBHOOK_SECRET",
+      "value": "#var/ADVAPACS_WEBHOOK_SECRET"
+    },
+    "ADVAPACS_VIEWER_USERNAME": {
+      "name": "ADVAPACS_VIEWER_USERNAME",
+      "value": "#var/ADVAPACS_VIEWER_USERNAME"
     }
   },
   "zambdas": {
@@ -708,7 +724,7 @@
       "subscription": {
         "criteria": "Appointment?_tag=APPOINTMENT_READY_FOR_PREPROCESSING",
         "reason": "Appointment pre-processor",
-        "event": "update"
+        "event": "create"
       }
     },
     "SUB-CANCELLATION-EMAIL": {
@@ -804,6 +820,41 @@
       "src": "src/patient/ai-interview/persist-consent/index",
       "zip": ".dist/zips/ai-interview-persist-consent.zip"
     },
+    "RADIOLOGY-CREATE-ORDER": {
+      "name": "RADIOLOGY-CREATE-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/create-order/index",
+      "zip": ".dist/zips/radiology-create-order.zip"
+    },
+    "RADIOLOGY-CANCEL-ORDER": {
+      "name": "RADIOLOGY-CANCEL-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/cancel-order/index",
+      "zip": ".dist/zips/radiology-cancel-order.zip"
+    },
+    "RADIOLOGY-ORDER-LIST": {
+      "name": "RADIOLOGY-ORDER-LIST",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/order-list/index",
+      "zip": ".dist/zips/radiology-order-list.zip"
+    },
+    "RADIOLOGY-PACS-WEBHOOK": {
+      "name": "RADIOLOGY-PACS-WEBHOOK",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/pacs-webhook/index",
+      "zip": ".dist/zips/radiology-pacs-webhook.zip"
+    },
+    "RADIOLOGY-LAUNCH-VIEWER": {
+      "name": "RADIOLOGY-LAUNCH-VIEWER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/radiology/launch-viewer/index",
+      "zip": ".dist/zips/radiology-launch-viewer.zip"
+    },
     "GET-LAB-ORDERS": {
       "name": "GET-LAB-ORDERS",
       "type": "http_auth",
@@ -846,7 +897,6 @@
       "src": "src/ehr/get-or-create-visit-label-pdf/index",
       "zip": ".dist/zips/get-or-create-visit-label-pdf.zip"
     },
-
     "EHR-GET-SCHEDULE": {
       "name": "EHR-GET-SCHEDULE",
       "type": "http_auth",
@@ -936,13 +986,6 @@
       "src": "src/ehr/get-create-in-house-lab-order-resources/index",
       "zip": ".dist/zips/get-create-in-house-lab-order-resources.zip"
     },
-    "GET-IN-HOUSE-LAB-ORDER-DETAIL": {
-      "name": "GET-IN-HOUSE-LAB-ORDER-DETAIL",
-      "type": "http_auth",
-      "runtime": "nodejs20.x",
-      "src": "src/ehr/get-in-house-lab-order-detail/index",
-      "zip": ".dist/zips/get-in-house-lab-order-detail.zip"
-    },
     "COLLECT-IN-HOUSE-LAB-SPECIMEN": {
       "name": "COLLECT-IN-HOUSE-LAB-SPECIMEN",
       "type": "http_auth",
@@ -963,6 +1006,27 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/delete-in-house-lab-order/index",
       "zip": ".dist/zips/delete-in-house-lab-order.zip"
+    },
+    "GET-NURSING-ORDERS": {
+      "name": "GET-NURSING-ORDERS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-nursing-orders/index",
+      "zip": ".dist/zips/get-nursing-orders.zip"
+    },
+    "CREATE-NURSING-ORDER": {
+      "name": "CREATE-NURSING-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/create-nursing-order/index",
+      "zip": ".dist/zips/create-nursing-order.zip"
+    },
+    "UPDATE-NURSING-ORDER": {
+      "name": "UPDATE-NURSING-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-nursing-order/index",
+      "zip": ".dist/zips/update-nursing-order.zip"
     }
   },
   "fhirResources": {
@@ -974,7 +1038,10 @@
         "patient": "patient-id",
         "title": "My Questions"
       },
-      "managedFields": ["name", "title"]
+      "managedFields": [
+        "name",
+        "title"
+      ]
     }
   },
   "apps": {
@@ -997,7 +1064,9 @@
           "effect": "Allow"
         }
       ],
-      "roles": ["#ref/EHR_SUPER_ADMIN"]
+      "roles": [
+        "#ref/EHR_SUPER_ADMIN"
+      ]
     }
   },
   "roles": {

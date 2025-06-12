@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('Should open home page and show Request a Virtual Visit button', async ({ page }) => {
   await page.goto('/home');
-  await page.getByRole('button', { name: 'Start a Virtual Visit' }).click();
+  await page.getByRole('button', { name: 'Virtual Visit Check-In' }).click();
   await expect(page.getByRole('heading', { name: 'Request a Virtual Visit', level: 2 })).toBeVisible({
     timeout: 15000,
   });

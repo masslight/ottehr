@@ -12,6 +12,7 @@ import {
   getAllSlotsAsCapacityMap,
   getAvailableSlots,
   GetAvailableSlotsInput,
+  getPostTelemedSlots,
   getScheduleExtension,
   getTimezone,
 } from 'utils';
@@ -117,6 +118,35 @@ describe('slot availability tests', () => {
     expect(availableSlots2).toEqual(expectedList);
   });
 
+  it('for a 24/7 schedule, should have post-telemed slots available every 30 minutes on the hour and half hour, open to close', () => {
+    const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
+    expect(schedule).toBeDefined();
+    expect(schedule.id).toBeDefined();
+
+    const scheduleExtension = getScheduleExtension(schedule);
+    expect(scheduleExtension).toBeDefined();
+    assert(scheduleExtension);
+    expect(JSON.stringify(scheduleExtension)).toEqual(JSON.stringify(DEFAULT_SCHEDULE_JSON));
+    const timezone = getTimezone(schedule);
+    expect(timezone).toBeDefined();
+
+    const startDate = startOfDayWithTimezone({ timezone });
+
+    const ptmSlots = getPostTelemedSlots(startDate, schedule, []);
+    expect(ptmSlots).toBeDefined();
+    expect(ptmSlots.length).toEqual(96); // 24 hours * 4 slots per hour
+
+    const expectedList = [];
+    const dayAfterTomorrow = startDate.plus({ days: 2 });
+    let now = startDate.startOf('day');
+    while (now < dayAfterTomorrow) {
+      expectedList.push(now.toISO());
+      now = now.plus({ minutes: 30 });
+    }
+    expect(expectedList.length).toEqual(96);
+    expect(ptmSlots).toEqual(expectedList);
+  });
+
   it('opening buffers should remove slots from the beginning of the available slots list as expected', () => {
     const bufferedSchedule = applyBuffersToScheduleExtension(DEFAULT_SCHEDULE_JSON, {
       openingBuffer: 30,
@@ -173,6 +203,7 @@ describe('slot availability tests', () => {
       now = now.plus({ minutes: 15 });
     }
   });
+
   it('closing buffers should remove slots from the end of the available slots list as expected', () => {
     const bufferedSchedule = applyBuffersToScheduleExtension(DEFAULT_SCHEDULE_JSON, {
       closingBuffer: 30,

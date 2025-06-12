@@ -1,11 +1,12 @@
-import { DiagnosisDTO, OBSERVATION_CODES } from '../..';
-import { Pagination } from '../labs';
+import { Bundle, FhirResource } from 'fhir/r4b';
+import { DiagnosisDTO, OBSERVATION_CODES, Pagination } from '../..';
 
 export interface TestItemMethods {
   manual?: { device: string };
   analyzer?: { device: string };
   machine?: { device: string };
 }
+
 export interface QuantityRange {
   low: number;
   high: number;
@@ -54,6 +55,7 @@ export interface TestItem {
   method: string;
   device: string;
   cptCode: string[];
+  repeatable: boolean;
   components: {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
@@ -61,59 +63,61 @@ export interface TestItem {
   note?: string;
 }
 
-export type InHouseOrderResultDetails = {
+export type InHouseOrderListPageItemDTO = {
+  appointmentId: string;
+  serviceRequestId: string;
+  testItemName: string;
+  diagnosesDTO: DiagnosisDTO[];
   status: TestStatus;
-  sample: {
-    source: unknown;
-    collectedBy: unknown;
-    collectionDate: string;
-  }[];
-  note: string;
-  history: {
+  visitDate: string;
+  resultReceivedDate: string | null;
+  timezone: string | undefined;
+  orderAddedDate: string;
+  orderingPhysicianFullName: string;
+};
+
+export type InHouseOrderDetailPageItemDTO = InHouseOrderListPageItemDTO & {
+  orderingPhysicianId: string;
+  currentUserId: string;
+  currentUserFullName: string;
+  resultsPDFUrl: string | undefined;
+  labDetails: TestItem;
+  orderHistory: {
     status: TestStatus;
     providerName: string;
     date: string;
   }[];
-  showOnPatientPortal: boolean;
-  templateTypes: unknown[];
-  submittedValues: unknown[];
+  specimen:
+    | {
+        source: string;
+        collectedBy: string;
+        collectionDate: string;
+        collectionTime: string;
+      }
+    | undefined;
+  notes: string;
 };
 
-export type InHouseOrderListPageDTO = {
-  testItem: string;
-  diagnosis: string;
-  orderDate: string;
-  status: TestStatus;
-  visitDate: string;
-  providerName: string;
-  resultReceivedDate: string | null;
-};
-
-export type InHouseOrderDetailedPageDTO = InHouseOrderListPageDTO & InHouseOrderResultDetails;
-
-export type InHouseOrderDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
+export type InHouseGetOrdersResponseDTO<SearchBy extends InHouseOrdersSearchBy> = SearchBy extends {
   searchBy: { field: 'serviceRequestId' };
 }
-  ? InHouseOrderDetailedPageDTO
-  : InHouseOrderListPageDTO;
-
-export type PaginatedInHouseOrderResponse<
-  RequestParameters extends GetInHouseOrdersParameters = GetInHouseOrdersParameters,
-> = {
-  data: InHouseOrderDTO<RequestParameters>[];
-  pagination: Pagination;
-};
+  ? InHouseOrderDetailPageItemDTO[]
+  : {
+      data: InHouseOrderListPageItemDTO[];
+      pagination: Pagination;
+    };
 
 export type InHouseOrdersSearchBy = {
   searchBy:
     | { field: 'encounterId'; value: string }
+    | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
     | { field: 'serviceRequestId'; value: string };
 };
 
 export type InHouseOrdersSearchFilters = {
-  testItem: unknown;
-  visitDate: string;
+  orderableItemCode?: string;
+  visitDate?: string;
 };
 
 export type InHouseOrdersPaginationOptions = {
@@ -131,47 +135,21 @@ export type CreateInHouseLabOrderParameters = {
   cptCode: string;
   diagnosesAll: DiagnosisDTO[];
   diagnosesNew: DiagnosisDTO[];
+  isRepeatTest: boolean;
   notes?: string;
 };
 
-export type GetCreateInHouseLabOrderResourcesParameters = { encounterId: string };
+export type CreateInHouseLabOrderResponse = {
+  transactionResponse: { output: Bundle<FhirResource> };
+  saveChartDataResponse: { output: { chartData: { diagnosis: (DiagnosisDTO & { resourceId: string })[] } } };
+  serviceRequestId?: string | undefined;
+};
+
+export type GetCreateInHouseLabOrderResourcesParameters = { encounterId?: string };
 
 export type GetCreateInHouseLabOrderResourcesResponse = {
   labs: TestItem[];
   providerName: string;
-};
-
-export type InHouseLabDTO = {
-  serviceRequestId: string;
-  name: string;
-  status: TestStatus;
-  diagnosis: string;
-  diagnosisDTO: DiagnosisDTO[];
-  notes: string;
-  labDetails: TestItem;
-  timezone: string | undefined;
-  specimen?: {
-    source: string;
-    collectedBy: string;
-    collectionDate: string;
-    collectionTime: string;
-  };
-  providerName: string;
-  providerId: string;
-  currentUserName: string;
-  currentUserId: string;
-  resultsPDFUrl?: string;
-  orderInfo: {
-    diagnosis: DiagnosisDTO[];
-    testName: string;
-    notes: string | undefined;
-    status: TestStatus;
-  };
-  orderHistory: {
-    status: TestStatus;
-    providerName: string;
-    date: string;
-  }[];
 };
 
 export type CollectInHouseLabSpecimenParameters = {
@@ -190,8 +168,6 @@ export type HandleInHouseLabResultsParameters = {
 };
 
 export type DeleteInHouseLabOrderParameters = {
-  encounterId: string;
-  patientId: string;
   serviceRequestId: string;
 };
 

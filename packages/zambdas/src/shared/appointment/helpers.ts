@@ -20,6 +20,7 @@ import {
 } from 'utils';
 import { AppointmentInsuranceRelatedResourcesExtension } from 'utils';
 import { assertDefined } from '../helpers';
+import { checkIsEHRUser } from '../auth';
 
 export function getPatientFromAppointment(appointment: Appointment): string | undefined {
   return appointment.participant
@@ -124,7 +125,7 @@ export function checkUserPhoneNumber(patient: PatientInfo, user: User): string {
   // user.name will not be a phone number, like it would be for a patient. In this
   // case, we must insert the patient's phone number using patient.phoneNumber
   // we use .startsWith('+') because the user's phone number will start with "+"
-  const isEHRUser = !user.name.startsWith('+');
+  const isEHRUser = checkIsEHRUser(user);
   if (isEHRUser) {
     // User is ottehr staff
     if (!patient.phoneNumber) {
@@ -392,6 +393,11 @@ export function creatingPatientCreateRequest(
       use: 'nickname',
     });
   }
+  if (patient.tags?.length) {
+    patientResource.meta = {
+      tag: patient.tags,
+    };
+  }
   if (patient.weight) {
     patientResource.extension?.push({
       url: FHIR_EXTENSION.Patient.weight.url,
@@ -461,7 +467,7 @@ export async function generatePatientRelatedRequests(
   // user.name will not be a phone number, like it would be for a patient. In this
   // case, we must insert the patient's phone number using patient.phoneNumber
   // we use .startsWith('+') because the user's phone number will start with "+"
-  const isEHRUser = !user.name.startsWith('+');
+  const isEHRUser = checkIsEHRUser(user);
 
   // if it is a returning patient
   if (patient.id) {

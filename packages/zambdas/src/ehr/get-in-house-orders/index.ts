@@ -1,23 +1,70 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-// import { mapResourcesToInHouseOrderDTOs } from './helpers';
-import { EMPTY_PAGINATION, GetInHouseOrdersParameters, Secrets } from 'utils'; // InHouseOrderDTO
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { getInHouseResources, mapResourcesToInHouseOrderDTOs } from './helpers';
+import { EMPTY_PAGINATION, compareDates } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
+    console.log(`Input: ${JSON.stringify(input)}`);
     console.group('validateRequestParameters');
 
-    let validatedParameters: GetInHouseOrdersParameters & { secrets: Secrets | null; userToken: string };
-
+    let validatedParameters;
     try {
       validatedParameters = validateRequestParameters(input);
     } catch (error: any) {
+      console.groupEnd();
       return {
         statusCode: 400,
+        body: JSON.stringify({
+          message: `Invalid request parameters. ${error.message || error}`,
+          data: [],
+          pagination: EMPTY_PAGINATION,
+        }),
+      };
+    }
+
+    const { secrets, searchBy } = validatedParameters;
+    console.groupEnd();
+    console.debug('validateRequestParameters success');
+
+    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    const userToken = input.headers.Authorization.replace('Bearer ', '');
+
+    const oystehr = createOystehrClient(m2mtoken, secrets);
+
+    const {
+      serviceRequests,
+      tasks,
+      practitioners,
+      encounters,
+      appointments,
+      provenances,
+      activityDefinitions,
+      specimens,
+      observations,
+      pagination,
+      diagnosticReports,
+      resultsPDFs,
+      currentPractitioner,
+      timezone,
+    } = await getInHouseResources(
+      oystehr,
+      validatedParameters,
+      {
+        searchBy: validatedParameters.searchBy,
+      },
+      userToken,
+      m2mtoken
+    );
+
+    if (!serviceRequests.length) {
+      console.log('no serviceRequests found, returning empty data array');
+      return {
+        statusCode: 200,
         body: JSON.stringify({
           data: [],
           pagination: EMPTY_PAGINATION,
@@ -25,69 +72,48 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     }
 
-    const { secrets } = validatedParameters;
-    console.groupEnd();
-    console.debug('validateRequestParameters success');
+    const inHouseOrders = mapResourcesToInHouseOrderDTOs(
+      { searchBy },
+      serviceRequests,
+      tasks,
+      practitioners,
+      encounters,
+      appointments,
+      provenances,
+      activityDefinitions,
+      specimens,
+      observations,
+      diagnosticReports,
+      resultsPDFs,
+      secrets,
+      currentPractitioner,
+      timezone
+    );
+    const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    // const oystehr = createOystehrClient(m2mtoken, secrets);
-
-    // const {
-    //   serviceRequests,
-    //   tasks,
-    //   diagnosticReports,
-    //   practitioners,
-    //   pagination,
-    //   encounters,
-    //   locations,
-    //   appointments,
-    //   provenances,
-    //   organizations,
-    //   questionnaires,
-    //   labPDFs,
-    //   specimens,
-    // } = await getLabResources(oystehr, validatedParameters, m2mtoken, {
-    //   searchBy: validatedParameters.searchBy,
-    // });
-
-    // if (!serviceRequests.length) {
-    //   return {
-    //     statusCode: 200,
-    //     body: JSON.stringify({
-    //       data: [],
-    //       pagination: EMPTY_PAGINATION,
-    //     }),
-    //   };
-    // }
-
-    // const labOrders = mapResourcesToLabOrderDTOs(
-    //   { searchBy },
-    //   serviceRequests,
-    //   tasks,
-    //   diagnosticReports,
-    //   practitioners,
-    //   encounters,
-    //   locations,
-    //   appointments,
-    //   provenances,
-    //   organizations,
-    //   questionnaires,
-    //   labPDFs,
-    //   specimens
-    // );
+    if (searchBy.field === 'serviceRequestId') {
+      return {
+        statusCode: 200,
+        body: JSON.stringify(sortedOrders || []),
+      };
+    }
 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        data: {}, // todo: use real data
-        // pagination,
+        data: inHouseOrders,
+        pagination,
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('get-lab-orders', error, input.secrets);
+    await topLevelCatch('get-in-house-orders', error, input.secrets);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error fetching lab orders: ${error}` }),
+      body: JSON.stringify({
+        message: `Error fetching in-house orders: ${error.message || error}`,
+        data: [],
+        pagination: EMPTY_PAGINATION,
+      }),
     };
   }
 };

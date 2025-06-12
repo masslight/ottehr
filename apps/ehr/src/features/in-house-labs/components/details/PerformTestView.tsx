@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Box, Paper, Typography, Button } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { InHouseLabDTO, ResultEntryInput, LoadingState } from 'utils';
+import { ResultEntryInput, LoadingState, InHouseOrderDetailPageItemDTO, getFormattedDiagnoses } from 'utils';
 import { ResultEntryRadioButton } from './ResultEntryRadioButton';
 import { ResultEntryTable } from './ResultsEntryTable';
 import { useForm, FormProvider, SubmitHandler } from 'react-hook-form';
@@ -14,7 +14,7 @@ import { useParams } from 'react-router-dom';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 
 interface PerformTestViewProps {
-  testDetails: InHouseLabDTO;
+  testDetails: InHouseOrderDetailPageItemDTO;
   setLoadingState: (loadingState: LoadingState) => void;
   onBack: () => void;
 }
@@ -32,10 +32,6 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
   // const [notes, setNotes] = useState(testDetails.notes || '');
   const [submittingResults, setSubmittingResults] = useState<boolean>(false);
   const [error, setError] = useState<string[] | undefined>(undefined);
-
-  // const handleReprintLabel = (): void => {
-  //   console.log('Reprinting label for test:', testDetails.serviceRequestId);
-  // };
 
   const handleResultEntrySubmit: SubmitHandler<ResultEntryInput> = async (data): Promise<void> => {
     setSubmittingResults(true);
@@ -63,7 +59,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
   return (
     <Box>
       <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
-        {testDetails.diagnosis}
+        {getFormattedDiagnoses(testDetails.diagnosesDTO)}
       </Typography>
 
       <Typography variant="h4" color="primary.dark" sx={{ mb: 3, fontWeight: 'bold' }}>
@@ -76,7 +72,7 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
             <Box sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h5" color="primary.dark" fontWeight="bold">
-                  {testDetails.name}
+                  {testDetails.testItemName}
                 </Typography>
                 <Box
                   sx={{
@@ -93,8 +89,13 @@ export const PerformTestView: React.FC<PerformTestViewProps> = ({ testDetails, s
                 </Box>
               </Box>
 
-              {testDetails.labDetails.components.radioComponents.map((component) => {
-                return <ResultEntryRadioButton testItemComponent={component} />;
+              {testDetails.labDetails.components.radioComponents.map((component, idx) => {
+                return (
+                  <ResultEntryRadioButton
+                    key={`radio-btn-${idx}-${component.componentName}`}
+                    testItemComponent={component}
+                  />
+                );
               })}
 
               {testDetails.labDetails.components.groupedComponents.length > 0 && (

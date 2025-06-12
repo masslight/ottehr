@@ -12,6 +12,7 @@ import {
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
   TIMEZONE_EXTENSION_URL,
+  generateDeployAccountNumber,
 } from 'utils';
 import { inviteUser } from './invite-user';
 import { defaultGroup } from './setup-default-locations';
@@ -379,6 +380,91 @@ export async function setupEHR(
     } else {
       console.log(`stdout: ${stdout2}`);
       console.log('Update of in-house medications list completed successfully.');
+    }
+  } catch (error: any) {
+    console.log(`Error occurred while executing command: ${error.message}`);
+  }
+
+  // External Labs setup
+  try {
+    console.log('Configuring external labs resources...');
+
+    const accountNumber = generateDeployAccountNumber();
+    const autolabLabguid = '790b282d-77e9-4697-9f59-0cef8238033a';
+
+    try {
+      await oystehr.lab.routeCreate({ labGuid: autolabLabguid, accountNumber });
+    } catch (error) {
+      console.log(`Error while creating a route with account number ${accountNumber}`);
+      throw error;
+    }
+
+    const autolabOrg: Organization = {
+      resourceType: 'Organization',
+      name: 'AutoLab',
+      identifier: [
+        {
+          system: 'https://identifiers.fhir.oystehr.com/lab-guid',
+          value: autolabLabguid,
+        },
+        {
+          system: 'https://identifiers.fhir.oystehr.com/lab-account-number',
+          value: accountNumber,
+        },
+      ],
+      type: [
+        {
+          coding: [
+            {
+              system: 'http://snomed.info/sct',
+              code: '261904005',
+              display: 'Laboratory',
+            },
+          ],
+        },
+      ],
+      contact: [
+        {
+          name: {
+            family: 'Smith',
+            given: ['John'],
+          },
+          telecom: [
+            {
+              system: 'phone',
+              value: '+12223334444',
+            },
+          ],
+          purpose: {
+            coding: [
+              {
+                system: 'https://identifiers.fhir.oystehr.com/lab-director-contact',
+                code: 'lab_director',
+                display: 'Lab Director',
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    await oystehr.fhir.create(autolabOrg);
+    console.log('Successfully configured external labs resources...');
+  } catch (error: any) {
+    console.log(`Error occurred while setting up external labs AutoLab org: ${error.message}`);
+  }
+
+  // In House labs
+  try {
+    console.log('Configuring In-House Lab resources...');
+    const { stdout: stdout1, stderr: stderr1 } = await execPromise(
+      `cd packages/zambdas && npm run make-in-house-test-items ${environment}`
+    );
+    if (stderr1) {
+      console.log(`Command executed with warnings: ${stderr1}`);
+    } else {
+      console.log(`stdout: ${stdout1}`);
+      console.log('In-House Lab resources configured successfully!');
     }
   } catch (error: any) {
     console.log(`Error occurred while executing command: ${error.message}`);

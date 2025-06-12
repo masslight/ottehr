@@ -1,7 +1,8 @@
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Paper, Skeleton, Stack, Tab, Typography } from '@mui/material';
 import { useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
+import { PatientRadiologyTab } from 'src/components/PatientRadiologyTab';
 import { getFirstName, getLastName, ServiceMode } from 'utils';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from '../components/patient';
@@ -17,7 +18,8 @@ import { PatientInHouseLabsTab } from 'src/components/PatientInHouseLabsTab';
 
 export default function PatientPage(): JSX.Element {
   const { id } = useParams();
-  const [tab, setTab] = useState('encounters');
+  const location = useLocation();
+  const [tab, setTab] = useState(location.state?.defaultTab || 'encounters');
 
   const { appointments, loading, patient } = useGetPatient(id);
 
@@ -139,6 +141,16 @@ export default function PatientPage(): JSX.Element {
                     }
                   />
                 )}
+                {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
+                  <Tab
+                    value="radiology"
+                    label={
+                      <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>
+                        Radiology
+                      </Typography>
+                    }
+                  />
+                )}
               </TabList>
             </Box>
 
@@ -155,7 +167,12 @@ export default function PatientPage(): JSX.Element {
             )}
             {FEATURE_FLAGS.IN_HOUSE_LABS_ENABLED && (
               <TabPanel value="in-house-labs" sx={{ p: 0 }}>
-                <PatientInHouseLabsTab patientId={id || ''} />
+                <PatientInHouseLabsTab titleText="In-house Labs" patientId={id || ''} />
+              </TabPanel>
+            )}
+            {FEATURE_FLAGS.RADIOLOGY_ENABLED && (
+              <TabPanel value="radiology" sx={{ p: 0 }}>
+                <PatientRadiologyTab patientId={id || ''} />
               </TabPanel>
             )}
           </TabContext>

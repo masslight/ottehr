@@ -78,7 +78,7 @@ We utilize the following structure to run and configure E2E tests:
 | `apps/ehr/tests/e2e/e2e-utils/*.ts`       | Helper utilities for test execution, including the ResourceHandler for FHIR resource management and authentication utilities.       |
 | `apps/ehr/src/constants/data-test-ids.ts` | Centralized repository of data-test id selectors to maintain consistent element identification across tests.                        |
 | `.github/workflows/e2e-ehr.yml`           | CI/CD pipeline definition for E2E tests. Configures test execution on PR events, manages secrets, and handles artifact collection.  |
-| `packages/ehr/zambdas/.env/*`             | Environment configuration for backend Zambda functions. Contains API endpoints, credentials, and other runtime settings.            |
+| `packages/zambdas/.env/*`                 | Environment configuration for backend Zambda functions. Contains API endpoints, credentials, and other runtime settings.            |
 | `apps/ehr/env/*`                          | Environment variables for the UI application and test execution. Includes test credentials and environment-specific configurations. |
 | `package.json`                            | Root-level npm scripts for test execution. Defines commands for local testing, CI runs, and debugging sessions.                     |
 | `apps/ehr/package.json`                   | EHR-specific scripts including manual login utilities and environment-specific test runners.                                        |
@@ -99,7 +99,7 @@ Test reporting is configured to output in multiple formats simultaneously throug
 
 ```Shell
 # Remove existing env directories
-rm -rf packages/ehr/zambdas/.env
+rm -rf packages/zambdas/.env
 rm -rf apps/ehr/env
 
 # Run any local e2e test to automatically create env directories and copy secrets
@@ -107,7 +107,7 @@ rm -rf apps/ehr/env
 npm run ehr:e2e:local:ui
 
 # The script will:
-# 1. Create packages/ehr/zambdas/.env directory and copy required secrets
+# 1. Create packages/zambdas/.env directory and copy required secrets
 # 2. Create apps/ehr/env directory and copy required secrets
 # 3. Run the tests
 
@@ -123,7 +123,7 @@ The most reliable way to learn about actual environment variables is to check th
 
 ```YAML
 - name: Move zambda secrets file into ehr zambdas dir.
-  run: mkdir -p packages/ehr/zambdas/.env; cp secrets/zambdas/* packages/ehr/zambdas/.env
+  run: mkdir -p packages/zambdas/.env; cp secrets/zambdas/* packages/zambdas/.env
 
 - name: Move tests secrets file into ehr app dir to use in tests.
   run: mkdir -p apps/ehr/env && cp secrets/ehr/app/tests.*.json apps/ehr/env/
@@ -140,7 +140,7 @@ Description of how environment variables from the secrets repository are used in
 | Path in ottehr-secrets          | Path in EHR repo                                           | Purpose                                                                                                | Usage in tests                                       |
 | :------------------------------ | :--------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |
 | ehr/app/.env.local              | taken from apps/ehr/env/.env.local, loaded via vite.config | local build                                                                                            | local run, CI                                        |
-| zambdas/local.json              | packages/ehr/zambdas/.env/local.json, loaded via env-cmd   | local build                                                                                            | local run, CI                                        |
+| zambdas/local.json              | packages/zambdas/.env/local.json, loaded via env-cmd         | local build                                                                                            | local run, CI                                        |
 | ehr/app/test.{local\|demo}.json | apps/ehr/env/test.\*.json, loaded via env-cmd              | for configuring tests (frontend URL, FHIR API, authorization for resource creation, web authorization) | **local**: local run, CI, **demo**: demo environment |
 
 **Note**:\

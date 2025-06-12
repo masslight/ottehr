@@ -15,14 +15,6 @@ import {
 import { DateTime } from 'luxon';
 import {
   AppointmentRelatedResources,
-  INSURANCE_CARD_CODE,
-  InPersonAppointmentInformation,
-  PHOTO_ID_CARD_CODE,
-  ROOM_EXTENSION_URL,
-  SMSModel,
-  SMSRecipient,
-  Secrets,
-  ZAP_SMS_MEDIUM_CODE,
   appointmentTypeForAppointment,
   flattenItems,
   getChatContainsUnreadMessages,
@@ -33,16 +25,24 @@ import {
   getUnconfirmedDOBForAppointment,
   getVisitStatus,
   getVisitStatusHistory,
+  InPersonAppointmentInformation,
+  INSURANCE_CARD_CODE,
   isTruthy,
+  PHOTO_ID_CARD_CODE,
+  ROOM_EXTENSION_URL,
+  Secrets,
+  SMSModel,
+  SMSRecipient,
+  ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
-import { ZambdaInput, checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
-import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared/helpers';
-import { sortAppointments } from '../../shared/queueingUtils';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared';
+import { sortAppointments } from '../../shared';
 import {
-  encounterIdMap,
-  getTimezoneResourceIdFromAppointment,
+  getActiveAppointmentsBeforeTodayQueryInput,
   getAppointmentQueryInput,
+  getTimezoneResourceIdFromAppointment,
   makeEncounterSearchParams,
   makeResourceCacheKey,
   mergeResources,
@@ -109,7 +109,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return resources;
     })();
 
-    const { appointmentResources, encounterResources, appointmentsToGroupMap } = await (async () => {
+    const { appointmentResources, activeApptsBeforeToday, appointmentsToGroupMap } = await (async () => {
       // prepare search options
       const searchOptions = await Promise.all(
         requestedTimezoneRelatedResources.map(async (resource) => {
@@ -134,7 +134,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         })
       );
 
-      // request appointments and encounters
+      // request appointments
       const resourceResults = await Promise.all(
         searchOptions.map(async (options) => {
           const appointmentRequestInput = await getAppointmentQueryInput({
@@ -151,38 +151,43 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
           const { group } = appointmentRequestInput;
 
-          // here is a possible optimisation, we can use `options.searchParams !== null` check like for encounterResponse
-          // because we may skip appointments search if there are no encounters, but i'm not sure bacuase we didn't use pagination
-          // and we may just didn't get all encounters. But if we ensure that encounters request works good we may use that.
+          const activeApptsBeforeTodayRequest = await getActiveAppointmentsBeforeTodayQueryInput({
+            oystehr,
+            resourceId: options.resourceId,
+            resourceType: options.resourceType,
+          });
+
           const appointmentPromise = oystehr.fhir.search<AppointmentRelatedResources>(appointmentRequest);
+          const activeApptsBeforeTodayPromise =
+            oystehr.fhir.search<AppointmentRelatedResources>(activeApptsBeforeTodayRequest);
 
-          // search params will be null if it was a cached result and response returns no encounters, so we can skip that request
-          const encounterPromise =
-            options.searchParams !== null
-              ? oystehr.fhir
-                  .search<Encounter | Appointment>({ resourceType: 'Encounter', params: options.searchParams })
-                  .then((encountersBundle) => {
-                    const encounters = encountersBundle.unbundle();
-                    const encounterIds = encounters.map((e) => e.id).join(',') || null;
-
-                    // original comment:
-                    // we now know whether and which encounters are un-cleaned-up at this location for this date; we can either search for exactly those or skip
-                    // the encounter search entirely
-                    // something very odd would need to happen for an encounter to retroactively enter the unresolved state, and if it happened it would get found
-                    // tomorrow rather than today (or when this zambda context gets cleaned up). therefore it is a pretty easy cost/benefit call to forego this search
-                    // when we know it recently returned no results, or optimize to only target encounters that met the search criteria in the first execution.
-                    encounterIdMap.set(options.cacheKey, encounterIds);
-
-                    return encounters;
-                  })
-              : Promise.resolve(null);
-
-          const [appointmentResponse, encounters] = await Promise.all([appointmentPromise, encounterPromise]);
+          const [appointmentResponse, activeApptsBeforeTodayResponse] = await Promise.all([
+            appointmentPromise,
+            activeApptsBeforeTodayPromise,
+          ]);
           const appointments = appointmentResponse
             .unbundle()
-            .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
+            .filter((resource) => !isNonPaperworkQuestionnaireResponse(resource));
 
-          return { appointments, encounters, group };
+          const activeApptsBeforeTodayResources = activeApptsBeforeTodayResponse.unbundle();
+          let activeApptsBeforeToday: Appointment[] = [];
+          const activeApptsBeforeTodayPatientsIds: string[] = [];
+          activeApptsBeforeTodayResources.forEach((res) => {
+            if (res.resourceType === 'Appointment') activeApptsBeforeToday.push(res);
+            if (res.resourceType === 'Patient' && res.id) activeApptsBeforeTodayPatientsIds.push(res.id);
+          });
+
+          // here we are checking if appointments-before-today have patients, because this issue appears a lot
+          // and we can see date where we have appointment but nothing in waiting room because no patient for appointment
+          activeApptsBeforeToday = activeApptsBeforeToday.filter((res) => {
+            const patientRef = (res as Appointment).participant.find(
+              (participant) => participant.actor?.reference?.startsWith('Patient/')
+            )?.actor?.reference;
+            const patientId = patientRef?.replace('Patient/', '') ?? '';
+            return Boolean(activeApptsBeforeTodayPatientsIds.includes(patientId));
+          });
+
+          return { appointments, activeApptsBeforeToday, group };
         })
       );
 
@@ -198,26 +203,21 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         }
         return appointments;
       });
-      const flatEncounters = resourceResults.flatMap((result) => result.encounters || []);
+
+      const flatActiveApptsBeforeToday = resourceResults.flatMap((result) => {
+        return result.activeApptsBeforeToday || [];
+      });
 
       return {
         appointmentResources: mergeResources(flatAppointments),
-        encounterResources: mergeResources(flatEncounters),
+        activeApptsBeforeToday: mergeResources(flatActiveApptsBeforeToday),
         appointmentsToGroupMap,
       };
     })();
 
     console.timeEnd('get_active_encounters + get_appointment_data');
 
-    const encounterIds: string[] = [];
-
-    const activeAppointmentDatesBeforeToday = encounterResources
-      .filter((resource) => {
-        if (resource.resourceType === 'Encounter' && resource.id) {
-          encounterIds.push(resource.id);
-        }
-        return resource.resourceType === 'Appointment';
-      })
+    const activeAppointmentDatesBeforeToday = activeApptsBeforeToday
       .sort((r1, r2) => {
         const d1 = DateTime.fromISO((r1 as Appointment).start || '');
         const d2 = DateTime.fromISO((r2 as Appointment).start || '');

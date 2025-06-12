@@ -18,7 +18,6 @@
   "devDependencies": {
     "@types/node": "^22.10.10",
     "@types/prettier": "2.6.0",
-    "aws-cdk": "2.177.0",
     "typescript": "^4.9.5",
     "vitest": "^3.0.4"
   },
@@ -27,7 +26,6 @@
     "@aws-sdk/credential-providers": "^3.645.0",
     "@oystehr/sdk": "^4.0.0-alpha.2",
     "@types/node-fetch": "^2.6.11",
-    "aws-cdk-lib": "2.177.0",
     "constructs": "^10.0.0",
     "source-map-support": "^0.5.21",
     "ts-node": "10.9.2"

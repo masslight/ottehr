@@ -20,6 +20,7 @@ import {
   Specimen,
 } from 'fhir/r4b';
 import {
+  compareDates,
   DEFAULT_LABS_ITEMS_PER_PAGE,
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
@@ -41,10 +42,12 @@ import {
   LabOrderPDF,
   fetchDocumentReferencesForDiagnosticReports,
   fetchLabOrderPDFs,
+  Secrets,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
-import { DateTime } from 'luxon';
+import { captureSentryException } from '../../shared';
+import { sendErrors } from '../../shared';
 
 // cache for the service request context: contains parsed tasks and results
 type Cache = {
@@ -65,35 +68,46 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
   labPDFs: LabOrderPDF[],
-  specimens: Specimen[]
+  specimens: Specimen[],
+  secrets: Secrets | null
 ): LabOrderDTO<SearchBy>[] => {
-  return serviceRequests.map((serviceRequest) => {
-    const parsedResults = parseResults(serviceRequest, results);
-    const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
+  const result: LabOrderDTO<SearchBy>[] = [];
 
-    // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
-    const cache: Cache = {
-      parsedResults,
-      parsedTasks,
-    };
+  for (const serviceRequest of serviceRequests) {
+    try {
+      const parsedResults = parseResults(serviceRequest, results);
+      const parsedTasks = parseTasks({ tasks, serviceRequest, results, cache: { parsedResults } });
 
-    return parseOrderData({
-      searchBy,
-      tasks,
-      serviceRequest,
-      results,
-      appointments,
-      encounters,
-      locations,
-      practitioners,
-      provenances,
-      organizations,
-      questionnaires,
-      labPDFs,
-      specimens,
-      cache,
-    });
-  });
+      // parseResults and parseTasks are called multiple times in inner functions, so we can cache the results to optimize performance
+      const cache: Cache = {
+        parsedResults,
+        parsedTasks,
+      };
+
+      result.push(
+        parseOrderData({
+          searchBy,
+          tasks,
+          serviceRequest,
+          results,
+          appointments,
+          encounters,
+          locations,
+          practitioners,
+          provenances,
+          organizations,
+          questionnaires,
+          labPDFs,
+          specimens,
+          cache,
+        })
+      );
+    } catch (error) {
+      console.error(`Error parsing service request ${serviceRequest.id}:`, error);
+      void sendErrors('get-lab-orders', error, secrets, captureSentryException);
+    }
+  }
+  return result;
 };
 
 export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
@@ -730,21 +744,89 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
     return [];
   }
 
-  const tasksResponse = await oystehr.fhir.search<Task>({
-    resourceType: 'Task',
-    params: [
-      {
-        name: 'based-on',
-        value: resultsIds.join(','),
-      },
-      {
-        name: 'status:not',
-        value: 'cancelled',
-      },
-    ],
+  // We shouldn't filter out the cancelled tasks in this query
+  // if there is a RCRT task, we still want to take the latest cancelled RFRT if it isn't completed
+  // we need that cancelled RFRT to show in the history table as "Received"
+  const tasksResponse = (
+    await oystehr.fhir.search<Task>({
+      resourceType: 'Task',
+      params: [
+        {
+          name: 'based-on',
+          value: resultsIds.join(','),
+        },
+      ],
+    })
+  ).unbundle();
+
+  const getDrIdFromTask = (task: Task): string | undefined => {
+    return task.basedOn
+      ?.find((ref): ref is Reference => ref.reference?.startsWith('DiagnosticReport/') ?? false)
+      ?.reference?.split('/')[1];
+  };
+
+  // actually have to find whether or not there is a corrected result for a given DR.id.
+  // the edge case is if the ordered test gets a corrected result before the review, AND the reflex test gets a corrected result before the review,
+  // you need to take both cancelled RFRTs to display in the history table
+  const resultIdToHasReviewCorrectedResultMap = new Map<string, boolean>();
+  const taskIdToResultIdMap = new Map<string, string>();
+
+  tasksResponse.forEach((task) => {
+    const drId = getDrIdFromTask(task);
+    if (drId && task.id) {
+      const drHasCorrectedResult = !!resultIdToHasReviewCorrectedResultMap.get(drId);
+      resultIdToHasReviewCorrectedResultMap.set(
+        drId,
+        task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult) ||
+          drHasCorrectedResult
+      );
+      taskIdToResultIdMap.set(task.id, drId);
+    }
   });
 
-  return tasksResponse.unbundle();
+  const tasksToReturn: Task[] = [];
+  const drIdToLatestRFRTMap = new Map<string, Task>();
+
+  tasksResponse.forEach((task) => {
+    // easy case, we take all non-cancelled. identical to previous behavior
+    // Note: this will only show the latest correction for a given result (so if there were multiple corrections sent,
+    // you'd only see the latest one until it was reviewed)
+    if (task.status !== 'cancelled') {
+      tasksToReturn.push(task);
+      return;
+    }
+
+    // if there is a corrected result, we may need to take a cancelled RFRT, but only the latest one for that result.
+    // this happens in cases where a RCRT comes in and cancels the RFRT before a review has occured
+    if (task.id) {
+      const drIdForTask = taskIdToResultIdMap.get(task.id);
+      if (
+        drIdForTask &&
+        resultIdToHasReviewCorrectedResultMap.get(drIdForTask) &&
+        task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewFinalResult)
+      ) {
+        // compare it to the latest cancelled RFRT and take the later one
+        const latestRFRT = drIdToLatestRFRTMap.get(drIdForTask);
+        if (!latestRFRT) {
+          drIdToLatestRFRTMap.set(drIdForTask, task);
+          return;
+        }
+
+        if (compareDates(latestRFRT.authoredOn, task.authoredOn) > 0) {
+          drIdToLatestRFRTMap.set(drIdForTask, task);
+        }
+      }
+    }
+  });
+
+  tasksToReturn.push(...drIdToLatestRFRTMap.values());
+
+  console.log(
+    `>>> These are the tasks returned from fetchFinalAndPrelimAndCorrectedTasks`,
+    JSON.stringify(tasksToReturn)
+  );
+
+  return tasksToReturn;
 };
 
 export const fetchQuestionnaireForServiceRequests = async (
@@ -984,7 +1066,7 @@ export const parseReviewerNameFromTask = (task: Task, practitioners: Practitione
 };
 
 export const parsePractitionerName = (practitionerId: string | undefined, practitioners: Practitioner[]): string => {
-  const NOT_FOUND = '-';
+  const NOT_FOUND = '';
 
   if (!practitionerId) {
     return NOT_FOUND;
@@ -1041,7 +1123,7 @@ export const parseReflexTestsCount = (
 };
 
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
-  const NOT_FOUND = '-';
+  const NOT_FOUND = '';
 
   const collectedById = specimen.collection?.collector?.reference?.replace('Practitioner/', '');
   if (collectedById) {
@@ -1072,25 +1154,6 @@ const deletePrelimResultsIfFinalExists = (prelimMap: Map<string, DiagnosticRepor
       prelimMap.delete(id);
     }
   });
-};
-
-/**
- * Compares two dates.
- * The most recent date will be first,
- * invalid dates will be last
- */
-export const compareDates = (a: string | undefined, b: string | undefined): number => {
-  const dateA = DateTime.fromISO(a || '');
-  const dateB = DateTime.fromISO(b || '');
-  const isDateAValid = dateA.isValid;
-  const isDateBValid = dateB.isValid;
-
-  // if one date is valid and the other is not, the valid date should be first
-  if (isDateAValid && !isDateBValid) return -1;
-  if (!isDateAValid && isDateBValid) return 1;
-  if (!isDateAValid && !isDateBValid) return 0;
-
-  return dateB.toMillis() - dateA.toMillis();
 };
 
 export const parsePaginationFromResponse = (data: {
@@ -1302,7 +1365,7 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  let performedBy = '-';
+  let performedBy = '';
   let performedByDate = '-';
   if (parseIsPSC(serviceRequest)) {
     performedBy = 'psc';
@@ -1399,7 +1462,7 @@ export const parseTaskReceivedOrCorrectedInfo = (task: Task): Omit<LabOrderHisto
     action: task.code?.coding?.some((coding) => coding.code === LAB_ORDER_TASK.code.reviewCorrectedResult)
       ? 'corrected'
       : 'received',
-    performer: '-',
+    performer: '',
     date: task.authoredOn || '',
   };
 };

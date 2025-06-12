@@ -12,14 +12,13 @@ import { Box, CircularProgress, Divider, Grid, Typography } from '@mui/material'
 import { DateTime } from 'luxon';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUCZambdaClient } from 'ui-components';
+import { useUCZambdaClient, ZambdaClient } from 'ui-components';
 import { VisitType } from 'utils';
 import { otherColors, palette } from '../IntakeThemeProvider';
 import { ottehrApi } from '../api';
 import { LinkedButtonWithIcon, PageContainer } from '../components';
 import { useIntakeCommonStore } from '../features/common';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
 import { Appointment } from '../types';
@@ -30,8 +29,7 @@ const Appointments = (): JSX.Element => {
   const { t } = useTranslation();
 
   const { lastUsedLocationPath } = useIntakeCommonStore();
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
-  const preserveQueryParams = usePreserveQueryParams();
+  const { isAuthenticated, isLoading } = useAuth0();
 
   // Track event in Mixpanel only for authenticated page views since
   // user will immediately be redirected to login if unathenticated
@@ -45,27 +43,18 @@ const Appointments = (): JSX.Element => {
     bookingState: undefined,
   });
 
-  // the appointments page should not be in charge of clearing all this state
   useEffect(() => {
-    async function getAppointments(): Promise<void> {
-      if (zambdaClient) {
-        const res = await ottehrApi.getAppointments(zambdaClient);
-        const appointments = res.appointments;
-        setAppointments(appointments);
-      }
+    async function getAppointments(zambdaClient: ZambdaClient): Promise<void> {
+      const res = await ottehrApi.getAppointments(zambdaClient);
+      const appointments = res.appointments;
+      setAppointments(appointments);
     }
-    if (!isLoading && isAuthenticated) {
-      getAppointments().catch((error) => {
+    if (zambdaClient) {
+      getAppointments(zambdaClient).catch((error) => {
         console.log(error);
       });
-    } else if (!isLoading) {
-      loginWithRedirect({
-        authorizationParams: { redirectUri: preserveQueryParams(`${window.location.origin}/visits`) },
-      }).catch((error) => {
-        throw new Error(`Error calling loginWithRedirect Auth0: ${error}`);
-      });
     }
-  }, [zambdaClient, isLoading, isAuthenticated, loginWithRedirect, preserveQueryParams]);
+  }, [zambdaClient, isLoading, isAuthenticated]);
 
   const getAppointmentStartTime = (appointment: Appointment): string => {
     let dt = DateTime.fromISO(appointment.start);

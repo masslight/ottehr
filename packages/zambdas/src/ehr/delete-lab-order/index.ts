@@ -49,7 +49,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     if (deleteRequests.length > 0) {
       console.log(
-        `Deleting lab order for service request id: ${serviceRequestId}; request: ${JSON.stringify(
+        `Deleting external lab order for service request id: ${serviceRequestId}; request: ${JSON.stringify(
           deleteRequests,
           null,
           2
@@ -64,7 +64,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     return {
       statusCode: 200,
       body: JSON.stringify({
-        message: `Successfully deleted lab order resources`,
+        message: `Successfully deleted external lab order resources`,
         deletedResources: {
           serviceRequest,
           questionnaireResponse,
@@ -78,7 +78,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     return {
       statusCode: error.statusCode || 500,
-      body: JSON.stringify({ message: `Error deleting lab order: ${error.message || error}` }),
+      body: JSON.stringify({ message: `Error deleting external lab order: ${error.message || error}` }),
     };
   }
 };

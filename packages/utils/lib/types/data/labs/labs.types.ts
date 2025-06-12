@@ -1,12 +1,12 @@
 import {
-  Questionnaire,
+  DocumentReference,
   Encounter,
+  Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
-  DocumentReference,
   Reference,
 } from 'fhir/r4b';
-import { DiagnosisDTO } from '../..';
+import { DiagnosisDTO, Pagination } from '../..';
 
 export interface OrderableItemSearchResult {
   item: OrderableItem;
@@ -137,12 +137,6 @@ export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
   ? LabOrderDetailedPageDTO
   : LabOrderListPageDTO;
 
-export type Pagination = {
-  currentPageIndex: number;
-  totalItems: number;
-  totalPages: number;
-};
-
 export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
@@ -192,11 +186,12 @@ export type CreateLabOrderParameters = {
 };
 
 export type GetCreateLabOrderResources = {
-  encounter: Encounter;
+  patientId?: string;
+  search?: string;
 };
 
 export type LabOrderResourcesRes = {
-  coverageName: string;
+  coverageName?: string;
   labs: OrderableItemSearchResult[];
 };
 

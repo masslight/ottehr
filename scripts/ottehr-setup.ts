@@ -76,6 +76,11 @@ async function createM2M(
             effect: 'Allow',
           },
           {
+            resource: ['Lab:*'],
+            action: ['Lab:*'],
+            effect: 'Allow',
+          },
+          {
             resource: [
               `Z3:${projectId}-photo-id-cards/*`,
               `Z3:${projectId}-insurance-cards/*`,

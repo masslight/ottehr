@@ -160,3 +160,26 @@ export const formatDOB = (birthDate: string | undefined): string | undefined => 
   const age = calculatePatientAge(birthDate);
   return `${birthday} (${age})`;
 };
+
+/**
+ * Compares two dates.
+ * The most recent date will be first,
+ * invalid dates will be last
+ */
+export const compareDates = (a: string | undefined, b: string | undefined): number => {
+  const dateA = DateTime.fromISO(a || '');
+  const dateB = DateTime.fromISO(b || '');
+  const isDateAValid = dateA.isValid;
+  const isDateBValid = dateB.isValid;
+
+  if (isDateAValid && !isDateBValid) return -1;
+  if (!isDateAValid && isDateBValid) return 1;
+  if (!isDateAValid && !isDateBValid) return 0;
+
+  return dateB.toMillis() - dateA.toMillis();
+};
+
+export const formatDateForLabs = (datetime: string | undefined, timezone: string | undefined): string => {
+  if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
+  return DateTime.fromISO(datetime).setZone(timezone).toFormat('MM/dd/yyyy hh:mm a');
+};
