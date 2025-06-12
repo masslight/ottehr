@@ -361,7 +361,7 @@ export default function AddPatient(): JSX.Element {
             <form onSubmit={(e) => handleFormSubmit(e)}>
               <Box padding={3} marginTop={2}>
                 {/* Location Select */}
-                <Typography variant="h4" color="primary.dark">
+                <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.addPatientPage.locationHeader}>
                   Location
                 </Typography>
 

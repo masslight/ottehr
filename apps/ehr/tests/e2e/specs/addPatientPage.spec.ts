@@ -48,7 +48,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
 });
 
-test('Open "Add patient page", click "Cancel", validation error on "Mobile phone" field shown', async ({ page }) => {
+test('Open "Add patient page", click "Cancel", navigates back to visits page', async ({ page }) => {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.clickCancelButton();
 
