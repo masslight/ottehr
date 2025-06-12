@@ -264,7 +264,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           );
         }
         if (possibleInitialSRs.length === 0) {
-          throw new Error('No initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+          // this really shouldn't happen, something is misconfigured
+          throw IN_HOUSE_LAB_ERROR('No initial tests could be found for this encounter.');
         }
         const initialSR = possibleInitialSRs[0];
         return initialSR;

@@ -69,7 +69,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       serviceRequest,
       encounter,
       patient,
-      inputRequestTask: irtTask,
+      inputRequestTask,
       specimen,
       activityDefinition,
       currentUserPractitioner,
@@ -83,7 +83,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const requests = makeResultEntryRequests(
       serviceRequest,
-      irtTask,
+      inputRequestTask,
       specimen,
       activityDefinition,
       resultsEntryData,
@@ -95,24 +95,35 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('check the res', JSON.stringify(res));
 
     let diagnosticReport: DiagnosticReport | undefined;
-    let updatedIrtTask: Task | undefined;
+    let updatedInputResultTask: Task | undefined;
     const observations: Observation[] = [];
     res.entry?.forEach((entry) => {
-      if (entry.resource?.resourceType === 'DiagnosticReport') diagnosticReport = entry.resource as DiagnosticReport;
+      if (entry.resource?.resourceType === 'DiagnosticReport') {
+        diagnosticReport = entry.resource as DiagnosticReport;
+      }
       if (entry.resource?.resourceType === 'Task') {
         const task = entry.resource as Task;
-        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)) updatedIrtTask = task;
+        if (task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)) {
+          updatedInputResultTask = task;
+        }
       }
-      if (entry.resource?.resourceType === 'Observation') observations.push(entry.resource as Observation);
+      if (entry.resource?.resourceType === 'Observation') {
+        observations.push(entry.resource as Observation);
+      }
     });
     if (!diagnosticReport)
       throw new Error(
-        `There was an issue creating and parsing the diagnostic report for this service request: ${serviceRequest.id}`
+        `There was an issue creating and/or parsing the diagnostic report for this service request: ${serviceRequest.id}`
       );
-    if (!updatedIrtTask)
+    if (!updatedInputResultTask)
       throw new Error(
-        `There was an issue updating and parsing the irt task for this service request: ${serviceRequest.id}`
+        `There was an issue updating and/or parsing the input result task for this service request: ${serviceRequest.id}`
       );
+    if (!observations.length) {
+      throw new Error(
+        `There was an issue creating and/or parsing the observations task for this service request: ${serviceRequest.id}`
+      );
+    }
 
     try {
       await createInHouseLabResultPDF(
@@ -123,7 +134,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         location,
         attendingPractitioner,
         attendingPractitionerName,
-        updatedIrtTask,
+        updatedInputResultTask,
         observations,
         diagnosticReport,
         secrets,

@@ -6,7 +6,6 @@ import {
   ExternalLabResult,
   InHouseLabResult,
   InHouseLabResultConfig,
-  TextStyle,
   InHouseLabResultsData,
   ExternalLabResultsData,
   PdfClient,
@@ -66,6 +65,9 @@ import {
   LabsPDFTextStyleConfig,
   SEPARATED_LINE_STYLE,
   LAB_PDF_STYLES,
+  drawFieldLine,
+  drawFieldLineRight,
+  drawFourColumnText,
 } from './pdf-utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
 import { compareDates } from '../../ehr/get-lab-orders/helpers';
@@ -317,6 +319,8 @@ export async function createExternalLabResultPDF(
   if (!patient.id) throw new Error('patient.id is undefined');
   if (!diagnosticReport.id) throw new Error('diagnosticReport id is undefined');
 
+  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
+
   const taskRequestTemp = (
     await oystehr.fhir.search<Task | Provenance>({
       resourceType: 'Task',
@@ -343,18 +347,20 @@ export async function createExternalLabResultPDF(
   const latestReviewTask = reviewTasksFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, JSON.stringify(latestReviewTask));
 
-  // grabs the provenance for this task and parses the user who completed it and when that was recorded
-  const { reviewingProviderFirst, reviewingProviderLast, reviewDate } = await getTaskCompletedByAndWhen(
-    oystehr,
-    latestReviewTask,
-    timezone
-  );
-  const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
+  let reviewingProviderFirst = '',
+    reviewingProviderLast = '',
+    reviewDate = '';
+  if (latestReviewTask) {
+    ({ reviewingProviderFirst, reviewingProviderLast, reviewDate } = await getTaskCompletedByAndWhen(
+      oystehr,
+      latestReviewTask,
+      timezone
+    ));
+  }
 
   const resultInterpretationDisplays: string[] = [];
   const externalLabResults: ExternalLabResult[] = [];
   observations
-    // Get the observations that are in diagnostic report result
     .filter(
       (observation) =>
         diagnosticReport.result?.some((resultTemp) => resultTemp.reference?.split('/')[1] === observation.id)
@@ -603,87 +609,55 @@ async function createExternalLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: ExternalLabResultsData
 ): Promise<Uint8Array> {
-  const referenceRangeTitle = (): string => {
-    if (data.specimenReferenceRange) {
-      return 'Reference Range'.toUpperCase();
-    } else {
-      return '';
-    }
-  };
-
-  const drawFieldLine = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawTextSequential(fieldName, textStyles.text);
-    pdfClient.drawTextSequential(' ', textStyles.textBold);
-    pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
-  };
-
-  const drawFieldLineRight = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
-    pdfClient.drawTextSequential(' ', textStyles.textBold);
-    pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
-  };
-
-  const drawFiveColumnText = (
-    columnOneName: string,
-    columnTwoName: string,
-    columnThreeName: string,
-    columnFourName: string,
-    columnFiveName: string,
-    columnFont?: TextStyle,
-    columnFontSize?: number,
-    color?: Color
-  ): void => {
-    const font = columnFont || textStyles.text;
-    const fontSize = columnFontSize || STANDARD_FONT_SIZE;
-    const fontStyleTemp = { ...font, fontSize: fontSize, color: color };
-    pdfClient.drawStartXPosSpecifiedText(columnOneName, fontStyleTemp, 0);
-    pdfClient.drawStartXPosSpecifiedText(columnTwoName, fontStyleTemp, 70);
-    pdfClient.drawStartXPosSpecifiedText(columnThreeName, fontStyleTemp, 340);
-    pdfClient.drawStartXPosSpecifiedText(columnFourName, fontStyleTemp, 350);
-    pdfClient.drawStartXPosSpecifiedText(columnFiveName, fontStyleTemp, 490);
-  };
-
   // Order details
-  drawFieldLine('Accession ID:', data.accessionNumber);
-  drawFieldLineRight('Order Create Date:', data.orderCreateDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
+  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order Create Date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  drawFieldLine('Requesting physician:', data.providerName);
-  drawFieldLineRight('Collection Date:', data.collectionDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting physician:', data.providerName);
+  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  drawFieldLine('Ordering physician:', data.providerName);
-  drawFieldLineRight('Order Printed:', data.todayDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
+  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order Printed:', data.todayDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  drawFieldLine('Req ID:', data.reqId);
-  drawFieldLineRight('Order Submit Date:', data.orderSubmitDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Req ID:', data.reqId);
+  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order Submit Date:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  drawFieldLine('Order Priority:', data.orderPriority.toUpperCase());
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
-  drawFieldLine('Dx:', data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '));
+  pdfClient = drawFieldLine(
+    pdfClient,
+    textStyles,
+    'Dx:',
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+  );
   pdfClient.newLine(30);
   pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
 
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
-  if (!data.externalLabResults) {
-    throw new Error('external lab results is undefined');
-  }
-  drawFiveColumnText('', 'NAME', 'VALUE', referenceRangeTitle(), 'LAB');
+  pdfClient = drawFourColumnText(
+    pdfClient,
+    textStyles,
+    { name: '', startXPos: 0 },
+    { name: 'NAME', startXPos: 70 },
+    { name: 'VALUE', startXPos: 340 },
+    { name: 'LAB', startXPos: 490 }
+  );
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  drawFiveColumnText(
-    data.resultPhase,
-    data.testName.toUpperCase(),
-    getResultValueToDiplay(data.resultInterpretations),
-    '',
-    data.testItemCode,
-    textStyles.text,
-    12,
+  pdfClient = drawFourColumnText(
+    pdfClient,
+    textStyles,
+    { name: data.resultPhase, startXPos: 0 },
+    { name: data.testName.toUpperCase(), startXPos: 70 },
+    { name: getResultValueToDiplay(data.resultInterpretations), startXPos: 340 },
+    { name: data.testItemCode, startXPos: 490 },
     getResultRowDisplayColor(data.resultInterpretations)
   );
   pdfClient.newLine(STANDARD_NEW_LINE);
@@ -734,7 +708,9 @@ async function createExternalLabsResultsFormPdfBytes(
   if (data.reviewed) {
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(STANDARD_NEW_LINE);
-    drawFieldLine(
+    pdfClient = drawFieldLine(
+      pdfClient,
+      textStyles,
       `Reviewed: ${data.reviewDate} by`,
       `${data.reviewingProviderTitle} ${data.reviewingProviderFirst} ${data.reviewingProviderLast}`
     );
@@ -748,63 +724,43 @@ async function createInHouseLabsResultsFormPdfBytes(
   textStyles: LabsPDFTextStyleConfig,
   data: InHouseLabResultsData
 ): Promise<Uint8Array> {
-  const drawFieldLine = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawTextSequential(fieldName, textStyles.text);
-    pdfClient.drawTextSequential(' ', textStyles.textBold);
-    pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
-  };
-
-  const drawFieldLineRight = (fieldName: string, fieldValue: string): void => {
-    pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
-    pdfClient.drawTextSequential(' ', textStyles.textBold);
-    pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
-  };
-
-  const drawFiveColumnText = (
-    columnOneName: string,
-    columnTwoName: string,
-    columnThreeName: string,
-    columnFourName: string,
-    columnFiveName: string,
-    columnFont?: TextStyle,
-    columnFontSize?: number,
-    color?: Color
-  ): void => {
-    const font = columnFont || textStyles.text;
-    const fontSize = columnFontSize || STANDARD_FONT_SIZE;
-    const fontStyleTemp = { ...font, fontSize: fontSize, color: color };
-    pdfClient.drawStartXPosSpecifiedText(columnOneName, fontStyleTemp, 0);
-    pdfClient.drawStartXPosSpecifiedText(columnTwoName, fontStyleTemp, 100);
-    pdfClient.drawStartXPosSpecifiedText(columnThreeName, fontStyleTemp, 230);
-    pdfClient.drawStartXPosSpecifiedText(columnFourName, fontStyleTemp, 350);
-    pdfClient.drawStartXPosSpecifiedText(columnFiveName, fontStyleTemp, 410);
-  };
-
   // Order details
-  drawFieldLine('Order ID:', data.serviceRequestID);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order ID:', data.serviceRequestID);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
-  drawFieldLine('Ordering physician:', data.providerName);
-  drawFieldLineRight('Order date:', data.orderCreateDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
+  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
   pdfClient.drawText('IQC Valid', textStyles.textBold);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
 
   pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
-  drawFieldLine('Dx:', data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', '));
+  pdfClient = drawFieldLine(
+    pdfClient,
+    textStyles,
+    'Dx:',
+    data.orderAssessments.map((assessment) => `${assessment.code} (${assessment.name})`).join(', ')
+  );
   pdfClient.newLine(30);
 
   for (const labResult of data.inHouseLabResults) {
     pdfClient.drawText(data.testName.toUpperCase(), textStyles.header);
 
-    drawFieldLine('Specimen source:', labResult.specimenSource);
+    pdfClient = drawFieldLine(pdfClient, textStyles, 'Specimen source:', labResult.specimenSource);
     pdfClient.newLine(STANDARD_FONT_SIZE);
 
     pdfClient.newLine(STANDARD_NEW_LINE);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
 
     const resultHasUnits = labResult.results.some((result) => result.units);
-    drawFiveColumnText('NAME', '', 'VALUE', resultHasUnits ? 'UNITS' : '', 'REFERENCE RANGE');
+    pdfClient = drawFourColumnText(
+      pdfClient,
+      textStyles,
+      { name: 'NAME', startXPos: 0 },
+      { name: 'VALUE', startXPos: 230 },
+      { name: resultHasUnits ? 'UNITS' : '', startXPos: 350 },
+      { name: 'REFERENCE RANGE', startXPos: 410 }
+    );
     pdfClient.newLine(STANDARD_NEW_LINE);
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     for (const resultDetail of labResult.results) {
@@ -819,22 +775,21 @@ async function createInHouseLabsResultsFormPdfBytes(
 
       const valueStringToWrite =
         resultDetail.value === IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG.valueCode ? 'Inconclusive' : resultDetail.value;
-      drawFiveColumnText(
-        resultDetail.name,
-        '',
-        valueStringToWrite || '',
-        resultDetail.units || '',
-        resultRange,
-        textStyles.text,
-        undefined,
+      pdfClient = drawFourColumnText(
+        pdfClient,
+        textStyles,
+        { name: resultDetail.name, startXPos: 0 },
+        { name: valueStringToWrite || '', startXPos: 230 },
+        { name: resultDetail.units || '', startXPos: 350 },
+        { name: resultRange, startXPos: 410 },
         getInHouseResultRowDisplayColor(resultDetail)
       );
       pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     }
-    drawFieldLineRight('Collected:', labResult.collectionDate);
+    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collected:', labResult.collectionDate);
     pdfClient.newLine(STANDARD_FONT_SIZE + 3);
-    drawFieldLineRight('Final result:', labResult.finalResultDateTime);
+    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Final result:', labResult.finalResultDateTime);
     pdfClient.newLine(24);
   }
 

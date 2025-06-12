@@ -186,7 +186,6 @@ export interface ExternalLabResultsData extends LabResultsData {
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
-  specimenReferenceRange?: string; // do we even need this ?
   resultPhase: string;
   reviewed?: boolean;
   reviewingProviderFirst: string;

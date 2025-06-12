@@ -216,7 +216,7 @@ export const getServiceRequestsRelatedViaRepeat = (
   return serviceRequestsRelatedViaRepeat;
 };
 
-interface RepeatSrResourcepConfig {
+interface RepeatSrResourceConfig {
   [srId: string]: {
     diagnosticReports: DiagnosticReport[];
     observations: Observation[];
@@ -234,10 +234,10 @@ export const fetchResultResourcesForRepeatServiceRequest = async (
   repeatProvenances: Provenance[];
   repeatTasks: Task[];
   repeatSpecimens: Specimen[];
-  srResourceMap: RepeatSrResourcepConfig;
+  srResourceMap: RepeatSrResourceConfig;
 }> => {
   console.log('making requests for additional service requests representing related repeat tests');
-  let srResourceMap: RepeatSrResourcepConfig = makeSrResourceMap(serviceRequests);
+  let srResourceMap: RepeatSrResourceConfig = makeSrResourceMap(serviceRequests);
   const resources = (
     await oystehr.fhir.search<ServiceRequest | DiagnosticReport | Observation | Provenance | Task | Specimen>({
       resourceType: 'ServiceRequest',
@@ -307,8 +307,8 @@ export const fetchResultResourcesForRepeatServiceRequest = async (
   };
 };
 
-const makeSrResourceMap = (serviceRequests: ServiceRequest[]): RepeatSrResourcepConfig => {
-  const config = serviceRequests.reduce((acc: RepeatSrResourcepConfig, sr) => {
+const makeSrResourceMap = (serviceRequests: ServiceRequest[]): RepeatSrResourceConfig => {
+  const config = serviceRequests.reduce((acc: RepeatSrResourceConfig, sr) => {
     if (sr.id) {
       acc[sr.id] = {
         diagnosticReports: [],
@@ -346,9 +346,9 @@ const getSrIdFromResource = (resource: FhirResource): string | undefined => {
 
 const addToSrResourceMap = (
   resource: FhirResource,
-  addTo: keyof RepeatSrResourcepConfig[string],
-  srResourceMap: RepeatSrResourcepConfig
-): RepeatSrResourcepConfig => {
+  addTo: keyof RepeatSrResourceConfig[string],
+  srResourceMap: RepeatSrResourceConfig
+): RepeatSrResourceConfig => {
   const srId = getSrIdFromResource(resource);
   if (!srId || !srResourceMap[srId]) return srResourceMap;
 

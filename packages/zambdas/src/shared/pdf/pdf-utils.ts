@@ -447,3 +447,46 @@ export const calculateAge = (dob: string): number => {
   }
   return age;
 };
+
+export const drawFieldLine = (
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  fieldName: string,
+  fieldValue: string
+): PdfClient => {
+  pdfClient.drawTextSequential(fieldName, textStyles.text);
+  pdfClient.drawTextSequential(' ', textStyles.textBold);
+  pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
+  return pdfClient;
+};
+
+export const drawFieldLineRight = (
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  fieldName: string,
+  fieldValue: string
+): PdfClient => {
+  pdfClient.drawStartXPosSpecifiedText(fieldName, textStyles.text, 285);
+  pdfClient.drawTextSequential(' ', textStyles.textBold);
+  pdfClient.drawTextSequential(fieldValue, textStyles.textBold);
+  return pdfClient;
+};
+
+export const drawFourColumnText = (
+  pdfClient: PdfClient,
+  textStyles: LabsPDFTextStyleConfig,
+  columnOne: { name: string; startXPos: number },
+  columnTwo: { name: string; startXPos: number },
+  columnThree: { name: string; startXPos: number },
+  columnFour: { name: string; startXPos: number },
+  color?: Color
+): PdfClient => {
+  const font = textStyles.text;
+  const fontSize = STANDARD_FONT_SIZE;
+  const fontStyleTemp = { ...font, fontSize: fontSize, color: color };
+  pdfClient.drawStartXPosSpecifiedText(columnOne.name, fontStyleTemp, columnOne.startXPos);
+  pdfClient.drawStartXPosSpecifiedText(columnTwo.name, fontStyleTemp, columnTwo.startXPos);
+  pdfClient.drawStartXPosSpecifiedText(columnThree.name, fontStyleTemp, columnThree.startXPos);
+  pdfClient.drawStartXPosSpecifiedText(columnFour.name, fontStyleTemp, columnFour.startXPos);
+  return pdfClient;
+};
