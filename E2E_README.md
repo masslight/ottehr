@@ -4,11 +4,11 @@ End-to-End testing guide for the Ottehr platform using Playwright in a Turborepo
 
 ## Navigation by Role
 
-| Role               | Recommended Sections                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| **QA Engineers**   | [Quick Start](#quick-start), [Test Execution](#test-execution-commands), [Writing Tests](#writing-tests)                       |
-| **Developers**     | [Architecture](#architecture), [Fast Testing Mode](#fast-testing-mode), [Writing Tests](#writing-tests)                        |
-| **DevOps**         | [Environment Management](#environment-management), [CI/CD Integration](#cicd-integration), [Troubleshooting](#troubleshooting) |
+| Role             | Recommended Sections                                                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **QA Engineers** | [Quick Start](#quick-start), [Test Execution](#test-execution-commands), [Writing Tests](#writing-tests)                       |
+| **Developers**   | [Architecture](#architecture), [Fast Testing Mode](#fast-testing-mode), [Writing Tests](#writing-tests)                        |
+| **DevOps**       | [Environment Management](#environment-management), [CI/CD Integration](#cicd-integration), [Troubleshooting](#troubleshooting) |
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ End-to-End testing guide for the Ottehr platform using Playwright in a Turborepo
 3. [Test Execution Commands](#test-execution-commands)
 4. [Architecture](#architecture)
 5. [Fast Testing Mode](#fast-testing-mode)
-6. [Healthcare Domain Specifics](#healthcare-domain-specifics)
+6. [Domain Specifics](#domain-specifics)
 7. [Environment Management](#environment-management)
 8. [Application-Specific Testing](#application-specific-testing)
 9. [CI/CD Integration](#cicd-integration)
@@ -46,7 +46,7 @@ The E2E testing system supports two main applications:
 ### Prerequisites
 
 - Node.js version 20+
-- Access to ottehr-secrets repository
+- Access to secrets repository (you can store secrets in a separate repository or use your preferred secrets management solution)
 - ClickSend credentials (for Intake SMS authentication testing)
 
 ### Automated Setup (Recommended)
@@ -68,7 +68,7 @@ npm run intake:e2e:local:ui
 The setup script (`e2e-test-setup.ts`) automatically:
 
 - Reads environment-specific files
-- Queries FHIR server for healthcare resources
+- Queries Oystehr FHIR API for healthcare resources
 - Generates environment files with resolved configuration
 
 ## Test Execution Commands
@@ -105,7 +105,7 @@ The setup script (`e2e-test-setup.ts`) automatically:
         └────────┬─────────┘
                  │
         ┌────────▼─────────┐
-        │   FHIR Server    │
+        │ Oystehr FHIR API │
         │ (Healthcare Data)│
         │  External/Cloud  │
         └──────────────────┘
@@ -116,23 +116,52 @@ This architecture separates provider and patient interfaces to meet different us
 ### Testing Pipeline Flow
 
 ```
-GitHub Actions / Local Script
-           ↓
-    Environment Detection (ENV variable)
-           ↓
-    Configuration Assembly
-    (zambdas + UI configs + secrets)
-           ↓
-    Test Environment Setup
-    (FHIR resources, user validation)
-           ↓
-    Application Startup (local only)
-           ↓
-    Authentication & Session Caching
-           ↓
-    Test Execution (integration vs standard)
-           ↓
-    Resource Cleanup & Reporting
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃            START:               ┃
+┃  GitHub Actions / Local Script  ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃       DETECT: Environment       ┃
+┃         (ENV variable)          ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃       BUILD: Configuration      ┃
+┃  zambdas + UI configs + secrets ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃      SETUP: Test Environment     ┃
+┃ FHIR resources + user validation ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃    ▶ LAUNCH: Application        ┃
+┃   (local environment only)      ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃    AUTH: Session Management     ┃
+┃    Authentication & Caching     ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃      RUN: Test Execution        ┃
+┃    integration vs standard      ┃
+┗━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┛
+                ┃
+                ▼
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃     FINISH: Cleanup & Report      ┃
+┃ Resource cleanup + test reporting ┃
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ```
 
 ### Environment-Specific Adaptations
@@ -147,7 +176,7 @@ Each environment has complete configuration sets with specific behaviors:
 
 **Integration Mode (`INTEGRATION_TEST=true`)**: Resources created with single batch request directly to FHIR API. Faster and more stable since it bypasses application logic.
 
-**Standard Mode**: Resources created through application endpoints that users interact with. Triggers multiple zambda function calls and subscriptions. Slower but tests complete application flow.
+**Standard Mode**: Resources created through application endpoints that create demo appointments. This mode uses a zambda that is used in the "add patient" feature to create appointments, and triggers multiple zambda function calls and subscriptions.
 
 ### Core Components
 
@@ -169,7 +198,7 @@ export class ResourceHandler {
 
 **run-e2e.ts**: Main orchestration script that manages multiple applications, port conflicts, and startup sequences. Handles environment detection, port management, application startup coordination, and two-phase test execution (authentication + specification testing).
 
-**e2e-test-setup.ts**: Dynamic environment resolution script that discovers healthcare resources and generates configuration. Queries FHIR servers to find locations, providers, schedules, and validates that resources meet testing requirements.
+**e2e-test-setup.ts**: Dynamic environment resolution script that discovers healthcare resources and generates configuration. Queries Oystehr FHIR API to find locations, providers, schedules, and validates that resources meet testing requirements.
 
 #### Key Variables
 
@@ -292,7 +321,7 @@ npx playwright test --headed --debug
 3. Remember to resume test execution to trigger cleanup hooks
 4. Use `page.screenshot()` for visual validation during development
 
-## Healthcare Domain Specifics
+## Domain Specifics
 
 ### FHIR Resource Relationships
 
@@ -343,12 +372,15 @@ await expect(async () => {
 
 ### Hybrid Configuration Strategy
 
-The environment management system combines static configuration from ottehr-secrets with dynamic resource discovery against live systems. This balances security, flexibility, and maintainability across deployment environments.
+The environment management system combines static configuration from a *secrets repository** with dynamic resource discovery from live systems. This approach balances security, flexibility, and maintainability across different deployment environments.
 
-**Static Configuration**: Contains sensitive credentials and baseline settings that remain stable. Stored in ottehr-secrets repository.
+**You can store secrets in a separate repository or integrate with your preferred secure secrets management solution with minimal configuration changes.*
+
+**Static Configuration**: Contains sensitive credentials and baseline settings that remain stable.
 
 **Dynamic Discovery**: Handles healthcare infrastructure that changes based on regulatory requirements, operational needs, or service updates.
 
+Possible secret repository structure:
 ```
 secrets/
 ├── zambdas/                     # Backend API configuration
@@ -358,7 +390,7 @@ secrets/
 
 ### Configuration Assembly Process
 
-1. **Environment Resolution** - Clone secrets, query FHIR servers, resolve resources, generate configuration files
+1. **Environment Resolution** - Clone secrets, query Oystehr FHIR API, resolve resources, generate configuration files
 2. **Resource Validation** - Validate locations have service capabilities, providers have licenses, schedules support required appointment types
 3. **File Generation** - Combine static secrets with dynamically discovered settings
 
@@ -396,11 +428,11 @@ rm -rf apps/ehr/env
 npm run ehr:e2e:local:ui  # Automatically creates and populates directories
 ```
 
-### Secret Repository Mapping
+### Secret Repository Mapping (you can store secrets in a separate repository or use your preferred secrets management solution)
 
-The environment configuration system maps secrets from the ottehr-secrets repository to specific locations in the Ottehr project:
+The environment configuration system maps secrets from the secrets repository to specific locations in the Ottehr project:
 
-| ottehr-secrets Path        | EHR Project Path                   | Purpose                                                                 | Used In                      |
+| secrets repository Path    | EHR Project Path                   | Purpose                                                                 | Used In                      |
 | :------------------------- | :--------------------------------- | :---------------------------------------------------------------------- | :--------------------------- |
 | `ehr/app/.env.local`       | `apps/ehr/env/.env.local`          | Local application build configuration                                   | Local development, CI builds |
 | `zambdas/local.json`       | `packages/zambdas/.env/local.json` | Backend API configuration and credentials                               | Local development, CI builds |
@@ -422,8 +454,6 @@ The same approach is used for the Intake app.
 - **Caching Rules**: Build artifacts cached, test results not cached for freshness
 - **Port Management**: Automatic cleanup and conflict resolution
 
-````
-
 ## Application-Specific Testing
 
 ### EHR Testing
@@ -442,7 +472,7 @@ test.describe('Provider Workflows', () => {
     await visitsPage.verifyVisitPresent(appointmentId);
   });
 });
-````
+```
 
 ### Intake Testing
 
@@ -524,6 +554,8 @@ The Intake app has the same structure.
 
 **EHR Application Structure:**
 
+Note: The following structures are examples and may change over time.
+
 ```
 apps/ehr/tests/e2e/
 ├── login/                     # Authentication establishment
@@ -532,31 +564,18 @@ apps/ehr/tests/e2e/
 │   ├── in-person/             # In-person visit pages
 │   ├── patient-information/   # Patient info pages
 │   ├── telemed/               # Telemedicine pages
-│   ├── AddPatientPage.ts
-│   ├── CssHeader.ts
-│   ├── EditMedicationCard.ts
-│   ├── HospitalizationPage.ts
-│   ├── OrderMedicationPage.ts
-│   ├── PageWithTablePagination.ts
-│   ├── PatientHeader.ts
-│   ├── PatientInfo.ts
-│   ├── PatientInformationPage.ts
-│   ├── PatientRecordPage.ts
-│   ├── PatientsPage.ts
-│   ├── SideMenu.ts
-│   ├── StateDetailsPage.ts
-│   ├── StatesPage.ts
-│   ├── VisitDetailsPage.ts
-│   └── VisitsPage.ts
-├── specs/                    # Primary test scenarios
-├── e2e-readme/               # Documentation
-└── e2e-utils/                # Healthcare utilities
-    ├── resource-handler.ts   # FHIR resource management
-    ├── auth/                 # Authentication helpers
-    └── seed-data/            # Pre-constructed scenarios
+│   └── ...pages.ts
+├── specs/                     # Primary test scenarios
+├── e2e-readme/                # Documentation
+└── e2e-utils/                 # Healthcare utilities
+    ├── resource-handler.ts    # FHIR resource management
+    ├── auth/                  # Authentication helpers
+    └── seed-data/             # Pre-constructed scenarios
 ```
 
 **Intake Application Structure:**
+
+Note: The following structures are examples and may change over time.
 
 ```
 apps/intake/
@@ -847,7 +866,7 @@ test.afterEach(async () => {
     () => resourceHandler.cleanupResources(),
   ];
 
-  // Sequential cleanup with delays to handle FHIR server constraints
+  // Sequential cleanup with delays to handle Oystehr FHIR API server constraints
   for (const operation of cleanupOperations) {
     try {
       await operation();
