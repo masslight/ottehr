@@ -14,6 +14,7 @@ import { useAppointment } from '../hooks/useAppointment';
 import { usePractitionerActions } from '../hooks/usePractitioner';
 import { ChangeStatusDropdown } from './ChangeStatusDropdown';
 import { InternalNotes } from './InternalNotes';
+import { PrintVisitLabelButton } from './PrintVisitLabelButton';
 import { ProfileAvatar } from './ProfileAvatar';
 import { SwitchIntakeModeButton } from './SwitchIntakeModeButton';
 
@@ -141,6 +142,7 @@ export const Header = (): JSX.Element => {
             <Grid item xs>
               <PatientInfoWrapper>
                 <PatientName data-testid={dataTestIds.cssHeader.patientName}>{patientName}</PatientName>
+                {encounterId ? <PrintVisitLabelButton encounterId={encounterId} /> : null}
                 <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                 <PatientMetadata
                   noWrap

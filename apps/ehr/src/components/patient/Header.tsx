@@ -6,6 +6,7 @@ import { BANNER_HEIGHT } from '../../helpers/misc.helper';
 import { useGetPatient } from '../../hooks/useGetPatient';
 import { Contacts, FullNameDisplay, IdentifiersRow, PatientAvatar, Summary } from './info';
 import { dataTestIds } from 'src/constants/data-test-ids';
+import { PrintVisitLabelButton } from 'src/features/css-module/components/PrintVisitLabelButton';
 
 type HeaderProps = {
   handleDiscard: () => void;
@@ -15,7 +16,12 @@ type HeaderProps = {
 export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
   const theme = useTheme();
 
-  const { loading, patient } = useGetPatient(id);
+  const { loading, patient, appointments } = useGetPatient(id);
+
+  // todo: product has said that on screens with no specific encounter, use the latest encounter for the label
+  // which seems ok for now but might change later
+  const latestAppointmentEncounter = appointments?.[0].encounter;
+  console.log('>>>this is the latestAppointmentEncounter', JSON.stringify(latestAppointmentEncounter, undefined, 2));
 
   return (
     <Box
@@ -41,6 +47,7 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Box sx={{ display: 'flex', rowGap: 0.5, columnGap: 2, flexWrap: 'wrap' }}>
               <FullNameDisplay patient={patient} loading={loading} variant="h5" />
+              <PrintVisitLabelButton encounterId={latestAppointmentEncounter?.id} />
               <Summary patient={patient} loading={loading} />
             </Box>
             <Contacts patient={patient} loading={loading} />
