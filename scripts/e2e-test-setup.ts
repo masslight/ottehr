@@ -288,6 +288,7 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
       });
     } catch (error) {
       console.error('Error updating e2e test practitioner qualifications', error);
+      throw error;
     }
   }
 }
@@ -314,8 +315,9 @@ export async function createTestEnvFiles(): Promise<void> {
     try {
       existingEhrConfig = JSON.parse(fs.readFileSync(`apps/ehr/env/tests.${environment}.json`, 'utf8')) as EhrConfig;
       console.log('Found existing EHR test config file');
-    } catch {
+    } catch (error) {
       console.log('No existing EHR test config file found');
+      throw error;
     }
 
     try {
@@ -323,8 +325,9 @@ export async function createTestEnvFiles(): Promise<void> {
         fs.readFileSync(`apps/intake/env/tests.${environment}.json`, 'utf8')
       ) as IntakeConfig;
       console.log('Found existing Intake test config file');
-    } catch {
+    } catch (error) {
       console.log('No existing Intake test config file found');
+      throw error;
     }
 
     let ehrTextUsername = '';
@@ -434,6 +437,7 @@ export async function createTestEnvFiles(): Promise<void> {
     }
   } catch (e) {
     console.error('Error creating env files for tests', e, JSON.stringify(e));
+    throw e;
   }
 }
 
