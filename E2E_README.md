@@ -73,17 +73,18 @@ The setup script (`e2e-test-setup.ts`) automatically:
 
 ## Test Execution Commands
 
-| Environment | App    | Command                             | Description             |
-| ----------- | ------ | ----------------------------------- | ----------------------- |
-| Local       | EHR    | `npm run ehr:e2e:local`             | Standard mode           |
-| Local       | EHR    | `npm run ehr:e2e:local:integration` | Fast mode (recommended) |
-| Local       | EHR    | `npm run ehr:e2e:local:ui`          | Debug UI                |
-| Local       | Intake | `npm run intake:e2e:local`          | Standard mode           |
-| Local       | Intake | `npm run intake:e2e:local:ui`       | Debug UI                |
-| Demo        | EHR    | `npm run ehr:e2e:demo`              | Demo environment        |
-| Demo        | Intake | `npm run intake:e2e:demo`           | Demo environment        |
-| Staging     | EHR    | `npm run ehr:e2e:staging`           | Staging environment     |
-| Staging     | Intake | `npm run intake:e2e:staging`        | Staging environment     |
+| Environment | App    | Command                                | Description             |
+| ----------- | ------ | -------------------------------------- | ----------------------- |
+| Local       | EHR    | `npm run ehr:e2e:local:integration`    | Fast mode (recommended) |
+| Local       | EHR    | `npm run ehr:e2e:local:integration:ui` | Debug UI (recommended)  |
+| Local       | EHR    | `npm run ehr:e2e:local`                | Standard mode           |
+| Local       | EHR    | `npm run ehr:e2e:local:ui`             | Debug UI                |
+| Demo        | EHR    | `npm run ehr:e2e:demo`                 | Demo environment        |
+| Staging     | EHR    | `npm run ehr:e2e:staging`              | Staging environment     |
+| Local       | Intake | `npm run intake:e2e:local`             | Standard mode           |
+| Local       | Intake | `npm run intake:e2e:local:ui`          | Debug UI                |
+| Demo        | Intake | `npm run intake:e2e:demo`              | Demo environment        |
+| Staging     | Intake | `npm run intake:e2e:staging`           | Staging environment     |
 
 ## Architecture
 
