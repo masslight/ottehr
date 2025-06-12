@@ -12,6 +12,7 @@ import {
   ResultDataConfig,
 } from './types';
 import {
+  compareDates,
   createFilesDocumentReferences,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
@@ -64,7 +65,6 @@ import {
   drawFourColumnText,
 } from './pdf-utils';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
-import { compareDates } from '../../ehr/get-lab-orders/helpers';
 import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/inhouse-labs';
 
 interface CommonDataConfigResources {

@@ -1,4 +1,4 @@
-import { Container, useMediaQuery } from '@mui/material';
+import { Container } from '@mui/material';
 import {
   DeviceLabels,
   GlobalStyles,
@@ -21,7 +21,7 @@ import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { VideoRoom, useCallSettingsStore, useJoinCall, useVideoCallStore } from '../features/video-call';
 import { useZapEHRAPIClient } from '../utils';
-import { breakpoints } from 'ui-components';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 const VideoChatPage: FC = () => {
   const { meetingData } = getSelectors(useVideoCallStore, ['meetingData']);
@@ -35,7 +35,7 @@ const VideoChatPage: FC = () => {
   const { isVideoEnabled } = useLocalVideo();
   const { devices: videoInputs, selectedDevice: selectedVideoDevice } = useVideoInputs();
   const { devices: audioInputs, selectedDevice: selectedAudioDevice } = useAudioInputs();
-  const isMobile = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);
+  const isMobile = useIsMobile();
 
   const apiClient = useZapEHRAPIClient();
   const [searchParams] = useSearchParams();

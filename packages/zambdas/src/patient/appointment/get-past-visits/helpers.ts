@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { Appointment, Encounter, Location, Patient, RelatedPerson, Resource } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, RelatedPerson, Resource, Schedule } from 'fhir/r4b';
 import { OTTEHR_MODULE, removePrefix } from 'utils';
 
 export type EncounterToAppointmentIdMap = { [appointmentId: string]: Encounter };
@@ -54,10 +54,14 @@ export async function getFhirResources(
         name: '_include',
         value: 'Appointment:actor',
       },
+      {
+        name: '_revinclude:iterate',
+        value: 'Schedule:actor',
+      },
     ],
   };
 
-  const bundle = await oystehr.fhir.search<Appointment | Encounter | Location | Patient | RelatedPerson>(
+  const bundle = await oystehr.fhir.search<Appointment | Encounter | Location | Patient | RelatedPerson | Schedule>(
     fhirSearchParams
   );
   return bundle.unbundle();
