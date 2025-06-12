@@ -176,7 +176,16 @@ export interface InHouseLabResultConfig {
 }
 
 export interface LabResultsData
-  extends Omit<LabsData, 'aoeAnswers' | 'reqId' | 'labOrganizationName' | 'orderSubmitDate'> {
+  extends Omit<
+    LabsData,
+    | 'aoeAnswers'
+    | 'reqId'
+    | 'labOrganizationName'
+    | 'orderSubmitDate'
+    | 'providerTitle'
+    | 'providerNPI'
+    | 'patientAddress'
+  > {
   testName: string;
   resultStatus: string;
   abnormalResult?: boolean;

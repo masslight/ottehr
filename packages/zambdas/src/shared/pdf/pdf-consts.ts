@@ -1,8 +1,6 @@
 import { PageSizes } from 'pdf-lib';
 import { PdfClientStyles, ImageStyle } from './types';
 
-export const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
-
 export const Y_POS_GAP = 30;
 
 export const STANDARD_FONT_SIZE = 12;

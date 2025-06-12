@@ -50,13 +50,7 @@ import {
   Organization,
 } from 'fhir/r4b';
 import { getExternalLabOrderResources } from '../../ehr/shared/labs';
-import {
-  PDF_CLIENT_STYLES,
-  STANDARD_NEW_LINE,
-  STANDARD_FONT_SIZE,
-  ICON_STYLE,
-  ORDER_RESULT_ITEM_UNKNOWN,
-} from './pdf-consts';
+import { PDF_CLIENT_STYLES, STANDARD_NEW_LINE, STANDARD_FONT_SIZE, ICON_STYLE } from './pdf-consts';
 import {
   createPdfClient,
   PdfInfo,
@@ -74,14 +68,12 @@ import { compareDates } from '../../ehr/get-lab-orders/helpers';
 import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/inhouse-labs';
 
 interface CommonDataConfigResources {
-  oystehr: Oystehr;
   location: Location | undefined;
   timezone: string | undefined;
   serviceRequest: ServiceRequest;
   patient: Patient;
   diagnosticReport: DiagnosticReport;
   providerName: string | undefined;
-  provider: Practitioner;
   testName: string | undefined;
 }
 
@@ -110,7 +102,7 @@ const getResultDataConfig = (
   let config: ResultDataConfig | undefined;
   const now = DateTime.now();
 
-  const { oystehr, location, timezone, serviceRequest, patient, diagnosticReport, providerName, provider, testName } =
+  const { location, timezone, serviceRequest, patient, diagnosticReport, providerName, testName } =
     commonResourceConfig;
   const { type, specificResources } = specificResourceConfig;
 
@@ -127,32 +119,22 @@ const getResultDataConfig = (
     locationZip: location?.address?.postalCode,
     locationPhone: location?.telecom?.find((t) => t.system === 'phone')?.value,
     locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
-    serviceRequestID: serviceRequest.id || ORDER_RESULT_ITEM_UNKNOWN,
-    providerName: providerName || ORDER_RESULT_ITEM_UNKNOWN,
-    providerTitle:
-      provider.qualification?.map((qualificationTemp) => qualificationTemp.code.text).join(', ') ||
-      ORDER_RESULT_ITEM_UNKNOWN,
-    providerNPI:
-      provider.identifier?.find((id) => id.system === 'http://hl7.org/fhir/sid/us-npi')?.value ||
-      ORDER_RESULT_ITEM_UNKNOWN,
-    patientFirstName: patient.name?.[0].given?.[0] || ORDER_RESULT_ITEM_UNKNOWN,
+    serviceRequestID: serviceRequest.id || '',
+    providerName: providerName || '',
+    patientFirstName: patient.name?.[0].given?.[0] || '',
     patientMiddleName: patient.name?.[0].given?.[1],
-    patientLastName: patient.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN,
-    patientSex: patient.gender || ORDER_RESULT_ITEM_UNKNOWN,
-    patientDOB: patient.birthDate
-      ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy')
-      : ORDER_RESULT_ITEM_UNKNOWN,
-    patientId: patient.id || ORDER_RESULT_ITEM_UNKNOWN,
-    patientAddress: patient.address?.[0] ? oystehr.fhir.formatAddress(patient.address[0]) : ORDER_RESULT_ITEM_UNKNOWN,
-    patientPhone:
-      patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+    patientLastName: patient.name?.[0].family || '',
+    patientSex: patient.gender || '',
+    patientDOB: patient.birthDate ? DateTime.fromFormat(patient.birthDate, 'yyyy-MM-dd').toFormat('MM/dd/yyyy') : '',
+    patientId: patient.id || '',
+    patientPhone: patient.telecom?.find((telecomTemp) => telecomTemp.system === 'phone')?.value || '',
     todayDate: now.setZone().toFormat(LABS_DATE_STRING_FORMAT),
-    orderCreateDate: orderCreateDate || ORDER_RESULT_ITEM_UNKNOWN,
-    orderPriority: serviceRequest.priority || ORDER_RESULT_ITEM_UNKNOWN,
-    testName: testName || ORDER_RESULT_ITEM_UNKNOWN,
+    orderCreateDate: orderCreateDate || '',
+    orderPriority: serviceRequest.priority || '',
+    testName: testName || '',
     orderAssessments: serviceRequest.reasonCode.map((code) => ({
-      code: code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
-      name: code.text || ORDER_RESULT_ITEM_UNKNOWN,
+      code: code.coding?.[0].code || '',
+      name: code.text || '',
     })),
     resultStatus: diagnosticReport.status.toUpperCase(),
   };
@@ -179,15 +161,11 @@ const getResultDataConfig = (
       resultInterpretations,
     } = specificResources;
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
-      reqId:
-        serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value ||
-        ORDER_RESULT_ITEM_UNKNOWN,
-      accessionNumber:
-        diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value ||
-        ORDER_RESULT_ITEM_UNKNOWN,
+      reqId: serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value || '',
+      accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
-      resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || ORDER_RESULT_ITEM_UNKNOWN,
+      resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || '',
       reviewed,
       reviewingProviderFirst,
       reviewingProviderLast,
@@ -198,26 +176,26 @@ const getResultDataConfig = (
       testItemCode:
         diagnosticReport.code.coding?.find((temp) => temp.system === OYSTEHR_LAB_OI_CODE_SYSTEM)?.code ||
         diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
-        ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabName: organization?.name || ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabStreetAddress: organization?.address?.[0].line?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabCity: organization?.address?.[0].city || ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabState: organization?.address?.[0].state || ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabZip: organization?.address?.[0].postalCode || ORDER_RESULT_ITEM_UNKNOWN,
+        '',
+      performingLabName: organization?.name || '',
+      performingLabStreetAddress: organization?.address?.[0].line?.join(',') || '',
+      performingLabCity: organization?.address?.[0].city || '',
+      performingLabState: organization?.address?.[0].state || '',
+      performingLabZip: organization?.address?.[0].postalCode || '',
       performingLabPhone:
         organization?.contact
           ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
-          ?.telecom?.find((temp) => temp.system === 'phone')?.value || ORDER_RESULT_ITEM_UNKNOWN,
+          ?.telecom?.find((temp) => temp.system === 'phone')?.value || '',
       // abnormalResult: true,
       performingLabDirectorFirstName:
         organization?.contact
           ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
-          ?.name?.given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN,
+          ?.name?.given?.join(',') || '',
       performingLabDirectorLastName:
         organization?.contact?.find(
           (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
-        )?.name?.family || ORDER_RESULT_ITEM_UNKNOWN,
-      performingLabDirectorTitle: ORDER_RESULT_ITEM_UNKNOWN,
+        )?.name?.family || '',
+      performingLabDirectorTitle: '',
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
     config = { type: LabType.external, data };
@@ -273,8 +251,8 @@ const getTaskCompletedByAndWhen = async (
   const taskProvenance = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
 
-  const reviewingProviderFirst = taskPractitioner.name?.[0].given?.join(',') || ORDER_RESULT_ITEM_UNKNOWN;
-  const reviewingProviderLast = taskPractitioner.name?.[0].family || ORDER_RESULT_ITEM_UNKNOWN;
+  const reviewingProviderFirst = taskPractitioner.name?.[0].given?.join(',') || '';
+  const reviewingProviderLast = taskPractitioner.name?.[0].family || '';
   const reviewDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
 
   return { reviewingProviderFirst, reviewingProviderLast, reviewDate };
@@ -369,15 +347,13 @@ export async function createExternalLabResultPDF(
       const interpretationDisplay = observation.interpretation?.[0].coding?.[0].display;
       let value = undefined;
       if (observation.valueQuantity) {
-        value = `${
-          observation.valueQuantity?.value !== undefined ? observation.valueQuantity.value : ORDER_RESULT_ITEM_UNKNOWN
-        } ${observation.valueQuantity?.code || ORDER_RESULT_ITEM_UNKNOWN}`;
+        value = `${observation.valueQuantity?.value !== undefined ? observation.valueQuantity.value : ''} ${
+          observation.valueQuantity?.code || ''
+        }`;
       } else if (observation.valueString) {
         value = observation.valueString;
       } else if (observation.valueCodeableConcept) {
-        value =
-          observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') ||
-          ORDER_RESULT_ITEM_UNKNOWN;
+        value = observation.valueCodeableConcept.coding?.map((coding) => coding.display).join(', ') || '';
       }
 
       const referenceRangeText = observation.referenceRange
@@ -392,11 +368,11 @@ export async function createExternalLabResultPDF(
         : undefined;
 
       const labResult: ExternalLabResult = {
-        resultCode: observation.code.coding?.[0].code || ORDER_RESULT_ITEM_UNKNOWN,
-        resultCodeDisplay: observation.code.coding?.[0].display || ORDER_RESULT_ITEM_UNKNOWN,
+        resultCode: observation.code.coding?.[0].code || '',
+        resultCodeDisplay: observation.code.coding?.[0].display || '',
         resultInterpretation: observation.interpretation?.[0].coding?.[0].code,
         resultInterpretationDisplay: interpretationDisplay,
-        resultValue: value || ORDER_RESULT_ITEM_UNKNOWN,
+        resultValue: value || '',
         referenceRangeText,
       };
       externalLabResults.push(labResult);
@@ -420,14 +396,12 @@ export async function createExternalLabResultPDF(
     },
   };
   const commonResources: CommonDataConfigResources = {
-    oystehr,
     location,
     timezone,
     serviceRequest,
     patient,
     diagnosticReport,
     providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : undefined,
-    provider: provider,
     testName: diagnosticReport.code.coding?.[0].display,
   };
   const dataConfig = getResultDataConfig(commonResources, externalSpecificResources);
@@ -496,14 +470,12 @@ export async function createInHouseLabResultPDF(
     specificResources: { inHouseLabResults: [inHouseLabResults, ...additionalResultsForRelatedSrs] },
   };
   const commonResources: CommonDataConfigResources = {
-    oystehr,
     location,
     timezone,
     serviceRequest,
     patient,
     diagnosticReport,
     providerName: attendingPractitionerName,
-    provider: attendingPractitioner,
     testName: activityDefinition.title,
   };
   const dataConfig = getResultDataConfig(commonResources, inhouseSpecificResources);
@@ -770,7 +742,7 @@ async function createInHouseLabsResultsFormPdfBytes(
       } else if (resultDetail.rangeQuantity) {
         resultRange = quantityRangeFormat(resultDetail.rangeQuantity);
       } else {
-        resultRange = ORDER_RESULT_ITEM_UNKNOWN;
+        resultRange = '';
       }
 
       const valueStringToWrite =
@@ -957,8 +929,7 @@ const getFormattedInHouseLabResults = async (
     throw new Error('in-house lab collection date is not defined');
   }
 
-  const specimenSource =
-    specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || ORDER_RESULT_ITEM_UNKNOWN;
+  const specimenSource = specimen?.collection?.bodySite?.coding?.map((coding) => coding.display).join(', ') || '';
   const { reviewDate: finalResultDateTime } = await getTaskCompletedByAndWhen(oystehr, task, timezone);
 
   const collectionDate = DateTime.fromISO(specimen?.collection?.collectedDateTime)
