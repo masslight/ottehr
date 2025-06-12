@@ -255,8 +255,6 @@ const AddMedicalConditionField: FC = () => {
 
   const nlmApiKeyMissing = icdSearchError?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
-  console.log('NLM API Key Missing:', nlmApiKeyMissing);
-
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     defaultValues: { value: null },
   });
