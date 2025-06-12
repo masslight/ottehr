@@ -23,6 +23,8 @@ export default function PatientPage(): JSX.Element {
 
   const { appointments, loading, patient } = useGetPatient(id);
 
+  console.log(patient);
+
   const { firstName, lastName } = useMemo(() => {
     if (!patient) return {};
     return {
