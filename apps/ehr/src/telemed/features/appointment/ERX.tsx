@@ -1,9 +1,9 @@
 import { Alert, Box } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
-import { FC, useCallback, useEffect, useState } from 'react';
+import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { VitalFieldNames } from 'utils';
+import { getPractitionerNPIIdentitifier, VitalFieldNames } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import {
@@ -22,12 +22,41 @@ export const ERX: FC<{
   const { patient, encounter } = getSelectors(useAppointmentStore, ['patient', 'encounter']);
   const phoneNumber = patient?.telecom?.find((telecom) => telecom.system === 'phone')?.value;
   const user = useEvolveUser();
+  const practitioner = user?.profileResource;
 
   const [alertMessage, setAlertMessage] = useState<string | null>(
     'If something goes wrong - please close and open the eRx again.'
   );
-  // todo: check if provider has everything to be enrolled and give alert if not
-  // const isProviderHasEverythingToBeEnrolled = Boolean(user?.profileResource?.id && phoneNumber && encounter?.id);
+
+  const practitionerMissingFields: string[] = useMemo(() => {
+    const missingFields: string[] = [];
+    if (!practitioner) return [];
+    if (!practitioner?.birthDate) {
+      missingFields.push('birth date');
+    }
+    if (!practitioner?.telecom?.find((telecom) => telecom.system === 'phone')?.value) {
+      missingFields.push('phone');
+    }
+    if (!practitioner?.telecom?.find((telecom) => telecom.system === 'fax')?.value) {
+      missingFields.push('fax');
+    }
+    if (!practitioner?.address?.find((address) => address.line?.length)) {
+      missingFields.push('Address line 1');
+    }
+    if (!practitioner?.address?.find((address) => address.city)) {
+      missingFields.push('City');
+    }
+    if (!practitioner?.address?.find((address) => address.state)) {
+      missingFields.push('State');
+    }
+    if (!practitioner?.address?.find((address) => address.postalCode)) {
+      missingFields.push('Zip code');
+    }
+    if (!getPractitionerNPIIdentitifier(practitioner)) {
+      missingFields.push('NPI');
+    }
+    return missingFields;
+  }, [practitioner]);
 
   // Step 1: Get patient vitals
   const heightSearchConfig = createVitalsSearchConfig(VitalFieldNames.VitalHeight, 'patient', 1);
@@ -67,7 +96,7 @@ export const ERX: FC<{
     isFetched: isPractitionerEnrollmentChecked,
     refetch: refetchPractitionerEnrollment,
   } = useCheckPractitionerEnrollment({
-    enabled: !isVitalsLoading && hasVitals,
+    enabled: !isVitalsLoading && hasVitals && practitionerMissingFields.length === 0,
   });
 
   // Step 3: Sync patient
@@ -203,6 +232,7 @@ export const ERX: FC<{
   useEffect(() => {
     if (
       practitionerEnrollmentStatus?.registered &&
+      !practitionerEnrollmentStatus?.confirmed &&
       !isConnectingPractitionerForConfirmation &&
       !isPractitionerConnectedForConfirmation
     ) {
@@ -214,6 +244,7 @@ export const ERX: FC<{
     isConnectingPractitionerForConfirmation,
     isPractitionerConnectedForConfirmation,
     practitionerEnrollmentStatus?.registered,
+    practitionerEnrollmentStatus?.confirmed,
   ]);
 
   // Handle loading state
@@ -245,7 +276,13 @@ export const ERX: FC<{
   return (
     <>
       <Box>
-        {alertMessage && <Alert severity="info">{alertMessage}</Alert>}
+        {(practitionerMissingFields.length > 0 && (
+          <Alert severity="warning">
+            To be able to prescribe please fill in the following fields in your profile:{' '}
+            {practitionerMissingFields.join(', ')}.
+          </Alert>
+        )) ||
+          (alertMessage && <Alert severity="info">{alertMessage}</Alert>)}
         {(ssoLink || ssoLinkForEnrollment) && <ERXDialog ssoLink={ssoLink || ssoLinkForEnrollment || ''} />}
       </Box>
     </>

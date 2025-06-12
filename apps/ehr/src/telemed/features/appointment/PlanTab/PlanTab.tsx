@@ -3,7 +3,7 @@ import { FC } from 'react';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
 import { DispositionCard } from './DispositionCard';
-import { ERxContainer } from './ERxContainer';
+import { ERxCard } from './ERxCard';
 import { HealthwiseDocumentsCard } from './HealthwiseDocumentsCard';
 import { PatientInstructionsCard } from './PatientInstructionsCard';
 import { SchoolWorkExcuseCard } from './SchoolWorkExcuseCard';
@@ -30,7 +30,7 @@ export const PlanTab: FC = () => {
         gap: 1,
       }}
     >
-      <ERxContainer />
+      <ERxCard />
       <PatientInstructionsCard />
       {tmpHideHealthwiseDocuments ? <></> : <HealthwiseDocumentsCard />}
       <DispositionCard />

@@ -113,7 +113,11 @@ const medicationStatusMapper = {
   },
 };
 
-export const ERxContainer: FC = () => {
+interface ERxContainerProps {
+  showHeader?: boolean;
+}
+
+export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const { encounter, appointment, setPartialChartData, chartData } = getSelectors(useAppointmentStore, [
     'encounter',
     'appointment',
@@ -213,7 +217,7 @@ export const ERxContainer: FC = () => {
       <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" gap={1} alignItems="center">
-            <PageTitle label="eRX" showIntakeNotesButton={false} />
+            {showHeader && <PageTitle label="eRX" showIntakeNotesButton={false} />}
             {(isLoading || isFetching || cancellationLoading.length > 0) && <CircularProgress size={16} />}
           </Stack>
           <Tooltip

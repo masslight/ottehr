@@ -19,16 +19,17 @@ import {
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useState } from 'react';
+import { FC, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { RoundedButton } from 'src/components/RoundedButton';
 import {
   calculatePatientAge,
   getQuestionnaireResponseByLinkId,
   INTERPRETER_PHONE_NUMBER,
   mapStatusToTelemed,
   TelemedAppointmentStatusEnum,
+  TelemedAppointmentVisitTabs,
 } from 'utils';
-import { CompleteConfiguration } from '../../../components/CompleteConfiguration';
 import { EditPatientDialog } from '../../../components/dialogs';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import ChatModal from '../../../features/chat/ChatModal';
@@ -40,7 +41,6 @@ import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
 import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../../state';
 import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
-import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
 
 enum Gender {
@@ -75,9 +75,6 @@ export const AppointmentSidePanel: FC = () => {
 
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isERXOpen, setIsERXOpen] = useState(false);
-  const [isERXLoading, setIsERXLoading] = useState(false);
-  const [isErxPopupOpen, setIsErxPopupOpen] = useState(true);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
@@ -95,10 +92,6 @@ export const AppointmentSidePanel: FC = () => {
     ?.valueString;
   const addressLine2 = getQuestionnaireResponseByLinkId('patient-street-address-2', questionnaireResponse)?.answer?.[0];
 
-  const handleERXLoadingStatusChange = useCallback<(status: boolean) => void>(
-    (status) => setIsERXLoading(status),
-    [setIsERXLoading]
-  );
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isReadOnly = appointmentAccessibility.isAppointmentReadOnly;
 
@@ -124,9 +117,6 @@ export const AppointmentSidePanel: FC = () => {
 
   const [hasUnread, setHasUnread] = useState<boolean>(appointmentMessaging?.smsModel?.hasUnreadMessages || false);
 
-  // todo: add logic to check if erx is available
-  const isERxAvailable = true;
-
   if (!patient || !locationVirtual) {
     return null;
   }
@@ -138,10 +128,6 @@ export const AppointmentSidePanel: FC = () => {
   const delimeterString = preferredLanguage && isSpanish(preferredLanguage) ? `\u00A0|\u00A0` : '';
   const interpreterString =
     preferredLanguage && isSpanish(preferredLanguage) ? `Interpreter: ${INTERPRETER_PHONE_NUMBER}` : '';
-
-  const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
-  };
 
   const paperworkAllergiesYesNo = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
 
@@ -322,45 +308,21 @@ export const AppointmentSidePanel: FC = () => {
 
           {
             <Box sx={{ position: 'relative', zIndex: 10000 }}>
-              <Box
-                onMouseEnter={() => {
-                  if (appointmentAccessibility.isAppointmentReadOnly) {
-                    setIsErxPopupOpen(false);
-                  }
+              <RoundedButton
+                size="small"
+                variant="outlined"
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  borderRadius: 10,
                 }}
-                onMouseLeave={() => setIsErxPopupOpen(true)}
+                startIcon={<MedicationOutlinedIcon />}
+                onClick={() => useAppointmentStore.setState({ currentTab: TelemedAppointmentVisitTabs.plan })}
+                disabled={appointmentAccessibility.isAppointmentReadOnly}
               >
-                {!isErxPopupOpen && !isERxAvailable && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      zIndex: 10000,
-                      bottom: '100%',
-                      left: -5,
-                      width: '350px',
-                      pb: 1,
-                    }}
-                  >
-                    <CompleteConfiguration handleSetup={handleSetup} />
-                  </Box>
-                )}
-                <LoadingButton
-                  size="small"
-                  variant="outlined"
-                  sx={{
-                    textTransform: 'none',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    borderRadius: 10,
-                  }}
-                  startIcon={<MedicationOutlinedIcon />}
-                  onClick={() => setIsERXOpen(true)}
-                  loading={isERXLoading}
-                  disabled={appointmentAccessibility.isAppointmentReadOnly}
-                >
-                  RX
-                </LoadingButton>
-              </Box>
+                RX
+              </RoundedButton>
             </Box>
           }
         </Box>
@@ -435,7 +397,7 @@ export const AppointmentSidePanel: FC = () => {
         </Box>
 
         {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}
-        {isERXOpen && <ERX onClose={() => setIsERXOpen(false)} onLoadingStatusChange={handleERXLoadingStatusChange} />}
+
         {isEditDialogOpen && (
           <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />
         )}
