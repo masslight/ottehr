@@ -182,5 +182,4 @@ export type MarkAsCollectedData = {
     collectedBy: { id: string; name: string };
     collectionDate: string;
   };
-  notes: string;
 };

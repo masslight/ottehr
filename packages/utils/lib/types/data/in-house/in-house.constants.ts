@@ -1,6 +1,12 @@
 import { CodeableConcept } from 'fhir/r4b';
 import { TestStatus } from './in-house.types';
 
+export enum PageName {
+  collectSample,
+  performEnterResults,
+  final,
+}
+
 export enum LoadingState {
   initial,
   loading,

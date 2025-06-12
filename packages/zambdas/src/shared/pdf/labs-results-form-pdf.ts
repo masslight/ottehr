@@ -12,6 +12,7 @@ import {
   ImageStyle,
 } from './types';
 import {
+  compareDates,
   createFilesDocumentReferences,
   LAB_ORDER_DOC_REF_CODING_CODE,
   LAB_ORDER_TASK,
@@ -44,7 +45,6 @@ import {
 } from 'fhir/r4b';
 import { getLabOrderResources } from '../../ehr/shared/labs';
 import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
-import { compareDates } from '../../ehr/get-lab-orders/helpers';
 
 const ORDER_RESULT_ITEM_UNKNOWN = 'UNKNOWN';
 
