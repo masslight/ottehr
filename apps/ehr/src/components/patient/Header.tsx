@@ -21,7 +21,6 @@ export const Header: FC<HeaderProps> = ({ handleDiscard, id }) => {
   // todo: product has said that on screens with no specific encounter, use the latest encounter for the label
   // which seems ok for now but might change later
   const latestAppointmentEncounter = appointments?.[0].encounter;
-  console.log('>>>this is the latestAppointmentEncounter', JSON.stringify(latestAppointmentEncounter, undefined, 2));
 
   return (
     <Box
