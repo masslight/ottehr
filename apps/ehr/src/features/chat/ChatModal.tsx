@@ -254,7 +254,7 @@ const ChatModal = memo(
 
     const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery(
       (data) => {
-        if (!data.transactionalSMSConfig) {
+        if (!data.transactionalSMSConfig && !data.conversationConfig) {
           setIsMessagingSetup(false);
         }
       },
