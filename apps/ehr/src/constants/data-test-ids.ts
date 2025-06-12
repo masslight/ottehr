@@ -1,9 +1,9 @@
 import {
   ApptTelemedTab,
+  DispositionType,
   ExamCardsNames,
   ExamFieldsNames,
   ExamTabCardNames,
-  DispositionType,
   PractitionerQualificationCode,
   RoleType,
   TelemedAppointmentVisitTabs,
@@ -233,6 +233,7 @@ export const dataTestIds = {
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
+    trackingBoardLocationsSelectOption: (id: string) => `telemed-tracking-board-location-select-option-${id}`,
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
