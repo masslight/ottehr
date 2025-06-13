@@ -783,7 +783,7 @@ export const getAvailableSlotsForSchedules = async (
         return scheduleId === scheduleTemp.schedule.id && !getSlotIsPostTelemed(slot);
       });
       // console.log('getting post telemed slots');
-      // todo: 1.9 check busy slots for telemed
+      // todo: check busy slots for telemed
       const telemedTimes = getPostTelemedSlots(now, scheduleTemp.schedule, []);
       const slotStartsForSchedule = getAvailableSlots({
         now,

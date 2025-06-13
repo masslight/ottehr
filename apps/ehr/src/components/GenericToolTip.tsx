@@ -5,7 +5,7 @@ import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutl
 import { Box, styled, Tooltip, tooltipClasses, TooltipProps, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 export const GenericToolTip = styled(
   ({ className, customWidth, ...props }: TooltipProps & { customWidth?: number | string }) => (

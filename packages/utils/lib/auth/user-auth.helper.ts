@@ -30,14 +30,6 @@ export async function getPatientsForUser(user: User, oystehr: Oystehr): Promise<
   return resourcesTemp as Patient[];
 }
 
-export async function userHasAccessToPatient(user: User, patientID: string, oystehr: Oystehr): Promise<boolean> {
-  // Get all of the patients the user has access to,
-  // get the ID for each patient,
-  // check any of those patients match the patientID parameter,
-  // if so return true otherwise return false
-  return (await getPatientsForUser(user, oystehr)).some((patientTemp) => patientTemp.id === patientID);
-}
-
 export async function getRelatedPersonForPatient(
   patientID: string,
   oystehr: Oystehr
