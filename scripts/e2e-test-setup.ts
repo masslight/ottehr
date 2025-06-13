@@ -147,14 +147,18 @@ async function getLocationsForTesting(
   });
 
   const defaultGroupRelatedResources = defaultGroupRelatedResourcesResponse.unbundle();
+
   const defaultGroupLocationsAndPractitioners = defaultGroupRelatedResources.filter(
-    (res) => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
+    (res): res is Location | Practitioner => res.resourceType === 'Location' || res.resourceType === 'Practitioner'
   );
-  const defaultGroupSchedules = defaultGroupRelatedResources.filter((res) => res.resourceType === 'Schedule');
+
+  const defaultGroupSchedules = defaultGroupRelatedResources.filter(
+    (res): res is Schedule => res.resourceType === 'Schedule'
+  );
 
   const locationsAndSchedules = locationsResponse.unbundle();
-  const locations = locationsAndSchedules.filter((res) => res.resourceType === 'Location');
-  const schedules = locationsAndSchedules.filter((res) => res.resourceType === 'Schedule');
+  const locations = locationsAndSchedules.filter((res): res is Location => res.resourceType === 'Location');
+  const schedules = locationsAndSchedules.filter((res): res is Schedule => res.resourceType === 'Schedule');
 
   const virtualLocations = locations.filter(isLocationVirtual);
 
@@ -288,6 +292,7 @@ async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
       });
     } catch (error) {
       console.error('Error updating e2e test practitioner qualifications', error);
+      throw error;
     }
   }
 }
@@ -314,8 +319,9 @@ export async function createTestEnvFiles(): Promise<void> {
     try {
       existingEhrConfig = JSON.parse(fs.readFileSync(`apps/ehr/env/tests.${environment}.json`, 'utf8')) as EhrConfig;
       console.log('Found existing EHR test config file');
-    } catch {
+    } catch (error) {
       console.log('No existing EHR test config file found');
+      throw error;
     }
 
     try {
@@ -323,8 +329,9 @@ export async function createTestEnvFiles(): Promise<void> {
         fs.readFileSync(`apps/intake/env/tests.${environment}.json`, 'utf8')
       ) as IntakeConfig;
       console.log('Found existing Intake test config file');
-    } catch {
+    } catch (error) {
       console.log('No existing Intake test config file found');
+      throw error;
     }
 
     let ehrTextUsername = '';
@@ -432,12 +439,17 @@ export async function createTestEnvFiles(): Promise<void> {
     } else {
       await setTestEhrUserCredentials(ehrConfig);
     }
-  } catch (e) {
-    console.error('Error creating env files for tests', e, JSON.stringify(e));
+  } catch (error) {
+    console.error('Error: failed to create env files for tests');
+    throw error;
   }
 }
 
-createTestEnvFiles().catch(() => process.exit(1));
+createTestEnvFiles().catch((error) => {
+  console.error(error?.message);
+  console.error(error?.stack);
+  process.exit(1);
+});
 
 const FULL_DAY_SCHEDULE = `{
   "schedule": {
@@ -687,7 +699,7 @@ async function ensureOwnerResourceSchedulesAndSlots(
   );
 
   const schedulePostRequests: BatchInputPostRequest<Schedule>[] = [];
-  const ownerUpdateRequests: BatchInputPutRequest<Location | Practitioner>[] = [];
+  const ownerUpdateRequests: BatchInputPutRequest<Location | Practitioner | Schedule>[] = [];
   const scheduleUpdateRequests: BatchInputPutRequest<Schedule>[] = [];
 
   if (ownerSchedules.length === 0) {
@@ -747,7 +759,7 @@ async function ensureOwnerResourceSchedulesAndSlots(
   }
 }
 
-function createScheduleRequest(owner: Location | Practitioner): BatchInputPostRequest<Schedule> {
+function createScheduleRequest(owner: Location | Practitioner | Schedule): BatchInputPostRequest<Schedule> {
   const ownerSchedule: Schedule = {
     resourceType: 'Schedule',
     active: true,

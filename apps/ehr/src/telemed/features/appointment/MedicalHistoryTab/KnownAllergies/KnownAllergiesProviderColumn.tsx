@@ -28,7 +28,6 @@ import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { DeleteIconButton } from '../../../../components';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { CompleteConfiguration } from '../../../../../components/CompleteConfiguration';
 import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 
 export const KnownAllergiesProviderColumn: FC = () => {
@@ -229,7 +228,6 @@ const AllergyListItem: FC<{ value: AllergyDTO; index: number; length: number }> 
 const AddAllergyField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
-  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
 
   const methods = useForm<{ value: ExtractObjectType<ErxSearchAllergensResponse> | null }>({
     defaultValues: { value: null },
@@ -299,10 +297,6 @@ const AddAllergyField: FC = () => {
     }
   };
 
-  const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
-  };
-
   return (
     <Card
       elevation={0}
@@ -340,22 +334,19 @@ const AddAllergyField: FC = () => {
                 : 'Start typing to load results'
             }
             renderInput={(params) => (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <TextField
-                  {...params}
-                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                  data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput}
-                  label="Agent/Substance"
-                  placeholder="Search"
-                  InputLabelProps={{ shrink: true }}
-                  sx={{
-                    '& .MuiInputLabel-root': {
-                      fontWeight: 'bold',
-                    },
-                  }}
-                />
-                {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />}
-              </Box>
+              <TextField
+                {...params}
+                onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                data-testid={dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput}
+                label="Agent/Substance"
+                placeholder="Search"
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiInputLabel-root': {
+                    fontWeight: 'bold',
+                  },
+                }}
+              />
             )}
           />
         )}
