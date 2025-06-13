@@ -60,6 +60,8 @@ export const InHouseLabsNotesCard: React.FC<InHouseLabsNotesCardProps> = ({
         value={notes}
         onChange={(e) => handleNotesUpdate?.(e.target.value)}
         variant="outlined"
+        multiline
+        maxRows={4}
         sx={{ ...sxStyling }}
       />
     </Box>
