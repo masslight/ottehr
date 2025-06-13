@@ -79,6 +79,7 @@ const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
   'Nebulizer Treatment (e.g., Albuterol)': {
     code: '94640',
     display:
+      // cSpell:disable-next IPPB
       'Pressurized or non-pressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device',
   },
   'Wart Treatment (Cryotherapy with Liquid Nitrogen': {

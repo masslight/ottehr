@@ -18,6 +18,7 @@
   ],
   "ignorePaths": [
     "**/package.json",
+    "**/seed-ehr-appointment-data.json",
     "**/i18n-es.json"
   ],
   "words": [

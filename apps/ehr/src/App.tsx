@@ -120,6 +120,7 @@ function App(): ReactElement {
   // we may use sleep + page.refresh() and other workarounds, but better to run photon tests separately and don't affect other tests
   const photonDisabledByEnv = import.meta.env.VITE_APP_CI_PHOTON_DISABLED === 'true';
   const photonEnabledForUser = currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInPhoton;
+  // cSpell:disable-next e2e user
   const isE2EUser = currentUser?.email?.includes('e2euser');
   const shouldUsePhoton = !photonDisabledByEnv && !isE2EUser && (photonEnabledForUser || wasEnrolledInPhoton);
 

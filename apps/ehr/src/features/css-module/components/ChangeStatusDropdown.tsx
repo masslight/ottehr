@@ -35,6 +35,7 @@ const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }
         transform: 'translateY(-50%)',
         width: '10px',
         height: '7px',
+        // cSpell:disable-next %3C svg
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='7' viewBox='0 0 10 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 6.83317L0 1.83317L1.16667 0.666504L5 4.49984L8.83333 0.666504L10 1.83317L5 6.83317Z' fill='${encodeURIComponent(
           arrowColor
         )}'/%3E%3C/svg%3E")`,

@@ -14,6 +14,7 @@ export enum ReasonListCodes {
   PATIENT_REFUSED = 'patient-refused',
   CARE_GIVER_REFUSED = 'caregiver-refused',
   NOT_APPROPRIATE_AT_THIS_TIME = 'not-appropriate-at-this-time',
+  // cSpell:disable-next didnt
   PATIENT_DID_NOT_TOLERATE_MEDICATION = 'patient-didnt-tolerate-medication',
   OTHER = 'other',
 }

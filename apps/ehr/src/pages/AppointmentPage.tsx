@@ -233,6 +233,7 @@ export default function AppointmentPage(): ReactElement {
     ) as unknown as RelatedPerson;
     if (fhirRelatedPerson) {
       const isUserRelatedPerson = fhirRelatedPerson.relationship?.find(
+        // cSpell:disable-next relatedperson
         (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {

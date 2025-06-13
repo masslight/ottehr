@@ -395,6 +395,8 @@ test('table interactions', async ({ page }) => {
 
 ## Troubleshooting
 
+<!-- cSpell:disable-next SEGV_ACCERR -->
+
 Chromium failed with signal 11 (SEGV_ACCERR):
 
 ```
