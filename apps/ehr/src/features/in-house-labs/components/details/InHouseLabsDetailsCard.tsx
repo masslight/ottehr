@@ -1,17 +1,15 @@
-import { Box, Button, Collapse, Typography, IconButton } from '@mui/material';
+import { Box, Collapse, Typography, IconButton } from '@mui/material';
 import { InHouseOrderDetailPageItemDTO, PageName } from 'utils';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { InHouseLabOrderHistory } from './InHouseLabOrderHistory';
 import { InHouseLabsNotesCard } from './InHouseLabsNotesCard';
-import { BiotechOutlined } from '@mui/icons-material';
 
 interface InHouseLabsDetailsCardProps {
   testDetails: InHouseOrderDetailPageItemDTO;
   page: PageName;
   showDetails: boolean;
   setShowDetails: (bool: boolean) => void;
-  openPdf?: () => void;
 }
 
 export const InHouseLabsDetailsCard: React.FC<InHouseLabsDetailsCardProps> = ({
@@ -19,7 +17,6 @@ export const InHouseLabsDetailsCard: React.FC<InHouseLabsDetailsCardProps> = ({
   page,
   showDetails,
   setShowDetails,
-  openPdf,
 }) => {
   const showNotesCardAbove = testDetails.notes && page === PageName.collectSample;
   const showNotesCardBelowDetails = testDetails.notes && page !== PageName.collectSample;
@@ -36,18 +33,6 @@ export const InHouseLabsDetailsCard: React.FC<InHouseLabsDetailsCardProps> = ({
         />
       )}
       <Box display="flex" justifyContent={finalView ? 'space-between' : 'flex-end'} mt={2}>
-        {finalView && openPdf && (
-          <Button
-            variant="outlined"
-            color="primary"
-            sx={{ borderRadius: '50px', textTransform: 'none' }}
-            onClick={() => openPdf()}
-            startIcon={<BiotechOutlined />}
-            disabled={!testDetails.resultsPDFUrl}
-          >
-            Results PDF
-          </Button>
-        )}
         <Box
           sx={{
             display: 'flex',

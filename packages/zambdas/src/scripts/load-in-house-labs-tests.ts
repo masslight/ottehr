@@ -927,8 +927,8 @@ const testItems: TestItem[] = [
         loincCode: ['32710-6'],
         dataType: 'CodeableConcept' as const,
         valueSet: [
-          { code: 'Detected', display: 'Detected' },
           { code: 'Not detected', display: 'Not detected' },
+          { code: 'Detected', display: 'Detected' },
         ],
         abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {

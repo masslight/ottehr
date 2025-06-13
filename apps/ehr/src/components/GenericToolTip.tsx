@@ -12,7 +12,6 @@ export const GenericToolTip = styled(
     <Tooltip
       enterTouchDelay={0}
       placement="top-end"
-      {...props}
       classes={{ popper: className }}
       slotProps={{
         tooltip: {
@@ -24,6 +23,7 @@ export const GenericToolTip = styled(
           },
         },
       }}
+      {...props}
     />
   )
 )(({ theme }) => ({
