@@ -9,7 +9,18 @@ import {
   InHouseOrderDetailPageItemDTO,
   IN_HOUSE_TAG_DEFINITION,
 } from 'utils';
-import { Coding, Task, ServiceRequest, Provenance, Encounter, Specimen, ActivityDefinition } from 'fhir/r4b';
+import {
+  Coding,
+  Task,
+  ServiceRequest,
+  Provenance,
+  Encounter,
+  Specimen,
+  ActivityDefinition,
+  DiagnosticReport,
+  Observation,
+  FhirResource,
+} from 'fhir/r4b';
 
 export function getAttendingPractionerId(encounter: Encounter): string {
   const practitionerId = encounter.participant
@@ -170,6 +181,186 @@ export const taskIsBasedOnServiceRequest = (task: Task, serviceRequest: ServiceR
 
 export const provenanceIsTargetOfServiceRequest = (provenance: Provenance, serviceRequest: ServiceRequest): boolean => {
   return !!provenance.target?.some((target) => target.reference === `ServiceRequest/${serviceRequest.id}`);
+};
+
+export const getServiceRequestsRelatedViaRepeat = (
+  serviceRequests: ServiceRequest[],
+  serviceRequestSearchId: string
+): ServiceRequest[] => {
+  let serviceRequestSearched: ServiceRequest | undefined;
+  const additionalServiceRequests = serviceRequests.reduce((acc: ServiceRequest[], sr) => {
+    if (sr.id) {
+      if (sr.id !== serviceRequestSearchId) {
+        acc.push(sr);
+      } else {
+        serviceRequestSearched = sr;
+      }
+    }
+    return acc;
+  }, []);
+
+  const serviceRequestsRelatedViaRepeat: ServiceRequest[] = [];
+  if (additionalServiceRequests.length > 0 && serviceRequestSearched) {
+    // was the service request passed as the search param the initial test or ran as repeat?
+    const intialServiceRequestId = serviceRequestSearched?.basedOn
+      ? serviceRequestSearched.basedOn[0].reference?.replace('ServiceRequest/', '')
+      : serviceRequestSearched?.id;
+    console.log('intialServiceRequestId,', intialServiceRequestId);
+    additionalServiceRequests.forEach((sr) => {
+      // confirm its indeed related to the repeat testing group
+      // tbh this check might be overkill
+      const basedOn = sr.basedOn?.[0].reference?.replace('ServiceRequest/', '');
+      if (sr.id === intialServiceRequestId || (basedOn && basedOn === intialServiceRequestId)) {
+        serviceRequestsRelatedViaRepeat.push(sr);
+      }
+    });
+  }
+  return serviceRequestsRelatedViaRepeat;
+};
+
+interface RepeatSrResourceConfig {
+  [srId: string]: {
+    diagnosticReports: DiagnosticReport[];
+    observations: Observation[];
+    provenances: Provenance[];
+    tasks: Task[];
+    specimens: Specimen[];
+  };
+}
+export const fetchResultResourcesForRepeatServiceRequest = async (
+  oystehr: Oystehr,
+  serviceRequests: ServiceRequest[]
+): Promise<{
+  repeatDiagnosticReports: DiagnosticReport[];
+  repeatObservations: Observation[];
+  repeatProvenances: Provenance[];
+  repeatTasks: Task[];
+  repeatSpecimens: Specimen[];
+  srResourceMap: RepeatSrResourceConfig;
+}> => {
+  console.log('making requests for additional service requests representing related repeat tests');
+  let srResourceMap: RepeatSrResourceConfig = makeSrResourceMap(serviceRequests);
+  const resources = (
+    await oystehr.fhir.search<ServiceRequest | DiagnosticReport | Observation | Provenance | Task | Specimen>({
+      resourceType: 'ServiceRequest',
+      params: [
+        {
+          name: '_id',
+          value: serviceRequests.map((sr) => sr.id).join(','),
+        },
+        {
+          name: '_revinclude',
+          value: 'DiagnosticReport:based-on',
+        },
+        {
+          name: '_revinclude',
+          value: 'Observation:based-on',
+        },
+        {
+          name: '_revinclude',
+          value: 'Provenance:target',
+        },
+        {
+          name: '_revinclude',
+          value: 'Task:based-on',
+        },
+        {
+          name: '_include',
+          value: 'ServiceRequest:specimen',
+        },
+      ],
+    })
+  ).unbundle();
+  const repeatDiagnosticReports: DiagnosticReport[] = [];
+  const repeatObservations: Observation[] = [];
+  const repeatProvenances: Provenance[] = [];
+  const repeatTasks: Task[] = [];
+  const repeatSpecimens: Specimen[] = [];
+  resources.forEach((r) => {
+    if (r.resourceType === 'DiagnosticReport') {
+      repeatDiagnosticReports.push(r);
+      srResourceMap = addToSrResourceMap(r, 'diagnosticReports', srResourceMap);
+    }
+    if (r.resourceType === 'Observation') {
+      repeatObservations.push(r);
+      srResourceMap = addToSrResourceMap(r, 'observations', srResourceMap);
+    }
+    if (r.resourceType === 'Provenance') {
+      repeatProvenances.push(r);
+      srResourceMap = addToSrResourceMap(r, 'provenances', srResourceMap);
+    }
+    if (r.resourceType === 'Task') {
+      repeatTasks.push(r);
+      srResourceMap = addToSrResourceMap(r, 'tasks', srResourceMap);
+    }
+    if (r.resourceType === 'Specimen') {
+      repeatSpecimens.push(r);
+      srResourceMap = addToSrResourceMap(r, 'specimens', srResourceMap);
+    }
+  });
+  console.log('srResourceMap', JSON.stringify(srResourceMap));
+  return {
+    repeatDiagnosticReports,
+    repeatObservations,
+    repeatProvenances,
+    repeatTasks,
+    repeatSpecimens,
+    srResourceMap,
+  };
+};
+
+const makeSrResourceMap = (serviceRequests: ServiceRequest[]): RepeatSrResourceConfig => {
+  const config = serviceRequests.reduce((acc: RepeatSrResourceConfig, sr) => {
+    if (sr.id) {
+      acc[sr.id] = {
+        diagnosticReports: [],
+        observations: [],
+        provenances: [],
+        tasks: [],
+        specimens: [],
+      };
+    }
+    return acc;
+  }, {});
+  return config;
+};
+
+const getSrIdFromResource = (resource: FhirResource): string | undefined => {
+  switch (resource.resourceType) {
+    case 'DiagnosticReport':
+    case 'Observation':
+    case 'Task':
+      return resource.basedOn
+        ?.find((based) => based.reference?.startsWith('ServiceRequest/'))
+        ?.reference?.replace('ServiceRequest/', '');
+    case 'Provenance':
+      return resource.target
+        ?.find((tar) => tar.reference?.startsWith('ServiceRequest/'))
+        ?.reference?.replace('ServiceRequest/', '');
+    case 'Specimen':
+      return resource.request
+        ?.find((tar) => tar.reference?.startsWith('ServiceRequest/'))
+        ?.reference?.replace('ServiceRequest/', '');
+    default:
+      return undefined;
+  }
+};
+
+const addToSrResourceMap = (
+  resource: FhirResource,
+  addTo: keyof RepeatSrResourceConfig[string],
+  srResourceMap: RepeatSrResourceConfig
+): RepeatSrResourceConfig => {
+  const srId = getSrIdFromResource(resource);
+  if (!srId || !srResourceMap[srId]) return srResourceMap;
+
+  return {
+    ...srResourceMap,
+    [srId]: {
+      ...srResourceMap[srId],
+      [addTo]: [...(srResourceMap[srId][addTo] as any[]), resource],
+    },
+  };
 };
 
 export const fetchInHouseLabActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
