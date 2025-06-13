@@ -39,7 +39,6 @@ export const RadiologyOrdersListPage: React.FC = () => {
         columns={radiologyColumns}
         showFilters={false}
         allowDelete={true}
-        redirectToOrderCreateIfOrdersEmpty={true}
         onCreateOrder={handleCreateOrder}
       />
     </Stack>

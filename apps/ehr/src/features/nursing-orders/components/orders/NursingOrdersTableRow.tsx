@@ -1,21 +1,37 @@
-import { TableCell, TableRow, Box } from '@mui/material';
+import { TableCell, TableRow, Box, IconButton } from '@mui/material';
 import { DateTime } from 'luxon';
 import { ReactElement } from 'react';
 import { NursingOrdersStatusChip } from '../NursingOrdersStatusChip';
 import { NursingOrdersTableColumn } from './NursingOrdersTable';
-
+import { deleteIcon } from 'ui-components/lib/assets';
+import { NursingOrder } from 'utils';
+import { useUpdateNursingOrder } from './useNursingOrders';
 interface NursingOrdersTableRowProps {
   columns: NursingOrdersTableColumn[];
-  nursingOrderData: any;
+  nursingOrderData: NursingOrder;
+  refetchOrders: () => void;
   onRowClick?: () => void;
-  allowDelete?: boolean;
 }
 
 export const NursingOrdersTableRow = ({
   nursingOrderData,
   columns,
+  refetchOrders,
   onRowClick,
 }: NursingOrdersTableRowProps): ReactElement => {
+  const { updateNursingOrder } = useUpdateNursingOrder({
+    serviceRequestId: nursingOrderData.serviceRequestId,
+    action: 'CANCEL ORDER',
+  });
+
+  const handleCancel = async (): Promise<void> => {
+    try {
+      await updateNursingOrder();
+    } catch (error) {
+      console.error('Error cancelling nursing order:', error);
+    }
+  };
+
   const formatDate = (datetime: string): string => {
     if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
     return DateTime.fromISO(datetime).setZone(nursingOrderData.encounterTimezone).toFormat('MM/dd/yyyy hh:mm a');
@@ -26,7 +42,7 @@ export const NursingOrdersTableRow = ({
       case 'order':
         return (
           <Box>
-            <Box>{nursingOrderData.order}</Box>
+            <Box>{nursingOrderData.note}</Box>
           </Box>
         );
       case 'orderAdded':
@@ -37,7 +53,22 @@ export const NursingOrdersTableRow = ({
           </Box>
         );
       case 'status':
-        return <NursingOrdersStatusChip status={nursingOrderData.orderStatus} />;
+        return (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {nursingOrderData.status && <NursingOrdersStatusChip status={nursingOrderData.status} />}
+            {nursingOrderData.status === 'pending' && (
+              <IconButton
+                onClick={async (event) => {
+                  event.stopPropagation();
+                  await handleCancel();
+                  refetchOrders();
+                }}
+              >
+                <img alt="delete icon" src={deleteIcon} width={18} />
+              </IconButton>
+            )}
+          </Box>
+        );
       default:
         return null;
     }
