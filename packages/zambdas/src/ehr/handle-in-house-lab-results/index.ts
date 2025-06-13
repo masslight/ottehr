@@ -276,10 +276,6 @@ const getInHouseLabResultResources = async (
   const location = locations.length ? locations[0] : undefined;
 
   const { url: adUrl, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
-  if (!version)
-    throw new Error(
-      `Missing version for AD canonical url written in instantiatesCanonical for ServiceRequest ${serviceRequest.id}`
-    );
 
   const [currentUserPractitioner, attendingPractitioner, activityDefinitionSearch] = await Promise.all([
     oystehr.fhir.get<Practitioner>({
@@ -306,7 +302,7 @@ const getInHouseLabResultResources = async (
 
   const activityDefinitions = activityDefinitionSearch.unbundle();
 
-  if (activityDefinitions.length !== 1) throw new Error('Only one active activity definition should be returned');
+  if (activityDefinitions.length !== 1) throw new Error('Only one activity definition should be returned');
 
   return {
     serviceRequest,

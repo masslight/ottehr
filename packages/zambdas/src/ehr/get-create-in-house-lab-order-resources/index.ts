@@ -18,7 +18,7 @@ import {
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { Encounter, Practitioner, Location } from 'fhir/r4b';
-import { fetchInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
+import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
 
 let m2mtoken: string;
 
@@ -136,13 +136,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     })();
 
-    const activityDefinitions = await fetchInHouseLabActivityDefinitions(oystehr);
+    const activeActivityDefinitions = await fetchActiveInHouseLabActivityDefinitions(oystehr);
 
-    console.log(`Found ${activityDefinitions.length} ActivityDefinition resources`);
+    console.log(`Found ${activeActivityDefinitions.length} active ActivityDefinition resources`);
 
     const testItems: TestItem[] = [];
 
-    for (const activeDefinition of activityDefinitions) {
+    for (const activeDefinition of activeActivityDefinitions) {
       const testItem = convertActivityDefinitionToTestItem(activeDefinition);
       testItems.push(testItem);
     }

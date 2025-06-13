@@ -363,7 +363,7 @@ const addToSrResourceMap = (
   };
 };
 
-export const fetchInHouseLabActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
+export const fetchActiveInHouseLabActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
   return oystehr.fhir
     .search<ActivityDefinition>({
       resourceType: 'ActivityDefinition',
@@ -377,11 +377,13 @@ export const fetchInHouseLabActivityDefinitions = async (oystehr: Oystehr): Prom
 
 export const getUrlAndVersionForADFromServiceRequest = (
   serviceRequest: ServiceRequest
-): { url: string; version: string | undefined } => {
+): { url: string; version: string } => {
   const adUrl = serviceRequest.instantiatesCanonical?.[0].split('|')[0];
-  if (!adUrl) throw new Error(`error parsing instantiatesCanonical url for SR ${serviceRequest.id}`);
-  // version is not included in older SR.instantiatesCanonical urls
   const version = serviceRequest.instantiatesCanonical?.[0].split('|')[1];
+  if (!adUrl || !version)
+    throw new Error(
+      `error parsing instantiatesCanonical url for SR ${serviceRequest.id}, either the url or the version could not be parsed: ${adUrl} ${version}`
+    );
   console.log('AD url and version parsed:', adUrl, version);
   return { url: adUrl, version };
 };

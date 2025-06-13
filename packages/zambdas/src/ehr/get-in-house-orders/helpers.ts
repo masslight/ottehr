@@ -26,11 +26,7 @@ import {
   InHouseGetOrdersResponseDTO,
 } from 'utils';
 import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
-import {
-  getSpecimenDetails,
-  taskIsBasedOnServiceRequest,
-  fetchInHouseLabActivityDefinitions,
-} from '../shared/inhouse-labs';
+import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
 import {
   EMPTY_PAGINATION,
   isPositiveNumberOrZero,
@@ -115,10 +111,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
         })
       );
     } catch (error) {
-      console.error(
-        `Error parsing order data for service request ${serviceRequest.id}:`,
-        typeof error === 'string' ? error : JSON.stringify(error, null, 2)
-      );
+      console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
       void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
     }
   }
@@ -278,8 +271,17 @@ export const getInHouseResources = async (
 
   const pagination = parsePaginationFromResponse(inHouseOrdersResponse);
 
-  const { serviceRequests, tasks, encounters, locations, provenances, specimens, observations, diagnosticReports } =
-    extractInHouseResources(resources);
+  const {
+    serviceRequests,
+    tasks,
+    encounters,
+    locations,
+    provenances,
+    specimens,
+    observations,
+    diagnosticReports,
+    activityDefinitions,
+  } = extractInHouseResources(resources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
@@ -321,10 +323,9 @@ export const getInHouseResources = async (
 
   const timezone = locations[0] ? getTimezone(locations[0]) : undefined;
 
-  const [practitioners, appointments, activityDefinitions] = await Promise.all([
+  const [practitioners, appointments] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchInHouseLabActivityDefinitions(oystehr),
   ]);
 
   return {
@@ -390,6 +391,10 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
     {
       name: '_include:iterate',
       value: 'Encounter:location',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:instantiates-canonical',
     },
   ];
 
@@ -471,6 +476,7 @@ export const extractInHouseResources = (
   specimens: Specimen[];
   observations: Observation[];
   diagnosticReports: DiagnosticReport[];
+  activityDefinitions: ActivityDefinition[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -480,6 +486,7 @@ export const extractInHouseResources = (
   const specimens: Specimen[] = [];
   const observations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
+  const activityDefinitions: ActivityDefinition[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -498,6 +505,8 @@ export const extractInHouseResources = (
       observations.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource);
+    } else if (resource.resourceType === 'ActivityDefinition') {
+      activityDefinitions.push(resource);
     }
   }
 
@@ -510,6 +519,7 @@ export const extractInHouseResources = (
     specimens,
     observations,
     diagnosticReports,
+    activityDefinitions,
   };
 };
 
@@ -592,9 +602,9 @@ export const findActivityDefinitionForServiceRequest = (
   const { url, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
 
   return activityDefinitions.find((ad) => {
-    let versionMatch = true;
-    if (version) versionMatch = ad.version === version;
-    return versionMatch && ad.url === url;
+    const versionMatch = ad.version === version;
+    const urlMatch = ad.url === url;
+    return versionMatch && urlMatch;
   });
 };
 
