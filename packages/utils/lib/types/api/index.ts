@@ -28,4 +28,5 @@ export * from './patient-account';
 export * from './radiology';
 export * from './schedules';
 export * from './send-fax.types';
+export * from './procedures.constants';
 export * from './patient-payment-types';

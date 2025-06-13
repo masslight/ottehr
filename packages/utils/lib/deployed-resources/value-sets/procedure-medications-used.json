@@ -1,0 +1,42 @@
+{
+    "resourceType": "ValueSet",
+    "url": "https://fhir.ottehr.com/ValueSet/procedure-medications-used",
+    "version": "1.0.0",
+    "name": "Procedures - Medication used",
+    "status": "active",
+    "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "None"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Topical"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Local"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Oral"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "IV"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "IM"
+            }
+        ]
+    }
+}

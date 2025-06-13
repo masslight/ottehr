@@ -1,0 +1,37 @@
+{
+    "resourceType": "ValueSet",
+    "url": "https://fhir.ottehr.com/ValueSet/procedure-complications",
+    "version": "1.0.0",
+    "name": "Procedures - Complications",
+    "status": "active",
+    "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "None"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Bleeding"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Incomplete Removal"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Allergic Reaction"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Other"
+            }
+        ]
+    }
+}

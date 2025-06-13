@@ -1,0 +1,220 @@
+{
+    "resourceType": "ValueSet",
+    "url": "https://fhir.ottehr.com/ValueSet/procedure-type",
+    "version": "1.0.0",
+    "name": "Procedures - Procedure type",
+    "status": "active",
+    "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Laceration Repair (Suturing/Stapling)"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Wound Care / Dressing Change"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Splint Application / Immobilization"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Incision and Drainage (I&D) of Abscess"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Reduction of Nursemaid’s Elbow"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Burn Treatment / Dressing"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Foreign Body Removal (Skin, Ear, Nose, Eye)"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Nail Trephination (Subungual Hematoma Drainage)",
+                "extension": [
+                    {
+                        "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "stub",
+                                    "code": "11740",
+                                    "display": "Evacuation of subungual hematoma"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Tick or Insect Removal",
+                "extension": [
+                    {
+                        "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "stub",
+                                    "code": "10120",
+                                    "display": "Incision and removal of foreign body, subcutaneous tissues; simple"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Staple or Suture Removal"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Intravenous (IV) Catheter Placement"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "IV Fluid Administration"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Intramuscular (IM) Medication Injection",
+                "extension": [
+                    {
+                        "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "stub",
+                                    "code": "96372",
+                                    "display": "Therapeutic, prophylactic, or diagnostic injection (specify substance or drug); subcutaneous or intramuscular"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Nebulizer Treatment (e.g., Albuterol)",
+                "extension": [
+                    {
+                        "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "stub",
+                                    "code": "94640",
+                                    "display": "Pressurized or nonpressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Oral Rehydration / Medication Administration (including challenge doses)"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Wart Treatment (Cryotherapy with Liquid Nitrogen",
+                "extension": [
+                    {
+                        "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "stub",
+                                    "code": "17110",
+                                    "display": "Destruction (eg, laser surgery, electrosurgery, cryosurgery, chemosurgery, surgical curettement), of benign lesions other than skin tags or cutaneous vascular proliferative lesions; up to 14 lesions"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Urinary Catheterization"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Ear Lavage / Cerumen Removal"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Nasal Packing (Epistaxis Control)",
+                "extension": [
+                    {
+                        "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "stub",
+                                    "code": "30901",
+                                    "display": "Control nasal hemorrhage, anterior, simple (limited cautery and/or packing) any method"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Eye Irrigation or Eye Foreign Body Removal"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "Nasal Lavage (schnozzle)"
+            },
+            {
+                "system": "stub",
+                "code": "stub",
+                "display": "EKG",
+                "extension": [
+                    {
+                        "url": "https://fhir.ottehr.com/Extension/procedure-type-cpt",
+                        "valueCodeableConcept": {
+                            "coding": [
+                                {
+                                    "system": "stub",
+                                    "code": "93000",
+                                    "display": "Electrocardiogram, routine ECG with at least 12 leads; with interpretation and report"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}
