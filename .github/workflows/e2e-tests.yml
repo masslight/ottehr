@@ -92,14 +92,6 @@ jobs:
           echo "cache_key=$CACHE_KEY" >> $GITHUB_OUTPUT
           echo "Generated cache key: $CACHE_KEY"
 
-      - name: Cache user.json
-        uses: actions/cache@v3
-        with:
-          path: apps/${{ matrix.app }}/playwright/user.json
-          key: ${{ steps.cache-key.outputs.cache_key }}
-          restore-keys: |
-            user-json-cache-${{ matrix.app }}-
-
       - name: Check out secrets repo
         uses: actions/checkout@v4
         with:
@@ -151,7 +143,7 @@ jobs:
           retention-days: 30
 
       - name: Validate user.json
-        if: always() && matrix.app == 'intake'
+        if: always()
         id: validate
         continue-on-error: true
         run: |
@@ -194,7 +186,7 @@ jobs:
           '
 
       - name: Save user.json to cache
-        if: always() && matrix.app == 'intake' && steps.validate.outcome == 'success'
+        if: always() && steps.validate.outcome == 'success'
         uses: actions/cache@v3
         with:
           path: apps/${{ matrix.app }}/playwright/user.json
