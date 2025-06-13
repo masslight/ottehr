@@ -158,6 +158,7 @@ jobs:
             const data = JSON.parse(fs.readFileSync(path, "utf8"));
             console.log("Successfully parsed user.json");
 
+            # may be outdated
             const hasAuth0Token = data.origins?.some(origin =>
               origin.localStorage &&
               Object.values(origin.localStorage)?.some?.(value => value?.name?.includes?.("auth0"))

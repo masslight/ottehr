@@ -65,16 +65,40 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: playwright-browsers-${{ matrix.app }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
+            playwright-browsers-${{ matrix.app }}
+            playwright-browsers-
+
+      - name: Generate cache key with 23-hour expiry
+        id: cache-key
+        run: |
+          # Create a cache key that changes every 23 hours
+          CURRENT_HOUR=$(date +%H)
+          CURRENT_DATE=$(date +%Y-%m-%d)
+           
+          # Calculate 23-hour blocks (0-22, then reset)
+          CACHE_BLOCK=$((CURRENT_HOUR / 23))
+        
+          # If we're in hour 23, use the next day's block 0
+          if [ $CURRENT_HOUR -eq 23 ]; then
+            CACHE_DATE=$(date -d "tomorrow" +%Y-%m-%d)
+            CACHE_BLOCK=0
+          else
+            CACHE_DATE=$CURRENT_DATE
+          fi
+            
+          CACHE_KEY="user-json-cache-${{ matrix.app }}-${CACHE_DATE}-${CACHE_BLOCK}"
+          echo "cache_key=$CACHE_KEY" >> $GITHUB_OUTPUT
+          echo "Generated cache key: $CACHE_KEY"
 
       - name: Cache user.json
-        if: matrix.app == 'intake'
         uses: actions/cache@v3
         with:
-          path: apps/intake/playwright/user.json
-          key: user-json-cache
+          path: apps/${{ matrix.app }}/playwright/user.json
+          key: ${{ steps.cache-key.outputs.cache_key }}
+          restore-keys: |
+            user-json-cache-${{ matrix.app }}-
 
       - name: Check out secrets repo
         uses: actions/checkout@v4
@@ -149,8 +173,10 @@ jobs:
             
             const hasAuth0Token = data.origins?.some(origin => 
               origin.localStorage && 
-              Object.values(origin.localStorage)?.some?.(value => value?.name?.includes?.("auth0"))
+              origin.localStorage.some(item => item.name?.includes?.("auth0"))
             );
+
+            console.log("Auth0 token stringified:", JSON.stringify(data.origins, null, 2));
             
             console.log("Has Auth0 token:", hasAuth0Token);
             
@@ -171,5 +197,5 @@ jobs:
         if: always() && matrix.app == 'intake' && steps.validate.outcome == 'success'
         uses: actions/cache@v3
         with:
-          path: apps/intake/playwright/user.json
-          key: user-json-cache
+          path: apps/${{ matrix.app }}/playwright/user.json
+          key: ${{ steps.cache-key.outputs.cache_key }}
