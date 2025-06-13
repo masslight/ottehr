@@ -11,6 +11,7 @@ interface RelatedPersonParams {
 export function createRelatedPerson({
   patientId,
   phoneNumber = '+12144985545',
+  // cSpell:disable-next relatedperson
   relationshipCode = 'user-relatedperson',
   relationshipSystem = 'https://fhir.zapehr.com/r4/StructureDefinitions/relationship',
 }: RelatedPersonParams): RelatedPerson {

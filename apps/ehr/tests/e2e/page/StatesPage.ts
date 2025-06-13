@@ -28,7 +28,7 @@ export class StatesPage extends PageWithTablePagination {
     await this.#page.getByTestId(dataTestIds.statesPage.stateRow(state)).locator('a').click();
   }
 
-  async getFisrtState(): Promise<string> {
+  async getFirstState(): Promise<string> {
     return (await this.#page.getByTestId(dataTestIds.statesPage.stateValue).first().locator('a').innerText()).substring(
       0,
       2

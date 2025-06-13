@@ -76,7 +76,7 @@ export const apiErrorToThrow = (error: any): APIError => {
   }
 };
 
-export function NotFoundApointmentErrorHandler(error: any): void {
+export function NotFoundAppointmentErrorHandler(error: any): void {
   if (error.message === 'Appointment is not found') {
     throw error;
   }

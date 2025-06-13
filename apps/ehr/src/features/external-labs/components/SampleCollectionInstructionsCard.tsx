@@ -139,7 +139,7 @@ export const SampleCollectionInstructionsCard: React.FC<SampleCollectionInstruct
           <Box sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             {error.map((msg, idx) => (
               <Box sx={{ textAlign: 'left', paddingTop: 1 }} key={idx}>
-                <Typography sx={{ color: theme.palette.error.main }} key={`errormsg-${idx}`}>
+                <Typography sx={{ color: theme.palette.error.main }} key={`errorMsg-${idx}`}>
                   {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
                 </Typography>
               </Box>

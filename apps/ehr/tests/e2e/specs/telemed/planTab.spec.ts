@@ -148,7 +148,7 @@ test.describe('Disposition', async () => {
     });
   });
 
-  test.describe('Speciality transfer', async () => {
+  test.describe('Specialty transfer', async () => {
     const resourceHandler = new ResourceHandler('telemed');
     let page: Page;
     const updatedNote = 'Lorem ipsum';
@@ -171,16 +171,16 @@ test.describe('Disposition', async () => {
 
     test.describe.configure({ mode: 'serial' });
 
-    test("Should check 'Follow up visit in' drop down and 'Note' field are present for 'Speciality transfer' selected", async () => {
+    test("Should check 'Follow up visit in' drop down and 'Note' field are present for 'Specialty transfer' selected", async () => {
       await page.getByTestId(dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.plan)).click();
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionContainer)).toBeVisible();
 
-      await page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionToggleButton('speciality')).click();
+      await page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionToggleButton('specialty')).click();
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionFollowUpDropdown)).toBeVisible();
       await expect(page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote)).toBeVisible();
     });
 
-    test("Should check 'Note' field is empty by default for 'Speciality transfer' selected", async () => {
+    test("Should check 'Note' field is empty by default for 'Specialty transfer' selected", async () => {
       await expect(
         page.getByTestId(dataTestIds.telemedEhrFlow.planTabDispositionNote).locator('textarea').first()
       ).toHaveText('');

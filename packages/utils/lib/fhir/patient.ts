@@ -599,7 +599,7 @@ export const checkEncounterHasPractitioner = (encounter: Encounter, practitioner
   return !!practitioner && !!encounterPractitioner && practitionerId === encounterPractitionerId;
 };
 
-export const getPractitionerNPIIdentitifier = (practitioner: Practitioner): Identifier | undefined => {
+export const getPractitionerNPIIdentifier = (practitioner: Practitioner): Identifier | undefined => {
   return practitioner.identifier?.find((existIdentifier) => existIdentifier.system === FHIR_IDENTIFIER_NPI);
 };
 

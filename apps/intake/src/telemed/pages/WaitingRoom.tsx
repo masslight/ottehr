@@ -12,7 +12,7 @@ import { CallSettings, CancelVisitDialog } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';
 import { InvitedParticipantListItemButton, ManageParticipantsDialog } from '../features/invited-participants';
-import { createIOSMesssageCallStarted, sendIOSAppMessage } from '../features/ios-communication';
+import { createIOSMessageCallStarted, sendIOSAppMessage } from '../features/ios-communication';
 import { useIOSAppSync } from '../features/ios-communication/useIOSAppSync';
 import { UploadPhotosDialog, UploadPhotosListItemButton } from '../features/upload-photos';
 import { useGetWaitStatus, useWaitingRoomStore } from '../features/waiting-room';
@@ -48,7 +48,7 @@ const WaitingRoom = (): JSX.Element => {
       if (data.status == 'on-video') {
         if (isIOSApp && currentAppointmentId) {
           try {
-            sendIOSAppMessage(createIOSMesssageCallStarted({ appointmentID: currentAppointmentId }));
+            sendIOSAppMessage(createIOSMessageCallStarted({ appointmentID: currentAppointmentId }));
             return;
           } catch (error) {
             safelyCaptureException(error);

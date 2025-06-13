@@ -464,7 +464,7 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
         },
         {
           name: '_revinclude:iterate',
-          value: 'Person:relatedperson',
+          value: 'Person:relatedPerson',
         },
         {
           name: '_revinclude:iterate',

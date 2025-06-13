@@ -196,7 +196,7 @@ export function resourceHasMetaTag(resource: Resource, metaTag: OTTEHR_MODULE): 
   return Boolean(resource.meta?.tag?.find((coding) => coding.code === metaTag));
 }
 
-export const formatPhoneNumberForQuestionarie = (phone: string): string => {
+export const formatPhoneNumberForQuestionnaire = (phone: string): string => {
   if (phone.length !== 10) {
     throw new Error('Invalid phone number');
   }
@@ -358,7 +358,7 @@ export function getContactInformationAnswers({
         linkId: 'patient-number',
         answer: [
           {
-            valueString: formatPhoneNumberForQuestionarie(phoneNumber),
+            valueString: formatPhoneNumberForQuestionnaire(phoneNumber),
           },
         ],
       },

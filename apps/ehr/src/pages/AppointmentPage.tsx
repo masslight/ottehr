@@ -82,7 +82,7 @@ import {
   cleanUpStaffHistoryTag,
   formatActivityLogs,
   formatNotesHistory,
-  formatPapeworkStartedLog,
+  formatPaperworkStartedLog,
   getAppointmentAndPatientHistory,
   getCriticalUpdateTagOp,
   sortLogs,
@@ -233,6 +233,7 @@ export default function AppointmentPage(): ReactElement {
     ) as unknown as RelatedPerson;
     if (fhirRelatedPerson) {
       const isUserRelatedPerson = fhirRelatedPerson.relationship?.find(
+        // cSpell:disable-next relatedperson
         (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
@@ -784,12 +785,12 @@ export default function AppointmentPage(): ReactElement {
         getAnswerStringFor('patient-state', flattenedItems) || ''
       }, ${getAnswerStringFor('patient-zip', flattenedItems) || ''}`
     : '';
-  const policyHoldercityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
+  const policyHolderCityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
     ? `${getAnswerStringFor('policy-holder-city', flattenedItems) || ''}, ${
         getAnswerStringFor('policy-holder-state', flattenedItems) || ''
       }, ${getAnswerStringFor('policy-holder-zip', flattenedItems) || ''}`
     : '';
-  const secondaryPolicyHoldercityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
+  const secondaryPolicyHolderCityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
     ? `${getAnswerStringFor('policy-holder-city-2', flattenedItems) || ''}, ${
         getAnswerStringFor('policy-holder-state-2', flattenedItems) || ''
       }, ${getAnswerStringFor('policy-holder-zip-2', flattenedItems) || ''}`
@@ -879,7 +880,7 @@ export default function AppointmentPage(): ReactElement {
 
   useEffect(() => {
     if (paperworkStartedFlag) {
-      const paperworkStartedActivityLog = formatPapeworkStartedLog(paperworkStartedFlag, locationTimeZone);
+      const paperworkStartedActivityLog = formatPaperworkStartedLog(paperworkStartedFlag, locationTimeZone);
       setActivityLogs((prevLogs) => {
         const logsContainPaperworkStarted = prevLogs?.find((log) => log.activityName === ActivityName.paperworkStarted);
         if (logsContainPaperworkStarted) {
@@ -992,10 +993,10 @@ export default function AppointmentPage(): ReactElement {
       "Policy holder's sex": getAnswerStringFor('policy-holder-birth-sex', flattenedItems),
       'Street address': getAnswerStringFor('policy-holder-address', flattenedItems),
       'Address line 2': getAnswerStringFor('policy-holder-address-additional-line', flattenedItems),
-      'City, State, ZIP': policyHoldercityStateZipString,
+      'City, State, ZIP': policyHolderCityStateZipString,
       "Patient's relationship to the insured": getAnswerStringFor('patient-relationship-to-insured', flattenedItems),
     };
-  }, [policyHolderFullName, flattenedItems, policyHoldercityStateZipString]);
+  }, [policyHolderFullName, flattenedItems, policyHolderCityStateZipString]);
 
   const secondaryPolicyHolderDetails = useMemo(() => {
     return {
@@ -1008,10 +1009,10 @@ export default function AppointmentPage(): ReactElement {
       "Policy holder's sex": getAnswerStringFor('policy-holder-birth-sex-2', flattenedItems),
       'Street address': getAnswerStringFor('policy-holder-address-2', flattenedItems),
       'Address line 2': getAnswerStringFor('policy-holder-address-additional-line-2', flattenedItems),
-      'City, State, ZIP': secondaryPolicyHoldercityStateZipString,
+      'City, State, ZIP': secondaryPolicyHolderCityStateZipString,
       "Patient's relationship to the insured": getAnswerStringFor('patient-relationship-to-insured-2', flattenedItems),
     };
-  }, [flattenedItems, secondaryPolicyHolderFullName, secondaryPolicyHoldercityStateZipString]);
+  }, [flattenedItems, secondaryPolicyHolderFullName, secondaryPolicyHolderCityStateZipString]);
   const reasonForVisit = useMemo(() => {
     const complaints = (appointment?.description ?? '').split(',');
     return complaints.map((complaint) => complaint.trim()).join(', ');

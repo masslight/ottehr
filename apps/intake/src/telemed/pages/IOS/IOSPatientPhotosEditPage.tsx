@@ -2,7 +2,7 @@ import { Box } from '@mui/system';
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAppointmentStore } from '../../features/appointments';
-import { createIOSMesssageCloseWebView, sendIOSAppMessage } from '../../features/ios-communication';
+import { createIOSMessageCloseWebView, sendIOSAppMessage } from '../../features/ios-communication';
 import { UploadPhotosWrapper } from '../../features/upload-photos';
 
 export function IOSPatientPhotosEditPage(): JSX.Element {
@@ -16,7 +16,7 @@ export function IOSPatientPhotosEditPage(): JSX.Element {
   }, [urlAppointmentID]);
 
   const handleClose = (): void => {
-    sendIOSAppMessage(createIOSMesssageCloseWebView());
+    sendIOSAppMessage(createIOSMessageCloseWebView());
   };
   return (
     <Box sx={{ padding: '14px' }}>

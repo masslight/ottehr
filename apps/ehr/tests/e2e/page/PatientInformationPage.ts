@@ -1,7 +1,7 @@
 import { expect, Locator, Page } from '@playwright/test';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { PatientHeader } from './PatientHeader';
-import { formatPhoneNumberForQuestionarie } from 'utils';
+import { formatPhoneNumberForQuestionnaire } from 'utils';
 import { AddInsuranceDialog } from './patient-information/AddInsuranceDialog';
 
 export enum Field {
@@ -213,7 +213,7 @@ export class PatientInformationPage {
     ).toHaveValue(streetAddress);
   }
 
-  async clearStreetAdress(): Promise<void> {
+  async clearStreetAddress(): Promise<void> {
     await this.#page.getByTestId(dataTestIds.contactInformationContainer.streetAddress).locator('input').clear();
   }
 
@@ -305,7 +305,7 @@ export class PatientInformationPage {
   async verifyPatientMobile(patientMobile: string): Promise<void> {
     await expect(
       this.#page.getByTestId(dataTestIds.contactInformationContainer.patientMobile).locator('input')
-    ).toHaveValue(formatPhoneNumberForQuestionarie(patientMobile));
+    ).toHaveValue(formatPhoneNumberForQuestionnaire(patientMobile));
   }
 
   async clearPatientMobile(): Promise<void> {
@@ -419,14 +419,14 @@ export class PatientInformationPage {
     ).toHaveValue(specifyInput);
   }
 
-  async selectCommonwellConsent(commonwellConsent: string): Promise<void> {
+  async selectCommonWellConsent(commonWellConsent: string): Promise<void> {
     await this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent).click();
-    await this.#page.getByText(commonwellConsent, { exact: true }).click();
+    await this.#page.getByText(commonWellConsent, { exact: true }).click();
   }
 
-  async verifyCommonwellConsent(commonwellConsent: string): Promise<void> {
+  async verifyCommonWellConsent(commonWellConsent: string): Promise<void> {
     await expect(this.#page.getByTestId(dataTestIds.patientDetailsContainer.commonWellConsent)).toHaveText(
-      commonwellConsent
+      commonWellConsent
     );
   }
 

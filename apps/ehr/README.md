@@ -35,7 +35,7 @@ Chrome and Safari are the preferred browsers for the label printing workflow, bu
 - Click the print button, or ctrl+P (or cmd+P on Mac)
 - (Chrome & Edge): Select "Print using system dialog..."
 - Printer setting: Select the DYMO LabelWriter 550 Turbo printer
-- Papersize setting: select the option corresponding to 2.25x1.25 inches -- this may open a menu showing additional label paper types of the same size. Choose 30334
+- Paper size setting: select the option corresponding to 2.25x1.25 inches -- this may open a menu showing additional label paper types of the same size. Choose 30334
 - Select Landscape orientation
 - Scaling should be 100%
 - Ensure nothing is selected under the Layout section

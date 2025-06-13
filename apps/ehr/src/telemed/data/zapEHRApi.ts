@@ -19,7 +19,7 @@ import {
   SavePatientInstructionInput,
   SyncUserResponse,
   getZapEHRApiHelpers,
-  NotFoundApointmentErrorHandler,
+  NotFoundAppointmentErrorHandler,
   GetMedicationOrdersResponse,
   GetMedicationOrdersInput,
   UpdateMedicationOrderInput,
@@ -188,7 +188,7 @@ export const getOystehrTelemedAPI = (
   const getTelemedAppointments = async (
     parameters: GetAppointmentsRequestParams
   ): Promise<GetTelemedAppointmentsResponseEhr> => {
-    return await makeZapRequest('get telemed appointments', parameters, NotFoundApointmentErrorHandler);
+    return await makeZapRequest('get telemed appointments', parameters, NotFoundAppointmentErrorHandler);
   };
 
   const initTelemedSession = async (

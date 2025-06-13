@@ -670,7 +670,7 @@ export const useSyncPhotonPatient = () => {
         if (!resp.ok) {
           throw { ...(await resp.json()), status: resp.status };
         }
-        console.log('Successfuly synced photon patient');
+        console.log('Successfully synced photon patient');
         return (await resp.json()) as { photonPatientId: string };
       }
       throw new Error('auth token is not defined');

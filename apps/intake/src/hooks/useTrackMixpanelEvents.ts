@@ -28,6 +28,7 @@ export function useTrackMixpanelEvents({
     if (eventName && !loading) {
       // Track pageview
       const pagepath = appointmentID ? location.pathname.replace(`/${appointmentID}`, '') : location.pathname;
+      // cSpell:ignore mrkt, pagepath, pagetitle, bookingcity, bookingstate
       mixpanel.track('mrkt_pageview_evt', {
         pagepath: pagepath,
         pagetitle: eventName,

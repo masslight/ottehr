@@ -68,7 +68,7 @@ export const VideoChatContainer: FC = () => {
     }
 
     void toggle();
-    // ignoring the deps here not to rerender everytime, cause for some reason toggleVideo is not memoized
+    // ignoring the deps here not to rerender every time, cause for some reason toggleVideo is not memoized
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVideoEnabled, meetingStatus]);
 

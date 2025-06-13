@@ -183,7 +183,7 @@ export const PatientsMergeSelect: FC<PatientsMergeSelectProps> = (props) => {
               actionButtons={{
                 proceed: {
                   color: 'error',
-                  text: 'Dissmiss Alert',
+                  text: 'Dismiss Alert',
                 },
                 back: {
                   text: 'Keep',

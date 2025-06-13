@@ -1,5 +1,5 @@
 export const otherColors = {
-  appbarBackground: '#0A2143',
+  appBarBackground: '#0A2143',
   black: '#000000',
   borderGray: '#D6D8DF',
   borderLightBlue: '#4294F3',

@@ -1,3 +1,4 @@
+// cSpell:ignore AOEYes
 import { AOEListQuestion } from './AOEListQuestion';
 import { AOEMultiSelectListQuestion } from './AOEMultiSelectListQuestion';
 import { AOEFreeTextQuestion } from './AOEFreeTextQuestion';

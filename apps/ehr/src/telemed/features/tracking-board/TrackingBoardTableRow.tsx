@@ -1,3 +1,4 @@
+// cSpell:ignore Español
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import { LoadingButton } from '@mui/lab';
 import {

@@ -160,6 +160,7 @@ export const ClaimsQueueColumns: Record<string, GridColDef<ClaimsQueueItem, any,
   status: {
     sortable: false,
     field: 'status',
+    // cSpell:disable-next Registr.(ation)
     headerName: 'Registr. Status',
     width: 130,
     renderCell: (params) => <ClaimStatusChip status={params.row.status} />,

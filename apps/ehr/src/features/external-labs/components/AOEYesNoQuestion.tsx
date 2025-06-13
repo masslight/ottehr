@@ -28,6 +28,7 @@ const labelStyles = {
   },
 };
 
+// cSpell:disable-next AOEYes
 export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
   const {
     formState: { errors: _ },

@@ -26,7 +26,7 @@ export const ASQ: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempAsqValue, setTempAsqValue] = useState<ASQKeys | ''>('');
 
-  // used for hilight select in the UI
+  // used for highlight select in the UI
   const [asqError, setAsqError] = useState<string>('');
 
   // used for scroll on error

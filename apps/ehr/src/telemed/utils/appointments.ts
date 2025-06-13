@@ -138,6 +138,7 @@ export const updateEncounterStatusHistory = (
     | 'arrived'
     | 'triaged'
     | 'in-progress'
+    // cSpell:disable-next onleave
     | 'onleave'
     | 'finished'
     | 'cancelled'

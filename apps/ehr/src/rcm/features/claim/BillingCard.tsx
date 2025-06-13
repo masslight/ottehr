@@ -37,8 +37,10 @@ export const BillingCard: FC = () => {
               <TableRow>
                 <TableCell>A. Date</TableCell>
                 <TableCell>B. Place</TableCell>
+                {/* cSpell:disable-next Emerg-(enc)y */}
                 <TableCell>C. Emerg-y</TableCell>
                 <TableCell>D. Code & Modifiers</TableCell>
+                {/* cSpell:disable-next Diagn.(ostic) */}
                 <TableCell>E. Diagn. pointers</TableCell>
                 <TableCell>F. Charges, $</TableCell>
                 <TableCell>G. Units / Days</TableCell>

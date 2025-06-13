@@ -552,7 +552,7 @@ export const convertQRItemToLinkIdMap = (
     {} as { [key: string]: QuestionnaireResponseItem }
   );
 };
-export const convertQuesitonnaireItemToQRLinkIdMap = (
+export const convertQuestionnaireItemToQRLinkIdMap = (
   items: QuestionnaireItem[] | undefined
 ): { [key: string]: QuestionnaireResponseItem } => {
   return (items ?? []).reduce(

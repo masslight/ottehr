@@ -10,7 +10,7 @@ import { useAppointmentStore } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
 
-const surgicalHystoryOptions: CPTCodeDTO[] = [
+const surgicalHistoryOptions: CPTCodeDTO[] = [
   { display: 'Adenoidectomy', code: '42830' },
   { display: 'Appendectomy', code: '44950' },
   { display: 'C-section', code: '59510' },
@@ -121,7 +121,7 @@ export const ProceduresForm: FC = () => {
               fullWidth
               size="small"
               disabled={isLoading || isChartDataLoading}
-              options={surgicalHystoryOptions}
+              options={surgicalHistoryOptions}
               noOptionsText="Nothing found for this search criteria"
               getOptionLabel={(option) => `${option.code} ${option.display}`}
               renderOption={(props, option) => (

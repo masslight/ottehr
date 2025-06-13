@@ -48,7 +48,7 @@ export const useMedicationHistory = (
     historyData.medications?.forEach((val) => {
       if ('practitioner' in val && val.practitioner && 'reference' in val.practitioner && val.practitioner.reference) {
         const ref = removePrefix('Practitioner/', val.practitioner.reference);
-        const practitioner = historyData.practitioners?.find((prct) => prct.id === ref);
+        const practitioner = historyData.practitioners?.find((practitioner) => practitioner.id === ref);
         val.practitioner = practitioner;
       }
     });

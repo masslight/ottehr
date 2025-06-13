@@ -103,8 +103,10 @@ export const BillingModal: FC = () => {
                 <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold' } }}>
                   <TableCell>A. Date</TableCell>
                   <TableCell>B. Place</TableCell>
+                  {/* cSpell:disable-next Emerg.(ency) */}
                   <TableCell>C. Emerg.</TableCell>
                   <TableCell>D. Code & Modifiers</TableCell>
+                  {/* cSpell:disable-next Diagn.(ostic) */}
                   <TableCell>E. Diagn. pointers</TableCell>
                   <TableCell>F. Charges, $</TableCell>
                   <TableCell>G. Units / Days</TableCell>

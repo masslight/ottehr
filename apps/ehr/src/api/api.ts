@@ -139,7 +139,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
 export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
   try {
     if (GET_LABEL_PDF_ZAMBDA_ID == null) {
-      throw new Error('get-label-pdf evironment variable could not be loaded');
+      throw new Error('get-label-pdf environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({

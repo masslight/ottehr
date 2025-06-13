@@ -1,3 +1,4 @@
+// cSpell:ignore tokenful
 import { Close } from '@mui/icons-material';
 import {
   Box,
@@ -23,7 +24,7 @@ import {
   ComplexValidationResult,
   ComplexValidationResultFailureCase,
   convertQRItemToLinkIdMap,
-  convertQuesitonnaireItemToQRLinkIdMap,
+  convertQuestionnaireItemToQRLinkIdMap,
   evalComplexValidationTrigger,
   evalEnableWhen,
   findQuestionnaireResponseItemLinkId,
@@ -360,7 +361,7 @@ export const PaperworkPage: FC = () => {
   );
 
   const paperworkGroupDefaults = useMemo(() => {
-    const currentPageFields = convertQuesitonnaireItemToQRLinkIdMap(currentPage?.item);
+    const currentPageFields = convertQuestionnaireItemToQRLinkIdMap(currentPage?.item);
     const currentPageEntries = completedPaperwork.find((item) => item.linkId === currentPage?.linkId)?.item;
     const inProgress = paperworkInProgress[currentPage?.linkId ?? ''] ?? {};
     if (!currentPageEntries && !inProgress) {

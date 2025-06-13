@@ -1,3 +1,4 @@
+// cSpell:ignore tokenful
 import { CircularProgress, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -106,8 +107,9 @@ export const useBookingContext = (): BookAppointmentContext => {
   };
 };
 
+// cSpell:ignore prepatient
 const isPostPatientSelectionPath = (basePath: string, pathToCheck: string): boolean => {
-  // review is last step but we detect on submit instead so redirect doesnt jump
+  // review is last step but we detect on submit instead so redirect doesn't jump
   // the transition to the appointment page
   const prepatientSelectionPaths = [basePath, `${basePath}/get-ready`, `${basePath}/patients`, `${basePath}/review`];
   const normalized = pathToCheck.split('?')[0];

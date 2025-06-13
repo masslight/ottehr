@@ -35,7 +35,7 @@ export interface NoteHistory {
 }
 
 export const cleanUpStaffHistoryTag = (resource: Resource, field: string): Operation | undefined => {
-  // going forward we will be using the history of the patient reasource so this isn't needed
+  // going forward we will be using the history of the patient resource so this isn't needed
   // check if there is a tag to clean up
   const staffHistoryTagIdx = resource.meta?.tag?.findIndex((tag) => tag.system === `staff-update-history-${field}`);
   if (staffHistoryTagIdx !== undefined && staffHistoryTagIdx >= 0) {
@@ -189,7 +189,7 @@ export const formatActivityLogs = (
   }
 
   if (paperworkStartedFlag) {
-    const paperworkStartedActivityLog = formatPapeworkStartedLog(paperworkStartedFlag, timezone);
+    const paperworkStartedActivityLog = formatPaperworkStartedLog(paperworkStartedFlag, timezone);
     logs.push(paperworkStartedActivityLog);
   }
   const appointmentVisitType = appointment.appointmentType?.text;
@@ -206,7 +206,7 @@ export const formatActivityLogs = (
   return sortLogs(logs);
 };
 
-export const formatPapeworkStartedLog = (paperworkStartedFlag: Flag, timezone: string): ActivityLogData => {
+export const formatPaperworkStartedLog = (paperworkStartedFlag: Flag, timezone: string): ActivityLogData => {
   const createdTag = paperworkStartedFlag.meta?.tag?.find((tag) => tag?.system === 'created-date-time');
   const activityDateTimeISO = createdTag?.version;
   const activityDateTime = formatActivityDateTime(activityDateTimeISO || '', timezone);

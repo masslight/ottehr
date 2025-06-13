@@ -5,17 +5,17 @@ import i18n from '../../../lib/i18n';
 import { FormValidationErrorObject } from '../helpers';
 
 interface ValidationErrorMessageProps {
-  errorObejct: FormValidationErrorObject;
+  errorObject: FormValidationErrorObject;
   links: { [pageId: string]: { path: string; pageName: string } };
 }
 
-const ValidationErrorMessageContent: FC<ValidationErrorMessageProps> = ({ errorObejct, links }) => {
+const ValidationErrorMessageContent: FC<ValidationErrorMessageProps> = ({ errorObject, links }) => {
   return (
     <Grid container direction={'column'}>
       <Grid item>
         <Typography variant="caption">{i18n.t('paperworkPages.correctErrors')}</Typography>
       </Grid>
-      {Object.entries(errorObejct).map((entry) => {
+      {Object.entries(errorObject).map((entry) => {
         const [pageId, errorList] = entry;
         return (
           <Grid item container direction={'column'}>

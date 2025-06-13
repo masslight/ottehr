@@ -15,7 +15,7 @@ interface BaseBreadcrumbsProps {
 
 /**
  * Base breadcrumbs component that can be used to display a breadcrumb trail with a base link.
- * Can be used as reqular component or as a wrapper for other components.
+ * Can be used as regular component or as a wrapper for other components.
  *
  * Example:
  * <BaseBreadcrumbs sectionName="Patient" baseCrumb={{ label: 'Home', path: '/' }}>
@@ -25,7 +25,7 @@ interface BaseBreadcrumbsProps {
  * Example2:
  * <Page>
  *   <BaseBreadcrumbs sectionName="Patient" baseCrumb={{ label: 'Home', path: '/' }} />
- *   <Conentnt />
+ *   <Content />
  * </Page>
  */
 export const BaseBreadcrumbs: FC<BaseBreadcrumbsProps> = ({ sectionName, baseCrumb, children }) => {

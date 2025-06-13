@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Open "States page", enter state abbreviation,  correct search result is displayed', async ({ page }) => {
   const statesPage = await expectStatesPage(page);
-  const state = await statesPage.getFisrtState();
+  const state = await statesPage.getFirstState();
   await statesPage.searchStates(state);
   await statesPage.verifyStatePresent(state);
   await statesPage.verifyPaginationState('1–1 of 1');
@@ -20,14 +20,14 @@ test('Open "States page", enter state abbreviation,  correct search result is di
 
 test('Open "States page", click on state,  state details page is opened', async ({ page }) => {
   const statesPage = await expectStatesPage(page);
-  const state = await statesPage.getFisrtState();
+  const state = await statesPage.getFirstState();
   await statesPage.clickState(state);
   await expectStateDetailsPage(state, page);
 });
 
 test('Open "States details page", click cancel button,  states page is opened', async ({ page }) => {
   const statesPage = await expectStatesPage(page);
-  const state = await statesPage.getFisrtState();
+  const state = await statesPage.getFirstState();
   await statesPage.clickState(state);
   const stateDetailsPage = await expectStateDetailsPage(state, page);
   await stateDetailsPage.clickCancelButton();
@@ -38,7 +38,7 @@ test('Open "States details page", check title and state name field,  verify stat
   page,
 }) => {
   const statesPage = await expectStatesPage(page);
-  const state = await statesPage.getFisrtState();
+  const state = await statesPage.getFirstState();
   await statesPage.clickState(state);
   const stateDetailsPage = await expectStateDetailsPage(state, page);
   await stateDetailsPage.verifyStateNameTitle(state);
@@ -49,7 +49,7 @@ test('Open "States details page", toggle "Operate in state" and save changes, ve
   page,
 }) => {
   let statesPage = await expectStatesPage(page);
-  const state = await statesPage.getFisrtState();
+  const state = await statesPage.getFirstState();
   await statesPage.clickState(state);
   const stateDetailsPage = await expectStateDetailsPage(state, page);
 

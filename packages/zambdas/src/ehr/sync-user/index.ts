@@ -8,7 +8,7 @@ import {
   Secrets,
   SyncUserResponse,
   allLicensesForPractitioner,
-  getPractitionerNPIIdentitifier,
+  getPractitionerNPIIdentifier,
   makeQualificationForPractitioner,
 } from 'utils';
 import { createOystehrClient } from '../../shared/helpers';
@@ -275,7 +275,7 @@ function updatePractitionerNPI(localClinician: Practitioner, remoteClinician: Re
   };
 
   if (localClinician.identifier) {
-    const foundIdentifier = getPractitionerNPIIdentitifier(localClinician);
+    const foundIdentifier = getPractitionerNPIIdentifier(localClinician);
     if (foundIdentifier && foundIdentifier.value !== identifier.value) {
       foundIdentifier.value = identifier.value;
     } else if (!foundIdentifier) localClinician.identifier.push(identifier);

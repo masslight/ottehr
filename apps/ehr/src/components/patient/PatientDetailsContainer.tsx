@@ -65,7 +65,7 @@ export const PatientDetailsContainer: FC<PatientDetailsContainerProps> = ({ pati
       </Row>
       <Row label="Patient's ethnicity" dataTestId={dataTestIds.patientDetailsContainer.patientsEthnicity} required>
         <FormSelect
-          name={FormFields.ethinicity.key}
+          name={FormFields.ethnicity.key}
           control={control}
           options={ETHNICITY_OPTIONS}
           rules={{

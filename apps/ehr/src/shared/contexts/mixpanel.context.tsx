@@ -13,18 +13,18 @@ export const MixpanelContext = createContext<MixpanelContextProps>({ token: '' }
 export const MixpanelContextProvider = (
   props: PropsWithChildren<MixpanelContextProps>
 ): ReactElement<ProviderExoticComponent<Provider<MixpanelContextProps>>> => {
-  const isMixpanelInited = useRef(false);
+  const isMixpanelInitiated = useRef(false);
   const { token, config, registerProps } = props;
 
   if (!token) {
     console.error('Mixpanel token is not set');
-  } else if (!isMixpanelInited.current) {
+  } else if (!isMixpanelInitiated.current) {
     mixpanel.init(token, config);
     if (registerProps) {
       mixpanel.register(registerProps);
     }
 
-    isMixpanelInited.current = true;
+    isMixpanelInitiated.current = true;
   }
 
   return <MixpanelContext.Provider value={props}>{props.children}</MixpanelContext.Provider>;

@@ -55,7 +55,7 @@ interface AutofillInputs {
   parentItem?: IntakeQuestionnaireItem; // the immediate parent item for the list of items (should each item to fill have its own parent item?)
 }
 
-// note: structuring this as an effect does cause a little "flash" effect when the autofilled value is removed
+// note: structuring this as an effect does cause a little "flash" effect when the autoFilled value is removed
 // potentially this could be fixed by refactoring so that the setter on the field that triggers the effect also
 // sets the values updated within the effect. (potential future enhancement)
 export const useAutoFillValues = (input: AutofillInputs): void => {
@@ -69,7 +69,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       if (!allFields) {
         return false;
       }
-      // console.log('allFields useitems to auto fill', allFields);
+      // console.log('allFields use items to auto fill', allFields);
       const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields);
       if (displayStrategy === 'hidden' || displayStrategy === 'protected') {
         return qi.autofillFromWhenDisabled !== undefined;
@@ -122,8 +122,8 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       const currentValue = getValues(id) || makeEmptyResponseItem(item);
 
       const autoFilled = autoFill(autofillValue, item);
-      // console.log('autofilled', autoFilled);
-      shouldUpdateValue = // the comparison bewteen autofillValue and currentValue is necessary to avoid an infinite render loop
+      // console.log('autoFilled', autoFilled);
+      shouldUpdateValue = // the comparison between autofillValue and currentValue is necessary to avoid an infinite render loop
         autofillSource && autofillValue && typeof autofillValue === 'object' && !objectsEqual(autoFilled, currentValue);
       // console.log('should update', shouldUpdateValue, item.linkId);
 
@@ -140,6 +140,6 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
         setValue(id, autoFilled, { shouldValidate: true });
       }
     });
-    // replace previously autofilled values
+    // replace previously autoFilled values
   }, [allFields, setValue, itemsToFill, formValues, parentItem, getValues, fieldId, replacedValues]);
 };

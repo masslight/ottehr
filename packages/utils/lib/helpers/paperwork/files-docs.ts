@@ -1,6 +1,6 @@
 import { Attachment } from 'fhir/r4b';
 
-export const addContentTypeToAttachement = (attachment: Attachment): Attachment => {
+export const addContentTypeToAttachment = (attachment: Attachment): Attachment => {
   if (attachment.contentType || !attachment.url) {
     return { ...attachment };
   }

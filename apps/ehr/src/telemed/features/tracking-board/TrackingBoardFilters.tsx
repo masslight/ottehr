@@ -34,14 +34,14 @@ export const TrackingBoardFilters: FC<{ tab: ApptTelemedTab }> = (props) => {
   // const [groups, setGroups] = useState<string[] | undefined>(undefined);
 
   // useEffect(() => {
-  //   async function getPractitioners(osytehrClient: Oystehr): Promise<void> {
-  //     if (!osytehrClient) {
+  //   async function getPractitioners(oystehrClient: Oystehr): Promise<void> {
+  //     if (!oystehrClient) {
   //       return;
   //     }
 
   //     try {
   //       const practitionersTemp: Practitioner[] = (
-  //         await osytehrClient.fhir.search<Practitioner>({
+  //         await oystehrClient.fhir.search<Practitioner>({
   //           resourceType: 'Practitioner',
   //           params: [
   //             { name: '_count', value: '1000' },

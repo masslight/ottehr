@@ -1,1 +1,1 @@
-export * from './AdditionalQestionRow';
+export * from './AdditionalQuestionRow';
