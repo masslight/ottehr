@@ -121,12 +121,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('creating appointment with metadata: ', JSON.stringify(maybeMetadata, null, 2));
 
     let appointmentMetadata: Appointment['meta'] = maybeMetadata;
-    if (process.env.INTEGRATION_TEST === 'true' && !maybeMetadata) {
+    console.log('PLAYWRIGHT_SUITE_ID: ', process.env.PLAYWRIGHT_SUITE_ID);
+    if (process.env.PLAYWRIGHT_SUITE_ID && !maybeMetadata) {
       appointmentMetadata = {
         tag: [
           {
             system: 'E2E_TEST_RESOURCE_PROCESS_ID',
-            code: 'outside-resource-handler-scope',
+            code: `failsafe-${process.env.PLAYWRIGHT_SUITE_ID}`,
           },
         ],
       };
