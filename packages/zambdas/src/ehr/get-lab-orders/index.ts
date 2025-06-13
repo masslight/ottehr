@@ -33,6 +33,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       questionnaires,
       labPDFs,
       specimens,
+      patientLabItems,
     } = await getLabResources(oystehr, validatedParameters, m2mtoken, {
       searchBy: validatedParameters.searchBy,
     });
@@ -61,7 +62,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       organizations,
       questionnaires,
       labPDFs,
-      specimens
+      specimens,
+      secrets
     );
 
     return {
@@ -69,13 +71,14 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({
         data: labOrders,
         pagination,
+        ...(patientLabItems && { patientLabItems }),
       }),
     };
   } catch (error: any) {
     await topLevelCatch('get-lab-orders', error, input.secrets);
     return {
       statusCode: 500,
-      body: JSON.stringify({ message: `Error fetching lab orders: ${error}` }),
+      body: JSON.stringify({ message: `Error fetching external lab orders: ${error}` }),
     };
   }
 };

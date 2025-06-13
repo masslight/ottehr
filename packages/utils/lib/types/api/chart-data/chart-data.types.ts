@@ -540,4 +540,5 @@ export interface ProcedureDTO extends SaveableDTO {
   postInstructions?: string;
   timeSpent?: string;
   documentedBy?: string;
+  consentObtained?: boolean;
 }

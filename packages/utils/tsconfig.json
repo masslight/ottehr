@@ -7,5 +7,5 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": [".", "../../scripts/setup"]
+  "include": [".", ".eslintrc.cjs"]
 }

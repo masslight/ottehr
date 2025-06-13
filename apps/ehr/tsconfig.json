@@ -5,9 +5,9 @@
     "noUnusedParameters": false,
     "baseUrl": ".",
     "paths": {
-      "@theme/*": ["src/themes/ottehr/*"],
-      "@defaultTheme/*": ["src/themes/ottehr/*"]
+      "@ehrTheme/*": ["src/themes/ottehr/*"],
+      "@ehrDefaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": ["."]
+  "include": [".", ".eslintrc.cjs"]
 }

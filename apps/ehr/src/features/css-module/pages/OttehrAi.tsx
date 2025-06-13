@@ -8,7 +8,7 @@ import { useAppointment } from '../hooks/useAppointment';
 import { AiObservationField, ObservationTextFieldDTO } from 'utils';
 import AiSuggestion from '../../../components/AiSuggestion';
 import { AiChatHistory } from '../../../components/AiChatHistory';
-import { ottehrAiIcon } from '@theme/icons';
+import { ottehrAiIcon } from '@ehrTheme/icons';
 
 const AI_OBSERVATION_FIELDS = [
   [AiObservationField.HistoryOfPresentIllness, 'History of Present Illness (HPI)'],

@@ -1,4 +1,4 @@
-import { ValueSet, ObservationDefinition, ActivityDefinition, Observation } from 'fhir/r4b';
+import { ValueSet, ObservationDefinition, ActivityDefinition, Observation, ServiceRequest } from 'fhir/r4b';
 import {
   TestItem,
   TestItemComponent,
@@ -12,15 +12,15 @@ import {
   ObservationCode,
   TestComponentResult,
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+  REPEATABLE_TEXT_EXTENSION_CONFIG,
+  DiagnosisDTO,
+  LabComponentValueSetConfig,
 } from 'utils';
-
-// TODO TEMP PUTTING THIS HERE WHILE I TEST THE FRONT END
-// when done with front end testing this can be moved to a shared file in the zambdas package (no need for the front end to have it)
 
 export const extractAbnormalValueSetValues = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[]
-): string[] => {
+): LabComponentValueSetConfig[] => {
   const abnormalValueSetRef = obsDef.abnormalCodedValueSet?.reference?.substring(1);
   const abnormalValueSet = containedResources.find(
     (res) => res.resourceType === 'ValueSet' && res.id === abnormalValueSetRef
@@ -29,12 +29,14 @@ export const extractAbnormalValueSetValues = (
   return abnormalValues;
 };
 
-const extractValueSetValues = (valueSet: ValueSet): string[] => {
+const extractValueSetValues = (valueSet: ValueSet): LabComponentValueSetConfig[] => {
   if (!valueSet.compose?.include?.[0]?.concept) {
     return [];
   }
 
-  return valueSet.compose.include[0].concept.map((concept) => concept.code || '').filter(Boolean);
+  return valueSet.compose.include[0].concept
+    .map((concept) => (concept as LabComponentValueSetConfig) || '')
+    .filter(Boolean);
 };
 
 export const extractQuantityRange = (
@@ -126,6 +128,7 @@ const processObservationDefinition = (
     ) as ValueSet | undefined;
 
     const valueSet = validValueSet ? extractValueSetValues(validValueSet) : [];
+    console.log('valueSet check', valueSet);
     const abnormalValues = extractAbnormalValueSetValues(obsDef, containedResources);
 
     const refRangeValueSet = containedResources.find(
@@ -190,7 +193,8 @@ export function quantityRangeFormat(quantity: QuantityComponent): string {
 
 export const convertActivityDefinitionToTestItem = (
   activityDef: ActivityDefinition,
-  observations?: Observation[]
+  observations?: Observation[],
+  serviceRequest?: ServiceRequest
 ): TestItem => {
   const name = activityDef.name || '';
 
@@ -198,6 +202,8 @@ export const convertActivityDefinitionToTestItem = (
     activityDef.code?.coding
       ?.filter((coding) => coding.system === CODE_SYSTEM_CPT)
       .map((coding) => coding.code || '') || [];
+
+  const repeatable = !!activityDef?.extension?.find((ext) => ext.url === REPEATABLE_TEXT_EXTENSION_CONFIG.url);
 
   const methods: {
     manual?: { device: string };
@@ -225,8 +231,11 @@ export const convertActivityDefinitionToTestItem = (
   const observationMap: { [obsDefId: string]: Observation } = {};
   if (observations) {
     observations.forEach((obs) => {
-      const obsDefIdFromExt = obs.extension?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)?.valueString;
-      if (obsDefIdFromExt) observationMap[obsDefIdFromExt] = obs;
+      const observationIsBasedOnSr = serviceRequest ? observationIsBasedOnServiceRequest(obs, serviceRequest) : true;
+      if (observationIsBasedOnSr) {
+        const obsDefIdFromExt = obs.extension?.find((ext) => ext.url === IN_HOUSE_OBS_DEF_ID_SYSTEM)?.valueString;
+        if (obsDefIdFromExt) observationMap[obsDefIdFromExt] = obs;
+      }
     });
   }
 
@@ -254,6 +263,7 @@ export const convertActivityDefinitionToTestItem = (
   const testItem: TestItem = {
     name,
     methods,
+    repeatable,
     method: Object.keys(methods).join(' or '),
     device: Object.values(methods)
       .map((m) => m.device)
@@ -266,6 +276,13 @@ export const convertActivityDefinitionToTestItem = (
   };
 
   return testItem;
+};
+
+export const observationIsBasedOnServiceRequest = (
+  observation: Observation,
+  serviceRequest: ServiceRequest
+): boolean => {
+  return !!observation.basedOn?.some((basedOn) => basedOn.reference === `ServiceRequest/${serviceRequest.id}`);
 };
 
 const getResult = (
@@ -296,4 +313,8 @@ const getResult = (
     };
   }
   return result;
+};
+
+export const getFormattedDiagnoses = (diagnoses: DiagnosisDTO[]): string => {
+  return diagnoses.map((d) => `${d.code} ${d.display}`).join(', ');
 };

@@ -6,6 +6,7 @@ import {
   InPersonExamObservationFieldItem,
   InPersonExamTabProviderCardNames,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
+  QuantityComponent,
   VitalsVisitNoteData,
 } from 'utils';
 
@@ -119,6 +120,7 @@ export interface ExternalLabsData {
   locationPhone?: string;
   locationFax?: string;
   labOrganizationName: string;
+  serviceRequestID: string;
   reqId: string;
   providerName: string;
   providerTitle: string;
@@ -152,13 +154,16 @@ export interface ExternalLabResult {
   resultInterpretation?: string;
   resultInterpretationDisplay?: string;
   resultValue: string;
+  referenceRangeText?: string;
 }
 
 export interface InHouseLabResult {
   name: string;
+  type: string;
   value: string | undefined;
   units?: string;
-  range: string;
+  rangeString?: string[];
+  rangeQuantity?: QuantityComponent;
 }
 
 export interface LabResultsData extends ExternalLabsData {
@@ -171,6 +176,7 @@ export interface LabResultsData extends ExternalLabsData {
   testName: string;
   // specimenDescription: string;
   specimenReferenceRange?: string;
+  specimenSource: string;
   resultPhase: string;
   resultStatus: string;
   reviewed?: boolean;
@@ -250,6 +256,25 @@ export interface VisitNoteData extends ExaminationBlockData {
   };
   subSpecialtyFollowUp?: string[];
   workSchoolExcuse?: string[];
+  procedures?: {
+    procedureType?: string;
+    cptCodes?: string[];
+    diagnoses?: string[];
+    procedureDateTime?: string;
+    performerType?: string;
+    medicationUsed?: string;
+    bodySite?: string;
+    bodySide?: string;
+    technique?: string;
+    suppliesUsed?: string;
+    procedureDetails?: string;
+    specimenSent?: string;
+    complications?: string;
+    patientResponse?: string;
+    postInstructions?: string;
+    timeSpent?: string;
+    documentedBy?: string;
+  }[];
 }
 
 export interface ReceiptData {

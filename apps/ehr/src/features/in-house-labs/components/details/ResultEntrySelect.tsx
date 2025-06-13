@@ -1,12 +1,12 @@
-import { Select, InputLabel, FormControl, MenuItem } from '@mui/material';
-import { TestItemComponent } from 'utils';
+import { Select, FormControl, MenuItem, useTheme } from '@mui/material';
+import { TestItemComponent, LabComponentValueSetConfig } from 'utils';
 import { useFormContext, Controller } from 'react-hook-form';
 
 interface ResultEntrySelectProps {
   testItemComponent: TestItemComponent;
   isAbnormal: boolean;
   setIsAbnormal: (bool: boolean) => void;
-  disabled?: boolean;
+  disabled?: boolean; // equates to the final view
 }
 
 export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
@@ -16,10 +16,12 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
   disabled,
 }) => {
   const { control } = useFormContext();
+  const theme = useTheme();
 
   const assessAbnormality = (entry: string): void => {
     if (testItemComponent.dataType === 'CodeableConcept' && testItemComponent.abnormalValues) {
-      if (testItemComponent.abnormalValues.includes(entry)) {
+      console.log('entry', entry);
+      if (testItemComponent.abnormalValues.map((val) => val.code).includes(entry)) {
         setIsAbnormal(true);
       } else {
         setIsAbnormal(false);
@@ -27,7 +29,7 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
     }
   };
 
-  let values: string[] = [];
+  let values: LabComponentValueSetConfig[] = [];
   if (testItemComponent.dataType === 'CodeableConcept') {
     values = testItemComponent.valueSet;
   }
@@ -55,37 +57,22 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
         },
 
         '& .MuiSelect-select.Mui-disabled': {
-          color: isAbnormal ? 'error.dark' : '',
-          WebkitTextFillColor: isAbnormal ? '#C62828' : '',
+          color: isAbnormal ? 'error.dark' : 'text.primary',
+          WebkitTextFillColor: isAbnormal ? theme.palette.error.dark : theme.palette.text.primary,
         },
       }}
       size="small"
     >
-      <InputLabel
-        id="result-entry-labe"
-        sx={{
-          color: isAbnormal ? 'error.dark' : '',
-          '&.Mui-focused': {
-            color: isAbnormal ? 'error.dark' : '',
-          },
-          '&.Mui-disabled': {
-            color: isAbnormal ? 'error.dark' : '',
-          },
-        }}
-      >
-        Select
-      </InputLabel>
       <Controller
         name={testItemComponent.observationDefinitionId}
         control={control}
+        rules={{ required: 'Please select a value' }}
         defaultValue=""
         render={({ field }) => (
           <Select
             disabled={!!disabled}
             fullWidth
-            labelId="result-entry-label"
             id="result-entry-select"
-            label="Select"
             {...field}
             onChange={(e) => {
               field.onChange(e);
@@ -93,8 +80,8 @@ export const ResultEntrySelect: React.FC<ResultEntrySelectProps> = ({
             }}
           >
             {values?.map((val, idx) => (
-              <MenuItem id={`${val}-${idx}-id`} key={`${val}-${idx}-key`} value={val}>
-                {val}
+              <MenuItem id={`${val}-${idx}-id`} key={`${val}-${idx}-key`} value={val.code}>
+                {val.display}
               </MenuItem>
             ))}
           </Select>

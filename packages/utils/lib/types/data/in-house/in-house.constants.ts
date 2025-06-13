@@ -1,6 +1,12 @@
 import { CodeableConcept } from 'fhir/r4b';
 import { TestStatus } from './in-house.types';
 
+export enum PageName {
+  collectSample,
+  performEnterResults,
+  final,
+}
+
 export enum LoadingState {
   initial,
   loading,
@@ -117,3 +123,10 @@ export const SPECIMEN_COLLECTION_SOURCE_SYSTEM = 'https://hl7.org/fhir/R4B/value
 
 // todo we will use this while the entry is free text
 export const SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM = 'http://ottehr.org/fhir/StructureDefinition/specimen-source';
+
+export const DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE = 10;
+
+export const REPEATABLE_TEXT_EXTENSION_CONFIG = {
+  url: 'http://ottehr.org/fhir/StructureDefinition/in-house-lab-repeatable-test',
+  valueString: 'repeatable-test',
+};

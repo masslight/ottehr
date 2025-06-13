@@ -1,6 +1,5 @@
 import {
   Typography,
-  Stack,
   useTheme,
   Paper,
   Select,
@@ -16,7 +15,7 @@ import {
   Box,
 } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   useAppointmentStore,
@@ -25,24 +24,19 @@ import {
   ActionsList,
   DeleteIconButton,
   useSaveChartData,
+  useGetCreateExternalLabResources,
 } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS } from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS, PSC_LOCALE } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
-import Oystehr from '@oystehr/sdk';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
-import { createLabOrder, getCreateLabOrderResources } from '../../../api/api';
+import { createExternalLabOrder } from '../../../api/api';
 import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { enqueueSnackbar } from 'notistack';
-import { WithLabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
+import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
 
-enum LoadingState {
-  initial,
-  loading,
-  loaded,
-  loadedWithError,
-}
 interface CreateExternalLabOrdersProps {
   appointmentID?: string;
 }
@@ -51,15 +45,15 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
   const theme = useTheme();
   const { oystehrZambda } = useApiClients();
   const navigate = useNavigate();
-  const [loadingState, setLoadingState] = useState(LoadingState.initial);
   const [error, setError] = useState<string[] | undefined>(undefined);
   const [submitting, setSubmitting] = useState<boolean>(false);
 
   const { mutate: saveChartData } = useSaveChartData();
-  const { chartData, encounter, appointment, setPartialChartData } = getSelectors(useAppointmentStore, [
+  const { chartData, encounter, appointment, patient, setPartialChartData } = getSelectors(useAppointmentStore, [
     'chartData',
     'encounter',
     'appointment',
+    'patient',
     'setPartialChartData',
   ]);
 
@@ -70,50 +64,32 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     (participant) =>
       participant.type?.find((type) => type.coding?.some((c) => c.system === PRACTITIONER_CODINGS.Attender[0].system))
   );
+  const patientId = patient?.id || '';
 
   const [orderDx, setOrderDx] = useState<DiagnosisDTO[]>(primaryDiagnosis ? [primaryDiagnosis] : []);
   const [selectedLab, setSelectedLab] = useState<OrderableItemSearchResult | null>(null);
   const [psc, setPsc] = useState<boolean>(false);
-  const [coverageName, setCoverageName] = useState<string | undefined>(undefined);
-  const [labs, setLabs] = useState<OrderableItemSearchResult[]>([]);
 
   // used to fetch dx icd10 codes
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedSearchTerm, sabs: 'ICD10CM' });
+  const [debouncedDxSearchTerm, setDebouncedDxSearchTerm] = useState('');
+  const { isFetching: isSearching, data } = useGetIcd10Search({ search: debouncedDxSearchTerm, sabs: 'ICD10CM' });
   const icdSearchOptions = data?.codes || [];
   const { debounce } = useDebounce(800);
-  const debouncedHandleInputChange = (data: string): void => {
+  const debouncedHandleDxInputChange = (searchValue: string): void => {
     debounce(() => {
-      setDebouncedSearchTerm(data);
+      setDebouncedDxSearchTerm(searchValue);
     });
   };
 
-  useEffect(() => {
-    async function getResources(oystehrZambda: Oystehr): Promise<void> {
-      let loadingError = false;
-      setLoadingState(LoadingState.loading);
-      try {
-        const { coverageName, labs: labsFetched } = await getCreateLabOrderResources(oystehrZambda, { encounter });
-        setCoverageName(coverageName);
-        setLabs(labsFetched);
-      } catch (e) {
-        const oyError = e as OystehrSdkError;
-        console.error('error loading resources', oyError.code, oyError.message);
-        setError([oyError.message || 'There was an error loading resources']);
-        loadingError = true;
-      } finally {
-        if (loadingError) {
-          setLoadingState(LoadingState.loadedWithError);
-        } else {
-          setLoadingState(LoadingState.loaded);
-        }
-      }
-    }
-
-    if (encounter.id && oystehrZambda && loadingState === LoadingState.initial) {
-      void getResources(oystehrZambda);
-    }
-  }, [encounter, oystehrZambda, loadingState]);
+  const {
+    isFetching: dataLoading,
+    data: createExternalLabResources,
+    isError,
+    error: resourceFetchError,
+  } = useGetCreateExternalLabResources({
+    patientId,
+  });
+  const coverageName = createExternalLabResources?.coverageName;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -122,7 +98,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     if (oystehrZambda && paramsSatisfied) {
       try {
         await addAdditionalDxToEncounter();
-        await createLabOrder(oystehrZambda, {
+        await createExternalLabOrder(oystehrZambda, {
           dx: orderDx,
           encounter,
           orderableItem: selectedLab,
@@ -131,7 +107,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
         navigate(`/in-person/${appointment?.id}/external-lab-orders`);
       } catch (e) {
         const oyError = e as OystehrSdkError;
-        console.log('error creating lab order', oyError.code, oyError.message);
+        console.log('error creating external lab order', oyError.code, oyError.message);
         const errorMessage = [oyError.message];
         setError(errorMessage);
       }
@@ -140,7 +116,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
       if (!orderDx.length) errorMessage.push('Please enter at least one dx');
       if (!selectedLab) errorMessage.push('Please select a lab to order');
       if (!attendingPractitioner) errorMessage.push('No attending practitioner has been assigned to this encounter');
-      if (errorMessage.length === 0) errorMessage.push('There was an error creating this lab order');
+      if (errorMessage.length === 0) errorMessage.push('There was an error creating this external lab order');
       setError(errorMessage);
     }
     setSubmitting(false);
@@ -184,41 +160,39 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
     }
   };
 
-  if (loadingState === LoadingState.loadedWithError) {
+  if (isError || resourceFetchError) {
     return (
-      <Stack spacing={2} sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-            Order Lab
-          </Typography>
-        </Box>
-        <Paper sx={{ p: 3 }}>
-          {error?.length && error.length > 0 ? (
-            error.map((msg, idx) => (
-              <Grid item xs={12} sx={{ paddingTop: 1 }} key={idx}>
-                <Typography sx={{ color: theme.palette.error.main }}>{msg}</Typography>
+      <DetailPageContainer>
+        <LabBreadcrumbs sectionName="Order Lab">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+              Order External Lab
+            </Typography>
+          </Box>
+          <Paper sx={{ p: 3 }}>
+            {(resourceFetchError as Error) && (
+              <Grid item xs={12} sx={{ paddingTop: 1 }}>
+                <Typography sx={{ color: theme.palette.error.main }}>
+                  {(resourceFetchError as Error)?.message || 'error'}
+                </Typography>
               </Grid>
-            ))
-          ) : (
-            <Grid item xs={12} sx={{ textAlign: 'right', paddingTop: 1 }}>
-              <Typography sx={{ color: theme.palette.error.main }}>error</Typography>
-            </Grid>
-          )}
-        </Paper>
-      </Stack>
+            )}
+          </Paper>
+        </LabBreadcrumbs>
+      </DetailPageContainer>
     );
   }
 
   return (
-    <WithLabBreadcrumbs sectionName="Order Lab">
-      <Stack spacing={2} sx={{ p: 3 }}>
+    <DetailPageContainer>
+      <LabBreadcrumbs sectionName="Order External Lab">
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
-            Order Lab
+            Order External Lab
           </Typography>
         </Box>
 
-        {loadingState !== LoadingState.loaded ? (
+        {dataLoading ? (
           <LabOrderLoading />
         ) : (
           <form onSubmit={handleSubmit}>
@@ -280,7 +254,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     size="small"
                     fullWidth
                     noOptionsText={
-                      debouncedSearchTerm && icdSearchOptions.length === 0
+                      debouncedDxSearchTerm && icdSearchOptions.length === 0
                         ? 'Nothing found for this search criteria'
                         : 'Start typing to load results'
                     }
@@ -304,7 +278,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                        onChange={(e) => debouncedHandleDxInputChange(e.target.value)}
                         label="Additional Dx"
                         placeholder="Search for Dx if not on list above"
                         InputLabelProps={{ shrink: true }}
@@ -337,24 +311,23 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     Patient insurance
                   </Typography>
                   <Typography variant="body2" sx={{ paddingTop: '8px' }}>
-                    {coverageName}
+                    {coverageName || 'unknown'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="h6" sx={{ fontWeight: '600px', color: theme.palette.primary.dark }}>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: '600px', color: theme.palette.primary.dark, marginBottom: '8px' }}
+                  >
                     Lab
                   </Typography>
-                  <LabsAutocomplete
-                    selectedLab={selectedLab}
-                    setSelectedLab={setSelectedLab}
-                    labs={labs}
-                  ></LabsAutocomplete>
+                  <LabsAutocomplete selectedLab={selectedLab} setSelectedLab={setSelectedLab}></LabsAutocomplete>
                 </Grid>
                 <Grid item xs={12}>
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
                     control={<Switch checked={psc} onChange={() => setPsc((psc) => !psc)} />}
-                    label={<Typography variant="body2">PSC</Typography>}
+                    label={<Typography variant="body2">{PSC_LOCALE}</Typography>}
                   />
                 </Grid>
                 <Grid item xs={6}>
@@ -391,7 +364,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
             </Paper>
           </form>
         )}
-      </Stack>
-    </WithLabBreadcrumbs>
+      </LabBreadcrumbs>
+    </DetailPageContainer>
   );
 };

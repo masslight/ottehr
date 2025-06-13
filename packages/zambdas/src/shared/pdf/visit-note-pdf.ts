@@ -562,6 +562,49 @@ async function createVisitNotePdfBytes(data: VisitNoteData, isInPersonAppointmen
     separateLine();
   }
 
+  if (data.procedures && data.procedures.length > 0) {
+    drawBlockHeader('Procedures');
+    data.procedures.forEach((procedure) => {
+      drawBlockHeader(procedure.procedureType ?? '', textStyles.blockSubHeader);
+      regularText(
+        procedure.cptCodes != null && procedure.cptCodes.length > 0
+          ? 'CPT: ' + procedure.cptCodes.join('; ')
+          : undefined
+      );
+      regularText(
+        procedure.diagnoses != null && procedure.diagnoses.length > 0
+          ? 'Dx: ' + procedure.diagnoses.join('; ')
+          : undefined
+      );
+
+      regularText(
+        procedure.procedureDateTime != null
+          ? 'Date and time of the procedure: ' + procedure.procedureDateTime
+          : undefined
+      );
+      regularText(procedure.performerType != null ? 'Performed by: ' + procedure.performerType : undefined);
+      regularText(
+        procedure.medicationUsed != null ? 'Anaesthesia / medication used: ' + procedure.medicationUsed : undefined
+      );
+      regularText(procedure.bodySite != null ? 'Site/location: ' + procedure.bodySite : undefined);
+      regularText(procedure.bodySide != null ? 'Side of body: ' + procedure.bodySide : undefined);
+      regularText(procedure.technique != null ? 'Technique: ' + procedure.technique : undefined);
+      regularText(
+        procedure.suppliesUsed != null ? 'Instruments / supplies used: ' + procedure.suppliesUsed : undefined
+      );
+      regularText(procedure.procedureDetails != null ? 'Procedure details: ' + procedure.procedureDetails : undefined);
+      regularText(procedure.specimenSent != null ? 'Specimen sent: ' + procedure.specimenSent : undefined);
+      regularText(procedure.complications != null ? 'Complications: ' + procedure.complications : undefined);
+      regularText(procedure.patientResponse != null ? 'Patient response: ' + procedure.patientResponse : undefined);
+      regularText(
+        procedure.postInstructions != null ? 'Post-procedure instructions: ' + procedure.postInstructions : undefined
+      );
+      regularText(procedure.timeSpent != null ? 'Time spent: ' + procedure.timeSpent : undefined);
+      regularText(procedure.documentedBy != null ? 'Documented by: ' + procedure.documentedBy : undefined);
+    });
+    separateLine();
+  }
+
   if (data.prescriptions && data.prescriptions.length > 0) {
     drawBlockHeader('Prescriptions');
     data.prescriptions.forEach((prescription) => {

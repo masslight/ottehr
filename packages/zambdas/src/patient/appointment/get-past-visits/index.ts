@@ -1,11 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Location, Patient } from 'fhir/r4b';
+import { Appointment, Location, Patient, Schedule } from 'fhir/r4b';
 import {
   AppointmentInformationIntake,
   AppointmentStatus,
   appointmentTypeMap,
   createOystehrClient,
-  getAppointmentTimezone,
   getParticipantIdFromAppointment,
   GetPastVisitsResponse,
   getPatientsForUser,
@@ -14,6 +13,8 @@ import {
   mapStatusToTelemed,
   TIMEZONE_EXTENSION_URL,
   SecretsKeys,
+  getTimezone,
+  TIMEZONES,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getUser, ZambdaInput } from '../../../shared';
 import { getFhirResources, mapEncountersToAppointmentIds } from './helpers';
@@ -57,11 +58,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('awaiting allResources');
     const allResources = await getFhirResources(oystehr, patientIDs, patientId);
 
-    const scheduleResources = allResources.filter((resource) => {
+    const scheduleResource = allResources.filter((resource) => {
+      if (resource.resourceType !== 'Schedule') return false;
       const extensionTemp = (resource as { extension?: Array<{ url: string }> }).extension;
       const extensionSchedule = extensionTemp?.find((extension) => extension.url === TIMEZONE_EXTENSION_URL);
       return !!extensionSchedule;
-    });
+    })[0] as Schedule | undefined;
 
     console.log('allResources awaited');
 
@@ -90,8 +92,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
         const stateId = encounter?.location?.[0]?.location?.reference?.split('/')?.[1];
         const stateCode = locations.find((location) => location.id === stateId)?.address?.state;
-
-        const timezone = getAppointmentTimezone(fhirAppointment, scheduleResources);
+        const timezone = scheduleResource ? getTimezone(scheduleResource) : TIMEZONES[0];
         const appointmentTypeTag = fhirAppointment.meta?.tag?.find((tag) => tag.code && tag.code in appointmentTypeMap);
         const appointmentType = appointmentTypeTag?.code ? appointmentTypeMap[appointmentTypeTag.code] : 'Unknown';
 

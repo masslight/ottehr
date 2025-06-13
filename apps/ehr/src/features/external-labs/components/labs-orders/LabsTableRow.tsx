@@ -1,11 +1,10 @@
 import { ReactElement } from 'react';
 import { TableCell, TableRow, Box, Button, Typography, Tooltip, useTheme } from '@mui/material';
-import { LabOrderListPageDTO } from 'utils';
+import { LabOrderListPageDTO, formatDateForLabs, PSC_LOCALE } from 'utils';
 import DeleteIcon from '@mui/icons-material/DeleteOutlined';
 import { LabsTableColumn } from './LabsTable';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
-import { otherColors } from '@theme/colors';
-import { DateTime } from 'luxon';
+import { otherColors } from '@ehrTheme/colors';
 
 interface LabsTableRowProps {
   columns: LabsTableColumn[];
@@ -30,11 +29,6 @@ export const LabsTableRow = ({
     }
   };
 
-  const formatDate = (datetime: string): string => {
-    if (!datetime || !DateTime.fromISO(datetime).isValid) return '';
-    return DateTime.fromISO(datetime).setZone(labOrderData.encounterTimezone).toFormat('MM/dd/yyyy hh:mm a');
-  };
-
   const renderCellContent = (column: LabsTableColumn): React.ReactNode => {
     switch (column) {
       case 'testType':
@@ -49,9 +43,9 @@ export const LabsTableRow = ({
           </Box>
         );
       case 'visit':
-        return <Box>{formatDate(labOrderData.visitDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.visitDate, labOrderData.encounterTimezone)}</Box>;
       case 'orderAdded':
-        return <Box>{formatDate(labOrderData.orderAddedDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.orderAddedDate, labOrderData.encounterTimezone)}</Box>;
       case 'provider':
         return labOrderData.orderingPhysician || '';
       case 'dx': {
@@ -72,13 +66,13 @@ export const LabsTableRow = ({
         return <Typography variant="body2">{firstDxText}</Typography>;
       }
       case 'resultsReceived':
-        return <Box>{formatDate(labOrderData.lastResultReceivedDate)}</Box>;
+        return <Box>{formatDateForLabs(labOrderData.lastResultReceivedDate, labOrderData.encounterTimezone)}</Box>;
       case 'accessionNumber':
         return labOrderData.accessionNumbers.join(', ');
       case 'status':
         return <LabsOrderStatusChip status={labOrderData.orderStatus} />;
       case 'psc':
-        return labOrderData.isPSC ? 'PSC' : '';
+        return labOrderData.isPSC ? PSC_LOCALE : '';
       case 'actions':
         if (allowDelete && labOrderData.orderStatus === 'pending') {
           return (

@@ -2,11 +2,34 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { RelatedPerson } from 'fhir/r4b';
 import { getAuth0Token } from './getAuth0Token';
 import { createOystehrClient } from './helpers';
-import { Secrets } from 'utils';
+import { getPatientsForUser, getSecret, Secrets, SecretsKeys } from 'utils';
+import { decodeJwt } from 'jose';
 
-export async function getUser(token: string, secrets: Secrets | null): Promise<User> {
+const TEST_USER_ID = 'test-M2M-user-id';
+export async function getUser(token: string, secrets: Secrets | null, testProfile?: string): Promise<User> {
   const oystehr = createOystehrClient(token, secrets);
-  const user = await oystehr.user.me();
+
+  const ENV = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+
+  let user: User;
+  try {
+    user = await oystehr.user.me();
+  } catch (error: any) {
+    const isTestClient = token && isTestM2MClient(token, secrets) && ENV === 'local';
+    console.log('isTestClient', isTestClient);
+    if (!isTestClient) {
+      throw error;
+    }
+    user = {
+      id: 'test-M2M-user-id',
+      email: 'test-M2M-user-email',
+      name: '+15555555555',
+      phoneNumber: '+15555555555',
+      profile: testProfile || 'test-M2M-user-profile',
+      authenticationMethod: 'sms',
+    };
+  }
+
   return user;
 }
 
@@ -47,4 +70,37 @@ export async function checkOrCreateM2MClientToken(token: string, secrets: Secret
     console.log('already have token');
     return token;
   }
+}
+
+export const isTestM2MClient = (token: string, secrets: Secrets | null): boolean => {
+  const decoded = decodeJwt(token);
+
+  if (!decoded) {
+    return false;
+  }
+
+  const testM2MClientId = getSecret(SecretsKeys.AUTH0_CLIENT, secrets);
+  return testM2MClientId === (decoded as any).sub?.split('@')?.[0];
+};
+
+export const isTestUser = (user: User): boolean => {
+  return user.id === TEST_USER_ID;
+};
+
+export const checkIsEHRUser = (user: User): boolean => {
+  return !user?.name?.startsWith?.('+') && !isTestUser(user);
+};
+
+export async function userHasAccessToPatient(user: User, patientID: string, oystehr: Oystehr): Promise<boolean> {
+  // todo: change this to use check user is ehr user utility once branch defining it is merged
+  const isEHRUser = checkIsEHRUser(user);
+  if (isEHRUser) {
+    // for now, if the user is an EHR user, they have access to all patients by default
+    return true;
+  }
+  // Get all of the patients the user has access to,
+  // get the ID for each patient,
+  // check any of those patients match the patientID parameter,
+  // if so return true otherwise return false
+  return (await getPatientsForUser(user, oystehr)).some((patientTemp) => patientTemp.id === patientID);
 }

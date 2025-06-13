@@ -1,12 +1,12 @@
 import {
-  Questionnaire,
+  DocumentReference,
   Encounter,
+  Questionnaire,
   QuestionnaireResponse,
   QuestionnaireResponseItem,
-  DocumentReference,
   Reference,
 } from 'fhir/r4b';
-import { DiagnosisDTO } from '../..';
+import { DiagnosisDTO, Pagination } from '../..';
 
 export interface OrderableItemSearchResult {
   item: OrderableItem;
@@ -137,15 +137,10 @@ export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
   ? LabOrderDetailedPageDTO
   : LabOrderListPageDTO;
 
-export type Pagination = {
-  currentPageIndex: number;
-  totalItems: number;
-  totalPages: number;
-};
-
 export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters = GetLabOrdersParameters> = {
   data: LabOrderDTO<RequestParameters>[];
   pagination: Pagination;
+  patientLabItems?: PatientLabItem[];
 };
 
 export type LabOrdersSearchBy = {
@@ -177,6 +172,11 @@ export type SubmitLabOrderInput = {
   serviceRequestID: string;
   accountNumber: string;
   data: DynamicAOEInput;
+  specimens?: {
+    [specimenId: string]: {
+      date: string;
+    };
+  };
 };
 
 export type SubmitLabOrderDTO = {
@@ -192,12 +192,18 @@ export type CreateLabOrderParameters = {
 };
 
 export type GetCreateLabOrderResources = {
-  encounter: Encounter;
+  patientId?: string;
+  search?: string;
 };
 
 export type LabOrderResourcesRes = {
-  coverageName: string;
+  coverageName?: string;
   labs: OrderableItemSearchResult[];
+};
+
+export type PatientLabItem = {
+  code: string; // ActivityDefinition.code.coding[0].code
+  display: string; // ActivityDefinition.code.coding[0].display
 };
 
 export const LAB_ORDER_UPDATE_RESOURCES_EVENTS = {

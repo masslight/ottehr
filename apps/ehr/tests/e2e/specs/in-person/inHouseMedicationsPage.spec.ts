@@ -27,8 +27,12 @@ const NEW_INSTRUCTIONS = 'Edited instructions';
 const STATUS = 'pending';
 
 test.beforeEach(async () => {
-  await resourceHandler.setResources();
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  if (process.env.INTEGRATION_TEST === 'true') {
+    await resourceHandler.setResourcesFast();
+  } else {
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  }
 });
 
 test.afterEach(async () => {
@@ -37,8 +41,7 @@ test.afterEach(async () => {
 
 test('Open Order Medication screen, check all fields are required', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
-  await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
-  await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+  // we have selected dx by default now so we can proceed to verification
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
   await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
@@ -53,13 +56,18 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS);
   await orderMedicationPage.editMedicationCard.selectUnits(UNITS);
   await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MANUFACTURER);
-  await orderMedicationPage.editMedicationCard.enterManufacturer(MANUFACTURER);
-  await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE);
   await orderMedicationPage.editMedicationCard.selectRoute(ROUTE);
   await orderMedicationPage.clickOrderMedicationButton();
-  await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS);
+
+  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
+  await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
+});
+
+test('"Order" button is disabled when all fields are empty', async ({ page }) => {
+  const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
+  await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
+  await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
 });
 
 test('Non-selected diagnosis on Assessment page is not present in Order Medication screen on associatedDx dropdown', async ({
@@ -150,9 +158,9 @@ test('Edit order page is opened after clicking on pencil icon for order in "pend
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ASSOCIATED_DX, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.DOSE, false);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.UNITS, false);
-    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.MANUFACTURER, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.MANUFACTURER);
     await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.ROUTE, false);
-    await editOrderPage.editMedicationCard.verifyValidationErrorShown(Field.INSTRUCTIONS, false);
+    await editOrderPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
   });
 
   await test.step('Edit order page is opened after clicking on pencil icon for order in "pending" status', async () => {

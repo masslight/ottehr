@@ -1,7 +1,24 @@
 import { expect, Page, test } from '@playwright/test';
+import { formatDOB } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import {
+  PATIENT_BIRTHDAY,
+  PATIENT_BIRTH_DATE_SHORT,
+  PATIENT_CITY,
+  PATIENT_EMAIL,
+  PATIENT_FIRST_NAME,
+  PATIENT_GENDER,
+  PATIENT_LAST_NAME,
+  PATIENT_LINE,
+  PATIENT_LINE_2,
+  PATIENT_PHONE_NUMBER,
+  PATIENT_POSTALCODE,
+  PATIENT_STATE,
+  ResourceHandler,
+} from '../../e2e-utils/resource-handler';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { expectPatientInformationPage } from '../page/PatientInformationPage';
+import { expectPatientsPage } from '../page/PatientsPage';
 
 // We may create new instances for the tests with mutable operations, and keep parralel tests isolated
 const resourceHandler = new ResourceHandler();
@@ -14,8 +31,12 @@ const awaitCSSHeaderInit = async (page: Page): Promise<void> => {
 };
 
 test.beforeAll(async () => {
-  await resourceHandler.setResources();
-  await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  if (process.env.INTEGRATION_TEST === 'true') {
+    await resourceHandler.setResourcesFast();
+  } else {
+    await resourceHandler.setResources();
+    await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+  }
 });
 
 test.afterAll(async () => {
@@ -126,4 +147,199 @@ test('CSS intake external lab orders page is available', async ({ page }) => {
 test('CSS intake assessment page is available', async ({ page }) => {
   await page.goto(`in-person/${resourceHandler.appointment.id}/assessment`);
   await awaitCSSHeaderInit(page);
+});
+
+test.describe('Patient search', () => {
+  const patientData = {
+    firstName: PATIENT_FIRST_NAME,
+    lastName: PATIENT_LAST_NAME,
+    dateOfBirth: PATIENT_BIRTH_DATE_SHORT,
+    email: PATIENT_EMAIL,
+    phoneNumber: PATIENT_PHONE_NUMBER,
+    address:
+      PATIENT_LINE + ', ' + PATIENT_LINE_2 + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+  };
+
+  test('Search by Last name', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by First name', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Date of birth', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Phone number', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Address', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByAddress(PATIENT_LINE.substring(0, 6));
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Email', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Last name and First name', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Last name and Date of birth', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Last name and Address', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByAddress(PATIENT_CITY);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Last name and Phone number', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Search by Last name, First name and Date of birth', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.clickSearchButton();
+    await patientsPage.verifyPatientPresent({
+      ...patientData,
+      id: resourceHandler.patient.id!,
+    });
+  });
+
+  test('Reset filters', async ({ page }) => {
+    await page.goto('/patients');
+
+    const patientsPage = await expectPatientsPage(page);
+    await patientsPage.searchByLastName(PATIENT_LAST_NAME);
+    await patientsPage.searchByGivenNames(PATIENT_FIRST_NAME);
+    await patientsPage.searchByDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientsPage.searchByMobilePhone(PATIENT_PHONE_NUMBER);
+    await patientsPage.searchByAddress(PATIENT_CITY);
+    await patientsPage.searchByEmail(PATIENT_EMAIL.split('@')[0]);
+    await patientsPage.clickResetFiltersButton();
+    await patientsPage.verifyFilterReset();
+  });
+});
+
+test.describe('Patient header tests', () => {
+  test.afterAll(async () => {
+    await resourceHandler.cleanupResources();
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/patient/' + resourceHandler.patient.id + '/info');
+  });
+
+  const HEADER_PATIENT_BIRTHDAY = formatDOB(PATIENT_BIRTHDAY)!;
+  const HEADER_PATIENT_GENDER = 'Male';
+  const HEADER_PATIENT_NAME = PATIENT_LAST_NAME + ', ' + PATIENT_FIRST_NAME;
+
+  test('Check header info', async ({ page }) => {
+    const patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
+    const patientHeader = patientInformationPage.getPatientHeader();
+    await patientHeader.verifyHeaderPatientID('PID: ' + resourceHandler.patient.id);
+    await patientHeader.verifyHeaderPatientName(HEADER_PATIENT_NAME);
+    await patientHeader.verifyHeaderPatientBirthSex(HEADER_PATIENT_GENDER);
+    await patientHeader.verifyHeaderPatientBirthday(HEADER_PATIENT_BIRTHDAY);
+  });
+
+  test('Check patient info', async ({ page }) => {
+    const patientInformationPage = await expectPatientInformationPage(page, resourceHandler.patient.id!);
+    await patientInformationPage.verifyPatientLastName(PATIENT_LAST_NAME);
+    await patientInformationPage.verifyPatientFirstName(PATIENT_FIRST_NAME);
+    await patientInformationPage.verifyPatientDateOfBirth(PATIENT_BIRTH_DATE_SHORT);
+    await patientInformationPage.verifyPatientBirthSex(PATIENT_GENDER);
+  });
 });

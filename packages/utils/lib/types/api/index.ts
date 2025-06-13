@@ -25,5 +25,7 @@ export * from './unassign-practitioner';
 export * from './user.types';
 export * from './ai-interview.types';
 export * from './patient-account';
+export * from './radiology';
 export * from './schedules';
 export * from './send-fax.types';
+export * from './patient-payment-types';

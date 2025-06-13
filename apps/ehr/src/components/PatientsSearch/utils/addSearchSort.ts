@@ -17,7 +17,7 @@ export const addSearchSort = (url: string, options: SearchOptionsSort): string =
 
   if (options.order === 'desc') sortField = '-' + sortField;
 
-  params.push(`_sort=${sortField}`);
+  params.push(`_sort=${sortField},_id`);
 
   return `${url}${url.includes('?') ? '&' : '?'}${params.join('&')}`;
 };

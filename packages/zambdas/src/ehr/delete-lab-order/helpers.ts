@@ -89,7 +89,7 @@ export const getLabOrderRelatedResources = async (
       (encounter) => encounter.id === serviceRequest.encounter?.reference?.split('/')[1]
     );
 
-    // this Conditions were added from lab order page and should be deleted if the lab order is deleted
+    // this Conditions were added from external lab order page and should be deleted if the lab order is deleted
     const labConditions = conditions.filter(
       (condition) =>
         condition.encounter?.reference === `Encounter/${encounter?.id}` &&
@@ -133,7 +133,7 @@ export const getLabOrderRelatedResources = async (
       labConditions,
     };
   } catch (error) {
-    console.error('Error fetching lab order and related resources:', error);
+    console.error('Error fetching external lab order and related resources:', error);
     throw error;
   }
 };

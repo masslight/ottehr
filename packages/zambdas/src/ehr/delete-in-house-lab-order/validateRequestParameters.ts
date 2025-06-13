@@ -19,7 +19,9 @@ export function validateRequestParameters(
     throw Error('Invalid JSON in request body');
   }
 
-  // todo: validate params
+  if (!params.serviceRequestId) {
+    throw new Error('Service request ID is required');
+  }
 
   return { userToken, secrets, ...params };
 }

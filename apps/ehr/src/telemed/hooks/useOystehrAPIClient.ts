@@ -31,6 +31,7 @@ export const useZapEHRAPIClient = (): ReturnType<typeof getOystehrTelemedAPI> | 
           updatePatientAccountZambdaID: import.meta.env.VITE_APP_UPDATE_PATIENT_ACCOUNT_ZAMBDA_ID,
           removePatientCoverageZambdaID: import.meta.env.VITE_APP_REMOVE_PATIENT_COVERAGE_ZAMBDA_ID,
           sendFaxZambdaID: import.meta.env.VITE_APP_SEND_FAX_ZAMBDA_ID,
+          externalLabResourceSearchID: import.meta.env.VITE_APP_GET_CREATE_LAB_ORDER_RESOURCES,
         },
         oystehrZambda
       );

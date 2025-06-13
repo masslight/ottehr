@@ -64,7 +64,6 @@ export interface GetPaperworkRequestParams {
 export interface GetPaperworkResponse {
   appointment: AppointmentSummary;
   patient: PaperworkPatient;
-  updateTimestamp: number | undefined;
   allItems: IntakeQuestionnaireItem[];
   questionnaireResponse: QuestionnaireResponse | undefined;
 }

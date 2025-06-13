@@ -7,6 +7,7 @@ import {
   getTimezone,
   INVALID_INPUT_ERROR,
   INVALID_RESOURCE_ID_ERROR,
+  isLocationVirtual,
   isValidUUID,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
@@ -60,6 +61,7 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
   }
 
   let detailText: string | undefined = undefined;
+  let isVirtual: boolean | undefined = undefined;
 
   if (ownerResource.resourceType === 'Location') {
     const loc = ownerResource as Location;
@@ -67,6 +69,7 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     if (address) {
       detailText = addressStringFromAddress(address);
     }
+    isVirtual = isLocationVirtual(loc);
   }
 
   const owner: ScheduleDTOOwner = {
@@ -79,6 +82,7 @@ const performEffect = (input: EffectInput): ScheduleDTO => {
     detailText,
     infoMessage: '',
     hoursOfOperation: (ownerResource as Location)?.hoursOfOperation,
+    isVirtual,
   };
 
   return {
@@ -279,7 +283,6 @@ const getEffectInputFromOwner = async (
       return `${res.resourceType}/${res.id}` === `${ownerType}/${ownerId}`;
     }) as ScheduleOwnerFhirResource;
   }
-
   if (!owner) {
     throw SCHEDULE_OWNER_NOT_FOUND_ERROR;
   }

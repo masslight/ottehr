@@ -2,6 +2,7 @@ import { spawn, execSync } from 'child_process';
 import path from 'path';
 
 const ENV = process.env.ENV?.trim?.() || 'local';
+const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
 const isUI = process.argv.includes('--ui');
 const isLocal = ENV === 'local';
 const isCI = Boolean(process.env.CI);
@@ -123,7 +124,7 @@ const setupTestDeps = async (): Promise<void> => {
     try {
       execSync(`node --experimental-vm-modules setup-test-deps.js`, {
         stdio: 'inherit',
-        env: { ...process.env, ENV: ENV },
+        env: { ...process.env },
         cwd: path.join(process.cwd(), `apps/${app}`),
       });
 
@@ -131,10 +132,12 @@ const setupTestDeps = async (): Promise<void> => {
       console.log(`Running e2e-test-setup.sh for ${app} with environment ${ENV}...`);
       execSync(`bash ./scripts/e2e-test-setup.sh --skip-prompts --environment ${ENV}`, {
         stdio: 'inherit',
-        env: { ...process.env, ENV: ENV },
+        env: { ...process.env, ENV },
       });
     } catch (error) {
-      console.error(`Failed to run setup-test-deps.js for ${app}:`, error);
+      console.error(`Failed to run setup-test-deps.js for ${app}`);
+      console.error(error?.message);
+      console.error(error?.stack);
       clearPorts();
       process.exit(1);
     }
@@ -180,7 +183,7 @@ function runTests(): void {
         {
           shell: true,
           stdio: 'inherit',
-          env: { ...process.env, ENV: ENV },
+          env: { ...process.env, ENV, INTEGRATION_TEST },
         }
       );
 
@@ -207,7 +210,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error('Script failed:', error);
+  console.error(`run-e2e.ts script failed:\n${JSON.stringify(error, null, 2)}`);
   clearPorts();
   process.exit(1);
 });

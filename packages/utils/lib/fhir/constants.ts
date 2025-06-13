@@ -193,6 +193,9 @@ export const FHIR_EXTENSION = {
     documentedBy: {
       url: `${PRIVATE_EXTENSION_BASE_URL}/documented-by`,
     },
+    consentObtained: {
+      url: `${PRIVATE_EXTENSION_BASE_URL}/consent-obtained`,
+    },
   },
 } as const;
 
@@ -545,3 +548,5 @@ const PROCEDURES_TERMINOLOGY_BASE_URL = FHIR_BASE_URL + '/CodeSystem/Procedure';
 export const PROCEDURE_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/procedure-type';
 export const PERFORMER_TYPE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/performer-type';
 export const BODY_SITE_SYSTEM = PROCEDURES_TERMINOLOGY_BASE_URL + '/body-site';
+
+export const PAYMENT_METHOD_EXTENSION_URL = PUBLIC_EXTENSION_BASE_URL + '/payment-method';

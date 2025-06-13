@@ -1,5 +1,22 @@
-import Oystehr from '@oystehr/sdk';
-import { Address, Appointment, Encounter, Patient, Practitioner, QuestionnaireResponse } from 'fhir/r4b';
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import {
+  Address,
+  Appointment,
+  ClinicalImpression,
+  Consent,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  List,
+  Patient,
+  Person,
+  Practitioner,
+  QuestionnaireResponse,
+  RelatedPerson,
+  Schedule,
+  ServiceRequest,
+  Slot,
+} from 'fhir/r4b';
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
@@ -20,11 +37,13 @@ import { fetchWithOystAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
+  TestEmployee,
   TEST_EMPLOYEE_1,
   TEST_EMPLOYEE_2,
-  TestEmployee,
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
+import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -45,10 +64,10 @@ export function getAccessToken(): string {
   return token;
 }
 
-const EightDigitsString = DateTime.now().toFormat('yyyyMMdd');
+const EightDigitsString = '20250519';
 
-export const PATIENT_FIRST_NAME = 'Test_John_Random' + EightDigitsString;
-export const PATIENT_LAST_NAME = 'Test_Doe_Random' + EightDigitsString; // don't use real random values in parallel related tests
+export const PATIENT_FIRST_NAME = 'Jon';
+export const PATIENT_LAST_NAME = 'Snow';
 export const PATIENT_GENDER = 'Male';
 
 export const PATIENT_BIRTHDAY = '2002-07-07';
@@ -59,6 +78,7 @@ export const PATIENT_PHONE_NUMBER = '21' + EightDigitsString;
 export const PATIENT_EMAIL = `john.doe.${EightDigitsString}3@example.com`;
 export const PATIENT_CITY = 'New York';
 export const PATIENT_LINE = `${EightDigitsString} Test Line`;
+export const PATIENT_LINE_2 = 'Apt 4B';
 export const PATIENT_STATE = 'NY';
 export const PATIENT_POSTALCODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
@@ -232,11 +252,88 @@ export class ResourceHandler {
     const response = await this.createAppointment(params);
     this.#resources = {
       ...response.resources,
-      // add relatedPerson to resources to make posiible cleanup it, endpoint returns only id
+      // add relatedPerson to resources to make possible to clean it up; endpoint returns only id
       relatedPerson: {
         id: response.relatedPersonId,
         resourceType: 'RelatedPerson',
       },
+    };
+  }
+
+  public async setResourcesFast(_params?: CreateTestAppointmentInput): Promise<void> {
+    await this.#initPromise;
+
+    if (process.env.LOCATION_ID == null) {
+      throw new Error('LOCATION_ID is not set');
+    }
+
+    const schedule = (
+      await this.#apiClient.fhir.search<Schedule>({
+        resourceType: 'Schedule',
+        params: [
+          {
+            name: 'actor',
+            value: `Location/${process.env.LOCATION_ID}`,
+          },
+        ],
+      })
+    ).unbundle()[0] as Schedule;
+
+    let seedDataString = JSON.stringify(fastSeedData);
+    seedDataString = seedDataString.replace(/\{\{locationId\}\}/g, process.env.LOCATION_ID);
+    seedDataString = seedDataString.replace(/\{\{scheduleId\}\}/g, schedule.id!);
+    seedDataString = seedDataString.replace(
+      /\{\{questionnaireUrl\}\}/g,
+      `${inPersonIntakeQuestionnaire.resource.url}|${inPersonIntakeQuestionnaire.resource.version}`
+    );
+    seedDataString = seedDataString.replace(/\{\{date\}\}/g, DateTime.now().toUTC().toFormat('yyyy-MM-dd'));
+
+    // TODO do something about the DocumentReference attachments? For the moment all of these tests point to the exact same files. Maybe that's great. Or maybe we should upload images each time?
+
+    const hydratedFastSeedJSON = JSON.parse(seedDataString);
+
+    const createdResources =
+      (
+        await this.#apiClient.fhir.transaction<
+          | Patient
+          | RelatedPerson
+          | Person
+          | Appointment
+          | Encounter
+          | Slot
+          | List
+          | Consent
+          | DocumentReference
+          | QuestionnaireResponse
+          | ServiceRequest
+          | ClinicalImpression
+        >({
+          requests: hydratedFastSeedJSON.entry.map((entry: any): BatchInputPostRequest<FhirResource> => {
+            if (entry.request.method !== 'POST') {
+              throw new Error('Only POST method is supported in fast mode');
+            }
+            return {
+              method: entry.request.method,
+              url: entry.request.url,
+              fullUrl: entry.fullUrl,
+              resource: entry.resource,
+            };
+          }),
+        })
+      ).entry
+        ?.map((entry) => entry.resource)
+        .filter((entry) => entry !== undefined) ?? [];
+    this.#resources = {
+      patient: createdResources.find((resource) => resource!.resourceType === 'Patient') as Patient,
+      relatedPerson: {
+        id: (createdResources.find((resource) => resource!.resourceType === 'RelatedPerson') as RelatedPerson).id!,
+        resourceType: 'RelatedPerson',
+      },
+      appointment: createdResources.find((resource) => resource!.resourceType === 'Appointment') as Appointment,
+      encounter: createdResources.find((resource) => resource!.resourceType === 'Encounter') as Encounter,
+      questionnaire: createdResources.find(
+        (resource) => resource!.resourceType === 'QuestionnaireResponse'
+      ) as QuestionnaireResponse,
     };
   }
 

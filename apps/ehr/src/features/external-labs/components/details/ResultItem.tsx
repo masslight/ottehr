@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
-import { LabOrderDetailedPageDTO, LabOrderResultDetails } from 'utils';
+import { LabOrderDetailedPageDTO, LabOrderResultDetails, PSC_LOCALE } from 'utils';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
@@ -15,7 +15,7 @@ interface ResultItemProps {
 export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading }: ResultItemProps): ReactElement => {
   const theme = useTheme();
   return (
-    <div style={{ marginTop: '42px' }}>
+    <>
       <Box
         sx={{
           display: 'flex',
@@ -41,7 +41,7 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           <LabsOrderStatusChip status={resultDetails.labStatus} />
           {labOrder.isPSC && (
             <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-              PSC
+              {PSC_LOCALE}
             </Typography>
           )}
         </Box>
@@ -64,6 +64,6 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           onPrelimView={() => onMarkAsReviewed()} // todo: add open PDF when task will be ready
         />
       )}
-    </div>
+    </>
   );
 };

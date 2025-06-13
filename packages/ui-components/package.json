@@ -1,7 +1,7 @@
 {
   "name": "ui-components",
   "private": true,
-  "version": "1.9.17",
+  "version": "1.11.5",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
@@ -18,6 +18,8 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^3.0.0",
+    "@stripe/stripe-js": "^3.5.0",
     "tsconfig": "*",
     "utils": "*"
   }

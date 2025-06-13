@@ -4,8 +4,8 @@ import { Box, Grid, Tab, Typography } from '@mui/material';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
-import { InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '@theme/colors';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
+import { otherColors } from '@ehrTheme/colors';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -28,6 +28,7 @@ interface AppointmentsTabProps {
   loading: boolean;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
+  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
 }
 
 export default function AppointmentTabs({
@@ -41,6 +42,7 @@ export default function AppointmentTabs({
   loading,
   updateAppointments,
   setEditingComment,
+  inHouseLabOrdersByAppointmentId,
 }: AppointmentsTabProps): ReactElement {
   const [value, setValue] = useState<ApptTab>(ApptTab['in-office']);
   const [now, setNow] = useState<DateTime>(DateTime.now());
@@ -132,6 +134,7 @@ export default function AppointmentTabs({
             {selectLocationMsg || (
               <AppointmentTable
                 appointments={preBookedAppointments}
+                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}
@@ -144,6 +147,7 @@ export default function AppointmentTabs({
             {selectLocationMsg || (
               <AppointmentTable
                 appointments={inOfficeAppointments}
+                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}
@@ -156,6 +160,7 @@ export default function AppointmentTabs({
             {selectLocationMsg || (
               <AppointmentTable
                 appointments={completedAppointments}
+                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}
@@ -168,6 +173,7 @@ export default function AppointmentTabs({
             {selectLocationMsg || (
               <AppointmentTable
                 appointments={cancelledAppointments}
+                inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 location={location}
                 tab={value}
                 now={now}

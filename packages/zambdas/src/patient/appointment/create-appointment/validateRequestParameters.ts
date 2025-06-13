@@ -23,10 +23,9 @@ import {
   Secrets,
   SecretsKeys,
   ServiceMode,
-  userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { phoneRegex, ZambdaInput } from '../../../shared';
+import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
 import Oystehr, { User } from '@oystehr/sdk';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 
@@ -47,7 +46,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   if (currentCanonicalQuestionnaireUrl === '') {
     throw new Error(`Missing secret with name ${SecretsKeys.IN_PERSON_PREVISIT_QUESTIONNAIRE}`);
   }
-  const isEHRUser = !user?.name?.startsWith?.('+');
+  const isEHRUser = checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
   const { slotId, language, patient, unconfirmedDateOfBirth, locationState } = bodyJSON;
@@ -165,7 +164,7 @@ export const createAppointmentComplexValidation = async (
   // patient input complex validation
   if (patient.id) {
     const userAccess = await userHasAccessToPatient(user, patient.id, oystehrClient);
-    if (!userAccess && !isEHRUser) {
+    if (!userAccess && !isEHRUser && !isTestUser(user)) {
       throw NO_READ_ACCESS_TO_PATIENT_ERROR;
     }
   }

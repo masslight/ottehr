@@ -1,9 +1,9 @@
 import {
   ApptTelemedTab,
+  DispositionType,
   ExamCardsNames,
   ExamFieldsNames,
   ExamTabCardNames,
-  DispositionType,
   PractitionerQualificationCode,
   RoleType,
   TelemedAppointmentVisitTabs,
@@ -26,6 +26,8 @@ export const dataTestIds = {
     appointmentsTable: (tab: 'prebooked' | 'in-office' | 'completed' | 'cancelled') => `appointments-table-${tab}`,
     addPatientButton: 'add-patient-button',
     intakeButton: `intake-button`,
+    visitDetailsButton: `visit-details-button`,
+    progressNoteButton: `progress-note-button`,
     prebookedTab: 'prebooked-tab',
     locationSelect: 'location-select',
     datePickerTodayButton: 'date-picker-today-button',
@@ -39,6 +41,7 @@ export const dataTestIds = {
     arrivedButton: 'arrived-button',
     appointmentStatus: 'appointment-status',
     chatButton: 'Chat-outlined-icon',
+    patientName: 'patient-name',
   },
   appointmentPage: {
     patientFullName: 'patient-full-name',
@@ -230,6 +233,7 @@ export const dataTestIds = {
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
+    trackingBoardLocationsSelectOption: (id: string) => `telemed-tracking-board-location-select-option-${id}`,
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,

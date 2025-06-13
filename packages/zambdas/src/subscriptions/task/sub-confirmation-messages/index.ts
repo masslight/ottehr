@@ -3,7 +3,6 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
-import '../../../shared/instrument.mjs';
 import {
   ZambdaInput,
   configSentry,

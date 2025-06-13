@@ -6,6 +6,9 @@ import {
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   getFullestAvailableName,
+  IN_HOUSE_LAB_ERROR,
+  isApiError,
+  APIError,
 } from 'utils';
 import {
   ZambdaInput,
@@ -27,11 +30,10 @@ import {
   Task,
   FhirResource,
   Practitioner,
-  Bundle,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { getPrimaryInsurance } from '../shared/labs';
-import { BatchInputRequest, ZambdaExecuteResult } from '@oystehr/sdk';
+import { BatchInputRequest } from '@oystehr/sdk';
 import { randomUUID } from 'crypto';
 import { getAttendingPractionerId } from '../shared/inhouse-labs';
 
@@ -62,8 +64,16 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
-    const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);
-    const { encounterId, testItem, cptCode: _cptCode, diagnosesAll, diagnosesNew, notes } = validatedParameters;
+
+    const {
+      encounterId,
+      testItem,
+      cptCode: cptCode,
+      diagnosesAll,
+      diagnosesNew,
+      isRepeatTest,
+      notes,
+    } = validatedParameters;
 
     const encounterResourcesRequest = async (): Promise<(Encounter | Patient | Location | Coverage | Account)[]> =>
       (
@@ -117,16 +127,52 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         return await getMyPractitionerId(oystehrCurrentUser);
       } catch (e) {
         throw Error(
-          'Resource configuration error - user creating this lab order must have a Practitioner resource linked'
+          'Resource configuration error - user creating this in-house lab order must have a Practitioner resource linked'
         );
       }
     };
 
-    const [encounterResources, activeDefinitionResources, userPractitionerId] = await Promise.all([
-      encounterResourcesRequest(),
-      activeDefinitionRequest(),
-      userPractitionerIdRequest(),
-    ]);
+    const requests: any[] = [encounterResourcesRequest(), activeDefinitionRequest(), userPractitionerIdRequest()];
+
+    if (isRepeatTest) {
+      console.log('run as repeat for', cptCode, testItem.name);
+      // tests being run as repeat need to be linked via basedOn to the original test that was run
+      // so we are looking for a test with the same cptCode that does not have any value in basedOn - this will be the initialServiceRequest
+      const intialServiceRequestSearch = async (): Promise<ServiceRequest[]> =>
+        (
+          await oystehr.fhir.search({
+            resourceType: 'ServiceRequest',
+            params: [
+              {
+                name: 'encounter',
+                value: `Encounter/${encounterId}`,
+              },
+              {
+                name: 'code',
+                value: cptCode,
+              },
+              {
+                name: 'code',
+                value: testItem.name,
+              },
+            ],
+          })
+        ).unbundle() as ServiceRequest[];
+      requests.push(intialServiceRequestSearch());
+    }
+
+    const results = await Promise.all(requests);
+    const [
+      encounterResources,
+      activeDefinitionResources,
+      userPractitionerId,
+      initialServiceRequestResources, // only exists if runAsRepeat is true
+    ] = results as [
+      (Encounter | Patient | Location | Coverage | Account)[],
+      ActivityDefinition[],
+      string,
+      ServiceRequest[]?,
+    ];
 
     const {
       encounterSearchResults,
@@ -199,6 +245,29 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return accountSearchResults[0];
     })();
 
+    const initialServiceRequest = (() => {
+      if (isRepeatTest) {
+        if (!initialServiceRequestResources || initialServiceRequestResources.length === 0) {
+          throw IN_HOUSE_LAB_ERROR(
+            'You cannot run this as repeat, no initial tests could be found for this encounter.'
+          );
+        }
+        const possibleInitialSRs = initialServiceRequestResources.reduce((acc: ServiceRequest[], sr) => {
+          if (!sr.basedOn) acc.push(sr);
+          return acc;
+        }, []);
+        if (possibleInitialSRs.length > 1) {
+          throw new Error('More than one initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+        }
+        if (possibleInitialSRs.length === 0) {
+          throw new Error('No initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+        }
+        const initialSR = possibleInitialSRs[0];
+        return initialSR;
+      }
+      return;
+    })();
+
     const attendingPractitionerId = getAttendingPractionerId(encounter);
 
     const { currentUserPractitionerName, attendingPractitionerName } = await Promise.all([
@@ -242,7 +311,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         coding: activityDefinition.code?.coding,
         text: activityDefinition.name,
       },
-      reasonCode: [...diagnosesAll, ...diagnosesNew].map((diagnosis) => {
+      reasonCode: [...diagnosesAll].map((diagnosis) => {
         return {
           coding: [
             {
@@ -266,6 +335,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
       instantiatesCanonical: [`${activityDefinition.url}`], // todo in the future - we should add |${activityDefinition.version}
     };
+    // if an initialServiceRequest is defined, the test being ordered is repeat and should be linked to the
+    // original test represented by initialServiceRequest
+    if (initialServiceRequest) {
+      serviceRequestConfig.basedOn = [
+        {
+          reference: `ServiceRequest/${initialServiceRequest.id}`,
+        },
+      ];
+    }
 
     const taskConfig: Task = {
       resourceType: 'Task',
@@ -343,29 +421,30 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         })
       : {};
 
-    // todo: add common response type
-    const response: {
-      transactionResponse: Bundle<FhirResource>;
-      saveChartDataResponse: ZambdaExecuteResult | Record<string, never>;
-      serviceRequestId?: string;
-    } = {
+    const response = {
       transactionResponse,
       saveChartDataResponse,
+      ...(newServiceRequest && { serviceRequestId: newServiceRequest.id }),
     };
-
-    if (newServiceRequest) response['serviceRequestId'] = newServiceRequest.id;
 
     return {
       statusCode: 200,
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    console.error('Error creating in-house lab order:', JSON.stringify(error));
+    console.error('Error creating in-house lab order:', JSON.stringify(error), error);
+    let body = JSON.stringify({ message: `Error creating in-house lab order: ${error.message || error}` });
+    let statusCode = 500;
+
+    if (isApiError(error)) {
+      const { code, message } = error as APIError;
+      body = JSON.stringify({ message, code });
+      statusCode = 400;
+    }
+
     return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: `Error processing request: ${error.message || error}`,
-      }),
+      statusCode,
+      body,
     };
   }
 };

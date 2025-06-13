@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, ReactElement, useMemo } from 'react';
+import { useCallback, useState, ReactElement, useMemo, useRef, useEffect } from 'react';
 import {
   EMPTY_PAGINATION,
   LabOrderDTO,
@@ -8,11 +8,16 @@ import {
   LabOrdersSearchBy,
   TaskReviewedParameters,
   SpecimenDateChangedParameters,
+  tryFormatDateToISO,
+  PatientLabItem,
+  PaginatedResponse,
 } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
-import { getLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
+import { getExternalLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
-import { useDeleteLabOrderDialog } from './useDeleteLabOrderDialog';
+import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
+import { getExternalLabOrdersUrl } from 'src/features/css-module/routing/helpers';
+import { useNavigate } from 'react-router-dom';
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
@@ -20,13 +25,14 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   error: Error | null;
   totalPages: number;
   page: number;
-  setPage: (page: number) => void;
+  setSearchParams: (searchParams: {
+    pageNumber?: number;
+    testTypeFilter?: string;
+    visitDateFilter?: DateTime | null;
+  }) => void;
   orderableItemCodeFilter: string;
-  setOrderableItemCodeFilter: (filter: string) => void;
   visitDateFilter: DateTime | null;
-  setVisitDateFilter: (date: DateTime | null) => void;
   fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
-  getCurrentSearchParams: () => GetLabOrdersParameters;
   showPagination: boolean;
   deleteLabOrder: (params: DeleteLabOrderParams) => Promise<boolean>;
   showDeleteLabOrderDialog: ({
@@ -37,60 +43,53 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
     testItemName: string;
   }) => void;
   DeleteOrderDialog: ReactElement | null;
-  markTaskAsReviewed: (parameters: TaskReviewedParameters) => Promise<void>;
+  markTaskAsReviewed: (parameters: TaskReviewedParameters & { appointmentId: string }) => Promise<void>;
   saveSpecimenDate: (parameters: SpecimenDateChangedParameters) => Promise<void>;
+  patientLabItems: PatientLabItem[];
 }
 
 export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
-  // don't use this directly, use memoized searchBy instead,
-  // if parent component is re-rendered, _searchBy will be a new object and will trigger unnecessary effects
   _searchBy: SearchBy
 ): UsePatientLabOrdersResult<SearchBy> => {
   const { oystehrZambda } = useApiClients();
+  const navigate = useNavigate();
   const [labOrders, setLabOrders] = useState<LabOrderDTO<SearchBy>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [totalPages, setTotalPages] = useState(1);
-  const [page, setPage] = useState(1);
+  const [patientLabItems, setPatientLabItems] = useState<PatientLabItem[]>([]);
+
+  /**
+   * Search state management strategy:
+   *
+   * Page: object in useState to force useEffect re-runs even with same value
+   * Filters: refs to avoid re-renders when setting multiple filters and to get updated values synchronously
+   *
+   * Benefits:
+   * - Single useEffect handles all search logic (page + searchBy dependencies)
+   * - Filters can be set independently without triggering fetches
+   * - Page changes are the only fetch trigger (predictable data flow)
+   * - Simplified API: one setSearchParams method for everything
+   */
+  const [page, setPage] = useState({ pageNumber: 1 });
+  const testTypeFilterRef = useRef('');
+  const visitDateFilterRef = useRef<DateTime | null>(null);
+
   const [showPagination, setShowPagination] = useState(false);
-  const [orderableItemCodeFilter, setOrderableItemCodeFilter] = useState('');
-  const [visitDateFilter, setVisitDateFilter] = useState<DateTime | null>(null);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const searchBy = useMemo(() => _searchBy, [JSON.stringify(_searchBy)]);
-
-  const formatVisitDate = useCallback((date: DateTime | null): string | undefined => {
-    if (!date || !date.isValid) {
-      return undefined;
-    }
-    try {
-      return date.toISODate() || undefined;
-    } catch (dateError) {
-      console.error('Error formatting date:', dateError);
-    }
-    return;
-  }, []);
-
-  const getCurrentSearchParamsWithoutPageIndex = useCallback((): GetLabOrdersParameters => {
-    const params: GetLabOrdersParameters = {
-      itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
-      ...searchBy,
-      ...(orderableItemCodeFilter && { orderableItemCode: orderableItemCodeFilter }),
-      ...(visitDateFilter && visitDateFilter.isValid && { visitDate: formatVisitDate(visitDateFilter) }),
-    };
-
-    return params;
-  }, [orderableItemCodeFilter, visitDateFilter, formatVisitDate, searchBy]);
-
-  const getCurrentSearchParamsForPage = useCallback(
-    (pageNubmer: number): GetLabOrdersParameters => {
-      if (pageNubmer < 1) {
-        throw Error('Page number must be greater than 0');
-      }
-      return { ...getCurrentSearchParamsWithoutPageIndex(), pageIndex: pageNubmer - 1 };
+  // calling without arguments will refetch the data with the current search params
+  const setSearchParams = useCallback(
+    (searchParams: { pageNumber?: number; testTypeFilter?: string; visitDateFilter?: DateTime | null }) => {
+      searchParams.testTypeFilter !== undefined && (testTypeFilterRef.current = searchParams.testTypeFilter);
+      searchParams.visitDateFilter !== undefined && (visitDateFilterRef.current = searchParams.visitDateFilter);
+      setPage((page) => ({ pageNumber: searchParams.pageNumber || page.pageNumber }));
     },
-    [getCurrentSearchParamsWithoutPageIndex]
+    []
   );
+
+  // Memoize searchBy to prevent unnecessary re-renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const memoizedSearchBy = useMemo(() => _searchBy, [JSON.stringify(_searchBy)]);
 
   const fetchLabOrders = useCallback(
     async (searchParams: GetLabOrdersParameters): Promise<void> => {
@@ -103,20 +102,22 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       setError(null);
 
       try {
-        let response;
+        let response: PaginatedResponse<SearchBy>;
         try {
-          response = await getLabOrders(oystehrZambda, searchParams);
+          response = await getExternalLabOrders(oystehrZambda, searchParams);
         } catch (err) {
           response = {
             data: [],
             pagination: EMPTY_PAGINATION,
+            patientLabItems: [],
           };
-          console.error('Error fetching lab orders:', err);
+          console.error('Error fetching external lab orders:', err);
           setError(err instanceof Error ? err : new Error('Unknown error occurred'));
         }
 
         if (response?.data) {
           setLabOrders(response.data as LabOrderDTO<SearchBy>[]);
+          setPatientLabItems(response.patientLabItems || []);
 
           if (response.pagination) {
             setTotalPages(response.pagination.totalPages || 1);
@@ -127,13 +128,15 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
           }
         } else {
           setLabOrders([]);
+          setPatientLabItems([]);
           setTotalPages(1);
           setShowPagination(false);
         }
       } catch (error) {
-        console.error('error with setting lab orders:', error);
+        console.error('error with setting external lab orders:', error);
         setError(error instanceof Error ? error : new Error('Unknown error occurred'));
         setLabOrders([]);
+        setPatientLabItems([]);
         setTotalPages(1);
         setShowPagination(false);
       } finally {
@@ -143,26 +146,27 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     [oystehrZambda]
   );
 
-  // initial fetch of lab orders, and when the search params change
   useEffect(() => {
-    const searchParams = getCurrentSearchParamsForPage(1);
+    if (page.pageNumber < 1) {
+      throw Error('Page number must be greater than 0');
+    }
+
+    const params: GetLabOrdersParameters = {
+      itemsPerPage: DEFAULT_LABS_ITEMS_PER_PAGE,
+      ...memoizedSearchBy,
+      ...(testTypeFilterRef.current && { orderableItemCode: testTypeFilterRef.current }),
+      ...(visitDateFilterRef.current &&
+        visitDateFilterRef.current.isValid && { visitDate: tryFormatDateToISO(visitDateFilterRef.current) }),
+    };
+
+    const searchParams = { ...params, pageIndex: page.pageNumber - 1 };
+
     if (searchParams.searchBy.field && searchParams.searchBy.value) {
       void fetchLabOrders(searchParams);
     } else {
       console.error('searchParams are not valid', searchParams);
     }
-  }, [fetchLabOrders, getCurrentSearchParamsForPage]);
-
-  const didOrdersFetch = labOrders.length > 0;
-
-  // fetch lab orders when the page changes
-  useEffect(() => {
-    // skip if the orders haven't been fetched yet, to prevent fetching when the page is first loaded
-    if (didOrdersFetch) {
-      const searchParams = getCurrentSearchParamsForPage(page);
-      void fetchLabOrders(searchParams);
-    }
-  }, [fetchLabOrders, getCurrentSearchParamsForPage, didOrdersFetch, page]);
+  }, [fetchLabOrders, page, memoizedSearchBy]);
 
   const handleDeleteLabOrder = useCallback(
     async ({ serviceRequestId }: DeleteLabOrderParams): Promise<boolean> => {
@@ -188,13 +192,11 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
 
         await deleteLabOrder(oystehrZambda, deleteParams);
 
-        setPage(1);
-        const searchParams = getCurrentSearchParamsForPage(1);
-        await fetchLabOrders(searchParams);
+        setSearchParams({ pageNumber: 1 });
 
         return true;
       } catch (err) {
-        console.error('Error deleting lab order:', err);
+        console.error('Error deleting external lab order:', err);
 
         const errorObj =
           err instanceof Error ? err : new Error(typeof err === 'string' ? err : 'Failed to delete lab order');
@@ -206,16 +208,21 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
         setLoading(false);
       }
     },
-    [fetchLabOrders, getCurrentSearchParamsForPage, oystehrZambda]
+    [oystehrZambda, setSearchParams]
   );
 
   // handle delete dialog
-  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteLabOrderDialog({
+  const { showDeleteLabOrderDialog, DeleteOrderDialog } = useDeleteCommonLabOrderDialog({
     deleteOrder: handleDeleteLabOrder,
   });
 
   const markTaskAsReviewed = useCallback(
-    async ({ taskId, serviceRequestId, diagnosticReportId }: TaskReviewedParameters): Promise<void> => {
+    async ({
+      taskId,
+      serviceRequestId,
+      diagnosticReportId,
+      appointmentId,
+    }: TaskReviewedParameters & { appointmentId: string }): Promise<void> => {
       if (!oystehrZambda) {
         console.error('oystehrZambda is not defined');
         return;
@@ -224,9 +231,10 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       setLoading(true);
 
       await updateLabOrderResources(oystehrZambda, { taskId, serviceRequestId, diagnosticReportId, event: 'reviewed' });
-      await fetchLabOrders(getCurrentSearchParamsForPage(1));
+      setSearchParams({ pageNumber: 1 });
+      navigate(getExternalLabOrdersUrl(appointmentId));
     },
-    [oystehrZambda, fetchLabOrders, getCurrentSearchParamsForPage]
+    [oystehrZambda, setSearchParams, navigate]
   );
 
   const saveSpecimenDate = useCallback(
@@ -259,19 +267,17 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
     loading,
     error,
     totalPages,
-    page,
-    setPage,
-    orderableItemCodeFilter,
-    setOrderableItemCodeFilter,
-    visitDateFilter,
-    setVisitDateFilter,
+    page: page.pageNumber,
+    setSearchParams,
+    orderableItemCodeFilter: testTypeFilterRef.current,
+    visitDateFilter: visitDateFilterRef.current,
     fetchLabOrders,
     showPagination,
     deleteLabOrder: handleDeleteLabOrder,
     showDeleteLabOrderDialog,
     DeleteOrderDialog,
-    getCurrentSearchParams: getCurrentSearchParamsWithoutPageIndex,
     markTaskAsReviewed,
     saveSpecimenDate,
+    patientLabItems,
   };
 };
