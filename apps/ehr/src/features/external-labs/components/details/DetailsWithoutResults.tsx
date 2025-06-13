@@ -2,13 +2,12 @@ import React from 'react';
 import { Typography, Stack, Grid } from '@mui/material';
 import { OrderCollection } from '../OrderCollection';
 import { CSSPageTitle } from '../../../../telemed/components/PageTitle';
-import { LabOrderDetailedPageDTO, SpecimenDateChangedParameters } from 'utils';
+import { LabOrderDetailedPageDTO, PSC_LOCALE } from 'utils';
 import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 export const DetailsWithoutResults: React.FC<{
   labOrder: LabOrderDetailedPageDTO;
-  saveSpecimenDate: (params: SpecimenDateChangedParameters) => Promise<void>;
-}> = ({ labOrder, saveSpecimenDate }) => {
+}> = ({ labOrder }) => {
   return (
     <Stack spacing={2} sx={{ width: '100%' }}>
       <CSSPageTitle>{labOrder.testItem}</CSSPageTitle>
@@ -23,7 +22,7 @@ export const DetailsWithoutResults: React.FC<{
         <Typography variant="body1">{labOrder.diagnoses}</Typography>
         <Grid container justifyContent="end" spacing={2}>
           <Grid item>
-            <Typography variant="body1">{labOrder.isPSC ? 'PSC' : ''}</Typography>
+            <Typography variant="body1">{labOrder.isPSC ? PSC_LOCALE : ''}</Typography>
           </Grid>
           <Grid item>
             <LabsOrderStatusChip status={labOrder.orderStatus} />
@@ -39,11 +38,7 @@ export const DetailsWithoutResults: React.FC<{
             taskStatus={taskStatus}
           />
         )} */}
-      <OrderCollection
-        labOrder={labOrder}
-        showOrderInfo={labOrder.orderStatus === 'sent'}
-        saveSpecimenDate={saveSpecimenDate}
-      />
+      <OrderCollection labOrder={labOrder} showOrderInfo={labOrder.orderStatus === 'sent'} />
     </Stack>
   );
 };

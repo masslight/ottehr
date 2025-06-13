@@ -1,29 +1,29 @@
-import React, { FC, useMemo, useState } from 'react';
 import {
+  Autocomplete,
   Box,
+  Card,
+  CircularProgress,
   Divider,
   FormControlLabel,
   Switch,
-  Typography,
   TextField,
+  Typography,
   debounce,
-  CircularProgress,
-  Card,
-  Autocomplete,
 } from '@mui/material';
-import { Controller, useForm } from 'react-hook-form';
-import { APIErrorCode, IcdSearchResponse, MedicalConditionDTO } from 'utils';
 import { otherColors } from '@theme/colors';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useMemo, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
+import { APIErrorCode, IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { useChartData } from '../../../../../features/css-module/hooks/useChartData';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
-import { DeleteIconButton } from '../../../../components';
-import { enqueueSnackbar } from 'notistack';
-import { useChartData } from '../../../../../features/css-module/hooks/useChartData';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
 
 export const MedicalConditionsProviderColumn: FC = () => {
   const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
