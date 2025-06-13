@@ -101,6 +101,7 @@ export interface TelemedStatusHistoryElement {
 
 export enum TelemedAppointmentVisitTabs {
   'hpi' = 'hpi',
+  'vitals' = 'vitals',
   'exam' = 'exam',
   'assessment' = 'assessment',
   'plan' = 'plan',

@@ -4,7 +4,6 @@ import {
   FhirAppointmentType,
   OTTEHR_MODULE,
   PatientFollowupDetails,
-  PractitionerLicense,
   ScheduleType,
   ServiceMode,
   VisitStatusWithoutUnknown,
@@ -47,19 +46,6 @@ export type PatientInfo = {
   reasonForVisit: string | undefined;
   reasonAdditional?: string;
 };
-
-export interface UpdateUserParameters {
-  userId: string | undefined;
-  firstName?: string;
-  middleName?: string;
-  lastName?: string;
-  nameSuffix?: string;
-  selectedRoles?: string[] | undefined;
-  licenses?: PractitionerLicense[];
-  phoneNumber?: string;
-  npi?: string;
-  // locations: Location[];
-}
 
 export interface AssignPractitionerParameters {
   encounterId: string | undefined;

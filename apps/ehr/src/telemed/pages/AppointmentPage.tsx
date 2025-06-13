@@ -197,7 +197,7 @@ export const AppointmentPage: FC = () => {
 
       <AppointmentFooter />
 
-      <div id="photon-prescribe-workflow-dialog" />
+      <div id="prescribe-dialog" />
     </Box>
   );
 };

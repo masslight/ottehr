@@ -1,6 +1,12 @@
-import { DocumentReference, MedicationRequest } from 'fhir/r4b';
-import { FileURLs, getPresignedURL, PaymentDataResponse, PrescribedMedication } from 'utils';
 import Oystehr from '@oystehr/sdk';
+import { DocumentReference, MedicationRequest } from 'fhir/r4b';
+import {
+  FileURLs,
+  getPresignedURL,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
+  PaymentDataResponse,
+  PrescribedMedication,
+} from 'utils';
 
 async function makePresignedURLFromDocumentReference(
   resource: DocumentReference,
@@ -106,7 +112,7 @@ function makePrescribedMedicationDTO(medRequest: MedicationRequest): PrescribedM
   return {
     resourceId: medRequest.id,
     name: medRequest.medicationCodeableConcept?.coding?.find(
-      (coding) => coding.system === 'http://api.zapehr.com/photon-treatment-id'
+      (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
   };

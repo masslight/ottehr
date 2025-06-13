@@ -4,43 +4,42 @@ import { CssBaseline } from '@mui/material';
 import { LicenseInfo } from '@mui/x-data-grid-pro';
 import { SnackbarProvider } from 'notistack';
 import { ReactElement, Suspense, lazy, useState } from 'react';
+import { useIdleTimer } from 'react-idle-timer';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { RoleType, setupSentry } from 'utils';
 import { CustomThemeProvider } from './CustomThemeProvider';
+import Banner from './components/Banner';
 import { LoadingScreen } from './components/LoadingScreen';
+import LogoutWarning from './components/dialogs/LogoutWarning';
 import Navbar from './components/navigation/Navbar';
+import AddPatientFollowup from './components/patient/AddPatientFollowup';
+import PatientFollowup from './components/patient/PatientFollowup';
 import { ProtectedRoute } from './components/routing/ProtectedRoute';
+import { FeatureFlagsProvider } from './features/css-module/context/featureFlags';
 import { useApiClients } from './hooks/useAppClients';
-import useEvolveUser, { useProviderPhotonStateStore } from './hooks/useEvolveUser';
+import useEvolveUser from './hooks/useEvolveUser';
+import AddEmployeePage from './pages/AddEmployeePage';
 import AddPatient from './pages/AddPatient';
+import AddSchedulePage from './pages/AddSchedulePage';
 import AppointmentPage from './pages/AppointmentPage';
 import AppointmentsPage from './pages/Appointments';
 import Data from './pages/Data';
 import EditEmployeePage from './pages/EditEmployee';
 import EmployeesPage from './pages/Employees';
+import GroupPage from './pages/GroupPage';
 import Logout from './pages/Logout';
-import PatientPage from './pages/PatientPage';
-import PatientInformationPage from './pages/PatientInformationPage';
-import PatientsPage from './pages/Patients';
-import { TelemedAdminPage } from './pages/TelemedAdminPage';
-import { useNavStore } from './state/nav.store';
-import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
-import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
-import EditStatePage from './telemed/features/telemed-admin/EditState';
-import { useIdleTimer } from 'react-idle-timer';
-import LogoutWarning from './components/dialogs/LogoutWarning';
-import Banner from './components/Banner';
-import { Claims, Claim } from './rcm';
-import { FeatureFlagsProvider } from './features/css-module/context/featureFlags';
 import PatientDocumentsExplorerPage from './pages/PatientDocumentsExplorerPage';
-import PatientFollowup from './components/patient/PatientFollowup';
-import AddPatientFollowup from './components/patient/AddPatientFollowup';
+import PatientInformationPage from './pages/PatientInformationPage';
+import PatientPage from './pages/PatientPage';
+import PatientsPage from './pages/Patients';
 import SchedulePage from './pages/SchedulePage';
 import SchedulesPage from './pages/Schedules';
-import AddSchedulePage from './pages/AddSchedulePage';
-import AddEmployeePage from './pages/AddEmployeePage';
-import GroupPage from './pages/GroupPage';
-import('@photonhealth/elements').catch(console.log);
+import { TelemedAdminPage } from './pages/TelemedAdminPage';
+import { Claim, Claims } from './rcm';
+import { useNavStore } from './state/nav.store';
+import EditInsurance from './telemed/features/telemed-admin/EditInsurance';
+import EditStatePage from './telemed/features/telemed-admin/EditState';
+import { PatientVisitDetails } from './telemed/pages/PatientVisitDetailsPage';
 
 const { MODE: environment, VITE_APP_SENTRY_DSN } = import.meta.env;
 
@@ -111,17 +110,8 @@ function App(): ReactElement {
     debounce: 500,
   });
 
-  const wasEnrolledInphoton = useProviderPhotonStateStore((state) => state.wasEnrolledInphoton);
-
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
-
-  // CI_PHOTON_DISABLED is used to disable photon in testing CI environments, because photon refresh the dashboard page and breaks the tests
-  // we may use sleep + page.refresh() and other workarounds, but better to run photon tests separately and don't affect other tests
-  const photonDisadledByEnv = import.meta.env.VITE_APP_CI_PHOTON_DISABLED === 'true';
-  const photonEnabledForUser = currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInPhoton;
-  const isE2EUser = currentUser?.email?.includes('e2euser');
-  const shouldUsePhoton = !photonDisadledByEnv && !isE2EUser && (photonEnabledForUser || wasEnrolledInphoton);
 
   return (
     <CustomThemeProvider>
@@ -152,19 +142,7 @@ function App(): ReactElement {
                 <ProtectedRoute
                   showWhenAuthenticated={
                     <Suspense fallback={<LoadingScreen />}>
-                      {shouldUsePhoton ? (
-                        <photon-client
-                          id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
-                          org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
-                          dev-mode={import.meta.env.MODE === 'production' ? 'false' : 'true'}
-                          auto-login="true"
-                          redirect-uri={window.location.origin}
-                        >
-                          <CSSRoutingLazy />
-                        </photon-client>
-                      ) : (
-                        <CSSRoutingLazy />
-                      )}
+                      <CSSRoutingLazy />
                     </Suspense>
                   }
                 />
@@ -177,19 +155,7 @@ function App(): ReactElement {
                   <ProtectedRoute
                     showWhenAuthenticated={
                       <>
-                        {shouldUsePhoton ? (
-                          <photon-client
-                            id={import.meta.env.VITE_APP_PHOTON_CLIENT_ID}
-                            org={import.meta.env.VITE_APP_PHOTON_ORG_ID}
-                            dev-mode={import.meta.env.MODE === 'production' ? 'false' : 'true'}
-                            auto-login="true"
-                            redirect-uri={window.location.origin}
-                          >
-                            <Outlet />
-                          </photon-client>
-                        ) : (
-                          <Outlet />
-                        )}
+                        <Outlet />
                       </>
                     }
                   />

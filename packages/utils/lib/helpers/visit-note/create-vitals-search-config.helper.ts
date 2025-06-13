@@ -13,7 +13,8 @@ export interface VitalsSearchConfig {
 
 export const createVitalsSearchConfig = (
   vitalFieldName: VitalFieldNames,
-  searchBy: 'encounter' | 'patient'
+  searchBy: 'encounter' | 'patient',
+  count?: number
 ): VitalsSearchConfig => {
   return {
     fieldName: 'vitalsObservations',
@@ -21,7 +22,7 @@ export const createVitalsSearchConfig = (
       _search_by: searchBy,
       _include: 'Observation:performer',
       _sort: '-_lastUpdated',
-      _count: 100,
+      _count: count ?? 100,
       _tag: `${PRIVATE_EXTENSION_BASE_URL}/${PATIENT_VITALS_META_SYSTEM}|${vitalFieldName}`,
     },
   };

@@ -1,16 +1,16 @@
 import { LoadingButton } from '@mui/lab';
 import { Box, Button, Chip, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { allLicensesForPractitioner, PractitionerLicense, User } from 'utils';
+import { allLicensesForPractitioner, PractitionerLicense, RoleType, User } from 'utils';
 import { deactivateUser, getUserDetails, updateUser } from '../api/api';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
+import EmployeeInformationForm from '../components/EmployeeInformation';
+import { dataTestIds } from '../constants/data-test-ids';
 import { checkUserIsActive } from '../helpers/checkUserIsActive';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
-import { enqueueSnackbar } from 'notistack';
-import EmployeeInformationForm from '../components/EmployeeInformation';
-import { dataTestIds } from '../constants/data-test-ids';
 
 export default function EditEmployeePage(): JSX.Element {
   const { oystehr, oystehrZambda } = useApiClients();
@@ -82,10 +82,14 @@ export default function EditEmployeePage(): JSX.Element {
     }
     setErrors({ submit: '' });
 
+    if (!user?.id) {
+      throw new Error('User ID is undefined');
+    }
+
     try {
       mode === 'deactivate'
         ? await deactivateUser(oystehrZambda, { user: user })
-        : await updateUser(oystehrZambda, { userId: user?.id, selectedRoles: ['Staff'] });
+        : await updateUser(oystehrZambda, { userId: user.id, selectedRoles: [RoleType.Staff] });
       await getUserAndUpdatePage();
       enqueueSnackbar(`User was ${mode}d successfully`, {
         variant: 'success',

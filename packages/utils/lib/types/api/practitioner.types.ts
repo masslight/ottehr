@@ -316,6 +316,3 @@ export enum AppointmentProviderNotificationTypes {
   patient_waiting = 'patient-waiting',
   unsigned_charts = 'unsigned-charts',
 }
-
-export const PHOTON_PRESCRIBER_SYSTEM_URL = 'http://api.zapehr.com/photon-prescriber-id';
-export const PHOTON_PRACTITIONER_ENROLLED = 'http://api.zapehr.com/photon-practitioner-enrolled';

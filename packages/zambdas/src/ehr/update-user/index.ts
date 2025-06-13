@@ -1,31 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
-import {
-  FHIR_IDENTIFIER_NPI,
-  getSecret,
-  makeQualificationForPractitioner,
-  PractitionerLicense,
-  RoleType,
-  Secrets,
-} from 'utils';
+import { FHIR_IDENTIFIER_NPI, getSecret, makeQualificationForPractitioner } from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
-
-export interface UpdateUserInput {
-  secrets: Secrets | null;
-  userId: string;
-  firstName: string;
-  middleName?: string;
-  lastName: string;
-  nameSuffix?: string;
-  selectedRoles?: RoleType[];
-  licenses?: PractitionerLicense[];
-  phoneNumber?: string;
-  npi?: string;
-}
 
 let m2mtoken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -33,8 +12,25 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
     console.log('validatedParameters:', JSON.stringify(validatedParameters, null, 4));
-    const { secrets, userId, firstName, middleName, lastName, nameSuffix, selectedRoles, licenses, phoneNumber, npi } =
-      validatedParameters;
+    const {
+      secrets,
+      userId,
+      firstName,
+      middleName,
+      lastName,
+      nameSuffix,
+      selectedRoles,
+      licenses,
+      phoneNumber,
+      npi,
+      birthDate,
+      faxNumber,
+      addressLine1,
+      addressLine2,
+      addressCity,
+      addressState,
+      addressZip,
+    } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const PROJECT_API = getSecret('PROJECT_API', secrets);
@@ -103,19 +99,44 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           id: practitionerId,
           name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
-          telecom: phoneNumber ? [{ system: 'sms', value: phoneNumber }] : undefined,
+          telecom: phoneNumber
+            ? [
+                { system: 'sms', value: phoneNumber },
+                { system: 'phone', value: phoneNumber },
+              ]
+            : undefined,
         });
       } else {
         const existingTelecom = existingPractitionerResource.telecom || [];
         const smsIndex = existingTelecom.findIndex((tel) => tel.system === 'sms');
-        const updatedTelecom = [...existingTelecom];
+        const phoneIndex = existingTelecom.findIndex((tel) => tel.system === 'phone');
+        const faxIndex = existingTelecom.findIndex((tel) => tel.system === 'fax');
+        let updatedTelecom = [...existingTelecom];
         if (phoneNumber) {
           if (smsIndex >= 0) {
             updatedTelecom[smsIndex] = { system: 'sms', value: phoneNumber };
           } else {
             updatedTelecom.push({ system: 'sms', value: phoneNumber });
           }
+          if (phoneIndex >= 0) {
+            updatedTelecom[phoneIndex] = { system: 'phone', value: phoneNumber };
+          } else {
+            updatedTelecom.push({ system: 'phone', value: phoneNumber });
+          }
+        } else {
+          updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'sms' && tel.system !== 'phone');
         }
+
+        if (faxNumber) {
+          if (faxIndex >= 0) {
+            updatedTelecom[faxIndex] = { system: 'fax', value: faxNumber };
+          } else {
+            updatedTelecom.push({ system: 'fax', value: faxNumber });
+          }
+        } else {
+          updatedTelecom = updatedTelecom.filter((tel) => tel.system !== 'fax');
+        }
+
         if (npi) {
           if (!existingPractitionerResource.identifier) {
             existingPractitionerResource.identifier = [];
@@ -129,14 +150,57 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
               value: npi,
             });
           }
+        } else {
+          if (existingPractitionerResource.identifier) {
+            existingPractitionerResource.identifier = existingPractitionerResource.identifier.filter(
+              (id) => id.system !== FHIR_IDENTIFIER_NPI
+            );
+          }
         }
+
+        if (birthDate) {
+          existingPractitionerResource.birthDate = birthDate;
+        }
+
+        const existingAddress = existingPractitionerResource.address || [];
+        let workAddressIndex = existingAddress.findIndex((address) => address.use === 'work');
+        let updatedAddress = [...existingAddress];
+        // if any address fields are provided, add or update the work address
+        if (addressCity || addressState || addressZip || addressLine1 || addressLine2) {
+          if (workAddressIndex < 0) {
+            updatedAddress.push({
+              use: 'work',
+            });
+            workAddressIndex = updatedAddress.length - 1;
+          }
+
+          if (addressLine1) {
+            updatedAddress[workAddressIndex].line = [addressLine1];
+            if (addressLine2) {
+              updatedAddress[workAddressIndex].line?.push(addressLine2);
+            }
+          }
+
+          updatedAddress[workAddressIndex].city = addressCity || undefined;
+          updatedAddress[workAddressIndex].state = addressState || undefined;
+          updatedAddress[workAddressIndex].postalCode = addressZip || undefined;
+        } else {
+          // if no address fields are provided, remove the work address
+          updatedAddress = updatedAddress.filter((address) => address.use !== 'work');
+        }
+
         await oystehr.fhir.update({
           ...existingPractitionerResource,
-          identifier: existingPractitionerResource.identifier,
+          identifier:
+            existingPractitionerResource.identifier?.length || 0 > 0
+              ? existingPractitionerResource.identifier
+              : undefined,
           photo: existingPractitionerResource.photo,
           name: name ? [name] : undefined,
           qualification: practitionerQualificationExtension,
-          telecom: updatedTelecom,
+          telecom: updatedTelecom.length > 0 ? updatedTelecom : undefined,
+          address: updatedAddress.length > 0 ? updatedAddress : undefined,
+          birthDate: birthDate ? birthDate : undefined,
         });
       }
     } catch (error: unknown) {

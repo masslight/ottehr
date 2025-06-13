@@ -1,27 +1,20 @@
 import { LoadingButton } from '@mui/lab';
 import { Button, Grid, Paper, Skeleton, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Link } from 'react-router-dom';
-import { enqueueSnackbar } from 'notistack';
+import { FHIR_IDENTIFIER_NPI, PractitionerLicense, PractitionerQualificationCode, RoleType, User } from 'utils';
 import { updateUser } from '../../api/api';
+import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
+import useEvolveUser from '../../hooks/useEvolveUser';
 import { BasicInformation } from './BasicInformation';
-import { RoleSelection } from './RoleSelection';
 import { ProviderDetails } from './ProviderDetails';
 import { ProviderQualifications } from './ProviderQualifications';
-import {
-  User,
-  PractitionerLicense,
-  FHIR_IDENTIFIER_NPI,
-  RoleType,
-  PractitionerQualificationCode,
-  isPhoneNumberValid,
-  isNPIValid,
-} from 'utils';
+import { RoleSelection } from './RoleSelection';
 import { EditEmployeeInformationProps, EmployeeForm } from './types';
-import { dataTestIds } from '../../constants/data-test-ids';
-import useEvolveUser from '../../hooks/useEvolveUser';
 
 export default function EmployeeInformationForm({
   submitLabel,
@@ -41,8 +34,6 @@ export default function EmployeeInformationForm({
     number: false,
     date: false,
     duplicateLicense: false,
-    npi: false,
-    phoneNumber: false,
   });
 
   const [newLicenses, setNewLicenses] = useState<PractitionerLicense[]>(licenses);
@@ -56,6 +47,13 @@ export default function EmployeeInformationForm({
     authenticationMethod: 'email',
     roles: [],
     phoneNumber: '',
+    faxNumber: '',
+    addressLine1: '',
+    addressLine2: '',
+    addressCity: '',
+    addressState: '',
+    addressZip: '',
+    birthDate: '',
     profileResource: undefined,
   });
 
@@ -69,16 +67,36 @@ export default function EmployeeInformationForm({
     }
   }
 
-  const { control, handleSubmit, setValue, getValues } = useForm<EmployeeForm>();
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    getValues,
+    setError,
+    formState: { errors: formErrors },
+  } = useForm<EmployeeForm>();
 
   useWatch({ control, name: 'roles' });
 
-  console.log(5, user);
+  const scrollToFirstError = (): void => {
+    const firstErrorElement = document.querySelector('.Mui-error');
+    if (firstErrorElement) {
+      firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  useEffect(() => {
+    if (Object.keys(formErrors).length > 0) {
+      scrollToFirstError();
+    }
+  }, [formErrors]);
+
+  console.log(5, formErrors);
 
   useEffect(() => {
     if (existingUser) {
       setUser(existingUser);
-      setValue('roles', (existingUser as User).roles?.map((role) => role.name) || []);
+      setValue('roles', (existingUser as User).roles?.map((role) => role.name as RoleType) || []);
 
       let firstName = '';
       let middleName = '';
@@ -96,25 +114,43 @@ export default function EmployeeInformationForm({
       setValue('lastName', lastName);
       setValue('nameSuffix', nameSuffix);
 
-      let phoneText = '';
       if (existingUser?.profileResource?.telecom) {
-        const phone = existingUser.profileResource.telecom.find((tel) => tel.system === 'sms')?.value;
+        const phone = existingUser.profileResource.telecom.find((tel) => tel.system === 'phone')?.value;
         if (phone) {
-          phoneText = phone;
+          setValue('phoneNumber', phone || '');
         }
       }
-      setValue('phoneNumber', phoneText);
 
-      let npiText = 'n/a';
+      if (existingUser?.profileResource?.telecom) {
+        const fax = existingUser.profileResource.telecom.find((tel) => tel.system === 'fax')?.value;
+        if (fax) {
+          setValue('faxNumber', fax || '');
+        }
+      }
+
+      if (existingUser?.profileResource?.birthDate) {
+        setValue('birthDate', DateTime.fromISO(existingUser.profileResource.birthDate) || '');
+      }
+
+      if (existingUser?.profileResource?.address) {
+        const address = existingUser.profileResource.address[0];
+        if (address) {
+          setValue('addressLine1', address.line?.[0] ?? '');
+          setValue('addressLine2', address.line?.[1] ?? '');
+          setValue('addressCity', address.city ?? '');
+          setValue('addressState', address.state ?? '');
+          setValue('addressZip', address.postalCode ?? '');
+        }
+      }
+
       if (existingUser?.profileResource?.identifier) {
         const npi = existingUser.profileResource.identifier.find(
           (identifier) => identifier.system === FHIR_IDENTIFIER_NPI
         );
         if (npi && npi.value) {
-          npiText = npi.value;
+          setValue('npi', npi.value || 'n/a');
         }
       }
-      setValue('npi', npiText);
     }
   }, [existingUser, setValue]);
 
@@ -125,26 +161,21 @@ export default function EmployeeInformationForm({
     if (!oystehrZambda) {
       throw new Error('Zambda Client not found');
     }
+    let isError = false;
 
     if (data.roles.length < 1) {
-      setErrors((prev) => ({ ...prev, submit: false, roles: true }));
-      return;
-    } else {
-      setErrors((prev) => ({ ...prev, ...{ roles: false } }));
+      setError('roles', { message: 'Roles are required' });
+      isError = true;
     }
 
-    if (data.phoneNumber && !isPhoneNumberValid(data.phoneNumber)) {
-      setErrors((prev) => ({ ...prev, phoneNumber: true }));
-      return;
-    } else {
-      setErrors((prev) => ({ ...prev, phoneNumber: false }));
+    if (data.addressLine2 && !data.addressLine1) {
+      setError('addressLine2', { message: 'Address line 2 cannot be filled without address line 1' });
+      isError = true;
     }
 
-    if (isProviderRoleSelected && !isNPIValid(data.npi)) {
-      setErrors((prev) => ({ ...prev, npi: true }));
+    if (isError) {
+      scrollToFirstError();
       return;
-    } else {
-      setErrors((prev) => ({ ...prev, npi: false }));
     }
 
     setLoading(true);
@@ -160,6 +191,13 @@ export default function EmployeeInformationForm({
         licenses: newLicenses,
         phoneNumber: data.phoneNumber,
         npi: data.npi,
+        birthDate: data.birthDate ? data.birthDate.toISODate() || '' : undefined,
+        faxNumber: data.faxNumber,
+        addressLine1: data.addressLine1,
+        addressLine2: data.addressLine2,
+        addressCity: data.addressCity,
+        addressState: data.addressState,
+        addressZip: data.addressZip,
       });
       await getUserAndUpdatePage();
       const successMessage = `User ${data.firstName} ${data.lastName} was updated successfully.`;
@@ -251,7 +289,7 @@ export default function EmployeeInformationForm({
 
         {isProviderRoleSelected && (
           <>
-            <ProviderDetails control={control} photoSrc={photoSrc} errors={errors} />
+            <ProviderDetails control={control} photoSrc={photoSrc} roles={getValues('roles')} />
 
             <ProviderQualifications
               newLicenses={newLicenses}
@@ -290,6 +328,7 @@ export default function EmployeeInformationForm({
           <Link to="/employees">
             <Button
               variant="text"
+              type="submit"
               color="primary"
               sx={{
                 textTransform: 'none',

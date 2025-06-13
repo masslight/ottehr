@@ -13,6 +13,7 @@ export const useChartData = ({
   onError,
   enabled = true,
   replaceStoreValues = false,
+  refetchInterval,
 }: {
   encounterId: string;
   requestedFields?: ChartDataRequestedFields;
@@ -21,6 +22,7 @@ export const useChartData = ({
   onError?: (error: any) => void;
   enabled?: boolean;
   replaceStoreValues?: boolean;
+  refetchInterval?: number;
 }): {
   refetch: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
   chartData: GetChartDataResponse | undefined;
@@ -28,6 +30,7 @@ export const useChartData = ({
   isFetching: boolean;
   error: any;
   queryKey: QueryKey;
+  isFetched: boolean;
 } => {
   const apiClient = useZapEHRAPIClient();
   const { update: updateExamObservations } = useExamObservations();
@@ -40,8 +43,9 @@ export const useChartData = ({
     refetch,
     data: chartData,
     queryKey,
+    isFetched,
   } = useGetChartData(
-    { apiClient, encounterId, requestedFields, enabled },
+    { apiClient, encounterId, requestedFields, enabled, refetchInterval },
     (data) => {
       onSuccess?.(data);
       if (replaceStoreValues) {
@@ -80,5 +84,5 @@ export const useChartData = ({
     }
   }, [chartData, isFetching, requestedFields, enabled]);
 
-  return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching };
+  return { refetch, chartData, isLoading, error: chartDataError, queryKey, isFetching, isFetched };
 };
