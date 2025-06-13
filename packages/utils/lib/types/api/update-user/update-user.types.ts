@@ -4,9 +4,9 @@ import { RoleType } from '../../../main';
 
 export interface UpdateUserParams {
   userId: string;
-  firstName: string;
+  firstName?: string;
   middleName?: string;
-  lastName: string;
+  lastName?: string;
   nameSuffix?: string;
   selectedRoles?: RoleType[];
   licenses?: PractitionerLicense[];

@@ -137,22 +137,8 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     },
     refetchInterval: 10000,
     onSuccess: (data) => {
-      const prescribedMedications = (data.prescribedMedications || []).reduce(
-        (prev, curr) => {
-          const index = prev.findIndex((medication) => medication.prescriptionId === curr.prescriptionId);
-          if (index === -1) {
-            prev.push(curr);
-          } else {
-            prev[index] = curr;
-          }
-          return prev;
-        },
-        chartData?.prescribedMedications || []
-      );
-
-      if (prescribedMedications.filter((med) => !med.resourceId).length > 0) {
-        setTimeout(refetch, 1000);
-      }
+      console.log('data', data);
+      const prescribedMedications = data.prescribedMedications;
 
       setPartialChartData({
         prescribedMedications,
