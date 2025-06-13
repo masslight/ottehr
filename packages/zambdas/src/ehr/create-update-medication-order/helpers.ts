@@ -59,30 +59,41 @@ export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets:
 
 export async function createOrRecreateMedicationForOrder(
   oystehr: Oystehr,
-  orderPkg: OrderPackage,
+  orderResources: OrderPackage,
   inputMedication: Medication,
   orderData: MedicationData
 ): Promise<Medication | undefined> {
   let medicationCopy: Medication | undefined;
-  console.log(`Medication found: ${inputMedication.id}, existed medication in resource: ${orderPkg.medication?.id}`);
-  if (!orderPkg.medication) {
+  console.log(
+    `Inventory medication name: ${getMedicationName(inputMedication)}, id: ${
+      inputMedication.id
+    }. Existed medication copy for order name: ${
+      orderResources.medication && getMedicationName(orderResources.medication)
+    }, id: ${orderResources.medication?.id}`
+  );
+  if (!orderResources.medication) {
     console.log('Creating inputMedication copy for this particular order');
     medicationCopy = createMedicationCopy(inputMedication, orderData);
     medicationCopy = await oystehr.fhir.create(medicationCopy);
     console.log(`Created copy: ${medicationCopy.id}`);
-  } else if (getMedicationName(inputMedication) !== getMedicationName(orderPkg.medication)) {
+  } else if (getMedicationName(inputMedication) !== getMedicationName(orderResources.medication)) {
     console.log('Updating inputMedication resource copy for this order');
-    medicationCopy = await updateMedicationCopyForOrder(oystehr, inputMedication, orderPkg.medication.id!, orderData);
+    medicationCopy = await updateMedicationCopyForOrder(
+      oystehr,
+      inputMedication,
+      orderResources.medication.id!,
+      orderData
+    );
     console.log(`Updated resource with id: ${medicationCopy.id}`);
   } else {
     console.log(`Medications are identical, update just existed medication`);
     medicationCopy = await updateMedicationCopyForOrder(
       oystehr,
-      orderPkg.medication,
-      orderPkg.medication.id!,
+      orderResources.medication,
+      orderResources.medication.id!,
       orderData
     );
-    medicationCopy = orderPkg.medication;
+    medicationCopy = orderResources.medication;
   }
   return medicationCopy;
 }

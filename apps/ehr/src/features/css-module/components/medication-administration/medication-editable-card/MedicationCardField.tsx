@@ -117,7 +117,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       <Select
         disabled={!isEditable}
         labelId={`${field}-label`}
-        value={value}
+        value={value ?? ''}
         {...(renderValue
           ? {
               renderValue: () => renderValue,
@@ -162,7 +162,7 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
       fullWidth
       label={label}
       variant="outlined"
-      value={value}
+      value={value ?? ''}
       onChange={(e) => handleChange(e.target.value)}
       type={type}
       {...(type === 'number' ? { inputProps: { min: 0 } } : {})}
