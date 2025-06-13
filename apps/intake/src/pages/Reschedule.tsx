@@ -98,8 +98,8 @@ const Reschedule = (): JSX.Element => {
       const currentSlotTime = DateTime.fromISO(selectedSlot.start)
         .setZone(location?.timezone)
         .setLocale(i18n.language);
-      const currentSlotTimePasssed = currentSlotTime > currentDateTime;
-      if (currentSlotTimePasssed) {
+      const currentSlotTimePassed = currentSlotTime > currentDateTime;
+      if (currentSlotTimePassed) {
         return slots;
       }
       const alreadyIncluded = slots.some((s) => s.start === selectedSlot.start);

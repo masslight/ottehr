@@ -32,7 +32,7 @@ const Appointments = (): JSX.Element => {
   const { isAuthenticated, isLoading } = useAuth0();
 
   // Track event in Mixpanel only for authenticated page views since
-  // user will immediately be redirected to login if unathenticated
+  // user will immediately be redirected to login if unauthenticated
   // there is no specific appointment/location/visit type associated with this page so
   // we send undefined for visitType, bookingCity, bookingState
   useTrackMixpanelEvents({
@@ -193,7 +193,7 @@ const Appointments = (): JSX.Element => {
                       <>
                         <WatchLater sx={{ marginRight: 0.5 }} htmlColor={palette.primary.main} />
                         <Typography
-                          data-testid="appointments-checkin-label"
+                          data-testid="appointments-check-in-label"
                           color={palette.secondary.main}
                           variant="subtitle1"
                         >
@@ -211,7 +211,7 @@ const Appointments = (): JSX.Element => {
                           text={t('appointments.visitDetails')}
                           btnVariant="text"
                           startIcon={<InfoOutlined />}
-                          className="visitdetails-button"
+                          className="visit-details-button"
                         />
                       </>
                     ) : (
@@ -219,7 +219,7 @@ const Appointments = (): JSX.Element => {
                         to={`/visit/${appointment.id}/check-in`}
                         text={t('appointments.checkIn')}
                         btnVariant="contained"
-                        className="checkin-button"
+                        className="check-in-button"
                       />
                     )}
                   </Grid>

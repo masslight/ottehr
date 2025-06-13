@@ -59,7 +59,7 @@ export const useTelemedLocation = (): HookReturnType => {
   useEffect(() => {
     if (appointmentID && !appointment) {
       // we always use location saved from appointment if appointment was created
-      // if appointent not received yet, set 'isLocationInitialized' to false to show loading status in the related components
+      // if appointment not received yet, set 'isLocationInitialized' to false to show loading status in the related components
       console.log('current location null 1');
       setCurrentLocation({ location: null, isLocationInitialized: false });
       return;

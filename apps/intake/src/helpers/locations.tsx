@@ -1,3 +1,4 @@
+// cSpell:ignore Carle
 import { Location } from 'fhir/r4b';
 
 export const LOCATIONS: Location[] = [

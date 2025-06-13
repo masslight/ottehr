@@ -816,7 +816,7 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
     }
 
     // if there is a corrected result, we may need to take a cancelled RFRT, but only the latest one for that result.
-    // this happens in cases where a RCRT comes in and cancels the RFRT before a review has occured
+    // this happens in cases where a RCRT comes in and cancels the RFRT before a review has occurred
     if (task.id) {
       const drIdForTask = taskIdToResultIdMap.get(task.id);
       if (
