@@ -14,46 +14,44 @@
     "html",
     "node",
     "npm",
-    "typescript",
+    "typescript"
   ],
   "ignorePaths": [
-    // ignore tokens
     "**/package.json",
-    // cspell doesn't support spanish
     "**/i18n-es.json"
   ],
   "words": [
-    "accum", // used as a shorthand for accumulator (in reduce methods)
-    "appt", // short for appointment
-    "appts", // plural of appt
-    "bookables", // used as a shorthand for bookable resources
-    "healthfirst", // HealthFirst is an insurance provider
-    "cancelation", // FHIR misspelling of cancellation
-    "codeable", // FHIR term (CodeableConcept)
-    "datetime", // date and time
-    "datetimes", // plural of datetime
-    "dont", // used in i18n-en.json files as a key for don't, can't add comments to json files (except this one?)
-    "fhir", // Fast Healthcare Interoperability Resources
-    "luxon", // js library for working with dates and times
-    "masslight", // major open source contributor to Ottehr
-    "millis", // luxon's shorthand for milliseconds
-    "ottehr", // the name of this project
-    "overscan", // react-window term used in virtualized lists
-    "ovrp", // option for virtual provider
-    "oystehr", // headless electronic health record platform api
-    "presign", // aws term for pre-signed urls
-    "prevalidation", // pre-validation
-    "revinclude", // FHIR term for reverse include
-    "sendgrid", // email service provider
-    "telemed", // short for telemedicine
-    "telemedicine", // industry term for telecommunication medicine
-    "tokenless", // token-less authentication
-    "unshift",  // js array method, the opposite of shift
-    "videocam", // material ui's icon packages' name for video camera
-    "walkin", // walk-in
-    "zambda", // oystehr's serverless function framework
-    "zambdas", // plural of zambda
-    "zapehr", // oystehr's old name. still used in some places e.g urls
-    "zapehrapi", // zapehr api
+    "accum",
+    "appt",
+    "appts",
+    "bookables",
+    "healthfirst",
+    "cancelation",
+    "codeable",
+    "datetime",
+    "datetimes",
+    "dont",
+    "fhir",
+    "luxon",
+    "masslight",
+    "millis",
+    "ottehr",
+    "overscan",
+    "ovrp",
+    "oystehr",
+    "presign",
+    "prevalidation",
+    "revinclude",
+    "sendgrid",
+    "telemed",
+    "telemedicine",
+    "tokenless",
+    "unshift",
+    "videocam",
+    "walkin",
+    "zambda",
+    "zambdas",
+    "zapehr",
+    "zapehrapi"
   ]
 }
