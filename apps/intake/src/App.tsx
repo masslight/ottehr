@@ -63,7 +63,7 @@ if (isLowerEnvsOrProd) {
 
 const MIXPANEL_SETTINGS: MixpanelContextProps = {
   token: VITE_APP_MIXPANEL_TOKEN,
-  // cSpell:disable-next-line appname
+  // cSpell:disable-next appname
   registerProps: { appname: 'In Person' },
 };
 
