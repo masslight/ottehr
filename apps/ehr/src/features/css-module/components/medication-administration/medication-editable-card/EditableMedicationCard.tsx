@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
@@ -8,7 +8,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useAppointment } from '../../../hooks/useAppointment';
-import { useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBlocker';
 import { getEditOrderUrl } from '../../../routing/helpers';
@@ -201,6 +201,18 @@ export const EditableMedicationCard: React.FC<{
 
   const isModalSaveButtonDisabled =
     confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
+
+  useEffect(() => {
+    if (type === 'order-new') {
+      Object.entries(fieldsConfig[type]).map(([field]) => {
+        const defaultOption = selectsOptions[field as keyof OrderFieldsSelectsOptions]?.defaultOption?.value;
+        if (defaultOption) {
+          const value = getFieldValue(field as keyof MedicationData);
+          if (!value || value < 0) setLocalValues((prev) => ({ ...prev, [field]: defaultOption }));
+        }
+      });
+    }
+  }, [type]);
 
   return (
     <>

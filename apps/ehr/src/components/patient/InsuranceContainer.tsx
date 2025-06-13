@@ -157,7 +157,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const recheckEligibility = useMutation(async () => {
     // todo: show an alert when form has unsaved changes?
-    console.log('patient id', patientId);
     const coverageToCheck = insurancePriority?.toLowerCase();
     try {
       return oystehrZambda?.zambda

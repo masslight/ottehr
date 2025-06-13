@@ -17,7 +17,6 @@ import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { PaperworkContext, usePaperworkContext } from 'ui-components';
 import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   APIError,
@@ -46,6 +45,7 @@ import { PageContainer } from '../components';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
+import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork';
 
 enum AuthedLoadingState {
   initial,

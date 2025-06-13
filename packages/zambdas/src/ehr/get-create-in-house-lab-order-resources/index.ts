@@ -78,7 +78,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ]);
 
       if (!encounter) {
-        // todo: we dont have encounter in patient page, this zambda should return the test items only,
+        // todo: we don't have encounter in patient page, this zambda should return the test items only,
         // the rest of data should be fetched from the get-orders zambda
         return {
           attendingPractitionerName: '',
