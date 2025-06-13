@@ -135,7 +135,9 @@ const setupTestDeps = async (): Promise<void> => {
         env: { ...process.env, ENV },
       });
     } catch (error) {
-      console.error(`Failed to run setup-test-deps.js for ${app}:`, error);
+      console.error(`Failed to run setup-test-deps.js for ${app}`);
+      console.error(error?.message);
+      console.error(error?.stack);
       clearPorts();
       process.exit(1);
     }
@@ -208,7 +210,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error('Script failed:', error);
+  console.error(`run-e2e.ts script failed:\n${JSON.stringify(error, null, 2)}`);
   clearPorts();
   process.exit(1);
 });

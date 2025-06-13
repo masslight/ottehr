@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 import { createFilesDocumentReferences, Secrets, getPresignedURL, LabelConfig } from 'utils';
-import { PdfInfo, createPdfClient, Y_POS_GAP as pdfClientGapSubtraction } from './pdf-utils';
+import { PdfInfo, createPdfClient } from './pdf-utils';
+import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
 import { TextStyle } from './types';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
