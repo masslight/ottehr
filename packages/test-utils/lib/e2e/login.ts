@@ -43,7 +43,7 @@ export async function login(page: Page, phone?: string, text_username?: string, 
     await acceptButton.click();
   }
 
-  // we kepp auth0 token in the LS so we need to wait for it to be set and then we can save the context
+  // we keep auth0 token in the LS so we need to wait for it to be set and then we can save the context
   await expect(async () => {
     const token = await page.evaluate(() => Object.keys(localStorage).find((key) => key.includes('auth0')));
     if (!token) {
