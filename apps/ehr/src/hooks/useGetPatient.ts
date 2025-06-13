@@ -1,4 +1,4 @@
-import { BundleEntry, SearchParam } from '@oystehr/sdk';
+import { BundleEntry } from '@oystehr/sdk';
 import {
   Appointment,
   Bundle,
@@ -79,51 +79,87 @@ export const useGetPatient = (
   const [appointments, setAppointments] = useState<AppointmentHistoryRow[]>();
   const [relatedPerson, setRelatedPerson] = useState<RelatedPerson>();
 
+  const { data: patientResources } = useQuery({
+    queryKey: ['useGetPatientPatientResources', id],
+    queryFn: () =>
+      oystehr && id
+        ? oystehr.fhir
+            .search<FhirResource>({
+              resourceType: 'Patient',
+              params: [
+                { name: '_id', value: id },
+                {
+                  name: '_revinclude',
+                  value: 'Appointment:patient',
+                },
+                {
+                  name: '_include:iterate',
+                  value: 'Appointment:location',
+                },
+                {
+                  name: '_revinclude:iterate',
+                  value: 'RelatedPerson:patient',
+                },
+                {
+                  name: '_revinclude:iterate',
+                  value: 'Encounter:appointment',
+                },
+              ],
+            })
+            .then((bundle) => bundle.unbundle())
+        : undefined,
+    cacheTime: 10000,
+    enabled: oystehr != null && id != null,
+  });
+
+  const patientResource: Patient | undefined = patientResources?.find(
+    (resource) => resource.resourceType === 'Patient'
+  ) as Patient;
+
+  const { data: otherPatientsWithSameNameResources } = useQuery({
+    queryKey: ['otherPatientsWithSameNameResources', id],
+    queryFn: () =>
+      oystehr && patientResource
+        ? oystehr.fhir
+            .search<FhirResource>({
+              resourceType: 'Patient',
+              params: getPatientNameSearchParams({
+                firstLast: { first: getFirstName(patientResource), last: getLastName(patientResource) },
+                narrowByRelatedPersonAndAppointment: false,
+                maxResultOverride: 2,
+              }),
+            })
+            .then((bundle) => bundle.unbundle())
+        : undefined,
+    cacheTime: 10000,
+    enabled: oystehr != null && patientResource != null,
+  });
+
   useEffect(() => {
     async function getPatient(): Promise<void> {
-      if (!oystehr || !id) {
-        throw new Error('oystehr or patient ID is not defined');
+      if (!oystehr) {
+        throw new Error('oystehr is not defined');
       }
 
       setLoading(true);
-      const resourcesTemp = (
-        await oystehr.fhir.search<FhirResource>({
-          resourceType: 'Patient',
-          params: [
-            { name: '_id', value: id },
-            {
-              name: '_revinclude',
-              value: 'Appointment:patient',
-            },
-            {
-              name: '_include:iterate',
-              value: 'Appointment:location',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'RelatedPerson:patient',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'Encounter:appointment',
-            },
-          ],
-        })
-      ).unbundle();
 
-      const patientTemp: Patient = resourcesTemp.find((resource) => resource.resourceType === 'Patient') as Patient;
-      const appointmentsTemp: Appointment[] = resourcesTemp.filter(
+      if (!patientResources || !otherPatientsWithSameNameResources) {
+        return;
+      }
+
+      const patientTemp: Patient = patientResources.find((resource) => resource.resourceType === 'Patient') as Patient;
+      const appointmentsTemp: Appointment[] = patientResources.filter(
         (resource) =>
           resource.resourceType === 'Appointment' &&
           resource.meta?.tag?.find((tag) => tag.code === OTTEHR_MODULE.IP || tag.code === OTTEHR_MODULE.TM) // this is unnecessary now; there are no BH patients to worry about
       ) as Appointment[];
-      const locations: Location[] = resourcesTemp.filter(
+      const locations: Location[] = patientResources.filter(
         (resource) => resource.resourceType === 'Location'
       ) as Location[];
-      const relatedPersonTemp: RelatedPerson = resourcesTemp.find(
+      const relatedPersonTemp: RelatedPerson = patientResources.find(
         (resource) => resource.resourceType === 'RelatedPerson'
       ) as RelatedPerson;
-      const encounters: Encounter[] = resourcesTemp.filter(
+      const encounters: Encounter[] = patientResources.filter(
         (resource) => resource.resourceType === 'Encounter'
       ) as Encounter[];
 
@@ -133,21 +169,7 @@ export const useGetPatient = (
         return createdB.diff(createdA).milliseconds;
       });
 
-      const first = getFirstName(patientTemp);
-      const last = getLastName(patientTemp);
-      const otherPatientParams: SearchParam[] = getPatientNameSearchParams({
-        firstLast: { first, last },
-        narrowByRelatedPersonAndAppointment: false,
-        maxResultOverride: 2,
-      });
-      const otherPatientsWithSameNameTemp = (
-        await oystehr.fhir.search<FhirResource>({
-          resourceType: 'Patient',
-          params: otherPatientParams,
-        })
-      ).unbundle();
-
-      if (otherPatientsWithSameNameTemp?.length > 1) {
+      if (otherPatientsWithSameNameResources.length > 1) {
         setOtherPatientsWithSameName(true);
       } else {
         setOtherPatientsWithSameName(false);
@@ -187,12 +209,11 @@ export const useGetPatient = (
       setAppointments(appointmentRows);
       setPatient(patientTemp);
       setRelatedPerson(relatedPersonTemp);
+      setLoading(false);
     }
 
-    getPatient()
-      .catch((error) => console.log(error))
-      .finally(() => setLoading(false));
-  }, [oystehr, id]);
+    getPatient().catch((error) => console.log(error));
+  }, [oystehr, patientResources, otherPatientsWithSameNameResources]);
 
   return {
     loading,
@@ -203,66 +224,6 @@ export const useGetPatient = (
     relatedPerson,
     setPatient,
   };
-};
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetPatientQuery = (
-  {
-    patientId,
-  }: {
-    patientId?: string;
-  },
-  onSuccess: (data: Bundle<FhirResource>) => void
-) => {
-  const { oystehr } = useApiClients();
-  return useQuery(
-    ['patient-data', { patientId }, { enabled: oystehr && patientId }],
-    () => {
-      if (oystehr && patientId) {
-        return oystehr.fhir.search<Bundle>({
-          resourceType: 'Patient',
-          params: [
-            { name: '_id', value: patientId },
-            {
-              name: '_revinclude',
-              value: 'Appointment:patient',
-            },
-            {
-              name: '_include:iterate',
-              value: 'Appointment:location',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'RelatedPerson:patient',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'Encounter:appointment',
-            },
-            {
-              name: '_revinclude:iterate',
-              value: 'Coverage:patient',
-            },
-            {
-              name: '_include:iterate',
-              value: 'Coverage:subscriber:RelatedPerson',
-            },
-            {
-              name: '_include:iterate',
-              value: 'Coverage:payor:Organization',
-            },
-          ],
-        });
-      }
-      throw new Error('fhir client not defined or appointmentId not provided');
-    },
-    {
-      onSuccess,
-      onError: (err) => {
-        console.error('Error during fetching get patient: ', err);
-      },
-    }
-  );
 };
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
