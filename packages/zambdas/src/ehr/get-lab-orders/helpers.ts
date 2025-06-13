@@ -18,6 +18,7 @@ import {
   QuestionnaireResponseItem,
   Location,
   Specimen,
+  Bundle,
 } from 'fhir/r4b';
 import {
   compareDates,
@@ -43,6 +44,7 @@ import {
   fetchDocumentReferencesForDiagnosticReports,
   fetchLabOrderPDFs,
   Secrets,
+  PatientLabItem,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -376,14 +378,30 @@ export const getLabResources = async (
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
   specimens: Specimen[];
+  patientLabItems: PatientLabItem[];
 }> => {
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
   console.log('labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
 
-  const labOrdersResponse = await oystehr.fhir.search({
+  const labOrdersResponsePromise = oystehr.fhir.search({
     resourceType: 'ServiceRequest',
     params: labServiceRequestSearchParams,
   });
+
+  const patientLabItemsPromise = (async (): Promise<PatientLabItem[]> => {
+    if (searchBy.searchBy.field === 'patientId') {
+      try {
+        const allServiceRequestsForPatient = await getAllServiceRequestsForPatient(oystehr, searchBy.searchBy.value);
+        return parsePatientLabItems(allServiceRequestsForPatient);
+      } catch (error) {
+        console.error('Error fetching all service requests for patient:', error);
+        return [] as PatientLabItem[];
+      }
+    }
+    return [] as PatientLabItem[];
+  })();
+
+  const [labOrdersResponse, patientLabItems] = await Promise.all([labOrdersResponsePromise, patientLabItemsPromise]);
 
   const labResources =
     labOrdersResponse.entry
@@ -458,6 +476,7 @@ export const getLabResources = async (
     labPDFs,
     specimens,
     pagination,
+    patientLabItems,
   };
 };
 
@@ -1365,21 +1384,23 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  let performedBy = '';
-  let performedByDate = '-';
-  if (parseIsPSC(serviceRequest)) {
-    performedBy = 'psc';
-  } else if (specimens.length > 0) {
-    // todo update in the future when we are handling multiple specimens
-    const specimen = specimens[0];
-    performedBy = parsePerformed(specimen, practitioners);
-    performedByDate = parsePerformedDate(specimen);
-  }
-  history.push({
-    action: 'performed',
-    performer: performedBy,
-    date: performedByDate,
-  });
+  const isPSC = parseIsPSC(serviceRequest);
+
+  const pushPerformedHistory = (specimen: Specimen): void => {
+    history.push({
+      action: 'performed',
+      performer: isPSC ? '' : parsePerformed(specimen, practitioners),
+      date: isPSC ? '-' : parsePerformedDate(specimen),
+    });
+  };
+
+  pushPerformedHistory(specimens[0]);
+
+  // todo: design is required https://github.com/masslight/ottehr/issues/2177
+  // handle if there are multiple specimens (the first one is handled above)
+  // specimens.slice(1).forEach((specimen) => {
+  //   pushPerformedHistory(specimen);
+  // });
 
   const taggedReflexTasks = [...reflexFinalTasks, ...reflexCorrectedTasks].map(
     (task) => ({ ...task, testType: 'reflex' }) as const
@@ -1954,4 +1975,97 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
   }
 
   return result;
+};
+
+export const parsePatientLabItems = (serviceRequests: ServiceRequest[]): PatientLabItem[] => {
+  const labItemsMap = new Map<string, PatientLabItem>();
+
+  serviceRequests.forEach((serviceRequest) => {
+    const activityDefinition = serviceRequest.contained?.find(
+      (resource) => resource.resourceType === 'ActivityDefinition'
+    ) as ActivityDefinition | undefined;
+
+    if (activityDefinition?.code?.coding) {
+      activityDefinition.code.coding.forEach((coding) => {
+        if (coding.code && coding.display && coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM) {
+          labItemsMap.set(coding.code, {
+            code: coding.code,
+            display: coding.display,
+          });
+        }
+      });
+    }
+  });
+
+  return Array.from(labItemsMap.values()).sort((a, b) => a.display.localeCompare(b.display));
+};
+
+export const getAllServiceRequestsForPatient = async (
+  oystehr: Oystehr,
+  patientId: string
+): Promise<ServiceRequest[]> => {
+  console.log('Fetching ALL service requests for patient:', patientId);
+
+  const baseSearchParams: SearchParam[] = [
+    {
+      name: 'subject',
+      value: `Patient/${patientId}`,
+    },
+    {
+      name: 'code',
+      value: `${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
+    },
+    {
+      name: 'code:missing',
+      value: 'false',
+    },
+    {
+      name: '_count',
+      value: '100',
+    },
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
+  ];
+
+  let offset = 0;
+  const serviceRequestsMap = new Map<string, ServiceRequest>();
+  let bundle = await oystehr.fhir.search<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  });
+
+  const processPageResults = (pageBundle: Bundle<ServiceRequest>): void => {
+    pageBundle.entry
+      ?.map((entry) => entry.resource as ServiceRequest)
+      .filter((sr) => {
+        return sr.contained?.some((contained) => contained.resourceType === 'ActivityDefinition');
+      })
+      .forEach((sr) => {
+        if (sr.id) {
+          serviceRequestsMap.set(sr.id, sr);
+        }
+      });
+  };
+
+  processPageResults(bundle);
+
+  while (bundle.link?.find((link) => link.relation === 'next')) {
+    offset += 100;
+
+    bundle = await oystehr.fhir.search<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      params: [
+        ...baseSearchParams.filter((param) => param.name !== '_offset'),
+        { name: '_offset', value: offset.toString() },
+      ],
+    });
+
+    processPageResults(bundle);
+  }
+
+  const allServiceRequests = Array.from(serviceRequestsMap.values());
+  console.log(`Found ${allServiceRequests.length} unique service requests for patient`);
+  return allServiceRequests;
 };

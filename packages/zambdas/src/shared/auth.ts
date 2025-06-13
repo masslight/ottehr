@@ -2,7 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { RelatedPerson } from 'fhir/r4b';
 import { getAuth0Token } from './getAuth0Token';
 import { createOystehrClient } from './helpers';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { getPatientsForUser, getSecret, Secrets, SecretsKeys } from 'utils';
 import { decodeJwt } from 'jose';
 
 const TEST_USER_ID = 'test-M2M-user-id';
@@ -10,7 +10,6 @@ export async function getUser(token: string, secrets: Secrets | null, testProfil
   const oystehr = createOystehrClient(token, secrets);
 
   const ENV = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  console.log('ENV', ENV);
 
   let user: User;
   try {
@@ -91,3 +90,17 @@ export const isTestUser = (user: User): boolean => {
 export const checkIsEHRUser = (user: User): boolean => {
   return !user?.name?.startsWith?.('+') && !isTestUser(user);
 };
+
+export async function userHasAccessToPatient(user: User, patientID: string, oystehr: Oystehr): Promise<boolean> {
+  // todo: change this to use check user is ehr user utility once branch defining it is merged
+  const isEHRUser = checkIsEHRUser(user);
+  if (isEHRUser) {
+    // for now, if the user is an EHR user, they have access to all patients by default
+    return true;
+  }
+  // Get all of the patients the user has access to,
+  // get the ID for each patient,
+  // check any of those patients match the patientID parameter,
+  // if so return true otherwise return false
+  return (await getPatientsForUser(user, oystehr)).some((patientTemp) => patientTemp.id === patientID);
+}

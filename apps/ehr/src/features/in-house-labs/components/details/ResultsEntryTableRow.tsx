@@ -14,6 +14,7 @@ const ROW_STYLING = { paddingLeft: 0 };
 
 export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ component, disabled, isLastRow }) => {
   const [isAbnormal, setIsAbnormal] = useState<boolean>(false);
+  console.log('component', component.result);
 
   useEffect(() => {
     if (component.result?.interpretationCode) {
@@ -36,7 +37,7 @@ export const ResultEntryTableRow: React.FC<ResultEntryTableRowProps> = ({ compon
     referenceRange =
       component.referenceRangeValues
         ?.map((refRange) => {
-          return refRange.charAt(0).toUpperCase() + refRange.slice(1);
+          return refRange.display.charAt(0).toUpperCase() + refRange.display.slice(1);
         })
         .join(', ') ?? '';
   }
