@@ -1,3 +1,4 @@
+// cSpell:ignore tokenful
 import { CircularProgress, Typography } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';

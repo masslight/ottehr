@@ -1,3 +1,4 @@
+// cSpell:ignore tokenful
 import { Close } from '@mui/icons-material';
 import {
   Box,
