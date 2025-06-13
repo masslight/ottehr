@@ -11,7 +11,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { ReactElement, useEffect } from 'react';
+import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GetRadiologyOrderListZambdaOrder } from 'utils';
 import { getRadiologyOrderEditUrl } from '../../css-module/routing/helpers';
@@ -28,7 +28,6 @@ type RadiologyTableProps = {
   showFilters?: boolean;
   allowDelete?: boolean;
   titleText?: string;
-  redirectToOrderCreateIfOrdersEmpty?: boolean;
   onCreateOrder?: () => void;
 };
 
@@ -38,7 +37,6 @@ export const RadiologyTable = ({
   columns,
   allowDelete = false,
   titleText,
-  redirectToOrderCreateIfOrdersEmpty = false,
   onCreateOrder,
 }: RadiologyTableProps): ReactElement => {
   const navigateTo = useNavigate();
@@ -61,17 +59,6 @@ export const RadiologyTable = ({
   const onRowClick = (order: GetRadiologyOrderListZambdaOrder): void => {
     navigateTo(getRadiologyOrderEditUrl(order.appointmentId, order.serviceRequestId));
   };
-
-  // Redirect to create order page if needed (controlled by the parent component by prop redirectToOrderCreateIfOrdersEmpty)
-  useEffect(() => {
-    if (redirectToOrderCreateIfOrdersEmpty && !loading && orders.length === 0 && !error && onCreateOrder) {
-      const timer = setTimeout(() => {
-        return onCreateOrder();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-    return;
-  }, [redirectToOrderCreateIfOrdersEmpty, loading, orders.length, error, onCreateOrder]);
 
   const handlePageChange = (event: React.ChangeEvent<unknown>, value: number): void => {
     setPage(value);

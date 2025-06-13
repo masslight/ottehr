@@ -126,7 +126,9 @@ export const usePatientRadiologyOrders = (options: {
   // initial fetch of lab orders
   useEffect(() => {
     const searchParams = getCurrentSearchParamsForPage(1);
-    void fetchOrders(searchParams);
+    if (searchParams.patientId || searchParams.encounterId || searchParams.serviceRequestId) {
+      void fetchOrders(searchParams);
+    }
   }, [fetchOrders, getCurrentSearchParamsForPage]);
 
   const didOrdersFetch = orders.length > 0;
