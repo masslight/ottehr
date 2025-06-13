@@ -38,12 +38,12 @@ export const ResultItem = ({ onMarkAsReviewed, labOrder, resultDetails, loading 
           <span>{resultDetails.testItem}</span>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'row' }}>
-          <LabsOrderStatusChip status={resultDetails.labStatus} />
           {labOrder.isPSC && (
-            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold', mr: 1 }}>
               {PSC_LOCALE}
             </Typography>
           )}
+          <LabsOrderStatusChip status={resultDetails.labStatus} />
         </Box>
       </Box>
 

@@ -3,7 +3,7 @@ import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
 import { LabsOrderStatusChip } from './ExternalLabsStatusChip';
-import { formatDateForLabs, PSC_LOCALE } from 'utils';
+import { formatDateForLabs, PSC_HOLD_LOCALE } from 'utils';
 
 interface OrderHistoryProps {
   isLoading?: boolean;
@@ -43,7 +43,7 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({
                 </TableCell>
                 <TableCell>
                   {row.action === 'performed' && isPSCPerformed
-                    ? PSC_LOCALE
+                    ? PSC_HOLD_LOCALE
                     : row.performer
                     ? `by ${row.performer}`
                     : ''}

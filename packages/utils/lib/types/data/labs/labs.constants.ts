@@ -17,7 +17,8 @@ export const LAB_ORDER_TASK = {
   },
 } as const;
 
-export const PSC_LOCALE = 'PSC Hold';
+export const PSC_HOLD_LOCALE = 'PSC Hold';
+export const PSC_LOCALE = 'PSC';
 
 export const LAB_ORDER_DOC_REF_CODING_CODE = {
   system: 'http://loinc.org',
