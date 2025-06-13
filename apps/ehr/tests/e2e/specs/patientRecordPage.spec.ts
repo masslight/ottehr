@@ -761,7 +761,7 @@ test.describe('Patient Record Page mutating tests', () => {
   });
 });
 
-test.describe('Patient Record Page tests with zero patient data filled in', () => {
+test.describe('Patient Record Page tests with zero patient data filled in', async () => {
   const PROCESS_ID = `patientRecordPage-zero-data-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID);
 
@@ -770,6 +770,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', () =
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
+    await resourceHandler.setResources();
     context = await browser.newContext();
     page = await context.newPage();
     page.on('response', async (response) => {
@@ -781,7 +782,6 @@ test.describe('Patient Record Page tests with zero patient data filled in', () =
         }
       }
     });
-    await resourceHandler.setResources();
   });
 
   test.afterEach(async () => {
@@ -789,6 +789,10 @@ test.describe('Patient Record Page tests with zero patient data filled in', () =
       await resourceHandler.cleanAppointment(id);
     }
     appointmentIds = [];
+  });
+
+  test.afterAll(async () => {
+    await resourceHandler.cleanupResources();
   });
 
   test('Check state, ethnicity, race, relationship to patient are required', async () => {

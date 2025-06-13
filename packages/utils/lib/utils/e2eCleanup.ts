@@ -181,6 +181,14 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
         name: '_revinclude:iterate',
         value: 'MedicationStatement:part-of',
       },
+      {
+        name: '_revinclude:iterate',
+        value: 'Account:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Coverage:patient',
+      },
     ],
   };
 
