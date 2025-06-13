@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, styled, alpha, Button } from '@mui/material';
+import {
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  IconButton,
+  styled,
+  alpha,
+  Button,
+  useTheme,
+} from '@mui/material';
 import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
 import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
@@ -14,21 +25,11 @@ import { useAppointmentStore } from '../../../telemed';
 import { ottehrAiIcon } from '@ehrTheme/icons';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
-  <svg width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="20" cy="20" r="20" fill="#2169F5" fillOpacity=".04" />
-    <mask id="a" style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="8" y="8" width="24" height="24">
-      <path fill="#D9D9D9" d="M8 8h24v24H8z" />
-    </mask>
-    <g mask="url(#a)">
-      <path
-        d={
-          direction === 'right'
-            ? 'M24.175 21H12v-2h12.175l-5.6-5.6L20 12l8 8-8 8-1.425-1.4 5.6-5.6Z'
-            : 'M15.825 21H28v-2H15.825l5.6-5.6L20 12l-8 8 8 8 1.425-1.4-5.6-5.6Z'
-        }
-        fill="#2169F5"
-      />
-    </g>
+  <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d={direction === 'right' ? 'M0 18V0H2V18H0ZM4 14V4L9 9L4 14Z' : 'M5 14V4L0 9L5 14ZM7 18H9V0H7V18Z'}
+      fill="#2169F5"
+    />
   </svg>
 );
 
@@ -248,6 +249,7 @@ const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive }) 
 
 export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
+  const theme = useTheme();
   const [open, setOpen] = useState(true);
   const { interactionMode } = useNavigationContext();
   const { id: appointmentID } = useParams();
@@ -328,7 +330,17 @@ export const Sidebar = (): JSX.Element => {
           borderBottom: '1px solid #e0e0e0',
         }}
       >
-        <IconButton sx={{ padding: 0 }} onClick={handleDrawerToggle}>
+        <IconButton
+          sx={{
+            width: 40,
+            height: 40,
+            padding: 0,
+            '&:hover': {
+              backgroundColor: alpha(theme.palette.primary.main, 0.03),
+            },
+          }}
+          onClick={handleDrawerToggle}
+        >
           <ArrowIcon direction={open ? 'left' : 'right'} />
         </IconButton>
       </DrawerHeader>
