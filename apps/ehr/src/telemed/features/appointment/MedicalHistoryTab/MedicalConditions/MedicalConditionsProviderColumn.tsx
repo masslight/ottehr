@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import {
   Autocomplete,
   Box,
@@ -10,7 +11,6 @@ import {
   Typography,
   debounce,
 } from '@mui/material';
-import { otherColors } from '@theme/colors';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
