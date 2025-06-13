@@ -19,10 +19,14 @@ export const DetailsWithoutResults: React.FC<{
           alignItems: 'center',
         }}
       >
-        <Typography variant="body1">{labOrder.diagnoses}</Typography>
+        <Typography variant="body1" width="100%">
+          {labOrder.diagnoses}
+        </Typography>
         <Grid container justifyContent="end" spacing={2}>
-          <Grid item>
-            <Typography variant="body1">{labOrder.isPSC ? PSC_LOCALE : ''}</Typography>
+          <Grid item sx={{ display: 'flex', alignItems: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold', mr: 1 }}>
+              {labOrder.isPSC ? PSC_LOCALE : ''}
+            </Typography>
           </Grid>
           <Grid item>
             <LabsOrderStatusChip status={labOrder.orderStatus} />
