@@ -473,8 +473,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                         return;
                       }
                       const alreadySelected =
-                        selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code) ||
-                        selectedAssessmentDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
+                        selectedNewDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code) ||
+                        selectedAssessmentDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code);
                       if (!alreadySelected) {
                         setSelectedNewDiagnoses((diagnoses) => [
                           ...diagnoses,

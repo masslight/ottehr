@@ -203,7 +203,6 @@ export class FillingInfo {
 
   async fillCurrentMedications() {
     const filledValue = 'some medication';
-    // cspell:disable-next Albuterol
     const selectedValue = 'Albuterol';
 
     await this.locators.currentMedicationsPresent.click();

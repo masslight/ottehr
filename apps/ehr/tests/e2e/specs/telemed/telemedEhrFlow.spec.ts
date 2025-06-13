@@ -276,7 +276,7 @@ test.describe('Tests interacting with appointment state', () => {
   test('Patient provided hpi data', async () => {
     await test.step('Medical conditions provided by patient', async () => {
       await expect(
-        page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedsList).getByText('Constipation')
+        page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedList).getByText('Constipation')
       ).toBeVisible();
     });
 
@@ -349,7 +349,7 @@ test.describe('Tests interacting with appointment state', () => {
 
   test('Should test appointment hpi fields', async () => {
     const medicalConditionsPattern = 'Z3A';
-    // const knownAllergiePattern = '10-undecenal';
+    // const knownAllergyPattern = '10-undecenal';
     const surgicalHistoryPattern = '44950';
     const surgicalNote = 'surgical note';
     const chiefComplaintNotes = 'chief complaint';
@@ -375,7 +375,7 @@ test.describe('Tests interacting with appointment state', () => {
       );
 
       // TODO: uncomment when erx is enabled
-      // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergiePattern);
+      // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyPattern);
 
       await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgicalHistoryPattern);
 
@@ -444,7 +444,7 @@ test.describe('Tests interacting with appointment state', () => {
     // await test.step('check known allergies list', async () => {
     //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible();
     //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
-    //     RegExp(knownAllergiePattern)
+    //     RegExp(knownAllergyPattern)
     //   );
     // });
 

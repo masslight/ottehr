@@ -17,7 +17,7 @@ export const ContactContainer: FC = () => {
       .valueString}, ${getQuestionnaireResponseByLinkId('patient-state', questionnaireResponse)?.answer?.[0]
       .valueString}, ${getQuestionnaireResponseByLinkId('patient-zip', questionnaireResponse)?.answer?.[0]?.valueString}
   `;
-  const fiilingOutAs = getQuestionnaireResponseByLinkId('patient-filling-out-as', questionnaireResponse)?.answer?.[0]
+  const fillingOutAs = getQuestionnaireResponseByLinkId('patient-filling-out-as', questionnaireResponse)?.answer?.[0]
     .valueString;
   const patientEmail = getQuestionnaireResponseByLinkId('patient-email', questionnaireResponse)?.answer?.[0]
     ?.valueString;
@@ -50,7 +50,7 @@ export const ContactContainer: FC = () => {
         },
         {
           label: 'I am filling out this info as',
-          value: fiilingOutAs,
+          value: fillingOutAs,
         },
         {
           label: 'Patient email',

@@ -44,7 +44,7 @@ import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
-import { checkinPatient } from '../helpers';
+import { checkInPatient } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -295,7 +295,7 @@ export default function AppointmentTableRow({
       throw new Error('error getting appointment id');
     }
     setArrivedStatusSaving(true);
-    await checkinPatient(oystehr, appointment.id, appointment.encounterId, user);
+    await checkInPatient(oystehr, appointment.id, appointment.encounterId, user);
     setArrivedStatusSaving(false);
     await updateAppointments();
   };

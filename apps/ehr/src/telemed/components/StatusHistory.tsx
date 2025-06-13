@@ -39,19 +39,19 @@ export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
   const theme = useTheme();
 
   const [tooltipState, updateTooltip] = useReducer(tooltipReducer, initialTooltipState);
-  const сloseTooltipOnClick = (): void => updateTooltip('CLOSE_ON_CLICK');
-  const сloseTooltipOnLeave = (): void => updateTooltip('CLOSE_ON_LEAVE');
+  const closeTooltipOnClick = (): void => updateTooltip('CLOSE_ON_CLICK');
+  const closeTooltipOnLeave = (): void => updateTooltip('CLOSE_ON_LEAVE');
   const openTooltipOnClick = (): void => updateTooltip('OPEN_ON_CLICK');
   const openTooltipOnHover = (): void => updateTooltip('OPEN_ON_HOVER');
 
   const currentTimeISO = new Date().toISOString();
 
   return (
-    <ClickAwayListener onClickAway={сloseTooltipOnClick}>
+    <ClickAwayListener onClickAway={closeTooltipOnClick}>
       <Box
         sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
         onMouseEnter={openTooltipOnHover}
-        onMouseLeave={сloseTooltipOnLeave}
+        onMouseLeave={closeTooltipOnLeave}
       >
         <StatusHistoryTimeCounter
           history={history}
@@ -63,7 +63,7 @@ export const StatusHistory: FC<StatusHistoryTooltipProps> = (props) => {
             PopperProps={{
               disablePortal: true,
             }}
-            onClose={сloseTooltipOnClick}
+            onClose={closeTooltipOnClick}
             open={tooltipState.visible}
             disableFocusListener
             disableHoverListener

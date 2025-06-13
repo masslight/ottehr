@@ -1,6 +1,6 @@
 # EHR E2E Documentation
 
-This guide covers our E2E testing approach using Playwright in a Turborepo monorepo setup.
+This guide covers our E2E testing approach using Playwright in a Turbo repo monorepo setup.
 
 The implementation supports both local development and CI/CD pipelines, with features for resource management, authentication, and parallel test execution.
 
@@ -140,7 +140,7 @@ Description of how environment variables from the secrets repository are used in
 | Path in ottehr-secrets          | Path in EHR repo                                           | Purpose                                                                                                | Usage in tests                                       |
 | :------------------------------ | :--------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |
 | ehr/app/.env.local              | taken from apps/ehr/env/.env.local, loaded via vite.config | local build                                                                                            | local run, CI                                        |
-| zambdas/local.json              | packages/zambdas/.env/local.json, loaded via env-cmd         | local build                                                                                            | local run, CI                                        |
+| zambdas/local.json              | packages/zambdas/.env/local.json, loaded via env-cmd       | local build                                                                                            | local run, CI                                        |
 | ehr/app/test.{local\|demo}.json | apps/ehr/env/test.\*.json, loaded via env-cmd              | for configuring tests (frontend URL, FHIR API, authorization for resource creation, web authorization) | **local**: local run, CI, **demo**: demo environment |
 
 **Note**:\
@@ -208,7 +208,7 @@ Playwright has extensive and well-written documentation available on [their webs
 
 Important considerations:
 
-- Store datatest-id constants in a centralized location `data-test-ids.ts`
+- Store data-test-id constants in a centralized location `data-test-ids.ts`
 - Apply functions for generating dynamic IDs
 - Maintain as flat naming structure as possible
 

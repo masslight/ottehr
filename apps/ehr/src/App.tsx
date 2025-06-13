@@ -111,17 +111,17 @@ function App(): ReactElement {
     debounce: 500,
   });
 
-  const wasEnrolledInphoton = useProviderPhotonStateStore((state) => state.wasEnrolledInphoton);
+  const wasEnrolledInPhoton = useProviderPhotonStateStore((state) => state.wasEnrolledInPhoton);
 
   const roleUnknown =
     !currentUser || !currentUser.hasRole([RoleType.Administrator, RoleType.Staff, RoleType.Manager, RoleType.Provider]);
 
   // CI_PHOTON_DISABLED is used to disable photon in testing CI environments, because photon refresh the dashboard page and breaks the tests
   // we may use sleep + page.refresh() and other workarounds, but better to run photon tests separately and don't affect other tests
-  const photonDisadledByEnv = import.meta.env.VITE_APP_CI_PHOTON_DISABLED === 'true';
+  const photonDisabledByEnv = import.meta.env.VITE_APP_CI_PHOTON_DISABLED === 'true';
   const photonEnabledForUser = currentUser?.hasRole([RoleType.Provider]) && currentUser.isPractitionerEnrolledInPhoton;
   const isE2EUser = currentUser?.email?.includes('e2euser');
-  const shouldUsePhoton = !photonDisadledByEnv && !isE2EUser && (photonEnabledForUser || wasEnrolledInphoton);
+  const shouldUsePhoton = !photonDisabledByEnv && !isE2EUser && (photonEnabledForUser || wasEnrolledInPhoton);
 
   return (
     <CustomThemeProvider>

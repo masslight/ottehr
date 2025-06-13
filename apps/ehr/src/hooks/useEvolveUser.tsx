@@ -8,7 +8,7 @@ import {
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
   getPatchOperationToUpdateExtension,
-  getPractitionerNPIIdentitifier,
+  getPractitionerNPIIdentifier,
   initialsFromName,
   PHOTON_PRACTITIONER_ENROLLED,
   PHOTON_PRESCRIBER_SYSTEM_URL,
@@ -40,7 +40,7 @@ interface EvolveUserState {
 const useEvolveUserStore = create<EvolveUserState>()(() => ({}));
 
 export const useProviderPhotonStateStore = create<{
-  wasEnrolledInphoton?: boolean;
+  wasEnrolledInPhoton?: boolean;
 }>()(persist(() => ({}), { name: 'ottehr-ehr-provider-erx-store' }));
 
 // extracting it here, cause even if we use store - it will still initiate requests as much as we have usages of this hook,
@@ -64,14 +64,14 @@ export default function useEvolveUser(): EvolveUser | undefined {
 
   useEffect(() => {
     if (isPractitionerEnrolledInPhoton) {
-      useProviderPhotonStateStore.setState({ wasEnrolledInphoton: true });
+      useProviderPhotonStateStore.setState({ wasEnrolledInPhoton: true });
     }
   }, [isPractitionerEnrolledInPhoton]);
 
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
       profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
-      getPractitionerNPIIdentitifier(profile)?.value &&
+      getPractitionerNPIIdentifier(profile)?.value &&
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family
   );
@@ -335,7 +335,7 @@ const useEnrollPractitionerInERX = () => {
           providerId: profile?.id,
           address,
           phone: profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value || '',
-          npi: profile && getPractitionerNPIIdentitifier(profile)?.value,
+          npi: profile && getPractitionerNPIIdentifier(profile)?.value,
           given_name: profile?.name?.[0]?.given?.[0] || '',
           family_name: profile?.name?.[0]?.family || '',
         };

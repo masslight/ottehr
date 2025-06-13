@@ -217,7 +217,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         const selectedDxCode = e.target.value;
                         const selectedDx = diagnosis?.find((tempDx) => tempDx.code === selectedDxCode);
                         if (selectedDx) {
-                          const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                          const alreadySelected = orderDx.find((tempDx) => tempDx.code === selectedDx.code);
                           if (!alreadySelected) {
                             setOrderDx([...orderDx, selectedDx]);
                           } else {
@@ -261,7 +261,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     value={null}
                     isOptionEqualToValue={(option, value) => value.code === option.code}
                     onChange={(event: any, selectedDx: any) => {
-                      const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                      const alreadySelected = orderDx.find((tempDx) => tempDx.code === selectedDx.code);
                       if (!alreadySelected) {
                         setOrderDx([...orderDx, selectedDx]);
                       } else {
