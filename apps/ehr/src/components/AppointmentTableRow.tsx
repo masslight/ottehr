@@ -792,9 +792,6 @@ export default function AppointmentTableRow({
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
       </TableCell>
-      <TableCell sx={{ verticalAlign: 'center' }}>
-        <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.group}</Typography>
-      </TableCell>
       <TableCell
         sx={{
           verticalAlign: 'center',

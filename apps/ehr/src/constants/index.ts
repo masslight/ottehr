@@ -77,7 +77,7 @@ export const MOBILE_MODAL_STYLE = {
 };
 
 export const NEXT_WIDTH = '14px';
-export const TYPE_WIDTH = '10%';
+export const TYPE_WIDTH = '12%';
 export const TYPE_WIDTH_MIN = '150px';
 export const TIME_WIDTH = '8%';
 export const TIME_WIDTH_MIN = '120px';
@@ -86,11 +86,9 @@ export const ROOM_WIDTH = '7%';
 export const ROOM_WIDTH_MIN = '100px';
 export const PROVIDER_WIDTH = '9%';
 export const PROVIDER_WIDTH_MIN = '120px';
-export const GROUP_WIDTH = '8%';
-export const GROUP_WIDTH_MIN = '100px';
-export const VISIT_ICONS_WIDTH = '10%';
+export const VISIT_ICONS_WIDTH = '12%';
 export const VISIT_ICONS_WIDTH_MIN = '150px';
-export const NOTES_WIDTH = '12%';
+export const NOTES_WIDTH = '16%';
 export const NOTES_WIDTH_MIN = '170px';
 export const CHAT_WIDTH = '6%';
 export const CHAT_WIDTH_MIN = '80px';

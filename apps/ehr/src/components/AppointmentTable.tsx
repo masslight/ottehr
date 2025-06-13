@@ -27,8 +27,6 @@ import {
   CHAT_WIDTH_MIN,
   GO_TO_WIDTH,
   GO_TO_WIDTH_MIN,
-  GROUP_WIDTH,
-  GROUP_WIDTH_MIN,
   NEXT_WIDTH,
   NOTES_WIDTH,
   NOTES_WIDTH_MIN,
@@ -110,11 +108,6 @@ export default function AppointmentTable({
                 <TableCell style={{ width: PROVIDER_WIDTH, minWidth: PROVIDER_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Provider
-                  </Typography>
-                </TableCell>
-                <TableCell style={{ width: GROUP_WIDTH, minWidth: GROUP_WIDTH_MIN }}>
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Group
                   </Typography>
                 </TableCell>
                 <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}>
@@ -232,7 +225,6 @@ export default function AppointmentTable({
                   <TableCell style={{ minWidth: PATIENT_AND_REASON_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: ROOM_WIDTH, minWidth: ROOM_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: PROVIDER_WIDTH, minWidth: PROVIDER_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: GROUP_WIDTH, minWidth: GROUP_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}></TableCell>

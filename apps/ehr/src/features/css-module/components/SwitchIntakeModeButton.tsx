@@ -14,7 +14,7 @@ export const SwitchIntakeModeButton: React.FC<{
       disabled={isDisabled}
       onClick={handleSwitchMode}
     >
-      {nextMode.charAt(0).toUpperCase() + nextMode.slice(1)}
+      Switch to {nextMode.charAt(0).toUpperCase() + nextMode.slice(1)} view
     </ButtonRounded>
   );
 };
