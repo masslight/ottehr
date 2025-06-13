@@ -19,9 +19,8 @@ import {
   getRelatedPersonForPatient,
   getSecret,
   getVirtualServiceResourceExtension,
-  userHasAccessToPatient,
 } from 'utils';
-import { lambdaResponse, ZambdaInput } from '../../shared';
+import { lambdaResponse, userHasAccessToPatient, ZambdaInput } from '../../shared';
 import {
   getAuth0Token,
   getUser,

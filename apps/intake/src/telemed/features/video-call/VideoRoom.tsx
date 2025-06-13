@@ -1,4 +1,4 @@
-import { Box, Typography, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useMemo, useState } from 'react';
 import {
   useRemoteVideoTileState,
@@ -10,7 +10,7 @@ import {
 } from 'amazon-chime-sdk-component-library-react';
 import { getSelectors } from 'utils';
 import { useVideoCallStore, VideoControls } from '.';
-import { breakpoints } from 'ui-components';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 type Participant = RosterAttendeeType & {
   tileId?: number;
@@ -22,7 +22,7 @@ export const VideoRoom: FC = () => {
   const { isVideoEnabled } = useLocalVideo();
   const { roster } = useRosterState();
   const videoCallState = getSelectors(useVideoCallStore, ['meetingData']);
-  const isMobile = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);
+  const isMobile = useIsMobile();
 
   const [activeParticipant, setActiveParticipant] = useState<null | Participant>(null);
 

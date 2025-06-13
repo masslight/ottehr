@@ -1,5 +1,5 @@
 import { FC, useState } from 'react';
-import { Box, useMediaQuery } from '@mui/material';
+import { Box } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import VideocamIcon from '@mui/icons-material/Videocam';
@@ -11,13 +11,14 @@ import { CallSettings, IconButtonContained, CallSettingsTooltip, SideCardList } 
 import { otherColors } from '../../../IntakeThemeProvider';
 import { ConfirmEndCallDialog } from '.';
 import { intakeFlowPageRoute } from '../../../App';
-import { breakpoints, CustomDialog } from 'ui-components';
+import { CustomDialog } from 'ui-components';
 import { useLocation } from 'react-router-dom';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 export const VideoControls: FC = () => {
   const { toggleVideo, isVideoEnabled } = useLocalVideo();
   const { muted, toggleMute } = useToggleLocalMute();
-  const isMobile = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);
+  const isMobile = useIsMobile();
   const location = useLocation();
   const isRegularParticipant = location.pathname === intakeFlowPageRoute.VideoCall.path;
 
