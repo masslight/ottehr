@@ -503,11 +503,9 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
     test('Appointment is present in tracking board and searchable by location filter', async ({ page }) => {
       await page.goto(`telemed/appointments`);
       await awaitAppointmentsTableToBeVisible(page);
-      await fillWaitAndSelectDropdown(
-        page,
-        dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect,
-        location.name || ''
-      );
+      await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelect).locator('input').click();
+      await page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(location.id!)).click();
+
       await expect(
         page.getByTestId(dataTestIds.telemedEhrFlow.trackingBoardTableRow(resourceHandler.appointment.id!))
       ).toBeVisible(DEFAULT_TIMEOUT);
