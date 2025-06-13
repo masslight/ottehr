@@ -15,7 +15,7 @@ export const findActiveAppointment = (
   }, undefined);
 };
 
-const UPDATEABLE_PATIENT_INFO_FIELDS: (keyof Omit<PatientInfo, 'id'>)[] = [
+const UPDATABLE_PATIENT_INFO_FIELDS: (keyof Omit<PatientInfo, 'id'>)[] = [
   'firstName',
   'lastName',
   'middleName',
@@ -31,15 +31,15 @@ export const createPatientInfoWithChangedFields = (
   source: PatientInfo,
   newInfo: Omit<PatientInfo, 'id'>
 ): PatientInfo => {
-  const newPatienInfo = { ...source };
-  for (const key of UPDATEABLE_PATIENT_INFO_FIELDS) {
-    newPatienInfo[key] = newInfo[key] as any;
+  const newPatientInfo = { ...source };
+  for (const key of UPDATABLE_PATIENT_INFO_FIELDS) {
+    newPatientInfo[key] = newInfo[key] as any;
   }
-  return newPatienInfo;
+  return newPatientInfo;
 };
 
 export const isPatientInfoEqual = (firstInfo: PatientInfo, newInfo: PatientInfo): boolean => {
-  for (const key of UPDATEABLE_PATIENT_INFO_FIELDS) {
+  for (const key of UPDATABLE_PATIENT_INFO_FIELDS) {
     if (key === 'dateOfBirth' || key === 'weightLastUpdated') {
       const firstDate = DateTime.fromFormat(yupDateTransform(firstInfo[key]) || '', 'yyyy-MM-dd');
       const secondDate = DateTime.fromFormat(yupDateTransform(newInfo[key]) || '', 'yyyy-MM-dd');

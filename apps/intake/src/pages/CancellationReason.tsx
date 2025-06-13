@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, PageForm } from 'ui-components';
-import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKEDIN_APT_ERROR, PROJECT_NAME } from 'utils';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CANT_CANCEL_CHECKED_IN_APT_ERROR, PROJECT_NAME } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
@@ -75,7 +75,7 @@ const CancellationReason = (): JSX.Element => {
       setLoading(false);
       navigateInFlow('cancellation-confirmation');
     } catch (error: any) {
-      if ((error as APIError)?.code === CANT_CANCEL_CHECKEDIN_APT_ERROR.code) {
+      if ((error as APIError)?.code === CANT_CANCEL_CHECKED_IN_APT_ERROR.code) {
         setCancelErrorDialog({
           title: t('cancel.errors.checkedIn.title'),
           description: t('cancel.errors.checkedIn.description'),
