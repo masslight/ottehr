@@ -63,6 +63,8 @@ export interface TestItem {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
+  adUrl: string;
+  adVersion: string;
   note?: string;
 }
 

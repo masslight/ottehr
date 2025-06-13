@@ -7,6 +7,7 @@ import {
   SPECIMEN_COLLECTION_SOURCE_SYSTEM,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   InHouseOrderDetailPageItemDTO,
+  IN_HOUSE_TAG_DEFINITION,
 } from 'utils';
 import {
   Coding,
@@ -15,6 +16,7 @@ import {
   Provenance,
   Encounter,
   Specimen,
+  ActivityDefinition,
   DiagnosticReport,
   Observation,
   FhirResource,
@@ -359,4 +361,29 @@ const addToSrResourceMap = (
       [addTo]: [...(srResourceMap[srId][addTo] as any[]), resource],
     },
   };
+};
+
+export const fetchActiveInHouseLabActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
+  return oystehr.fhir
+    .search<ActivityDefinition>({
+      resourceType: 'ActivityDefinition',
+      params: [
+        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
+        { name: 'status', value: 'active' },
+      ],
+    })
+    .then((response) => response.unbundle());
+};
+
+export const getUrlAndVersionForADFromServiceRequest = (
+  serviceRequest: ServiceRequest
+): { url: string; version: string } => {
+  const adUrl = serviceRequest.instantiatesCanonical?.[0].split('|')[0];
+  const version = serviceRequest.instantiatesCanonical?.[0].split('|')[1];
+  if (!adUrl || !version)
+    throw new Error(
+      `error parsing instantiatesCanonical url for SR ${serviceRequest.id}, either the url or the version could not be parsed: ${adUrl} ${version}`
+    );
+  console.log('AD url and version parsed:', adUrl, version);
+  return { url: adUrl, version };
 };
