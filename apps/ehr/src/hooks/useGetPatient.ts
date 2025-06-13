@@ -209,11 +209,10 @@ export const useGetPatient = (
       setAppointments(appointmentRows);
       setPatient(patientTemp);
       setRelatedPerson(relatedPersonTemp);
+      setLoading(false);
     }
 
-    getPatient()
-      .catch((error) => console.log(error))
-      .finally(() => setLoading(false));
+    getPatient().catch((error) => console.log(error));
   }, [oystehr, patientResources, otherPatientsWithSameNameResources]);
 
   return {
