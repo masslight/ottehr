@@ -139,17 +139,6 @@ export const AppointmentSidePanel: FC = () => {
 
   const paperworkAllergiesYesNo = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
 
-  const paperworkAllergies =
-    getQuestionnaireResponseByLinkId('allergies', questionnaireResponse)
-      ?.answer?.[0]?.valueArray?.filter(
-        (answer) =>
-          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
-      )
-      ?.map(
-        (answer) =>
-          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
-      ) ?? [];
-
   const allergiesStatus = (): string => {
     if (isChartDataLoading) {
       return 'Loading...';
@@ -164,10 +153,10 @@ export const AppointmentSidePanel: FC = () => {
     ) {
       return 'No known allergies';
     }
-    return [
-      ...allergies.filter((allergy) => allergy.current === true).map((allergy) => allergy.name),
-      ...paperworkAllergies,
-    ].join(', ');
+    return allergies
+      .filter((allergy) => allergy.current === true)
+      .map((allergy) => allergy.name)
+      .join(', ');
   };
 
   return (
