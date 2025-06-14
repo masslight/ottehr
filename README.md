@@ -140,6 +140,8 @@ npm run ehr:e2e:local
 npm run ehr:e2e:local:ui
 ```
 
+Full E2E Documentation: [E2E_README.md](./E2E_README.md)
+
 ## Setting up Terminology Search
 
 Ottehr uses UMLS Terminology Services for searching for ICD-10 and CPT codes.
@@ -161,12 +163,14 @@ This repository uses a monorepo structure.
 ### EHR App
 
 - [Frontend Documentation](./apps/ehr/README.md)
-- [E2E Testing Guide](./apps/ehr/tests/e2e-readme/README.md)
 
 ### Patient Portal App
 
 - [Frontend Documentation](./apps/intake/README.md)
-- [E2E Testing Guide](./apps/intake/tests/e2e-readme/README.md)
+
+### E2E Documentation
+
+- [E2E Testing Guide](./E2E_README.md)
 
 ### Customization
 
