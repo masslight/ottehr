@@ -51,6 +51,7 @@ export class FillingInfo {
   async fillNewPatientInfo() {
     const firstName = `TM-UserFN${this.getRandomString()}`;
     const lastName = `TM-UserLN${this.getRandomString()}`;
+    // cspell:disable-next dvoschuk
     const email = `dvoshchuk+${firstName}@masslight.com`;
     await this.page.getByPlaceholder('First name').click();
     await this.page.getByPlaceholder('First name').fill(firstName);
@@ -202,6 +203,7 @@ export class FillingInfo {
 
   async fillCurrentMedications() {
     const filledValue = 'some medication';
+    // cspell:disable-next Albuterol
     const selectedValue = 'Albuterol';
 
     await this.locators.currentMedicationsPresent.click();

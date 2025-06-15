@@ -4,7 +4,7 @@ import { DateTime } from 'luxon';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import {
-  addContentTypeToAttachement,
+  addContentTypeToAttachment,
   chooseJson,
   GetPresignedFileURLInput,
   PatchPaperworkParameters,
@@ -85,6 +85,6 @@ export async function getPatientConditionPhotosStepAnswers({
 
   return {
     linkId: 'patient-condition-page',
-    item: [{ linkId: 'patient-photos', answer: [{ valueAttachment: addContentTypeToAttachement(attachment) }] }],
+    item: [{ linkId: 'patient-photos', answer: [{ valueAttachment: addContentTypeToAttachment(attachment) }] }],
   };
 }

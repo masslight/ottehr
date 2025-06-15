@@ -11,8 +11,8 @@ export function IOSMessagesHandler(): JSX.Element {
 
   useEffect(() => {
     const listener = (event: Event): void => {
-      const custEvent = event as CustomEvent;
-      switch (custEvent.detail) {
+      const customEvent = event as CustomEvent;
+      switch (customEvent.detail) {
         case 'IOS_OPEN_CALL_MENU': {
           navigate(`${intakeFlowPageRoute.IOSVideoCallMenu.path}?appointment_id=${appointmentId}`);
           break;

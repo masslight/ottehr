@@ -1,7 +1,7 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useCallback, useEffect, useState } from 'react';
 import { safelyCaptureException } from 'ui-components';
-import { createIOSMesssageWAccessToken, sendIOSAppMessage } from './iosCommunicationChannel';
+import { createIOSMessageWAccessToken, sendIOSAppMessage } from './iosCommunicationChannel';
 
 let tokenPassedToIOS = false;
 const bodyNode = document.getElementsByTagName('body')[0];
@@ -32,7 +32,7 @@ export function useIOSAppSync(): { isIOSApp: boolean } {
     async function sendIOSMessageWToken(): Promise<void> {
       const token = await getAccessTokenSilently();
       if (!tokenPassedToIOS && !isEffectDisposed) {
-        sendIOSAppMessage(createIOSMesssageWAccessToken(token));
+        sendIOSAppMessage(createIOSMessageWAccessToken(token));
         tokenPassedToIOS = true;
       }
     }

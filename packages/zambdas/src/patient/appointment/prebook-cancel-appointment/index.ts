@@ -6,7 +6,7 @@ import { Appointment, Encounter, HealthcareService, Location, Patient, Practitio
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
-  CANT_CANCEL_CHECKEDIN_APT_ERROR,
+  CANT_CANCEL_CHECKED_IN_APT_ERROR,
   CancellationReasonCodesInPerson,
   CancellationReasonOptionsInPerson,
   DATETIME_FULL_NO_YEAR,
@@ -106,7 +106,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
           // todo: remove this once prebooked virtual appointments begin in 'booked' status
           console.log(`appointment is virtual, allowing cancellation`);
         } else {
-          throw CANT_CANCEL_CHECKEDIN_APT_ERROR;
+          throw CANT_CANCEL_CHECKED_IN_APT_ERROR;
         }
       }
     } else {

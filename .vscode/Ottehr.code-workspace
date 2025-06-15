@@ -24,6 +24,10 @@
       "name": "Utilities",
       "path": "../packages/utils",
     },
+    {
+      "name": "Test Utilities",
+      "path": "../packages/test-utils",
+    },
   ],
   "settings": {
     "files.exclude": {

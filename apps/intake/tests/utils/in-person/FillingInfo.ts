@@ -94,6 +94,7 @@ export class FillingInfo {
     const firstName = `TA-UserFN${this.getRandomString()}`;
     const lastName = `TA-UserLN${this.getRandomString()}`;
     const birthSexes = ['Male', 'Female', 'Intersex'];
+    // cspell:disable-next ykulik
     const email = `ykulik+${firstName}@masslight.com`;
     const reason = this.getRandomElement(this.reasonForVisit);
     const enteredReason = this.getRandomString();

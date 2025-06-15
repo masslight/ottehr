@@ -136,7 +136,7 @@
   },
   "confirmDob": {
     "errors": {
-      "description": "An error occured. Please, try again in a moment.",
+      "description": "An error occurred. Please, try again in a moment.",
       "title": "Error"
     },
     "notConfirmed": {
@@ -648,7 +648,7 @@
     "Please fix the errors in the": "Please fix the errors in the",
     "field to proceed": "field to proceed",
     "fields above to proceed": "fields above to proceed",
-    "mutipleErrors": "Please fix the errors in the following fields to proceed:",
+    "multipleErrors": "Please fix the errors in the following fields to proceed:",
     "Cough and/or congestion": "Cough and/or congestion",
     "Throat pain": "Throat pain",
     "Eye concern": "Eye concern",
@@ -814,7 +814,7 @@
     "body5": "Please click the \"Proceed to paperwork\" button above to complete your paperwork prior to your visit. If this is not completed in advance, your care may be delayed.",
     "body7": "Please proceed to paperwork.",
     "body8": "If not completed, your care may be delayed.",
-    "bodylink": "here",
+    "bodyLink": "here",
     "callUs": "If you have any questions or concerns, please call our team at:",
     "cancel": "Cancel",
     "editPaperwork": "Edit paperwork",

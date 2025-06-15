@@ -412,7 +412,7 @@ export class Locators {
     );
     this.paperworkErrorInFieldAboveMessage = page.getByText('Please fix the error in the field above to proceed');
 
-    // Paperwork Telemed locatots
+    // Paperwork Telemed locators
     this.itemAddedValue = page.getByTestId(dataTestIds.itemAddedValue);
 
     // Current medications locators
