@@ -65,7 +65,6 @@ export function createMedicationAdministrationResource(
   if (data.medicationCopyId) resource.medicationReference = { reference: `Medication/${data.medicationCopyId}` };
   if (data.dose && data.units) {
     resource.dosage = {
-      text: data.instructions,
       dose: {
         unit: data.units,
         value: data.dose,
@@ -119,6 +118,7 @@ export function createMedicationAdministrationResource(
         },
       ],
     });
+  if (data.instructions && resource.dosage) resource.dosage.text = data.instructions;
   if (location && resource.dosage)
     resource.dosage.site = {
       coding: [
