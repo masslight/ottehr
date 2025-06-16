@@ -9,6 +9,7 @@ import { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from
 import { Link, useParams } from 'react-router-dom';
 import PageContainer from '../layout/PageContainer';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import { enqueueSnackbar } from 'notistack';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
@@ -92,6 +93,7 @@ function GroupPageContent(): ReactElement {
       }
       return location.reference?.replace('Location/', '');
     });
+    console.log('selectedLocationsTemp', selectedLocationsTemp);
     // console.log(group);
     setSelectedLocations(selectedLocationsTemp);
 
@@ -113,158 +115,192 @@ function GroupPageContent(): ReactElement {
   useEffect(() => {
     void getOptions();
   }, [getOptions]);
+
   async function onSubmit(event: any): Promise<void> {
-    event.preventDefault();
-    if (!oystehr) {
-      console.log('oystehr client is not defined');
-      return;
-    }
-    if (!selectedPractitioners || !practitionerRoles) {
-      return;
-    }
-    setLoading(true);
-    const practitionerRolePractitionerIDs = practitionerRoles?.map(
-      (practitionerRoleTemp) => practitionerRoleTemp.practitioner?.reference
-    );
-    const practitionerIDToCreatePractitionerRoles = selectedPractitioners.filter(
-      (selectedPractitionerTemp) =>
-        !practitionerRolePractitionerIDs?.includes(`Practitioner/${selectedPractitionerTemp}`)
-    );
-    const practitionerIDToAddHealthcareServicePractitionerRoles = practitionerRoles.filter(
-      (practitionerRoleTemp) =>
-        selectedPractitioners.includes(
-          practitionerRoleTemp.practitioner?.reference?.replace('Practitioner/', '') || ''
-        ) &&
-        !practitionerRoleTemp.healthcareService?.some(
-          (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupID}`
-        )
-    );
-    const practitionerIDToRemoveHealthcareServicePractitionerRoles = practitionerRoles.filter(
-      (practitionerRoleTemp) =>
-        !selectedPractitioners.includes(
-          practitionerRoleTemp.practitioner?.reference?.replace('Practitioner/', '') || ''
-        ) &&
-        practitionerRoleTemp.healthcareService?.some(
-          (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupID}`
-        )
-    );
-
-    const practitionerRolesResourcesToCreate: PractitionerRole[] = practitionerIDToCreatePractitionerRoles?.map(
-      (practitionerID) => ({
-        resourceType: 'PractitionerRole',
-        practitioner: {
-          reference: `Practitioner/${practitionerID}`,
-        },
-        healthcareService: [
-          {
-            reference: `HealthcareService/${groupID}`,
-          },
-        ],
-      })
-    );
-    const updateLocations: BatchInputRequest<HealthcareService> = getPatchBinary({
-      resourceType: 'HealthcareService',
-      resourceId: groupID,
-      patchOperations: [
-        {
-          op: group?.location ? 'replace' : 'add',
-          path: '/location',
-          value:
-            selectedLocations?.map((selectedLocationTemp) => ({
-              reference: `Location/${selectedLocationTemp}`,
-            })) ?? [],
-        },
-      ],
-    });
-    const practitionerRolesResourceCreateRequests: BatchInputPostRequest<PractitionerRole>[] =
-      practitionerRolesResourcesToCreate.map((practitionerRoleResourceToCreateTemp) => ({
-        method: 'POST',
-        url: '/PractitionerRole',
-        resource: practitionerRoleResourceToCreateTemp,
-      }));
-    const practitionerRolesResourcePatchRequests: BatchInputRequest<PractitionerRole>[] =
-      practitionerIDToAddHealthcareServicePractitionerRoles.map(
-        (practitionerIDToAddHealthcareServicePractitionerRoleTemp) => {
-          const practitionerRole = practitionerRoles?.find(
-            (practitionerRoleTemp) => practitionerRoleTemp === practitionerIDToAddHealthcareServicePractitionerRoleTemp
-          );
-          let value: any = {
-            reference: `HealthcareService/${groupID}`,
-          };
-          if (!practitionerRole?.healthcareService) {
-            value = [value];
-          }
-
-          return getPatchBinary({
-            resourceType: 'PractitionerRole',
-            resourceId: practitionerIDToAddHealthcareServicePractitionerRoleTemp.id || '',
-            patchOperations: [
-              {
-                op: 'add',
-                path: practitionerRole?.healthcareService ? '/healthcareService/-' : '/healthcareService',
-                value: value,
-              },
-            ],
-          });
-        }
-      );
-    practitionerRolesResourcePatchRequests.push(
-      ...practitionerIDToRemoveHealthcareServicePractitionerRoles.map(
-        (practitionerIDToRemoveHealthcareServicePractitionerRoleTemp) =>
-          getPatchBinary({
-            resourceType: 'PractitionerRole',
-            resourceId: practitionerIDToRemoveHealthcareServicePractitionerRoleTemp.id || '',
-            patchOperations: [
-              {
-                op: 'replace',
-                path: '/healthcareService',
-                value: practitionerRoles
-                  ?.find(
-                    (practitionerRoleTemp) =>
-                      practitionerRoleTemp === practitionerIDToRemoveHealthcareServicePractitionerRoleTemp
-                  )
-                  ?.healthcareService?.filter(
-                    (locationTemp) => locationTemp.reference !== `HealthcareService/${groupID}`
-                  ),
-              },
-            ],
-          })
-      )
-    );
-    const slugPatchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
-    const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
-    if (group && slug !== currentSlug) {
-      const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
-      if (slug) {
-        newIdentifierList.push({
-          system: SLUG_SYSTEM,
-          value: slug,
-        });
+    try {
+      event.preventDefault();
+      if (!oystehr) {
+        console.log('oystehr client is not defined');
+        return;
       }
-      slugPatchRequests.push(
-        getPatchBinary({
-          resourceType: 'HealthcareService',
-          resourceId: groupID,
-          patchOperations: [
+      if (!selectedPractitioners || !practitionerRoles) {
+        return;
+      }
+      setLoading(true);
+      const practitionerRolePractitionerIDs = practitionerRoles?.map(
+        (practitionerRoleTemp) => practitionerRoleTemp.practitioner?.reference
+      );
+      const practitionerIDToCreatePractitionerRoles = selectedPractitioners.filter(
+        (selectedPractitionerTemp) =>
+          !practitionerRolePractitionerIDs?.includes(`Practitioner/${selectedPractitionerTemp}`)
+      );
+      const practitionerIDToAddHealthcareServicePractitionerRoles = practitionerRoles.filter(
+        (practitionerRoleTemp) =>
+          selectedPractitioners.includes(
+            practitionerRoleTemp.practitioner?.reference?.replace('Practitioner/', '') || ''
+          ) &&
+          !practitionerRoleTemp.healthcareService?.some(
+            (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupID}`
+          )
+      );
+      const practitionerIDToRemoveHealthcareServicePractitionerRoles = practitionerRoles.filter(
+        (practitionerRoleTemp) =>
+          !selectedPractitioners.includes(
+            practitionerRoleTemp.practitioner?.reference?.replace('Practitioner/', '') || ''
+          ) &&
+          practitionerRoleTemp.healthcareService?.some(
+            (healthcareServiceTemp) => healthcareServiceTemp.reference === `HealthcareService/${groupID}`
+          )
+      );
+
+      const practitionerRolesResourcesToCreate: PractitionerRole[] = practitionerIDToCreatePractitionerRoles?.map(
+        (practitionerID) => ({
+          resourceType: 'PractitionerRole',
+          practitioner: {
+            reference: `Practitioner/${practitionerID}`,
+          },
+          healthcareService: [
             {
-              op: group.identifier === undefined ? 'add' : 'replace',
-              path: '/identifier',
-              value: newIdentifierList,
+              reference: `HealthcareService/${groupID}`,
             },
           ],
         })
       );
+      const updateLocations: BatchInputRequest<HealthcareService> = getPatchBinary({
+        resourceType: 'HealthcareService',
+        resourceId: groupID,
+        patchOperations: [
+          {
+            op: group?.location ? 'replace' : 'add',
+            path: '/location',
+            value:
+              selectedLocations?.map((selectedLocationTemp) => ({
+                reference: `Location/${selectedLocationTemp}`,
+              })) ?? [],
+          },
+        ],
+      });
+      const practitionerRolesResourceCreateRequests: BatchInputPostRequest<PractitionerRole>[] =
+        practitionerRolesResourcesToCreate.map((practitionerRoleResourceToCreateTemp) => ({
+          method: 'POST',
+          url: '/PractitionerRole',
+          resource: practitionerRoleResourceToCreateTemp,
+        }));
+      const practitionerRolesResourcePatchRequests: BatchInputRequest<PractitionerRole>[] =
+        practitionerIDToAddHealthcareServicePractitionerRoles.map(
+          (practitionerIDToAddHealthcareServicePractitionerRoleTemp) => {
+            const practitionerRole = practitionerRoles?.find(
+              (practitionerRoleTemp) =>
+                practitionerRoleTemp === practitionerIDToAddHealthcareServicePractitionerRoleTemp
+            );
+            let value: any = {
+              reference: `HealthcareService/${groupID}`,
+            };
+            if (!practitionerRole?.healthcareService) {
+              value = [value];
+            }
+
+            return getPatchBinary({
+              resourceType: 'PractitionerRole',
+              resourceId: practitionerIDToAddHealthcareServicePractitionerRoleTemp.id || '',
+              patchOperations: [
+                {
+                  op: 'add',
+                  path: practitionerRole?.healthcareService ? '/healthcareService/-' : '/healthcareService',
+                  value: value,
+                },
+              ],
+            });
+          }
+        );
+      practitionerRolesResourcePatchRequests.push(
+        ...practitionerIDToRemoveHealthcareServicePractitionerRoles.map(
+          (practitionerIDToRemoveHealthcareServicePractitionerRoleTemp) =>
+            getPatchBinary({
+              resourceType: 'PractitionerRole',
+              resourceId: practitionerIDToRemoveHealthcareServicePractitionerRoleTemp.id || '',
+              patchOperations: [
+                {
+                  op: 'replace',
+                  path: '/healthcareService',
+                  value: practitionerRoles
+                    ?.find(
+                      (practitionerRoleTemp) =>
+                        practitionerRoleTemp === practitionerIDToRemoveHealthcareServicePractitionerRoleTemp
+                    )
+                    ?.healthcareService?.filter(
+                      (locationTemp) => locationTemp.reference !== `HealthcareService/${groupID}`
+                    ),
+                },
+              ],
+            })
+        )
+      );
+      const slugPatchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
+      const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
+      console.log('currentSlug', currentSlug);
+      console.log('group', group);
+      console.log('slug', slug);
+      console.log('groupID', groupID);
+      console.log('slugPatchRequests', slugPatchRequests);
+      if (group && slug !== currentSlug) {
+        console.log('Updating slug for group', groupID, 'to', slug);
+        const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
+        console.log('newIdentifierList', newIdentifierList);
+        if (slug) {
+          console.log('yesslug', slug);
+          console.log('Adding slug to newIdentifierList');
+          newIdentifierList.push({
+            system: SLUG_SYSTEM,
+            value: slug,
+          });
+          console.log('newIdentifierList after adding slug', newIdentifierList);
+        }
+        slugPatchRequests.push(
+          getPatchBinary({
+            resourceType: 'HealthcareService',
+            resourceId: groupID,
+            patchOperations: [
+              {
+                op: group.identifier === undefined ? 'add' : 'replace',
+                path: '/identifier',
+                value: newIdentifierList,
+              },
+            ],
+          })
+        );
+      }
+      console.log('slugPatchRequests', slugPatchRequests);
+      console.log('practitionerRolesResourceCreateRequests', practitionerRolesResourceCreateRequests);
+      console.log('practitionerRolesResourcePatchRequests', practitionerRolesResourcePatchRequests);
+      console.log('updateLocations', updateLocations);
+      console.log('Saving group schedule with slug:', slug);
+      const response = await oystehr.fhir.batch<PractitionerRole | HealthcareService>({
+        requests: [
+          ...practitionerRolesResourceCreateRequests,
+          ...practitionerRolesResourcePatchRequests,
+          updateLocations,
+        ],
+      });
+
+      console.log('response', response);
+
+      if (slugPatchRequests.length > 0) {
+        const slugResponse = await oystehr.fhir.batch<HealthcareService>({
+          requests: slugPatchRequests,
+        });
+        console.log('slug response', slugResponse);
+      }
+
+      console.log('Response from saving group schedule:', response);
+      enqueueSnackbar('Group schedule saved successfully!', { variant: 'success' });
+      await getOptions();
+    } catch (error) {
+      enqueueSnackbar('Failed to save group schedule.', { variant: 'error' });
+      console.error('Error saving group schedule:', error);
+    } finally {
+      setLoading(false);
     }
-    await oystehr.fhir.batch<PractitionerRole | HealthcareService>({
-      requests: [
-        ...practitionerRolesResourceCreateRequests,
-        ...practitionerRolesResourcePatchRequests,
-        ...slugPatchRequests,
-        updateLocations,
-      ],
-    });
-    void (await getOptions());
-    setLoading(false);
   }
   if (!group) {
     return (
@@ -286,7 +322,10 @@ function GroupPageContent(): ReactElement {
             <TextField
               label="Slug"
               value={slug}
-              onChange={(event) => setSlug(event.target.value)}
+              onChange={(event) => {
+                setSlug(event.target.value);
+                console.log(slug);
+              }}
               sx={{ width: '250px' }}
             />
             <Typography variant="body2" sx={{ pt: 1, pb: 0.5, fontWeight: 600, display: slug ? 'block' : 'none' }}>
@@ -341,7 +380,10 @@ function GroupPageContent(): ReactElement {
                       })
                     : []
                 }
-                onChange={(event, value) => setSelectedLocations(value.map((valueTemp: any) => valueTemp.value))}
+                onChange={(event, value) => {
+                  setSelectedLocations(value.map((valueTemp: any) => valueTemp.value));
+                  console.log('selectedlocations input', selectedLocations);
+                }}
               />
             </Grid>
             <Grid item xs={3}>
