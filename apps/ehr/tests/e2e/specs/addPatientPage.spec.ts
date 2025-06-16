@@ -37,16 +37,6 @@ const PROCESS_ID = `addPatientPage.spec.ts-${DateTime.now().toMillis()}`;
 
 const resourceHandler = new ResourceHandler(PROCESS_ID);
 
-let appointmentIds: string[] = [];
-
-// Ensure cleanup of created appointments after each test
-test.afterEach(async () => {
-  for (const id of appointmentIds) {
-    await resourceHandler.cleanAppointment(id);
-  }
-  appointmentIds = [];
-});
-
 test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
 });
@@ -266,7 +256,5 @@ async function createAppointment(
   if (!response.appointment) {
     throw new Error('Appointment ID should be present in the response');
   }
-
-  appointmentIds.push(response.appointment);
   return { appointmentId: response.appointment, slotTime };
 }

@@ -1,5 +1,4 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { UploadDocs } from '../../utils/UploadDocs';
@@ -18,15 +17,6 @@ enum PersonSex {
 const appointmentIds: string[] = [];
 
 test.describe.configure({ mode: 'serial' });
-
-test.afterAll(async () => {
-  const env = process.env.ENV;
-
-  for (const appointmentId of appointmentIds) {
-    console.log(`Deleting ${appointmentId} on env: ${env}`);
-    await cleanAppointment(appointmentId, env!);
-  }
-});
 
 test.describe('Start virtual visit with required information only', async () => {
   test.describe.configure({ mode: 'serial' });

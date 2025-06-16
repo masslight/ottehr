@@ -1,5 +1,4 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { Locators } from '../../utils/locators';
@@ -53,11 +52,6 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   await page.close();
   await context.close();
-  const env = process.env.ENV;
-  for (const appointment of appointmentIds) {
-    console.log(`Deleting ${appointment} on env: ${env}`);
-    await cleanAppointment(appointment, env!);
-  }
 });
 
 test.describe('Contact information screen - Check and fill all fields', () => {

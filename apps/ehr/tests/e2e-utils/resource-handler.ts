@@ -20,7 +20,7 @@ import {
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
-import { cleanAppointment, cleanAppointmentGraph } from 'test-utils';
+import { cleanAppointmentGraph } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
@@ -475,9 +475,9 @@ export class ResourceHandler {
     return resource;
   }
 
-  async cleanAppointment(appointmentId: string): Promise<boolean> {
+  /*async cleanAppointment(appointmentId: string): Promise<boolean> {
     return cleanAppointment(appointmentId, process.env.ENV!);
-  }
+  }*/
 
   async patientIdByAppointmentId(appointmentId: string): Promise<string> {
     const appointment = await this.#apiClient.fhir.get<Appointment>({
