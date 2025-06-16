@@ -1,5 +1,5 @@
 import { ReactElement, useCallback, useEffect, useState } from 'react';
-import { Box, Button, CircularProgress, Grid, TextField, Tooltip, Typography } from '@mui/material';
+import { Box, Button, CircularProgress, Grid, Skeleton, TextField, Tooltip, Typography } from '@mui/material';
 import { HealthcareService, Location, Practitioner, PractitionerRole, Resource } from 'fhir/r4b';
 import GroupMembers from '../components/schedule/GroupMembers';
 import { useApiClients } from '../hooks/useAppClients';
@@ -10,6 +10,7 @@ import { Link, useParams } from 'react-router-dom';
 import PageContainer from '../layout/PageContainer';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import { enqueueSnackbar } from 'notistack';
+import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
@@ -312,6 +313,13 @@ function GroupPageContent(): ReactElement {
 
   return (
     <>
+      <CustomBreadcrumbs
+        chain={[
+          { link: '/schedules', state: { defaultTab: 'group' }, children: 'Schedules' },
+          { link: '#', children: group.name || <Skeleton width={150} /> },
+        ]}
+      />
+
       <Typography variant="h4">Manage the schedule for {group?.name}</Typography>
       <Typography variant="body1">
         This is a group schedule. Its availability is made up of the schedules of the locations and providers selected.
