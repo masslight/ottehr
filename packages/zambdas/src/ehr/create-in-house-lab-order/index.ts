@@ -110,12 +110,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           resourceType: 'ActivityDefinition',
           params: [
             {
-              name: 'name',
-              value: testItem.name,
+              name: 'url',
+              value: testItem.adUrl,
             },
             {
-              name: 'status',
-              value: 'active',
+              name: 'version',
+              value: testItem.adVersion,
             },
           ],
         })
@@ -148,12 +148,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 value: `Encounter/${encounterId}`,
               },
               {
-                name: 'code',
-                value: cptCode,
-              },
-              {
-                name: 'code',
-                value: testItem.name,
+                name: 'instantiates-canonical',
+                value: `${testItem.adUrl}|${testItem.adVersion}`,
               },
             ],
           })
@@ -338,7 +334,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
       ...(notes && { note: [{ text: notes }] }),
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
-      instantiatesCanonical: [`${activityDefinition.url}`], // todo in the future - we should add |${activityDefinition.version}
+      instantiatesCanonical: [`${activityDefinition.url}|${activityDefinition.version}`],
     };
     // if an initialServiceRequest is defined, the test being ordered is repeat and should be linked to the
     // original test represented by initialServiceRequest
