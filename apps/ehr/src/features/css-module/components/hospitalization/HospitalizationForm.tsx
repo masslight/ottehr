@@ -215,6 +215,10 @@ export const HospitalizationForm: FC = () => {
     [onSubmit, reset]
   );
 
+  const sortedHospitalizationOptions = HospitalizationOptions.sort((a, b) =>
+    a.display.toLowerCase().localeCompare(b.display.toLowerCase())
+  );
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {isReadOnly ? (
@@ -273,7 +277,7 @@ export const HospitalizationForm: FC = () => {
                   fullWidth
                   size="small"
                   disabled={isLoading || isChartDataLoading}
-                  options={HospitalizationOptions}
+                  options={sortedHospitalizationOptions}
                   noOptionsText="Nothing found for this search criteria"
                   getOptionLabel={(option) => `${option.display}`}
                   renderOption={(props, option) => (
