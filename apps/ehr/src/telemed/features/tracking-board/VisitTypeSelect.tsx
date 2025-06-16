@@ -19,12 +19,13 @@ export function VisitTypeSelect(): ReactElement {
           textAlign: 'start',
         },
       }}
-      value={visitTypes?.length > 0 ? [...visitTypes] : visitTypesOptions}
+      value={visitTypes != null ? visitTypes : visitTypesOptions}
       options={visitTypesOptions}
       getOptionLabel={(option) => {
         return VisitTypeToLabelTelemed[option as VisitType];
       }}
       onChange={(_, value) => {
+        console.log('onchange');
         useTrackingBoardStore.setState({ visitTypes: value as VisitType[] });
       }}
       multiple
