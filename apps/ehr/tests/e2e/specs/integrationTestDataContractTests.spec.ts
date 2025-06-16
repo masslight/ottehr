@@ -284,8 +284,26 @@ const checkKeysAndValuesBothWays = (e2eResource: any, integrationResource: any, 
       const valueMetaTags = (value as FhirResource['meta'])?.tag;
       const integrationMetaTags = (integrationResource[key] as FhirResource['meta'])?.tag;
       if (valueMetaTags && integrationMetaTags) {
-        const valueTagsSorted = valueMetaTags.sort((a, b) => a!.system!.localeCompare(b!.system!));
-        const integrationTagsSorted = integrationMetaTags.sort((a, b) => a!.system!.localeCompare(b!.system!));
+        const valueTagsSorted = valueMetaTags.sort((a, b) => {
+          if (a.system === undefined && b.system === undefined) {
+            return 0;
+          } else if (a.system === undefined) {
+            return 1; // undefined comes after defined
+          } else if (b.system === undefined) {
+            return -1; // defined comes before undefined
+          }
+          return a.system.localeCompare(b.system);
+        });
+        const integrationTagsSorted = integrationMetaTags.sort((a, b) => {
+          if (a.system === undefined && b.system === undefined) {
+            return 0;
+          } else if (a.system === undefined) {
+            return 1; // undefined comes after defined
+          } else if (b.system === undefined) {
+            return -1; // defined comes before undefined
+          }
+          return a.system.localeCompare(b.system);
+        });
 
         const newVal = {
           ...(value as any),
