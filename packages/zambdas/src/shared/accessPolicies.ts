@@ -72,6 +72,11 @@ export const ADMINISTRATOR_RULES: AccessPolicy = {
       resource: ['*'],
     },
     {
+      action: ['Messaging:GetConfiguration'],
+      effect: 'Allow',
+      resource: ['Messaging:Messaging:*'],
+    },
+    {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
       resource: ['FHIR:InsurancePlan:*', 'FHIR:PractitionerRole'],
       effect: 'Allow',
@@ -160,6 +165,11 @@ export const MANAGER_RULES: AccessPolicy = {
       resource: ['*'],
     },
     {
+      action: ['Messaging:GetConfiguration'],
+      effect: 'Allow',
+      resource: ['Messaging:Messaging:*'],
+    },
+    {
       action: ['FHIR:Search', 'FHIR:Read', 'FHIR:Update', 'FHIR:Create'],
       resource: ['FHIR:InsurancePlan:*'],
       effect: 'Allow',
@@ -230,6 +240,11 @@ export const STAFF_RULES: AccessPolicy = {
       resource: ['*'],
     },
     {
+      action: ['Messaging:GetConfiguration'],
+      effect: 'Allow',
+      resource: ['Messaging:Messaging:*'],
+    },
+    {
       action: ['FHIR:History'],
       effect: 'Allow',
       resource: ['FHIR:Patient', 'FHIR:Appointment'],
@@ -296,6 +311,11 @@ export const PROVIDER_RULES: AccessPolicy = {
       action: ['Messaging:SendTransactionalSMS'],
       effect: 'Allow',
       resource: ['*'],
+    },
+    {
+      action: ['Messaging:GetConfiguration'],
+      effect: 'Allow',
+      resource: ['Messaging:Messaging:*'],
     },
     {
       action: ['*'],
@@ -401,6 +421,11 @@ export const FRONT_DESK_RULES: AccessPolicy = {
       action: ['Messaging:SendTransactionalSMS'],
       effect: 'Allow',
       resource: ['*'],
+    },
+    {
+      action: ['Messaging:GetConfiguration'],
+      effect: 'Allow',
+      resource: ['Messaging:Messaging:*'],
     },
     {
       action: ['FHIR:History'],

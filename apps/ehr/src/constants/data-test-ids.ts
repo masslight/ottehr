@@ -1,9 +1,9 @@
 import {
   ApptTelemedTab,
+  DispositionType,
   ExamCardsNames,
   ExamFieldsNames,
   ExamTabCardNames,
-  DispositionType,
   PractitionerQualificationCode,
   RoleType,
   TelemedAppointmentVisitTabs,
@@ -233,6 +233,7 @@ export const dataTestIds = {
   },
   telemedEhrFlow: {
     trackingBoardLocationsSelect: 'telemed-tracking-board-location-select',
+    trackingBoardLocationsSelectOption: (id: string) => `telemed-tracking-board-location-select-option-${id}`,
     telemedAppointmentsTabs: (tab: ApptTelemedTab) => `telemed-appointments-tabs-${tab}`,
     trackingBoardTableGroupRow: `telemed-tracking-board-table-group-row`,
     trackingBoardTableRow: (appointmentId: string) => `telemed-tracking-board-table-row-${appointmentId}`,
@@ -325,6 +326,7 @@ export const dataTestIds = {
     inviteParticipant: 'telemed-invite-participant-button',
     editPatientButtonSideBar: 'telemed-edit-patient-button-side-bar',
     chatModalDescription: 'telemed-chat-modal-description',
+    telemedNewOrExistingPatient: 'telemed-new-or-existing-patient',
   },
   sideMenu: {
     completeIntakeButton: 'complete-intake-button',

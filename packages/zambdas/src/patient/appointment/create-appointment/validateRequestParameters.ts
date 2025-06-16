@@ -23,10 +23,9 @@ import {
   Secrets,
   SecretsKeys,
   ServiceMode,
-  userHasAccessToPatient,
   VisitType,
 } from 'utils';
-import { checkIsEHRUser, isTestUser, phoneRegex, ZambdaInput } from '../../../shared';
+import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
 import Oystehr, { User } from '@oystehr/sdk';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 

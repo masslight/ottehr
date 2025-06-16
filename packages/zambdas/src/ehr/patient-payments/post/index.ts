@@ -61,7 +61,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       return lambdaResponse(400, { message: error.message });
     }
 
-    const requiredSecrets = validateEnvironmentParameters(input);
+    const requiredSecrets = validateEnvironmentParameters(
+      input,
+      validatedParameters.paymentDetails.paymentMethod === 'card'
+    );
     const { patientId, encounterId } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
@@ -205,11 +208,11 @@ const validateRequestParameters = (input: ZambdaInput): PostPatientPaymentInput 
 
 interface RequiredSecrets {
   organizationId: string;
-  stripeKey: string;
+  stripeKey: string | null;
   secrets: Secrets | null;
 }
 
-const validateEnvironmentParameters = (input: ZambdaInput): RequiredSecrets => {
+const validateEnvironmentParameters = (input: ZambdaInput, isCardPayment: boolean): RequiredSecrets => {
   const secrets = input.secrets;
   if (!secrets) {
     throw new Error('Secrets are required for this operation.');
@@ -222,12 +225,16 @@ const validateEnvironmentParameters = (input: ZambdaInput): RequiredSecrets => {
     );
   }
 
-  const stripeKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY, secrets);
+  let stripeKey: string | null = null;
 
-  if (!stripeKey) {
-    throw MISCONFIGURED_ENVIRONMENT_ERROR(
-      '"STRIPE_SECRET_KEY" environment variable was not set. Please ensure it is configured in project secrets.'
-    );
+  if (isCardPayment) {
+    try {
+      stripeKey = getSecret(SecretsKeys.STRIPE_SECRET_KEY, secrets);
+    } catch (error) {
+      throw MISCONFIGURED_ENVIRONMENT_ERROR(
+        '"STRIPE_SECRET_KEY" environment variable was not set. Please ensure it is configured in project secrets.'
+      );
+    }
   }
 
   return { organizationId, stripeKey, secrets };

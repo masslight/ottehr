@@ -253,7 +253,7 @@ const ChatModal = memo(
     }, [MessageBodies.length]);
 
     const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery((data) => {
-      if (!data.conversationConfig) {
+      if (!data.transactionalSMSConfig && !data.conversationConfig) {
         setIsMessagingSetup(false);
       }
     });
@@ -306,7 +306,7 @@ const ChatModal = memo(
             id="message-container"
             sx={{ height: '400px', overflowY: 'scroll', padding: '24px 32px 16px 24px' }}
           >
-            {pendingMessageSend === undefined && isMessagesFetching ? (
+            {(pendingMessageSend === undefined && isMessagesFetching) || isMessagingConfigLoading ? (
               <Grid
                 item
                 xs={12}
@@ -324,7 +324,11 @@ const ChatModal = memo(
               <>{MessageBodies}</>
             )}
           </Grid>
-          {!isMessagingSetup && !isMessagingConfigLoading && <CompleteConfiguration handleSetup={handleSetup} />}
+          {!isMessagingSetup && !isMessagingConfigLoading && (
+            <Grid item sx={{ margin: '24px' }}>
+              <CompleteConfiguration handleSetup={handleSetup} />
+            </Grid>
+          )}
           <Divider />
           <Grid container sx={{ margin: '16px 0 16px 24px' }}>
             <Grid item xs={8.35}>

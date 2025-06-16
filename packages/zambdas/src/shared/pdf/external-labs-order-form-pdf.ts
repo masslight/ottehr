@@ -3,11 +3,11 @@ import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo } from './pdf-utils';
-import { ExternalLabsData } from './types';
+import { LabsData } from './types';
 import { Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 
-async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Promise<Uint8Array> {
+async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint8Array> {
   if (!data.orderName) {
     throw new Error('Order name is required');
   }
@@ -331,16 +331,26 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
   addNewLine();
 
   // Insurance details, conditionally displayed
-  if (data.primaryInsuranceName) drawFieldLineLeft('Primary Insurance Name:', data.primaryInsuranceName.toUpperCase());
-  addNewLine();
-  if (data.primaryInsuranceAddress) drawFieldLineLeft('Insurance Address:', data.primaryInsuranceAddress.toUpperCase());
-  addNewLine();
-  if (data.primaryInsuranceSubNum) drawFieldLineLeft('Subscriber Number:', data.primaryInsuranceSubNum);
-  addNewLine();
-  if (data.insuredName) drawFieldLineLeft('Insured Name:', data.insuredName);
-  addNewLine();
-  if (data.insuredAddress) drawFieldLineLeft('Address:', data.insuredAddress);
-  addNewLine();
+  if (data.primaryInsuranceName) {
+    drawFieldLineLeft('Primary Insurance Name:', data.primaryInsuranceName.toUpperCase());
+    addNewLine();
+  }
+  if (data.primaryInsuranceAddress) {
+    drawFieldLineLeft('Insurance Address:', data.primaryInsuranceAddress.toUpperCase());
+    addNewLine();
+  }
+  if (data.primaryInsuranceSubNum) {
+    drawFieldLineLeft('Subscriber Number:', data.primaryInsuranceSubNum);
+    addNewLine();
+  }
+  if (data.insuredName) {
+    drawFieldLineLeft('Insured Name:', data.insuredName);
+    addNewLine();
+  }
+  if (data.insuredAddress) {
+    drawFieldLineLeft('Address:', data.insuredAddress);
+    addNewLine();
+  }
   if (
     data.primaryInsuranceName ||
     data.primaryInsuranceAddress ||
@@ -352,18 +362,16 @@ async function createExternalLabsOrderFormPdfBytes(data: ExternalLabsData): Prom
     addNewLine();
   }
 
-  drawSubHeader('AOE Answers');
-  addNewLine();
+  // AOE Answers section
   if (data.aoeAnswers?.length) {
-    // AOE Answers section
+    drawSubHeader('AOE Answers');
+    addNewLine();
     data.aoeAnswers.forEach((item) => {
-      drawFieldLineLeft(`${item.question}:`, item.answer.toString());
+      drawFieldLineLeft(`${item.question}: `, item.answer.toString());
       addNewLine();
     });
-  } else {
-    drawRegularTextLeft('No AOE questions');
+    addNewLine();
   }
-  addNewLine();
 
   // Additional fields
   drawSeparatorLine(lightGreyOpacity);
@@ -407,7 +415,7 @@ async function uploadPDF(pdfBytes: Uint8Array, token: string, baseFileUrl: strin
 }
 
 export async function createExternalLabsOrderFormPDF(
-  input: ExternalLabsData,
+  input: LabsData,
   patientID: string,
   secrets: Secrets | null,
   token: string

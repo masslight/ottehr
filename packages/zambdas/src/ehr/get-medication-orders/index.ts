@@ -74,7 +74,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     dose: dosageUnitsRoute.dose ?? -1,
     route: dosageUnitsRoute.route ?? '',
     units: dosageUnitsRoute.units,
-    instructions: medicationAdministration.dosage?.text ?? '',
+    instructions: medicationAdministration.dosage?.text,
     reason: orderReasons.reason,
     otherReason: orderReasons.otherReason,
     associatedDx: medicationAdministration.reasonReference
