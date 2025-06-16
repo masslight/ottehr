@@ -2,6 +2,7 @@ import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from 'zambdas/s
 import { getAuth0Token } from '../shared';
 import Oystehr from '@oystehr/sdk';
 import fetch from 'node-fetch';
+import fs from 'fs';
 
 interface ZambdaLogsSearchParams {
   filter?: string;
@@ -17,7 +18,7 @@ interface ZambdaLogEvent {
 }
 
 interface ZambdaLogResponse {
-  events: ZambdaLogEvent[];
+  logEvents: ZambdaLogEvent[];
   nextToken?: string;
 }
 
@@ -48,23 +49,60 @@ async function getZambdaLogsWithFilters(
   throw new Error('Error while fetching Zambda logs, nothing found.');
 }
 
+async function recursiveSearchInZambda(
+  params: ZambdaLogsSearchParams,
+  zambdaId: string,
+  token: string,
+  config: any,
+  maxDepth?: number
+): Promise<ZambdaLogEvent[]> {
+  const recursiveLoop = async (
+    nextToken: string,
+    logsAccumulator: ZambdaLogEvent[],
+    depth: number
+  ): Promise<{ logs: ZambdaLogEvent[]; depth: number }> => {
+    if (maxDepth && depth > maxDepth) return { logs: logsAccumulator, depth };
+    const logs = await getZambdaLogsWithFilters({ ...params, nextToken }, zambdaId, token, config);
+    logsAccumulator = logsAccumulator.concat(logs.logEvents);
+    if (logs.nextToken) return await recursiveLoop(logs.nextToken, logsAccumulator, ++depth);
+    return { logs: logsAccumulator, depth };
+  };
+
+  const initialLogs = await getZambdaLogsWithFilters(params, zambdaId, token, config);
+  if (initialLogs.nextToken) {
+    const algoResult = await recursiveLoop(initialLogs.nextToken, initialLogs.logEvents, 0);
+    console.log(`Logs events found: ${algoResult.logs.length}, depth reached: ${algoResult.depth}`);
+    return algoResult.logs;
+  }
+  return initialLogs.logEvents;
+}
+
 async function startSearchingForLogs(config: any): Promise<void> {
+  const dir = 'zambdasLogs';
+  const searchPattern = '17ff8799';
+  const maxDepth = 50;
+
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   const oystehr = new Oystehr({
     fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
     accessToken: token,
   });
 
-  const searchPattern = '2c3a9d58-a6e1-44c5-bba1-8bec339bc299';
-
   const allZambdas = await oystehr.zambda.list();
-  // console.log('allZambdas', JSON.stringify(allZambdas.map((zambda) => zambda.id)));
 
   for (const zambda of allZambdas) {
     console.log(`Current zambda: ${zambda.name}, id: ${zambda.id}`);
-    const logs = await getZambdaLogsWithFilters({ filter: searchPattern }, zambda.id, token, config);
-    console.log('logs', JSON.stringify(logs));
+    try {
+      const logs = await recursiveSearchInZambda({ filter: searchPattern }, zambda.id, token, config, maxDepth);
+      console.log(`${logs.length <= 0 ? '❌' : '✅'} logs: ${logs.length}`);
+      if (logs.length > 0) fs.writeFileSync(`${dir}/${zambda.name}.json`, JSON.stringify(logs, null, 2));
+    } catch (e) {
+      console.log(JSON.stringify(e));
+    }
   }
 }
 
