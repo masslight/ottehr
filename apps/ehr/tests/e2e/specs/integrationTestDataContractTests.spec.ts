@@ -464,7 +464,8 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
         },
         {
           name: '_revinclude:iterate',
-          value: 'Person:relatedPerson',
+          // cSpell:disable-next relatedperson is only valid FHIR search parameter
+          value: 'Person:relatedperson',
         },
         {
           name: '_revinclude:iterate',
