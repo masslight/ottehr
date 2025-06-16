@@ -252,16 +252,11 @@ const ChatModal = memo(
       }
     }, [MessageBodies.length]);
 
-    const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery(
-      (data) => {
-        if (!data.conversationConfig) {
-          setIsMessagingSetup(false);
-        }
-      },
-      () => {
+    const { isLoading: isMessagingConfigLoading } = useGetMessagingConfigQuery((data) => {
+      if (!data.transactionalSMSConfig && !data.conversationConfig) {
         setIsMessagingSetup(false);
       }
-    );
+    });
 
     const handleSetup = (): void => {
       window.open('https://docs.oystehr.com/ottehr/setup/messaging/', '_blank');

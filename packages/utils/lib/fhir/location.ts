@@ -38,7 +38,7 @@ export async function getLocationResource(locationID: string, oystehr: Oystehr):
   return response;
 }
 
-export const isLocationVirtual = (location: Location): boolean => {
+export const isLocationVirtual = (location: Location | Schedule): location is Location => {
   return Boolean(
     location.extension?.find((ext) => ext.url === `${PUBLIC_EXTENSION_BASE_URL}/location-form-pre-release`)?.valueCoding
       ?.code === 'vi'
