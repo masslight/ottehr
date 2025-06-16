@@ -53,8 +53,6 @@
     "@mui/icons-material": "^5.14.9",
     "@mui/x-data-grid-pro": "^6.3.0",
     "@mui/x-date-pickers-pro": "^6.3.0",
-    "@oystehr/sdk": "^4.0.0-alpha.2",
-    "@photonhealth/elements": "^0.12.3",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "@twilio/conversations": "^2.4.1",
