@@ -23,17 +23,17 @@ export interface LabQuestionnaireResponse {
 
 export type LabQuestionnaireResponseItem = (string | number | boolean | undefined)[] | undefined;
 
-export interface LabOrderResultPDFConfig {
+export interface ExternalLabOrderResultPDFConfig {
   name: string;
   url: string;
   orderNumber?: string;
 }
 
-export interface LabOrderResult extends LabOrderResultPDFConfig {
-  reflexResults?: LabOrderResultPDFConfig[];
+export interface ExternalLabOrderResult extends ExternalLabOrderResultPDFConfig {
+  reflexResults?: ExternalLabOrderResultPDFConfig[];
 }
 
-export interface EncounterLabResult {
+export interface EncounterExternalLabResult {
   resultsPending: boolean;
-  labOrderResults: LabOrderResult[];
+  labOrderResults: ExternalLabOrderResult[];
 }

@@ -44,7 +44,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
   const medicalDecision = chartData?.medicalDecision?.text;
   const emCode = chartData?.emCode;
   const patientInfoConfirmed = chartData?.patientInfoConfirmed?.value;
-  const labResultsPending = chartData?.labResults?.resultsPending;
+  const externalLabResultsPending = chartData?.externalLabResults?.resultsPending;
 
   const patientName = getPatientName(patient?.name).firstLastName;
 
@@ -98,7 +98,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
       messages.push('You need to confirm patient information');
     }
 
-    if (labResultsPending) {
+    if (externalLabResultsPending) {
       messages.push('Lab results pending');
     }
 
@@ -112,7 +112,7 @@ export const ReviewAndSignButton: FC<ReviewAndSignButtonProps> = ({ onSigned }) 
     emCode,
     patientInfoConfirmed,
     appointmentAccessibility.status,
-    labResultsPending,
+    externalLabResultsPending,
   ]);
 
   const handleCloseTooltip = (): void => {

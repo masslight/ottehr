@@ -4,17 +4,17 @@ import { Link } from 'react-router-dom';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 
-export const LabResultsReviewContainer: FC = () => {
+export const ExternalLabResultsReviewContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
 
-  const labResultFromChart = chartData?.labResults;
+  const externalLabResultFromChart = chartData?.externalLabResults;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
       <Typography variant="h5" color="primary.dark">
         Labs
       </Typography>
-      {labResultFromChart?.labOrderResults?.map((res, idx) => (
+      {externalLabResultFromChart?.labOrderResults?.map((res, idx) => (
         <Fragment key={`${idx}-${res.orderNumber}`}>
           <Link to={res.url} target="_blank">
             {res.name}
@@ -31,7 +31,7 @@ export const LabResultsReviewContainer: FC = () => {
           ))}
         </Fragment>
       ))}
-      {labResultFromChart?.resultsPending && (
+      {externalLabResultFromChart?.resultsPending && (
         <Typography variant="subtitle2" style={{ fontSize: '14px' }}>
           Lab Results Pending
         </Typography>

@@ -19,7 +19,7 @@ import {
   PrivacyPolicyAcknowledgement,
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
-  LabResultsReviewContainer,
+  ExternalLabResultsReviewContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useChartData } from '../../hooks/useChartData';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
@@ -42,7 +42,7 @@ export const ProgressNoteDetails: FC = () => {
         episodeOfCare: data?.episodeOfCare,
         vitalsObservations: data?.vitalsObservations,
         prescribedMedications: data?.prescribedMedications,
-        labResults: data?.labResults,
+        externalLabResults: data?.externalLabResults,
         disposition: data?.disposition,
       });
     },
@@ -60,7 +60,7 @@ export const ProgressNoteDetails: FC = () => {
   const prescriptions = chartData?.prescribedMedications;
   const observations = chartData?.observations;
   const vitalsObservations = chartData?.vitalsObservations;
-  const labResults = chartData?.labResults;
+  const externalLabResults = chartData?.externalLabResults;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
@@ -70,9 +70,9 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
-  const showLabsResultsContainer = !!(
-    labResults?.resultsPending ||
-    (labResults?.labOrderResults && labResults?.labOrderResults.length > 0)
+  const showExternalLabsResultsContainer = !!(
+    externalLabResults?.resultsPending ||
+    (externalLabResults?.labOrderResults && externalLabResults?.labOrderResults.length > 0)
   );
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
@@ -101,7 +101,7 @@ export const ProgressNoteDetails: FC = () => {
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
-    showLabsResultsContainer && <LabResultsReviewContainer />,
+    showExternalLabsResultsContainer && <ExternalLabResultsReviewContainer />,
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,

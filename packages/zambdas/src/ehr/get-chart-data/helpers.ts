@@ -218,10 +218,10 @@ export async function convertSearchResultsToResponse(
   });
 
   getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
-  if (getChartDataResponse.labResults) {
+  if (getChartDataResponse.externalLabResults) {
     console.log('constructing lab result config');
     const labResultConfig = await makeEncounterLabResult(resources, m2mtoken);
-    getChartDataResponse.labResults = labResultConfig;
+    getChartDataResponse.externalLabResults = labResultConfig;
   }
 
   return {
