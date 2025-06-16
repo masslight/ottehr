@@ -220,6 +220,32 @@ describe('AddPatient', () => {
     ).toHaveAttribute('required');
   });
 
+  it('Should show a  validation error if date of birth field has an invalid date', async () => {
+    const user = userEvent.setup();
+    render(
+      <BrowserRouter>
+        <AddPatient />
+      </BrowserRouter>
+    );
+    const phoneNumberEntryField = screen
+      .getByTestId(dataTestIds.addPatientPage.mobilePhoneInput)
+      .querySelector('input');
+    expect(phoneNumberEntryField).toBeInTheDocument();
+    await user.click(phoneNumberEntryField!);
+    await user.paste('1234567890'); // Sufficiently valid phone number
+    await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
+    const notFoundButton = screen.getByTestId(dataTestIds.addPatientPage.patientNotFoundButton);
+    await user.click(notFoundButton);
+
+    const dateOfBirthInput = await screen.findByPlaceholderText('MM/DD/YYYY');
+    expect(dateOfBirthInput).toBeVisible();
+    await user.click(dateOfBirthInput);
+    await user.paste('3'); // Invalid date
+    await user.tab(); // Trigger validation
+    const errorMessage = screen.getByText('please enter date in format MM/DD/YYYY');
+    expect(errorMessage).toBeVisible();
+  });
+
   it('Should show a popup if use has is in prebook visit type and does not select a slot', async () => {
     const user = userEvent.setup();
 
@@ -233,7 +259,6 @@ describe('AddPatient', () => {
       .getByTestId(dataTestIds.addPatientPage.mobilePhoneInput)
       .querySelector('input');
     expect(phoneNumberEntryField).toBeInTheDocument();
-
     await user.click(phoneNumberEntryField!);
     await user.paste('1234567890'); // Sufficiently valid phone number
     await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));

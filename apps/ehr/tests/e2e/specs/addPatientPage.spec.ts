@@ -122,17 +122,17 @@ test.beforeEach(async ({ page }) => {
 //   await addPatientPage.verifyPageStillOpened();
 // });
 
-test('Open "Add patient page" then enter invalid date of birth, click "Add", validation error on "Date of Birth" field shown', async ({
-  page,
-}) => {
-  const addPatientPage = await expectAddPatientPage(page);
-  await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
-  await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
-  await addPatientPage.clickSearchForPatientsButton();
-  await addPatientPage.clickPatientNotFoundButton();
-  await addPatientPage.enterDateOfBirth('3');
-  await addPatientPage.verifyDateFormatValidationErrorShown();
-});
+// test('Open "Add patient page" then enter invalid date of birth, click "Add", validation error on "Date of Birth" field shown', async ({
+//   page,
+// }) => {
+//   const addPatientPage = await expectAddPatientPage(page);
+//   await addPatientPage.selectOffice(ENV_LOCATION_NAME!);
+//   await addPatientPage.enterMobilePhone(PATIENT_PHONE_NUMBER);
+//   await addPatientPage.clickSearchForPatientsButton();
+//   await addPatientPage.clickPatientNotFoundButton();
+//   await addPatientPage.enterDateOfBirth('3');
+//   await addPatientPage.verifyDateFormatValidationErrorShown();
+// });
 
 test.describe('For new patient', () => {
   test('Add walk-in visit for new patient', async ({ page }) => {
