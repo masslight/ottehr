@@ -12,11 +12,6 @@ interface FinalResultCardProps {
 }
 
 export const FinalResultCard: React.FC<FinalResultCardProps> = ({ testDetails }) => {
-  const openPdf = (): void => {
-    if (testDetails.resultsPDFUrl) {
-      window.open(testDetails.resultsPDFUrl, '_blank');
-    }
-  };
   const [showDetails, setShowDetails] = useState(false);
 
   const radioResultMap = testDetails.labDetails.components.radioComponents.reduce((acc: any, item) => {
@@ -68,7 +63,6 @@ export const FinalResultCard: React.FC<FinalResultCardProps> = ({ testDetails })
           page={PageName.final}
           showDetails={showDetails}
           setShowDetails={setShowDetails}
-          openPdf={openPdf}
         />
       </Box>
     </Paper>

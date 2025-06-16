@@ -23,7 +23,7 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
-import { getLabOrderResources } from '../shared/labs';
+import { getExternalLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
@@ -64,7 +64,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       encounter,
       organization: labOrganization,
       specimens: specimenResourses,
-    } = await getLabOrderResources(oystehr, 'external', serviceRequestID);
+    } = await getExternalLabOrderResources(oystehr, serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 

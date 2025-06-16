@@ -20,7 +20,6 @@ import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
-import { CompleteConfiguration } from '../../../../components/CompleteConfiguration';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
@@ -121,8 +120,6 @@ export const ERxContainer: FC = () => {
   ]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
-
   const { isLoading, isFetching, refetch } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: {
@@ -208,10 +205,6 @@ export const ERxContainer: FC = () => {
     setOpenTooltip(true);
   };
 
-  const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
-  };
-
   return (
     <>
       <Stack gap={1}>
@@ -239,7 +232,6 @@ export const ERxContainer: FC = () => {
             </Stack>
           </Tooltip>
         </Stack>
-        {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />}
 
         {chartData?.prescribedMedications && chartData.prescribedMedications.length > 0 && (
           <TableContainer component={Paper}>

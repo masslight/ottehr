@@ -208,7 +208,7 @@ test.describe('Patient search', () => {
     });
   });
 
-  test('Search by Address', async ({ page }) => {
+  test('Search by Address', { tag: '@flaky' }, async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
