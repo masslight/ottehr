@@ -25,7 +25,6 @@ export function VisitTypeSelect(): ReactElement {
         return VisitTypeToLabelTelemed[option as VisitType];
       }}
       onChange={(_, value) => {
-        console.log('onchange');
         useTrackingBoardStore.setState({ visitTypes: value as VisitType[] });
       }}
       multiple
