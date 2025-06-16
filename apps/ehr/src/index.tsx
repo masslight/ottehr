@@ -33,7 +33,6 @@ root.render(
           connection: import.meta.env.VITE_APP_OYSTEHR_CONNECTION_NAME,
         }}
         cacheLocation="localstorage"
-        skipRedirectCallback={window.location.href.includes('photon=true')}
       >
         <App />
       </Auth0Provider>
