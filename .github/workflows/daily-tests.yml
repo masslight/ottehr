@@ -158,9 +158,9 @@ jobs:
             const data = JSON.parse(fs.readFileSync(path, "utf8"));
             console.log("Successfully parsed user.json");
 
-            const hasAuth0Token = data.origins?.some(origin =>
-              origin.localStorage &&
-              Object.values(origin.localStorage)?.some?.(value => value?.name?.includes?.("auth0"))
+            const hasAuth0Token = data.origins?.some(origin => 
+              origin.localStorage && 
+              origin.localStorage.some(item => item.name?.includes?.("auth0"))
             );
 
             console.log("Has Auth0 token:", hasAuth0Token);
