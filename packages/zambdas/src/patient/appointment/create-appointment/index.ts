@@ -80,7 +80,7 @@ interface CreateAppointmentInput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   configSentry('create-appointment', input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
@@ -97,13 +97,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(input.secrets);
+      oystehrToken = await getAuth0Token(input.secrets);
     } else {
       console.log('already have token');
     }
-    const oystehr = createOystehrClient(zapehrToken, input.secrets);
+    const oystehr = createOystehrClient(oystehrToken, input.secrets);
 
     console.time('performing-complex-validation');
     const effectInput = await createAppointmentComplexValidation(validatedParameters, oystehr);
@@ -121,19 +121,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('creating appointment with metadata: ', JSON.stringify(maybeMetadata, null, 2));
 
-    let appointmentMetadata: Appointment['meta'] = maybeMetadata;
-    console.log('PLAYWRIGHT_SUITE_ID: ', process.env.PLAYWRIGHT_SUITE_ID);
-    if (process.env.PLAYWRIGHT_SUITE_ID && !maybeMetadata) {
-      appointmentMetadata = {
-        tag: [
-          {
-            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-            code: `failsafe-${process.env.PLAYWRIGHT_SUITE_ID}`,
-          },
-        ],
-      };
-      console.log('using test metadata: ', JSON.stringify(appointmentMetadata, null, 2));
-    }
+    const appointmentMetadata = injectMetadataIfNeeded(maybeMetadata);
 
     const data_appointment = await createAppointment(
       {
@@ -680,4 +668,29 @@ const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput
     questionnaire: questionnaireResponse,
     questionnaireResponseId: questionnaireResponse.id || '',
   };
+};
+
+const injectMetadataIfNeeded = (maybeMetadata: Appointment['meta']): Appointment['meta'] => {
+  let appointmentMetadata: Appointment['meta'] = maybeMetadata;
+  console.log('PLAYWRIGHT_SUITE_ID: ', process.env.PLAYWRIGHT_SUITE_ID);
+  let shouldInjectTestMetadata = process.env.PLAYWRIGHT_SUITE_ID ?? false;
+  if (maybeMetadata && shouldInjectTestMetadata) {
+    const hasTestTagAlready =
+      maybeMetadata.tag?.some((coding) => {
+        return coding.system === E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM;
+      }) ?? false;
+    shouldInjectTestMetadata = !hasTestTagAlready;
+  }
+  if (shouldInjectTestMetadata) {
+    appointmentMetadata = {
+      tag: [
+        {
+          system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+          code: `failsafe-${process.env.PLAYWRIGHT_SUITE_ID}`,
+        },
+      ],
+    };
+    console.log('using test metadata: ', JSON.stringify(appointmentMetadata, null, 2));
+  }
+  return appointmentMetadata;
 };
