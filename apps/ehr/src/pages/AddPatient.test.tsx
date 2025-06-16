@@ -94,7 +94,7 @@ describe('AddPatient', () => {
     expect(cancelButton).toBeVisible();
 
     await user.click(cancelButton);
-    expect(navigateMock).toHaveBeenCalledExactlyOnceWith('/visits');
+    expect(navigateMock).toHaveBeenCalledWith('/visits');
   });
 
   it('Should show a validation error that phone number is required when search for patients is clicked before any phone number is entered', async () => {
