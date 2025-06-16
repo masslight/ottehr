@@ -28,8 +28,6 @@ import {
   getPresignedURL,
   LAB_DR_TYPE_TAG,
   nameLabTest,
-  LabType,
-  IN_HOUSE_LAB_TASK,
 } from 'utils';
 
 export type LabOrderResources = {
@@ -46,9 +44,8 @@ export type LabOrderResources = {
   specimens: Specimen[];
 };
 
-export async function getLabOrderResources(
+export async function getExternalLabOrderResources(
   oystehr: Oystehr,
-  type: LabType,
   serviceRequestID: string
 ): Promise<LabOrderResources> {
   const serviceRequestTemp = (
@@ -131,15 +128,9 @@ export async function getLabOrderResources(
     (resourceTemp): resourceTemp is QuestionnaireResponse => resourceTemp.resourceType === 'QuestionnaireResponse'
   );
 
-  let tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
+  const tasksTemp: Task[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
   );
-
-  if (type === 'in-house') {
-    tasksTemp = tasksTemp.filter(
-      (task) => task.code?.coding?.some((c) => c.code === IN_HOUSE_LAB_TASK.code.inputResultsTask)
-    );
-  }
 
   const orgsTemp: Organization[] | undefined = serviceRequestTemp?.filter(
     (resourceTemp): resourceTemp is Organization => resourceTemp.resourceType === 'Organization'
@@ -182,10 +173,8 @@ export async function getLabOrderResources(
     throw new Error('task is not found');
   }
 
-  if (type === 'external') {
-    if (orgsTemp?.length !== 1) {
-      throw new Error('performing lab Org not found');
-    }
+  if (orgsTemp?.length !== 1) {
+    throw new Error('performing lab Org not found');
   }
 
   if (appointmentsTemp?.length !== 1) {

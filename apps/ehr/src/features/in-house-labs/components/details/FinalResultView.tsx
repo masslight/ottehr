@@ -4,6 +4,7 @@ import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-
 import { getFormattedDiagnoses, DiagnosisDTO } from 'utils';
 import { FinalResultCard } from './FinalResultCard';
 import { useNavigate } from 'react-router-dom';
+import { BiotechOutlined } from '@mui/icons-material';
 
 interface FinalResultViewProps {
   testDetails: InHouseOrderDetailPageItemDTO[] | undefined;
@@ -12,6 +13,15 @@ interface FinalResultViewProps {
 
 export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, onBack }) => {
   const navigate = useNavigate();
+
+  // we sort the tests on the back end, most recent will always be first
+  // const sortedOrders = inHouseOrders.sort((a, b) => compareDates(a.orderAddedDate, b.orderAddedDate));
+  const mostRecentTest = testDetails?.[0];
+  const openPdf = (): void => {
+    if (mostRecentTest?.resultsPDFUrl) {
+      window.open(mostRecentTest.resultsPDFUrl, '_blank');
+    }
+  };
 
   const diagnoses = testDetails?.reduce((acc: DiagnosisDTO[], detail) => {
     detail.diagnosesDTO.forEach((diagnoses) => {
@@ -49,6 +59,19 @@ export const FinalResultView: React.FC<FinalResultViewProps> = ({ testDetails, o
       <Typography variant="body1" sx={{ mb: 2, fontWeight: 'medium' }}>
         {getFormattedDiagnoses(diagnoses || [])}
       </Typography>
+
+      {openPdf && (
+        <Button
+          variant="outlined"
+          color="primary"
+          sx={{ borderRadius: '50px', textTransform: 'none', mb: '12px' }}
+          onClick={() => openPdf()}
+          startIcon={<BiotechOutlined />}
+          disabled={!mostRecentTest?.resultsPDFUrl}
+        >
+          Results PDF
+        </Button>
+      )}
 
       {testDetails.map((test, idx) => (
         <FinalResultCard key={`${idx}-${test.testItemName.split(' ').join('')}`} testDetails={test} />
