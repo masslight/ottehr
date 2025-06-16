@@ -140,7 +140,7 @@ export default function AddPatient(): JSX.Element {
     const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
       ?.value;
     if (!locationSlug) {
-      console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
+      // console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
       return;
     }
     if (
@@ -657,6 +657,9 @@ export default function AddPatient(): JSX.Element {
                           onChange={(event) => {
                             setSlot(undefined);
                             setVisitType(event.target.value as VisitType);
+                          }}
+                          onClick={() => {
+                            console.log('alex clicked visit type select');
                           }}
                         >
                           <MenuItem value={VisitType.WalkIn}>Walk-in In Person Visit</MenuItem>
