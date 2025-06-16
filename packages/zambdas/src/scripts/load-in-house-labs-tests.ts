@@ -23,7 +23,7 @@ import {
   LabComponentValueSetConfig,
 } from 'utils';
 
-const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
+const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production'];
 const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
