@@ -139,8 +139,8 @@ export default function ReportIssueDialog({
         <DialogContent>
           <div>
             <Typography>
-              Did you or the patient have an issue interacting with QRS related to this visit? Please let us know what
-              you experienced. This feedback will be submited directly to the development team.
+              Did you or the patient have an issue interacting with the software? Please let us know what you
+              experienced. This feedback will be submitted directly to the development team.
             </Typography>
             <TextField
               required

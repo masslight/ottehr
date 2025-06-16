@@ -1006,6 +1006,41 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/delete-in-house-lab-order/index",
       "zip": ".dist/zips/delete-in-house-lab-order.zip"
+    },
+    "GET-NURSING-ORDERS": {
+      "name": "GET-NURSING-ORDERS",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/get-nursing-orders/index",
+      "zip": ".dist/zips/get-nursing-orders.zip"
+    },
+    "CREATE-NURSING-ORDER": {
+      "name": "CREATE-NURSING-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/create-nursing-order/index",
+      "zip": ".dist/zips/create-nursing-order.zip"
+    },
+    "UPDATE-NURSING-ORDER": {
+      "name": "UPDATE-NURSING-ORDER",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/update-nursing-order/index",
+      "zip": ".dist/zips/update-nursing-order.zip"
+    },
+    "PATIENT-PAYMENTS-LIST": {
+      "name": "PATIENT-PAYMENTS-LIST",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-payments/list/index",
+      "zip": ".dist/zips/patient-payments-list.zip"
+    },
+    "PATIENT-PAYMENTS-POST": {
+      "name": "PATIENT-PAYMENTS-POST",
+      "type": "http_auth",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/patient-payments/post/index",
+      "zip": ".dist/zips/patient-payments-post.zip"
     }
   },
   "fhirResources": {

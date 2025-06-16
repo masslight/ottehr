@@ -23,13 +23,7 @@ export const NursingOrdersPage: React.FC = () => {
     navigate(getNursingOrderCreateUrl(appointmentId));
   }, [navigate, appointmentId]);
 
-  if (!appointmentId) {
-    console.error('No appointment ID found');
-    return null;
-  }
-
-  if (!encounterId) {
-    console.error('No encounter ID found');
+  if (!appointmentId || !encounterId) {
     return null;
   }
 

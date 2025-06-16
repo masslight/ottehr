@@ -1,28 +1,29 @@
-import React, { FC, useMemo, useState } from 'react';
+import { otherColors } from '@ehrTheme/colors';
 import {
+  Autocomplete,
   Box,
+  Card,
+  CircularProgress,
   Divider,
   FormControlLabel,
   Switch,
-  Typography,
   TextField,
+  Typography,
   debounce,
-  CircularProgress,
-  Card,
-  Autocomplete,
 } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { IcdSearchResponse, MedicalConditionDTO } from 'utils';
-import { otherColors } from '@theme/colors';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { CompleteConfiguration } from 'src/components/CompleteConfiguration';
+import { APIErrorCode, IcdSearchResponse, MedicalConditionDTO } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { useChartData } from '../../../../../features/css-module/hooks/useChartData';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore, useDeleteChartData, useGetIcd10Search, useSaveChartData } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
-import { DeleteIconButton } from '../../../../components';
-import { enqueueSnackbar } from 'notistack';
-import { useChartData } from '../../../../../features/css-module/hooks/useChartData';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const MedicalConditionsProviderColumn: FC = () => {
   const { encounter, chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
@@ -250,6 +251,9 @@ const MedicalConditionListItem: FC<{ value: MedicalConditionDTO; index: number; 
 const AddMedicalConditionField: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { mutate: updateChartData, isLoading: isUpdateLoading } = useSaveChartData();
+  const { error: icdSearchError } = useGetIcd10Search({ search: 'E11', sabs: 'ICD10CM' });
+
+  const nlmApiKeyMissing = icdSearchError?.code === APIErrorCode.MISSING_NLM_API_KEY_ERROR;
 
   const methods = useForm<{ value: IcdSearchResponse['codes'][number] | null }>({
     defaultValues: { value: null },
@@ -317,6 +321,10 @@ const AddMedicalConditionField: FC = () => {
     }
   };
 
+  const handleSetup = (): void => {
+    window.open('https://docs.oystehr.com/ottehr/setup/terminology/', '_blank');
+  };
+
   return (
     <Card
       elevation={0}
@@ -355,19 +363,22 @@ const AddMedicalConditionField: FC = () => {
             }
             filterOptions={(x) => x}
             renderInput={(params) => (
-              <TextField
-                {...params}
-                onChange={(e) => debouncedHandleInputChange(e.target.value)}
-                data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput}
-                label="Medical condition"
-                placeholder="Search"
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiInputLabel-root': {
-                    fontWeight: 'bold',
-                  },
-                }}
-              />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  {...params}
+                  onChange={(e) => debouncedHandleInputChange(e.target.value)}
+                  data-testid={dataTestIds.telemedEhrFlow.hpiMedicalConditionsInput}
+                  label="Medical condition"
+                  placeholder="Search"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiInputLabel-root': {
+                      fontWeight: 'bold',
+                    },
+                  }}
+                />
+                {nlmApiKeyMissing && <CompleteConfiguration handleSetup={handleSetup} />}
+              </Box>
             )}
           />
         )}
