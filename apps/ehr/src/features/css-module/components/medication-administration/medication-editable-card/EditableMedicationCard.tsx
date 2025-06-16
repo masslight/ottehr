@@ -177,8 +177,8 @@ export const EditableMedicationCard: React.FC<{
   const getFieldValue = <Field extends keyof MedicationData>(
     field: Field,
     type = 'text'
-  ): MedicationData[Field] | '' => {
-    return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : '');
+  ): MedicationData[Field] | '' | undefined => {
+    return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
   };
 
   const isUnsavedData = isUnsavedMedicationData(
