@@ -94,7 +94,11 @@ export function LocationsSelect(): ReactElement {
       options={options}
       renderOption={(props, option) => {
         return (
-          <li {...props} key={option.value}>
+          <li
+            {...props}
+            key={option.value}
+            data-testid={dataTestIds.telemedEhrFlow.trackingBoardLocationsSelectOption(option.value!)}
+          >
             {option.label}
           </li>
         );

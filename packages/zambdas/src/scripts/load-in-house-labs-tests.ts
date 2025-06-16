@@ -23,7 +23,7 @@ import {
   LabComponentValueSetConfig,
 } from 'utils';
 
-const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo'];
+const VALID_ENVS = ['local', 'development', 'dev', 'testing', 'staging', 'demo', 'production'];
 const USAGE_STR = `Usage: npm run make-in-house-test-items [${VALID_ENVS.join(' | ')}]\n`;
 
 const AD_CANONICAL_URL_BASE = 'https://ottehr.com/FHIR/InHouseLab/ActivityDefinition';
@@ -927,8 +927,8 @@ const testItems: TestItem[] = [
         loincCode: ['32710-6'],
         dataType: 'CodeableConcept' as const,
         valueSet: [
-          { code: 'Detected', display: 'Detected' },
           { code: 'Not detected', display: 'Not detected' },
+          { code: 'Detected', display: 'Detected' },
         ],
         abnormalValues: [{ code: 'Detected', display: 'Detected' }],
         display: {

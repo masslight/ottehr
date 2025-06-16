@@ -17,7 +17,6 @@ import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useState } from 'react';
 import { formatDateToMDYWithTime, RoleType } from 'utils';
-import { CompleteConfiguration } from '../../../../components/CompleteConfiguration';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
@@ -126,8 +125,6 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   ]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
-
   const { isLoading, isFetching, refetch } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: {
@@ -189,9 +186,9 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
     setOpenTooltip(true);
   };
 
-  const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
-  };
+  // const handleSetup = (): void => {
+  //   window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  // };
 
   const onNewOrderClick = async (): Promise<void> => {
     // await oystehr?.erx.unenrollPractitioner({ practitionerId: user!.profileResource!.id! });
@@ -239,7 +236,7 @@ export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
             </Stack>
           </Tooltip>
         </Stack>
-        {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />}
+        {/* {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />} */}
         {isERXOpen && (
           <ERX
             onClose={() => {
