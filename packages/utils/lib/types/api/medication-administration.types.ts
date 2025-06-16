@@ -30,7 +30,7 @@ export interface MedicationData {
   medicationId: string;
   dose: number;
   route: string;
-  instructions: string;
+  instructions?: string;
   reason?: string;
   otherReason?: string;
   associatedDx?: string;

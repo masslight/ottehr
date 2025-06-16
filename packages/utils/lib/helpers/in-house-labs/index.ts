@@ -260,6 +260,12 @@ export const convertActivityDefinitionToTestItem = (
     }
   }
 
+  if (!activityDef.url || !activityDef.version) {
+    throw new Error(
+      `ActivityDefinition is misconfigured and is missing either its url or version property: ${activityDef.url}, ${activityDef.version}. AD id is ${activityDef.id}`
+    );
+  }
+
   const testItem: TestItem = {
     name,
     methods,
@@ -273,6 +279,8 @@ export const convertActivityDefinitionToTestItem = (
       groupedComponents,
       radioComponents,
     },
+    adUrl: activityDef.url,
+    adVersion: activityDef.version,
   };
 
   return testItem;
@@ -296,7 +304,7 @@ const getResult = (
     entry = observation.valueString;
   } else {
     const entryValue = observation?.valueQuantity?.value;
-    if (entryValue) entry = entryValue.toString();
+    if (entryValue !== undefined) entry = entryValue.toString();
   }
   const interpretationCoding = observation.interpretation?.find(
     (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
@@ -306,7 +314,7 @@ const getResult = (
     interpretationCode = interpretationCoding.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
       ?.code as ObservationCode;
   }
-  if (entry && interpretationCode) {
+  if (entry !== undefined && interpretationCode) {
     result = {
       entry,
       interpretationCode,

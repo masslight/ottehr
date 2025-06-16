@@ -8,7 +8,7 @@ import { LAB_ORDER_TASK } from 'utils';
 import { createOystehrClient } from '../../../shared/helpers';
 import { getAuth0Token, topLevelCatch } from '../../../shared';
 import { DateTime } from 'luxon';
-import { createLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
+import { createExternalLabResultPDF } from '../../../shared/pdf/labs-results-form-pdf';
 
 export interface ReviewLabResultSubscriptionInput {
   diagnosticReport: DiagnosticReport;
@@ -116,7 +116,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       else if (ent.response?.outcome?.id === 'created' && ent.resource) response.createdTasks.push(ent.resource);
     });
 
-    await createLabResultPDF(oystehr, 'external', serviceRequestID, diagnosticReport, false, secrets, zapehrToken);
+    await createExternalLabResultPDF(oystehr, serviceRequestID, diagnosticReport, false, secrets, zapehrToken);
 
     return {
       statusCode: 200,

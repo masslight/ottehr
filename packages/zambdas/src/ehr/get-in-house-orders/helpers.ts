@@ -16,13 +16,13 @@ import {
   DiagnosticReport,
 } from 'fhir/r4b';
 import {
+  compareDates,
   fetchLabOrderPDFs,
   fetchDocumentReferencesForDiagnosticReports,
   LabOrderPDF,
   getTimezone,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
   Secrets,
-  compareDates,
   InHouseGetOrdersResponseDTO,
 } from 'utils';
 import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
@@ -38,11 +38,16 @@ import {
   getFullestAvailableName,
   PRACTITIONER_CODINGS,
   TestStatus,
-  IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
-import { determineOrderStatus, buildOrderHistory } from '../shared/inhouse-labs';
+import {
+  determineOrderStatus,
+  buildOrderHistory,
+  getUrlAndVersionForADFromServiceRequest,
+  getServiceRequestsRelatedViaRepeat,
+  fetchResultResourcesForRepeatServiceRequest,
+} from '../shared/inhouse-labs';
 
 // cache for the service request context
 type Cache = {
@@ -106,10 +111,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
         })
       );
     } catch (error) {
-      console.error(
-        `Error parsing order data for service request ${serviceRequest.id}:`,
-        typeof error === 'string' ? error : JSON.stringify(error, null, 2)
-      );
+      console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
       void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
     }
   }
@@ -269,8 +271,17 @@ export const getInHouseResources = async (
 
   const pagination = parsePaginationFromResponse(inHouseOrdersResponse);
 
-  const { serviceRequests, tasks, encounters, locations, provenances, specimens, observations, diagnosticReports } =
-    extractInHouseResources(resources);
+  const {
+    serviceRequests,
+    tasks,
+    encounters,
+    locations,
+    provenances,
+    specimens,
+    observations,
+    diagnosticReports,
+    activityDefinitions,
+  } = extractInHouseResources(resources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
@@ -283,7 +294,7 @@ export const getInHouseResources = async (
     // either the service request id passed was the initial test (no basedOn)
     // or it was a repeat test (will have a baseOn property)
     if (serviceRequests.length > 1) {
-      const repeatTestingSrs = getSrsRelatedToRepeat(serviceRequests, searchBy.searchBy.value as string);
+      const repeatTestingSrs = getServiceRequestsRelatedViaRepeat(serviceRequests, searchBy.searchBy.value as string);
       // we need to grab additional resources for these additional SRs that will be rendered on the detail page
       const { repeatDiagnosticReports, repeatObservations, repeatProvenances, repeatTasks, repeatSpecimens } =
         await fetchResultResourcesForRepeatServiceRequest(oystehr, repeatTestingSrs);
@@ -312,10 +323,9 @@ export const getInHouseResources = async (
 
   const timezone = locations[0] ? getTimezone(locations[0]) : undefined;
 
-  const [practitioners, appointments, activityDefinitions] = await Promise.all([
+  const [practitioners, appointments] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchActivityDefinitions(oystehr),
   ]);
 
   return {
@@ -381,6 +391,10 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
     {
       name: '_include:iterate',
       value: 'Encounter:location',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:instantiates-canonical',
     },
   ];
 
@@ -462,6 +476,7 @@ export const extractInHouseResources = (
   specimens: Specimen[];
   observations: Observation[];
   diagnosticReports: DiagnosticReport[];
+  activityDefinitions: ActivityDefinition[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -471,6 +486,7 @@ export const extractInHouseResources = (
   const specimens: Specimen[] = [];
   const observations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
+  const activityDefinitions: ActivityDefinition[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -489,6 +505,8 @@ export const extractInHouseResources = (
       observations.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource);
+    } else if (resource.resourceType === 'ActivityDefinition') {
+      activityDefinitions.push(resource);
     }
   }
 
@@ -501,6 +519,7 @@ export const extractInHouseResources = (
     specimens,
     observations,
     diagnosticReports,
+    activityDefinitions,
   };
 };
 
@@ -576,115 +595,17 @@ export const fetchAppointmentsForServiceRequests = async (
   return appointmentsResponse.unbundle();
 };
 
-export const fetchActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
-  return oystehr.fhir
-    .search<ActivityDefinition>({
-      resourceType: 'ActivityDefinition',
-      params: [
-        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
-        { name: 'status', value: 'active' },
-      ],
-    })
-    .then((response) => response.unbundle());
-};
-
 export const findActivityDefinitionForServiceRequest = (
   serviceRequest: ServiceRequest,
   activityDefinitions: ActivityDefinition[]
 ): ActivityDefinition | undefined => {
-  const canonicalUrl = serviceRequest.instantiatesCanonical?.[0];
-  if (!canonicalUrl) return undefined;
+  const { url, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
 
-  return activityDefinitions.find((ad) => ad.url === canonicalUrl);
-};
-
-const fetchResultResourcesForRepeatServiceRequest = async (
-  oystehr: Oystehr,
-  serviceRequests: ServiceRequest[]
-): Promise<{
-  repeatDiagnosticReports: DiagnosticReport[];
-  repeatObservations: Observation[];
-  repeatProvenances: Provenance[];
-  repeatTasks: Task[];
-  repeatSpecimens: Specimen[];
-}> => {
-  console.log('making requests for additional service requests representing related repeat tests');
-  const resources = (
-    await oystehr.fhir.search<ServiceRequest | DiagnosticReport | Observation | Provenance | Task | Specimen>({
-      resourceType: 'ServiceRequest',
-      params: [
-        {
-          name: '_id',
-          value: serviceRequests.map((sr) => sr.id).join(','),
-        },
-        {
-          name: '_revinclude',
-          value: 'DiagnosticReport:based-on',
-        },
-        {
-          name: '_revinclude',
-          value: 'Observation:based-on',
-        },
-        {
-          name: '_revinclude',
-          value: 'Provenance:target',
-        },
-        {
-          name: '_revinclude',
-          value: 'Task:based-on',
-        },
-        {
-          name: '_include',
-          value: 'ServiceRequest:specimen',
-        },
-      ],
-    })
-  ).unbundle();
-  const repeatDiagnosticReports: DiagnosticReport[] = [];
-  const repeatObservations: Observation[] = [];
-  const repeatProvenances: Provenance[] = [];
-  const repeatTasks: Task[] = [];
-  const repeatSpecimens: Specimen[] = [];
-  resources.forEach((r) => {
-    if (r.resourceType === 'DiagnosticReport') repeatDiagnosticReports.push(r);
-    if (r.resourceType === 'Observation') repeatObservations.push(r);
-    if (r.resourceType === 'Provenance') repeatProvenances.push(r);
-    if (r.resourceType === 'Task') repeatTasks.push(r);
-    if (r.resourceType === 'Specimen') repeatSpecimens.push(r);
+  return activityDefinitions.find((ad) => {
+    const versionMatch = ad.version === version;
+    const urlMatch = ad.url === url;
+    return versionMatch && urlMatch;
   });
-  return { repeatDiagnosticReports, repeatObservations, repeatProvenances, repeatTasks, repeatSpecimens };
-};
-
-const getSrsRelatedToRepeat = (serviceRequests: ServiceRequest[], serviceRequestSearchId: string): ServiceRequest[] => {
-  let serviceRequestSearched: ServiceRequest | undefined;
-  const additionalServiceRequests = serviceRequests.reduce((acc: ServiceRequest[], sr) => {
-    if (sr.id) {
-      if (sr.id !== serviceRequestSearchId) {
-        acc.push(sr);
-      } else {
-        serviceRequestSearched = sr;
-      }
-    }
-    return acc;
-  }, []);
-
-  const srsRelatedToRepeat: ServiceRequest[] = [];
-  if (additionalServiceRequests.length > 0 && serviceRequestSearched) {
-    // was the service request passed as the search param the initial test or ran as repeat?
-    const intialServiceRequestId = serviceRequestSearched?.basedOn
-      ? serviceRequestSearched.basedOn[0].reference?.replace('ServiceRequest/', '')
-      : serviceRequestSearched?.id;
-    console.log('intialServiceRequestId,', intialServiceRequestId);
-    additionalServiceRequests.forEach((sr) => {
-      // confirm its indeed related to the repeat testing group
-      // tbh this check might be overkill - todo dicuss if necessary
-      const basedOn = sr.basedOn?.[0].reference?.replace('ServiceRequest/', '');
-      if (sr.id === intialServiceRequestId || (basedOn && basedOn === intialServiceRequestId)) {
-        srsRelatedToRepeat.push(sr);
-      }
-    });
-  }
-  return srsRelatedToRepeat;
 };
 
 export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {

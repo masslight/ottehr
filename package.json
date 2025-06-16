@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.11.3",
+  "version": "1.11.8",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -31,7 +31,7 @@
     "ehr:e2e:local": "tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:integration": "INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:local:ui": "tsx scripts/run-e2e.ts --app=ehr --ui",
-    "ehr:e2e:local:ui:integration": "INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr --ui",
+    "ehr:e2e:local:integration:ui": "INTEGRATION_TEST=true tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:demo": "ENV=demo tsx scripts/run-e2e.ts --app=ehr",
     "ehr:e2e:demo:ui": "ENV=demo tsx scripts/run-e2e.ts --app=ehr --ui",
     "ehr:e2e:development": "ENV=development tsx scripts/run-e2e.ts --app=ehr",
@@ -69,7 +69,7 @@
     "@mui/material": "^5.14.18",
     "@mui/system": "^5.10.16",
     "@mui/x-date-pickers": "^6.18.6",
-    "@oystehr/sdk": "^4.0.0-alpha.2",
+    "@oystehr/sdk": "^4.0.0-alpha.4",
     "@pdf-lib/fontkit": "^1.1.1",
     "@sendgrid/mail": "^8.1.4",
     "@sentry/aws-serverless": "^8.26.0",

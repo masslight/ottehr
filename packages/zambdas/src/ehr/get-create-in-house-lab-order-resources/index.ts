@@ -3,7 +3,6 @@ import {
   Secrets,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
-  IN_HOUSE_TAG_DEFINITION,
   convertActivityDefinitionToTestItem,
   PRACTITIONER_CODINGS,
   getFullestAvailableName,
@@ -18,7 +17,9 @@ import {
   getMyPractitionerId,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ActivityDefinition, Encounter, Practitioner, Location } from 'fhir/r4b';
+import { Encounter, Practitioner, Location } from 'fhir/r4b';
+import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
+
 let m2mtoken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -78,7 +79,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       ]);
 
       if (!encounter) {
-        // todo: we dont have encounter in patient page, this zambda should return the test items only,
+        // todo: we don't have encounter in patient page, this zambda should return the test items only,
         // the rest of data should be fetched from the get-orders zambda
         return {
           attendingPractitionerName: '',
@@ -135,21 +136,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
     })();
 
-    const activityDefinitions = (
-      await oystehr.fhir.search<ActivityDefinition>({
-        resourceType: 'ActivityDefinition',
-        params: [
-          { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
-          { name: 'status', value: 'active' },
-        ],
-      })
-    ).unbundle();
+    const activeActivityDefinitions = await fetchActiveInHouseLabActivityDefinitions(oystehr);
 
-    console.log(`Found ${activityDefinitions.length} ActivityDefinition resources`);
+    console.log(`Found ${activeActivityDefinitions.length} active ActivityDefinition resources`);
 
     const testItems: TestItem[] = [];
 
-    for (const activeDefinition of activityDefinitions) {
+    for (const activeDefinition of activeActivityDefinitions) {
       const testItem = convertActivityDefinitionToTestItem(activeDefinition);
       testItems.push(testItem);
     }

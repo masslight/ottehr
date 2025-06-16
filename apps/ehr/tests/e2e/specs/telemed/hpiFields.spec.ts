@@ -30,6 +30,7 @@ async function checkDropdownNoOptions(
 ): Promise<void> {
   const input = page.getByTestId(dropdownTestId).locator('input');
   await input.click();
+  await page.waitForTimeout(10000); // todo something async causes flakiness here
   await input.fill(searchOption);
   const dropdownNoOptions = page.locator('.MuiAutocomplete-noOptions');
   await dropdownNoOptions.waitFor();
@@ -54,6 +55,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
   test.beforeEach(async ({ page }) => {
     await page.goto(`telemed/appointments/${resourceHandler.appointment.id}`);
     await assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo(page);
+    await expect(page.getByTestId(dataTestIds.telemedEhrFlow.telemedNewOrExistingPatient)).toBeVisible();
   });
 
   test('Medical conditions. Should display message before typing in field', async ({ page }) => {
@@ -88,7 +90,7 @@ test.describe('Check all hpi fields common functionality, without changing data'
     await checkDropdownNoOptions(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, '', startTypingMessage);
   });
 
-  test.skip('Known allergies. Should check not-in-list item search try', async ({ page }) => {
+  test('Known allergies. Should check not-in-list item search try', async ({ page }) => {
     await checkDropdownNoOptions(
       page,
       dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput,

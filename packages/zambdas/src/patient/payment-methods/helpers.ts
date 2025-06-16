@@ -8,12 +8,11 @@ import {
   Secrets,
   SecretsKeys,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
-  userHasAccessToPatient,
 } from 'utils';
 import Stripe from 'stripe';
 import Oystehr, { User } from '@oystehr/sdk';
 import { Account, Identifier } from 'fhir/r4b';
-import { getUser, ZambdaInput } from '../../shared';
+import { getUser, userHasAccessToPatient, ZambdaInput } from '../../shared';
 
 export interface BasePaymentMgmtInput {
   secrets: Secrets | null;

@@ -160,7 +160,10 @@ export type LabOrdersPaginationOptions = {
   pageIndex?: number;
 };
 
-export type LabType = 'external' | 'in-house';
+export enum LabType {
+  external = 'external',
+  inhouse = 'in-house',
+}
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;
 

@@ -14,6 +14,7 @@ test('Should log in', async ({ page, context, browser }) => {
   await page.goto('/');
   await page.fill('#username', process.env.TEXT_USERNAME!);
   await page.click('button[type="submit"]');
+  await page.waitForTimeout(100);
   await page.fill('#password', process.env.TEXT_PASSWORD!);
   await page.click('button[type="submit"]');
 

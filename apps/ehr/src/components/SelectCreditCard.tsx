@@ -6,6 +6,7 @@ import {
   AutocompleteRenderInputParams,
   TextField,
   CircularProgress,
+  FormHelperText,
 } from '@mui/material';
 import { Box } from '@mui/system';
 import { FC, useState } from 'react';
@@ -22,6 +23,7 @@ interface CreditCardContentProps {
   patient: Patient;
   selectedCardId: string;
   handleCardSelected: (newVal: string | undefined) => void;
+  error?: string;
 }
 
 const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
@@ -33,7 +35,7 @@ const labelForCard = (card: CreditCardInfo): string => {
 const NEW_CARD = { id: 'new', label: 'Add new card' };
 
 const CreditCardContent: FC<CreditCardContentProps> = (props) => {
-  const { patient, selectedCardId, handleCardSelected } = props;
+  const { patient, selectedCardId, handleCardSelected, error } = props;
   const [cards, setCards] = useState<CreditCardInfo[]>([]);
 
   const [addingNewCard, setAddingNewCard] = useState<boolean>(false);
@@ -52,7 +54,6 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
     beneficiaryPatientId: patient?.id,
     setupCompleted: Boolean(setupData),
     onSuccess: (data) => {
-      console.group('card data', data);
       setCards(data.cards ?? []);
       const defaultCard = data.cards.find((card) => card.default);
       if (defaultCard && !selectedCardId) {
@@ -107,18 +108,20 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       </Box>
     );
   }
-  const currentValue = selectedCard ?? (addingNewCard ? NEW_CARD : null);
+  const currentValue = addingNewCard ? NEW_CARD : selectedCard ?? null;
+  const showCardList = cards.length > 0;
   return (
     <>
       <Autocomplete
         size="small"
         aria-label="Default card selection radio group"
+        fullWidth
         sx={{
           '.MuiFormControlLabel-label': {
             width: '100%',
           },
           gap: 1,
-          display: addingNewCard && cards.length === 0 ? 'none' : 'initial',
+          display: showCardList ? 'initial' : 'none',
           marginBottom: 2,
         }}
         options={cardOptions}
@@ -130,24 +133,27 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         value={currentValue}
         renderInput={(params: AutocompleteRenderInputParams) => {
           return (
-            <TextField
-              {...params}
-              required
-              label="Credit card"
-              variant="outlined"
-              InputLabelProps={{ shrink: true }}
-              inputProps={{
-                ...params.inputProps,
-                autoComplete: 'off',
-              }}
-            />
+            <Box>
+              <TextField
+                {...params}
+                fullWidth
+                required
+                label="Credit card"
+                variant="outlined"
+                error={Boolean(error)}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  ...params.inputProps,
+                  autoComplete: 'off',
+                }}
+              />
+              {error && <FormHelperText error={Boolean(error)}>{error}</FormHelperText>}
+            </Box>
           );
         }}
         onChange={(_event, value) => {
           if (value?.id === NEW_CARD.id) {
             setAddingNewCard(true);
-            console.log('Adding new card set');
-            return;
           }
           handleCardSelected(value?.id);
           if (addingNewCard) {
@@ -176,6 +182,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             }}
             condition="I have obtained the consent to add a card on file from the patient"
           />
+          {error && !showCardList && <FormHelperText error={Boolean(error)}>{error}</FormHelperText>}
         </Box>
       </Elements>
 

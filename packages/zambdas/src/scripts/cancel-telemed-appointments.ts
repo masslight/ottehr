@@ -72,44 +72,6 @@ async function main(): Promise<void> {
     }).catch((err) => console.log(err, JSON.stringify(err)));
     console.log(`Response ${JSON.stringify(resp)}`);
   });
-
-  // for (let i = 0; length !== 0; i += BATCH_SIZE) {
-  //   console.log(`Processing practitioners ${i / BATCH_SIZE} batch`);
-  //   const batch = await getPractitionersBatch(oystehr, i, BATCH_SIZE);
-  //   const batchRequests: BatchInputRequest[] = [];
-  //   length = batch.length;
-  //   if (length >= 0) {
-  //     batch.forEach((practitioner) => {
-  //       const extIndex = practitioner.extension?.findIndex(
-  //         (ext) => ext.url === FHIR_EXTENSION.Practitioner.isEnrolledInPhoton.url
-  //       );
-  //       const ext = practitioner?.extension?.[extIndex || 0];
-  //       if (ext && ext.valueBoolean === true) {
-  //         console.log(
-  //           `Will update practitioner with id: ${practitioner.id}, name: ${practitioner.name?.[0]?.given?.[0]} ${practitioner.name?.[0]?.family}`
-  //         );
-  //         batchRequests.push(
-  //           getPatchBinary({
-  //             resourceId: practitioner.id!,
-  //             resourceType: 'Practitioner',
-  //             patchOperations: [
-  //               {
-  //                 op: 'replace',
-  //                 path: `/extension/${extIndex}`,
-  //                 value: <Extension>{ url: FHIR_EXTENSION.Practitioner.isEnrolledInPhoton.url, valueBoolean: false },
-  //               },
-  //             ],
-  //           })
-  //         );
-  //       }
-  //     });
-  //     if (batchRequests.length) {
-  //       console.log('Performing updates for this batch.');
-  //       const result = await oystehr.fhir.batch({ requests: batchRequests });
-  //       console.debug(`Response: ${JSON.stringify(result)}`);
-  //     }
-  //   }
-  // }
 }
 
 main()
