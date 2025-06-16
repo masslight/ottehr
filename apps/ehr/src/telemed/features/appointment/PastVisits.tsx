@@ -6,6 +6,7 @@ import { useGetPatient } from '../../../hooks/useGetPatient';
 import { PastVisitsTable } from '../../../components/PastVisitsTable';
 import CloseIcon from '@mui/icons-material/Close';
 import { getPatientName } from '../../utils';
+import { dataTestIds } from 'src/constants/data-test-ids';
 
 export const PastVisits: FC = () => {
   const { patient } = getSelectors(useAppointmentStore, ['patient']);
@@ -19,14 +20,22 @@ export const PastVisits: FC = () => {
   }
 
   if (!appointments?.length || appointments.length == 1) {
-    return <Typography variant="body2">New patient</Typography>;
+    return (
+      <Typography data-testid={dataTestIds.telemedEhrFlow.telemedNewOrExistingPatient} variant="body2">
+        New patient
+      </Typography>
+    );
   }
 
   return (
     <>
       <Typography variant="body2">
         Established patient:{' '}
-        <Link sx={{ cursor: 'pointer', color: 'inherit' }} onClick={() => setOpen(true)}>
+        <Link
+          sx={{ cursor: 'pointer', color: 'inherit' }}
+          onClick={() => setOpen(true)}
+          data-testid={dataTestIds.telemedEhrFlow.telemedNewOrExistingPatient}
+        >
           {appointments.length} visit{appointments.length > 1 && 's'}
         </Link>
       </Typography>

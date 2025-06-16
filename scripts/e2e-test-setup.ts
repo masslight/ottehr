@@ -227,7 +227,6 @@ async function getLocationsForTesting(
 
 async function setTestEhrUserCredentials(ehrConfig: EhrConfig): Promise<void> {
   console.log(`Setting up test EHR provider credentials`);
-  console.log(ehrConfig);
   const oystehr = await getToken(ehrConfig, ehrConfig.AUTH0_CLIENT_TESTS, ehrConfig.AUTH0_SECRET_TESTS);
 
   console.log(`Getting e2e test user by email: ${ehrConfig.TEXT_USERNAME}`);

@@ -95,64 +95,69 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  // todo: flaky test, fix this test so it doesn't fail in CI
-  test.skip('Verify data from Primary and Secondary Insurances blocks are displayed correctly', async ({ page }) => {
-    const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
-    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-    await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-    await primaryInsuranceCard.verifyInsuranceType('Primary');
-    await primaryInsuranceCard.verifyInsuranceCarrier(primaryInsuranceCarrier);
-    await primaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID);
-    await primaryInsuranceCard.clickShowMoreButton();
-    await primaryInsuranceCard.verifyAdditionalFieldsAreVisible();
-    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-    await primaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
-    await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_DATE_OF_BIRTH);
-    await primaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
-    await primaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
-    await primaryInsuranceCard.verifyInsuranceAddressLine2(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
-    await primaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_CITY);
-    await primaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_STATE);
-    await primaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
-    await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
-      PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
-    );
-    await primaryInsuranceCard.verifyAdditionalInsuranceInformation('');
-    await primaryInsuranceCard.clickShowMoreButton();
-    await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+  test(
+    'Verify data from Primary and Secondary Insurances blocks are displayed correctly',
+    { tag: '@flaky' },
+    async ({ page }) => {
+      const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
+      const primaryInsuranceCard = patientInformationPage.getInsuranceCard(0);
+      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+      await primaryInsuranceCard.verifyInsuranceType('Primary');
+      await primaryInsuranceCard.verifyInsuranceCarrier(primaryInsuranceCarrier);
+      await primaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID);
+      await primaryInsuranceCard.clickShowMoreButton();
+      await primaryInsuranceCard.verifyAdditionalFieldsAreVisible();
+      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await primaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME);
+      await primaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME);
+      await primaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME);
+      await primaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_DATE_OF_BIRTH);
+      await primaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX);
+      await primaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS);
+      await primaryInsuranceCard.verifyInsuranceAddressLine2(PATIENT_INSURANCE_POLICY_HOLDER_ADDRESS_ADDITIONAL_LINE);
+      await primaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_CITY);
+      await primaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_STATE);
+      await primaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_ZIP);
+      await primaryInsuranceCard.verifyPatientsRelationshipToInjured(
+        PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED
+      );
+      await primaryInsuranceCard.verifyAdditionalInsuranceInformation('');
+      await primaryInsuranceCard.clickShowMoreButton();
+      await primaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
 
-    const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
-    await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-    await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-    await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-    await secondaryInsuranceCard.verifyInsuranceType('Secondary');
-    await secondaryInsuranceCard.verifyInsuranceCarrier(secondaryInsuranceCarrier);
-    await secondaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID_2);
-    await secondaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.verifyAdditionalFieldsAreVisible();
-    await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-    await secondaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
-    await secondaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
-    await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
-    await secondaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_2_DATE_OF_BIRTH);
-    await secondaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
-    await secondaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
-    await secondaryInsuranceCard.verifyInsuranceAddressLine2(PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE);
-    await secondaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
-    await secondaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
-    await secondaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
-    await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
-      PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
-    );
-    await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('');
-    await secondaryInsuranceCard.clickShowMoreButton();
-    await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
-    await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
-  });
+      const secondaryInsuranceCard = patientInformationPage.getInsuranceCard(1);
+      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await secondaryInsuranceCard.verifyInsuranceType('Secondary');
+      await secondaryInsuranceCard.verifyInsuranceCarrier(secondaryInsuranceCarrier);
+      await secondaryInsuranceCard.verifyMemberId(PATIENT_INSURANCE_MEMBER_ID_2);
+      await secondaryInsuranceCard.clickShowMoreButton();
+      await secondaryInsuranceCard.verifyAdditionalFieldsAreVisible();
+      await secondaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+      await secondaryInsuranceCard.verifyPolicyHoldersFirstName(PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME);
+      await secondaryInsuranceCard.verifyPolicyHoldersLastName(PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME);
+      await secondaryInsuranceCard.verifyPolicyHoldersMiddleName(PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME);
+      await secondaryInsuranceCard.verifyPolicyHoldersDateOfBirth(POLICY_HOLDER_2_DATE_OF_BIRTH);
+      await secondaryInsuranceCard.verifyPolicyHoldersSex(PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX);
+      await secondaryInsuranceCard.verifyInsuranceStreetAddress(PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS);
+      await secondaryInsuranceCard.verifyInsuranceAddressLine2(
+        PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE
+      );
+      await secondaryInsuranceCard.verifyInsuranceCity(PATIENT_INSURANCE_POLICY_HOLDER_2_CITY);
+      await secondaryInsuranceCard.verifyInsuranceState(PATIENT_INSURANCE_POLICY_HOLDER_2_STATE);
+      await secondaryInsuranceCard.verifyInsuranceZip(PATIENT_INSURANCE_POLICY_HOLDER_2_ZIP);
+      await secondaryInsuranceCard.verifyPatientsRelationshipToInjured(
+        PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED
+      );
+      await secondaryInsuranceCard.verifyAdditionalInsuranceInformation('');
+      await secondaryInsuranceCard.clickShowMoreButton();
+      await secondaryInsuranceCard.verifyAdditionalFieldsAreHidden();
+      await primaryInsuranceCard.verifyAlwaysShownFieldsAreVisible();
+    }
+  );
 
   test('Check validation error is displayed if any required field in Insurance information block is missing', async ({
     page,
