@@ -6,6 +6,7 @@ import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   PatchPaperworkParameters,
   PatientInfo,
   PersonSex,
@@ -182,7 +183,7 @@ export const createSampleAppointments = async ({
           const sampleAppointmentMeta = {
             tag: [
               {
-                system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+                system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
                 code: `sample-appointments-from-outside-E2E-${DateTime.now().toISO()}`,
               },
             ],

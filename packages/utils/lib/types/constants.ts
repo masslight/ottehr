@@ -37,3 +37,5 @@ export const PRACTICE_NAME_URL = 'https://fhir.zapehr.com/r4/StructureDefinition
 export const DATE_OF_BIRTH_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/birth-date';
 
 export const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
+
+export const E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM = 'E2E_TEST_RESOURCE_PROCESS_ID';

@@ -25,6 +25,7 @@ import {
   CreateAppointmentResponse,
   CREATED_BY_SYSTEM,
   createUserResourcesForPatient,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_READY_FOR_PREPROCESSING_TAG,
   FHIR_EXTENSION,
   FhirAppointmentStatus,
@@ -126,7 +127,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       appointmentMetadata = {
         tag: [
           {
-            system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+            system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
             code: `failsafe-${process.env.PLAYWRIGHT_SUITE_ID}`,
           },
         ],

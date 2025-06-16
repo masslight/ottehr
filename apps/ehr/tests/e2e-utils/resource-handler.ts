@@ -25,6 +25,7 @@ import { fileURLToPath } from 'url';
 import {
   CreateAppointmentResponse,
   createSampleAppointments,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
@@ -531,7 +532,7 @@ const addProcessIdMetaTagToResource = (resource: FhirResource, processId: string
     tag: [
       ...existingTags,
       {
-        system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+        system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
         code: processId,
       },
     ],
@@ -543,7 +544,7 @@ const getProcessMetaTag = (processId: string): Appointment['meta'] => {
   return {
     tag: [
       {
-        system: 'E2E_TEST_RESOURCE_PROCESS_ID',
+        system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
         code: processId,
       },
     ],
