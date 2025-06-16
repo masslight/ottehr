@@ -94,8 +94,6 @@ function GroupPageContent(): ReactElement {
       }
       return location.reference?.replace('Location/', '');
     });
-    console.log('selectedLocationsTemp', selectedLocationsTemp);
-    // console.log(group);
     setSelectedLocations(selectedLocationsTemp);
 
     const selectedPractitionerRolesTemp = practitionerRolesTemp?.filter(
@@ -239,23 +237,13 @@ function GroupPageContent(): ReactElement {
       );
       const slugPatchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
       const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
-      console.log('currentSlug', currentSlug);
-      console.log('group', group);
-      console.log('slug', slug);
-      console.log('groupID', groupID);
-      console.log('slugPatchRequests', slugPatchRequests);
       if (group && slug !== currentSlug) {
-        console.log('Updating slug for group', groupID, 'to', slug);
         const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
-        console.log('newIdentifierList', newIdentifierList);
         if (slug) {
-          console.log('yesslug', slug);
-          console.log('Adding slug to newIdentifierList');
           newIdentifierList.push({
             system: SLUG_SYSTEM,
             value: slug,
           });
-          console.log('newIdentifierList after adding slug', newIdentifierList);
         }
         slugPatchRequests.push(
           getPatchBinary({
@@ -271,12 +259,7 @@ function GroupPageContent(): ReactElement {
           })
         );
       }
-      console.log('slugPatchRequests', slugPatchRequests);
-      console.log('practitionerRolesResourceCreateRequests', practitionerRolesResourceCreateRequests);
-      console.log('practitionerRolesResourcePatchRequests', practitionerRolesResourcePatchRequests);
-      console.log('updateLocations', updateLocations);
-      console.log('Saving group schedule with slug:', slug);
-      const response = await oystehr.fhir.batch<PractitionerRole | HealthcareService>({
+      await oystehr.fhir.batch<PractitionerRole | HealthcareService>({
         requests: [
           ...practitionerRolesResourceCreateRequests,
           ...practitionerRolesResourcePatchRequests,
@@ -284,16 +267,12 @@ function GroupPageContent(): ReactElement {
         ],
       });
 
-      console.log('response', response);
-
       if (slugPatchRequests.length > 0) {
-        const slugResponse = await oystehr.fhir.batch<HealthcareService>({
+        await oystehr.fhir.batch<HealthcareService>({
           requests: slugPatchRequests,
         });
-        console.log('slug response', slugResponse);
       }
 
-      console.log('Response from saving group schedule:', response);
       enqueueSnackbar('Group schedule saved successfully!', { variant: 'success' });
       await getOptions();
     } catch (error) {
@@ -332,7 +311,6 @@ function GroupPageContent(): ReactElement {
               value={slug}
               onChange={(event) => {
                 setSlug(event.target.value);
-                console.log(slug);
               }}
               sx={{ width: '250px' }}
             />
@@ -390,7 +368,6 @@ function GroupPageContent(): ReactElement {
                 }
                 onChange={(event, value) => {
                   setSelectedLocations(value.map((valueTemp: any) => valueTemp.value));
-                  console.log('selectedlocations input', selectedLocations);
                 }}
               />
             </Grid>
