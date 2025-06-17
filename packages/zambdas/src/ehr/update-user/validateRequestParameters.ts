@@ -1,15 +1,29 @@
-import { isNPIValid, RoleType, isPhoneNumberValid } from 'utils';
-import { UpdateUserInput } from '.';
+import { isNPIValid, isPhoneNumberValid, RoleType, Secrets, UpdateUserParams } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
+export function validateRequestParameters(input: ZambdaInput): UpdateUserParams & { secrets: Secrets } {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { userId, firstName, middleName, lastName, nameSuffix, selectedRoles, licenses, phoneNumber, npi } = JSON.parse(
-    input.body
-  );
+  const {
+    userId,
+    firstName,
+    middleName,
+    lastName,
+    nameSuffix,
+    selectedRoles,
+    licenses,
+    phoneNumber,
+    npi,
+    birthDate,
+    faxNumber,
+    addressLine1,
+    addressLine2,
+    addressCity,
+    addressState,
+    addressZip,
+  } = JSON.parse(input.body) as UpdateUserParams;
 
   if (
     userId === undefined
@@ -23,7 +37,7 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
     throw new Error('Invalid phone number format');
   }
 
-  if (selectedRoles.includes('Provider') && npi && !isNPIValid(npi)) {
+  if (selectedRoles?.includes(RoleType.Provider) && npi && !isNPIValid(npi)) {
     throw new Error('Invalid NPI format');
   }
 
@@ -45,8 +59,15 @@ export function validateRequestParameters(input: ZambdaInput): UpdateUserInput {
     selectedRoles,
     licenses,
     // locations,
-    secrets: input.secrets,
     phoneNumber: phoneNumber ? phoneNumber.trim() : phoneNumber,
     npi: npi ? npi.trim() : npi,
+    secrets: input.secrets!,
+    birthDate: birthDate ? birthDate.trim() : birthDate,
+    faxNumber: faxNumber ? faxNumber.trim() : faxNumber,
+    addressLine1: addressLine1 ? addressLine1.trim() : addressLine1,
+    addressLine2: addressLine2 ? addressLine2.trim() : addressLine2,
+    addressCity: addressCity ? addressCity.trim() : addressCity,
+    addressState: addressState ? addressState.trim() : addressState,
+    addressZip: addressZip ? addressZip.trim() : addressZip,
   };
 }

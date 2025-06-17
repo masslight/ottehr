@@ -119,9 +119,12 @@ export default function Appointments(): ReactElement {
   }, [inHouseOrders?.labOrders]);
 
   useEffect(() => {
-    if (localStorage.getItem('selectedVisitTypes')) {
-      queryParams?.set('visitType', JSON.parse(localStorage.getItem('selectedVisitTypes') ?? '') ?? '');
+    const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
+    if (selectedVisitTypes) {
+      queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
       navigate(`?${queryParams?.toString()}`);
+    } else {
+      queryParams?.set('visitType', Object.keys(VisitTypeToLabel).join(','));
     }
   }, [navigate, queryParams]);
 
@@ -394,7 +397,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                             textAlign: 'start',
                           },
                         }}
-                        value={visitType?.length > 0 ? [...visitType] : Object.keys(VisitTypeToLabel)}
+                        value={visitType}
                         options={Object.keys(VisitTypeToLabel)}
                         getOptionLabel={(option) => {
                           return VisitTypeToLabel[option as VisitType];

@@ -110,12 +110,12 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           resourceType: 'ActivityDefinition',
           params: [
             {
-              name: 'name',
-              value: testItem.name,
+              name: 'url',
+              value: testItem.adUrl,
             },
             {
-              name: 'status',
-              value: 'active',
+              name: 'version',
+              value: testItem.adVersion,
             },
           ],
         })
@@ -148,12 +148,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
                 value: `Encounter/${encounterId}`,
               },
               {
-                name: 'code',
-                value: cptCode,
-              },
-              {
-                name: 'code',
-                value: testItem.name,
+                name: 'instantiates-canonical',
+                value: `${testItem.adUrl}|${testItem.adVersion}`,
               },
             ],
           })
@@ -257,10 +253,15 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           return acc;
         }, []);
         if (possibleInitialSRs.length > 1) {
-          throw new Error('More than one initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+          console.log('More than one initial tests found for this encounter');
+          // this really shouldn't happen, something is misconfigured
+          throw IN_HOUSE_LAB_ERROR(
+            'Could not deduce which test is intial since more than one test has previously been run today'
+          );
         }
         if (possibleInitialSRs.length === 0) {
-          throw new Error('No initial tests found for this encounter'); // this really shouldn't happen, something is misconfigured
+          // this really shouldn't happen, something is misconfigured
+          throw IN_HOUSE_LAB_ERROR('No initial tests could be found for this encounter.');
         }
         const initialSR = possibleInitialSRs[0];
         return initialSR;
@@ -333,7 +334,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
       ...(notes && { note: [{ text: notes }] }),
       ...(coverage && { insurance: [{ reference: `Coverage/${coverage.id}` }] }),
-      instantiatesCanonical: [`${activityDefinition.url}`], // todo in the future - we should add |${activityDefinition.version}
+      instantiatesCanonical: [`${activityDefinition.url}|${activityDefinition.version}`],
     };
     // if an initialServiceRequest is defined, the test being ordered is repeat and should be linked to the
     // original test represented by initialServiceRequest

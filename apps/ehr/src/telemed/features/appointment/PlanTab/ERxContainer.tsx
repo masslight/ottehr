@@ -1,5 +1,5 @@
-import { Stack } from '@mui/system';
-import { FC, useCallback, useEffect, useState } from 'react';
+import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   CircularProgress,
   Paper,
@@ -12,15 +12,15 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Stack } from '@mui/system';
 import { Practitioner } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
-import { formatDateToMDYWithTime } from 'utils';
+import { FC, useCallback, useState } from 'react';
+import { formatDateToMDYWithTime, RoleType } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import useEvolveUser from '../../../../hooks/useEvolveUser';
-import { CompleteConfiguration } from '../../../../components/CompleteConfiguration';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { PageTitle } from '../../../components/PageTitle';
 import { useGetAppointmentAccessibility } from '../../../hooks';
@@ -112,7 +112,11 @@ const medicationStatusMapper = {
   },
 };
 
-export const ERxContainer: FC = () => {
+interface ERxContainerProps {
+  showHeader?: boolean;
+}
+
+export const ERxContainer: FC<ERxContainerProps> = ({ showHeader = true }) => {
   const { encounter, appointment, setPartialChartData, chartData } = getSelectors(useAppointmentStore, [
     'encounter',
     'appointment',
@@ -121,8 +125,6 @@ export const ERxContainer: FC = () => {
   ]);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
-  const erxEnvVariable = import.meta.env.VITE_APP_PHOTON_CLIENT_ID;
-
   const { isLoading, isFetching, refetch } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: {
@@ -130,23 +132,10 @@ export const ERxContainer: FC = () => {
         _include: 'MedicationRequest:requester',
       },
     },
+    refetchInterval: 10000,
     onSuccess: (data) => {
-      const prescribedMedications = (data.prescribedMedications || []).reduce(
-        (prev, curr) => {
-          const index = prev.findIndex((medication) => medication.prescriptionId === curr.prescriptionId);
-          if (index === -1) {
-            prev.push(curr);
-          } else {
-            prev[index] = curr;
-          }
-          return prev;
-        },
-        chartData?.prescribedMedications || []
-      );
-
-      if (prescribedMedications.filter((med) => !med.resourceId).length > 0) {
-        setTimeout(refetch, 1000);
-      }
+      console.log('data', data);
+      const prescribedMedications = data.prescribedMedications;
 
       setPartialChartData({
         prescribedMedications,
@@ -189,17 +178,6 @@ export const ERxContainer: FC = () => {
     setCancellationLoading((prevState) => prevState.filter((item) => item !== prescriptionId));
   };
 
-  useEffect(() => {
-    const photonListener = (): void => {
-      void refetch();
-    };
-    document.addEventListener('photon-prescriptions-created', photonListener);
-
-    return () => {
-      document.removeEventListener('photon-prescriptions-created', photonListener);
-    };
-  }, [refetch]);
-
   const handleCloseTooltip = (): void => {
     setOpenTooltip(false);
   };
@@ -208,8 +186,13 @@ export const ERxContainer: FC = () => {
     setOpenTooltip(true);
   };
 
-  const handleSetup = (): void => {
-    window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  // const handleSetup = (): void => {
+  //   window.open('https://docs.oystehr.com/ottehr/setup/prescriptions/', '_blank');
+  // };
+
+  const onNewOrderClick = async (): Promise<void> => {
+    // await oystehr?.erx.unenrollPractitioner({ practitionerId: user!.profileResource!.id! });
+    setIsERXOpen(true);
   };
 
   return (
@@ -217,29 +200,53 @@ export const ERxContainer: FC = () => {
       <Stack gap={1}>
         <Stack direction="row" justifyContent="space-between">
           <Stack direction="row" gap={1} alignItems="center">
-            <PageTitle label="eRX" showIntakeNotesButton={false} />
+            {showHeader && <PageTitle label="eRX" showIntakeNotesButton={false} />}
             {(isLoading || isFetching || cancellationLoading.length > 0) && <CircularProgress size={16} />}
           </Stack>
           <Tooltip
             placement="top"
-            title="You're not enrolled in erx. Please check that your provider profile has all the required info filled in: first name, last name, phone number, NPI"
-            open={openTooltip && !isReadOnly && !user?.isPractitionerEnrolledInPhoton}
+            title="You don't have the necessary role to access ERX. Please contact your administrator."
+            open={openTooltip && !isReadOnly && !user?.hasRole([RoleType.Provider])}
             onClose={handleCloseTooltip}
             onOpen={handleOpenTooltip}
           >
             <Stack>
-              <RoundedButton
-                disabled={isReadOnly || isERXLoading || !user?.isPractitionerEnrolledInPhoton}
-                variant="contained"
-                onClick={() => setIsERXOpen(true)}
-                startIcon={<AddIcon />}
-              >
-                New Order
-              </RoundedButton>
+              {isERXOpen && !isERXLoading ? (
+                <RoundedButton
+                  disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
+                  variant="contained"
+                  onClick={() => {
+                    setIsERXOpen(false);
+                    setIsERXLoading(false);
+                  }}
+                  startIcon={isERXLoading ? <CircularProgress size={16} /> : <CloseIcon />}
+                >
+                  Close eRX
+                </RoundedButton>
+              ) : (
+                <RoundedButton
+                  disabled={isReadOnly || isERXLoading || !user?.hasRole([RoleType.Provider])}
+                  variant="contained"
+                  onClick={() => onNewOrderClick()}
+                  startIcon={isERXLoading ? <CircularProgress size={16} /> : <AddIcon />}
+                >
+                  Open eRX
+                </RoundedButton>
+              )}
             </Stack>
           </Tooltip>
         </Stack>
-        {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />}
+        {/* {!erxEnvVariable && <CompleteConfiguration handleSetup={handleSetup} />} */}
+        {isERXOpen && (
+          <ERX
+            onClose={() => {
+              setIsERXOpen(false);
+              setIsERXLoading(false);
+            }}
+            onLoadingStatusChange={handleERXLoadingStatusChange}
+          />
+        )}
+        <div id="prescribe-dialog" style={{ flex: '1 0 auto', display: 'flex' }} />
 
         {chartData?.prescribedMedications && chartData.prescribedMedications.length > 0 && (
           <TableContainer component={Paper}>
@@ -317,8 +324,6 @@ export const ERxContainer: FC = () => {
           </TableContainer>
         )}
       </Stack>
-
-      {isERXOpen && <ERX onClose={() => setIsERXOpen(false)} onLoadingStatusChange={handleERXLoadingStatusChange} />}
     </>
   );
 };

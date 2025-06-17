@@ -48,7 +48,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
 });
 
-test('Open "Add patient page", click "Cancel", validation error on "Mobile phone" field shown', async ({ page }) => {
+test('Open "Add patient page", click "Cancel", navigates back to visits page', async ({ page }) => {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.clickCancelButton();
 
@@ -135,14 +135,20 @@ test('Open "Add patient page" then enter invalid date of birth, click "Add", val
 });
 
 test.describe('For new patient', () => {
-  test('Add walk-in visit for new patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
+  test(
+    'Add walk-in visit for new patient',
+    {
+      tag: '@skipOnIntegration',
+    },
+    async ({ page }) => {
+      const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
 
-    const visitsPage = await expectVisitsPage(page);
-    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-    await visitsPage.clickInOfficeTab();
-    await visitsPage.verifyVisitPresent(appointmentId);
-  });
+      const visitsPage = await expectVisitsPage(page);
+      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      await visitsPage.clickInOfficeTab();
+      await visitsPage.verifyVisitPresent(appointmentId);
+    }
+  );
 
   test('Add pre-book visit for new patient', async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(
@@ -158,8 +164,7 @@ test.describe('For new patient', () => {
     await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
-  // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
-  test.skip('Add post-telemed visit for new patient', async ({ page }) => {
+  test('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(
       page,
       VISIT_TYPES.POST_TELEMED,
@@ -174,47 +179,52 @@ test.describe('For new patient', () => {
   });
 });
 
-test.describe('For existing patient', () => {
-  test.beforeAll(async () => {
-    if (process.env.INTEGRATION_TEST === 'true') {
-      await resourceHandler.setResourcesFast();
-    } else {
-      await resourceHandler.setResources();
-      await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
-    }
-  });
+test.describe(
+  'For existing patient',
+  {
+    tag: '@flaky',
+  },
+  () => {
+    test.beforeAll(async () => {
+      if (process.env.INTEGRATION_TEST === 'true') {
+        await resourceHandler.setResourcesFast();
+      } else {
+        await resourceHandler.setResources();
+        await resourceHandler.waitTillAppointmentPreprocessed(resourceHandler.appointment.id!);
+      }
+    });
 
-  test.afterAll(async () => {
-    await resourceHandler.cleanupResources();
-  });
+    test.afterAll(async () => {
+      await resourceHandler.cleanupResources();
+    });
 
-  test('Add walk-in visit for existing patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, true);
-    const visitsPage = await expectVisitsPage(page);
-    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-    await visitsPage.clickInOfficeTab();
-    await visitsPage.verifyVisitPresent(appointmentId);
-  });
+    test('Add walk-in visit for existing patient', async ({ page }) => {
+      const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, true);
+      const visitsPage = await expectVisitsPage(page);
+      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      await visitsPage.clickInOfficeTab();
+      await visitsPage.verifyVisitPresent(appointmentId);
+    });
 
-  test.skip('Add pre-book visit for existing patient', async ({ page }) => {
-    const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, true);
+    test('Add pre-book visit for existing patient', async ({ page }) => {
+      const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.PRE_BOOK, true);
 
-    const visitsPage = await expectVisitsPage(page);
-    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-    await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
-  });
+      const visitsPage = await expectVisitsPage(page);
+      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      await visitsPage.clickPrebookedTab();
+      await visitsPage.verifyVisitPresent(appointmentId, slotTime);
+    });
 
-  // skipping post-telemed vists tests cause they are unstable for some reason. TODO: investigate
-  test('Add post-telemed visit for existing patient', async ({ page }) => {
-    const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.POST_TELEMED, true);
+    test('Add post-telemed visit for existing patient', async ({ page }) => {
+      const { appointmentId, slotTime } = await createAppointment(page, VISIT_TYPES.POST_TELEMED, true);
 
-    const visitsPage = await expectVisitsPage(page);
-    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-    await visitsPage.clickPrebookedTab();
-    await visitsPage.verifyVisitPresent(appointmentId, slotTime);
-  });
-});
+      const visitsPage = await expectVisitsPage(page);
+      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      await visitsPage.clickPrebookedTab();
+      await visitsPage.verifyVisitPresent(appointmentId, slotTime);
+    });
+  }
+);
 
 async function createAppointment(
   page: Page,
