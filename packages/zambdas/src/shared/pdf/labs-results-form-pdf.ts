@@ -29,6 +29,7 @@ import {
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   TestItemComponent,
   IN_HOUSE_LAB_TASK,
+  getFullestAvailableName,
 } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { DateTime } from 'luxon';
@@ -86,6 +87,7 @@ type LabTypeSpecificResources =
         collectionDate: string;
         orderSubmitDate: string;
         reviewed: boolean;
+        reviewingProvider: Practitioner | undefined;
         reviewingProviderFirst: string;
         reviewingProviderLast: string;
         reviewDate: string | undefined;
@@ -155,6 +157,7 @@ const getResultDataConfig = (
       collectionDate,
       orderSubmitDate,
       reviewed,
+      reviewingProvider,
       reviewingProviderFirst,
       reviewingProviderLast,
       reviewDate,
@@ -170,6 +173,7 @@ const getResultDataConfig = (
       reviewingProviderFirst,
       reviewingProviderLast,
       reviewingProviderTitle: '', // todo where should this come from ??
+      reviewingProvider,
       reviewDate,
       resultInterpretations,
       externalLabResults,
@@ -216,6 +220,7 @@ const getTaskCompletedByAndWhen = async (
 ): Promise<{
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
+  reviewingProvider: Practitioner;
   reviewDate: string;
 }> => {
   console.log('getting provenance for task', task.id);
@@ -253,9 +258,10 @@ const getTaskCompletedByAndWhen = async (
 
   const reviewingProviderFirst = taskPractitioner.name?.[0].given?.join(',') || '';
   const reviewingProviderLast = taskPractitioner.name?.[0].family || '';
+  // const reviewingProviderLicense = allLicensesForPractitioner(taskPractitioner)[0]?.code;
   const reviewDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
 
-  return { reviewingProviderFirst, reviewingProviderLast, reviewDate };
+  return { reviewingProviderFirst, reviewingProviderLast, reviewingProvider: taskPractitioner, reviewDate };
 };
 
 export async function createExternalLabResultPDF(
@@ -327,9 +333,10 @@ export async function createExternalLabResultPDF(
 
   let reviewingProviderFirst = '',
     reviewingProviderLast = '',
-    reviewDate = '';
+    reviewDate = '',
+    reviewingProvider = undefined;
   if (latestReviewTask) {
-    ({ reviewingProviderFirst, reviewingProviderLast, reviewDate } = await getTaskCompletedByAndWhen(
+    ({ reviewingProvider, reviewingProviderFirst, reviewingProviderLast, reviewDate } = await getTaskCompletedByAndWhen(
       oystehr,
       latestReviewTask,
       timezone
@@ -389,6 +396,7 @@ export async function createExternalLabResultPDF(
       collectionDate,
       orderSubmitDate,
       reviewed,
+      reviewingProvider,
       reviewingProviderFirst,
       reviewingProviderLast,
       reviewDate,
@@ -401,7 +409,7 @@ export async function createExternalLabResultPDF(
     serviceRequest,
     patient,
     diagnosticReport,
-    providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : undefined,
+    providerName: getFullestAvailableName(provider),
     testName: diagnosticReport.code.coding?.[0].display,
   };
   const dataConfig = getResultDataConfig(commonResources, externalSpecificResources);
@@ -680,12 +688,8 @@ async function createExternalLabsResultsFormPdfBytes(
   if (data.reviewed) {
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient = drawFieldLine(
-      pdfClient,
-      textStyles,
-      `Reviewed: ${data.reviewDate} by`,
-      `${data.reviewingProviderTitle} ${data.reviewingProviderFirst} ${data.reviewingProviderLast}`
-    );
+    const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : 'UNKNOWN';
+    pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDate} by`, name || 'UNKNOWN');
   }
 
   return await pdfClient.save();

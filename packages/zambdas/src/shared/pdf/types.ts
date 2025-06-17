@@ -1,3 +1,4 @@
+import { Practitioner } from 'fhir/r4b';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
@@ -197,9 +198,11 @@ export interface ExternalLabResultsData extends LabResultsData {
   collectionDate: string;
   resultPhase: string;
   reviewed?: boolean;
+  reviewingProvider: Practitioner | undefined;
   reviewingProviderFirst: string;
   reviewingProviderLast: string;
   reviewingProviderTitle: string;
+  reviewingProviderLicense?: string;
   reviewDate: string | undefined;
   resultInterpretations: string[];
   externalLabResults: ExternalLabResult[];

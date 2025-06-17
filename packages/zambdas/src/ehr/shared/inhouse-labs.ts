@@ -115,6 +115,7 @@ export function buildOrderHistory(
       }
 
       if (status && provenance.recorded) {
+        console.log('example', JSON.stringify(provenance));
         const agentName = provenance.agent?.[0]?.who?.display || '';
 
         history.push({

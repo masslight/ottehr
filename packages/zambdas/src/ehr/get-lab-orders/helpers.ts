@@ -45,6 +45,7 @@ import {
   fetchLabOrderPDFs,
   Secrets,
   PatientLabItem,
+  allLicensesForPractitioner,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -1103,7 +1104,13 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
     return NOT_FOUND;
   }
 
-  return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || NOT_FOUND;
+  const nameFormat = [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ');
+  if (!nameFormat) {
+    return NOT_FOUND;
+  }
+
+  const license = allLicensesForPractitioner(practitioner)[0]?.code;
+  return license ? `${nameFormat}, ${license}` : nameFormat;
 };
 
 export const parseLabInfo = (serviceRequest: ServiceRequest): { testItem: string; fillerLab: string } => {
