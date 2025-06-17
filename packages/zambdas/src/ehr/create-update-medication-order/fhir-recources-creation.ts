@@ -1,10 +1,9 @@
-import { MedicationAdministration, MedicationStatement } from 'fhir/r4b';
+import { CodeableConcept, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
 import { ExtendedMedicationData } from './index';
 import { createReference } from 'utils';
 import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
-  IN_HOUSE_MEDICATION_STATEMENT_MEDICATION_SYSTEM,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
@@ -62,7 +61,7 @@ export function createMedicationAdministrationResource(
     ];
   }
   if (data.orderDateTimeCreated) resource.effectiveDateTime = data.orderDateTimeCreated ?? undefined;
-  if (data.medicationCopyId) resource.medicationReference = { reference: `Medication/${data.medicationCopyId}` };
+  if (data.medicationCopy?.id) resource.medicationReference = { reference: `Medication/${data.medicationCopy.id}` };
   if (data.dose && data.units) {
     resource.dosage = {
       dose: {
@@ -135,23 +134,13 @@ export function createMedicationAdministrationResource(
 
 export function createMedicationStatementResource(
   medicationAdministration: MedicationAdministration,
-  medicationCopyId: string,
-  medicationCopyName: string
+  medicationCodeableConcept: CodeableConcept
 ): MedicationStatement {
   return {
     resourceType: 'MedicationStatement',
     status: 'active',
     partOf: [createReference(medicationAdministration)],
-    medicationCodeableConcept: {
-      coding: [
-        {
-          // i think this is not the right code for this particular statement
-          system: IN_HOUSE_MEDICATION_STATEMENT_MEDICATION_SYSTEM,
-          code: medicationCopyId,
-          display: medicationCopyName,
-        },
-      ],
-    },
+    medicationCodeableConcept,
     dosage: [
       {
         text: medicationAdministration.dosage?.text,

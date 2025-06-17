@@ -1,13 +1,15 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, Resource } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CPT, CODE_SYSTEM_NDC,
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_NDC,
   getMedicationName,
-  getMedicationTypeCode, getResourcesFromBatchInlineRequests,
+  getMedicationTypeCode,
+  getResourcesFromBatchInlineRequests,
   InHouseMedicationInfo,
   InHouseMedications,
   INVENTORY_MEDICATION_TYPE_CODE,
-  MEDICATION_IDENTIFIER_ADMIN_CODE_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils';
@@ -42,32 +44,33 @@ const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {
   }
 };
 
-function createMedicationResource(data: InHouseMedicationInfo): Medication {
+function createMedicationResource(inHouseMedInfo: InHouseMedicationInfo): Medication {
   return {
     resourceType: 'Medication',
     identifier: [
-      {
-        system: MEDICATION_IDENTIFIER_ADMIN_CODE_SYSTEM,
-        value: data.adminCode,
-      },
       {
         system: MEDICATION_TYPE_SYSTEM,
         value: INVENTORY_MEDICATION_TYPE_CODE,
       },
       {
         system: MEDICATION_IDENTIFIER_NAME_SYSTEM,
-        value: data.name,
+        value: inHouseMedInfo.name,
       },
     ],
     code: {
       coding: [
         {
           system: CODE_SYSTEM_CPT,
-          code: data.CPT,
+          code: inHouseMedInfo.CPT,
         },
         {
           system: CODE_SYSTEM_NDC,
-          code: data.NDC,
+          code: inHouseMedInfo.NDC,
+        },
+        {
+          system: MEDICATION_DISPENSABLE_DRUG_ID,
+          code: `${inHouseMedInfo.erxData.id}`, // drug id from erx medication search
+          display: inHouseMedInfo.erxData.name,
         },
       ],
     },

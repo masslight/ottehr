@@ -1,15 +1,15 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Medication, MedicationAdministration, MedicationStatement, Patient } from 'fhir/r4b';
+import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  getMedicationName,
   getMedicationTypeCode,
   getPatchBinary,
   getPractitionerIdThatOrderedMedication,
   INVENTORY_MEDICATION_TYPE_CODE,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationData,
   MedicationOrderStatusesType,
   OrderPackage,
@@ -18,7 +18,7 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
 import {
   createMedicationCopy,
@@ -31,14 +31,13 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken } from '../../shared';
-import { ZambdaInput } from '../../shared/types';
+import { ZambdaInput } from '../../shared';
 
 export interface ExtendedMedicationData extends MedicationData {
   administeredProvider?: string;
   providerCreatedTheOrder: string;
-  medicationCopyId?: string;
-  medicationCopyName?: string;
   orderDateTimeCreated?: string;
+  medicationCopy?: Medication;
 }
 
 let m2mtoken: string;
@@ -112,23 +111,19 @@ async function updateOrder(
   )!;
   if (extendedOrderData?.medicationId) {
     const inventoryMedication = await getMedicationById(oystehr, extendedOrderData?.medicationId);
-    const medicationCopy = await createOrRecreateMedicationForOrder(
+    extendedOrderData.medicationCopy = await createOrRecreateMedicationForOrder(
       oystehr,
       orderResources,
       inventoryMedication,
       extendedOrderData
     );
-    extendedOrderData.medicationCopyId = medicationCopy?.id;
-    extendedOrderData.medicationCopyName = medicationCopy && getMedicationName(medicationCopy);
   } else if (orderResources.medication) {
-    const medicationCopy = await updateMedicationCopyForOrder(
+    extendedOrderData.medicationCopy = await updateMedicationCopyForOrder(
       oystehr,
       orderResources.medication,
       orderResources.medication.id!,
       extendedOrderData
     );
-    extendedOrderData.medicationCopyId = medicationCopy.id;
-    extendedOrderData.medicationCopyName = getMedicationName(medicationCopy);
   }
 
   const resultPromises: Promise<any>[] = [];
@@ -142,16 +137,27 @@ async function updateOrder(
     resultPromises.push(changeOrderStatus(oystehr, orderResources, newStatus));
     if (newStatus === 'administered') {
       console.log('Creating MedicationStatement resource on administered action');
-      if (!extendedOrderData.medicationCopyId || !extendedOrderData.medicationCopyName)
-        throw new Error(`No medication name or id found for order. Can't create MedicationStatement for order.`);
+
+      if (!extendedOrderData.medicationCopy)
+        throw new Error(`Can't create MedicationStatement for order, no Medication copy.`);
+
+      const erxDataFromMedication = extendedOrderData.medicationCopy.code?.coding?.find(
+        (code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID
+      );
+      if (!erxDataFromMedication)
+        throw new Error(
+          `Can't create MedicationStatement for order, Medication resource don't have coding with ERX id and display`
+        );
+
+      const medicationCodeableConcept: CodeableConcept = {
+        coding: [erxDataFromMedication],
+      };
       resultPromises.push(
-        oystehr.fhir.create<MedicationStatement>(
-          createMedicationStatementResource(
-            orderResources.medicationAdministration,
-            extendedOrderData.medicationCopyId,
-            extendedOrderData.medicationCopyName
+        oystehr.fhir
+          .create<MedicationStatement>(
+            createMedicationStatementResource(orderResources.medicationAdministration, medicationCodeableConcept)
           )
-        )
+          .then((res) => console.log('created MedicationStatement: ', res.id))
       );
     }
     console.log('Status was successfully changed');
@@ -171,9 +177,8 @@ async function createOrder(
     );
   }
   const medicationCopy = createMedicationCopy(inventoryMedication, extendedOrderData);
-  const createdMedicationCopyResource = await oystehr.fhir.create(medicationCopy);
-  extendedOrderData.medicationCopyId = createdMedicationCopyResource.id;
-  console.log(`Created copy: ${createdMedicationCopyResource.id}`);
+  extendedOrderData.medicationCopy = await oystehr.fhir.create(medicationCopy);
+  console.log(`Created copy: ${extendedOrderData.medicationCopy.id}`);
 
   extendedOrderData.providerCreatedTheOrder = practitionerIdCalledZambda;
   extendedOrderData.orderDateTimeCreated = DateTime.now().toISO() ?? undefined;
