@@ -52,7 +52,7 @@ export const VideoControls: FC = () => {
       <Box
         sx={{
           alignItems: 'center',
-          backgroundColor: otherColors.appbarBackground,
+          backgroundColor: otherColors.appBarBackground,
           display: 'flex',
           gap: 3,
           justifyContent: 'center',
@@ -63,19 +63,19 @@ export const VideoControls: FC = () => {
           {isVideoEnabled ? (
             <VideocamIcon sx={{ color: otherColors.white }} />
           ) : (
-            <VideocamOffIcon sx={{ color: otherColors.appbarBackground }} />
+            <VideocamOffIcon sx={{ color: otherColors.appBarBackground }} />
           )}
         </IconButtonContained>
         <IconButtonContained onClick={toggleMute} variant={!muted ? undefined : 'disabled'}>
           {!muted ? (
             <MicIcon sx={{ color: otherColors.white }} />
           ) : (
-            <MicOffIcon sx={{ color: otherColors.appbarBackground }} />
+            <MicOffIcon sx={{ color: otherColors.appBarBackground }} />
           )}
         </IconButtonContained>
         {isRegularParticipant && isMobile && (
           <IconButtonContained onClick={() => setIsMoreOpen(!isMoreOpen)} variant={isMoreOpen ? 'disabled' : undefined}>
-            <MoreVertIcon sx={{ color: isMoreOpen ? otherColors.appbarBackground : otherColors.white }} />
+            <MoreVertIcon sx={{ color: isMoreOpen ? otherColors.appBarBackground : otherColors.white }} />
           </IconButtonContained>
         )}
         <CallSettingsTooltip

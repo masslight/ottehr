@@ -280,18 +280,20 @@ test.describe('Tests interacting with appointment state', () => {
   test('Patient provided hpi data', async () => {
     await test.step('Medical conditions provided by patient', async () => {
       await expect(
-        page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedsList).getByText('Constipation')
+        page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedList).getByText('Constipation')
       ).toBeVisible();
     });
 
     await test.step('Current medications provided by patient', async () => {
-      const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsPatientProvidedsList);
+      const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsPatientProvidedList);
       await expect(list.getByText('Amoxicillin')).toBeVisible();
+      // cSpell:disable-next Cetirizine
       await expect(list.getByText('Cetirizine/ Zyrtec')).toBeVisible();
     });
 
     await test.step('Known allergies provided by patient', async () => {
       const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList);
+      // cSpell:disable-next Azithromycin
       await expect(list.getByText('Azithromycin (medication)')).toBeVisible();
       await expect(list.getByText('Fish/ Fish Oil (other)')).toBeVisible();
     });
@@ -299,6 +301,7 @@ test.describe('Tests interacting with appointment state', () => {
     await test.step('Surgical history provided by patient', async () => {
       const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryPatientProvidedList);
       await expect(list.getByText('Circumcision')).toBeVisible();
+      // cSpell:disable-next Myringotomy
       await expect(list.getByText('Ear tube placement (Myringotomy)')).toBeVisible();
     });
 
@@ -353,7 +356,8 @@ test.describe('Tests interacting with appointment state', () => {
 
   test('Should test appointment hpi fields', async () => {
     const medicalConditionsPattern = 'Z3A';
-    // const knownAllergiePattern = '10-undecenal';
+    // cSpell:disable-next undecenal
+    // const knownAllergyPattern = '10-undecenal';
     const surgicalHistoryPattern = '44950';
     const surgicalNote = 'surgical note';
     const chiefComplaintNotes = 'chief complaint';
@@ -379,7 +383,7 @@ test.describe('Tests interacting with appointment state', () => {
       );
 
       // TODO: uncomment when erx is enabled
-      // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergiePattern);
+      // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyPattern);
 
       await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgicalHistoryPattern);
 
@@ -448,7 +452,7 @@ test.describe('Tests interacting with appointment state', () => {
     // await test.step('check known allergies list', async () => {
     //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible();
     //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
-    //     RegExp(knownAllergiePattern)
+    //     RegExp(knownAllergyPattern)
     //   );
     // });
 

@@ -35,7 +35,7 @@ import {
   ServiceMode,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
-import { fetchWithOystAuth } from './helpers/tests-utils';
+import { fetchWithOystehrAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -81,7 +81,7 @@ export const PATIENT_CITY = 'New York';
 export const PATIENT_LINE = `${EightDigitsString} Test Line`;
 export const PATIENT_LINE_2 = 'Apt 4B';
 export const PATIENT_STATE = 'NY';
-export const PATIENT_POSTALCODE = '06001';
+export const PATIENT_POSTAL_CODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
 
 export const PATIENT_INSURANCE_MEMBER_ID = '123123';
@@ -185,7 +185,7 @@ export class ResourceHandler {
         city: inputParams?.city ?? PATIENT_CITY,
         line: [inputParams?.line ?? PATIENT_LINE],
         state: inputParams?.state ?? PATIENT_STATE,
-        postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
+        postalCode: inputParams?.postalCode ?? PATIENT_POSTAL_CODE,
       };
 
       const patientData = {
@@ -501,7 +501,7 @@ export class ResourceHandler {
     practitioner: Practitioner;
   }> {
     await this.#initPromise;
-    const users = await fetchWithOystAuth<
+    const users = await fetchWithOystehrAuth<
       {
         id: string;
         name: string;

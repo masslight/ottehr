@@ -3,7 +3,7 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import useEvolveUser from 'src/hooks/useEvolveUser';
-import { getPractitionerNPIIdentitifier, VitalFieldNames } from 'utils';
+import { getPractitionerNPIIdentifier, VitalFieldNames } from 'utils';
 import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import {
@@ -52,7 +52,7 @@ export const ERX: FC<{
     if (!practitioner?.address?.find((address) => address.postalCode)) {
       missingFields.push('Zip code');
     }
-    if (!getPractitionerNPIIdentitifier(practitioner)) {
+    if (!getPractitionerNPIIdentifier(practitioner)) {
       missingFields.push('NPI');
     }
     return missingFields;

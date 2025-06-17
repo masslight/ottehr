@@ -1,3 +1,4 @@
+// cSpell:ignore Gmailerrorred
 import { capitalize, useTheme } from '@mui/material';
 import ReportGmailerrorredIcon from '@mui/icons-material/ReportGmailerrorred';
 import { FC, useMemo, useState } from 'react';
