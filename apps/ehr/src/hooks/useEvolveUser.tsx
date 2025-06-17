@@ -7,18 +7,14 @@ import { useMutation, useQuery } from 'react-query';
 import {
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
-  getPatchOperationToUpdateExtension,
   getPractitionerNPIIdentifier,
   initialsFromName,
-  PHOTON_PRACTITIONER_ENROLLED,
-  PHOTON_PRESCRIBER_SYSTEM_URL,
   PROJECT_NAME,
   RoleType,
   SyncUserResponse,
   User,
 } from 'utils';
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { getUser } from '../api/api';
 import { useApiClients } from './useAppClients';
 import { useAuthToken } from './useAuthToken';
@@ -28,8 +24,6 @@ export interface EvolveUser extends User {
   userInitials: string;
   lastLogin: string | undefined;
   hasRole: (role: RoleType[]) => boolean;
-  isPhotonPrescriber?: boolean;
-  isPractitionerEnrolledInPhoton?: boolean;
 }
 
 interface EvolveUserState {
@@ -39,34 +33,15 @@ interface EvolveUserState {
 
 const useEvolveUserStore = create<EvolveUserState>()(() => ({}));
 
-export const useProviderPhotonStateStore = create<{
-  wasEnrolledInPhoton?: boolean;
-}>()(persist(() => ({}), { name: 'ottehr-ehr-provider-erx-store' }));
-
 // extracting it here, cause even if we use store - it will still initiate requests as much as we have usages of this hook,
 // so just to use this var as a synchronization mechanism - lifted it here
 let _practitionerLoginUpdateStarted = false;
-// let _practitionerSyncStarted = false; // For Credentials Sync
-// let _practitionerSyncFinished = false; // For Credentials Sync
-let _practitionerERXEnrollmentStarted = false;
 
 export default function useEvolveUser(): EvolveUser | undefined {
   const { oystehr } = useApiClients();
   const user = useEvolveUserStore((state) => state.user);
   const profile = useEvolveUserStore((state) => state.profile);
   const { user: auth0User } = useAuth0();
-  const isPhotonPrescriber = profile?.identifier?.some(
-    (x) => x.system === PHOTON_PRESCRIBER_SYSTEM_URL && Boolean(x.value)
-  );
-  const isPractitionerEnrolledInPhoton = profile?.extension?.some(
-    (x) => x.url === PHOTON_PRACTITIONER_ENROLLED && Boolean(x.valueBoolean)
-  );
-
-  useEffect(() => {
-    if (isPractitionerEnrolledInPhoton) {
-      useProviderPhotonStateStore.setState({ wasEnrolledInPhoton: true });
-    }
-  }, [isPractitionerEnrolledInPhoton]);
 
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
@@ -93,7 +68,6 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const { refetch: refetchProfile } = useGetProfile();
   const { isLoading: isPractitionerLastLoginBeingUpdated, mutateAsync: mutatePractitionerAsync } =
     useUpdatePractitioner();
-  const { mutateAsync: mutateEnrollPractitionerInERX } = useEnrollPractitionerInERX();
 
   useEffect(() => {
     if (user?.profile && !profile) {
@@ -123,40 +97,6 @@ export default function useEvolveUser(): EvolveUser | undefined {
     }
   }, [auth0User?.updated_at]);
 
-  useEffect(() => {
-    if (
-      !isPractitionerEnrolledInPhoton &&
-      hasRole([RoleType.Provider]) &&
-      // _practitionerSyncFinished &&
-      isProviderHasEverythingToBeEnrolled &&
-      !_practitionerERXEnrollmentStarted
-    ) {
-      _practitionerERXEnrollmentStarted = true;
-      mutateEnrollPractitionerInERX()
-        .then(async () => {
-          if (profile) {
-            const op = getPatchOperationToUpdateExtension(profile, {
-              url: PHOTON_PRACTITIONER_ENROLLED,
-              valueBoolean: true,
-            });
-            if (op) {
-              await mutatePractitionerAsync([op]);
-              void refetchProfile();
-            }
-          }
-        })
-        .catch(console.error);
-    }
-  }, [
-    hasRole,
-    isPractitionerEnrolledInPhoton,
-    isProviderHasEverythingToBeEnrolled,
-    mutateEnrollPractitionerInERX,
-    mutatePractitionerAsync,
-    profile,
-    refetchProfile,
-  ]);
-
   const { userName, userInitials, lastLogin } = useMemo(() => {
     if (profile) {
       const userName = getFullestAvailableName(profile) ?? `${PROJECT_NAME} Team`;
@@ -175,13 +115,12 @@ export default function useEvolveUser(): EvolveUser | undefined {
         userInitials,
         lastLogin,
         profileResource: profile,
-        isPhotonPrescriber,
-        isPractitionerEnrolledInPhoton,
+        isProviderHasEverythingToBeEnrolled,
         hasRole,
       };
     }
     return undefined;
-  }, [hasRole, isPhotonPrescriber, isPractitionerEnrolledInPhoton, lastLogin, profile, user, userInitials, userName]);
+  }, [hasRole, isProviderHasEverythingToBeEnrolled, lastLogin, profile, user, userInitials, userName]);
 }
 
 // const MINUTE = 1000 * 60; // For Credentials Sync
@@ -295,67 +234,5 @@ const useUpdatePractitioner = () => {
       }
     },
     { retry: 3 }
-  );
-};
-
-interface StreetAddress {
-  street1: string;
-  street2?: string;
-  city: string;
-  state: string;
-  postal_code: string;
-}
-
-interface ERXEnrollmentProps {
-  providerId: Required<Practitioner['id']>;
-  address: StreetAddress;
-  npi?: string;
-  phone: string;
-  given_name: string;
-  family_name: string;
-}
-
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-const useEnrollPractitionerInERX = () => {
-  const token = useAuthToken();
-  const profile = useEvolveUserStore((state) => state.profile);
-
-  return useMutation(
-    ['enroll-provider-erx'],
-    async (): Promise<void> => {
-      try {
-        const address: StreetAddress = {
-          street1: '1 Hollow Lane',
-          street2: 'Ste 301',
-          city: 'Lake Success',
-          postal_code: '11042',
-          state: 'NY',
-        };
-        const payload: ERXEnrollmentProps = {
-          providerId: profile?.id,
-          address,
-          phone: profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value || '',
-          npi: profile && getPractitionerNPIIdentifier(profile)?.value,
-          given_name: profile?.name?.[0]?.given?.[0] || '',
-          family_name: profile?.name?.[0]?.family || '',
-        };
-        _practitionerERXEnrollmentStarted = true;
-
-        const response = await fetch(`${import.meta.env.VITE_APP_PROJECT_API_URL}/erx/enrollment`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(payload),
-          method: 'POST',
-        });
-        if (!response.ok) {
-          throw new Error(`ERX practitioner enrollment call failed: ${response.statusText}`);
-        }
-      } catch (error) {
-        console.error(error);
-        throw error;
-      }
-    },
-    { retry: 2 }
   );
 };

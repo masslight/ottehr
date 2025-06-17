@@ -54,7 +54,15 @@ export const CSSLayout: React.FC = () => {
       <div style={mainBlocksStyle}>
         <Sidebar />
         <div style={contentWrapperStyle}>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 24px 20px' }}>
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '20px 20px 24px 20px',
+            }}
+          >
             <CommonLayoutBreadcrumbs />
             <Outlet />
           </div>

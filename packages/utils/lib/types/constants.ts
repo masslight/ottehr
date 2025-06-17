@@ -1,5 +1,4 @@
 export const TELEMED_VIDEO_ROOM_CODE = 'chime-video-meetings';
-export const PHOTON_PATIENT_IDENTIFIER_SYSTEM = 'http://api.zapehr.com/photon-patient-id';
 
 export const INTERPRETER_PHONE_NUMBER = '(888) 555 0002';
 
@@ -37,3 +36,6 @@ export const PRACTICE_NAME_URL = 'https://fhir.zapehr.com/r4/StructureDefinition
 export const DATE_OF_BIRTH_URL = 'https://fhir.zapehr.com/r4/StructureDefinitions/birth-date';
 
 export const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
+
+export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM =
+  'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';

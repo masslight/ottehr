@@ -45,7 +45,11 @@ import {
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
-import { getAttendingPractionerId, getServiceRequestsRelatedViaRepeat } from '../shared/inhouse-labs';
+import {
+  getAttendingPractionerId,
+  getUrlAndVersionForADFromServiceRequest,
+  getServiceRequestsRelatedViaRepeat,
+} from '../shared/inhouse-labs';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
@@ -271,6 +275,8 @@ const getInHouseLabResultResources = async (
   const attendingPractitionerId = getAttendingPractionerId(encounter);
   const location = locations.length ? locations[0] : undefined;
 
+  const { url: adUrl, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
+
   const [currentUserPractitioner, attendingPractitioner, activityDefinitionSearch] = await Promise.all([
     oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
@@ -287,18 +293,16 @@ const getInHouseLabResultResources = async (
       params: [
         {
           name: 'url',
-          value: serviceRequest.instantiatesCanonical?.join(',') || '',
+          value: adUrl,
         },
-        {
-          name: 'status',
-          value: 'active',
-        },
+        { name: 'version', value: version },
       ],
     }),
   ]);
 
   const activityDefinitions = activityDefinitionSearch.unbundle();
-  if (activityDefinitions.length !== 1) throw new Error('Only one active activity definition should be returned');
+
+  if (activityDefinitions.length !== 1) throw new Error('Only one activity definition should be returned');
 
   return {
     serviceRequest,

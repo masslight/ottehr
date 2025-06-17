@@ -48,7 +48,7 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
 });
 
-test('Open "Add patient page", click "Cancel", validation error on "Mobile phone" field shown', async ({ page }) => {
+test('Open "Add patient page", click "Cancel", navigates back to visits page', async ({ page }) => {
   const addPatientPage = await expectAddPatientPage(page);
   await addPatientPage.clickCancelButton();
 
@@ -135,14 +135,20 @@ test('Open "Add patient page" then enter invalid date of birth, click "Add", val
 });
 
 test.describe('For new patient', () => {
-  test('Add walk-in visit for new patient', async ({ page }) => {
-    const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
+  test(
+    'Add walk-in visit for new patient',
+    {
+      tag: '@skipOnIntegration',
+    },
+    async ({ page }) => {
+      const { appointmentId } = await createAppointment(page, VISIT_TYPES.WALK_IN, false, NEW_PATIENT_1_LAST_NAME);
 
-    const visitsPage = await expectVisitsPage(page);
-    await visitsPage.selectLocation(ENV_LOCATION_NAME!);
-    await visitsPage.clickInOfficeTab();
-    await visitsPage.verifyVisitPresent(appointmentId);
-  });
+      const visitsPage = await expectVisitsPage(page);
+      await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+      await visitsPage.clickInOfficeTab();
+      await visitsPage.verifyVisitPresent(appointmentId);
+    }
+  );
 
   test('Add pre-book visit for new patient', async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(
