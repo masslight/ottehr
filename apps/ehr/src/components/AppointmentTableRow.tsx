@@ -589,12 +589,7 @@ export default function AppointmentTableRow({
   };
 
   const renderStartIntakeButton = (): ReactElement | undefined => {
-    if (
-      appointment.status === 'pending' ||
-      appointment.status === 'arrived' ||
-      appointment.status === 'ready' ||
-      appointment.status === 'intake'
-    ) {
+    if (appointment.status === 'arrived' || appointment.status === 'ready' || appointment.status === 'intake') {
       return (
         <GoToButton
           text="Start Intake"
