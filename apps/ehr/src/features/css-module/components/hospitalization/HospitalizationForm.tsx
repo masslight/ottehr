@@ -1,5 +1,5 @@
 import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
-import { FC, useCallback } from 'react';
+import { FC, useCallback, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { HospitalizationDTO } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
@@ -215,9 +215,9 @@ export const HospitalizationForm: FC = () => {
     [onSubmit, reset]
   );
 
-  const sortedHospitalizationOptions = HospitalizationOptions.sort((a, b) =>
-    a.display.toLowerCase().localeCompare(b.display.toLowerCase())
-  );
+  const sortedHospitalizationOptions = useMemo(() => {
+    return HospitalizationOptions.sort((a, b) => a.display.toLowerCase().localeCompare(b.display.toLowerCase()));
+  }, []);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
