@@ -9,6 +9,7 @@ import { expectPatientInfoPage } from '../../page/PatientInfo';
 
 const resourceHandler = new ResourceHandler('in-person');
 
+// cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const MEDICATION = '0.9% Sodium Chloride IV (1000cc)';
 const DOSE = '2';
@@ -74,6 +75,7 @@ test('Non-selected diagnosis on Assessment page is not present in Order Medicati
   page,
 }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
+  // cSpell:disable-next Loiasis
   await orderMedicationPage.editMedicationCard.verifyDiagnosisNotAllowed('Loiasis');
 });
 
