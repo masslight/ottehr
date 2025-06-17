@@ -7,6 +7,7 @@ interface YesNoQuestionProps {
   linkId: string;
   answer?: string;
   required: boolean;
+  isReadOnly?: boolean;
   field: ControllerRenderProps<FieldValues, string>;
 }
 
@@ -34,8 +35,8 @@ export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
     formState: { errors: _ },
   } = useFormContext();
 
-  const { questionText, linkId, answer, required, field } = props;
-  const isReadOnly = answer !== undefined;
+  const { questionText, linkId, answer, required, isReadOnly, field } = props;
+
   const labelId = `boolean-${linkId}-label`;
   return (
     <>
