@@ -658,9 +658,6 @@ export default function AddPatient(): JSX.Element {
                             setSlot(undefined);
                             setVisitType(event.target.value as VisitType);
                           }}
-                          onClick={() => {
-                            console.log('alex clicked visit type select');
-                          }}
                         >
                           <MenuItem value={VisitType.WalkIn}>Walk-in In Person Visit</MenuItem>
                           <MenuItem value={VisitType.PreBook}>Pre-booked In Person Visit</MenuItem>

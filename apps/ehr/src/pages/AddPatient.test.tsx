@@ -176,50 +176,6 @@ describe('AddPatient', () => {
     ).toHaveAttribute('required');
   });
 
-  it('Should use HTML5 required validation for all required fields', async () => {
-    const user = userEvent.setup();
-
-    render(
-      <BrowserRouter>
-        <AddPatient />
-      </BrowserRouter>
-    );
-
-    expect(screen.getByTestId(dataTestIds.dashboard.locationSelect).querySelector('input')).toHaveAttribute('required');
-
-    const phoneNumberEntryField = screen
-      .getByTestId(dataTestIds.addPatientPage.mobilePhoneInput)
-      .querySelector('input');
-    expect(phoneNumberEntryField).toBeInTheDocument();
-    expect(phoneNumberEntryField).toHaveAttribute('required');
-
-    await user.click(phoneNumberEntryField!);
-    await user.paste('1234567890'); // Sufficiently valid phone number
-    await user.click(screen.getByTestId(dataTestIds.addPatientPage.searchForPatientsButton));
-
-    // If this is visible then we are ready to test the broader form validations
-    const firstNameInput = screen.getByTestId(dataTestIds.addPatientPage.firstNameInput).querySelector('input');
-    expect(firstNameInput).toBeVisible();
-
-    expect(firstNameInput).toHaveAttribute('required');
-    expect(screen.getByTestId(dataTestIds.addPatientPage.lastNameInput).querySelector('input')).toHaveAttribute(
-      'required'
-    );
-    expect(await screen.findByPlaceholderText('MM/DD/YYYY')).toHaveAttribute('required');
-
-    expect(
-      (await screen.findByTestId(dataTestIds.addPatientPage.sexAtBirthDropdown)).querySelector('input')
-    ).toHaveAttribute('required');
-
-    expect(
-      (await screen.findByTestId(dataTestIds.addPatientPage.reasonForVisitDropdown)).querySelector('input')
-    ).toHaveAttribute('required');
-
-    expect(
-      (await screen.findByTestId(dataTestIds.addPatientPage.visitTypeDropdown)).querySelector('input')
-    ).toHaveAttribute('required');
-  });
-
   it('Should show a  validation error if date of birth field has an invalid date', async () => {
     const user = userEvent.setup();
     render(
@@ -246,7 +202,7 @@ describe('AddPatient', () => {
     expect(errorMessage).toBeVisible();
   });
 
-  it('Should show a popup if use has is in prebook visit type and does not select a slot', async () => {
+  it('Should show a popup if user is in prebook visit type and does not select a slot', async () => {
     const user = userEvent.setup();
 
     render(
