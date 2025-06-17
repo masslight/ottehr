@@ -36,6 +36,9 @@
     },
   },
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint"],
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "streetsidesoftware.code-spell-checker"
+    ],
   },
 }
