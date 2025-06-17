@@ -21,7 +21,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
+import { DiagnosisDTO } from 'utils/src/types/api/chart-data';
 import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';

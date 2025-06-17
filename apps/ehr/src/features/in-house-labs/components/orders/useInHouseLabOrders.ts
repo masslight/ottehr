@@ -8,7 +8,7 @@ import {
   DeleteInHouseLabOrderParameters,
   InHouseOrderListPageItemDTO,
   InHouseGetOrdersResponseDTO,
-} from 'utils/lib/types/data/in-house/in-house.types';
+} from 'utils/src/types/data/in-house/in-house.types';
 import { useApiClients } from '../../../../hooks/useAppClients';
 import { deleteInHouseLabOrder, getInHouseOrders } from '../../../../api/api';
 import { FEATURE_FLAGS } from 'src/constants/feature-flags';

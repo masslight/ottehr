@@ -7,8 +7,8 @@ import { createDemoVisits } from '@ehrTheme/icons';
 import { Location } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
 import { ServiceMode } from 'utils';
-import { isLocationVirtual } from 'utils/lib/fhir/location';
-import { createSampleAppointments } from 'utils/lib/helpers';
+import { isLocationVirtual } from 'utils/src/fhir/location';
+import { createSampleAppointments } from 'utils/src/helpers';
 import { useApiClients } from '../hooks/useAppClients';
 
 const createAppointmentZambdaId = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;

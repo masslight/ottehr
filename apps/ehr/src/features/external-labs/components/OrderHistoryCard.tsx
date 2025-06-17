@@ -1,7 +1,7 @@
 import { Table, TableRow, TableCell } from '@mui/material';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
-import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
+import { LabOrderHistoryRow } from 'utils/src/types/data/labs/labs.types';
 import { LabsOrderStatusChip } from './ExternalLabsStatusChip';
 import { formatDateForLabs, PSC_HOLD_LOCALE } from 'utils';
 

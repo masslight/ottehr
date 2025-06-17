@@ -3,8 +3,8 @@ import ContactPhoneOutlinedIcon from '@mui/icons-material/ContactPhoneOutlined';
 import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import { FC } from 'react';
-import { getPatientAddress } from 'utils/lib/fhir/patient';
-import { formatPhoneNumberDisplay } from 'utils/lib/helpers/helpers';
+import { getPatientAddress } from 'utils/src/fhir/patient';
+import { formatPhoneNumberDisplay } from 'utils/src/helpers/helpers';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { Patient } from 'fhir/r4b';
 

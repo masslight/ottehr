@@ -25,7 +25,7 @@ import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { InHouseLabsTableRow } from './InHouseLabsTableRow';
 import { useInHouseLabOrders } from './useInHouseLabOrders';
 import { useNavigate } from 'react-router-dom';
-import { LabOrdersSearchBy } from 'utils/lib/types/data/labs';
+import { LabOrdersSearchBy } from 'utils/src/types/data/labs';
 import { DateTime } from 'luxon';
 import { getInHouseLabOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { InHouseOrderListPageItemDTO, TestItem } from 'utils';

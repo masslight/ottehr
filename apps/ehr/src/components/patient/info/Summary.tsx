@@ -1,7 +1,7 @@
 import CakeOutlinedIcon from '@mui/icons-material/CakeOutlined';
 import { capitalize, Box, Skeleton, Typography } from '@mui/material';
 import { FC } from 'react';
-import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/lib/types';
+import { PATIENT_INDIVIDUAL_PRONOUNS_URL } from 'utils/src/types';
 import { getExtensionValue } from '../../../features/css-module/parser';
 import { formatDOB } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';

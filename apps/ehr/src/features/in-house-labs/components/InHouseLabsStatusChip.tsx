@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { Chip, ChipProps, SxProps } from '@mui/material';
-import { TestStatus } from 'utils/lib/types/data/in-house';
+import { TestStatus } from 'utils/src/types/data/in-house';
 
 interface StatusColorConfig {
   backgroundColor: string;

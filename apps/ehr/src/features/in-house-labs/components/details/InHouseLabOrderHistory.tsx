@@ -2,7 +2,7 @@ import React from 'react';
 import { Typography, Table, TableBody, TableRow, TableCell } from '@mui/material';
 import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { formatDateForLabs } from 'utils';
-import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { InHouseOrderDetailPageItemDTO } from 'utils/src/types/data/in-house/in-house.types';
 
 interface InHouseLabOrderHistoryProps {
   showDetails: boolean;

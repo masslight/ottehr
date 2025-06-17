@@ -10,7 +10,7 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { COVERAGE_MEMBER_IDENTIFIER_BASE, flattenItems, INSURANCE_PLAN_PAYER_META_TAG_CODE, isValidUUID } from 'utils';
-import InPersonQuestionnaireFile from 'utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
+import InPersonQuestionnaireFile from 'utils/src/deployed-resources/questionnaires/in-person-intake-questionnaire.json';
 import { v4 as uuidv4 } from 'uuid';
 import { assert, describe, expect, it } from 'vitest';
 import {

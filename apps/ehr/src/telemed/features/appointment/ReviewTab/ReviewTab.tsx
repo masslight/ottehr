@@ -1,7 +1,7 @@
 import { Box, CircularProgress } from '@mui/material';
 import { FC, useCallback, useRef } from 'react';
 import { useFeatureFlags } from 'src/features/css-module/context/featureFlags';
-import { telemedProgressNoteChartDataRequestedFields } from 'utils/lib/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
+import { telemedProgressNoteChartDataRequestedFields } from 'utils/src/helpers/visit-note/progress-note-chart-data-requested-fields.helper';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetReviewAndSignData } from '../../../state';

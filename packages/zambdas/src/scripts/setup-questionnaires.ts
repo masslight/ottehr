@@ -14,13 +14,13 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
   const oystehrClient = createOystehrClient(token, envConfig);
   try {
     const folder = fs.readdirSync(
-      path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires')
+      path.join(__dirname, '../../../../packages/utils/src/deployed-resources/questionnaires')
     );
     const requests = await Promise.all(
       folder.flatMap(async (file) => {
         const questionnaireData = JSON.parse(
           fs.readFileSync(
-            path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires', file),
+            path.join(__dirname, '../../../../packages/utils/src/deployed-resources/questionnaires', file),
             'utf8'
           )
         );
@@ -75,7 +75,7 @@ const writeQuestionnaires = async (envConfig: any, env: string): Promise<void> =
     folder.forEach((file) => {
       const questionnaireData = JSON.parse(
         fs.readFileSync(
-          path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/questionnaires', file),
+          path.join(__dirname, '../../../../packages/utils/src/deployed-resources/questionnaires', file),
           'utf8'
         )
       );

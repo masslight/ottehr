@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "version": "1.11.8",
-  "main": "lib/main.ts",
-  "types": "lib/main.ts",
+  "main": "src/main.ts",
+  "types": "src/main.ts",
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=9.0.0"

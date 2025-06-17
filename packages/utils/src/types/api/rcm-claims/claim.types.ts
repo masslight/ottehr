@@ -60,7 +60,7 @@ export interface ClaimsQueueItem {
   claim: Claim;
   eligibilityResponse?: CoverageEligibilityResponse;
   chargeItem?: ChargeItem;
-  paymentData: any; // PaymentDataResponse; // https://github.com/masslight/ottehr/blob/main/packages/utils/lib/types/data/telemed/appointments/appointments.types.ts#L47
+  paymentData: any; // PaymentDataResponse; // https://github.com/masslight/ottehr/blob/main/packages/utils/src/types/data/telemed/appointments/appointments.types.ts#L47
   status: ClaimsQueueItemStatus;
   patient: Patient;
   insurancePlan?: InsurancePlan;

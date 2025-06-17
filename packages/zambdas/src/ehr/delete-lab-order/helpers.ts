@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Condition, Encounter, QuestionnaireResponse, ServiceRequest, Task } from 'fhir/r4b';
 import { DeleteLabOrderParams } from './validateRequestParameters';
-import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/src/types/data/labs/labs.constants';
 
 export const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
   method: 'DELETE',

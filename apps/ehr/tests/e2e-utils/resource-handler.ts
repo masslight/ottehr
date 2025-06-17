@@ -43,7 +43,7 @@ import {
 } from './resource/employees';
 import { getInHouseMedicationsResources } from './resource/in-house-medications';
 import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
-import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
+import inPersonIntakeQuestionnaire from '../../../../packages/utils/src/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

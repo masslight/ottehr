@@ -9,7 +9,7 @@ import {
   SCHEDULE_EXTENSION_URL,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import { isLocationVirtual } from 'utils/lib/fhir/location';
+import { isLocationVirtual } from 'utils/src/fhir/location';
 import {
   allPhysicalDefaultLocations,
   defaultGroup,

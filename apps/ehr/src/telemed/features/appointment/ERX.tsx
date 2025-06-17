@@ -4,7 +4,7 @@ import { FC, useCallback, useEffect, useMemo, useState } from 'react';
 import { useChartData } from 'src/features/css-module/hooks/useChartData';
 import useEvolveUser from 'src/hooks/useEvolveUser';
 import { getPractitionerNPIIdentifier, VitalFieldNames } from 'utils';
-import { createVitalsSearchConfig } from 'utils/lib/helpers/visit-note/create-vitals-search-config.helper';
+import { createVitalsSearchConfig } from 'utils/src/helpers/visit-note/create-vitals-search-config.helper';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import {
   useAppointmentStore,

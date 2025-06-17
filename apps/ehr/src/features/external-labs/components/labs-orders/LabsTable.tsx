@@ -26,7 +26,7 @@ import {
   LabOrdersSearchBy,
   OrderableItemSearchResult,
   PSC_LOCALE,
-} from 'utils/lib/types/data/labs';
+} from 'utils/src/types/data/labs';
 import { getExternalLabOrderEditUrl } from '../../../css-module/routing/helpers';
 import { LabOrderLoading } from './LabOrderLoading';
 import { DateTime } from 'luxon';

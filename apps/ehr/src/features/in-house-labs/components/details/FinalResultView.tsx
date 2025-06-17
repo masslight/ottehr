@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Button, Paper } from '@mui/material';
-import { InHouseOrderDetailPageItemDTO } from 'utils/lib/types/data/in-house/in-house.types';
+import { InHouseOrderDetailPageItemDTO } from 'utils/src/types/data/in-house/in-house.types';
 import { getFormattedDiagnoses, DiagnosisDTO } from 'utils';
 import { FinalResultCard } from './FinalResultCard';
 import { useNavigate } from 'react-router-dom';

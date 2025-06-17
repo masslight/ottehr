@@ -15,7 +15,7 @@ const writeProviders = async (envConfig: any, env: string): Promise<void> => {
   const oystehrClient = createOystehrClient(token, envConfig);
   try {
     const folder = fs.readdirSync(
-      path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/billing-provider')
+      path.join(__dirname, '../../../../packages/utils/src/deployed-resources/billing-provider')
     );
     const newSecrets: any = {};
     const allResources: { envVarName: string; resource: Location | Practitioner | Organization }[] = [];
@@ -23,7 +23,7 @@ const writeProviders = async (envConfig: any, env: string): Promise<void> => {
       folder.flatMap(async (file) => {
         const providerData = JSON.parse(
           fs.readFileSync(
-            path.join(__dirname, '../../../../packages/utils/lib/deployed-resources/billing-provider', file),
+            path.join(__dirname, '../../../../packages/utils/src/deployed-resources/billing-provider', file),
             'utf8'
           )
         );
