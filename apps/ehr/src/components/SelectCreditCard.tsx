@@ -26,7 +26,7 @@ interface CreditCardContentProps {
   error?: string;
 }
 
-const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
+let stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
 
 const labelForCard = (card: CreditCardInfo): string => {
   return `XXXX - XXXX - XXXX - ${card.lastFour}${card.default ? ' (Primary)' : ''}`;
@@ -38,19 +38,23 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
   const { patient, selectedCardId, handleCardSelected, error } = props;
   const [cards, setCards] = useState<CreditCardInfo[]>([]);
 
-  const [addingNewCard, setAddingNewCard] = useState<boolean>(false);
-
   const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   const {
     data: setupData,
     isFetching: isSetupDataFetching,
     isLoading: isSetupDataLoading,
+    refetch: refetchSetupData,
+    isRefetching: isSetupDataRefetching,
   } = useSetupStripe(patient?.id);
 
   const { mutate: setDefault } = useSetDefaultPaymentMethod(patient?.id);
 
-  const { isFetching: cardsAreLoading, refetch: refetchPaymentMethods } = useGetPaymentMethods({
+  const {
+    isFetching: cardsAreLoading,
+    isFetched: cardsFetched,
+    refetch: refetchPaymentMethods,
+  } = useGetPaymentMethods({
     beneficiaryPatientId: patient?.id,
     setupCompleted: Boolean(setupData),
     onSuccess: (data) => {
@@ -59,11 +63,15 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       if (defaultCard && !selectedCardId) {
         handleCardSelected(defaultCard.id);
       }
-      if (data.cards.length === 0) {
-        setAddingNewCard(true);
-      }
+      void refetchSetupData();
     },
   });
+
+  const showNewCard = (() => {
+    const hasNone = cardsFetched && !cardsAreLoading && cards.length === 0;
+    const addingOne = selectedCardId === NEW_CARD.id;
+    return hasNone || addingOne;
+  })();
 
   const initializing = isSetupDataFetching || isSetupDataLoading;
 
@@ -91,7 +99,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       await refetchPaymentMethods();
     }
     handleCardSelected(id);
-    setAddingNewCard(false);
+    stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);
   };
 
   if (initializing) {
@@ -108,7 +116,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
       </Box>
     );
   }
-  const currentValue = addingNewCard ? NEW_CARD : selectedCard ?? null;
+  const currentValue = selectedCard;
   const showCardList = cards.length > 0;
   return (
     <>
@@ -130,7 +138,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
             {option.label}
           </li>
         )}
-        value={currentValue}
+        value={currentValue ?? null}
         renderInput={(params: AutocompleteRenderInputParams) => {
           return (
             <Box>
@@ -152,13 +160,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
           );
         }}
         onChange={(_event, value) => {
-          if (value?.id === NEW_CARD.id) {
-            setAddingNewCard(true);
-          }
           handleCardSelected(value?.id);
-          if (addingNewCard) {
-            setAddingNewCard(false);
-          }
         }}
       />
 
@@ -166,7 +168,7 @@ const CreditCardContent: FC<CreditCardContentProps> = (props) => {
         <Box
           sx={{
             width: '100%',
-            display: addingNewCard ? 'flex' : 'none',
+            display: showNewCard ? 'flex' : 'none',
             justifyContent: 'center',
             alignItems: 'flex-start',
             flexDirection: 'column',
