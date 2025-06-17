@@ -322,7 +322,7 @@ export const HospitalizationForm: FC = () => {
                   onClick={async () =>
                     handleSelectOption({
                       display: 'Other [' + otherInputText + ']',
-                      code: '',
+                      code: 'other',
                       snomedDescription: '',
                       snomedRegionDescription: '',
                     })
