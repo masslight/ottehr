@@ -1,5 +1,5 @@
-import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
-import { FC, useCallback } from 'react';
+import { Autocomplete, Box, Button, Card, TextField, Typography } from '@mui/material';
+import { FC, useCallback, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { HospitalizationDTO } from 'utils';
 import { getSelectors } from '../../../../shared/store/getSelectors';
@@ -188,6 +188,12 @@ const HospitalizationOptions: HospitalizationDTO[] = [
     snomedDescription: '68566005 | Urinary tract infectious disease (disorder)',
     snomedRegionDescription: '122489005 | Urinary system structure (body structure)',
   },
+  {
+    display: 'Other',
+    code: '',
+    snomedDescription: '',
+    snomedRegionDescription: '',
+  },
 ];
 
 export const HospitalizationForm: FC = () => {
@@ -198,6 +204,8 @@ export const HospitalizationForm: FC = () => {
       selectedHospitalization: null,
     },
   });
+  const [showOtherInput, setShowOtherInput] = useState<boolean>(false);
+  const [otherInputText, setOtherInputText] = useState<string>('');
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();
 
@@ -207,7 +215,9 @@ export const HospitalizationForm: FC = () => {
 
   const handleSelectOption = useCallback(
     async (data: HospitalizationDTO | null): Promise<void> => {
-      if (data) {
+      setShowOtherInput(data?.display === 'Other');
+      setOtherInputText('');
+      if (data && data.display !== 'Other') {
         await onSubmit(data);
         reset({ selectedHospitalization: null });
       }
@@ -297,6 +307,31 @@ export const HospitalizationForm: FC = () => {
                 />
               )}
             />
+            {showOtherInput ? (
+              <Box display="flex">
+                {' '}
+                <TextField
+                  size="small"
+                  label="Other hospitalization"
+                  style={{ flexGrow: 1, marginRight: '16px' }}
+                  onChange={(e) => setOtherInputText(e.target.value)}
+                />
+                <Button
+                  color="primary"
+                  variant="outlined"
+                  onClick={async () =>
+                    handleSelectOption({
+                      display: 'Other [' + otherInputText + ']',
+                      code: '',
+                      snomedDescription: '',
+                      snomedRegionDescription: '',
+                    })
+                  }
+                >
+                  Add
+                </Button>
+              </Box>
+            ) : undefined}
           </Card>
         </Box>
       )}
