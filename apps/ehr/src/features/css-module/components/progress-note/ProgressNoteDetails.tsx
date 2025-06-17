@@ -1,6 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getProgressNoteChartDataRequestedFields, NOTE_TYPE } from 'utils';
+import { getProgressNoteChartDataRequestedFields, NOTE_TYPE, LabType } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
@@ -19,7 +19,7 @@ import {
   PrivacyPolicyAcknowledgement,
   ReviewOfSystemsContainer,
   SurgicalHistoryContainer,
-  ExternalLabResultsReviewContainer,
+  LabResultsReviewContainer,
 } from '../../../../telemed/features/appointment/ReviewTab';
 import { useChartData } from '../../hooks/useChartData';
 import { ExamReadOnlyBlock } from '../examination/ExamReadOnly';
@@ -43,6 +43,7 @@ export const ProgressNoteDetails: FC = () => {
         vitalsObservations: data?.vitalsObservations,
         prescribedMedications: data?.prescribedMedications,
         externalLabResults: data?.externalLabResults,
+        inHouseLabResults: data?.inHouseLabResults,
         disposition: data?.disposition,
       });
     },
@@ -61,6 +62,7 @@ export const ProgressNoteDetails: FC = () => {
   const observations = chartData?.observations;
   const vitalsObservations = chartData?.vitalsObservations;
   const externalLabResults = chartData?.externalLabResults;
+  const inHouseLabResults = chartData?.inHouseLabResults;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
@@ -73,6 +75,10 @@ export const ProgressNoteDetails: FC = () => {
   const showExternalLabsResultsContainer = !!(
     externalLabResults?.resultsPending ||
     (externalLabResults?.labOrderResults && externalLabResults?.labOrderResults.length > 0)
+  );
+  const showInHouseLabsResultsContainer = !!(
+    inHouseLabResults?.resultsPending ||
+    (inHouseLabResults?.labOrderResults && inHouseLabResults?.labOrderResults.length > 0)
   );
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
@@ -101,7 +107,18 @@ export const ProgressNoteDetails: FC = () => {
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
-    showExternalLabsResultsContainer && <ExternalLabResultsReviewContainer />,
+    showInHouseLabsResultsContainer && (
+      <LabResultsReviewContainer
+        resultDetails={{ type: LabType.inhouse, results: inHouseLabResults.labOrderResults }}
+        resultsPending={inHouseLabResults.resultsPending}
+      />
+    ),
+    showExternalLabsResultsContainer && (
+      <LabResultsReviewContainer
+        resultDetails={{ type: LabType.external, results: externalLabResults.labOrderResults }}
+        resultsPending={externalLabResults.resultsPending}
+      />
+    ),
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,

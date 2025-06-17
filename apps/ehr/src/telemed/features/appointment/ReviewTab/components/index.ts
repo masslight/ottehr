@@ -20,4 +20,4 @@ export * from './SurgicalHistoryContainer';
 export * from './VisitDetailsContainer';
 export * from './VisitNoteItem';
 export * from './CPTCodesContainer';
-export * from './ExternalLabResultsReviewContainer.tsx';
+export * from './LabResultsReviewContainer';

@@ -36,7 +36,7 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
-import { EncounterExternalLabResult } from '../lab';
+import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -65,6 +65,7 @@ export interface ChartDataFields {
   birthHistory?: BirthHistoryDTO[];
   aiChat?: QuestionnaireResponse;
   externalLabResults?: EncounterExternalLabResult;
+  inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
 }
 

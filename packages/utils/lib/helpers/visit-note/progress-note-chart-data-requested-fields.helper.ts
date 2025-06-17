@@ -20,6 +20,7 @@ export const getProgressNoteChartDataRequestedFields = (): ChartDataRequestedFie
       .join(','),
   },
   externalLabResults: {},
+  inHouseLabResults: {},
 });
 
 export const telemedProgressNoteChartDataRequestedFields: ChartDataRequestedFields = {
