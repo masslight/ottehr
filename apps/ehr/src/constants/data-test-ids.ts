@@ -47,6 +47,7 @@ export const dataTestIds = {
     patientFullName: 'patient-full-name',
   },
   addPatientPage: {
+    locationHeader: 'location-header',
     mobilePhoneInput: 'mobile-phone-input',
     searchForPatientsButton: 'search-for-patients-button',
     addButton: 'add-button',
