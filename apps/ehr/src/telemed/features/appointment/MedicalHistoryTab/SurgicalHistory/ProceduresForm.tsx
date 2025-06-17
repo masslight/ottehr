@@ -1,5 +1,5 @@
-import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
-import { FC } from 'react';
+import { Autocomplete, Box, Button, Card, TextField, Typography } from '@mui/material';
+import { FC, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { CPTCodeDTO } from 'utils';
 import { otherColors } from '@ehrTheme/colors';
@@ -9,6 +9,8 @@ import { useChartDataArrayValue } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+
+const OTHER_CODE = '41899';
 
 const surgicalHystoryOptions: CPTCodeDTO[] = [
   { display: 'Adenoidectomy', code: '42830' },
@@ -41,7 +43,7 @@ const surgicalHystoryOptions: CPTCodeDTO[] = [
   { display: 'Undescended Testicle Repair', code: '42820' },
   { display: 'Ventriculoperitoneal shunt placement', code: '54640' },
   { display: 'Wisdom teeth removal', code: '75809' },
-  { display: 'Other', code: '41899' },
+  { display: 'Other', code: OTHER_CODE },
 ];
 
 export const ProceduresForm: FC = () => {
@@ -52,6 +54,8 @@ export const ProceduresForm: FC = () => {
       selectedProcedure: null,
     },
   });
+  const [showOtherInput, setShowOtherInput] = useState<boolean>(false);
+  const [otherInputText, setOtherInputText] = useState<string>('');
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);
 
   const { control, reset } = methods;
@@ -59,7 +63,9 @@ export const ProceduresForm: FC = () => {
   const { isLoading, onSubmit, onRemove, values: procedures } = useChartDataArrayValue('surgicalHistory', reset, {});
 
   const handleSelectOption = (data: CPTCodeDTO | null): void => {
-    if (data) {
+    setShowOtherInput(data?.display === 'Other');
+    setOtherInputText('');
+    if (data && data.display !== 'Other') {
       void onSubmit(data);
       reset({ selectedProcedure: null });
     }
@@ -148,6 +154,29 @@ export const ProceduresForm: FC = () => {
             />
           )}
         />
+        {showOtherInput ? (
+          <Box display="flex">
+            {' '}
+            <TextField
+              size="small"
+              label="Other surgery"
+              style={{ flexGrow: 1, marginRight: '16px' }}
+              onChange={(e) => setOtherInputText(e.target.value)}
+            />
+            <Button
+              color="primary"
+              variant="outlined"
+              onClick={async () =>
+                handleSelectOption({
+                  display: 'Other [' + otherInputText + ']',
+                  code: OTHER_CODE,
+                })
+              }
+            >
+              Add
+            </Button>
+          </Box>
+        ) : undefined}
       </Card>
     </Box>
   );
