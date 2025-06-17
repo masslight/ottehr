@@ -77,7 +77,7 @@ export const IntakeThemeProviderBase: FC<IntakeThemeProviderProps> = (props) => 
       styleOverrides: {
         root: {
           display: 'flex',
-          backgroundColor: otherColors.appbarBackground,
+          backgroundColor: otherColors.appBarBackground,
         },
       },
     },
