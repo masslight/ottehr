@@ -5,7 +5,7 @@ import { handleParticipantPeriod } from '../../../helpers/practitionerUtils';
 import { Coding, Encounter } from 'fhir/r4b';
 
 export const usePractitionerActions = (
-  encounter: Encounter | undefined,
+  encounter: Encounter,
   action: 'start' | 'end',
   practitionerType: Coding[]
 ): { isEncounterUpdatePending: boolean; handleUpdatePractitioner: () => Promise<void> } => {

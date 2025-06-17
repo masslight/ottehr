@@ -5,7 +5,7 @@ import { assignPractitioner, unassignPractitioner } from '../api/api';
 
 export const handleParticipantPeriod = async (
   oystehrZambda: Oystehr | undefined,
-  encounter: Encounter | undefined,
+  encounter: Encounter,
   user: EvolveUser | undefined,
   action: 'start' | 'end',
   practitionerType: Coding[]
@@ -13,6 +13,10 @@ export const handleParticipantPeriod = async (
   if (!oystehrZambda || !encounter || !user || !user.profileResource?.id) {
     console.warn('Missing required data:', { oystehrZambda, encounter, user, profileResource: user?.profileResource }); //
     return;
+  }
+
+  if (!encounter.id) {
+    throw new Error('Encounter ID is required in order to assign or unassign a practitioner from an encounter.');
   }
 
   try {

@@ -2,6 +2,7 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  AssignPractitionerInput,
   CancelRadiologyOrderZambdaInput,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
@@ -51,7 +52,6 @@ import {
   UpdateUserParams,
 } from 'utils';
 import {
-  AssignPractitionerParameters,
   CancelAppointmentParameters,
   ChangeInPersonVisitStatusParameters,
   DeactivateUserParameters,
@@ -301,7 +301,7 @@ export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams)
   }
 };
 
-export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerParameters): Promise<any> => {
+export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerInput): Promise<any> => {
   try {
     if (ASSIGN_PRACTITIONER_ZAMBDA_ID == null) {
       throw new Error('assign practitioner environment variable could not be loaded');

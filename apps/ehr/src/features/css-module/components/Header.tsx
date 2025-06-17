@@ -3,7 +3,7 @@ import { Box, Grid, IconButton, Typography } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
 import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { VisitStatusLabel, PRACTITIONER_CODINGS } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
