@@ -20,9 +20,10 @@ import {
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
-import { cleanAppointment, cleanAppointmentGraph } from 'test-utils';
+import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
+  cleanAppointmentGraph,
   CreateAppointmentResponse,
   createSampleAppointments,
   E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,

@@ -1,19 +1,23 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Coding, FhirResource, Person } from 'fhir/r4b';
+import { chunkThings, getAllFhirSearchPages } from '../fhir';
+import { sleep } from '../helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
   const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources);
 
-  console.log('deleteRequests length:', deleteRequests.length);
-
   await Promise.all(persons.map((person) => patchPerson(oystehr, person, allResources)));
 
   try {
     console.log(`Deleting resources...`);
-    const transaction = await oystehr.fhir.transaction({ requests: [...deleteRequests] });
-    console.log(`Transaction response:`, JSON.stringify(transaction, null, 2));
+    const chunkedRequests = chunkThings(deleteRequests, 100);
+    for (let i = 0; i < chunkedRequests.length; i++) {
+      await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
+      console.log(`successfully deleted resources, chunk ${i + 1} of ${chunkedRequests.length}`);
+      await sleep(500);
+    }
     return true;
   } catch (e) {
     console.log(`Error deleting resources: ${e}`, JSON.stringify(e));
@@ -49,7 +53,7 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
 
   console.log('Resources to be deleted:');
   deleteRequests.forEach((request) => {
-    const [resourceType, id] = request.url.slice(1).split('/');
+    const [resourceType, id] = request.url.split('/');
     console.log(`${resourceType}: ${id}`);
   });
 
@@ -146,6 +150,10 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
         value: 'Appointment:location',
       },
       {
+        name: '_revinclude',
+        value: 'Task:focus',
+      },
+      {
         name: '_revinclude:iterate',
         value: 'RelatedPerson:patient',
       },
@@ -183,14 +191,59 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
       },
       {
         name: '_revinclude:iterate',
+        value: 'ClinicalImpression:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'AuditEvent:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'ServiceRequest:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'DiagnosticReport:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Specimen:patient',
+      },
+      {
+        name: '_revinclude:iterate',
         value: 'Account:patient',
       },
       {
         name: '_revinclude:iterate',
         value: 'Coverage:patient',
       },
+      {
+        name: '_revinclude:iterate',
+        value: 'MedicationRequest:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Procedure:patient',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Task:based-on',
+      },
+      {
+        name: '_revinclude:iterate',
+        value: 'Task:encounter',
+      },
     ],
   };
 
-  return (await oystehr.fhir.search<FhirResource>(fhirSearchParams)).unbundle();
+  const allResources = (await oystehr.fhir.search<FhirResource>(fhirSearchParams)).unbundle();
+  const allPatientRefs = allResources
+    .filter((resourceTemp) => resourceTemp.resourceType === 'Patient')
+    .map((p) => `Patient/${p.id}`);
+  const params = [{ name: 'patient', value: allPatientRefs.join(',') }];
+
+  const allObservations =
+    allPatientRefs.length > 0 ? await getAllFhirSearchPages({ resourceType: 'Observation', params }, oystehr) : [];
+  console.log(`Found ${allResources.length} non-observation resources and ${allObservations.length} observations`);
+  return [...allResources, ...allObservations];
 };
