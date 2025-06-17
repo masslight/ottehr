@@ -259,7 +259,7 @@ function GroupPageContent(): ReactElement {
           })
         );
       }
-      await oystehr.fhir.batch<PractitionerRole | HealthcareService>({
+      await oystehr.fhir.transaction<PractitionerRole | HealthcareService>({
         requests: [
           ...practitionerRolesResourceCreateRequests,
           ...practitionerRolesResourcePatchRequests,
@@ -268,7 +268,7 @@ function GroupPageContent(): ReactElement {
       });
 
       if (slugPatchRequests.length > 0) {
-        await oystehr.fhir.batch<HealthcareService>({
+        await oystehr.fhir.transaction<HealthcareService>({
           requests: slugPatchRequests,
         });
       }
