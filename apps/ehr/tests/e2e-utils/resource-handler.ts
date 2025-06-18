@@ -34,7 +34,7 @@ import {
   ServiceMode,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
-import { fetchWithOystAuth } from './helpers/tests-utils';
+import { fetchWithOystehrAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -496,7 +496,7 @@ export class ResourceHandler {
     practitioner: Practitioner;
   }> {
     await this.#initPromise;
-    const users = await fetchWithOystAuth<
+    const users = await fetchWithOystehrAuth<
       {
         id: string;
         name: string;
