@@ -77,7 +77,7 @@ function createMedicationResource(inHouseMedInfo: InHouseMedicationInfo): Medica
   };
 }
 
-function filterInHouseMedications(allResources: Resource[]): Medication[] {
+export function filterInHouseMedications(allResources: Resource[]): Medication[] {
   return allResources.filter(
     (res) =>
       res.resourceType === 'Medication' && getMedicationTypeCode(res as Medication) === INVENTORY_MEDICATION_TYPE_CODE
