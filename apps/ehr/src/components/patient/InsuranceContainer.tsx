@@ -3,6 +3,7 @@ import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import {
   chooseJson,
+  CopayBenefit,
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   isPostalCodeValid,
@@ -28,6 +29,7 @@ import { dataTestIds } from '../../constants/data-test-ids';
 import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
 import { useApiClients } from 'src/hooks/useAppClients';
 import { useMutation } from 'react-query';
+import { CopayWidget } from './CopayWidget';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -60,6 +62,7 @@ function mapInitialStatus(
     return {
       status: status.status,
       dateISO: status.dateISO,
+      copay: initialCheckResult.copay,
     };
   }
   return undefined;
@@ -68,6 +71,7 @@ function mapInitialStatus(
 interface SimpleStatusCheckWithDate {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
+  copay?: CopayBenefit[];
 }
 
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
@@ -207,8 +211,18 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     );
   };
 
+  const copayBenefits = eligibilityStatus?.copay ?? [];
+
   return (
     <Section title="Insurance information" dataTestId="insuranceContainer" titleWidget={<TitleWidget />}>
+      <Box
+        sx={{
+          marginLeft: '12px',
+          marginTop: 2,
+        }}
+      >
+        <CopayWidget copay={copayBenefits} benefitFilter={(b) => b.code === 'UC'} />
+      </Box>
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect
           name={FormFields.insurancePriority.key}
