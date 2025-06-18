@@ -1302,10 +1302,7 @@ export const getActiveAccountGuarantorReference = (account: Account): string | u
 };
 
 export const getSlugForBookableResource = (resource: BookableResource): string | undefined => {
-  console.log('getSlugForBookableResource', resource);
-  console.log('slug system', SLUG_SYSTEM);
   return resource.identifier?.find((id) => {
-    console.log('id.system', id.system);
     return id.system === SLUG_SYSTEM;
   })?.value;
 };
