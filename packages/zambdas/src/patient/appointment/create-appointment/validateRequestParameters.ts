@@ -35,6 +35,7 @@ export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {
   user: User;
   isEHRUser: boolean;
   locationState?: string;
+  appointmentMetadata?: Appointment['meta'];
 };
 
 export function validateCreateAppointmentParams(input: ZambdaInput, user: User): CreateAppointmentBasicInput {
@@ -49,7 +50,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
   const isEHRUser = checkIsEHRUser(user);
 
   const bodyJSON = JSON.parse(input.body);
-  const { slotId, language, patient, unconfirmedDateOfBirth, locationState } = bodyJSON;
+  const { slotId, language, patient, unconfirmedDateOfBirth, locationState, appointmentMetadata } = bodyJSON;
   console.log('unconfirmedDateOfBirth', unconfirmedDateOfBirth);
   console.log('patient:', patient, 'slotId:', slotId);
   // Check existence of necessary fields
@@ -129,6 +130,11 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     }
   }
 
+  // will rely on fhir validation for more granular checks
+  if (appointmentMetadata && typeof appointmentMetadata !== 'object') {
+    throw INVALID_INPUT_ERROR('"appointmentMetadata" must be an object');
+  }
+
   return {
     slotId,
     user,
@@ -139,6 +145,7 @@ export function validateCreateAppointmentParams(input: ZambdaInput, user: User):
     unconfirmedDateOfBirth,
     currentCanonicalQuestionnaireUrl,
     locationState,
+    appointmentMetadata,
   };
 }
 
@@ -151,13 +158,16 @@ export interface CreateAppointmentEffectInput {
   questionnaireCanonical: CanonicalUrl;
   visitType: VisitType;
   locationState?: string;
+  appointmentMetadata?: Appointment['meta'];
 }
 
 export const createAppointmentComplexValidation = async (
   input: CreateAppointmentBasicInput,
   oystehrClient: Oystehr
 ): Promise<CreateAppointmentEffectInput> => {
-  const { slotId, isEHRUser, user, patient } = input;
+  const { slotId, isEHRUser, user, patient, appointmentMetadata } = input;
+
+  console.log('createAppointmentComplexValidation metadata:', appointmentMetadata);
 
   let locationState = input.locationState;
 
@@ -254,5 +264,6 @@ export const createAppointmentComplexValidation = async (
     questionnaireCanonical,
     visitType,
     locationState,
+    appointmentMetadata,
   };
 };

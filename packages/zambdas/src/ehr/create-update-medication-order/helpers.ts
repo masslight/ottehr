@@ -37,8 +37,9 @@ export function createMedicationCopy(inventoryMedication: Medication, orderData:
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
   // deleting identifier with code that indicates that this medication is inventory one
-  const typeIdentifierArrId = resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE);
-  if (typeIdentifierArrId && typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+  const typeIdentifierArrId =
+    resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
+  if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
   if (orderData.lotNumber || orderData.expDate) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber,
@@ -59,30 +60,41 @@ export async function practitionerIdFromZambdaInput(input: ZambdaInput, secrets:
 
 export async function createOrRecreateMedicationForOrder(
   oystehr: Oystehr,
-  orderPkg: OrderPackage,
+  orderResources: OrderPackage,
   inputMedication: Medication,
   orderData: MedicationData
 ): Promise<Medication | undefined> {
   let medicationCopy: Medication | undefined;
-  console.log(`Medication found: ${inputMedication.id}, existed medication in resource: ${orderPkg.medication?.id}`);
-  if (!orderPkg.medication) {
+  console.log(
+    `Inventory medication name: ${getMedicationName(inputMedication)}, id: ${
+      inputMedication.id
+    }. Existed medication copy for order name: ${
+      orderResources.medication && getMedicationName(orderResources.medication)
+    }, id: ${orderResources.medication?.id}`
+  );
+  if (!orderResources.medication) {
     console.log('Creating inputMedication copy for this particular order');
     medicationCopy = createMedicationCopy(inputMedication, orderData);
     medicationCopy = await oystehr.fhir.create(medicationCopy);
     console.log(`Created copy: ${medicationCopy.id}`);
-  } else if (getMedicationName(inputMedication) !== getMedicationName(orderPkg.medication)) {
+  } else if (getMedicationName(inputMedication) !== getMedicationName(orderResources.medication)) {
     console.log('Updating inputMedication resource copy for this order');
-    medicationCopy = await updateMedicationCopyForOrder(oystehr, inputMedication, orderPkg.medication.id!, orderData);
+    medicationCopy = await updateMedicationCopyForOrder(
+      oystehr,
+      inputMedication,
+      orderResources.medication.id!,
+      orderData
+    );
     console.log(`Updated resource with id: ${medicationCopy.id}`);
   } else {
     console.log(`Medications are identical, update just existed medication`);
     medicationCopy = await updateMedicationCopyForOrder(
       oystehr,
-      orderPkg.medication,
-      orderPkg.medication.id!,
+      orderResources.medication,
+      orderResources.medication.id!,
       orderData
     );
-    medicationCopy = orderPkg.medication;
+    medicationCopy = orderResources.medication;
   }
   return medicationCopy;
 }

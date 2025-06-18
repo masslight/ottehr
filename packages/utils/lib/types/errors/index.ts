@@ -7,7 +7,7 @@ export enum APIErrorCode {
   DOB_UNCONFIRMED = 4002,
   NO_READ_ACCESS_TO_PATIENT = 4003,
   APPOINTMENT_NOT_FOUND = 4004,
-  CANT_CANCEL_CHECKEDIN_APT = 4005,
+  CANT_CANCEL_CHECKED_IN_APT = 4005,
   APPOINTMENT_CANT_BE_CANCELED = 4006,
   PATIENT_TOO_OLD = 4007,
   PATIENT_NOT_BORN = 4008,
@@ -124,8 +124,8 @@ export const APPOINTMENT_NOT_FOUND_ERROR = {
   message: 'Appointment is not found',
 };
 
-export const CANT_CANCEL_CHECKEDIN_APT_ERROR = {
-  code: APIErrorCode.CANT_CANCEL_CHECKEDIN_APT,
+export const CANT_CANCEL_CHECKED_IN_APT_ERROR = {
+  code: APIErrorCode.CANT_CANCEL_CHECKED_IN_APT,
   message: 'You cannot cancel a checked-in appointment',
 };
 

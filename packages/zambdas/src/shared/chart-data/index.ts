@@ -26,9 +26,11 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  ADDED_VIA_LAB_ORDER_SYSTEM,
   ADDITIONAL_QUESTIONS_META_SYSTEM,
   AI_OBSERVATION_META_SYSTEM,
   AllergyDTO,
+  BODY_SITE_SYSTEM,
   BirthHistoryDTO,
   BooleanValueDTO,
   CPTCodeDTO,
@@ -49,6 +51,7 @@ import {
   FreeTextNoteDTO,
   GetChartDataResponse,
   HospitalizationDTO,
+  MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   MedicalConditionDTO,
   MedicationDTO,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
@@ -58,8 +61,11 @@ import {
   ObservationDTO,
   ObservationTextFieldDTO,
   PATIENT_VITALS_META_SYSTEM,
+  PERFORMER_TYPE_SYSTEM,
   PRIVATE_EXTENSION_BASE_URL,
+  PROCEDURE_TYPE_SYSTEM,
   PrescribedMedicationDTO,
+  ProcedureDTO,
   ProviderChartDataFieldsNames,
   SCHOOL_WORK_NOTE,
   SCHOOL_WORK_NOTE_CODE,
@@ -76,16 +82,11 @@ import {
   isVitalObservation,
   makeVitalsObservationDTO,
   removeOperation,
-  ADDED_VIA_LAB_ORDER_SYSTEM,
-  ProcedureDTO,
-  PROCEDURE_TYPE_SYSTEM,
-  PERFORMER_TYPE_SYSTEM,
-  BODY_SITE_SYSTEM,
 } from 'utils';
 import { removePrefix } from '../appointment/helpers';
+import { fillMeta } from '../helpers';
 import { PdfDocumentReferencePublishedStatuses, PdfInfo, isDocumentPublished } from '../pdf/pdf-utils';
 import { saveOrUpdateResourceRequest } from '../resources.helpers';
-import { fillMeta } from '../helpers';
 
 const getMetaWFieldName = (fieldName: ProviderChartDataFieldsNames): Meta => {
   return fillMeta(fieldName, fieldName);
@@ -151,7 +152,7 @@ export function makeAllergyResource(
   data: AllergyDTO,
   fieldName: ProviderChartDataFieldsNames
 ): AllergyIntolerance {
-  // commenting type for now since zap and photon doesn't support it yet
+  // commenting type for now since zap and erx doesn't support it yet
   // const allergyType = data.type !== 'food' && data.type !== 'medication' ? undefined : data.type;
   return {
     id: data.resourceId,
@@ -221,7 +222,7 @@ export function makeMedicationResource(
     medicationCodeableConcept: {
       coding: [
         {
-          system: 'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id',
+          system: MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
           code: data.id,
           display: data.name,
         },
@@ -251,7 +252,7 @@ export function makePrescribedMedicationDTO(medRequest: MedicationRequest): Pres
   return {
     resourceId: medRequest.id,
     name: medRequest.medicationCodeableConcept?.coding?.find(
-      (coding) => coding.system === 'http://api.zapehr.com/photon-treatment-id'
+      (coding) => coding.system === MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM
     )?.display,
     instructions: medRequest.dosageInstruction?.[0]?.patientInstruction,
     added: medRequest.extension?.find((extension) => extension.url === 'http://api.zapehr.com/photon-event-time')

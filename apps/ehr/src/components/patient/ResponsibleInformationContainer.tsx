@@ -161,6 +161,7 @@ export const ResponsibleInformationContainer: FC = () => {
               required: REQUIRED_FIELD_ERROR_MESSAGE,
             }}
             data-testid={dataTestIds.responsiblePartyInformationContainer.city}
+            disabled={selfSelected}
           />
           <Controller
             name={FormFields.state.key}
@@ -186,6 +187,7 @@ export const ResponsibleInformationContainer: FC = () => {
                   renderInput={(params) => (
                     <TextField {...params} variant="standard" error={!!error} required helperText={error?.message} />
                   )}
+                  disabled={selfSelected}
                 />
               );
             }}
@@ -198,6 +200,7 @@ export const ResponsibleInformationContainer: FC = () => {
               validate: (value: string) => isPostalCodeValid(value) || 'Must be 5 digits',
             }}
             data-testid={dataTestIds.responsiblePartyInformationContainer.zip}
+            disabled={selfSelected}
           />
         </Box>
       </Row>

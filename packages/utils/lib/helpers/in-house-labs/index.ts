@@ -260,6 +260,12 @@ export const convertActivityDefinitionToTestItem = (
     }
   }
 
+  if (!activityDef.url || !activityDef.version) {
+    throw new Error(
+      `ActivityDefinition is misconfigured and is missing either its url or version property: ${activityDef.url}, ${activityDef.version}. AD id is ${activityDef.id}`
+    );
+  }
+
   const testItem: TestItem = {
     name,
     methods,
@@ -273,8 +279,11 @@ export const convertActivityDefinitionToTestItem = (
       groupedComponents,
       radioComponents,
     },
+    adUrl: activityDef.url,
+    adVersion: activityDef.version,
   };
 
+  console.log('successfully converted activity ActivityDefinition to testItem format for', testItem.name);
   return testItem;
 };
 

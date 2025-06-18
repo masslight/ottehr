@@ -4,7 +4,6 @@ import {
   FhirAppointmentType,
   OTTEHR_MODULE,
   PatientFollowupDetails,
-  PractitionerLicense,
   ScheduleType,
   ServiceMode,
   VisitStatusWithoutUnknown,
@@ -47,19 +46,6 @@ export type PatientInfo = {
   reasonForVisit: string | undefined;
   reasonAdditional?: string;
 };
-
-export interface UpdateUserParameters {
-  userId: string | undefined;
-  firstName?: string;
-  middleName?: string;
-  lastName?: string;
-  nameSuffix?: string;
-  selectedRoles?: string[] | undefined;
-  licenses?: PractitionerLicense[];
-  phoneNumber?: string;
-  npi?: string;
-  // locations: Location[];
-}
 
 export interface AssignPractitionerParameters {
   encounterId: string | undefined;
@@ -119,13 +105,13 @@ export enum VisitType {
   PostTelemed = 'post-telemed',
 }
 
-export const VisitTypeToLabel: { [visittype in VisitType]: string } = {
+export const VisitTypeToLabel: { [visitType in VisitType]: string } = {
   'walk-in': 'Walk-in In Person Visit',
   'pre-booked': 'Pre-booked In Person Visit',
   'post-telemed': 'Post Telemed Lab Only',
 };
 
-export const VisitTypeToLabelTelemed: { [visittype in VisitType]: string } = {
+export const VisitTypeToLabelTelemed: { [visitType in VisitType]: string } = {
   'walk-in': 'On-demand Telemed',
   'pre-booked': 'Pre-booked Telemed',
   'post-telemed': 'Post Telemed Lab Only',

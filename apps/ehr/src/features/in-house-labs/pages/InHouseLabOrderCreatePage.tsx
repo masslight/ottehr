@@ -473,8 +473,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                         return;
                       }
                       const alreadySelected =
-                        selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code) ||
-                        selectedAssessmentDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
+                        selectedNewDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code) ||
+                        selectedAssessmentDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code);
                       if (!alreadySelected) {
                         setSelectedNewDiagnoses((diagnoses) => [
                           ...diagnoses,
@@ -564,7 +564,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     notesLabel={'Notes (optional)'}
                     readOnly={false}
                     additionalBoxSxProps={{ mb: 3 }}
-                    additionalTextFieldProps={{ multiline: true, rows: 4 }}
+                    additionalTextFieldProps={{ rows: 4 }}
                     handleNotesUpdate={(newNote: string) => setNotes(newNote)}
                   />
                 </Grid>

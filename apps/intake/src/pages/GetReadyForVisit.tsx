@@ -43,7 +43,7 @@ const GetReadyForVisit = (): JSX.Element => {
       title={t('getReady.title')}
       imgWidth={150}
       topOutsideCardComponent={
-        // todo: previously this only was displaye when the office was open,
+        // todo: previously this only was displayed when the office was open,
         // but it seems waiting minutes shouldn't be defined in cases where the office is closed
         // so that additional check should not be needed. currently it looks like waiting minutes will never
         // be written to the location state being checked here and this will never show.

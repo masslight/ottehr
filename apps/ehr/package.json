@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.11.7",
+  "version": "1.11.11",
   "private": true,
   "type": "module",
   "engines": {
@@ -31,7 +31,9 @@
     "build:staging": "ENV=staging npm run build-skeleton",
     "build:demo": "ENV=demo npm run build-skeleton",
     "build-skeleton": "tsc && vite build --mode ${ENV}",
-    "test": "vitest --silent",
+    "unit-tests": "vitest --config ./vitest.config.ts",
+    "component-tests": "vitest --config ./vitest.config.component-tests.ts",
+    "test": "npm run unit-tests -- --watch=false && npm run component-tests -- --watch=false",
     "e2e:login": "npm run e2e-skeleton ./tests/e2e/login",
     "e2e:specs": "npm run e2e-skeleton ./tests/e2e/specs",
     "e2e:specs:ui": "npm run e2e-skeleton ./tests/e2e/specs -- --ui",
@@ -53,8 +55,6 @@
     "@mui/icons-material": "^5.14.9",
     "@mui/x-data-grid-pro": "^6.3.0",
     "@mui/x-date-pickers-pro": "^6.3.0",
-    "@oystehr/sdk": "^4.0.0-alpha.2",
-    "@photonhealth/elements": "^0.12.3",
     "@stripe/react-stripe-js": "^3.0.0",
     "@stripe/stripe-js": "^3.5.0",
     "@twilio/conversations": "^2.4.1",

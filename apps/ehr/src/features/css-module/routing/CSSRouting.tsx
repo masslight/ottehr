@@ -28,7 +28,7 @@ const CSSRouting: React.FC = () => {
           {availableRoutes.map((route) => (
             <Route key={route.path} path={route.path} element={route.element} />
           ))}
-          {/* redirect unavailable page to the first available page, usecase - intake mode trying to open provider page */}
+          {/* redirect unavailable page to the first available page, use-case - intake mode trying to open provider page */}
           <Route path="*" element={<Navigate to={availableRoutes[0].path} replace />} />
         </Route>
       </Routes>

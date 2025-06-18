@@ -94,7 +94,7 @@ export const EditableMedicationCard: React.FC<{
      *
      * This approach ensures that the exact data shown to and confirmed by the user
      * will be sent to the endpoint and saved.
-     * We can't use async useState value here, becuse we should save value synchronously after user confirmation.
+     * We can't use async useState value here, because we should save value synchronously after user confirmation.
      */
     confirmedMedicationUpdateRequestRef.current = {
       ...(updatedRequestInput.orderId ? { orderId: updatedRequestInput.orderId } : {}),
@@ -177,8 +177,8 @@ export const EditableMedicationCard: React.FC<{
   const getFieldValue = <Field extends keyof MedicationData>(
     field: Field,
     type = 'text'
-  ): MedicationData[Field] | '' => {
-    return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : '');
+  ): MedicationData[Field] | '' | undefined => {
+    return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
   };
 
   const isUnsavedData = isUnsavedMedicationData(

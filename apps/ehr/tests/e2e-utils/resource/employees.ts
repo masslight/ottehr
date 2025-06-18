@@ -1,3 +1,4 @@
+// cSpell:ignore ASSISTA, CISW, CMSW
 import Oystehr, { UserInviteParams } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
 import { randomUUID } from 'node:crypto';
@@ -6,13 +7,13 @@ import {
   getFirstName,
   getLastName,
   getMiddleName,
-  getPractitionerNPIIdentitifier,
+  getPractitionerNPIIdentifier,
   getSuffix,
   makeQualificationForPractitioner,
   PractitionerLicense,
   RoleType,
 } from 'utils';
-import { fetchWithOystAuth } from '../helpers/tests-utils';
+import { fetchWithOystehrAuth } from '../helpers/tests-utils';
 
 export interface TestEmployeeInviteParams {
   userName?: string;
@@ -172,14 +173,14 @@ export async function inviteTestEmployeeUser(
   oystehr: Oystehr,
   authToken: string
 ): Promise<TestEmployee | undefined> {
-  const rolesRaw = await fetchWithOystAuth<{ id: string; name: string }[]>(
+  const rolesRaw = await fetchWithOystehrAuth<{ id: string; name: string }[]>(
     'GET',
     'https://project-api.zapehr.com/v1/iam/role',
     authToken
   );
   const providerRoleId = rolesRaw.find((role) => role.name === RoleType.Provider)?.id;
   if (!providerRoleId) throw new Error(`Didn't found any role with name: ${RoleType.Provider}`);
-  const response = await fetchWithOystAuth<UserResponse>(
+  const response = await fetchWithOystehrAuth<UserResponse>(
     'POST',
     'https://project-api.zapehr.com/v1/user/invite',
     authToken,
@@ -194,7 +195,7 @@ export async function removeUser(
   oystehr: Oystehr,
   authToken: string
 ): Promise<void> {
-  const removeUser = fetchWithOystAuth('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`, authToken);
+  const removeUser = fetchWithOystehrAuth('DELETE', `https://project-api.zapehr.com/v1/user/${userId}`, authToken);
   const removeUserPractitioner = oystehr.fhir.delete({ resourceType: 'Practitioner', id: practitionerId });
   await Promise.all([removeUser, removeUserPractitioner]);
 
@@ -213,7 +214,7 @@ async function parseTestUser(user: UserResponse, oystehr: Oystehr): Promise<Test
   const lastName = getLastName(practitioner);
   if (!firstName || !middleName || !lastName) throw new Error(`Error parsing user full name: ${user.id}`);
   const phone = practitioner.telecom?.find((telecom) => telecom.system === 'sms')?.value;
-  const npi = getPractitionerNPIIdentitifier(practitioner)?.value;
+  const npi = getPractitionerNPIIdentifier(practitioner)?.value;
   const qualification = allLicensesForPractitioner(practitioner);
   const credentials = getSuffix(practitioner);
   if (!phone) throw new Error(`No phone for this user: ${user.id}`);

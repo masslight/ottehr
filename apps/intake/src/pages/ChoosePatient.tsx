@@ -117,7 +117,7 @@ const ChoosePatient = (): JSX.Element => {
         if (patientInfo?.id && patientInfo.id === currentPatient.id && currentPatient.id === data.patientID) {
           // console.log('path 1');
           foundPatient = true;
-          // don't overrwrite what's alrady in the booking store if we haven't chosen a new patient
+          // don't overwrite what's already in the booking store if we haven't chosen a new patient
         } else if (currentPatient.id === data.patientID) {
           // console.log('path 2');
           foundPatient = true;
