@@ -283,6 +283,7 @@ export const convertActivityDefinitionToTestItem = (
     adVersion: activityDef.version,
   };
 
+  console.log('successfully converted activity ActivityDefinition to testItem format for', testItem.name);
   return testItem;
 };
 

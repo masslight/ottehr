@@ -14,7 +14,7 @@ export const NursingOrderDetailsPage: React.FC = () => {
   const navigate = useNavigate();
   const { serviceRequestID } = useParams<{ serviceRequestID: string }>();
 
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
 
   const searchBy: NursingOrdersSearchBy | undefined = useMemo(() => {
