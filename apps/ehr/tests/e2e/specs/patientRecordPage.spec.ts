@@ -11,7 +11,6 @@ import {
 
 import { waitForResponseWithData } from 'test-utils';
 import {
-  chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -766,7 +765,6 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
   const PROCESS_ID = `patientRecordPage-zero-data-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(PROCESS_ID);
 
-  let appointmentIds: string[] = [];
   let context: BrowserContext;
   let page: Page;
 
@@ -774,22 +772,6 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
     await resourceHandler.setResources();
     context = await browser.newContext();
     page = await context.newPage();
-    page.on('response', async (response) => {
-      if (response.url().includes('/create-appointment/')) {
-        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-        if (appointment && !appointmentIds.includes(appointment)) {
-          console.log('Created appointment: ', appointment);
-          appointmentIds.push(appointment);
-        }
-      }
-    });
-  });
-
-  test.afterEach(async () => {
-    for (const id of appointmentIds) {
-      await resourceHandler.cleanAppointment(id);
-    }
-    appointmentIds = [];
   });
 
   test.afterAll(async () => {

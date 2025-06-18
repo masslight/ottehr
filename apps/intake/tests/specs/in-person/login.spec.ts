@@ -1,31 +1,6 @@
-import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { cleanAppointment, login } from 'test-utils';
-import { chooseJson, CreateAppointmentResponse } from 'utils';
+import { expect, test } from '@playwright/test';
+import { login } from 'test-utils';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
-
-let page: Page;
-let context: BrowserContext;
-const appointmentIds: string[] = [];
-
-test.beforeAll(async ({ browser }) => {
-  context = await browser.newContext();
-  page = await context.newPage();
-  page.on('response', async (response) => {
-    if (response.url().includes('/create-appointment/')) {
-      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-      if (appointment && !appointmentIds.includes(appointment)) {
-        appointmentIds.push(appointment);
-      }
-    }
-  });
-});
-test.afterAll(async () => {
-  const env = process.env.ENV;
-  for (const appointment of appointmentIds) {
-    console.log(`Deleting ${appointment} on env: ${env}`);
-    await cleanAppointment(appointment, env!);
-  }
-});
 
 test('Should open home page', async ({ page }) => {
   await page.goto('/home');
