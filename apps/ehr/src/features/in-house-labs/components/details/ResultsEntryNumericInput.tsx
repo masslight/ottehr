@@ -27,7 +27,7 @@ export const ResultEntryNumericInput: React.FC<ResultEntryNumericInputProps> = (
     ) {
       const entryNum = parseFloat(entry);
       const { high, low } = testItemComponent.normalRange;
-      // todo double chec with product team if this is inclusive on both ends
+      // todo double check with product team if this is inclusive on both ends
       // meaning it would be abnormal if it is strictly greater or strictly less than (but not equal)
       if (entryNum > high || entryNum < low) setIsAbnormal(true);
       if (entryNum <= high && entryNum >= low) setIsAbnormal(false);

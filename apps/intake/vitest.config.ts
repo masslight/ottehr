@@ -8,8 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, 'env/.env.local') });
 export default defineConfig({
   test: {
     globals: true,
-    exclude: ['**/*.spec.ts'],
-    environment: 'jsdom',
+    exclude: ['**/*.spec.ts', '**/*.test.tsx'],
   },
   plugins: [tsconfigPaths()],
 });

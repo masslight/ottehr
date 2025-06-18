@@ -18,7 +18,7 @@ export const useVitalsHandlers: UseVitalsHandlers = ({ encounterId, searchConfig
 
     return chartDataVitalsDTOs.map((vitalDTO) => {
       const practitionerId = vitalDTO.authorId;
-      const practitioner = practitioners.find((pract) => pract.id === practitionerId);
+      const practitioner = practitioners.find((practitioner) => practitioner.id === practitionerId);
 
       const practitionerNameComponents = practitioner?.name?.at(0);
       const givenName = practitionerNameComponents?.given?.at(0) ?? '';

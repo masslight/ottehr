@@ -78,6 +78,7 @@ export const NursingOrderCreatePage: React.FC = () => {
                     value={orderNote}
                     onChange={(e) => setOrderNote(e.target.value)}
                     required
+                    inputProps={{ maxLength: 150 }}
                   />
                 </Box>
                 <Divider />

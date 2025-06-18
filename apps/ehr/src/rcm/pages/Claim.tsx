@@ -51,7 +51,7 @@ export const Claim: FC = () => {
   });
 
   const { data: organizations } = useGetOrganizations((data) => {
-    console.log('Organisations', data);
+    console.log('Organizations', data);
   });
 
   useEffect(() => {

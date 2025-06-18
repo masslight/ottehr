@@ -125,7 +125,7 @@ export const AppointmentSidePanel: FC = () => {
     return language.toLowerCase() === 'Spanish'.toLowerCase();
   }
 
-  const delimeterString = preferredLanguage && isSpanish(preferredLanguage) ? `\u00A0|\u00A0` : '';
+  const delimiterString = preferredLanguage && isSpanish(preferredLanguage) ? `\u00A0|\u00A0` : '';
   const interpreterString =
     preferredLanguage && isSpanish(preferredLanguage) ? `Interpreter: ${INTERPRETER_PHONE_NUMBER}` : '';
 
@@ -324,7 +324,7 @@ export const AppointmentSidePanel: FC = () => {
               Preferred Language
             </Typography>
             <Typography variant="body2">
-              {preferredLanguage} {delimeterString} {interpreterString}
+              {preferredLanguage} {delimiterString} {interpreterString}
             </Typography>
           </Box>
 

@@ -1,26 +1,11 @@
 import React, { useCallback, useState, JSX, useMemo } from 'react';
-import {
-  useTheme,
-  Box,
-  CircularProgress,
-  Typography,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  SelectChangeEvent,
-  FormControlLabel,
-  Checkbox,
-  lighten,
-} from '@mui/material';
+import { useTheme, Box, CircularProgress, Typography, Grid, FormControlLabel, Checkbox, lighten } from '@mui/material';
 import {
   textToNumericValue,
   VitalFieldNames,
   VitalsVisionObservationDTO,
   VitalsVisionOption,
   getVisionExtraOptionsFormattedString,
-  VitalVisionUnit,
 } from 'utils';
 import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../../components/RoundedButton';
@@ -30,6 +15,7 @@ import { composeVisionVitalsHistoryEntries } from './helpers';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalVisionHistoryElement from './VitalVisionHistoryElement';
 import { useVitalsCardState } from '../hooks/useVitalsCardState';
+import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
 
 const VitalsVisionCard: React.FC = (): JSX.Element => {
   const theme = useTheme();
@@ -112,12 +98,8 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
     }
   };
 
-  const visionNumericalUnits = useMemo(() => {
-    return Object.values(VitalVisionUnit).filter((value) => typeof value === 'number');
-  }, []);
-
   const handleLeftEyeSelectionChange = useCallback(
-    (event: SelectChangeEvent<string>): void => {
+    (event: { target: { value: string } }): void => {
       const eventValue = event.target.value;
       const selectedLeftEye = eventValue ?? '';
       setLeftEyeSelection(selectedLeftEye);
@@ -129,7 +111,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
   );
 
   const handleRightEyeSelectionChange = useCallback(
-    (event: SelectChangeEvent<string>): void => {
+    (event: { target: { value: string } }): void => {
       const eventValue = event.target.value;
       const selectedRightEye = eventValue ?? '';
       setRightEyeSelection(selectedRightEye);
@@ -140,7 +122,7 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
     [leftEyeSelection]
   );
 
-  const handleBothEyesSelectionChange = useCallback((event: SelectChangeEvent<string>): void => {
+  const handleBothEyesSelectionChange = useCallback((event: { target: { value: string } }): void => {
     const eventValue = event.target.value;
     const selectedBothEyes = eventValue ?? '';
     setBothEyesSelection(selectedBothEyes);
@@ -194,31 +176,13 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                     ml: 0,
                   }}
                 >
-                  <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={isSavingCardData}>
-                    <InputLabel id="left-eye-label">Left eye</InputLabel>
-                    <Select
-                      value={leftEyeSelection}
-                      label="Left eye"
-                      labelId="left-eye-label"
-                      variant="outlined"
-                      error={false}
-                      defaultValue=""
-                      onChange={handleLeftEyeSelectionChange}
-                    >
-                      <MenuItem key="default_vision_unit" value={''}>
-                        <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                          &nbsp;
-                        </Typography>
-                      </MenuItem>
-                      {visionNumericalUnits.map((visionUnit) => (
-                        <MenuItem key={visionUnit} value={visionUnit}>
-                          <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                            {visionUnit}
-                          </Typography>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <VitalsTextInputFiled
+                    label="Left eye"
+                    value={leftEyeSelection}
+                    disabled={isSavingCardData}
+                    isInputError={false}
+                    onChange={handleLeftEyeSelectionChange}
+                  />
                 </Box>
               </Grid>
 
@@ -231,31 +195,13 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                     ml: 1,
                   }}
                 >
-                  <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={isSavingCardData}>
-                    <InputLabel id="right-eye-label">Right eye</InputLabel>
-                    <Select
-                      value={rightEyeSelection}
-                      label="Right eye"
-                      labelId="right-eye-label"
-                      variant="outlined"
-                      error={false}
-                      defaultValue=""
-                      onChange={handleRightEyeSelectionChange}
-                    >
-                      <MenuItem key="default_vision_unit" value={''}>
-                        <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                          &nbsp;
-                        </Typography>
-                      </MenuItem>
-                      {visionNumericalUnits.map((visionUnit) => (
-                        <MenuItem key={visionUnit} value={visionUnit}>
-                          <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                            {visionUnit}
-                          </Typography>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <VitalsTextInputFiled
+                    label="Right eye"
+                    value={rightEyeSelection}
+                    disabled={isSavingCardData}
+                    isInputError={false}
+                    onChange={handleRightEyeSelectionChange}
+                  />
                 </Box>
               </Grid>
 
@@ -276,31 +222,13 @@ const VitalsVisionCard: React.FC = (): JSX.Element => {
                     ml: 1,
                   }}
                 >
-                  <FormControl fullWidth size="small" sx={{ backgroundColor: 'white' }} disabled={isSavingCardData}>
-                    <InputLabel id="both-eyes-label">Both eyes</InputLabel>
-                    <Select
-                      value={bothEyesSelection}
-                      label="Both eyes"
-                      labelId="both-eyes-label"
-                      variant="outlined"
-                      error={false}
-                      defaultValue=""
-                      onChange={handleBothEyesSelectionChange}
-                    >
-                      <MenuItem key="default_vision_unit" value={''}>
-                        <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                          &nbsp;
-                        </Typography>
-                      </MenuItem>
-                      {visionNumericalUnits.map((visionUnit) => (
-                        <MenuItem key={visionUnit} value={visionUnit}>
-                          <Typography color="textPrimary" sx={{ fontSize: '16px' }}>
-                            {visionUnit}
-                          </Typography>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  <VitalsTextInputFiled
+                    label="Both eyes"
+                    value={bothEyesSelection}
+                    disabled={isSavingCardData}
+                    isInputError={false}
+                    onChange={handleBothEyesSelectionChange}
+                  />
                 </Box>
               </Grid>
 

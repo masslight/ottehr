@@ -37,8 +37,9 @@ export function createMedicationCopy(inventoryMedication: Medication, orderData:
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
   // deleting identifier with code that indicates that this medication is inventory one
-  const typeIdentifierArrId = resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE);
-  if (typeIdentifierArrId && typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
+  const typeIdentifierArrId =
+    resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;
+  if (typeIdentifierArrId >= 0) resourceCopy.identifier?.splice(typeIdentifierArrId, 1);
   if (orderData.lotNumber || orderData.expDate) {
     resourceCopy.batch = {
       lotNumber: orderData.lotNumber,

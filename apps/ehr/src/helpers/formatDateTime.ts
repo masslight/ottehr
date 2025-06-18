@@ -44,15 +44,6 @@ export function formatISODateToLocaleDate(date: string | undefined): string | un
   return formattedDate;
 }
 
-export function calculateDuration(startISO: string, endISO: string): number {
-  const start = DateTime.fromISO(startISO);
-  const end = DateTime.fromISO(endISO);
-
-  const duration = end.diff(start).as('minutes');
-
-  return duration;
-}
-
 export function formatISOStringToDateAndTime(isoString: string, timezone?: string): string {
   let dateTime = DateTime.fromISO(isoString);
   if (timezone) {

@@ -328,7 +328,7 @@ const PatientInformation = (): JSX.Element => {
   const confirmDuplicate = useCallback(
     (patient: PatientInfo | undefined, reasonForVisit: string | undefined): void => {
       setErrorDialog(undefined);
-      // reload page with exsiting patient data
+      // reload page with existing patient data
       const { year: dobYear, month: dobMonth, day: dobDay } = getDateComponentsFromISOString(patient?.dateOfBirth);
       setPatientInfo({
         id: patient?.id,
@@ -374,7 +374,7 @@ const PatientInformation = (): JSX.Element => {
           handleContinue: () => confirmDuplicate(foundDuplicate, data.reasonForVisit),
         });
       } else {
-        // mergine form fields and the patientInfo state
+        // merging form fields and the patientInfo state
         data = {
           ...patientInfo,
           ...data,

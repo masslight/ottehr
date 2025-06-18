@@ -79,7 +79,8 @@ const PRE_POPULATED_CPT_CODE: Record<string, CPTCodeDTO> = {
   'Nebulizer Treatment (e.g., Albuterol)': {
     code: '94640',
     display:
-      'Pressurized or nonpressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device',
+      // cSpell:disable-next IPPB
+      'Pressurized or non-pressurized inhalation treatment for acute airway obstruction for therapeutic purposes and/or for diagnostic purposes such as sputum induction with an aerosol generator, nebulizer, metered dose inhaler or intermittent positive pressure breathing (IPPB) device',
   },
   'Wart Treatment (Cryotherapy with Liquid Nitrogen': {
     code: '17110',
@@ -199,19 +200,19 @@ export default function ProceduresNew(): ReactElement {
       procedureTime: procedureDateTime,
       performerType: procedure.performerType,
       medicationUsed: procedure.medicationUsed,
-      bodySite: getValueForOtherable(procedure.bodySite, SITES),
-      otherBodySite: getOtherValueForOtherable(procedure.bodySite, SITES),
+      bodySite: getPredefinedValueOrOther(procedure.bodySite, SITES),
+      otherBodySite: getPredefinedValueIfOther(procedure.bodySite, SITES),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
-      suppliesUsed: getValueForOtherable(procedure.suppliesUsed, SUPPLIES),
-      otherSuppliesUsed: getOtherValueForOtherable(procedure.suppliesUsed, SUPPLIES),
+      suppliesUsed: getPredefinedValueOrOther(procedure.suppliesUsed, SUPPLIES),
+      otherSuppliesUsed: getPredefinedValueIfOther(procedure.suppliesUsed, SUPPLIES),
       procedureDetails: procedure.procedureDetails,
       specimenSent: procedure.specimenSent,
-      complications: getValueForOtherable(procedure.complications, COMPLICATIONS),
-      otherComplications: getOtherValueForOtherable(procedure.complications, COMPLICATIONS),
+      complications: getPredefinedValueOrOther(procedure.complications, COMPLICATIONS),
+      otherComplications: getPredefinedValueIfOther(procedure.complications, COMPLICATIONS),
       patientResponse: procedure.patientResponse,
-      postInstructions: getValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
-      otherPostInstructions: getOtherValueForOtherable(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
+      postInstructions: getPredefinedValueOrOther(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
+      otherPostInstructions: getPredefinedValueIfOther(procedure.postInstructions, POST_PROCEDURE_INSTRUCTIONS),
       timeSpent: procedure.timeSpent,
       documentedBy: procedure.documentedBy,
       consentObtained: procedure.consentObtained,
@@ -250,7 +251,7 @@ export default function ProceduresNew(): ReactElement {
         ...(savedDiagnoses ?? []),
         ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
       ];
-      const saveProcdureResponse = await saveChartData({
+      const saveProcedureResponse = await saveChartData({
         procedures: [
           {
             resourceId: procedureId,
@@ -291,7 +292,7 @@ export default function ProceduresNew(): ReactElement {
           ),
         });
       }
-      const savedProcedure = saveProcdureResponse.chartData?.procedures?.[0];
+      const savedProcedure = saveProcedureResponse.chartData?.procedures?.[0];
       if (savedProcedure) {
         setPartialChartData({
           procedures: [
@@ -667,14 +668,14 @@ export default function ProceduresNew(): ReactElement {
   );
 }
 
-function getValueForOtherable(value: string | undefined, predefinedValues: string[]): string | undefined {
+function getPredefinedValueOrOther(value: string | undefined, predefinedValues: string[]): string | undefined {
   if (value != null && predefinedValues.includes(value)) {
     return value;
   }
   return value != null ? OTHER : undefined;
 }
 
-function getOtherValueForOtherable(value: string | undefined, predefinedValues: string[]): string | undefined {
+function getPredefinedValueIfOther(value: string | undefined, predefinedValues: string[]): string | undefined {
   if (value != null && !predefinedValues.includes(value)) {
     return value;
   }
