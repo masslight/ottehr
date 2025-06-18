@@ -37,5 +37,7 @@ export const DATE_OF_BIRTH_URL = 'https://fhir.zapehr.com/r4/StructureDefinition
 
 export const TIMEZONES = ['America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles'];
 
+export const E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM = 'E2E_TEST_RESOURCE_PROCESS_ID';
+
 export const MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM =
   'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';

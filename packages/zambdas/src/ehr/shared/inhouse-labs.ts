@@ -98,7 +98,7 @@ export function buildOrderHistory(
     providerName: string;
     date: string;
   }[] = [];
-
+  console.log('building order history for sr', serviceRequest.id);
   // Add entries from provenances
   provenances.forEach((provenance) => {
     const relatedToSR = provenanceIsTargetOfServiceRequest(provenance, serviceRequest);

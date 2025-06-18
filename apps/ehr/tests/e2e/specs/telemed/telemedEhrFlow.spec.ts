@@ -32,6 +32,7 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { DateTime } from 'luxon';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
@@ -62,8 +63,10 @@ async function getTestStateThatNotQualificationsStatesList(
 }
 
 test.describe('Tests checking data without mutating state', () => {
-  const myPatientsTabAppointmentResources = new ResourceHandler('telemed');
-  const otherPatientsTabAppointmentResources = new ResourceHandler('telemed');
+  const myPatientsProcessId = `telemedEhrFlow.spec.ts-my-patients-non-mutating-${DateTime.now().toMillis()}`;
+  const myPatientsTabAppointmentResources = new ResourceHandler(myPatientsProcessId, 'telemed');
+  const otherPatientsProcessId = `telemedEhrFlow.spec.ts-other-patients-non-mutating-${DateTime.now().toMillis()}`;
+  const otherPatientsTabAppointmentResources = new ResourceHandler(otherPatientsProcessId, 'telemed');
   let testsUserQualificationState: string;
   let randomState: string;
 
@@ -141,8 +144,9 @@ test.describe('Tests checking data without mutating state', () => {
 
 test.describe('Tests interacting with appointment state', () => {
   test.describe.configure({ mode: 'serial' });
-
+  const PROCESS_ID = `telemedEhrFlow.spec.ts-appointment-state-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(
+    PROCESS_ID,
     'telemed',
     async ({ patientInfo, appointmentId, authToken, zambdaUrl, projectId }) => {
       const patientConditionPhotosStepAnswers = await getPatientConditionPhotosStepAnswers({
@@ -491,7 +495,8 @@ test.describe('Tests interacting with appointment state', () => {
 
 test.describe('Telemed appointment with two locations (physical and virtual)', () => {
   test.describe('Tests not interacting with appointment state', () => {
-    const resourceHandler = new ResourceHandler('telemed');
+    const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-no-appointment-state-${DateTime.now().toMillis()}`;
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
     let location: Location;
     test.beforeAll(async () => {
       location = await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
@@ -512,8 +517,9 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
   });
 
   test.describe('Tests interacting with appointment state', () => {
-    const resourceHandler = new ResourceHandler('telemed');
-    test.beforeEach(async () => {
+    const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-appointment-state-${DateTime.now().toMillis()}`;
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
+    test.beforeAll(async () => {
       await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
     });
 
@@ -592,7 +598,7 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
           reject(error);
         });
     }),
-    resourceHandler.setResources(),
+    await resourceHandler.setResources(),
   ]);
 
   await oystehr.fhir.patch({
