@@ -1,3 +1,4 @@
+// cSpell:ignore fhirify
 import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {

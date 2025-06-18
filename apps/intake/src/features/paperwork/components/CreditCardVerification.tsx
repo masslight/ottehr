@@ -91,13 +91,13 @@ export const CreditCardVerification: FC<CreditCardVerificationProps> = ({ value:
   const isInitialLoad = (setupData === undefined && isSetupDataLoading) || (cards.length === 0 && cardsAreLoading);
   if (isInitialLoad) {
     console.log(
-      'botleneck check (setupData === undefined && isSetupDataLoading)',
+      'bottleneck check (setupData === undefined && isSetupDataLoading)',
       setupData === undefined && isSetupDataLoading,
       setupData === undefined,
       isSetupDataLoading
     );
     console.log(
-      'botleneck check (cards.length === 0 && cardsAreLoading)',
+      'bottleneck check (cards.length === 0 && cardsAreLoading)',
       cards.length === 0 && cardsAreLoading,
       cards.length === 0,
       cardsAreLoading

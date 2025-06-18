@@ -16,7 +16,7 @@ export const dispositionFieldsPerType: { [key in DispositionType]: string[] } = 
   'ip-oth': [],
   'pcp-no-type': ['followUpIn'],
   another: ['reason'],
-  speciality: ['followUpIn'],
+  specialty: ['followUpIn'],
 };
 
 export const DEFAULT_DISPOSITION_VALUES: DispositionFormValues = {

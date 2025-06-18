@@ -24,6 +24,10 @@
       "name": "Utilities",
       "path": "../packages/utils",
     },
+    {
+      "name": "Test Utilities",
+      "path": "../packages/test-utils",
+    },
   ],
   "settings": {
     "files.exclude": {
@@ -32,6 +36,9 @@
     },
   },
   "extensions": {
-    "recommendations": ["dbaeumer.vscode-eslint"],
+    "recommendations": [
+      "dbaeumer.vscode-eslint",
+      "streetsidesoftware.code-spell-checker"
+    ],
   },
 }

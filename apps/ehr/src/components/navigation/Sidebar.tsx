@@ -91,10 +91,10 @@ export const Sidebar: FC<SidebarProps> = ({ sidebarItems, sidebarOpen, setSideba
         </Box>
         <Divider />
         <List>
-          {sidebarItems.map((sidebarItemsSublist, outerIndex) => {
+          {sidebarItems.map((sidebarItemsSubList, outerIndex) => {
             return (
               <Fragment key={outerIndex}>
-                {sidebarItemsSublist.map((sidebarItem: SidebarItem, innerIndex) => {
+                {sidebarItemsSubList.map((sidebarItem: SidebarItem, innerIndex) => {
                   const isSelected = selectedItem[0] === outerIndex && selectedItem[1] === innerIndex;
                   return (
                     <ListItem sx={{ px: 0 }} key={sidebarItem.label}>

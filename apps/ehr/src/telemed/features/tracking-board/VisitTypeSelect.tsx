@@ -12,14 +12,14 @@ export function VisitTypeSelect(): ReactElement {
 
   return (
     <Autocomplete
-      id="visittypes"
+      id="visitTypes"
       sx={{
         '.MuiButtonBase-root.MuiChip-root': {
           width: { xs: '100%', sm: '120px' },
           textAlign: 'start',
         },
       }}
-      value={visitTypes?.length > 0 ? [...visitTypes] : visitTypesOptions}
+      value={visitTypes != null ? visitTypes : visitTypesOptions}
       options={visitTypesOptions}
       getOptionLabel={(option) => {
         return VisitTypeToLabelTelemed[option as VisitType];
@@ -28,7 +28,7 @@ export function VisitTypeSelect(): ReactElement {
         useTrackingBoardStore.setState({ visitTypes: value as VisitType[] });
       }}
       multiple
-      renderInput={(params) => <TextField name="visittypes" {...params} label="Visit type" required={false} />}
+      renderInput={(params) => <TextField name="visitTypes" {...params} label="Visit type" required={false} />}
     />
   );
 }

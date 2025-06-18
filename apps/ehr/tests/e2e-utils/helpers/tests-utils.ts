@@ -7,14 +7,14 @@ export async function waitForSnackbar(page: Page): Promise<void> {
   await expect(snackbar).toBeVisible();
 }
 
-export async function fetchWithOystAuth<T = any>(
+export async function fetchWithOystehrAuth<T = any>(
   method: 'GET' | 'POST' | 'DELETE' | 'PUT' | 'PATCH',
   url: string,
   authToken: string,
   body?: any
 ): Promise<T> {
-  const oyst_proj_id = process.env.PROJECT_ID;
-  if (!oyst_proj_id) throw new Error('secret PROJECT_ID is not set');
+  const oystehrProjectId = process.env.PROJECT_ID;
+  if (!oystehrProjectId) throw new Error('secret PROJECT_ID is not set');
 
   const response = await fetch(url, {
     method,
@@ -22,7 +22,7 @@ export async function fetchWithOystAuth<T = any>(
       accept: 'application/json',
       'content-type': 'application/json',
       authorization: `Bearer ${authToken}`,
-      'x-zapehr-project-id': oyst_proj_id,
+      'x-zapehr-project-id': oystehrProjectId,
     },
     body: body ? JSON.stringify(body) : undefined,
   });
