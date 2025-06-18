@@ -74,6 +74,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   specimens: Specimen[],
   secrets: Secrets | null
 ): LabOrderDTO<SearchBy>[] => {
+  console.log('mapResourcesToLabOrderDTOs');
   const result: LabOrderDTO<SearchBy>[] = [];
 
   for (const serviceRequest of serviceRequests) {
@@ -144,6 +145,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   specimens: Specimen[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
+  console.log('parsing external lab order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -152,7 +154,9 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
+  console.log('external lab orderStatus parsed', orderStatus);
 
+  console.log('formatting external lab listPageDTO');
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem,
@@ -172,6 +176,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
+    console.log('formatting external lab detailedPageDTO for service request', serviceRequest.id);
     const detailedPageDTO: LabOrderDetailedPageDTO = {
       ...listPageDTO,
       history: parseLabOrdersHistory(
@@ -233,6 +238,8 @@ export const parseTasks = ({
     };
   }
 
+  console.log('parsing tasks for service request', serviceRequest.id);
+
   const PST = parseTaskPST(tasks, serviceRequest.id);
 
   // parseResults returns filtered prelim results if there are final results with the same code
@@ -264,6 +271,8 @@ export const parseTasks = ({
     compareDates(a.authoredOn, b.authoredOn)
   );
 
+  console.log('successfully parsed tasks');
+
   return {
     taskPST: PST,
     orderedPrelimTasks,
@@ -288,6 +297,7 @@ export const parseResults = (
   orderedPrelimResults: DiagnosticReport[];
   reflexPrelimResults: DiagnosticReport[];
 } => {
+  console.log('parsing results for serviceRequest', serviceRequest.id);
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -437,6 +447,7 @@ export const getLabResources = async (
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
+  console.log('isDetailPageRequest', isDetailPageRequest);
 
   const [
     serviceRequsetPractitioners,
@@ -1148,7 +1159,9 @@ export const parseReflexTestsCount = (
   return (reflexFinalAndCorrectedResults.length || 0) + (reflexPrelimResults.length || 0);
 };
 
+// todo i think the problem is here
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
+  console.log('parsing performed by for specimen', specimen.id);
   const NOT_FOUND = '';
 
   const collectedById = specimen.collection?.collector?.reference?.replace('Practitioner/', '');
@@ -1223,6 +1236,7 @@ export const parsePaginationFromResponse = (data: {
 };
 
 export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {
+  console.log('getting appointment id for service request', serviceRequest.id);
   const encounterId = parseEncounterId(serviceRequest);
   const NOT_FOUND = '';
 
@@ -1370,6 +1384,7 @@ export const parseLabOrdersHistory = (
   specimens: Specimen[],
   cache?: Cache
 ): LabOrderHistoryRow[] => {
+  console.log('building order history for external lab service request', serviceRequest.id);
   const { orderedFinalTasks, reflexFinalTasks, orderedCorrectedTasks, reflexCorrectedTasks } =
     cache?.parsedTasks ||
     parseTasks({
@@ -1561,6 +1576,7 @@ export const parseLResultsDetails = (
   labPDFs: LabOrderPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
+  console.log('parsing external lab order results for service request', serviceRequest.id);
   if (!serviceRequest.id) {
     return [];
   }
@@ -1850,6 +1866,7 @@ export const parseQuestionnaireResponseItems = (
 };
 
 export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): sampleDTO[] => {
+  console.log('parsing samples for service request & specimen', serviceRequest.id, specimens?.length);
   const NOT_FOUND = 'Not specified';
 
   if (!serviceRequest.contained || !serviceRequest.contained.length) {
