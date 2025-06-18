@@ -475,10 +475,6 @@ export class ResourceHandler {
     return resource;
   }
 
-  /*async cleanAppointment(appointmentId: string): Promise<boolean> {
-    return cleanAppointment(appointmentId, process.env.ENV!);
-  }*/
-
   async patientIdByAppointmentId(appointmentId: string): Promise<string> {
     const appointment = await this.#apiClient.fhir.get<Appointment>({
       resourceType: 'Appointment',
