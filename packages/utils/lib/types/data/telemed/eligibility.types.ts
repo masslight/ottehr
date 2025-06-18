@@ -49,9 +49,29 @@ export interface GetEligibilityParameters {
   billingProvider?: string;
 }
 
+export interface CoverageBenefitInfo {
+  amountInUSD: number;
+  description: string;
+  code: string;
+
+  coverageDescription: string;
+  coverageCode: string;
+
+  periodDescription: string;
+  periodCode: string;
+
+  levelDescription: string;
+  levelCode: string;
+
+  inplanNetwork: boolean;
+}
+export interface CopayBenefit extends CoverageBenefitInfo {
+  coverageCode: 'B';
+}
 export interface InsuranceCheckStatusWithDate {
   status: InsuranceEligibilityCheckStatus;
   dateISO: string;
+  copay?: CopayBenefit[];
 }
 
 export type GetEligibilityResponse = {
@@ -63,10 +83,10 @@ export type EligibilityCheckSimpleStatus = 'ELIGIBLE' | 'NOT ELIGIBLE' | 'UNKNOW
 
 export const mapEligibilityCheckResultToSimpleStatus = (
   result: InsuranceCheckStatusWithDate
-): { status: EligibilityCheckSimpleStatus; dateISO: string } => {
+): { status: EligibilityCheckSimpleStatus; dateISO: string; copay?: CopayBenefit[] } => {
   switch (result.status) {
     case InsuranceEligibilityCheckStatus.eligibilityConfirmed:
-      return { status: 'ELIGIBLE', dateISO: result.dateISO };
+      return { status: 'ELIGIBLE', dateISO: result.dateISO, copay: result.copay };
     case InsuranceEligibilityCheckStatus.eligibilityNotConfirmed:
       return { status: 'NOT ELIGIBLE', dateISO: result.dateISO };
     default:

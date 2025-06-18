@@ -11,6 +11,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   ELIGIBILITY_BENEFIT_CODES,
+  InsuranceCheckStatusWithDate,
   InsuranceEligibilityCheckStatus,
   InsurancePlanResources,
   parseCoverageEligibilityResponse,
@@ -143,7 +144,7 @@ export const makeCoverageEligibilityRequest = (
 
 export const parseEligibilityCheckResponsePromiseResult = async (
   eligibilityCheckResponse: PromiseFulfilledResult<Response> | PromiseRejectedResult
-): Promise<{ status: InsuranceEligibilityCheckStatus; dateISO: string }> => {
+): Promise<InsuranceCheckStatusWithDate> => {
   const now = DateTime.now().toISO();
   if (eligibilityCheckResponse.status === 'rejected') {
     console.log('eligibility check service failure reason: ', JSON.stringify(eligibilityCheckResponse.reason, null, 2));

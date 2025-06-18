@@ -18,7 +18,7 @@ import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let zapehrToken: string;
+let oystehrToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let primary: InsuranceCheckStatusWithDate | undefined;
@@ -38,9 +38,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.debug('validateRequestParameters success');
     console.log('validatedParameters', JSON.stringify(validatedParameters));
 
-    if (!zapehrToken) {
+    if (!oystehrToken) {
       console.log('getting token');
-      zapehrToken = await getAuth0Token(secrets);
+      oystehrToken = await getAuth0Token(secrets);
     } else {
       console.log('already have token');
     }
@@ -48,7 +48,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.group('createOystehrClient');
     const apiUrl = getSecret(SecretsKeys.PROJECT_API, secrets);
     const oystehr = createOystehrClient(
-      zapehrToken,
+      oystehrToken,
       getSecret(SecretsKeys.FHIR_API, secrets),
       getSecret(SecretsKeys.PROJECT_API, secrets)
     );
@@ -60,7 +60,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (complexInput.type === 'prevalidation') {
       console.log('prevalidation path...');
       const result = await prevalidationHandler(
-        { ...complexInput, apiUrl, accessToken: zapehrToken, secrets: secrets },
+        { ...complexInput, apiUrl, accessToken: oystehrToken, secrets: secrets },
         oystehr
       );
       console.log('prevalidation primary', result.primary);
@@ -121,28 +121,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         secondary = eligibilityCheckResult;
         primary = undefined;
       }
-
-      /*console.group('checkEligibility');
-      // Enable QA to test failed eligibility response
-      if (primaryPayor.name === 'VA UHC UMR' && secrets?.ENVIRONMENT !== 'production') {
-        console.log('Bypassing eligibility check in lowers. Returning false.');
-        primary = InsuranceEligibilityCheckStatus.eligibilityNotConfirmed;
-      } else {
-        primary = await checkEligibility({
-          eligibilityCheckResponse: primaryEligibilityCheckResponse,
-          tagProps,
-        });
-      }
-      console.groupEnd();
-      console.debug('checkEligibility success');
-
-      if (secondaryEligibilityCheckResponse) {
-        secondary = await checkEligibility({
-          eligibilityCheckResponse: secondaryEligibilityCheckResponse,
-          tagProps,
-        });
-      }
-        */
     }
     return lambdaResponse(200, { primary, secondary });
   } catch (error: any) {
@@ -162,7 +140,7 @@ const performEligibilityCheckAndReturnStatus = async (
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      Authorization: `Bearer ${zapehrToken}`,
+      Authorization: `Bearer ${oystehrToken}`,
     },
     body: JSON.stringify({
       eligibilityRequestId: coverageEligibilityRequestId,
