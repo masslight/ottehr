@@ -174,8 +174,6 @@ export default function ProceduresNew(): ReactElement {
       medicationUsed: procedure.medicationUsed,
       bodySite: getValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
       otherBodySite: getOtherValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
-      bodySite: getPredefinedValueOrOther(procedure.bodySite, SITES),
-      otherBodySite: getPredefinedValueIfOther(procedure.bodySite, SITES),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
       suppliesUsed: getValueForOtherable(procedure.suppliesUsed, selectOptions?.supplies),
