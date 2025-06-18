@@ -36,10 +36,9 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
 
   const orderConfigs: OrderToolTipConfig[] = [];
 
-  const externalLabIcon = sidebarMenuIcons['External Labs'];
   if (hasExternalOrders) {
     const externalLabOrderConfig: OrderToolTipConfig = {
-      icon: externalLabIcon,
+      icon: sidebarMenuIcons['External Labs'],
       title: 'External Labs',
       tableUrl: getExternalLabOrdersUrl(appointment.id),
       orders: externalLabOrders.map((order) => ({
@@ -52,10 +51,9 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
     orderConfigs.push(externalLabOrderConfig);
   }
 
-  const inHouseLabIcon = sidebarMenuIcons['In-house Labs'];
   if (hasInHouseOrders) {
     const inHouseLabOrderConfig: OrderToolTipConfig = {
-      icon: inHouseLabIcon,
+      icon: sidebarMenuIcons['In-house Labs'],
       title: 'In-house Labs',
       tableUrl: getInHouseLabsUrl(appointment.id),
       orders: inHouseLabOrders.map((order) => ({
