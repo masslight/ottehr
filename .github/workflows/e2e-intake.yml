@@ -5,9 +5,11 @@ env:
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPO: masslight/ottehr-secrets
-  USER_JSON_CACHE_KEY: intake-user-json-cache
+  USER_JSON_CACHE_KEY_BASE: playwright-intake-user-${{ github.sha }}-${{ github.run_id }}
+  USER_JSON_CACHE_RESTORE_KEYS: playwright-intake-user-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
+
 
 on:
   workflow_dispatch:
@@ -48,7 +50,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
+          key: ${{ env.USER_JSON_CACHE_KEY_BASE }}
+          restore-keys: ${{ env.USER_JSON_CACHE_RESTORE_KEYS }}
 
       - name: Check token validity
         id: token-check
@@ -59,16 +62,32 @@ jobs:
             exit 0
           fi
           
+          echo "=== FILE EXISTS, CHECKING CONTENT ==="
+          echo "File size: $(wc -c < "${{ env.USER_JSON_PATH }}")"
+          echo "=================================="
+          
           if node -e '
           const fs = require("fs");
           try {
             const data = JSON.parse(fs.readFileSync("${{ env.USER_JSON_PATH }}", "utf8"));
-            const origin = data.origins?.find(o => o.origin?.includes("localhost"));
+            
+            console.log("Origins count:", data.origins?.length || 0);
+            
+            const origin = data.origins?.find(o => 
+              o.localStorage?.some(item => 
+                item.name?.includes("@@auth0spajs@@") && 
+                !item.name?.includes("@@user@@") &&
+                item.value?.includes("expiresAt")
+              )
+            );
+
             if (!origin) {
-              console.error("No localhost origin found");
+              console.error("ERROR: No origin with Auth0 token found");
               process.exit(1);
             }
-          
+            
+            console.log("Found origin with Auth0 token");
+            
             const authItem = origin.localStorage?.find(item => 
               item.name?.includes("@@auth0spajs@@") && 
               !item.name?.includes("@@user@@") &&
@@ -76,32 +95,34 @@ jobs:
             );
           
             if (!authItem) {
-              console.error("No Auth0 token found");
+              console.error("ERROR: No Auth0 token found");
               process.exit(1);
             }
           
+            console.log("Found Auth0 token item");
+            
             const tokenData = JSON.parse(authItem.value);
             const expiresAt = tokenData.expiresAt * 1000;
             const timeLeft = (expiresAt - Date.now()) / (1000 * 60);
           
-            console.error(`Token expires in ${timeLeft.toFixed(1)} minutes`);
+            console.log(`Time left: ${timeLeft.toFixed(1)} minutes`);
           
             if (timeLeft > ${{ env.TOKEN_VALIDITY_THRESHOLD_MINUTES }}) {
-              console.error("Token valid for >${{ env.TOKEN_VALIDITY_THRESHOLD_MINUTES }} minutes, skip login");
+              console.log("Token valid, skip login");
               process.exit(0);
             } else {
-              console.error("Token expires soon, need fresh login");
+              console.log("Token expires soon, need fresh login");
               process.exit(1);
             }
           } catch (e) {
             console.error("Token check failed:", e.message);
             process.exit(1);
           }
-          ' 2>/dev/null; then
+          '; then
             NEEDS_LOGIN="false"
             echo "Token is valid, skipping login"
           else
-            NEEDS_LOGIN="true"
+            NEEDS_LOGIN="true" 
             echo "Token invalid or expired, login required"
           fi
           
@@ -121,10 +142,10 @@ jobs:
 
       - name: Save cleared cache
         if: steps.token-check.outputs.needs-login == 'true'
-        uses: actions/cache@v4
+        uses: actions/cache/save@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
+          key: ${{ env.USER_JSON_CACHE_KEY_BASE }}-cleared
 
   intake-login:
     needs: check-token-validity
@@ -166,7 +187,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
+          key: ${{ env.USER_JSON_CACHE_KEY_BASE }}
+          restore-keys: ${{ env.USER_JSON_CACHE_RESTORE_KEYS }}
 
       - name: Check out secrets repo
         uses: actions/checkout@v4
@@ -232,10 +254,20 @@ jobs:
 
       - name: Save user.json to cache
         if: steps.validate.outcome == 'success'
-        uses: actions/cache@v4
+        uses: actions/cache/save@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
+          key: ${{ env.USER_JSON_CACHE_KEY_BASE }}-validated
+
+      - name: Upload login test results
+        if: steps.login.outcome == 'success' || steps.login.outcome == 'failure' # log on success needed for investigate false success caces, we can remove it if login will work stable
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-intake-login-${{ github.event.inputs.environment || 'local' }}
+          path: |
+            apps/intake/playwright-report-login/
+            apps/intake/test-results-login/
+          retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}      
 
   intake-e2e-tests:
     needs: [check-token-validity, intake-login]
@@ -265,7 +297,6 @@ jobs:
           key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-npm-
-          fail-on-cache-miss: ${{ needs.intake-login.result == 'success' }}
 
       - name: Install dependencies
         if: steps.npm-cache-restore.outputs.cache-hit != 'true'
@@ -278,7 +309,6 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-playwright-
-          fail-on-cache-miss: ${{ needs.intake-login.result == 'success' }}
 
       - name: Install Playwright browsers
         run: npx playwright install chromium
@@ -287,7 +317,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.USER_JSON_PATH }}
-          key: ${{ env.USER_JSON_CACHE_KEY }}
+          key: ${{ env.USER_JSON_CACHE_KEY_BASE }}
+          restore-keys: ${{ env.USER_JSON_CACHE_RESTORE_KEYS }}
           fail-on-cache-miss: ${{ needs.intake-login.result == 'success' }}
 
       - name: Check out secrets repo

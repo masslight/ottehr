@@ -35,17 +35,24 @@ export async function login(page: Page, phone?: string, text_username?: string, 
   const verifyButton = page.locator('button:has-text("Continue")');
   await verifyButton.click();
 
-  await page.waitForTimeout(5000);
-  expect(await page.getByText('Code is invalid').isVisible()).toBeFalsy();
+  expect(await page.getByText('Code is invalid').isVisible({ timeout: 5000 })).toBeFalsy();
+
+  try {
+    // optional thirtd party modal which may appear, it's tricky to handle, because text may be different, currently we just click on accept button, but maybe we can find a better way to handle it
+    const acceptButton = page.getByRole('button', { name: 'Accept' });
+    await acceptButton.waitFor({ state: 'visible', timeout: 5000 });
+    console.log('[INFO] Accepting authorization...');
+    await acceptButton.click();
+  } catch (error) {
+    console.log('[INFO] No accept button found, continuing...');
+  }
+
+  // todo: fix import from packages to import dataTestIds from ui-components
+  await expect(page.locator(`[data-testid="header-for-authenticated-user"]`)).toBeVisible({
+    timeout: 10_000,
+  });
 
   console.log(`[SUCCESS] Code ${latestCode} is valid!`);
-
-  // Check if we need to authorize the application
-  if (await page.getByText('Authorize App').isVisible()) {
-    console.log('[INFO] Authorizing application...');
-    const acceptButton = page.locator('button:has-text("Accept")');
-    await acceptButton.click();
-  }
 
   // Wait for the token to be saved in localStorage
   await expect(async () => {

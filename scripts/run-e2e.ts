@@ -164,7 +164,7 @@ const startApps = async (): Promise<void> => {
   startZambdas();
   console.log('Waiting for zambdas to be ready...');
   await waitForZambdas();
-  console.log('Zambdas is ready');
+  console.log('Zambdas are ready');
   for (const app of supportedApps) {
     console.log(`Starting ${app} application...`);
     await startApp(app);
@@ -178,16 +178,18 @@ function createTestProcess(testType: 'login' | 'specs', appName: string): any {
   };
 
   const baseArgs = commands[testType];
-  const extraArgs = isUI
-    ? []
-    : testType === 'login'
-    ? ['--', '--headed=false', '--reporter=null']
-    : ['--', '--headed=false'];
+  const extraArgs = isUI ? [] : ['--', '--headed=false'];
 
   return spawn('turbo', [...baseArgs, ...extraArgs], {
     shell: true,
     stdio: 'inherit',
-    env: { ...process.env, ENV, ...(testType === 'specs' && { INTEGRATION_TEST }) },
+    env: {
+      ...process.env,
+      ENV,
+      PLAYWRIGHT_REPORT_SUFFIX: testType === 'login' ? '-login' : '',
+      IS_LOGIN_TEST: testType === 'login' ? 'true' : 'false',
+      ...(testType === 'specs' && { INTEGRATION_TEST }),
+    },
   });
 }
 
