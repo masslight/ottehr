@@ -5,7 +5,7 @@ env:
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPO: masslight/ottehr-secrets
-  USER_JSON_CACHE_KEY: intake-user-json-cache-5
+  USER_JSON_CACHE_KEY: intake-user-json-cache-10
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
 
@@ -37,9 +37,6 @@ on:
 
 jobs:
   check-token-validity:
-    concurrency: # to prevent parallel login jobs; we can optimize it and eliminate user.json related steps when we have email login
-      group: intake-login-cache-check
-      cancel-in-progress: true 
     if: (github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 2
@@ -130,11 +127,11 @@ jobs:
           key: ${{ env.USER_JSON_CACHE_KEY }}
 
   intake-login:
+    needs: check-token-validity
+    if: needs.check-token-validity.outputs.needs-login == 'true'
     concurrency: # to prevent parallel login jobs; we can optimize it and eliminate user.json related steps when we have email login
       group: intake-login
-      cancel-in-progress: true 
-    needs: check-token-validity 
-    if: needs.check-token-validity.outputs.needs-login == 'true'
+      cancel-in-progress: false
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 18 # Sometimes SMS takes ~5 minutes to deliver, and with other timeouts, all login tests can take ~9 minutes. Playwright has 2 retries for intake CI, so we need a login job timeout of 18 minutes.
     steps:
