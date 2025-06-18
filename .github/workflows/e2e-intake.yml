@@ -128,10 +128,10 @@ jobs:
 
   intake-login:
     needs: check-token-validity
-    if: needs.check-token-validity.outputs.needs-login == 'false' # asdfasfdsadfqweqe
+    if: needs.check-token-validity.outputs.needs-login == 'true' # asdfasfdsadf
     concurrency: # to prevent parallel login jobs; we can optimize it and eliminate user.json related steps when we have email login
       group: intake-login
-      cancel-in-progress: true
+      cancel-in-progress: false
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 18 # Sometimes SMS takes ~5 minutes to deliver, and with other timeouts, all login tests can take ~9 minutes. Playwright has 2 retries for intake CI, so we need a login job timeout of 18 minutes.
     steps:
