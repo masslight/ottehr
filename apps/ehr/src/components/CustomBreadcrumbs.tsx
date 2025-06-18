@@ -6,6 +6,7 @@ import { dataTestIds } from 'src/constants/data-test-ids';
 interface ChainProps {
   link: string;
   children: ReactElement | string;
+  state?: { defaultTab?: string };
 }
 
 interface CustomBreadcrumbsProps {
@@ -28,6 +29,7 @@ export default function CustomBreadcrumbs({ chain }: CustomBreadcrumbsProps): Re
               color: child.link === '#' ? 'black' : theme.palette.secondary.light,
             }}
             to={link}
+            state={{ defaultTab: child.state?.defaultTab }}
           >
             {child.children}
           </Link>
