@@ -146,6 +146,7 @@ export type PaginatedResponse<RequestParameters extends GetLabOrdersParameters =
 export type LabOrdersSearchBy = {
   searchBy:
     | { field: 'encounterId'; value: string }
+    | { field: 'encounterIds'; value: string[] }
     | { field: 'patientId'; value: string }
     | { field: 'serviceRequestId'; value: string };
 };

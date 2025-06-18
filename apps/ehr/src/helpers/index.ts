@@ -170,3 +170,8 @@ export const patchAppointmentComment = async (
   });
   return updatedAppointment;
 };
+
+// todo i think this should be expanded
+export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation): boolean => {
+  return appointment.status !== 'arrived' && appointment.status !== 'ready';
+};
