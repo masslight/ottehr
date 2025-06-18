@@ -258,7 +258,6 @@ const getTaskCompletedByAndWhen = async (
 
   const reviewingProviderFirst = taskPractitioner.name?.[0].given?.join(',') || '';
   const reviewingProviderLast = taskPractitioner.name?.[0].family || '';
-  // const reviewingProviderLicense = allLicensesForPractitioner(taskPractitioner)[0]?.code;
   const reviewDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
 
   return { reviewingProviderFirst, reviewingProviderLast, reviewingProvider: taskPractitioner, reviewDate };

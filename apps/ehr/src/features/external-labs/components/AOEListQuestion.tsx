@@ -21,7 +21,7 @@ export const AOEListQuestion: React.FC<ListQuestionProps> = (props) => {
   const { questionText, linkId, answer, answerOption, isReadOnly, field } = props;
 
   const labelId = `select-${linkId}-label`;
-  console.log(5, isReadOnly, answer, answerOption);
+
   return (
     <>
       <InputLabel id={labelId}>{questionText}</InputLabel>
