@@ -45,6 +45,7 @@ import { expectPatientInfoPage, PatientInfoPage } from '../../page/PatientInfo';
 import { openVisitsPage } from '../../page/VisitsPage';
 import { DateTime } from 'luxon';
 
+// cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99201 New Patient - E/M Level 1';
 

@@ -1,3 +1,4 @@
+// cSpell:ignore networkidle, VVPP
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { Locators } from '../../utils/locators';
@@ -44,7 +45,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
     await locator.finishButton.click();
     await page.goto('/home');
-    await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check prepopulation which depends on harvest.
+    await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check pre-population which depends on harvest.
     await locator.scheduleVirtualVisitButton.click();
     await paperwork.checkCorrectPageOpens('Book a visit');
     await flowClass.selectTimeLocationAndContinue();

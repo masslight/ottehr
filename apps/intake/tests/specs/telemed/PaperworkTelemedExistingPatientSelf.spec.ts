@@ -1,3 +1,4 @@
+// cSpell:ignore VVPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { Locators } from '../../utils/locators';

@@ -58,7 +58,7 @@ export default function Appointments(): ReactElement {
       queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
     } else if (field === 'location') {
       queryParams?.set('locationID', value?.id ?? '');
-    } else if (field === 'visittypes') {
+    } else if (field === 'visitTypes') {
       const appointmentTypesString = value.join(',');
       queryParams.set('visitType', appointmentTypesString);
     } else if (field === 'providers') {
@@ -119,9 +119,12 @@ export default function Appointments(): ReactElement {
   }, [inHouseOrders?.labOrders]);
 
   useEffect(() => {
-    if (localStorage.getItem('selectedVisitTypes')) {
-      queryParams?.set('visitType', JSON.parse(localStorage.getItem('selectedVisitTypes') ?? '') ?? '');
+    const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
+    if (selectedVisitTypes) {
+      queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
       navigate(`?${queryParams?.toString()}`);
+    } else {
+      queryParams?.set('visitType', Object.keys(VisitTypeToLabel).join(','));
     }
   }, [navigate, queryParams]);
 
@@ -172,14 +175,14 @@ export default function Appointments(): ReactElement {
       }
     }
 
-    async function getHealthcareServices(osytehrClient: Oystehr): Promise<void> {
+    async function getHealthcareServices(oystehrClient: Oystehr): Promise<void> {
       if (!oystehrZambda) {
         return;
       }
 
       try {
         const healthcareServicesTemp: HealthcareService[] = (
-          await osytehrClient.fhir.search<HealthcareService>({
+          await oystehrClient.fhir.search<HealthcareService>({
             resourceType: 'HealthcareService',
             params: [
               { name: '_count', value: '1000' },
@@ -230,7 +233,7 @@ export default function Appointments(): ReactElement {
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      // send searchDate without timezone, in get-appointments zamdba we apply appointment timezone to it to find appointments for that day
+      // send searchDate without timezone, in get-appointments zambda we apply appointment timezone to it to find appointments for that day
       // looks like searchDate is always exists, and we can remove rest options
       const searchDateToUse = searchDate || appointmentDate?.toISO?.() || '';
       void fetchStuff(oystehrZambda, searchDateToUse);
@@ -387,14 +390,14 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                     </Grid>
                     <Grid item md={4.7} xs={12}>
                       <Autocomplete
-                        id="visittypes"
+                        id="visitTypes"
                         sx={{
                           '.MuiButtonBase-root.MuiChip-root': {
                             width: { xs: '100%', sm: '120px' },
                             textAlign: 'start',
                           },
                         }}
-                        value={visitType?.length > 0 ? [...visitType] : Object.keys(VisitTypeToLabel)}
+                        value={visitType}
                         options={Object.keys(VisitTypeToLabel)}
                         getOptionLabel={(option) => {
                           return VisitTypeToLabel[option as VisitType];
@@ -407,12 +410,12 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                           }
 
                           if (handleSubmit) {
-                            handleSubmit(event as any, value, 'visittypes');
+                            handleSubmit(event as any, value, 'visitTypes');
                           }
                         }}
                         multiple
                         renderInput={(params) => (
-                          <TextField name="visittypes" {...params} label="Visit type" required={false} />
+                          <TextField name="visitTypes" {...params} label="Visit type" required={false} />
                         )}
                       />
                     </Grid>

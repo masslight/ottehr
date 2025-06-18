@@ -1,3 +1,4 @@
+// cSpell:ignore networkidle, PPCP, PRPI, PSWN
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
