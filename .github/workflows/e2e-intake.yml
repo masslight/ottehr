@@ -5,7 +5,7 @@ env:
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPO: masslight/ottehr-secrets
-  USER_JSON_CACHE_KEY: intake-user-json-cache-3
+  USER_JSON_CACHE_KEY: intake-user-json-cache-4
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
 
@@ -127,8 +127,7 @@ jobs:
           key: ${{ env.USER_JSON_CACHE_KEY }}
 
   intake-login:
-    needs: check-token-validity
-    if: needs.check-token-validity.outputs.needs-login == 'true'
+    needs: check-token-validity # if: needs.check-token-validity.outputs.needs-login == 'true'
     concurrency: # to prevent parallel login jobs; we can optimize it and eliminate user.json related steps when we have email login
       group: intake-login
       cancel-in-progress: true 
