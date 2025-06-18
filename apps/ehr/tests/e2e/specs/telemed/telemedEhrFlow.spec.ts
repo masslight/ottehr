@@ -32,6 +32,7 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { DateTime } from 'luxon';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 
@@ -62,8 +63,10 @@ async function getTestStateThatNotQualificationsStatesList(
 }
 
 test.describe('Tests checking data without mutating state', () => {
-  const myPatientsTabAppointmentResources = new ResourceHandler('telemed');
-  const otherPatientsTabAppointmentResources = new ResourceHandler('telemed');
+  const myPatientsProcessId = `telemedEhrFlow.spec.ts-my-patients-non-mutating-${DateTime.now().toMillis()}`;
+  const myPatientsTabAppointmentResources = new ResourceHandler(myPatientsProcessId, 'telemed');
+  const otherPatientsProcessId = `telemedEhrFlow.spec.ts-other-patients-non-mutating-${DateTime.now().toMillis()}`;
+  const otherPatientsTabAppointmentResources = new ResourceHandler(otherPatientsProcessId, 'telemed');
   let testsUserQualificationState: string;
   let randomState: string;
 
@@ -141,8 +144,9 @@ test.describe('Tests checking data without mutating state', () => {
 
 test.describe('Tests interacting with appointment state', () => {
   test.describe.configure({ mode: 'serial' });
-
+  const PROCESS_ID = `telemedEhrFlow.spec.ts-appointment-state-${DateTime.now().toMillis()}`;
   const resourceHandler = new ResourceHandler(
+    PROCESS_ID,
     'telemed',
     async ({ patientInfo, appointmentId, authToken, zambdaUrl, projectId }) => {
       const patientConditionPhotosStepAnswers = await getPatientConditionPhotosStepAnswers({
@@ -276,18 +280,20 @@ test.describe('Tests interacting with appointment state', () => {
   test('Patient provided hpi data', async () => {
     await test.step('Medical conditions provided by patient', async () => {
       await expect(
-        page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedsList).getByText('Constipation')
+        page.getByTestId(dataTestIds.telemedEhrFlow.hpiMedicalConditionPatientProvidedList).getByText('Constipation')
       ).toBeVisible();
     });
 
     await test.step('Current medications provided by patient', async () => {
-      const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsPatientProvidedsList);
+      const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiCurrentMedicationsPatientProvidedList);
       await expect(list.getByText('Amoxicillin')).toBeVisible();
+      // cSpell:disable-next Cetirizine
       await expect(list.getByText('Cetirizine/ Zyrtec')).toBeVisible();
     });
 
     await test.step('Known allergies provided by patient', async () => {
       const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesPatientProvidedList);
+      // cSpell:disable-next Azithromycin
       await expect(list.getByText('Azithromycin (medication)')).toBeVisible();
       await expect(list.getByText('Fish/ Fish Oil (other)')).toBeVisible();
     });
@@ -295,6 +301,7 @@ test.describe('Tests interacting with appointment state', () => {
     await test.step('Surgical history provided by patient', async () => {
       const list = page.getByTestId(dataTestIds.telemedEhrFlow.hpiSurgicalHistoryPatientProvidedList);
       await expect(list.getByText('Circumcision')).toBeVisible();
+      // cSpell:disable-next Myringotomy
       await expect(list.getByText('Ear tube placement (Myringotomy)')).toBeVisible();
     });
 
@@ -349,7 +356,8 @@ test.describe('Tests interacting with appointment state', () => {
 
   test('Should test appointment hpi fields', async () => {
     const medicalConditionsPattern = 'Z3A';
-    // const knownAllergiePattern = '10-undecenal';
+    // cSpell:disable-next undecenal
+    // const knownAllergyPattern = '10-undecenal';
     const surgicalHistoryPattern = '44950';
     const surgicalNote = 'surgical note';
     const chiefComplaintNotes = 'chief complaint';
@@ -375,7 +383,7 @@ test.describe('Tests interacting with appointment state', () => {
       );
 
       // TODO: uncomment when erx is enabled
-      // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergiePattern);
+      // await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiKnownAllergiesInput, knownAllergyPattern);
 
       await fillWaitAndSelectDropdown(page, dataTestIds.telemedEhrFlow.hpiSurgicalHistoryInput, surgicalHistoryPattern);
 
@@ -444,7 +452,7 @@ test.describe('Tests interacting with appointment state', () => {
     // await test.step('check known allergies list', async () => {
     //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toBeVisible();
     //   await expect(page.getByTestId(dataTestIds.telemedEhrFlow.hpiKnownAllergiesList)).toHaveText(
-    //     RegExp(knownAllergiePattern)
+    //     RegExp(knownAllergyPattern)
     //   );
     // });
 
@@ -487,7 +495,8 @@ test.describe('Tests interacting with appointment state', () => {
 
 test.describe('Telemed appointment with two locations (physical and virtual)', () => {
   test.describe('Tests not interacting with appointment state', () => {
-    const resourceHandler = new ResourceHandler('telemed');
+    const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-no-appointment-state-${DateTime.now().toMillis()}`;
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
     let location: Location;
     test.beforeAll(async () => {
       location = await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
@@ -508,8 +517,9 @@ test.describe('Telemed appointment with two locations (physical and virtual)', (
   });
 
   test.describe('Tests interacting with appointment state', () => {
-    const resourceHandler = new ResourceHandler('telemed');
-    test.beforeEach(async () => {
+    const PROCESS_ID = `telemedEhrFlow.spec.ts-2-locs-appointment-state-${DateTime.now().toMillis()}`;
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
+    test.beforeAll(async () => {
       await createAppointmentWithVirtualAndPhysicalLocations(resourceHandler);
     });
 
@@ -588,7 +598,7 @@ async function createAppointmentWithVirtualAndPhysicalLocations(resourceHandler:
           reject(error);
         });
     }),
-    resourceHandler.setResources(),
+    await resourceHandler.setResources(),
   ]);
 
   await oystehr.fhir.patch({

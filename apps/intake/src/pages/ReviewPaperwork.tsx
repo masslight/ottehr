@@ -240,7 +240,7 @@ const ReviewPaperwork = (): JSX.Element => {
             );
             setErrorDialogConfig({
               title: t('paperworkPages.validationError'),
-              description: <ValidationErrorMessageContent errorObejct={validationErrors} links={links} />,
+              description: <ValidationErrorMessageContent errorObject={validationErrors} links={links} />,
             });
           } else {
             setErrorDialogConfig(UNEXPECTED_ERROR_CONFIG(t));

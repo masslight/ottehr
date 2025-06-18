@@ -132,7 +132,7 @@ export const DispositionCard: FC = () => {
   }, [handleSubmit, onSubmit, watch]);
 
   const fields = dispositionFieldsPerType[currentType];
-  const tabs: DispositionType[] = ['pcp-no-type', 'another', 'speciality'];
+  const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
 
   if (isChartDataLoading || !chartData?.disposition) {
     return (
@@ -382,7 +382,7 @@ export const DispositionCard: FC = () => {
               <Divider />
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <UppercaseCaptionTypography>Subspeciality Follow Up (optional)</UppercaseCaptionTypography>
+                <UppercaseCaptionTypography>Subspecialty Follow Up (optional)</UppercaseCaptionTypography>
 
                 <Box sx={{ display: 'flex', gap: 3 }}>
                   {dispositionCheckboxOptions.map((option) => (

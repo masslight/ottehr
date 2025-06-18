@@ -304,7 +304,7 @@ export interface NoteDTO extends CommunicationDTO {
   lastUpdated?: string; // system generated, not sent from frontend
 }
 
-export type DispositionType = 'ip' | 'ip-lab' | 'pcp' | 'ed' | 'ip-oth' | 'pcp-no-type' | 'another' | 'speciality';
+export type DispositionType = 'ip' | 'ip-lab' | 'pcp' | 'ed' | 'ip-oth' | 'pcp-no-type' | 'another' | 'specialty';
 
 export type DispositionFollowUpType = 'dentistry' | 'ent' | 'ophthalmology' | 'orthopedics' | 'other' | 'lurie-ct';
 
@@ -479,7 +479,7 @@ const defaultNotes: Record<DispositionType, string> = {
   'ip-oth': 'Please go to an In Person Office.',
   'pcp-no-type': 'Please see your Primary Care Physician as discussed.',
   another: 'Please proceed to the ABC Office as advised.',
-  speciality: '',
+  specialty: '',
 };
 
 export const getDefaultNote = (dispositionType: DispositionType): string => {

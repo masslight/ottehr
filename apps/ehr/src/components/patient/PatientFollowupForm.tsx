@@ -29,7 +29,7 @@ import {
   FOLLOWUP_TYPES,
   FollowupType,
   TELEPHONE_REASONS,
-  NONBILLABLE_REASONS,
+  NON_BILLABLE_REASONS,
   FollowupReason,
   SLUG_SYSTEM,
 } from 'utils';
@@ -65,7 +65,7 @@ export default function PatientFollowupForm({
   const [reasonOptions, setReasonOptions] = useState<FollowupReason[]>(
     followupDetails?.followupType
       ? followupDetails.followupType === 'Non-Billable'
-        ? [...NONBILLABLE_REASONS]
+        ? [...NON_BILLABLE_REASONS]
         : [...TELEPHONE_REASONS]
       : []
   );
@@ -121,7 +121,7 @@ export default function PatientFollowupForm({
       setReasonOptions([]);
       setFollowupReason(null);
     } else {
-      setReasonOptions(type === 'Telephone Encounter' ? [...TELEPHONE_REASONS] : [...NONBILLABLE_REASONS]);
+      setReasonOptions(type === 'Telephone Encounter' ? [...TELEPHONE_REASONS] : [...NON_BILLABLE_REASONS]);
       if (followupType && type !== followupType) setFollowupReason(null);
     }
     setFollowupType(type);
@@ -199,7 +199,7 @@ export default function PatientFollowupForm({
               value={followupType}
               fullWidth
               renderInput={(params) => (
-                <TextField required placeholder="Select type" name="ptype" {...params} label="Type" />
+                <TextField required placeholder="Select type" name="type" {...params} label="Type" />
               )}
             />
           </Grid>

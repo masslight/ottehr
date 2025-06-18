@@ -39,10 +39,10 @@ export const useSendMessagesMutation = (
         throw new Error(`Message send failed. OystehrUndefined`);
       }
       const messageSends = recipients.map(
-        (recip): Promise<TransactionalSMSSendResponse> =>
+        (recipient): Promise<TransactionalSMSSendResponse> =>
           oystehr?.transactionalSMS.send({
             message,
-            resource: recip.recipientResourceUri,
+            resource: recipient.recipientResourceUri,
           })
       );
       const outputs = await Promise.allSettled(messageSends);

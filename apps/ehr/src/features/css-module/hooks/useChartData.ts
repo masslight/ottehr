@@ -60,7 +60,7 @@ export const useChartData = ({
         });
       }
 
-      // not set state for custom fileds request, because data will be incompleted
+      // not set state for custom fields request, because data will be incomplete
       if (requestedFields) return;
 
       // should be updated only from root (useAppointment hook)

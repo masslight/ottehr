@@ -1,3 +1,4 @@
+// cSpell:ignore fhirify
 import Oystehr, { ZambdaExecuteResult } from '@oystehr/sdk';
 
 import {
@@ -247,11 +248,11 @@ export const getZapEHRAPI = (
   // Zambdas
 
   const cancelAppointment = async (parameters: CancelAppointmentRequestParams): Promise<any> => {
-    return await makeZapRequest('cancel appointment', parameters, NotFoundApointmentErrorHandler);
+    return await makeZapRequest('cancel appointment', parameters, NotFoundAppointmentErrorHandler);
   };
 
   const checkIn = async (appointmentId: string): Promise<any> => {
-    return await makeZapRequest('check in', { appointment: appointmentId }, NotFoundApointmentErrorHandler);
+    return await makeZapRequest('check in', { appointment: appointmentId }, NotFoundAppointmentErrorHandler);
   };
 
   const createAppointment = async (
@@ -324,7 +325,7 @@ export const getZapEHRAPI = (
   };
 
   const getVisitDetails = async (parameters: GetVisitDetailsRequest): Promise<GetVisitDetailsResponse> => {
-    return await makeZapRequest('get visit details', parameters, NotFoundApointmentErrorHandler);
+    return await makeZapRequest('get visit details', parameters, NotFoundAppointmentErrorHandler);
   };
 
   const getAnswerOptions = async (parameters: GetAnswerOptionsRequest): Promise<QuestionnaireItemAnswerOption[]> => {
@@ -338,11 +339,11 @@ export const getZapEHRAPI = (
   const getPaperworkPublic = async (
     parameters: GetPaperworkRequestParams
   ): Promise<PaperworkResponseWithoutResponses> => {
-    return await makeZapRequest('get paperwork', parameters, NotFoundApointmentErrorHandler);
+    return await makeZapRequest('get paperwork', parameters, NotFoundAppointmentErrorHandler);
   };
 
   const getPaperwork = async (parameters: GetPaperworkRequestParams): Promise<UCGetPaperworkResponse> => {
-    return await makeZapRequest('get paperwork', parameters, NotFoundApointmentErrorHandler);
+    return await makeZapRequest('get paperwork', parameters, NotFoundAppointmentErrorHandler);
   };
 
   const getPatients = async (): Promise<{ patients: PatientInfo[] }> => {
@@ -492,7 +493,7 @@ export const apiErrorToThrow = (error: any): APIError => {
   }
 };
 
-function NotFoundApointmentErrorHandler(error: any): void {
+function NotFoundAppointmentErrorHandler(error: any): void {
   if (error.message === 'Appointment is not found') {
     throw error;
   }

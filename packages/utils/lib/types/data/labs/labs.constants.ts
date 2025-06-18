@@ -84,7 +84,7 @@ export const DYMO_30334_LABEL_CONFIG: LabelConfig = {
 };
 // These are oystehr dependent
 // meaning that there is logic in oystehr labs specifically looking for these systems
-// so if we dont like any of them, we have to change there too
+// so if we don't like any of them, we have to change there too
 export const OYSTEHR_LAB_OI_CODE_SYSTEM = 'https://terminology.fhir.oystehr.com/CodeSystem/oystehr-lab-local-codes';
 export const FHIR_IDC10_VALUESET_SYSTEM = 'http://hl7.org/fhir/valueset-icd-10.html';
 ('http://snomed.info/sct');

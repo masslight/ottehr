@@ -216,8 +216,8 @@ export default function Insurances(): ReactElement {
   );
 }
 
-function insuranceStatusCheck(curentStatus: IsActiveStatus | '', insurance: InsurancePlan): boolean {
-  if (curentStatus === '') return true;
-  const statusFilter = curentStatus === IsActiveStatus.active ? 'active' : 'retired';
+function insuranceStatusCheck(currentStatus: IsActiveStatus | '', insurance: InsurancePlan): boolean {
+  if (currentStatus === '') return true;
+  const statusFilter = currentStatus === IsActiveStatus.active ? 'active' : 'retired';
   return insurance.status === statusFilter;
 }

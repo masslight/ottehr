@@ -20,11 +20,12 @@ import {
 import { readFileSync } from 'fs';
 import { DateTime } from 'luxon';
 import { dirname, join } from 'path';
-import { cleanAppointment } from 'test-utils';
 import { fileURLToPath } from 'url';
 import {
+  cleanAppointmentGraph,
   CreateAppointmentResponse,
   createSampleAppointments,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   FHIR_APPOINTMENT_INTAKE_HARVESTING_COMPLETED_TAG,
   FHIR_APPOINTMENT_PREPROCESSED_TAG,
   formatPhoneNumber,
@@ -33,7 +34,7 @@ import {
   ServiceMode,
 } from 'utils';
 import { getAuth0Token } from './auth/getAuth0Token';
-import { fetchWithOystAuth } from './helpers/tests-utils';
+import { fetchWithOystehrAuth } from './helpers/tests-utils';
 import {
   inviteTestEmployeeUser,
   removeUser,
@@ -41,7 +42,6 @@ import {
   TEST_EMPLOYEE_1,
   TEST_EMPLOYEE_2,
 } from './resource/employees';
-import { getInHouseMedicationsResources } from './resource/in-house-medications';
 import fastSeedData from './seed-data/seed-ehr-appointment-data.json' assert { type: 'json' };
 import inPersonIntakeQuestionnaire from '../../../../packages/utils/lib/deployed-resources/questionnaires/in-person-intake-questionnaire.json' assert { type: 'json' };
 
@@ -80,7 +80,7 @@ export const PATIENT_CITY = 'New York';
 export const PATIENT_LINE = `${EightDigitsString} Test Line`;
 export const PATIENT_LINE_2 = 'Apt 4B';
 export const PATIENT_STATE = 'NY';
-export const PATIENT_POSTALCODE = '06001';
+export const PATIENT_POSTAL_CODE = '06001';
 export const PATIENT_REASON_FOR_VISIT = 'Fever';
 
 export const PATIENT_INSURANCE_MEMBER_ID = '123123';
@@ -135,6 +135,7 @@ export class ResourceHandler {
   #flow: 'telemed' | 'in-person';
   #initPromise: Promise<void>;
   #paperworkAnswers?: GetPaperworkAnswers;
+  #processId?: string;
 
   public testEmployee1!: TestEmployee;
   public testEmployee2!: TestEmployee;
@@ -153,11 +154,12 @@ export class ResourceHandler {
     return this.#apiClient;
   }
 
-  constructor(flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
+  constructor(processId: string, flow: 'telemed' | 'in-person' = 'in-person', paperworkAnswers?: GetPaperworkAnswers) {
     this.#flow = flow;
     this.#paperworkAnswers = paperworkAnswers;
 
     this.#initPromise = this.initApi();
+    this.#processId = processId;
 
     this.#createAppointmentZambdaId = 'create-appointment';
   }
@@ -182,7 +184,7 @@ export class ResourceHandler {
         city: inputParams?.city ?? PATIENT_CITY,
         line: [inputParams?.line ?? PATIENT_LINE],
         state: inputParams?.state ?? PATIENT_STATE,
-        postalCode: inputParams?.postalCode ?? PATIENT_POSTALCODE,
+        postalCode: inputParams?.postalCode ?? PATIENT_POSTAL_CODE,
       };
 
       const patientData = {
@@ -226,6 +228,7 @@ export class ResourceHandler {
         demoData: patientData,
         projectId: process.env.PROJECT_ID!,
         paperworkAnswers: this.#paperworkAnswers,
+        appointmentMetadata: getProcessMetaTag(this.#processId!),
       });
       if (!appointmentData?.resources) {
         throw new Error('Appointment not created');
@@ -312,6 +315,10 @@ export class ResourceHandler {
             if (entry.request.method !== 'POST') {
               throw new Error('Only POST method is supported in fast mode');
             }
+            let resource: FhirResource = entry.resource;
+            if (resource.resourceType === 'Appointment') {
+              resource = addProcessIdMetaTagToResource(resource, this.#processId!);
+            }
             return {
               method: entry.request.method,
               url: entry.request.url,
@@ -340,31 +347,9 @@ export class ResourceHandler {
   public async cleanupResources(): Promise<void> {
     // TODO: here we should change appointment id to encounter id when we'll fix this bug in frontend,
     // because for this moment frontend creates order with appointment id in place of encounter one
-    if (this.#resources.appointment) {
-      const inHouseMedicationsResources = await getInHouseMedicationsResources(
-        this.#apiClient,
-        'encounter',
-        this.#resources.appointment.id!
-      );
-
-      await Promise.allSettled([
-        ...inHouseMedicationsResources.map((resource) => {
-          if (resource.id && resource.resourceType) {
-            return this.#apiClient.fhir
-              .delete({ id: resource.id, resourceType: resource.resourceType })
-              .then(() => {
-                console.log(`🗑️ deleted ${resource.resourceType} ${resource.id}`);
-              })
-              .catch((error) => {
-                console.error(`❌ 🗑️ ${resource.resourceType} not deleted ${resource.id}`, error);
-              });
-          } else {
-            console.error(`❌ 🫣 resource not found: ${resource.resourceType} ${resource.id}`);
-            return Promise.resolve();
-          }
-        }),
-        this.cleanAppointment(this.#resources.appointment.id!),
-      ]);
+    const metaTagCoding = getProcessMetaTag(this.#processId!);
+    if (metaTagCoding?.tag?.[0]) {
+      await cleanAppointmentGraph(metaTagCoding.tag[0], this.#apiClient);
     }
   }
 
@@ -490,27 +475,6 @@ export class ResourceHandler {
     return resource;
   }
 
-  async cleanupAppointmentsForPatient(patientId: string): Promise<void> {
-    const appointments = (
-      await this.#apiClient.fhir.search({
-        resourceType: 'Appointment',
-        params: [
-          {
-            name: 'actor',
-            value: 'Patient/' + patientId,
-          },
-        ],
-      })
-    ).unbundle();
-    for (const appointment of appointments) {
-      await cleanAppointment(appointment.id!, process.env.ENV!);
-    }
-  }
-
-  async cleanAppointment(appointmentId: string): Promise<boolean> {
-    return cleanAppointment(appointmentId, process.env.ENV!);
-  }
-
   async patientIdByAppointmentId(appointmentId: string): Promise<string> {
     const appointment = await this.#apiClient.fhir.get<Appointment>({
       resourceType: 'Appointment',
@@ -532,7 +496,7 @@ export class ResourceHandler {
     practitioner: Practitioner;
   }> {
     await this.#initPromise;
-    const users = await fetchWithOystAuth<
+    const users = await fetchWithOystehrAuth<
       {
         id: string;
         name: string;
@@ -555,3 +519,30 @@ export class ResourceHandler {
     };
   }
 }
+
+const addProcessIdMetaTagToResource = (resource: FhirResource, processId: string): FhirResource => {
+  const existingMeta = resource.meta || { tag: [] };
+  const existingTags = existingMeta.tag ?? [];
+  resource.meta = {
+    ...existingMeta,
+    tag: [
+      ...existingTags,
+      {
+        system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+        code: processId,
+      },
+    ],
+  };
+  return resource;
+};
+
+const getProcessMetaTag = (processId: string): Appointment['meta'] => {
+  return {
+    tag: [
+      {
+        system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+        code: processId,
+      },
+    ],
+  };
+};
