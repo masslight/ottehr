@@ -11,21 +11,21 @@ import {
   debounce,
 } from '@mui/material';
 
+import { otherColors } from '@ehrTheme/colors';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 import { DateTime } from 'luxon';
 import { FC, useCallback, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { MedicationDTO } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useChartDataArrayValue, useGetAppointmentAccessibility } from '../../../../hooks';
 import { ExtractObjectType, useAppointmentStore, useGetMedicationsSearch } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
 import { CurrentMedicationGroup } from './CurrentMedicationGroup';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { ErxSearchMedicationsResponse } from '@oystehr/sdk';
 
 interface CurrentMedicationsProviderColumnForm {
   medication: ExtractObjectType<ErxSearchMedicationsResponse> | null;
@@ -81,7 +81,7 @@ export const CurrentMedicationsProviderColumn: FC = () => {
   const handleFormSubmitted = async (data: CurrentMedicationsProviderColumnForm): Promise<void> => {
     if (data) {
       const success = await onSubmit({
-        name: data.medication?.name || '',
+        name: `${data.medication?.name}${data.medication?.strength ? ` (${data.medication?.strength})` : ''}`,
         id: data.medication?.id?.toString(),
         type: data.type,
         intakeInfo: {
@@ -187,7 +187,11 @@ export const CurrentMedicationsProviderColumn: FC = () => {
                 render={({ field: { value, onChange }, fieldState: { error } }) => (
                   <Autocomplete
                     value={value}
-                    getOptionLabel={(option) => (typeof option === 'string' ? option : option.name)}
+                    getOptionLabel={(option) =>
+                      typeof option === 'string'
+                        ? option
+                        : `${option.name} ${option.strength ? `(${option.strength})` : ''}`
+                    }
                     fullWidth
                     isOptionEqualToValue={(option, value) => value.id === option.id}
                     loading={isSearching}
