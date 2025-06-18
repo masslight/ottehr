@@ -5,12 +5,13 @@ import GroupMembers from '../components/schedule/GroupMembers';
 import { useApiClients } from '../hooks/useAppClients';
 import { LoadingButton } from '@mui/lab';
 import { getPatchBinary, getSlugForBookableResource, SLUG_SYSTEM } from 'utils';
-import { BatchInputPatchRequest, BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
 import { Link, useParams } from 'react-router-dom';
 import PageContainer from '../layout/PageContainer';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import { enqueueSnackbar } from 'notistack';
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
+import { Operation } from 'fast-json-patch';
 
 const INTAKE_URL = import.meta.env.VITE_APP_INTAKE_URL;
 
@@ -165,20 +166,40 @@ function GroupPageContent(): ReactElement {
           ],
         })
       );
-      const updateLocations: BatchInputRequest<HealthcareService> = getPatchBinary({
+
+      const patchOperations: Operation[] = [];
+
+      patchOperations.push({
+        op: group?.location ? 'replace' : 'add',
+        path: '/location',
+        value:
+          selectedLocations?.map((selectedLocationTemp) => ({
+            reference: `Location/${selectedLocationTemp}`,
+          })) ?? [],
+      });
+
+      const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
+      if (group && slug !== currentSlug) {
+        const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
+        if (slug) {
+          newIdentifierList.push({
+            system: SLUG_SYSTEM,
+            value: slug,
+          });
+        }
+        patchOperations.push({
+          op: group.identifier === undefined ? 'add' : 'replace',
+          path: '/identifier',
+          value: newIdentifierList,
+        });
+      }
+
+      const healthcareServicePatchRequest = getPatchBinary({
         resourceType: 'HealthcareService',
         resourceId: groupID,
-        patchOperations: [
-          {
-            op: group?.location ? 'replace' : 'add',
-            path: '/location',
-            value:
-              selectedLocations?.map((selectedLocationTemp) => ({
-                reference: `Location/${selectedLocationTemp}`,
-              })) ?? [],
-          },
-        ],
+        patchOperations,
       });
+
       const practitionerRolesResourceCreateRequests: BatchInputPostRequest<PractitionerRole>[] =
         practitionerRolesResourcesToCreate.map((practitionerRoleResourceToCreateTemp) => ({
           method: 'POST',
@@ -235,43 +256,14 @@ function GroupPageContent(): ReactElement {
             })
         )
       );
-      const slugPatchRequests: BatchInputPatchRequest<HealthcareService>[] = [];
-      const currentSlug = group ? getSlugForBookableResource(group) ?? '' : '';
-      if (group && slug !== currentSlug) {
-        const newIdentifierList = group.identifier?.filter((identifier) => identifier.system !== SLUG_SYSTEM) || [];
-        if (slug) {
-          newIdentifierList.push({
-            system: SLUG_SYSTEM,
-            value: slug,
-          });
-        }
-        slugPatchRequests.push(
-          getPatchBinary({
-            resourceType: 'HealthcareService',
-            resourceId: groupID,
-            patchOperations: [
-              {
-                op: group.identifier === undefined ? 'add' : 'replace',
-                path: '/identifier',
-                value: newIdentifierList,
-              },
-            ],
-          })
-        );
-      }
+
       await oystehr.fhir.transaction<PractitionerRole | HealthcareService>({
         requests: [
           ...practitionerRolesResourceCreateRequests,
           ...practitionerRolesResourcePatchRequests,
-          updateLocations,
+          healthcareServicePatchRequest,
         ],
       });
-
-      if (slugPatchRequests.length > 0) {
-        await oystehr.fhir.transaction<HealthcareService>({
-          requests: slugPatchRequests,
-        });
-      }
 
       enqueueSnackbar('Group schedule saved successfully!', { variant: 'success' });
       await getOptions();
