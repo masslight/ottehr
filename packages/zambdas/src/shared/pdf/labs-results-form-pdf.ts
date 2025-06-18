@@ -279,6 +279,7 @@ export async function createExternalLabResultPDF(
     task: pstTask,
     appointment,
     encounter,
+    schedule,
     organization,
     observations,
   } = await getExternalLabOrderResources(oystehr, serviceRequestID);
@@ -293,9 +294,9 @@ export async function createExternalLabResultPDF(
       id: locationID,
     });
   }
-  let timezone = undefined;
-  if (location) {
-    timezone = getTimezone(location);
+  let timezone;
+  if (schedule) {
+    timezone = getTimezone(schedule);
   }
 
   if (!appointment.id) throw new Error('appointment id is undefined');

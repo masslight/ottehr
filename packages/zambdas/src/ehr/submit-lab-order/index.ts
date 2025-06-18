@@ -62,6 +62,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       task,
       appointment,
       encounter,
+      schedule,
       organization: labOrganization,
       specimens: specimenResourses,
     } = await getExternalLabOrderResources(oystehr, serviceRequestID);
@@ -152,10 +153,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
-    let timezone = undefined;
-
-    if (location) {
-      timezone = getTimezone(location);
+    let timezone;
+    if (schedule) {
+      timezone = getTimezone(schedule);
     }
 
     const sampleCollectionDates: DateTime[] = [];
