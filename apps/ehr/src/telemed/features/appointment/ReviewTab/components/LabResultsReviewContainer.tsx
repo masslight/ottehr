@@ -1,37 +1,50 @@
 import { FC, Fragment } from 'react';
 import { Box, Typography } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
+import { InHouseLabResult, ExternalLabOrderResult, LabType } from 'utils';
 
-export const LabResultsReviewContainer: FC = () => {
-  const { chartData } = getSelectors(useAppointmentStore, ['encounter', 'chartData']);
+interface LabResultsReviewContainerProps {
+  resultDetails:
+    | {
+        type: LabType.external;
+        results: ExternalLabOrderResult[];
+      }
+    | {
+        type: LabType.inhouse;
+        results: InHouseLabResult[];
+      };
+  resultsPending: boolean;
+}
 
-  const labResultFromChart = chartData?.labResults;
-
+export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ resultDetails, resultsPending }) => {
+  const isExternal = resultDetails.type === LabType.external;
+  const title = isExternal ? 'External Labs' : 'In-House Labs';
+  const keyIdentifier = isExternal ? 'external-lab-result' : 'inhouse-lab-result';
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
       <Typography variant="h5" color="primary.dark">
-        Labs
+        {title}
       </Typography>
-      {labResultFromChart?.labOrderResults?.map((res, idx) => (
-        <Fragment key={`${idx}-${res.orderNumber}`}>
+      {resultDetails.results?.map((res, idx) => (
+        <Fragment key={`${keyIdentifier}-${idx}`}>
           <Link to={res.url} target="_blank">
             {res.name}
           </Link>
-          {res.reflexResults?.map((reflexRes, reflexIdx) => (
-            <Link
-              key={`${idx}-${reflexIdx}-${reflexRes.name}`}
-              style={{ marginLeft: '20px' }}
-              to={reflexRes.url}
-              target="_blank"
-            >
-              + {reflexRes.name}
-            </Link>
-          ))}
+          {isExternal &&
+            'reflexResults' in res &&
+            res?.reflexResults?.map((reflexRes, reflexIdx) => (
+              <Link
+                key={`${idx}-${reflexIdx}-${reflexRes.name}`}
+                style={{ marginLeft: '20px' }}
+                to={reflexRes.url}
+                target="_blank"
+              >
+                + {reflexRes.name}
+              </Link>
+            ))}
         </Fragment>
       ))}
-      {labResultFromChart?.resultsPending && (
+      {resultsPending && (
         <Typography variant="subtitle2" style={{ fontSize: '14px' }}>
           Lab Results Pending
         </Typography>
