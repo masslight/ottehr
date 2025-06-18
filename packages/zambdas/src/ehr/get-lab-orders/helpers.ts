@@ -446,6 +446,7 @@ export const getLabResources = async (
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
+  console.log('isDetailPageRequest', isDetailPageRequest);
 
   const [
     serviceRequsetPractitioners,
@@ -1858,6 +1859,7 @@ export const parseQuestionnaireResponseItems = (
 };
 
 export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): sampleDTO[] => {
+  console.log('parsing samples for service request & specimen', serviceRequest.id, specimens?.length);
   const NOT_FOUND = 'Not specified';
 
   if (!serviceRequest.contained || !serviceRequest.contained.length) {
