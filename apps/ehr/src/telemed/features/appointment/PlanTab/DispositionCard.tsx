@@ -132,7 +132,7 @@ export const DispositionCard: FC = () => {
   }, [handleSubmit, onSubmit, watch]);
 
   const fields = dispositionFieldsPerType[currentType];
-  const tabs: DispositionType[] = ['pcp-no-type', 'another', 'specialty'];
+  const tabs: DispositionType[] = ['pcp-no-type', 'another', 'ed', 'specialty'];
 
   if (isChartDataLoading || !chartData?.disposition) {
     return (
