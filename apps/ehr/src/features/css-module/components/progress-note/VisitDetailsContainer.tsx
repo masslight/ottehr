@@ -40,8 +40,8 @@ export const VisitDetailsContainer: FC = () => {
   const admitterId = encounter.participant
     ?.find((participant) => participant.type?.[0]?.coding?.[0].code === PARTICIPANT_TYPE.ADMITTER)
     ?.individual?.reference?.split('/')?.[1];
-  const addmitterPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === admitterId);
-  const addmitterPractitionerName = addmitterPractitioner && getProviderNameWithProfession(addmitterPractitioner);
+  const admitterPractitioner = chartData?.practitioners?.find((practitioner) => practitioner.id === admitterId);
+  const admitterPractitionerName = admitterPractitioner && getProviderNameWithProfession(admitterPractitioner);
 
   return (
     <Stack spacing={2}>
@@ -55,7 +55,7 @@ export const VisitDetailsContainer: FC = () => {
           { label: 'Subscriber ID', value: subscriberID },
           { label: 'Encounter Date', value: date },
           { label: 'Provider', value: provider },
-          { label: 'Intake completed by', value: addmitterPractitionerName },
+          { label: 'Intake completed by', value: admitterPractitionerName },
           { label: 'Appointment Facility', value: facility },
         ]}
         getKey={(item) => item.label}

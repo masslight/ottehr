@@ -28,8 +28,8 @@ interface NavigationContextType {
   currentRoute: string | undefined;
   goToNext: () => void;
   goToPrevious: () => void;
-  addNextPageValidators: (validatiors: CSSValidators) => void; // blocks next navigation if validators return non empty string and show modal with this message.
-  addPreviousPageValidators: (validatiors: CSSValidators) => void; // blocks navigation if validators return non empty string and show modal with this message.
+  addNextPageValidators: (validators: CSSValidators) => void; // blocks next navigation if validators return non empty string and show modal with this message.
+  addPreviousPageValidators: (validators: CSSValidators) => void; // blocks navigation if validators return non empty string and show modal with this message.
   resetNavigationState: () => void;
   setIsNavigationHidden: (hide: boolean) => void;
   isNavigationHidden: boolean;
@@ -46,7 +46,7 @@ interface NavigationContextType {
 
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
 
-// hack for safe using ounside context in the telemed components
+// hack for safe using outside context in the telemed components
 export let setNavigationDisable: NavigationContextType['setNavigationDisable'] = () => {
   return;
 };

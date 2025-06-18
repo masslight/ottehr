@@ -32,24 +32,24 @@ interface IOSMessageOpenPageExternal {
 }
 
 // message creators
-export const createIOSMesssageCallStarted = (
+export const createIOSMessageCallStarted = (
   payload: IOSMessageWWaitingRoomStatus['payload']
 ): IOSMessageWWaitingRoomStatus => ({
   type: 'CALL_STARTED',
   payload,
 });
-export const createIOSMesssageWAccessToken = (payload: string): IOSMessageWAccessToken => ({
+export const createIOSMessageWAccessToken = (payload: string): IOSMessageWAccessToken => ({
   type: 'ACCESS_TOKEN',
   payload,
 });
-export const createIOSMesssageCloseWebView = (): IOSMessageCloseWebView => ({
+export const createIOSMessageCloseWebView = (): IOSMessageCloseWebView => ({
   type: 'CLOSE_WEB_VIEW',
 });
-export const createIOSMesssageOpenPage = (payload: string): IOSMessageOpenPage => ({
+export const createIOSMessageOpenPage = (payload: string): IOSMessageOpenPage => ({
   type: 'OPEN_PAGE',
   payload,
 });
-export const createIOSMesssageOpenPageExternal = (payload: string): IOSMessageOpenPageExternal => ({
+export const createIOSMessageOpenPageExternal = (payload: string): IOSMessageOpenPageExternal => ({
   type: 'OPEN_PAGE_EXTERNAL',
   payload,
 });

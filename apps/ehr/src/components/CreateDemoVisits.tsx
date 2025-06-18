@@ -121,6 +121,7 @@ const CreateDemoVisits = (): ReactElement => {
   };
 
   const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: string): void => {
+    // cSpell:disable-next clickaway
     if (reason === 'clickaway') {
       return;
     }

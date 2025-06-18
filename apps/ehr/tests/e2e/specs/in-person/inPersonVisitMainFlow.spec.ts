@@ -44,6 +44,7 @@ import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonPro
 import { expectPatientInfoPage, PatientInfoPage } from '../../page/PatientInfo';
 import { openVisitsPage } from '../../page/VisitsPage';
 
+// cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99201 New Patient - E/M Level 1';
 

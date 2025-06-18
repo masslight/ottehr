@@ -174,6 +174,8 @@ export default function ProceduresNew(): ReactElement {
       medicationUsed: procedure.medicationUsed,
       bodySite: getValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
       otherBodySite: getOtherValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
+      bodySite: getPredefinedValueOrOther(procedure.bodySite, SITES),
+      otherBodySite: getPredefinedValueIfOther(procedure.bodySite, SITES),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
       suppliesUsed: getValueForOtherable(procedure.suppliesUsed, selectOptions?.supplies),
@@ -226,7 +228,7 @@ export default function ProceduresNew(): ReactElement {
         ...(savedDiagnoses ?? []),
         ...(state.diagnoses?.filter((diagnosis) => diagnosis.resourceId != null) ?? []),
       ];
-      const saveProcdureResponse = await saveChartData({
+      const saveProcedureResponse = await saveChartData({
         procedures: [
           {
             resourceId: procedureId,
@@ -267,7 +269,7 @@ export default function ProceduresNew(): ReactElement {
           ),
         });
       }
-      const savedProcedure = saveProcdureResponse.chartData?.procedures?.[0];
+      const savedProcedure = saveProcedureResponse.chartData?.procedures?.[0];
       if (savedProcedure) {
         setPartialChartData({
           procedures: [
