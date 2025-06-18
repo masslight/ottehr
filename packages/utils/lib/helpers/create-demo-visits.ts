@@ -6,6 +6,7 @@ import {
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
   CreateSlotParams,
+  E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
   PatchPaperworkParameters,
   PatientInfo,
   PersonSex,
@@ -127,6 +128,7 @@ export const createSampleAppointments = async ({
   projectId,
   paperworkAnswers,
   serviceMode,
+  appointmentMetadata,
 }: {
   oystehr: Oystehr | undefined;
   authToken: string;
@@ -139,6 +141,7 @@ export const createSampleAppointments = async ({
   projectId: string;
   paperworkAnswers?: GetPaperworkAnswers;
   serviceMode?: ServiceMode;
+  appointmentMetadata?: Appointment['meta'];
 }): Promise<CreateAppointmentResponse> => {
   if (!projectId) {
     throw new Error('PROJECT_ID is not set');
@@ -173,6 +176,20 @@ export const createSampleAppointments = async ({
           selectedLocationId,
           locationState
         );
+
+        if (appointmentMetadata) {
+          randomPatientInfo.appointmentMetadata = appointmentMetadata;
+        } else {
+          const sampleAppointmentMeta = {
+            tag: [
+              {
+                system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+                code: `sample-appointments-from-outside-E2E-${DateTime.now().toISO()}`,
+              },
+            ],
+          };
+          randomPatientInfo.appointmentMetadata = sampleAppointmentMeta;
+        }
 
         const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
           method: 'POST',

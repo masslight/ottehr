@@ -19,6 +19,7 @@
     "deploy-zambdas": "ENV=$ENV npm run bundle && tsx src/scripts/deploy-zambdas.ts",
     "config-schedules": "tsx src/scripts/ensure-schedule-config.ts",
     "update-user-roles": "tsx src/scripts/update-user-roles.ts",
+    "clean-up-e2e": "tsx src/scripts/clean-up-e2e.ts",
     "build": "tsc",
     "bundle": "tsx bundle.ts",
     "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",

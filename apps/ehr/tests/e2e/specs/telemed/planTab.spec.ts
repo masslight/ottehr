@@ -5,10 +5,12 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { TelemedAppointmentVisitTabs } from 'utils';
 import { waitForSaveChartDataResponse } from 'test-utils';
 import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
+import { DateTime } from 'luxon';
 
 test.describe('Disposition', async () => {
   test.describe('Primary Care Physician', async () => {
-    const resourceHandler = new ResourceHandler('telemed');
+    const PROCESS_ID = `planTab.spec.ts-disposition-${DateTime.now().toMillis()}`;
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
     let page: Page;
     const defaultNote = 'Please see your Primary Care Physician as discussed.';
     const updatedNote = 'Lorem ipsum';
@@ -80,7 +82,8 @@ test.describe('Disposition', async () => {
   });
 
   test.describe('Transfer to another location', async () => {
-    const resourceHandler = new ResourceHandler('telemed');
+    const PROCESS_ID = `planTab.spec.ts-transfer-${DateTime.now().toMillis()}`;
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
     let page: Page;
     const defaultNote = 'Please proceed to the ABC Office as advised.';
     const updatedNote = 'Lorem ipsum';
@@ -148,8 +151,9 @@ test.describe('Disposition', async () => {
     });
   });
 
-  test.describe('Specialty transfer', async () => {
-    const resourceHandler = new ResourceHandler('telemed');
+  test.describe('Speciality transfer', async () => {
+    const PROCESS_ID = `planTab.spec.ts-specialty-transfer-${DateTime.now().toMillis()}`;
+    const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
     let page: Page;
     const updatedNote = 'Lorem ipsum';
     const followUpMenuOption = '3 days';

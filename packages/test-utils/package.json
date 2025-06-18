@@ -16,7 +16,8 @@
     "prettier": "prettier --write .",
     "preview": "vite preview",
     "test": "vitest --silent",
-    "coverage": "vitest run --coverage"
+    "coverage": "vitest run --coverage",
+    "clean-e2e": "tsc scripts/clean-up-e2e.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.1"
