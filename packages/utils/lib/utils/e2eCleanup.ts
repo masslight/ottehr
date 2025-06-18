@@ -51,11 +51,21 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
     })
   );
 
-  console.log('Resources to be deleted:');
-  deleteRequests.forEach((request) => {
-    const [resourceType, id] = request.url.split('/');
-    console.log(`${resourceType}: ${id}`);
-  });
+  const deleteMap = deleteRequests.reduce(
+    (accum, request) => {
+      const [resourceType] = request.url.split('/');
+      if (resourceType) {
+        const currentCount = accum[resourceType] || 0;
+        accum[resourceType] = currentCount + 1;
+      }
+      return accum;
+    },
+    {} as Record<string, number>
+  );
+  const deleteSummary = Object.entries(deleteMap)
+    .map(([resourceType, count]) => `${resourceType}: ${count}`)
+    .join(', \n');
+  console.log('Resources to be deleted: ', deleteSummary);
 
   if (persons) {
     console.log(`Persons to be patched: ${persons.map((p) => `Person/${p.id}`).join(', ')}`);
