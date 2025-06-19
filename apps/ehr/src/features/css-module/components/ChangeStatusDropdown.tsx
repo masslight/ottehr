@@ -60,13 +60,33 @@ export const ChangeStatusDropdown = ({
   const user = useEvolveUser();
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
+
   const nonDropdownStatuses = ['checked out', 'canceled', 'no show'];
   const hasDropdown = status ? !nonDropdownStatuses.includes(status) : false;
 
   async function updateInPersonVisitStatus(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
     setStatusLoading(true);
     try {
-      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, event.target.value as VisitStatusLabel);
+      if (!user) {
+        throw new Error('User is required to change the visit status');
+      }
+
+      if (!encounter || !encounter.id) {
+        throw new Error('Encounter ID is required to change the visit status');
+      }
+
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda client is not available when changing the visit status');
+      }
+
+      await handleChangeInPersonVisitStatus(
+        {
+          encounterId: encounter.id,
+          user,
+          updatedStatus: event.target.value as VisitStatusLabel,
+        },
+        oystehrZambda
+      );
       await refetch();
     } catch (error) {
       console.error(error);

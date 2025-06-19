@@ -1,3 +1,4 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   FHIR_EXTENSION,
@@ -9,8 +10,7 @@ import {
   getPatientsForUser,
   getSecret,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
-import { getAuth0Token } from '../../shared';
+import { ZambdaInput, getAuth0Token } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -21,7 +21,7 @@ export interface GetPatientsInput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -101,4 +101,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error' }),
     };
   }
-};
+});

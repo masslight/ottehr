@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication, MedicationAdministration, MedicationStatement, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -18,7 +19,9 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
+import { checkOrCreateM2MClientToken } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
 import {
   createMedicationCopy,
@@ -30,8 +33,6 @@ import {
   validateProviderAccess,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { ZambdaInput } from '../../shared/types';
 
 export interface ExtendedMedicationData extends MedicationData {
   administeredProvider?: string;
@@ -43,7 +44,7 @@ export interface ExtendedMedicationData extends MedicationData {
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -65,7 +66,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: `Error creating/updating order: ${JSON.stringify(error)}` }),
     };
   }
-};
+});
 
 async function performEffect(
   oystehr: Oystehr,

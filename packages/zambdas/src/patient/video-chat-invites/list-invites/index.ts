@@ -1,14 +1,15 @@
 import { User } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
 import {
-  ListInvitedParticipantsInput,
-  ListInvitedParticipantsResponse,
-  SecretsKeys,
   createOystehrClient,
   getAppointmentResourceById,
   getSecret,
+  ListInvitedParticipantsInput,
+  ListInvitedParticipantsResponse,
+  SecretsKeys,
 } from 'utils';
 import {
   getAuth0Token,
@@ -22,7 +23,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {
@@ -96,4 +97,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log(error);
     return lambdaResponse(500, { error: 'Internal error' });
   }
-};
+});

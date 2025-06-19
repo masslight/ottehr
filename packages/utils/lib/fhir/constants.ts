@@ -348,8 +348,13 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
   {
     title: 'insurance-cards',
-    display: 'Ins Cards / Photo ID',
-    documentTypeCode: [INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE],
+    display: 'Insurance Cards',
+    documentTypeCode: INSURANCE_CARD_CODE,
+  },
+  {
+    title: 'photo-ids',
+    display: 'Photo ID',
+    documentTypeCode: PHOTO_ID_CARD_CODE,
   },
   {
     title: 'patient-photos',
@@ -357,9 +362,14 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
-    title: 'school-work-note-templates',
+    title: 'school-work-note',
     display: 'School/Work Notes',
-    documentTypeCode: [SCHOOL_WORK_NOTE_TEMPLATE_CODE, SCHOOL_WORK_NOTE_CODE],
+    documentTypeCode: SCHOOL_WORK_NOTE_CODE,
+  },
+  {
+    title: 'school-work-note-templates',
+    display: 'School/Work Note templates',
+    documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   },
   {
     title: 'receipts',

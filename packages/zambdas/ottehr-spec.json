@@ -1041,6 +1041,13 @@
       "runtime": "nodejs20.x",
       "src": "src/ehr/patient-payments/post/index",
       "zip": ".dist/zips/patient-payments-post.zip"
+    },
+    "FAILING-ENDPOINT": {
+      "name": "FAILING-ENDPOINT",
+      "type": "http_open",
+      "runtime": "nodejs20.x",
+      "src": "src/ehr/failing-endpoint/index",
+      "zip": ".dist/zips/failing-endpoint.zip"
     }
   },
   "fhirResources": {
@@ -1052,10 +1059,7 @@
         "patient": "patient-id",
         "title": "My Questions"
       },
-      "managedFields": [
-        "name",
-        "title"
-      ]
+      "managedFields": ["name", "title"]
     }
   },
   "apps": {
@@ -1078,9 +1082,7 @@
           "effect": "Allow"
         }
       ],
-      "roles": [
-        "#ref/EHR_SUPER_ADMIN"
-      ]
+      "roles": ["#ref/EHR_SUPER_ADMIN"]
     }
   },
   "roles": {
