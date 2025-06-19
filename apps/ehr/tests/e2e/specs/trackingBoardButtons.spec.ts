@@ -54,6 +54,8 @@ test('Check clicks on appointment row elements', async ({ page }) => {
   visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
+  await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+  await visitsPage.clickInOfficeTab();
   await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
   const patientInfoPage = await expectPatientInfoPage(resourceHandler.appointment.id!, page);
   await patientInfoPage.cssHeader().changeStatus('completed');
