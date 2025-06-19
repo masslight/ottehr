@@ -3,9 +3,9 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  getMedicationName,
   getMedicationTypeCode,
   getPatchBinary,
-  getPractitionerIdThatOrderedMedication,
   INVENTORY_MEDICATION_TYPE_CODE,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
@@ -18,27 +18,17 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { createOystehrClient } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
 import {
   createMedicationCopy,
-  createOrRecreateMedicationForOrder,
   getMedicationById,
+  getMedicationFromMA,
   practitionerIdFromZambdaInput,
   updateMedicationAdministrationData,
-  updateMedicationCopyForOrder,
   validateProviderAccess,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { ZambdaInput } from '../../shared';
-
-export interface ExtendedMedicationData extends MedicationData {
-  administeredProvider?: string;
-  providerCreatedTheOrder: string;
-  orderDateTimeCreated?: string;
-  medicationCopy?: Medication;
-}
 
 let m2mtoken: string;
 
@@ -72,15 +62,14 @@ async function performEffect(
   practitionerIdCalledZambda: string
 ): Promise<any> {
   const { orderId, newStatus, orderData } = params;
-  const extendedOrderData = { ...orderData } as ExtendedMedicationData;
-  if (orderId) {
-    await updateOrder(oystehr, orderId, newStatus, extendedOrderData, practitionerIdCalledZambda);
+  if (orderId && orderData) {
+    await updateOrder(oystehr, orderId, newStatus, orderData, practitionerIdCalledZambda);
     return {
       message: 'Order was updated successfully',
       id: orderId,
     };
   } else if (orderData) {
-    const medicationAdministrationId = await createOrder(oystehr, extendedOrderData, practitionerIdCalledZambda);
+    const medicationAdministrationId = await createOrder(oystehr, orderData, practitionerIdCalledZambda);
     return {
       message: 'Order was created successfully',
       id: medicationAdministrationId,
@@ -93,7 +82,7 @@ async function updateOrder(
   oystehr: Oystehr,
   orderId: string,
   newStatus: MedicationOrderStatusesType | undefined,
-  extendedOrderData: ExtendedMedicationData,
+  orderData: MedicationData,
   practitionerIdCalledZambda: string
 ): Promise<any> {
   const orderResources = await getOrderResources(oystehr, orderId);
@@ -103,34 +92,29 @@ async function updateOrder(
     throw new Error(`Can't change status if current is not 'pending'. Current status is: ${currentStatus}`);
   console.log(`Current order status is: ${currentStatus}`);
 
-  if (newStatus) validateProviderAccess(extendedOrderData, newStatus, orderResources, practitionerIdCalledZambda);
+  if (newStatus) validateProviderAccess(orderData, newStatus, orderResources, practitionerIdCalledZambda);
 
-  // filling up existing information about provider created this order
-  extendedOrderData.providerCreatedTheOrder = getPractitionerIdThatOrderedMedication(
-    orderResources.medicationAdministration
-  )!;
-  if (extendedOrderData?.medicationId) {
-    const inventoryMedication = await getMedicationById(oystehr, extendedOrderData?.medicationId);
-    extendedOrderData.medicationCopy = await createOrRecreateMedicationForOrder(
-      oystehr,
-      orderResources,
-      inventoryMedication,
-      extendedOrderData
-    );
-  } else if (orderResources.medication) {
-    extendedOrderData.medicationCopy = await updateMedicationCopyForOrder(
-      oystehr,
-      orderResources.medication,
-      orderResources.medication.id!,
-      extendedOrderData
-    );
+  const existingMedicationCopy = getMedicationFromMA(orderResources.medicationAdministration);
+  let newMedicationCopy: Medication | undefined;
+  if (orderData?.medicationId) {
+    console.log('Creating new copy for order');
+    const inventoryMedication = await getMedicationById(oystehr, orderData?.medicationId);
+    newMedicationCopy = createMedicationCopy(inventoryMedication, orderData);
+  } else if (existingMedicationCopy) {
+    console.log('Updating existing copy for order');
+    // during copy process we also update lotNumber, expDate etc.
+    newMedicationCopy = createMedicationCopy(existingMedicationCopy, orderData);
   }
 
   const resultPromises: Promise<any>[] = [];
-  if (extendedOrderData) {
-    if (newStatus === 'administered' || newStatus === 'administered-partly')
-      extendedOrderData.administeredProvider = practitionerIdCalledZambda;
-    await updateMedicationAdministrationData(oystehr, extendedOrderData, orderResources);
+  if (orderData && newMedicationCopy && (newStatus === 'administered' || newStatus === 'administered-partly')) {
+    await updateMedicationAdministrationData(
+      oystehr,
+      orderData,
+      orderResources,
+      practitionerIdCalledZambda,
+      newMedicationCopy
+    );
     console.log('MedicationAdministration data was successfully updated.');
   }
   if (currentStatus && newStatus) {
@@ -138,17 +122,15 @@ async function updateOrder(
     if (newStatus === 'administered') {
       console.log('Creating MedicationStatement resource on administered action');
 
-      if (!extendedOrderData.medicationCopy)
-        throw new Error(`Can't create MedicationStatement for order, no Medication copy.`);
+      if (!newMedicationCopy) throw new Error(`Can't create MedicationStatement for order, no Medication copy.`);
 
-      const erxDataFromMedication = extendedOrderData.medicationCopy.code?.coding?.find(
+      const erxDataFromMedication = newMedicationCopy.code?.coding?.find(
         (code) => code.system === MEDICATION_DISPENSABLE_DRUG_ID
       );
       if (!erxDataFromMedication)
         throw new Error(
-          `Can't create MedicationStatement for order, Medication resource don't have coding with ERX id and display`
+          `Can't create MedicationStatement for order, Medication resource don't have coding with ERX data in it`
         );
-
       const medicationCodeableConcept: CodeableConcept = {
         coding: [erxDataFromMedication],
       };
@@ -157,7 +139,7 @@ async function updateOrder(
           .create<MedicationStatement>(
             createMedicationStatementResource(orderResources.medicationAdministration, medicationCodeableConcept)
           )
-          .then((res) => console.log('created MedicationStatement: ', res.id))
+          .then((res) => console.log('successfully created MedicationStatement: ', res.id))
       );
     }
     console.log('Status was successfully changed');
@@ -167,33 +149,32 @@ async function updateOrder(
 
 async function createOrder(
   oystehr: Oystehr,
-  extendedOrderData: ExtendedMedicationData,
+  orderData: MedicationData,
   practitionerIdCalledZambda: string
 ): Promise<string | undefined> {
-  const inventoryMedication = await getMedicationById(oystehr, extendedOrderData.medicationId);
+  const inventoryMedication = await getMedicationById(oystehr, orderData.medicationId);
   if (inventoryMedication && getMedicationTypeCode(inventoryMedication) !== INVENTORY_MEDICATION_TYPE_CODE) {
     throw new Error(
-      `Medication with id ${extendedOrderData.medicationId} is not medication inventory item, can't copy that resource`
+      `Medication with id ${orderData.medicationId} is not medication inventory item, can't copy that resource`
     );
   }
-  const medicationCopy = createMedicationCopy(inventoryMedication, extendedOrderData);
-  extendedOrderData.medicationCopy = await oystehr.fhir.create(medicationCopy);
-  console.log(`Created copy: ${extendedOrderData.medicationCopy.id}`);
+  const medicationCopy = createMedicationCopy(inventoryMedication, orderData);
+  console.log(`Created copy: ${getMedicationName(medicationCopy)}`);
 
-  extendedOrderData.providerCreatedTheOrder = practitionerIdCalledZambda;
-  extendedOrderData.orderDateTimeCreated = DateTime.now().toISO() ?? undefined;
-  const routeCoding = searchRouteByCode(extendedOrderData.route);
-  if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${extendedOrderData.route}`);
-  const locationCoding = extendedOrderData.location ? searchMedicationLocation(extendedOrderData.location) : undefined;
-  if (extendedOrderData.location && !locationCoding)
-    throw new Error(`No location found with code provided: ${extendedOrderData.location}`);
+  const routeCoding = searchRouteByCode(orderData.route);
+  if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${orderData.route}`);
+  const locationCoding = orderData.location ? searchMedicationLocation(orderData.location) : undefined;
+  if (orderData.location && !locationCoding)
+    throw new Error(`No location found with code provided: ${orderData.location}`);
 
-  const medicationAdministrationToCreate = createMedicationAdministrationResource(
-    extendedOrderData,
-    mapOrderStatusToFhir('pending'),
-    routeCoding,
-    locationCoding
-  );
+  const medicationAdministrationToCreate = createMedicationAdministrationResource({
+    orderData,
+    status: mapOrderStatusToFhir('pending'),
+    route: routeCoding,
+    location: locationCoding,
+    createdProviderId: practitionerIdCalledZambda,
+    dateTimeCreated: DateTime.now().toISO(),
+  });
   console.log('MedicationAdministration resource: ', JSON.stringify(medicationAdministrationToCreate));
   const resultMedicationAdministration = await oystehr.fhir.create(medicationAdministrationToCreate);
   return resultMedicationAdministration.id;
@@ -226,10 +207,6 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
       },
       {
         name: '_include',
-        value: 'MedicationAdministration:medication',
-      },
-      {
-        name: '_include',
         value: 'MedicationAdministration:subject',
       },
       {
@@ -248,12 +225,10 @@ async function getOrderResources(oystehr: Oystehr, orderId: string): Promise<Ord
   const medicationStatement = resources.find(
     (res) => res.resourceType === 'MedicationStatement'
   ) as MedicationStatement;
-  const medication = resources.find((res) => res.resourceType === 'Medication') as Medication;
 
   return {
     medicationAdministration,
     medicationStatement,
-    medication,
     patient,
   };
 }

@@ -1,6 +1,5 @@
-import { CodeableConcept, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
-import { ExtendedMedicationData } from './index';
-import { createReference } from 'utils';
+import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
+import { createReference, MedicationData } from 'utils';
 import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
@@ -18,19 +17,36 @@ import {
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from 'utils';
 
-export function createMedicationAdministrationResource(
-  data: ExtendedMedicationData,
-  status: MedicationAdministration['status'],
-  route: MedicationApplianceRoute,
-  location: MedicationApplianceLocation | undefined,
-  existedResource?: MedicationAdministration
-): MedicationAdministration {
+export interface MedicationAdministrationData {
+  orderData: MedicationData;
+  status: MedicationAdministration['status'];
+  route: MedicationApplianceRoute;
+  location?: MedicationApplianceLocation;
+  createdProviderId?: string;
+  administeredProviderId?: string;
+  existedMA?: MedicationAdministration;
+  dateTimeCreated?: string;
+  medicationResource?: Medication;
+}
+
+export function createMedicationAdministrationResource(data: MedicationAdministrationData): MedicationAdministration {
+  const {
+    orderData,
+    status,
+    route,
+    location,
+    createdProviderId,
+    administeredProviderId,
+    existedMA,
+    dateTimeCreated,
+    medicationResource,
+  } = data;
   // we can set existed resource as base for new resource
-  const resource: MedicationAdministration = existedResource
-    ? { ...existedResource }
+  const resource: MedicationAdministration = existedMA
+    ? { ...existedMA }
     : {
         resourceType: 'MedicationAdministration',
-        subject: { reference: `Patient/${data.patient}` },
+        subject: { reference: `Patient/${orderData.patient}` },
         status,
       };
 
@@ -43,12 +59,12 @@ export function createMedicationAdministrationResource(
       },
     ],
   };
-  if (data.patient) resource.subject = { reference: `Patient/${data.patient}` };
-  if (data.encounter) resource.context = { reference: `Encounter/${data.encounter}` };
-  if (data.providerCreatedTheOrder) {
+  if (orderData.patient) resource.subject = { reference: `Patient/${orderData.patient}` };
+  if (orderData.encounter) resource.context = { reference: `Encounter/${orderData.encounter}` };
+  if (createdProviderId) {
     resource.performer = [
       {
-        actor: { reference: `Practitioner/${data.providerCreatedTheOrder}` },
+        actor: { reference: `Practitioner/${createdProviderId}` },
         function: {
           coding: [
             {
@@ -60,13 +76,15 @@ export function createMedicationAdministrationResource(
       },
     ];
   }
-  if (data.orderDateTimeCreated) resource.effectiveDateTime = data.orderDateTimeCreated ?? undefined;
-  if (data.medicationCopy?.id) resource.medicationReference = { reference: `Medication/${data.medicationCopy.id}` };
-  if (data.dose && data.units) {
+  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated;
+  if (medicationResource) {
+    resource.contained = [{ ...medicationResource }]; // should i add some kind of id here?
+  }
+  if (orderData.dose && orderData.units) {
     resource.dosage = {
       dose: {
-        unit: data.units,
-        value: data.dose,
+        unit: orderData.units,
+        value: orderData.dose,
         system: MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
       },
       route: {
@@ -81,23 +99,23 @@ export function createMedicationAdministrationResource(
     };
   }
 
-  if (data.reason) {
+  if (orderData.reason) {
     if (!resource.note) resource.note = [];
     resource.note.push({
       authorString: MEDICATION_ADMINISTRATION_REASON_CODE,
-      text: data.reason,
+      text: orderData.reason,
     });
   }
-  if (data.otherReason) {
+  if (orderData.otherReason) {
     if (!resource.note) resource.note = [];
     resource.note.push({
       authorString: MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
-      text: data.otherReason,
+      text: orderData.otherReason,
     });
   }
-  if (data.administeredProvider && data.dateGiven && data.timeGiven)
+  if (administeredProviderId && orderData.dateGiven && orderData.timeGiven)
     resource.performer?.push({
-      actor: { reference: `Practitioner/${data.administeredProvider}` },
+      actor: { reference: `Practitioner/${administeredProviderId}` },
       function: {
         coding: [
           {
@@ -109,15 +127,15 @@ export function createMedicationAdministrationResource(
       extension: [
         {
           url: DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueDate: data.dateGiven,
+          valueDate: orderData.dateGiven,
         },
         {
           url: TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueTime: data.timeGiven,
+          valueTime: orderData.timeGiven,
         },
       ],
     });
-  if (data.instructions && resource.dosage) resource.dosage.text = data.instructions;
+  if (orderData.instructions && resource.dosage) resource.dosage.text = orderData.instructions;
   if (location && resource.dosage)
     resource.dosage.site = {
       coding: [
@@ -128,7 +146,7 @@ export function createMedicationAdministrationResource(
         },
       ],
     };
-  if (data.associatedDx) resource.reasonReference = [{ reference: `Condition/${data.associatedDx}` }];
+  if (orderData.associatedDx) resource.reasonReference = [{ reference: `Condition/${orderData.associatedDx}` }];
   return resource;
 }
 
