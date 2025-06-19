@@ -1,17 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  IconButton,
-  styled,
-  alpha,
-  Button,
-  useTheme,
-} from '@mui/material';
+import { Drawer, List, ListItem, ListItemIcon, ListItemText, IconButton, styled, alpha, Button } from '@mui/material';
 import { RouteCSS, useNavigationContext } from '../context/NavigationContext';
 import { ROUTER_PATH, routesCSS } from '../routing/routesCSS';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
@@ -23,6 +12,7 @@ import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useAppointmentStore } from '../../../telemed';
 import { ottehrAiIcon } from '@ehrTheme/icons';
+import { otherColors } from '@ehrTheme/colors';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
   <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -229,7 +219,7 @@ const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive }) 
     textOverflow: 'ellipsis',
   },
   '& .MuiListItem-root:hover': {
-    backgroundColor: alpha(theme.palette.primary.main, 0.03),
+    backgroundColor: otherColors.sidebarItemHover,
   },
   '&.Mui-disabled': {
     color: theme.palette.text.primary,
@@ -249,7 +239,6 @@ const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive }) 
 
 export const Sidebar = (): JSX.Element => {
   const navigate = useNavigate();
-  const theme = useTheme();
   const [open, setOpen] = useState(true);
   const { interactionMode } = useNavigationContext();
   const { id: appointmentID } = useParams();
@@ -336,7 +325,7 @@ export const Sidebar = (): JSX.Element => {
             height: 40,
             padding: 0,
             '&:hover': {
-              backgroundColor: alpha(theme.palette.primary.main, 0.03),
+              backgroundColor: otherColors.sidebarItemHover,
             },
           }}
           onClick={handleDrawerToggle}
