@@ -55,7 +55,7 @@ interface AutofillInputs {
   parentItem?: IntakeQuestionnaireItem; // the immediate parent item for the list of items (should each item to fill have its own parent item?)
 }
 
-// note: structuring this as an effect does cause a little "flash" effect when the autofilled value is removed
+// note: structuring this as an effect does cause a little "flash" effect when the autoFilled value is removed
 // potentially this could be fixed by refactoring so that the setter on the field that triggers the effect also
 // sets the values updated within the effect. (potential future enhancement)
 export const useAutoFillValues = (input: AutofillInputs): void => {
@@ -67,6 +67,10 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
     if (!allFields) return [];
 
     return questionnaireItems.filter((qi) => {
+      if (!allFields) {
+        return false;
+      }
+      // console.log('allFields use items to auto fill', allFields);
       const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields);
       return displayStrategy === 'enabled' && !!qi.autofillFromWhenDisabled;
     });

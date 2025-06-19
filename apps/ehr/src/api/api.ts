@@ -1,63 +1,63 @@
 import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
+  apiErrorToThrow,
+  CancelRadiologyOrderZambdaInput,
   chooseJson,
+  CollectInHouseLabSpecimenParameters,
   ConversationMessage,
-  SubmitLabOrderInput,
+  CreateAppointmentInputParams,
+  CreateInHouseLabOrderParameters,
+  CreateInHouseLabOrderResponse,
+  CreateLabOrderParameters,
+  CreateNursingOrderParameters,
+  CreateRadiologyZambdaOrderInput,
   CreateScheduleParams,
+  CreateSlotParams,
   CreateUserOutput,
   CreateUserParams,
+  DeleteInHouseLabOrderParameters,
+  DeleteLabOrderParams,
+  GetCreateInHouseLabOrderResourcesParameters,
+  GetCreateInHouseLabOrderResourcesResponse,
   GetEmployeesResponse,
+  GetInHouseOrdersParameters,
+  GetLabelPdfParameters,
+  GetLabOrdersParameters,
+  GetNursingOrdersInput,
+  GetRadiologyOrderListZambdaInput,
+  GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
   GetScheduleRequestParams,
   GetScheduleResponse,
   GetUserParams,
   GetUserResponse,
-  PaginatedResponse,
-  CreateLabOrderParameters,
+  GetVisitLabelInput,
+  HandleInHouseLabResultsParameters,
+  InHouseGetOrdersResponseDTO,
+  LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
-  ScheduleDTO,
-  UpdateScheduleParams,
-  CreateRadiologyZambdaOrderInput,
-  GetRadiologyOrderListZambdaInput,
-  GetRadiologyOrderListZambdaOutput,
-  GetLabOrdersParameters,
-  DeleteLabOrderParams,
-  SubmitLabOrderDTO,
-  CreateAppointmentInputParams,
-  UpdateLabOrderResourcesParameters,
-  CreateSlotParams,
-  apiErrorToThrow,
-  CancelRadiologyOrderZambdaInput,
+  NursingOrdersSearchBy,
+  PaginatedResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
-  GetInHouseOrdersParameters,
-  CollectInHouseLabSpecimenParameters,
-  GetCreateInHouseLabOrderResourcesParameters,
-  HandleInHouseLabResultsParameters,
-  DeleteInHouseLabOrderParameters,
-  GetCreateInHouseLabOrderResourcesResponse,
-  CreateInHouseLabOrderParameters,
-  GetLabelPdfParameters,
-  LabelPdf,
-  GetVisitLabelInput,
-  CreateInHouseLabOrderResponse,
-  InHouseGetOrdersResponseDTO,
-  GetNursingOrdersInput,
-  NursingOrdersSearchBy,
-  CreateNursingOrderParameters,
+  ScheduleDTO,
+  SubmitLabOrderDTO,
+  SubmitLabOrderInput,
+  UpdateLabOrderResourcesParameters,
   UpdateNursingOrderParameters,
+  UpdateScheduleParams,
+  UpdateUserParams,
 } from 'utils';
 import {
+  AssignPractitionerParameters,
   CancelAppointmentParameters,
+  ChangeInPersonVisitStatusParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
-  AssignPractitionerParameters,
   UnassignPractitionerParameters,
-  ChangeInPersonVisitStatusParameters,
-  UpdateUserParameters,
 } from '../types/types';
 
 export interface PatchOperation {
@@ -101,9 +101,9 @@ const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CRE
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = import.meta.env.VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN;
 const HANDLE_IN_HOUSE_LAB_RESULTS = import.meta.env.VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS;
 const DELETE_IN_HOUSE_LAB_ORDER = import.meta.env.VITE_APP_DELETE_IN_HOUSE_LAB_ORDER;
-const GET_NURSING_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_NURSING_ORDERS_ZAMBDA_ID;
-const CREATE_NURSING_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_NURSING_ORDER_ZAMBDA_ID;
-const UPDATE_NURSING_ORDER = import.meta.env.VITE_APP_UPDATE_NURSING_ORDER_ZAMBDA_ID;
+const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
+const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
+const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
 
@@ -139,7 +139,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
 export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
   try {
     if (GET_LABEL_PDF_ZAMBDA_ID == null) {
-      throw new Error('get-label-pdf evironment variable could not be loaded');
+      throw new Error('get-label-pdf environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
@@ -285,7 +285,7 @@ export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams)
   }
 };
 
-export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParameters): Promise<any> => {
+export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams): Promise<any> => {
   try {
     if (UPDATE_USER_ZAMBDA_ID == null) {
       throw new Error('update user environment variable could not be loaded');

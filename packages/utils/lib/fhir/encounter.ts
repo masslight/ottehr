@@ -26,14 +26,14 @@ export const TELEPHONE_REASONS = [
   'Medication Change or Resend',
   'Medication Refill Request Spilled, ran out too early, etc.',
 ] as const;
-export const NONBILLABLE_REASONS = [
+export const NON_BILLABLE_REASONS = [
   'Presents for Splints/Crutches',
   'Presents with Specimen',
   'Adolescent/Adult Discussion',
 ] as const;
 type TelephoneReasons = (typeof TELEPHONE_REASONS)[number];
-type NonbillableReasons = (typeof NONBILLABLE_REASONS)[number];
-export type FollowupReason = TelephoneReasons | NonbillableReasons;
+type NonBillableReasons = (typeof NON_BILLABLE_REASONS)[number];
+export type FollowupReason = TelephoneReasons | NonBillableReasons;
 
 export const FOLLOWUP_SYSTEMS = {
   callerUrl: `${FHIR_BASE_URL}/followup-caller`,

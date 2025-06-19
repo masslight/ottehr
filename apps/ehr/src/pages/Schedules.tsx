@@ -3,9 +3,11 @@ import { ReactElement, useState } from 'react';
 import PageContainer from '../layout/PageContainer';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { ScheduleInformation } from '../components/ScheduleInformation';
+import { useLocation } from 'react-router-dom';
 
 export default function SchedulesPage(): ReactElement {
-  const [tab, setTab] = useState<string>('0');
+  const location = useLocation();
+  const [tab, setTab] = useState<string>(location.state?.defaultTab || 'location');
 
   return (
     <PageContainer>
@@ -16,18 +18,18 @@ export default function SchedulesPage(): ReactElement {
               onChange={(event, tabTemp) => setTab(tabTemp)}
               aria-label="Switch between different schedule options"
             >
-              <Tab label="Locations" value="0" sx={{ textTransform: 'none', fontWeight: 500 }} />
-              <Tab label="Providers" value="1" sx={{ textTransform: 'none', fontWeight: 500 }} />
-              <Tab label="Groups" value="2" sx={{ textTransform: 'none', fontWeight: 500 }} />
+              <Tab label="Locations" value="location" sx={{ textTransform: 'none', fontWeight: 500 }} />
+              <Tab label="Providers" value="provider" sx={{ textTransform: 'none', fontWeight: 500 }} />
+              <Tab label="Groups" value="group" sx={{ textTransform: 'none', fontWeight: 500 }} />
             </TabList>
           </Box>
-          <TabPanel value="0">
+          <TabPanel value="location">
             <ScheduleInformation scheduleType="location"></ScheduleInformation>
           </TabPanel>
-          <TabPanel value="1">
+          <TabPanel value="provider">
             <ScheduleInformation scheduleType="provider"></ScheduleInformation>
           </TabPanel>
-          <TabPanel value="2">
+          <TabPanel value="group">
             <ScheduleInformation scheduleType="group"></ScheduleInformation>
           </TabPanel>
         </TabContext>

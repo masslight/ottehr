@@ -15,11 +15,14 @@ import {
   Slot,
   Consent,
   Account,
+  FhirResource,
 } from 'fhir/r4b';
 import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import { DateTime } from 'luxon';
 
-const e2eHandler = new ResourceHandler();
-const integrationHandler = new ResourceHandler();
+const PROCESS_ID = `contractTests-${DateTime.now().toMillis()}`;
+const e2eHandler = new ResourceHandler(PROCESS_ID);
+const integrationHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeAll(async () => {
   await Promise.all([await integrationHandler.setResourcesFast(), await e2eHandler.setResources()]);
@@ -276,7 +279,53 @@ const accountTests = (e2eResources: Resource[], integrationResources: Resource[]
 const checkKeysAndValuesBothWays = (e2eResource: any, integrationResource: any, label: string): void => {
   Object.entries(e2eResource).forEach(([key, value]) => {
     expect(integrationResource[key], `expect integration ${label}.${key} value to be defined`).toBeDefined();
-    expect(integrationResource[key], `expect integration ${label}.${key} value to be equal`).toEqual(value);
+    // same meta tag sorting logic
+    if (key === 'meta') {
+      const valueMetaTags = (value as FhirResource['meta'])?.tag;
+      const integrationMetaTags = (integrationResource[key] as FhirResource['meta'])?.tag;
+      if (valueMetaTags && integrationMetaTags) {
+        const valueTagsSorted = valueMetaTags.sort((a, b) => {
+          if (a.system === undefined && b.system === undefined) {
+            return 0;
+          } else if (a.system === undefined) {
+            return 1; // undefined comes after defined
+          } else if (b.system === undefined) {
+            return -1; // defined comes before undefined
+          }
+          return a.system.localeCompare(b.system);
+        });
+        const integrationTagsSorted = integrationMetaTags.sort((a, b) => {
+          if (a.system === undefined && b.system === undefined) {
+            return 0;
+          } else if (a.system === undefined) {
+            return 1; // undefined comes after defined
+          } else if (b.system === undefined) {
+            return -1; // defined comes before undefined
+          }
+          return a.system.localeCompare(b.system);
+        });
+
+        const newVal = {
+          ...(value as any),
+          meta: {
+            ...((value as any).meta || {}),
+            tag: valueTagsSorted,
+          },
+        };
+        const compValue = {
+          ...(integrationResource[key] as any),
+          meta: {
+            ...((integrationResource[key] as any).meta || {}),
+            tag: integrationTagsSorted,
+          },
+        };
+        expect(compValue, `expect integration ${label}.${key} value to be equal`).toEqual(newVal);
+      } else {
+        expect(integrationResource[key], `expect integration ${label}.${key} value to be equal`).toEqual(value);
+      }
+    } else {
+      expect(integrationResource[key], `expect integration ${label}.${key} value to be equal`).toEqual(value);
+    }
   });
   Object.entries(integrationResource).forEach(([key, value]) => {
     expect(e2eResource[key], `expect e2e ${label}.${key} value to be defined`).toBeDefined();
@@ -464,6 +513,7 @@ const getAllResourcesFromFHIR = async (appointmentId: string): Promise<Resource[
         },
         {
           name: '_revinclude:iterate',
+          // cSpell:disable-next relatedperson is only valid FHIR search parameter
           value: 'Person:relatedperson',
         },
         {

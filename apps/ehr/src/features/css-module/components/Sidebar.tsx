@@ -12,23 +12,14 @@ import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { useAppointmentStore } from '../../../telemed';
 import { ottehrAiIcon } from '@ehrTheme/icons';
+import { otherColors } from '@ehrTheme/colors';
 
 const ArrowIcon = ({ direction }: { direction: 'left' | 'right' }): React.ReactElement => (
-  <svg width="40" height="40" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="20" cy="20" r="20" fill="#2169F5" fillOpacity=".04" />
-    <mask id="a" style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="8" y="8" width="24" height="24">
-      <path fill="#D9D9D9" d="M8 8h24v24H8z" />
-    </mask>
-    <g mask="url(#a)">
-      <path
-        d={
-          direction === 'right'
-            ? 'M24.175 21H12v-2h12.175l-5.6-5.6L20 12l8 8-8 8-1.425-1.4 5.6-5.6Z'
-            : 'M15.825 21H28v-2H15.825l5.6-5.6L20 12l-8 8 8 8 1.425-1.4-5.6-5.6Z'
-        }
-        fill="#2169F5"
-      />
-    </g>
+  <svg width="9" height="18" viewBox="0 0 9 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d={direction === 'right' ? 'M0 18V0H2V18H0ZM4 14V4L9 9L4 14Z' : 'M5 14V4L0 9L5 14ZM7 18H9V0H7V18Z'}
+      fill="#2169F5"
+    />
   </svg>
 );
 
@@ -210,7 +201,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive }) => ({
+const StyledButton = styled(Button)<{ isActive: string }>(({ theme, isActive }) => ({
   display: 'flex',
   width: '100%',
   height: '42px',
@@ -228,12 +219,12 @@ const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive }) 
     textOverflow: 'ellipsis',
   },
   '& .MuiListItem-root:hover': {
-    backgroundColor: alpha(theme.palette.primary.main, 0.03),
+    backgroundColor: otherColors.sidebarItemHover,
   },
   '&.Mui-disabled': {
     color: theme.palette.text.primary,
   },
-  ...(isactive === 'true' && {
+  ...(isActive === 'true' && {
     color: theme.palette.primary.main,
     borderRight: `2px solid ${theme.palette.primary.main}`,
     backgroundColor: alpha(theme.palette.primary.main, 0.05),
@@ -323,12 +314,22 @@ export const Sidebar = (): JSX.Element => {
           display: 'flex',
           padding: '0px',
           ...(open
-            ? { justifyConent: 'end', paddingRight: '10px' }
+            ? { justifyContent: 'end', paddingRight: '10px' }
             : { justifyContent: 'center', paddingRight: '0px' }),
           borderBottom: '1px solid #e0e0e0',
         }}
       >
-        <IconButton sx={{ padding: 0 }} onClick={handleDrawerToggle}>
+        <IconButton
+          sx={{
+            width: 40,
+            height: 40,
+            padding: 0,
+            '&:hover': {
+              backgroundColor: otherColors.sidebarItemHover,
+            },
+          }}
+          onClick={handleDrawerToggle}
+        >
           <ArrowIcon direction={open ? 'left' : 'right'} />
         </IconButton>
       </DrawerHeader>
@@ -337,7 +338,7 @@ export const Sidebar = (): JSX.Element => {
           const comparedPath = item?.activeCheckPath || item.to;
           return (
             <StyledButton
-              isactive={location.pathname.includes(comparedPath).toString()}
+              isActive={location.pathname.includes(comparedPath).toString()}
               key={item.text}
               onClick={() => {
                 requestAnimationFrame(() => {

@@ -12,16 +12,18 @@ import {
   PATIENT_LINE,
   PATIENT_LINE_2,
   PATIENT_PHONE_NUMBER,
-  PATIENT_POSTALCODE,
+  PATIENT_POSTAL_CODE,
   PATIENT_STATE,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientsPage } from '../page/PatientsPage';
+import { DateTime } from 'luxon';
 
-// We may create new instances for the tests with mutable operations, and keep parralel tests isolated
-const resourceHandler = new ResourceHandler();
+// We may create new instances for the tests with mutable operations, and keep parallel tests isolated
+const PROCESS_ID = `ehr.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 const awaitCSSHeaderInit = async (page: Page): Promise<void> => {
   await expect(async () => {
@@ -157,7 +159,7 @@ test.describe('Patient search', () => {
     email: PATIENT_EMAIL,
     phoneNumber: PATIENT_PHONE_NUMBER,
     address:
-      PATIENT_LINE + ', ' + PATIENT_LINE_2 + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTALCODE,
+      PATIENT_LINE + ', ' + PATIENT_LINE_2 + ', ' + PATIENT_CITY + '\n' + PATIENT_STATE + ' ' + PATIENT_POSTAL_CODE,
   };
 
   test('Search by Last name', async ({ page }) => {

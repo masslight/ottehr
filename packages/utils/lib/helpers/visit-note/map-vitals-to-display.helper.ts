@@ -16,7 +16,6 @@ import {
   heightInCmToInch,
   kgToLb,
   parseVisionExtraOptions,
-  parseVisionValue,
   VitalsVisitNoteData,
 } from '../vitals';
 
@@ -60,9 +59,7 @@ export const mapVitalsToDisplay = (vitalsObservations?: VitalsObservationDTO[]):
         break;
       case VitalFieldNames.VitalVision:
         parsed = observation as VitalsVisionObservationDTO;
-        text = `Left eye: ${parseVisionValue(parsed.leftEyeVisionValue)}; Right eye: ${parseVisionValue(
-          parsed.rightEyeVisionValue
-        )};${
+        text = `Left eye: ${parsed.leftEyeVisionValue}; Right eye: ${parsed.rightEyeVisionValue};${
           parsed.extraVisionOptions && parsed.extraVisionOptions.length > 0
             ? ` ${getVisionExtraOptionsFormattedString(parseVisionExtraOptions(parsed.extraVisionOptions))}`
             : ''

@@ -38,6 +38,12 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
         selectPaymentMethod(setupIntent.payment_method);
       }
       card.clear();
+      e.clear();
+    } else {
+      console.error('Error confirming card setup:', error);
+      if (error.message) {
+        alert(error.message);
+      }
     }
   };
 
@@ -48,27 +54,45 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
         flexDirection: 'column',
         gap: 2,
         alignItems: 'end',
+        backgroundColor: 'rgba(244, 246, 248, 1)',
+        borderRadius: 1,
+        padding: 2,
+        width: '100%',
       }}
     >
-      <Box sx={{ width: '100%' }}>
+      <Box
+        sx={{
+          width: '100%',
+          backgroundColor: 'white',
+          border: '1px solid rgba(0, 0, 0, 0.23)',
+          padding: '10px 12px',
+          borderRadius: 1,
+        }}
+      >
         <CardElement
           options={{
             disabled: disabled,
             disableLink: true,
             hidePostalCode: true,
+            style: {
+              base: {
+                fontSize: '16px',
+                color: '#32325d',
+                fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+                '::placeholder': {
+                  color: '#aab7c4',
+                },
+                lineHeight: '24px',
+                padding: '20px 12px',
+              },
+              invalid: {
+                color: '#fa755a',
+                iconColor: '#fa755a',
+              },
+            },
           }}
         />
       </Box>
-
-      <LoadingButton
-        loading={isLoading}
-        disabled={disabled || Boolean(condition && !conditionAccepted)}
-        variant="outlined"
-        type="submit"
-        onClick={handleSubmit}
-      >
-        Add card
-      </LoadingButton>
       {condition && (
         <Box sx={{ display: 'flex', minWidth: '100%', alignItems: 'center', gap: 1 }}>
           <Checkbox
@@ -79,6 +103,15 @@ export const AddCreditCardForm: FC<CreditCardFormProps> = (props) => {
           <FormLabel htmlFor="condition-acceptance">{condition}</FormLabel>
         </Box>
       )}
+      <LoadingButton
+        loading={isLoading}
+        disabled={disabled || Boolean(condition && !conditionAccepted)}
+        variant="outlined"
+        type="submit"
+        onClick={handleSubmit}
+      >
+        Add card
+      </LoadingButton>
     </Box>
   );
 };

@@ -24,7 +24,7 @@ export const messageIsFromPatient = (message: Message): boolean => {
   return message.author?.startsWith('+') ?? false;
 };
 
-const getCheckinNeededTagsPatchOperation = (appointment: Appointment, user: EvolveUser | undefined): Operation => {
+const getCheckInNeededTagsPatchOperation = (appointment: Appointment, user: EvolveUser | undefined): Operation => {
   const criticalUpdateTagCoding = {
     system: CRITICAL_CHANGE_SYSTEM,
     display: `Staff ${user?.email ? user.email : `(${user?.id})`} via QRS`,
@@ -54,7 +54,7 @@ const getCheckinNeededTagsPatchOperation = (appointment: Appointment, user: Evol
   }
 };
 
-export const checkinPatient = async (
+export const checkInPatient = async (
   oystehr: Oystehr,
   appointmentId: string,
   encounterId: string,
@@ -68,7 +68,7 @@ export const checkinPatient = async (
     resourceType: 'Encounter',
     id: encounterId,
   });
-  const metaPatchOperation = getCheckinNeededTagsPatchOperation(appointmentToUpdate, user);
+  const metaPatchOperation = getCheckInNeededTagsPatchOperation(appointmentToUpdate, user);
 
   const encounterStatusHistoryUpdate: Operation = getEncounterStatusHistoryUpdateOp(encounterToUpdate, 'arrived');
 
