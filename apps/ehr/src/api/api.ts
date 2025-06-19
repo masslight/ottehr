@@ -2,7 +2,10 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  CancelAppointmentZambdaInput,
   CancelRadiologyOrderZambdaInput,
+  CancelTelemedAppointmentZambdaInput,
+  CancelTelemedAppointmentZambdaOutput,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
   ConversationMessage,
@@ -52,7 +55,6 @@ import {
 } from 'utils';
 import {
   AssignPractitionerParameters,
-  CancelAppointmentParameters,
   ChangeInPersonVisitStatusParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
@@ -221,12 +223,8 @@ export const saveFollowup = async (oystehr: Oystehr, parameters: SaveFollowupPar
 
 export const cancelTelemedAppointment = async (
   oystehr: Oystehr,
-  parameters: {
-    appointmentID: string;
-    cancellationReason: string;
-    cancellationReasonAdditional?: string | undefined;
-  }
-): Promise<any> => {
+  parameters: CancelTelemedAppointmentZambdaInput
+): Promise<CancelTelemedAppointmentZambdaOutput> => {
   try {
     if (CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('cancel appointment environment variable could not be loaded');
@@ -442,7 +440,10 @@ export const getLocations = async (
   }
 };
 
-export const cancelAppointment = async (oystehr: Oystehr, parameters: CancelAppointmentParameters): Promise<any> => {
+export const cancelAppointment = async (
+  oystehr: Oystehr,
+  parameters: CancelAppointmentZambdaInput
+): Promise<Record<string, never>> => {
   try {
     if (CANCEL_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('cancel appointment environment variable could not be loaded');

@@ -73,23 +73,6 @@ export interface DeactivateUserParameters {
   // locations: Location[];
 }
 
-export interface CancelAppointmentParameters {
-  appointmentID: string;
-  cancellationReason: CancellationReasonOptions;
-}
-
-export enum CancellationReasonOptions {
-  'Patient improved' = 'Patient improved',
-  'Wait time too long' = 'Wait time too long',
-  'Prefer another provider' = 'Prefer another provider',
-  'Changing location' = 'Changing location',
-  'Changing to telemedicine' = 'Changing to telemedicine',
-  'Financial responsibility concern' = 'Financial responsibility concern',
-  'Insurance issue' = 'Insurance issue',
-  'Service never offered' = 'Service never offered',
-  'Duplicate visit or account error' = 'Duplicate visit or account error',
-}
-
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
 
 export const appointmentTypeLabels: { [type in FhirAppointmentType]: string } = {

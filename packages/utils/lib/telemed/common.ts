@@ -16,21 +16,3 @@ export enum CancellationReasonOptionsProviderSideTelemed {
   'Technical issues connecting and/ or with video' = 'Technical issues connecting and/ or with video',
   'Other' = 'Other',
 }
-
-export const CancellationReasonCodesTelemed: {
-  [key in CancellationReasonOptionsTelemed | CancellationReasonOptionsProviderSideTelemed]: string;
-} = {
-  'Wait time too long': 'wait-time',
-  'Going to another company': 'another-company',
-  'Going to an emergency department': 'emergency-department',
-  'Cost is too high': 'cost-too-high',
-  'Insurance issue': 'insurance-issue',
-  'Technical issue': 'technical-issue',
-  'Patient improved': 'patient-improved',
-  'Clicked accidentally': 'clicked-accidentally',
-  Other: 'other',
-  // for the provider reasons:
-  'Patient did not answer after multiple attempts': 'patient-did-not-answer',
-  'Wrong patient name on chart': 'wrong-patient-name',
-  'Technical issues connecting and/ or with video': 'technical-issues-video',
-};

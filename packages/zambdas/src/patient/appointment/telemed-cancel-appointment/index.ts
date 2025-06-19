@@ -2,22 +2,22 @@
 import { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
-import { Appointment, Encounter, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
+import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
-  CancellationReasonOptionsTelemed,
-  FHIR_ZAPEHR_URL,
-  SLUG_SYSTEM,
-  Secrets,
-  SecretsKeys,
   cancelAppointmentResource,
+  CancelTelemedAppointmentZambdaInput,
+  CancelTelemedAppointmentZambdaOutput,
   createOystehrClient,
+  FHIR_ZAPEHR_URL,
   getAppointmentResourceById,
   getPatchBinary,
   getPatientContactEmail,
   getRelatedPersonForPatient,
   getSecret,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -30,19 +30,8 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-export interface CancelAppointmentInput {
-  appointmentID: string;
-  cancellationReason: CancellationReasonOptionsTelemed;
-  cancellationReasonAdditional?: string;
+export interface CancelTelemedAppointmentInputValidated extends CancelTelemedAppointmentZambdaInput {
   secrets: Secrets | null;
-}
-
-interface CancellationDetails {
-  startTime: string | undefined;
-  email: string | undefined;
-  patient: Patient;
-  scheduleResource: Location | HealthcareService | Practitioner;
-  visitType: string;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -70,7 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
 interface PerformEffectInput {
   input: ZambdaInput;
-  params: CancelAppointmentInput;
+  params: CancelTelemedAppointmentInputValidated;
 }
 
 async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxyResult> {
@@ -139,8 +128,6 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
     }
   }
 
-  const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);
-  const status = environment === 'production' ? 'CANC' : '8-CANC';
   const appointmentPatchRequest = getPatchBinary({
     resourceType: 'Appointment',
     resourceId: appointmentID,
@@ -163,39 +150,27 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   const transactionBundle = await oystehr.fhir.transaction<Appointment | Encounter>({ requests: requests });
   console.log('getting appointment from transaction bundle');
   const { appointment, scheduleResource, patient } = validateBundleAndExtractAppointment(transactionBundle);
-  const visitType =
-    appointment.appointmentType?.coding
-      ?.find((codingTemp) => codingTemp.system === 'http://terminology.hl7.org/CodeSystem/v2-0276')
-      ?.code?.toLowerCase() || 'Unknown';
 
   console.groupEnd();
   console.debug('gettingEmailProps success');
 
   console.log(`canceling appointment with id ${appointmentID}`);
-  const cancelledAppointment = await cancelAppointmentResource(
+
+  await cancelAppointmentResource(
     appointment,
     [
       {
         // todo reassess codes and reasons, just using custom codes atm
         system: `${FHIR_ZAPEHR_URL}/CodeSystem/appointment-cancellation-reason`,
-        code: CancellationReasonOptionsTelemed[cancellationReason],
+        code: cancellationReason,
         display: cancellationReasonAdditional || cancellationReason,
       },
     ],
     oystehr
   );
 
-  const response = {
-    message: 'Successfully canceled an appointment',
-    appointment: cancelledAppointment.id ?? null,
-    location: {
-      name: scheduleResource?.name || 'Unknown',
-      slug:
-        scheduleResource.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)?.value ||
-        'Unknown',
-    },
-    visitType: visitType,
-  };
+  const response: CancelTelemedAppointmentZambdaOutput = {};
+
   console.group('sendCancellationEmail');
   try {
     const email = getPatientContactEmail(patient);
