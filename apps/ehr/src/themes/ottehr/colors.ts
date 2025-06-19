@@ -81,4 +81,5 @@ export const otherColors = {
   warningIcon: '#ED6C02',
   warningText: '#5F2B00',
   infoAlert: '#e3f2fd',
+  sidebarItemHover: '#F6F9FF',
 };
