@@ -253,6 +253,11 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
+
+  if (!user) {
+    throw new Error('User is not defined');
+  }
+
   const [startIntakeButtonLoading, setStartIntakeButtonLoading] = useState(false);
   const { handleUpdatePractitioner } = usePractitionerActions(encounter, 'start', PRACTITIONER_CODINGS.Admitter);
   const rooms = useMemo(() => {
@@ -585,7 +590,22 @@ export default function AppointmentTableRow({
     setStartIntakeButtonLoading(true);
     try {
       await handleUpdatePractitioner();
-      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, 'intake');
+      if (!encounter.id) {
+        throw new Error('Encounter ID is not defined but it is required in order to start intake.');
+      }
+
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda client is not defined');
+      }
+
+      await handleChangeInPersonVisitStatus(
+        {
+          encounterId: encounter.id,
+          user,
+          updatedStatus: 'intake',
+        },
+        oystehrZambda
+      );
       navigate(`/in-person/${appointment.id}/patient-info`);
     } catch (error) {
       console.error(error);

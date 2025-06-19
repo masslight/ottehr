@@ -1,13 +1,6 @@
 import { User } from '@oystehr/sdk';
 import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
-import {
-  FhirAppointmentType,
-  OTTEHR_MODULE,
-  PatientFollowupDetails,
-  ScheduleType,
-  ServiceMode,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { FhirAppointmentType, OTTEHR_MODULE, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: string;
@@ -57,12 +50,6 @@ export interface UnassignPractitionerParameters {
   encounterId: string | undefined;
   practitioner: Practitioner | undefined;
   userRole: Coding[];
-}
-
-export interface ChangeInPersonVisitStatusParameters {
-  encounterId: string | undefined;
-  user: User | undefined;
-  updatedStatus: VisitStatusWithoutUnknown | undefined;
 }
 
 export { AllStates } from 'utils';

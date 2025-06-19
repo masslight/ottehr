@@ -4,6 +4,7 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
+  Secrets,
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
@@ -13,6 +14,11 @@ import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { ZambdaInput } from '../../shared/types';
+
+export interface ChangeInPersonVisitStatusInputValidated extends ChangeInPersonVisitStatusInput {
+  secrets: Secrets;
+  userToken: string;
+}
 
 let m2mtoken: string;
 
@@ -85,7 +91,5 @@ export const performEffect = async (
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
 
-  return {
-    message: `updated in person visit status to ${updatedStatus}`,
-  };
+  return {};
 };
