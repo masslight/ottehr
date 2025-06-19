@@ -1,5 +1,5 @@
+// cSpell:ignore VVPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { Locators } from '../../utils/locators';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
@@ -12,7 +12,6 @@ import {
   PATIENT_ADDRESS_LINE_2,
   PATIENT_CITY,
   PATIENT_ZIP,
-  PHONE_NUMBER,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
 } from '../../utils/Paperwork';
 
@@ -48,11 +47,6 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   await page.close();
   await context.close();
-  const env = process.env.ENV;
-  for (const appointment of appointmentIds) {
-    console.log(`Deleting ${appointment} on env: ${env}`);
-    await cleanAppointment(appointment, env!);
-  }
 });
 
 test.describe('Virtual visit. Check paperwork is prefilled for existing patient. Payment - card, responsible party - self', () => {
@@ -84,8 +78,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await locator.reserveButton.click();
     await paperwork.checkCorrectPageOpens('Thank you for choosing Ottehr!');
   });
-  // TODO: Need to remove skip when https://github.com/masslight/ottehr/issues/1999 is fixed
-  test.skip('VVPPS-1 Check Responsible party has prefilled values', async () => {
+  test('VVPPS-1 Check Responsible party has prefilled values', async () => {
     const dob = await commonLocatorsHelper.getMonthDay(
       bookingData.patientBasicInfo.dob.m,
       bookingData.patientBasicInfo.dob.d
@@ -106,7 +99,9 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     await expect(locator.responsiblePartyZip).toHaveValue(PATIENT_ZIP);
     await expect(locator.responsiblePartyAddress1).toHaveValue(PATIENT_ADDRESS);
     await expect(locator.responsiblePartyAddress2).toHaveValue(PATIENT_ADDRESS_LINE_2);
-    await expect(locator.responsiblePartyNumber).toHaveValue(paperwork.formatPhoneNumber(PHONE_NUMBER));
+    await expect(locator.responsiblePartyNumber).toHaveValue(
+      paperwork.formatPhoneNumber(process.env.PHONE_NUMBER || '')
+    );
   });
   test('VVPPS-2 Check Payment screen does not have preselected card option', async () => {
     await page.goto(`paperwork/${appointmentIds[1]}/payment-option`);

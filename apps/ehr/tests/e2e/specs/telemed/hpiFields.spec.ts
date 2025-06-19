@@ -21,6 +21,7 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
+import { DateTime } from 'luxon';
 
 async function checkDropdownNoOptions(
   page: Page,
@@ -38,7 +39,8 @@ async function checkDropdownNoOptions(
 }
 
 test.describe('Check all hpi fields common functionality, without changing data', () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `hpiFields.spec.ts-common-func-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   const startTypingMessage = 'Start typing to load results';
   const searchOptionThatNotInList = 'undefined';
   const noOptionsMessage = 'Nothing found for this search criteria';
@@ -110,7 +112,8 @@ test.describe('Check all hpi fields common functionality, without changing data'
 });
 
 test.describe('Medical conditions', async () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `hpiFields.spec.ts-medical-conditions-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
   const conditionName = 'anemia';
   const conditionIcdCode = 'D60';
@@ -212,7 +215,8 @@ test.describe('Medical conditions', async () => {
 
 // TODO: uncomment when erx is enabled
 test.describe.skip('Current medications', () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `hpiFields.spec.ts-current-meds-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
   const scheduledMedicationName = 'aspirin';
   const scheduledMedicationDose = '100';
@@ -377,7 +381,8 @@ test.describe.skip('Current medications', () => {
 
 // TODO: uncomment when erx is enabled
 test.describe.skip('Known allergies', () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `hpiFields.spec.ts-known-allergies-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
   const knownAllergyName = 'penicillin';
 
@@ -466,7 +471,8 @@ test.describe.skip('Known allergies', () => {
 });
 
 test.describe('Surgical history', () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `hpiFields.spec.ts-surg-history-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
   const surgery = 'feeding';
   const providerNote = 'lorem ipsum';
@@ -585,7 +591,8 @@ test.describe('Surgical history', () => {
 });
 
 test.describe('Additional questions', () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `hpiFields.spec.ts-additional-Qs-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
@@ -629,28 +636,33 @@ test.describe('Additional questions', () => {
 });
 
 test.describe("Additional questions. Check cases where patient didn't answered on additional questions", async () => {
-  const resourceHandlerWithoutAdditionalAnswers = new ResourceHandler('telemed', async ({ patientInfo }) => {
-    return [
-      getContactInformationAnswers({
-        firstName: patientInfo.firstName,
-        lastName: patientInfo.lastName,
-        birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
-        email: patientInfo.email,
-        phoneNumber: patientInfo.phoneNumber,
-        birthSex: patientInfo.sex,
-      }),
-      getPatientDetailsStepAnswers({}),
-      getMedicationsStepAnswers(),
-      getAllergiesStepAnswers(),
-      getMedicalConditionsStepAnswers(),
-      getSurgicalHistoryStepAnswers(),
-      getPaymentOptionSelfPayAnswers(),
-      getResponsiblePartyStepAnswers({}),
-      getSchoolWorkNoteStepAnswers(),
-      getConsentStepAnswers({}),
-      getInviteParticipantStepAnswers(),
-    ];
-  });
+  const PROCESS_ID = `hpiFields.spec.ts-no-additional-Qs-${DateTime.now().toMillis()}`;
+  const resourceHandlerWithoutAdditionalAnswers = new ResourceHandler(
+    PROCESS_ID,
+    'telemed',
+    async ({ patientInfo }) => {
+      return [
+        getContactInformationAnswers({
+          firstName: patientInfo.firstName,
+          lastName: patientInfo.lastName,
+          birthDate: isoToDateObject(patientInfo.dateOfBirth || '') || undefined,
+          email: patientInfo.email,
+          phoneNumber: patientInfo.phoneNumber,
+          birthSex: patientInfo.sex,
+        }),
+        getPatientDetailsStepAnswers({}),
+        getMedicationsStepAnswers(),
+        getAllergiesStepAnswers(),
+        getMedicalConditionsStepAnswers(),
+        getSurgicalHistoryStepAnswers(),
+        getPaymentOptionSelfPayAnswers(),
+        getResponsiblePartyStepAnswers({}),
+        getSchoolWorkNoteStepAnswers(),
+        getConsentStepAnswers({}),
+        getInviteParticipantStepAnswers(),
+      ];
+    }
+  );
 
   let page: Page;
 
@@ -705,7 +717,8 @@ test.describe("Additional questions. Check cases where patient didn't answered o
 });
 
 test.describe('Chief complaint', () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `hpiFields.spec.ts-chief-complaint-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
   const providerNote = 'Lorem ipsum';
   const ROS = 'ROS Lorem ipsum';

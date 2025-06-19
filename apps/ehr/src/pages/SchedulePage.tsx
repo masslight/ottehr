@@ -265,7 +265,7 @@ export default function SchedulePage(): ReactElement {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
-                { link: '/schedules', children: 'Schedules' },
+                { link: '/schedules', state: { defaultTab: scheduleType }, children: 'Schedules' },
                 { link: '#', children: item?.owner?.name || <Skeleton width={150} /> },
               ]}
             />

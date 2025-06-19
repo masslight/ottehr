@@ -10,39 +10,42 @@ import useEvolveUser from '../../../hooks/useEvolveUser';
 import { enqueueSnackbar } from 'notistack';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
-const StyledSelect = styled(Select)<{ hasdropdown?: string; arrowcolor: string }>(({ hasdropdown, arrowcolor }) => ({
-  height: '32px',
-  borderRadius: '4px',
-  paddingLeft: '12px',
-  paddingRight: '12px',
-  boxShadow: 'none',
-  '& .MuiSelect-select': {
-    paddingRight: '32px !important',
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    border: 'none',
-  },
-  '& .MuiSvgIcon-root': {
-    display: 'none',
-  },
-  ...(hasdropdown && {
-    '&::after': {
-      content: '""',
-      position: 'absolute',
-      right: '12px',
-      top: '50%',
-      transform: 'translateY(-50%)',
-      width: '10px',
-      height: '7px',
-      backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='7' viewBox='0 0 10 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 6.83317L0 1.83317L1.16667 0.666504L5 4.49984L8.83333 0.666504L10 1.83317L5 6.83317Z' fill='${encodeURIComponent(
-        arrowcolor
-      )}'/%3E%3C/svg%3E")`,
-      backgroundRepeat: 'no-repeat',
-      backgroundPosition: 'center',
-      pointerEvents: 'none',
+const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
+  ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({
+    height: '32px',
+    borderRadius: '4px',
+    paddingLeft: '12px',
+    paddingRight: '12px',
+    boxShadow: 'none',
+    '& .MuiSelect-select': {
+      paddingRight: '32px !important',
     },
-  }),
-}));
+    '& .MuiOutlinedInput-notchedOutline': {
+      border: 'none',
+    },
+    '& .MuiSvgIcon-root': {
+      display: 'none',
+    },
+    ...(hasDropdown && {
+      '&::after': {
+        content: '""',
+        position: 'absolute',
+        right: '12px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: '10px',
+        height: '7px',
+        // cSpell:disable-next %3C svg
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='10' height='7' viewBox='0 0 10 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 6.83317L0 1.83317L1.16667 0.666504L5 4.49984L8.83333 0.666504L10 1.83317L5 6.83317Z' fill='${encodeURIComponent(
+          arrowColor
+        )}'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'center',
+        pointerEvents: 'none',
+      },
+    }),
+  })
+);
 
 export const ChangeStatusDropdown = ({
   appointmentID,
@@ -57,13 +60,33 @@ export const ChangeStatusDropdown = ({
   const user = useEvolveUser();
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
   const { appointment, encounter } = telemedData;
+
   const nonDropdownStatuses = ['checked out', 'canceled', 'no show'];
-  const hasdropdown = status ? !nonDropdownStatuses.includes(status) : false;
+  const hasDropdown = status ? !nonDropdownStatuses.includes(status) : false;
 
   async function updateInPersonVisitStatus(event: SelectChangeEvent<VisitStatusLabel | unknown>): Promise<void> {
     setStatusLoading(true);
     try {
-      await handleChangeInPersonVisitStatus(encounter, user, oystehrZambda, event.target.value as VisitStatusLabel);
+      if (!user) {
+        throw new Error('User is required to change the visit status');
+      }
+
+      if (!encounter || !encounter.id) {
+        throw new Error('Encounter ID is required to change the visit status');
+      }
+
+      if (!oystehrZambda) {
+        throw new Error('Oystehr Zambda client is not available when changing the visit status');
+      }
+
+      await handleChangeInPersonVisitStatus(
+        {
+          encounterId: encounter.id,
+          user,
+          updatedStatus: event.target.value as VisitStatusLabel,
+        },
+        oystehrZambda
+      );
       await refetch();
     } catch (error) {
       console.error(error);
@@ -93,8 +116,8 @@ export const ChangeStatusDropdown = ({
               data-testid={dataTestIds.cssHeader.appointmentStatus}
               id="appointment-status"
               value={status}
-              {...(hasdropdown ? { hasdropdown: 'true' } : {})}
-              arrowcolor={CHIP_STATUS_MAP[status].color.primary}
+              {...(hasDropdown ? { hasDropdown: 'true' } : {})}
+              arrowColor={CHIP_STATUS_MAP[status].color.primary}
               onChange={(event: SelectChangeEvent<VisitStatusLabel | unknown>) => updateInPersonVisitStatus(event)}
               sx={{
                 border: `1px solid ${CHIP_STATUS_MAP[status].color.primary}`,

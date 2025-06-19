@@ -5,42 +5,42 @@ import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import { MixpanelContextProps, ScrollToTop, setupMixpanel, setupSentry } from 'ui-components';
+import { TestErrorPage } from './components/TestErrorPage';
 import { IntakeThemeProvider } from './IntakeThemeProvider';
 import { BookingHome, GetReadyForVisit, NewUser, Reschedule, Version } from './pages';
+import AIInterview from './pages/AIInterview';
 import Appointments from './pages/Appointments';
-import AuthPage from './telemed/pages/AuthPage';
-import CallEndedPage from './telemed/pages/CallEndedPage';
 import CancellationConfirmation from './pages/CancellationConfirmation';
 import CancellationReason from './pages/CancellationReason';
 import CheckIn from './pages/CheckIn';
+import WelcomeBack from './pages/ChoosePatient';
 import ConfirmDateOfBirth from './pages/ConfirmDateOfBirth';
+import Homepage from './pages/Homepage';
+import MyPatients from './pages/MyPatients';
 import { PaperworkHome, PaperworkPage } from './pages/PaperworkPage';
+import PastVisits from './pages/PastVisits';
 import PatientInformation from './pages/PatientInformation';
 import PrebookVisit from './pages/PrebookVisit';
 import Review from './pages/Review';
 import ReviewPaperwork from './pages/ReviewPaperwork';
+import StartVirtualVisit from './pages/StartVirtualVisit';
 import ThankYou from './pages/ThankYou';
-import WelcomeBack from './pages/ChoosePatient';
+import VisitDetails from './pages/VisitDetails';
+import { WalkinLanding } from './pages/WalkinLanding';
 import { ErrorAlert } from './telemed/components/ErrorAlert';
 import { IOSMessagesHandler } from './telemed/components/IOSMessagesHandler';
 import { ProtectedRoute } from './telemed/features/auth';
 import { ErrorFallbackScreen, LoadingScreen } from './telemed/features/common';
 import { useIOSAppSync } from './telemed/features/ios-communication/useIOSAppSync';
-import Homepage from './pages/Homepage';
+import AuthPage from './telemed/pages/AuthPage';
+import CallEndedPage from './telemed/pages/CallEndedPage';
 import { IOSCallEndedPage } from './telemed/pages/IOS/IOSCallEndedPage';
 import { IOSPatientManageParticipantsPage } from './telemed/pages/IOS/IOSManageParticipantsPage';
 import { IOSPatientPhotosEditPage } from './telemed/pages/IOS/IOSPatientPhotosEditPage';
 import { IOSVideoCallMenu } from './telemed/pages/IOS/IOSVideoCallMenu';
-import PastVisits from './pages/PastVisits';
-import VisitDetails from './pages/VisitDetails';
 import VideoChatPage from './telemed/pages/VideoChatPage';
 import WaitingRoom from './telemed/pages/WaitingRoom';
 import Welcome from './telemed/pages/Welcome';
-import AIInterview from './pages/AIInterview';
-import { WalkinLanding } from './pages/WalkinLanding';
-import StartVirtualVisit from './pages/StartVirtualVisit';
-import MyPatients from './pages/MyPatients';
-
 const {
   MODE: environment,
   VITE_APP_FHIR_API_URL,
@@ -63,6 +63,7 @@ if (isLowerEnvsOrProd) {
 
 const MIXPANEL_SETTINGS: MixpanelContextProps = {
   token: VITE_APP_MIXPANEL_TOKEN,
+  // cSpell:disable-next appname
   registerProps: { appname: 'In Person' },
 };
 
@@ -250,6 +251,10 @@ export const intakeFlowPageRoute = {
     path: `${bookingBasePath}/new-user`,
     getPage: () => <NewUser />,
   },
+  TestErrorPage: {
+    path: '/test-error',
+    getPage: () => <TestErrorPage />,
+  },
 } as const;
 
 function App(): JSX.Element {
@@ -423,6 +428,10 @@ function App(): JSX.Element {
                   element={intakeFlowPageRoute.IOSCallEnded.getPage()}
                 />
               </Route>
+              <Route
+                path={intakeFlowPageRoute.TestErrorPage.path}
+                element={intakeFlowPageRoute.TestErrorPage.getPage()}
+              />
               <Route path="*" element={<Navigate to={intakeFlowPageRoute.Welcome.path} />} />
             </Routes>
           </Router>

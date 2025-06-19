@@ -7,7 +7,7 @@ import { useMutation, useQuery } from 'react-query';
 import {
   getFullestAvailableName,
   getPatchOperationForNewMetaTag,
-  getPractitionerNPIIdentitifier,
+  getPractitionerNPIIdentifier,
   initialsFromName,
   PROJECT_NAME,
   RoleType,
@@ -46,7 +46,7 @@ export default function useEvolveUser(): EvolveUser | undefined {
   const isProviderHasEverythingToBeEnrolled = Boolean(
     profile?.id &&
       profile?.telecom?.find((phone) => phone.system === 'sms' || phone.system === 'phone')?.value &&
-      getPractitionerNPIIdentitifier(profile)?.value &&
+      getPractitionerNPIIdentifier(profile)?.value &&
       profile?.name?.[0]?.given?.[0] &&
       profile?.name?.[0]?.family
   );

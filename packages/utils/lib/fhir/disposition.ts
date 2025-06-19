@@ -10,7 +10,7 @@ export const mapDispositionTypeToLabel: Record<DispositionType, string> = {
   'ip-oth': 'Non-Ottehr IP Transfer',
   'pcp-no-type': pcpLabel,
   another: 'Transfer to Another Location',
-  speciality: 'Speciality Transfer',
+  specialty: 'Specialty Transfer',
 };
 
 export const dispositionCheckboxOptions = [

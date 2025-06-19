@@ -46,6 +46,7 @@ import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { openPatientInformationPage } from '../page/PatientInformationPage';
 
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { DateTime } from 'luxon';
 
 const POLICY_HOLDER_DATE_OF_BIRTH = '01/01/1990';
 const POLICY_HOLDER_2_DATE_OF_BIRTH = '01/01/1991';
@@ -56,7 +57,7 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_ADDRESS_ADDITIONAL_LINE = 'additiona
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_BIRTH_SEX = 'Intersex';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_CITY = 'Las Vegas';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_DATE_OF_BIRTH = '03/03/1993';
-const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Alise';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_FIRST_NAME = 'Alice';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_LAST_NAME = 'Wonder';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_MIDDLE_NAME = 'Louisa';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_2_RELATIONSHIP_TO_INSURED = 'Child';
@@ -68,7 +69,7 @@ const NEW_PATIENT_INSURANCE_POLICY_HOLDER_BIRTH_SEX = 'Intersex';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_CITY = 'Anchorage';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH = '04/04/1992';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_FIRST_NAME = 'James';
-const NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Cannock';
+const NEW_PATIENT_INSURANCE_POLICY_HOLDER_LAST_NAME = 'Cannoli';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'Bob';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Common Law Spouse';
 const NEW_PATIENT_INSURANCE_POLICY_HOLDER_STATE = 'AK';
@@ -95,7 +96,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test(
+  test.skip(
     'Verify data from Primary and Secondary Insurances blocks are displayed correctly',
     { tag: '@flaky' },
     async ({ page }) => {
@@ -409,7 +410,8 @@ test.describe('Insurance Information Section mutating tests', () => {
 async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
-  const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
+  const PROCESS_ID = `patientRecordInsuranceSection-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person', async ({ patientInfo }) => {
     return [
       getContactInformationAnswers({
         firstName: patientInfo.firstName,

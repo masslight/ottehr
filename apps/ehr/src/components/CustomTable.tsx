@@ -13,6 +13,7 @@ import { ReactElement } from 'react';
 
 export const dateTimeEqualsOperator: GridFilterOperator = {
   label: 'DTEquals',
+  // cSpell:disable-next dtequals
   value: 'dtequals',
   getApplyFilterFn: (filterItem: GridFilterItem) => {
     if (!filterItem.field || !filterItem.value || !filterItem.operator) {

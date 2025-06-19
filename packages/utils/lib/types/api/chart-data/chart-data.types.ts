@@ -36,7 +36,7 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
-import { EncounterLabResult } from '../lab';
+import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;
@@ -64,7 +64,8 @@ export interface ChartDataFields {
   vitalsObservations?: VitalsObservationDTO[];
   birthHistory?: BirthHistoryDTO[];
   aiChat?: QuestionnaireResponse;
-  labResults?: EncounterLabResult;
+  externalLabResults?: EncounterExternalLabResult;
+  inHouseLabResults?: EncounterInHouseLabResult;
   procedures?: ProcedureDTO[];
 }
 
@@ -304,7 +305,7 @@ export interface NoteDTO extends CommunicationDTO {
   lastUpdated?: string; // system generated, not sent from frontend
 }
 
-export type DispositionType = 'ip' | 'ip-lab' | 'pcp' | 'ed' | 'ip-oth' | 'pcp-no-type' | 'another' | 'speciality';
+export type DispositionType = 'ip' | 'ip-lab' | 'pcp' | 'ed' | 'ip-oth' | 'pcp-no-type' | 'another' | 'specialty';
 
 export type DispositionFollowUpType = 'dentistry' | 'ent' | 'ophthalmology' | 'orthopedics' | 'other' | 'lurie-ct';
 
@@ -479,7 +480,7 @@ const defaultNotes: Record<DispositionType, string> = {
   'ip-oth': 'Please go to an In Person Office.',
   'pcp-no-type': 'Please see your Primary Care Physician as discussed.',
   another: 'Please proceed to the ABC Office as advised.',
-  speciality: '',
+  specialty: '',
 };
 
 export const getDefaultNote = (dispositionType: DispositionType): string => {

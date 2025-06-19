@@ -11,7 +11,6 @@ import {
 
 import { waitForResponseWithData } from 'test-utils';
 import {
-  chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -45,9 +44,10 @@ import { expectPatientRecordPage } from '../page/PatientRecordPage';
 import { expectPatientsPage } from '../page/PatientsPage';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
+import { DateTime } from 'luxon';
 
-const NEW_PATIENT_LAST_NAME = 'Test_lastname';
-const NEW_PATIENT_FIRST_NAME = 'Test_firstname';
+const NEW_PATIENT_LAST_NAME = 'Test_last_name';
+const NEW_PATIENT_FIRST_NAME = 'Test_first_name';
 const NEW_PATIENT_MIDDLE_NAME = 'Test_middle';
 const NEW_PATIENT_SUFFIX = 'Mrs';
 const NEW_PATIENT_PREFERRED_NAME = 'Test_pref';
@@ -73,7 +73,7 @@ const NEW_RELATIONSHIP_FROM_RESPONSIBLE_CONTAINER = 'Parent';
 const NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER = 'First name';
 const NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER = 'Last name';
 const NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER = '10/10/2000';
-const NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
+const NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER = 'Male';
 const NEW_PHONE_FROM_RESPONSIBLE_CONTAINER = '(111) 111-1111';
 const NEW_ADDRESS_RESPONSIBLE_PARTY = '123 fake lane';
 const NEW_CITY_RESPONSIBLE_PARTY = 'Los Angeles';
@@ -90,7 +90,8 @@ const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
 test.describe('Patient Record Page non-mutating tests', () => {
-  const resourceHandler = new ResourceHandler();
+  const PROCESS_ID = `patientRecordPage-non-mutating-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID);
 
   test.beforeAll(async () => {
     if (process.env.INTEGRATION_TEST === 'true') {
@@ -252,7 +253,8 @@ test.describe('Patient Record Page non-mutating tests', () => {
 });
 
 test.describe('Patient Record Page mutating tests', () => {
-  const resourceHandler = new ResourceHandler();
+  const PROCESS_ID = `patientRecordPage-mutating-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID);
 
   test.beforeEach(async () => {
     await resourceHandler.setResources();
@@ -285,7 +287,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterStreetLine1FromResponsibleContainer(NEW_ADDRESS_RESPONSIBLE_PARTY);
     await patientInformationPage.enterResponsiblePartyCity(NEW_CITY_RESPONSIBLE_PARTY);
@@ -315,7 +317,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
 
     /*
@@ -367,7 +369,7 @@ test.describe('Patient Record Page mutating tests', () => {
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
-    await patientInformationPage.clearStreetAdress();
+    await patientInformationPage.clearStreetAddress();
     await patientInformationPage.clearCity();
     await patientInformationPage.clearZip();
     await patientInformationPage.clearPatientEmail();
@@ -388,13 +390,13 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.enterZip('11223344');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorZipField();
-    await patientInformationPage.enterPatientEmail('testemailgetMaxListeners.com');
+    await patientInformationPage.enterPatientEmail('testEmailGetMaxListeners.com');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidEmail();
-    await patientInformationPage.enterPatientEmail('@testemailgetMaxListeners.com');
+    await patientInformationPage.enterPatientEmail('@testEmailGetMaxListeners.com');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidEmail();
-    await patientInformationPage.enterPatientEmail('testemailgetMaxListeners@.com');
+    await patientInformationPage.enterPatientEmail('testEmailGetMaxListeners@.com');
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyValidationErrorInvalidEmail();
     await patientInformationPage.clearPatientMobile();
@@ -456,7 +458,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
 
     await patientInformationPage.clickSaveChangesButton();
@@ -469,7 +471,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.verifyBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.verifyPhoneFromResponsibleContainer(NEW_PHONE_FROM_RESPONSIBLE_CONTAINER);
   });
 
@@ -482,7 +484,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.selectHowDidYouHear(NEW_PATIENT_HOW_DID_YOU_HEAR);
     await patientInformationPage.selectMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
     await patientInformationPage.selectPreferredLanguage(NEW_PREFERRED_LANGUAGE);
-    await patientInformationPage.selectCommonwellConsent(NEW_COMMON_WELL_CONSENT);
+    await patientInformationPage.selectCommonWellConsent(NEW_COMMON_WELL_CONSENT);
 
     await patientInformationPage.clickSaveChangesButton();
     await patientInformationPage.verifyUpdatedSuccessfullyMessageShown();
@@ -495,7 +497,7 @@ test.describe('Patient Record Page mutating tests', () => {
     await patientInformationPage.verifyHowDidYouHear(NEW_PATIENT_HOW_DID_YOU_HEAR);
     await patientInformationPage.verifyMarketingMessaging(NEW_SEND_MARKETING_MESSAGES);
     await patientInformationPage.verifyPreferredLanguage(NEW_PREFERRED_LANGUAGE);
-    await patientInformationPage.verifyCommonwellConsent(NEW_COMMON_WELL_CONSENT);
+    await patientInformationPage.verifyCommonWellConsent(NEW_COMMON_WELL_CONSENT);
   });
 
   test('If "Other" gender is selected from Patient details  block, additional field appears and it is required', async ({
@@ -583,7 +585,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_CITY = 'Anchorage';
   const INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH = '04/04/1992';
   const INSURANCE_POLICY_HOLDER_FIRST_NAME = 'James';
-  const INSURANCE_POLICY_HOLDER_LAST_NAME = 'Cannock';
+  const INSURANCE_POLICY_HOLDER_LAST_NAME = 'Cannoli';
   const INSURANCE_POLICY_HOLDER_MIDDLE_NAME = 'Bob';
   const INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED = 'Common Law Spouse';
   const INSURANCE_POLICY_HOLDER_STATE = 'AK';
@@ -598,7 +600,7 @@ test.describe('Patient Record Page mutating tests', () => {
   const INSURANCE_POLICY_HOLDER_CITY_2 = 'Denver';
   const INSURANCE_POLICY_HOLDER_DATE_OF_BIRTH_2 = '03/03/1991';
   const INSURANCE_POLICY_HOLDER_FIRST_NAME_2 = 'David';
-  const INSURANCE_POLICY_HOLDER_LAST_NAME_2 = 'Corbett';
+  const INSURANCE_POLICY_HOLDER_LAST_NAME_2 = 'Sorbet';
   const INSURANCE_POLICY_HOLDER_MIDDLE_NAME_2 = 'Roger';
   const INSURANCE_POLICY_HOLDER_RELATIONSHIP_TO_INSURED_2 = 'Injured Party';
   const INSURANCE_POLICY_HOLDER_STATE_2 = 'CO';
@@ -759,32 +761,21 @@ test.describe('Patient Record Page mutating tests', () => {
   });
 });
 
-test.describe('Patient Record Page tests with zero patient data filled in', () => {
-  const resourceHandler = new ResourceHandler();
-  let appointmentIds: string[] = [];
+test.describe('Patient Record Page tests with zero patient data filled in', async () => {
+  const PROCESS_ID = `patientRecordPage-zero-data-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID);
+
   let context: BrowserContext;
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
+    await resourceHandler.setResources();
     context = await browser.newContext();
     page = await context.newPage();
-    page.on('response', async (response) => {
-      if (response.url().includes('/create-appointment/')) {
-        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-        if (appointment && !appointmentIds.includes(appointment)) {
-          console.log('Created appointment: ', appointment);
-          appointmentIds.push(appointment);
-        }
-      }
-    });
-    await resourceHandler.setResources();
   });
 
-  test.afterEach(async () => {
-    for (const id of appointmentIds) {
-      await resourceHandler.cleanAppointment(id);
-    }
-    appointmentIds = [];
+  test.afterAll(async () => {
+    await resourceHandler.cleanupResources();
   });
 
   test('Check state, ethnicity, race, relationship to patient are required', async () => {
@@ -818,7 +809,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', () =
     await patientInformationPage.enterFirstNameFromResponsibleContainer(NEW_FIRST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterLastNameFromResponsibleContainer(NEW_LAST_NAME_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.enterDateOfBirthFromResponsibleContainer(NEW_BIRTHDATE_FROM_RESPONSIBLE_CONTAINER);
-    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTSEX_FROM_RESPONSIBLE_CONTAINER);
+    await patientInformationPage.selectBirthSexFromResponsibleContainer(NEW_BIRTH_SEX_FROM_RESPONSIBLE_CONTAINER);
     await patientInformationPage.clickSaveChangesButton();
 
     await patientInformationPage.verifyValidationErrorShown(Field.DEMO_VISIT_STATE);

@@ -43,12 +43,15 @@ import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPag
 import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { expectPatientInfoPage, PatientInfoPage } from '../../page/PatientInfo';
 import { openVisitsPage } from '../../page/VisitsPage';
+import { DateTime } from 'luxon';
 
+// cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const EM_CODE = '99201 New Patient - E/M Level 1';
 
 test.describe('Book appointment', async () => {
-  const resourceHandler = new ResourceHandler();
+  const PROCESS_ID = `inPersonVisitMainFlow.spec.ts-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID);
 
   test.beforeEach(async () => {
     if (process.env.INTEGRATION_TEST === 'true') {
@@ -108,7 +111,8 @@ test.describe('Book appointment filling insurances information on payment option
     insuranceCarrier2 = insuranceCarriersOptions.at(1);
   });
 
-  const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
+  const subProcessId = `inPersonVisitMainFlow.spec.ts-SUB-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(subProcessId, 'in-person', async ({ patientInfo }) => {
     return [
       getContactInformationAnswers({
         firstName: patientInfo.firstName,
@@ -175,6 +179,8 @@ async function intakeTestAppointment(page: Page, resourceHandler: ResourceHandle
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
+  await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+  await visitsPage.clickInOfficeTab();
   await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
   return await expectPatientInfoPage(resourceHandler.appointment.id!, page);
 }

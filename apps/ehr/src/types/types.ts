@@ -1,13 +1,6 @@
 import { User } from '@oystehr/sdk';
 import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
-import {
-  FhirAppointmentType,
-  OTTEHR_MODULE,
-  PatientFollowupDetails,
-  ScheduleType,
-  ServiceMode,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { FhirAppointmentType, OTTEHR_MODULE, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: string;
@@ -59,12 +52,6 @@ export interface UnassignPractitionerParameters {
   userRole: Coding[];
 }
 
-export interface ChangeInPersonVisitStatusParameters {
-  encounterId: string | undefined;
-  user: User | undefined;
-  updatedStatus: VisitStatusWithoutUnknown | undefined;
-}
-
 export { AllStates } from 'utils';
 export type { State, StateType } from 'utils';
 
@@ -105,13 +92,13 @@ export enum VisitType {
   PostTelemed = 'post-telemed',
 }
 
-export const VisitTypeToLabel: { [visittype in VisitType]: string } = {
+export const VisitTypeToLabel: { [visitType in VisitType]: string } = {
   'walk-in': 'Walk-in In Person Visit',
   'pre-booked': 'Pre-booked In Person Visit',
   'post-telemed': 'Post Telemed Lab Only',
 };
 
-export const VisitTypeToLabelTelemed: { [visittype in VisitType]: string } = {
+export const VisitTypeToLabelTelemed: { [visitType in VisitType]: string } = {
   'walk-in': 'On-demand Telemed',
   'pre-booked': 'Pre-booked Telemed',
   'post-telemed': 'Post Telemed Lab Only',

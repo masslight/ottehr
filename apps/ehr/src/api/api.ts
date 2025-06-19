@@ -3,6 +3,8 @@ import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 
 import {
   apiErrorToThrow,
   CancelRadiologyOrderZambdaInput,
+  ChangeInPersonVisitStatusInput,
+  ChangeInPersonVisitStatusResponse,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
   ConversationMessage,
@@ -53,7 +55,6 @@ import {
 import {
   AssignPractitionerParameters,
   CancelAppointmentParameters,
-  ChangeInPersonVisitStatusParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
@@ -101,9 +102,9 @@ const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CRE
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = import.meta.env.VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN;
 const HANDLE_IN_HOUSE_LAB_RESULTS = import.meta.env.VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS;
 const DELETE_IN_HOUSE_LAB_ORDER = import.meta.env.VITE_APP_DELETE_IN_HOUSE_LAB_ORDER;
-const GET_NURSING_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_NURSING_ORDERS_ZAMBDA_ID;
-const CREATE_NURSING_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_NURSING_ORDER_ZAMBDA_ID;
-const UPDATE_NURSING_ORDER = import.meta.env.VITE_APP_UPDATE_NURSING_ORDER_ZAMBDA_ID;
+const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
+const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
+const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
 
@@ -139,7 +140,7 @@ export const submitLabOrder = async (oystehr: Oystehr, parameters: SubmitLabOrde
 export const getLabelPdf = async (oystehr: Oystehr, parameters: GetLabelPdfParameters): Promise<LabelPdf[]> => {
   try {
     if (GET_LABEL_PDF_ZAMBDA_ID == null) {
-      throw new Error('get-label-pdf evironment variable could not be loaded');
+      throw new Error('get-label-pdf environment variable could not be loaded');
     }
 
     const response = await oystehr.zambda.execute({
@@ -338,8 +339,8 @@ export const unassignPractitioner = async (
 
 export const changeInPersonVisitStatus = async (
   oystehr: Oystehr,
-  parameters: ChangeInPersonVisitStatusParameters
-): Promise<any> => {
+  parameters: ChangeInPersonVisitStatusInput
+): Promise<ChangeInPersonVisitStatusResponse> => {
   try {
     if (CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID == null) {
       throw new Error('change in person visit status environment variable could not be loaded');

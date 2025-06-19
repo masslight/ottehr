@@ -1,0 +1,37 @@
+{
+    "resourceType": "ValueSet",
+    "url": "https://fhir.ottehr.com/ValueSet/procedure-time-spent",
+    "version": "1.0.0",
+    "name": "Procedures - Time spent",
+    "status": "active",
+    "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-time-spent",
+                "code": "less-5-min",
+                "display": "< 5 min"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-time-spent",
+                "code": "5-10-min",
+                "display": "5-10 min"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-time-spent",
+                "code": "10-20-min",
+                "display": "10-20 min"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-time-spent",
+                "code": "20-30-min",
+                "display": "20-30 min"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-time-spent",
+                "code": "greater-30-min",
+                "display": "> 30 min"
+            }
+        ]
+    }
+}
