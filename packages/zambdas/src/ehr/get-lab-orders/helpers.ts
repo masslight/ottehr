@@ -562,6 +562,14 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     });
   }
 
+  // tracking board case
+  if (searchBy.field === 'encounterIds') {
+    searchParams.push({
+      name: 'encounter',
+      value: searchBy.value.map((id) => `Encounter/${id}`).join(','),
+    });
+  }
+
   // patient page case
   if (searchBy.field === 'patientId') {
     searchParams.push({
