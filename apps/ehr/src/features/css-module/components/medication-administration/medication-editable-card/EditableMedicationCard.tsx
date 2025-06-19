@@ -25,6 +25,7 @@ import {
   isUnsavedMedicationData,
   validateAllMedicationFields,
 } from './utils';
+import { ERX } from 'src/telemed/features/appointment/ERX';
 
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
@@ -39,6 +40,8 @@ export const EditableMedicationCard: React.FC<{
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
+  const [showErx, setShowErx] = useState(false);
+  const [erxStatus, setErxStatus] = useState<string | null>(null);
   const selectsOptions = useFieldsSelectsOptions();
 
   const [localValues, setLocalValues] = useState<Partial<MedicationData>>(
@@ -76,6 +79,14 @@ export const EditableMedicationCard: React.FC<{
   };
 
   const updateOrCreateOrder = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
+    if (erxStatus == null && !showErx) {
+      setShowErx(true);
+      return;
+    }
+    if (erxStatus !== 'success') {
+      return;
+    }
+
     const { isValid, missingFields } = validateAllMedicationFields(localValues, medication, type, setFieldErrors);
 
     // we check that have not empty required fields
@@ -262,6 +273,17 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       <ConfirmationModalForLeavePage />
+      {showErx ? (
+        <ERX
+          onClose={() => {
+            setShowErx(false);
+            setErxStatus(null);
+          }}
+          onStatusChange={(status: string) => {
+            setErxStatus(status);
+          }}
+        />
+      ) : undefined}
     </>
   );
 };
