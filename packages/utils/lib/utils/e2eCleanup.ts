@@ -40,13 +40,18 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
   const persons = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person') as Person[];
-
+  const addedSoFar = new Set<string>();
   deleteRequests.push(
     ...allResources.flatMap((resourceTemp) => {
       if (NEVER_DELETE.includes(resourceTemp.resourceType)) {
         return [] as BatchInputDeleteRequest[];
       } else {
-        return { method: 'DELETE', url: `${resourceTemp.resourceType}/${resourceTemp.id}` } as BatchInputDeleteRequest;
+        const url = `${resourceTemp.resourceType}/${resourceTemp.id}`;
+        if (addedSoFar.has(url)) {
+          return [] as BatchInputDeleteRequest[];
+        }
+        addedSoFar.add(url);
+        return { method: 'DELETE', url } as BatchInputDeleteRequest;
       }
     })
   );
