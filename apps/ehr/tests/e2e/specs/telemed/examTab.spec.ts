@@ -13,6 +13,7 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { waitForSaveChartDataResponse } from 'test-utils';
 import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
 import { rgbToHex } from '@mui/system';
+import { DateTime } from 'luxon';
 
 async function checkCheckboxValueInLocator(locator: Locator, value: boolean): Promise<void> {
   if (value) {
@@ -47,7 +48,8 @@ async function checkValuesInRadioButtons(page: Page, examObservationFields: Exam
 }
 
 test.describe('Fields tests', async () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `examTab.spec.ts-fields-tests-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   let page: Page;
   // this color i've found in the palette
   const greenColorFromPalette = '#2E7D32';
@@ -342,7 +344,8 @@ test.describe('Fields tests', async () => {
 });
 
 test.describe('Cards tests', () => {
-  const resourceHandler = new ResourceHandler('telemed');
+  const PROCESS_ID = `examTab.spec.ts-cards-tests-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
   const collapsedSections: ExamTabCardNames[] = ['nose', 'ears', 'mouth', 'neck', 'abdomen', 'back', 'psych'];
   const expandedSections: ExamTabCardNames[] = [
     'general',

@@ -163,7 +163,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   type="submit"
                 >
-                  Submit & Print Order
+                  Submit & Print Order{!labOrder.isPSC ? ' and Label' : ''}
                 </LoadingButton>
               </Stack>
             )}

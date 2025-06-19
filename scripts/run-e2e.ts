@@ -1,4 +1,5 @@
 import { spawn, execSync } from 'child_process';
+import { DateTime } from 'luxon';
 import path from 'path';
 
 const ENV = process.env.ENV?.trim?.() || 'local';
@@ -42,6 +43,10 @@ const appName = ((): 'ehr' | 'intake' => {
   }
   return appName;
 })();
+
+const pwSuiteId = `${appName}-${DateTime.now().toMillis()}`;
+process.env.PLAYWRIGHT_SUITE_ID = pwSuiteId;
+console.log('PLAYWRIGHT_SUITE_ID in run-e2e.ts:', pwSuiteId);
 
 const clearPorts = (): void => {
   if (isCI) {

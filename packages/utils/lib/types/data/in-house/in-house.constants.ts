@@ -74,7 +74,7 @@ export const INDETERMINATE_OBSERVATION_INTERPRETATION: CodeableConcept = {
   ],
 };
 
-export const DIAGNOSTIC_REPORT_CATEGORY_CONFIG = {
+export const IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG = {
   system: 'http://terminology.hl7.org/CodeSystem/v2-0074',
   code: 'LAB',
   display: 'Laboratory',

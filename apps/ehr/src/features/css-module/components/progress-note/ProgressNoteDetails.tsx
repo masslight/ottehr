@@ -1,6 +1,6 @@
 import { Stack, Typography } from '@mui/material';
 import { FC } from 'react';
-import { getProgressNoteChartDataRequestedFields, NOTE_TYPE } from 'utils';
+import { getProgressNoteChartDataRequestedFields, NOTE_TYPE, LabType } from 'utils';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard, SectionList, useAppointmentStore, usePatientInstructionsVisibility } from '../../../../telemed';
@@ -42,7 +42,8 @@ export const ProgressNoteDetails: FC = () => {
         episodeOfCare: data?.episodeOfCare,
         vitalsObservations: data?.vitalsObservations,
         prescribedMedications: data?.prescribedMedications,
-        labResults: data?.labResults,
+        externalLabResults: data?.externalLabResults,
+        inHouseLabResults: data?.inHouseLabResults,
         disposition: data?.disposition,
       });
     },
@@ -60,7 +61,8 @@ export const ProgressNoteDetails: FC = () => {
   const prescriptions = chartData?.prescribedMedications;
   const observations = chartData?.observations;
   const vitalsObservations = chartData?.vitalsObservations;
-  const labResults = chartData?.labResults;
+  const externalLabResults = chartData?.externalLabResults;
+  const inHouseLabResults = chartData?.inHouseLabResults;
 
   const showChiefComplaint = !!(chiefComplaint && chiefComplaint.length > 0);
   const showReviewOfSystems = !!(ros && ros.length > 0);
@@ -70,9 +72,13 @@ export const ProgressNoteDetails: FC = () => {
   const showMedicalDecisionMaking = !!(medicalDecision && medicalDecision.length > 0);
   const showEmCode = !!emCode;
   const showCptCodes = !!(cptCodes && cptCodes.length > 0);
-  const showLabsResultsContainer = !!(
-    labResults?.resultsPending ||
-    (labResults?.labOrderResults && labResults?.labOrderResults.length > 0)
+  const showExternalLabsResultsContainer = !!(
+    externalLabResults?.resultsPending ||
+    (externalLabResults?.labOrderResults && externalLabResults?.labOrderResults.length > 0)
+  );
+  const showInHouseLabsResultsContainer = !!(
+    inHouseLabResults?.resultsPending ||
+    (inHouseLabResults?.labOrderResults && inHouseLabResults?.labOrderResults.length > 0)
   );
   const showProceduresContainer = (chartData?.procedures?.length ?? 0) > 0;
   const showPrescribedMedications = !!(prescriptions && prescriptions.length > 0);
@@ -101,7 +107,18 @@ export const ProgressNoteDetails: FC = () => {
     showMedicalDecisionMaking && <MedicalDecisionMakingContainer />,
     showEmCode && <EMCodeContainer />,
     showCptCodes && <CPTCodesContainer />,
-    showLabsResultsContainer && <LabResultsReviewContainer />,
+    showInHouseLabsResultsContainer && (
+      <LabResultsReviewContainer
+        resultDetails={{ type: LabType.inhouse, results: inHouseLabResults.labOrderResults }}
+        resultsPending={inHouseLabResults.resultsPending}
+      />
+    ),
+    showExternalLabsResultsContainer && (
+      <LabResultsReviewContainer
+        resultDetails={{ type: LabType.external, results: externalLabResults.labOrderResults }}
+        resultsPending={externalLabResults.resultsPending}
+      />
+    ),
     showProceduresContainer && <ProceduresContainer />,
     showPrescribedMedications && <PrescribedMedicationsContainer />,
     showPatientInstructions && <PatientInstructionsContainer />,

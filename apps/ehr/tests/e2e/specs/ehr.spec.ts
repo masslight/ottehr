@@ -19,9 +19,11 @@ import {
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientsPage } from '../page/PatientsPage';
+import { DateTime } from 'luxon';
 
 // We may create new instances for the tests with mutable operations, and keep parallel tests isolated
-const resourceHandler = new ResourceHandler();
+const PROCESS_ID = `ehr.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 const awaitCSSHeaderInit = async (page: Page): Promise<void> => {
   await expect(async () => {

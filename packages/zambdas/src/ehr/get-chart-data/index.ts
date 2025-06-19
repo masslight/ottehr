@@ -195,7 +195,7 @@ export async function getChartData(
     });
   }
 
-  if (requestedFields?.labResults && encounter.id) {
+  if ((requestedFields?.externalLabResults || requestedFields?.inHouseLabResults) && encounter.id) {
     const labRequests = configLabRequestsForGetChartData(encounter.id);
     chartDataRequests.push(...labRequests);
   }

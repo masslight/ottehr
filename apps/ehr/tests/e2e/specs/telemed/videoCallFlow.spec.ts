@@ -4,8 +4,10 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { waitForGetChartDataResponse } from 'test-utils';
+import { DateTime } from 'luxon';
 
-const resourceHandler = new ResourceHandler('telemed');
+const PROCESS_ID = `videoCallFlow.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
 let page: Page;
 
 test.beforeAll(async ({ browser }) => {
