@@ -31,6 +31,7 @@ const PatientName = styled(Typography)(({ theme }) => ({
   textAlign: 'left',
   fontWeight: 'bold',
   color: theme.palette.primary.dark,
+  cursor: 'pointer',
 }));
 
 const PatientMetadata = styled(Typography)(({ theme }) => ({
@@ -148,7 +149,12 @@ export const Header = (): JSX.Element => {
               </Grid>
               <Grid item xs>
                 <PatientInfoWrapper>
-                  <PatientName data-testid={dataTestIds.cssHeader.patientName}>{patientName}</PatientName>
+                  <PatientName
+                    data-testid={dataTestIds.cssHeader.patientName}
+                    onClick={() => navigate(`/patient/${userId}`)}
+                  >
+                    {patientName}
+                  </PatientName>
                   <PrintVisitLabelButton encounterId={encounterId} />
                   <PatientMetadata sx={{ fontWeight: 500 }}>{dob}</PatientMetadata> |
                   <PatientMetadata
