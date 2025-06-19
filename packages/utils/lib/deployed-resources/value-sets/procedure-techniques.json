@@ -8,23 +8,23 @@
         "timestamp": "2025-06-10T11:36:51.034Z",
         "contains": [
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+                "code": "sterile",
                 "display": "Sterile"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+                "code": "clean",
                 "display": "Clean"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+                "code": "aseptic",
                 "display": "Aseptic"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-techniques",
+                "code": "field",
                 "display": "Field"
             }
         ]

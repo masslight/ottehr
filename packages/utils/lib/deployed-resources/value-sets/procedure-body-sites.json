@@ -8,53 +8,53 @@
         "timestamp": "2025-06-10T11:36:51.034Z",
         "contains": [
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "head",
                 "display": "Head"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "face",
                 "display": "Face"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "arm",
                 "display": "Arm"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "leg",
                 "display": "Leg"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "torso",
                 "display": "Torso"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "genital",
                 "display": "Genital"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "ear",
                 "display": "Ear"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "nose",
                 "display": "Nose"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "eye",
                 "display": "Eye"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+                "code": "other",
                 "display": "Other"
             }
         ]

@@ -8,23 +8,23 @@
         "timestamp": "2025-06-10T11:36:51.034Z",
         "contains": [
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+                "code": "wound-care",
                 "display": "Wound Care"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+                "code": "fu-with-pcp",
                 "display": "F/U with PCP"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+                "code": "return-if-worsening",
                 "display": "Return if worsening"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+                "code": "other",
                 "display": "Other"
             }
         ]

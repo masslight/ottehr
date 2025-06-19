@@ -8,28 +8,28 @@
         "timestamp": "2025-06-10T11:36:51.034Z",
         "contains": [
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "none",
                 "display": "None"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "bleeding",
                 "display": "Bleeding"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "incomplete-removal",
                 "display": "Incomplete Removal"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "allergic-reaction",
                 "display": "Allergic Reaction"
             },
             {
-                "system": "stub",
-                "code": "stub",
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "other",
                 "display": "Other"
             }
         ]
