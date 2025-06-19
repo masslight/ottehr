@@ -1,5 +1,5 @@
+// cSpell:ignore networkidle, VVPP
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { Locators } from '../../utils/locators';
 import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
@@ -36,11 +36,6 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   await page.close();
   await context.close();
-  const env = process.env.ENV;
-  for (const appointment of appointmentIds) {
-    console.log(`Deleting ${appointment} on env: ${env}`);
-    await cleanAppointment(appointment, env!);
-  }
 });
 
 test.describe('Virtual visit. Check paperwork is prefilled for existing patient. Payment - insurance, responsible party - not self', () => {
@@ -50,7 +45,7 @@ test.describe('Virtual visit. Check paperwork is prefilled for existing patient.
     filledPaperwork = await paperwork.fillPaperworkAllFieldsTelemed('insurance', 'not-self');
     await locator.finishButton.click();
     await page.goto('/home');
-    await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check prepopulation which depends on harvest.
+    await page.waitForTimeout(10000); // Wait for the harvest of first appointment to finish because these tests check pre-population which depends on harvest.
     await locator.scheduleVirtualVisitButton.click();
     await paperwork.checkCorrectPageOpens('Book a visit');
     await flowClass.selectTimeLocationAndContinue();

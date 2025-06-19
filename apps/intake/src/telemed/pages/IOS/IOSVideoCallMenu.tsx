@@ -6,7 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { intakeFlowPageRoute } from '../../../App';
 import { useAppointmentStore } from '../../features/appointments';
 import { InvitedParticipantListItemButton } from '../../features/invited-participants';
-import { createIOSMesssageCloseWebView, sendIOSAppMessage } from '../../features/ios-communication';
+import { createIOSMessageCloseWebView, sendIOSAppMessage } from '../../features/ios-communication';
 import { UploadPhotosListItemButton } from '../../features/upload-photos';
 
 export function IOSVideoCallMenu(): JSX.Element {
@@ -22,7 +22,7 @@ export function IOSVideoCallMenu(): JSX.Element {
   }, [urlAppointmentID]);
 
   const handleClose = (): void => {
-    sendIOSAppMessage(createIOSMesssageCloseWebView());
+    sendIOSAppMessage(createIOSMessageCloseWebView());
   };
 
   const handleClickManageParticipants = (): void => {

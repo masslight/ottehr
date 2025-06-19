@@ -44,7 +44,7 @@ import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
-import { checkinPatient } from '../helpers';
+import { checkInPatient } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -295,7 +295,7 @@ export default function AppointmentTableRow({
       throw new Error('error getting appointment id');
     }
     setArrivedStatusSaving(true);
-    await checkinPatient(oystehr, appointment.id, appointment.encounterId, user);
+    await checkInPatient(oystehr, appointment.id, appointment.encounterId, user);
     setArrivedStatusSaving(false);
     await updateAppointments();
   };
@@ -521,28 +521,34 @@ export default function AppointmentTableRow({
       // todo need to make url dynamic or pull from location
       {
         english: `Please complete the paperwork and sign consent forms to avoid a delay in check-in. For ${appointment.patient.firstName}, click here: ${VITE_APP_QRS_URL}/visit/${appointment.id}`,
+        // cSpell:disable-next Spanish
         spanish: `Complete la documentación y firme los formularios de consentimiento para evitar demoras en el registro. Para ${appointment.patient.firstName}, haga clic aquí: ${VITE_APP_QRS_URL}/visit/${appointment.id}`,
       },
       {
         english:
           'To prevent any delays with your pre-booked visit, please complete the digital paperwork fully in our new system.',
         spanish:
+          // cSpell:disable-next Spanish
           'Para evitar demoras en su visita preprogramada, complete toda la documentación digital en nuestro nuevo sistema.',
       },
       {
         english: 'We are now ready to check you in. Please head to the front desk to complete the process.',
+        // cSpell:disable-next Spanish
         spanish: 'Ahora estamos listos para registrarlo. Diríjase a la recepción para completar el proceso.',
       },
       {
         english: 'We are ready for the patient to be seen, please enter the facility.',
+        // cSpell:disable-next Spanish
         spanish: 'Estamos listos para atender al paciente; ingrese al centro.',
       },
       {
         english: `${PROJECT_NAME} is trying to get ahold of you. Please call us at ${officePhoneNumber} or respond to this text message.`,
+        // cSpell:disable-next Spanish
         spanish: `${PROJECT_NAME} está intentando comunicarse con usted. Llámenos al ${officePhoneNumber} o responda a este mensaje de texto.`,
       },
       {
         english: `${PROJECT_NAME} hopes you are feeling better. Please call us with any questions at ${officePhoneNumber}.`,
+        // cSpell:disable-next Spanish
         spanish: `${PROJECT_NAME} espera que se sienta mejor. Llámenos si tiene alguna pregunta al ${officePhoneNumber}.`,
       },
     ];
@@ -786,9 +792,6 @@ export default function AppointmentTableRow({
       )}
       <TableCell sx={{ verticalAlign: 'center' }}>
         <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.provider}</Typography>
-      </TableCell>
-      <TableCell sx={{ verticalAlign: 'center' }}>
-        <Typography sx={{ fontSize: 14, display: 'inline' }}>{appointment.group}</Typography>
       </TableCell>
       <TableCell
         sx={{

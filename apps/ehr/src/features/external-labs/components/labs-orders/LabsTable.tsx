@@ -62,7 +62,6 @@ export const LabsTable = <SearchBy extends LabOrdersSearchBy>({
   onCreateOrder,
 }: LabsTableProps<SearchBy>): ReactElement => {
   const navigateTo = useNavigate();
-  console.log('searchBy', searchBy);
 
   const {
     labOrders,

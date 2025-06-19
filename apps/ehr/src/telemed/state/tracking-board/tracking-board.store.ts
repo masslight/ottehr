@@ -16,7 +16,7 @@ type TrackingBoardState = {
   unsignedFor: UnsignedFor;
   availableStates: string[];
   showOnlyNext: boolean;
-  visitTypes: VisitType[];
+  visitTypes: VisitType[] | null;
 };
 
 type TrackingBoardStoreActions = {

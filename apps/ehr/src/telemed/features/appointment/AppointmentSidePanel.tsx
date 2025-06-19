@@ -19,28 +19,28 @@ import {
   useTheme,
 } from '@mui/material';
 import { DateTime } from 'luxon';
-import { FC, useCallback, useState } from 'react';
+import { FC, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { RoundedButton } from 'src/components/RoundedButton';
 import {
   calculatePatientAge,
   getQuestionnaireResponseByLinkId,
   INTERPRETER_PHONE_NUMBER,
   mapStatusToTelemed,
   TelemedAppointmentStatusEnum,
+  TelemedAppointmentVisitTabs,
 } from 'utils';
 import { EditPatientDialog } from '../../../components/dialogs';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import ChatModal from '../../../features/chat/ChatModal';
 import { addSpacesAfterCommas } from '../../../helpers/formatString';
 import { adjustTopForBannerHeight } from '../../../helpers/misc.helper';
-import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import CancelVisitDialog from '../../components/CancelVisitDialog';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
 import { useAppointmentStore, useGetTelemedAppointmentWithSMSModel } from '../../state';
 import { getAppointmentStatusChip, getPatientName, quickTexts } from '../../utils';
-import { ERX } from './ERX';
 import { PastVisits } from './PastVisits';
 
 enum Gender {
@@ -73,12 +73,8 @@ export const AppointmentSidePanel: FC = () => {
     'chartData',
   ]);
 
-  const user = useEvolveUser();
-
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isERXOpen, setIsERXOpen] = useState(false);
-  const [isERXLoading, setIsERXLoading] = useState(false);
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [isInviteParticipantOpen, setIsInviteParticipantOpen] = useState(false);
 
@@ -96,10 +92,6 @@ export const AppointmentSidePanel: FC = () => {
     ?.valueString;
   const addressLine2 = getQuestionnaireResponseByLinkId('patient-street-address-2', questionnaireResponse)?.answer?.[0];
 
-  const handleERXLoadingStatusChange = useCallback<(status: boolean) => void>(
-    (status) => setIsERXLoading(status),
-    [setIsERXLoading]
-  );
   const appointmentAccessibility = useGetAppointmentAccessibility();
   const isReadOnly = appointmentAccessibility.isAppointmentReadOnly;
 
@@ -133,22 +125,11 @@ export const AppointmentSidePanel: FC = () => {
     return language.toLowerCase() === 'Spanish'.toLowerCase();
   }
 
-  const delimeterString = preferredLanguage && isSpanish(preferredLanguage) ? `\u00A0|\u00A0` : '';
+  const delimiterString = preferredLanguage && isSpanish(preferredLanguage) ? `\u00A0|\u00A0` : '';
   const interpreterString =
     preferredLanguage && isSpanish(preferredLanguage) ? `Interpreter: ${INTERPRETER_PHONE_NUMBER}` : '';
 
   const paperworkAllergiesYesNo = getQuestionnaireResponseByLinkId('allergies-yes-no', questionnaireResponse);
-
-  const paperworkAllergies =
-    getQuestionnaireResponseByLinkId('allergies', questionnaireResponse)
-      ?.answer?.[0]?.valueArray?.filter(
-        (answer) =>
-          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
-      )
-      ?.map(
-        (answer) =>
-          answer['allergies-form-agent-substance-medications'] || answer['allergies-form-agent-substance-other']
-      ) ?? [];
 
   const allergiesStatus = (): string => {
     if (isChartDataLoading) {
@@ -164,10 +145,10 @@ export const AppointmentSidePanel: FC = () => {
     ) {
       return 'No known allergies';
     }
-    return [
-      ...allergies.filter((allergy) => allergy.current === true).map((allergy) => allergy.name),
-      ...paperworkAllergies,
-    ].join(', ');
+    return allergies
+      .filter((allergy) => allergy.current === true)
+      .map((allergy) => allergy.name)
+      .join(', ');
   };
 
   return (
@@ -314,24 +295,25 @@ export const AppointmentSidePanel: FC = () => {
             Book visit
           </Button>
 
-          {user?.isPractitionerEnrolledInPhoton && (
-            <LoadingButton
-              size="small"
-              variant="outlined"
-              sx={{
-                textTransform: 'none',
-                fontSize: '14px',
-                fontWeight: 700,
-                borderRadius: 10,
-              }}
-              startIcon={<MedicationOutlinedIcon />}
-              onClick={() => setIsERXOpen(true)}
-              loading={isERXLoading}
-              disabled={appointmentAccessibility.isAppointmentReadOnly}
-            >
-              RX
-            </LoadingButton>
-          )}
+          {
+            <Box sx={{ position: 'relative', zIndex: 10000 }}>
+              <RoundedButton
+                size="small"
+                variant="outlined"
+                sx={{
+                  textTransform: 'none',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  borderRadius: 10,
+                }}
+                startIcon={<MedicationOutlinedIcon />}
+                onClick={() => useAppointmentStore.setState({ currentTab: TelemedAppointmentVisitTabs.plan })}
+                disabled={appointmentAccessibility.isAppointmentReadOnly}
+              >
+                RX
+              </RoundedButton>
+            </Box>
+          }
         </Box>
 
         <Divider />
@@ -342,7 +324,7 @@ export const AppointmentSidePanel: FC = () => {
               Preferred Language
             </Typography>
             <Typography variant="body2">
-              {preferredLanguage} {delimeterString} {interpreterString}
+              {preferredLanguage} {delimiterString} {interpreterString}
             </Typography>
           </Box>
 
@@ -404,7 +386,7 @@ export const AppointmentSidePanel: FC = () => {
         </Box>
 
         {isCancelDialogOpen && <CancelVisitDialog onClose={() => setIsCancelDialogOpen(false)} />}
-        {isERXOpen && <ERX onClose={() => setIsERXOpen(false)} onLoadingStatusChange={handleERXLoadingStatusChange} />}
+
         {isEditDialogOpen && (
           <EditPatientDialog modalOpen={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)} />
         )}

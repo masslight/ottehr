@@ -11,7 +11,7 @@ interface ERXProps {
   appointmentID?: string;
 }
 
-export const ERX: React.FC<ERXProps> = () => {
+export const ERXPage: React.FC<ERXProps> = () => {
   const { id: appointmentID } = useParams();
 
   const {
@@ -27,9 +27,8 @@ export const ERX: React.FC<ERXProps> = () => {
   if (!appointment) return <Typography>No data available</Typography>;
 
   return (
-    <Stack spacing={1}>
+    <Stack spacing={1} sx={{ flex: '1 0 auto' }}>
       <ERxContainer />
-      <div id="photon-prescribe-workflow-dialog" />
     </Stack>
   );
 };

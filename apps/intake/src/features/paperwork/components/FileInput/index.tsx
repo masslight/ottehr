@@ -4,7 +4,7 @@ import { Attachment } from 'fhir/r4b';
 import { ottehrApi } from '../../../../api';
 import { ZambdaClient, useUCZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import { DateTime } from 'luxon';
-import { addContentTypeToAttachement } from 'utils';
+import { addContentTypeToAttachment } from 'utils';
 import CardDisplay from './CardDisplay';
 import UploadComponent from './UploadComponent';
 import Link from '@mui/material/Link';
@@ -59,7 +59,7 @@ const FileInput: FC<FileInputProps> = ({
     const baseField = pathParts.reduce((accum, current) => {
       return accum?.[current];
     }, defaultValues);
-    return baseField?.answer?.[0]?.valueAttachement;
+    return baseField?.answer?.[0]?.valueAttachment;
   })();
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +122,7 @@ const FileInput: FC<FileInputProps> = ({
           title: fileName,
           creation: DateTime.now().toISO(),
         };
-        onChange(addContentTypeToAttachement(attachment));
+        onChange(addContentTypeToAttachment(attachment));
         setZ3UploadState(UploadState.complete);
         setPendingZ3Upload(undefined);
         setSaveButtonDisabled(false);

@@ -163,7 +163,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
                   sx={{ borderRadius: '50px', textTransform: 'none', fontWeight: 600 }}
                   type="submit"
                 >
-                  Submit & Print Order
+                  Submit & Print Order{!labOrder.isPSC ? ' and Label' : ''}
                 </LoadingButton>
               </Stack>
             )}
@@ -173,7 +173,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
           <Box sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
             {error.map((msg, idx) => (
               <Box sx={{ textAlign: 'right', paddingTop: 1 }} key={idx}>
-                <Typography sx={{ color: theme.palette.error.main }} key={`errormsg-${idx}`}>
+                <Typography sx={{ color: theme.palette.error.main }} key={`errorMsg-${idx}`}>
                   {typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2)}
                 </Typography>
               </Box>
