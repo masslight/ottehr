@@ -51,12 +51,12 @@ export function validateRequestParameters(input: ZambdaInput): AssignPractitione
     }
 
     const codingObj = coding as Record<string, unknown>;
-    if (typeof codingObj.code !== 'string') {
-      throw new Error(`userRole[${i}].code must be a string`);
+    if (codingObj.code != undefined && typeof codingObj.code !== 'string') {
+      throw new Error(`userRole[${i}].code must be a string if provided`);
     }
 
-    if (typeof codingObj.display !== 'string') {
-      throw new Error(`userRole[${i}].display must be a string`);
+    if (codingObj.display !== undefined && typeof codingObj.display !== 'string') {
+      throw new Error(`userRole[${i}].display must be a string if provided`);
     }
 
     if (codingObj.system !== undefined && typeof codingObj.system !== 'string') {

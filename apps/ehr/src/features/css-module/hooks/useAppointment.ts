@@ -39,6 +39,11 @@ export const useAppointment = (
     'questionnaireResponse',
   ]);
 
+  if (!visitData.encounter) {
+    console.warn('Encounter is not available in the visit data. Ensure the appointment ID is provided.');
+    throw new Error('Encounter is not available in the visit data.');
+  }
+
   const { location, locationVirtual, patient, encounter, questionnaireResponse, appointment } = visitData;
 
   const { isLoading, error, refetch } = useGetAppointment({ appointmentId }, (data) => {
