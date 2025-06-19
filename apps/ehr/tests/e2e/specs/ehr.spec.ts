@@ -20,6 +20,7 @@ import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientsPage } from '../page/PatientsPage';
 import { DateTime } from 'luxon';
+import { openVisitsPage } from '../page/VisitsPage';
 
 // We may create new instances for the tests with mutable operations, and keep parallel tests isolated
 const PROCESS_ID = `ehr.spec.ts-${DateTime.now().toMillis()}`;
@@ -46,7 +47,7 @@ test.afterAll(async () => {
 });
 
 test('Happy path: set up filters and navigate to visit page', async ({ page }) => {
-  await page.goto('/visits');
+  const visitsPage = await openVisitsPage(page);
 
   // INITIAL DATA IS LOADED
   await expect(page.getByTestId('PersonIcon')).toBeVisible();
@@ -58,35 +59,11 @@ test('Happy path: set up filters and navigate to visit page', async ({ page }) =
   await page.click('button[aria-label*="Choose date"]');
   await page.getByTestId(dataTestIds.dashboard.datePickerTodayButton).locator('button').click();
 
-  // CHOOSE LOCATION
-  await page.getByTestId(dataTestIds.dashboard.locationSelect).getByRole('button', { name: 'Open' }).click();
-  await page
-    .locator('body .MuiAutocomplete-popper .MuiAutocomplete-option')
-    .getByText(new RegExp(ENV_LOCATION_NAME!, 'i'))
-    .waitFor();
-  await page.getByTestId(dataTestIds.dashboard.locationSelect).getByRole('combobox').fill(ENV_LOCATION_NAME!);
-  await page.keyboard.press('ArrowDown');
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId(dataTestIds.dashboard.locationSelect).getByRole('combobox')).toHaveValue(
-    new RegExp(ENV_LOCATION_NAME!, 'i'),
-    {
-      timeout: 3000,
-    }
-  );
-
-  // CHOOSE TAB
-  await page.locator(`[data-testid="${dataTestIds.dashboard.prebookedTab}"]`).click();
-
-  console.log(`resource handler appointment: ${JSON.stringify(resourceHandler.appointment, null, 2)}`);
-  const tableRowLocator = page.getByTestId(dataTestIds.dashboard.tableRowWrapper(resourceHandler.appointment.id!));
-
-  await expect(tableRowLocator).toBeAttached({
-    timeout: 15000,
-  });
-
-  await expect(tableRowLocator.getByTestId(dataTestIds.dashboard.intakeButton)).toBeAttached({
-    timeout: 15000,
-  });
+  await visitsPage.selectLocation(ENV_LOCATION_NAME!);
+  await visitsPage.clickPrebookedTab();
+  await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+  await visitsPage.clickInOfficeTab();
+  await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
 
   // todo: commenting out cause it doesn't work in CI, need to investigate why, locally runs fine every time
   // // GOTO VISIT PAGE
