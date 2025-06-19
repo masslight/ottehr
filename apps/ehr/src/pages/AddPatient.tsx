@@ -140,7 +140,7 @@ export default function AddPatient(): JSX.Element {
     const locationSlug = selectedLocation?.identifier?.find((identifierTemp) => identifierTemp.system === SLUG_SYSTEM)
       ?.value;
     if (!locationSlug) {
-      console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
+      // console.log('show some toast: location is missing slug', selectedLocation, locationSlug);
       return;
     }
     if (
@@ -295,6 +295,7 @@ export default function AddPatient(): JSX.Element {
           },
           {
             name: '_include',
+            // cSpell:disable-next relatedperson
             value: 'Person:relatedperson',
           },
           {
@@ -361,7 +362,7 @@ export default function AddPatient(): JSX.Element {
             <form onSubmit={(e) => handleFormSubmit(e)}>
               <Box padding={3} marginTop={2}>
                 {/* Location Select */}
-                <Typography variant="h4" color="primary.dark">
+                <Typography variant="h4" color="primary.dark" data-testid={dataTestIds.addPatientPage.locationHeader}>
                   Location
                 </Typography>
 

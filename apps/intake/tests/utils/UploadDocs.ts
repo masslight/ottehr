@@ -1,3 +1,4 @@
+// cSpell:ignore filechooser
 import { expect, Locator, Page } from '@playwright/test';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';

@@ -201,7 +201,7 @@ const DrawerHeader = styled('div')(({ theme }) => ({
   justifyContent: 'flex-end',
 }));
 
-const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive }) => ({
+const StyledButton = styled(Button)<{ isActive: string }>(({ theme, isActive }) => ({
   display: 'flex',
   width: '100%',
   height: '42px',
@@ -224,7 +224,7 @@ const StyledButton = styled(Button)<{ isactive: string }>(({ theme, isactive }) 
   '&.Mui-disabled': {
     color: theme.palette.text.primary,
   },
-  ...(isactive === 'true' && {
+  ...(isActive === 'true' && {
     color: theme.palette.primary.main,
     borderRight: `2px solid ${theme.palette.primary.main}`,
     backgroundColor: alpha(theme.palette.primary.main, 0.05),
@@ -314,7 +314,7 @@ export const Sidebar = (): JSX.Element => {
           display: 'flex',
           padding: '0px',
           ...(open
-            ? { justifyConent: 'end', paddingRight: '10px' }
+            ? { justifyContent: 'end', paddingRight: '10px' }
             : { justifyContent: 'center', paddingRight: '0px' }),
           borderBottom: '1px solid #e0e0e0',
         }}
@@ -338,7 +338,7 @@ export const Sidebar = (): JSX.Element => {
           const comparedPath = item?.activeCheckPath || item.to;
           return (
             <StyledButton
-              isactive={location.pathname.includes(comparedPath).toString()}
+              isActive={location.pathname.includes(comparedPath).toString()}
               key={item.text}
               onClick={() => {
                 requestAnimationFrame(() => {

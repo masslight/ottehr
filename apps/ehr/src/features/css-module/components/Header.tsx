@@ -48,10 +48,10 @@ const PatientInfoWrapper = styled(Box)({
 const format = (
   value: string | undefined,
   placeholder = '',
-  keepPlaceholderIfValueFullfilled = false,
+  keepPlaceholderIfValueFulfilled = false,
   emptyValuePlaceholder = 'N/A'
 ): string => {
-  const prefix = !value || (keepPlaceholderIfValueFullfilled && value) ? `${placeholder}: ` : '';
+  const prefix = !value || (keepPlaceholderIfValueFulfilled && value) ? `${placeholder}: ` : '';
   return prefix + (value || emptyValuePlaceholder);
 };
 

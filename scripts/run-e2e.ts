@@ -1,4 +1,5 @@
 import { spawn, execSync } from 'child_process';
+import { DateTime } from 'luxon';
 import path from 'path';
 
 const ENV = process.env.ENV?.trim?.() || 'local';
@@ -42,6 +43,10 @@ const appName = ((): 'ehr' | 'intake' => {
   }
   return appName;
 })();
+
+const pwSuiteId = `${appName}-${DateTime.now().toMillis()}`;
+process.env.PLAYWRIGHT_SUITE_ID = pwSuiteId;
+console.log('PLAYWRIGHT_SUITE_ID in run-e2e.ts:', pwSuiteId);
 
 const clearPorts = (): void => {
   if (isCI) {
@@ -88,16 +93,7 @@ const startApp = async (app: (typeof supportedApps)[number]): Promise<void> => {
   return new Promise((resolve, reject) => {
     const childProcess = spawn(
       'cross-env',
-      [
-        'VITE_APP_CI_PHOTON_DISABLED=true',
-        `ENV=${envMapping[app][ENV]}`,
-        'VITE_NO_OPEN=true',
-        'npm',
-        'run',
-        `${app}:start`,
-        '--',
-        '--verbosity=2',
-      ],
+      [`ENV=${envMapping[app][ENV]}`, 'VITE_NO_OPEN=true', 'npm', 'run', `${app}:start`, '--', '--verbosity=2'],
       {
         shell: true,
         stdio: 'inherit',

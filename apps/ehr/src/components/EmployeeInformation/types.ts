@@ -1,6 +1,6 @@
-import { Control, UseFormGetValues, UseFormSetValue } from 'react-hook-form';
-import { User, PractitionerLicense } from 'utils';
 import { DateTime } from 'luxon';
+import { Control, UseFormGetValues, UseFormSetValue } from 'react-hook-form';
+import { PractitionerLicense, RoleType, User } from 'utils';
 
 export interface FormErrors {
   submit: boolean;
@@ -10,8 +10,6 @@ export interface FormErrors {
   number: boolean;
   date: boolean;
   duplicateLicense: boolean;
-  npi: boolean;
-  phoneNumber: boolean;
 }
 
 export interface EditEmployeeInformationProps {
@@ -27,8 +25,15 @@ export interface EmployeeForm {
   middleName: string;
   lastName: string;
   nameSuffix: string;
-  roles: string[];
+  roles: RoleType[];
   phoneNumber: string;
+  birthDate: DateTime;
+  faxNumber: string;
+  addressLine1: string;
+  addressLine2: string;
+  addressCity: string;
+  addressState: string;
+  addressZip: string;
   npi: string;
   newLicenseState?: string;
   newLicenseCode?: string;
@@ -39,7 +44,7 @@ export interface EmployeeForm {
 export interface ProviderDetailsProps {
   control: Control<any>;
   photoSrc: string;
-  errors: FormErrors;
+  roles: string[];
 }
 
 export interface RoleSelectionProps {

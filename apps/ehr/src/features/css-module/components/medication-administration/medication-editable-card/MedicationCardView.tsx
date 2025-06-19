@@ -36,7 +36,10 @@ type MedicationCardViewProps = {
   isUpdating: boolean;
   onFieldValueChange: <Field extends keyof MedicationData>(field: Field, value: MedicationData[Field]) => void;
   onStatusSelect: (newStatus: MedicationOrderStatusesType) => void;
-  getFieldValue: <Field extends keyof MedicationData>(field: Field, type?: string) => MedicationData[Field] | '';
+  getFieldValue: <Field extends keyof MedicationData>(
+    field: Field,
+    type?: string
+  ) => MedicationData[Field] | '' | undefined;
   showErrors: boolean;
   fieldErrors: Record<string, boolean>;
   getFieldType: (field: keyof MedicationData) => InHouseMedicationFieldType;

@@ -16,7 +16,7 @@ import {
   NORMAL_OBSERVATION_INTERPRETATION,
   INDETERMINATE_OBSERVATION_INTERPRETATION,
   extractAbnormalValueSetValues,
-  DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
+  IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
@@ -45,7 +45,11 @@ import {
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
 import { Operation } from 'fast-json-patch';
-import { getAttendingPractionerId, getServiceRequestsRelatedViaRepeat } from '../shared/inhouse-labs';
+import {
+  getAttendingPractionerId,
+  getUrlAndVersionForADFromServiceRequest,
+  getServiceRequestsRelatedViaRepeat,
+} from '../shared/inhouse-labs';
 import { createInHouseLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
@@ -271,6 +275,8 @@ const getInHouseLabResultResources = async (
   const attendingPractitionerId = getAttendingPractionerId(encounter);
   const location = locations.length ? locations[0] : undefined;
 
+  const { url: adUrl, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
+
   const [currentUserPractitioner, attendingPractitioner, activityDefinitionSearch] = await Promise.all([
     oystehr.fhir.get<Practitioner>({
       resourceType: 'Practitioner',
@@ -287,18 +293,16 @@ const getInHouseLabResultResources = async (
       params: [
         {
           name: 'url',
-          value: serviceRequest.instantiatesCanonical?.join(',') || '',
+          value: adUrl,
         },
-        {
-          name: 'status',
-          value: 'active',
-        },
+        { name: 'version', value: version },
       ],
     }),
   ]);
 
   const activityDefinitions = activityDefinitionSearch.unbundle();
-  if (activityDefinitions.length !== 1) throw new Error('Only one active activity definition should be returned');
+
+  if (activityDefinitions.length !== 1) throw new Error('Only one activity definition should be returned');
 
   return {
     serviceRequest,
@@ -528,7 +532,7 @@ const makeDiagnosticReportPostRequest = (
     resourceType: 'DiagnosticReport',
     basedOn: [{ reference: `ServiceRequest/${serviceRequest.id}` }],
     status: 'final',
-    category: [{ coding: [DIAGNOSTIC_REPORT_CATEGORY_CONFIG] }],
+    category: [{ coding: [IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG] }],
     code: activityDefinition.code,
     subject: serviceRequest.subject,
     encounter: serviceRequest.encounter,

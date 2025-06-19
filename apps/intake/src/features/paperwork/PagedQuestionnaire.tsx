@@ -177,7 +177,7 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
     items: allItems,
   }) as AnyObjectSchema;
   const methods = useForm({
-    mode: 'onSubmit', // onBlur doesnt seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
+    mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
     reValidateMode: 'onChange',
     context: paperwork,
     defaultValues,

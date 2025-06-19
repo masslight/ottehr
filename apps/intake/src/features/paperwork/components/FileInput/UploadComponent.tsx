@@ -72,7 +72,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
           render={({ field: { value, ...field } }) => (
             <input
               {...field}
-              name={`name.valueAttachement.url`}
+              name={`name.valueAttachment.url`}
               ref={inputRef}
               value={value?.filename}
               type="file"

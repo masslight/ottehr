@@ -6,7 +6,6 @@ import {
   INSURANCE_CARD_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
-  PHOTON_PRACTITIONER_ENROLLED,
   PRIVACY_POLICY_CODE,
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
@@ -91,12 +90,6 @@ export const FHIR_EXTENSION = {
       url: 'https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx',
     },
   },
-  Practitioner: {
-    isEnrolledInPhoton: {
-      url: PHOTON_PRACTITIONER_ENROLLED,
-    },
-  },
-
   InsurancePlan: {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
