@@ -38,7 +38,7 @@ export async function login(page: Page, phone?: string, text_username?: string, 
   expect(await page.getByText('Code is invalid').isVisible({ timeout: 5000 })).toBeFalsy();
 
   try {
-    // optional thirtd party modal which may appear, it's tricky to handle, because text may be different, currently we just click on accept button, but maybe we can find a better way to handle it
+    // optional third party modal which may appear, it's tricky to handle, because text may be different, currently we just click on accept button, but maybe we can find a better way to handle it
     const acceptButton = page.getByRole('button', { name: 'Accept' });
     await acceptButton.waitFor({ state: 'visible', timeout: 5000 });
     console.log('[INFO] Accepting authorization...');
