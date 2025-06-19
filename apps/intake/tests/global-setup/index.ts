@@ -19,7 +19,7 @@ const globalSetup = async (_config: FullConfig): Promise<void> => {
   const authFile = './playwright/user.json';
   const browser = await chromium.launch();
   const page = await browser.newPage({
-    storageState: authFile, // Загружаем сохраненную сессию
+    storageState: authFile, // load the saved session
   });
 
   try {
