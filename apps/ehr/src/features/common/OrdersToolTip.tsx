@@ -8,7 +8,6 @@ export const OrdersToolTip: React.FC<{
 }> = ({ orderConfigs }) => {
   return (
     <Stack
-      spacing={1}
       sx={{
         width: '380px',
         padding: '16px',
@@ -23,11 +22,12 @@ export const OrdersToolTip: React.FC<{
           paddingY: '30px',
         },
       }}
+      spacing={1}
       divider={<Divider orientation="horizontal" />}
     >
       {orderConfigs.map((config) => (
-        <>
-          <Box display="flex" alignItems="center" key={`tooltip-orders-container-${config.title}`}>
+        <Stack spacing={1} key={`tooltip-orders-container-${config.title}`}>
+          <Box display="flex" alignItems="center">
             <Box
               sx={{
                 width: '32px',
@@ -63,7 +63,7 @@ export const OrdersToolTip: React.FC<{
               </Box>
             </Link>
           ))}
-        </>
+        </Stack>
       ))}
     </Stack>
   );
