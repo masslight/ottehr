@@ -1642,10 +1642,26 @@
             "text": "Phone",
             "type": "string",
             "required": false,
+            "enableWhen": [
+              {
+                "question": "responsible-party-relationship",
+                "operator": "!=",
+                "answerString": "Self"
+              }
+            ],
+            "enableBehavior": "all",
             "extension": [
               {
                 "url": "https://fhir.zapehr.com/r4/StructureDefinitions/data-type",
                 "valueString": "Phone Number"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/fill-from-when-disabled",
+                "valueString": "patient-number"
+              },
+              {
+                "url": "https://fhir.zapehr.com/r4/StructureDefinitions/disabled-display",
+                "valueString": "protected"
               }
             ]
           }

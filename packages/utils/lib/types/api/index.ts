@@ -21,6 +21,7 @@ export * from './patient-instructions';
 export * from './patient-payment-types';
 export * from './practitioner.types';
 export * from './prebook-create-appointment';
+export * from './procedures.constants';
 export * from './radiology';
 export * from './rcm-claims';
 export * from './schedules';

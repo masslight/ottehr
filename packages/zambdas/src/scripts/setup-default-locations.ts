@@ -11,6 +11,7 @@ import {
   filterVirtualLocations,
   ROOM_EXTENSION_URL,
   SCHEDULE_EXTENSION_URL,
+  SlotServiceCategory,
   SLUG_SYSTEM,
   TELEMED_INITIAL_STATES,
   TIMEZONE_EXTENSION_URL,
@@ -217,6 +218,7 @@ const createPhysicalLocation = async (
           reference: createLocationRequest.fullUrl,
         },
       ],
+      serviceCategory: [SlotServiceCategory.inPersonServiceMode],
     };
 
     const createScheduleRequest: BatchInputPostRequest<Schedule> = {

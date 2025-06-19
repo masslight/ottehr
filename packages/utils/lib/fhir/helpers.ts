@@ -1307,15 +1307,34 @@ export const getSlugForBookableResource = (resource: BookableResource): string |
   })?.value;
 };
 
+const OTTEHR_FHIR_URL = 'https://fhir.ottehr.com';
+
+export const ottehrCodeSystemUrl = (name: string): string => {
+  return OTTEHR_FHIR_URL + '/CodeSystem/' + name;
+};
+
+export const ottehrValueSetUrl = (name: string): string => {
+  return OTTEHR_FHIR_URL + '/ValueSet/' + name;
+};
+
+export const ottehrExtensionUrl = (name: string): string => {
+  return OTTEHR_FHIR_URL + '/Extension/' + name;
+};
+
+export const ottehrIdentifierSystem = (name: string): string => {
+  return OTTEHR_FHIR_URL + '/Identifier/' + name;
+};
+
 export async function getAllFhirSearchPages<T extends FhirResource>(
   fhirSearchParams: FhirSearchParams,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  maxMatchPerBatch = 1000
 ): Promise<T[]> {
   let currentIndex = 0;
   let total = 1;
   const result: T[] = [];
   const params = fhirSearchParams.params ?? [];
-  params.push({ name: '_count', value: '1000' }); // Set the count to 100 for each page
+  params.push({ name: '_count', value: `${maxMatchPerBatch}` }); // Set the count to 100 for each page
   params.push({ name: '_total', value: 'accurate' });
   while (currentIndex < total) {
     const bundledResponse = await oystehr.fhir.search<T>({

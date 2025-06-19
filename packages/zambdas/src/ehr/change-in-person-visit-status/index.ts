@@ -5,6 +5,7 @@ import { Appointment, Encounter } from 'fhir/r4b';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
+  Secrets,
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
@@ -14,6 +15,12 @@ import { getVisitResources } from '../../shared/practitioner/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
+
+export interface ChangeInPersonVisitStatusInputValidated extends ChangeInPersonVisitStatusInput {
+  secrets: Secrets;
+  userToken: string;
+}
+
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -85,7 +92,5 @@ export const performEffect = async (
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
 
-  return {
-    message: `updated in person visit status to ${updatedStatus}`,
-  };
+  return {};
 };
