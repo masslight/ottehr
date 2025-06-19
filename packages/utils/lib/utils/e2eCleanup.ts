@@ -16,7 +16,7 @@ export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Prom
     for (let i = 0; i < chunkedRequests.length; i++) {
       await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
       console.log(`successfully deleted resources, chunk ${i + 1} of ${chunkedRequests.length}`);
-      await sleep(500);
+      await sleep(250);
     }
     return true;
   } catch (e) {
@@ -145,7 +145,7 @@ const patchPerson = async (oystehr: Oystehr, person: Person, allResources: FhirR
 
 const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<FhirResource[]> => {
   const { system, code } = tag;
-  const fhirSearchParams = {
+  const appointmentSearchParams = {
     resourceType: 'Appointment',
     params: [
       {
@@ -251,7 +251,9 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
     ],
   };
 
-  const allResources = (await oystehr.fhir.search<FhirResource>(fhirSearchParams)).unbundle();
+  // we limit the matches per search to 20 because the include list is very large and we want to avoid swelling the overall
+  // response size to the point that it exceeds the API Gateway limits
+  const allResources = await getAllFhirSearchPages(appointmentSearchParams, oystehr, 20);
   const allPatientRefs = allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Patient')
     .map((p) => `Patient/${p.id}`);
