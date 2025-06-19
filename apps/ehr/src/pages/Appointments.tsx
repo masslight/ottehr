@@ -103,8 +103,9 @@ export default function Appointments(): ReactElement {
     activeApptDatesBeforeToday = [],
   } = searchResults || {};
 
-  // todo i think this will need to be expanded on when we show the order icons on the discharged & cancelled tabs
-  const encountersIdsEligibleForOrders = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const inOfficeEncounterIds = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
+  const encountersIdsEligibleForOrders = [...inOfficeEncounterIds, ...completedEncounterIds];
 
   const externalLabOrders = usePatientLabOrders({
     searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },

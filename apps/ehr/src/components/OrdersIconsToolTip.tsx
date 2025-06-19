@@ -70,7 +70,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
     <GenericToolTip title={<OrdersToolTip orderConfigs={orderConfigs} />} customWidth="none" placement="top">
       <Box sx={{ display: 'flex', width: '100%' }}>
         {orderConfigs.map((config) => (
-          <Link to={config.tableUrl} style={{ textDecoration: 'none' }}>
+          <Link to={config.tableUrl} style={{ textDecoration: 'none' }} key={`${config.title}-icon-indicator`}>
             <Box
               sx={{
                 display: 'flex',

@@ -632,7 +632,13 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
-  const showPointerForInfoIcons = displayOrdersToolTip(appointment)
+  // there are two different tooltips that are show on the tracking board depending which tab/section you are on
+  // 1. visit components on prebooked, inoffce/waiting and cancelled
+  // 2. orders on inoffice/inexam and discharged
+  // this bool determins what style mouse should show on hover for the cells that hold these tooltips
+  // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the clicky hand
+  // if visit components, there is always something in this cell, hence the default to true
+  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
     ? inHouseLabOrders?.length || externalLabOrders?.length
     : true;
 
@@ -808,6 +814,7 @@ export default function AppointmentTableRow({
       >
         <InfoIconsToolTip
           appointment={appointment}
+          tab={tab}
           inHouseLabOrders={inHouseLabOrders}
           externalLabOrders={externalLabOrders}
         />

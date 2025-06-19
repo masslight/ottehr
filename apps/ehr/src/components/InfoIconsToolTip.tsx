@@ -8,21 +8,24 @@ import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
 import { OrdersIconsToolTip } from './OrdersIconsToolTip';
 import { displayOrdersToolTip } from 'src/helpers';
+import { ApptTab } from './AppointmentTabs';
 
 interface InfoIconsToolTipProps {
   appointment: InPersonAppointmentInformation;
+  tab: ApptTab;
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
   externalLabOrders: LabOrderListPageDTO[] | undefined;
 }
 export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
   appointment,
+  tab,
   inHouseLabOrders,
   externalLabOrders,
 }) => {
-  const ordersToolTip = displayOrdersToolTip(appointment);
+  const ordersToolTip = displayOrdersToolTip(appointment, tab);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'left', height: '100%' }}>
       {ordersToolTip ? (
         <OrdersIconsToolTip
           appointment={appointment}

@@ -12,12 +12,22 @@ export const OrdersToolTip: React.FC<{
       sx={{
         width: '380px',
         padding: '16px',
+        maxHeight: '420px',
+        overflowY: 'scroll',
+        '&::-webkit-scrollbar': {
+          width: '6px',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          backgroundColor: '#ccc',
+          borderRadius: '4px',
+          paddingY: '30px',
+        },
       }}
       divider={<Divider orientation="horizontal" />}
     >
       {orderConfigs.map((config) => (
         <>
-          <Box display="flex" alignItems="center">
+          <Box display="flex" alignItems="center" key={`tooltip-orders-container-${config.title}`}>
             <Box
               sx={{
                 width: '32px',
@@ -42,7 +52,11 @@ export const OrdersToolTip: React.FC<{
             </Box>
           </Box>
           {config.orders.map((order) => (
-            <Link key={order.serviceRequestId} to={order.detailPageUrl} style={{ textDecoration: 'none' }}>
+            <Link
+              key={`tooltip-test-item${order.serviceRequestId}`}
+              to={order.detailPageUrl}
+              style={{ textDecoration: 'none' }}
+            >
               <Box display="flex" alignItems="center" gap="8px" color="text.primary">
                 <Typography variant="body2">{order.testItemName}</Typography>
                 {order.statusChip}

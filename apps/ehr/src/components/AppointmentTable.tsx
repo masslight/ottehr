@@ -114,7 +114,7 @@ export default function AppointmentTable({
                 </TableCell>
                 <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Visit Components
+                    {tab === ApptTab.completed ? 'Orders' : 'Visit Components'}
                   </Typography>
                 </TableCell>
                 <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}>

@@ -8,6 +8,7 @@ import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
 import { CRITICAL_CHANGE_SYSTEM } from './activityLogsUtils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
+import { ApptTab } from 'src/components/AppointmentTabs';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -171,7 +172,16 @@ export const patchAppointmentComment = async (
   return updatedAppointment;
 };
 
-// todo i think this should be expanded
-export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation): boolean => {
-  return appointment.status !== 'arrived' && appointment.status !== 'ready';
+// there are two different tooltips that are show on the tracking board depending which tab/section you are on
+// 1. visit components on prebooked, inoffce/waiting and cancelled
+// 2. orders on inoffice/inexam and completed
+export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation, tab: ApptTab): boolean => {
+  let display = false;
+  if (tab === ApptTab.completed) {
+    display = true;
+  } else if (tab === ApptTab['in-office'] && appointment.status !== 'arrived' && appointment.status !== 'ready') {
+    // in exam
+    display = true;
+  }
+  return display;
 };
