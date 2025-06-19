@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputPostRequest, SearchParam } from '@oystehr/sdk';
+import Oystehr, { BatchInputPostRequest, FhirSearchParams, SearchParam } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Account,
@@ -1324,3 +1324,28 @@ export const ottehrExtensionUrl = (name: string): string => {
 export const ottehrIdentifierSystem = (name: string): string => {
   return OTTEHR_FHIR_URL + '/Identifier/' + name;
 };
+
+export async function getAllFhirSearchPages<T extends FhirResource>(
+  fhirSearchParams: FhirSearchParams,
+  oystehr: Oystehr
+): Promise<T[]> {
+  let currentIndex = 0;
+  let total = 1;
+  const result: T[] = [];
+  const params = fhirSearchParams.params ?? [];
+  params.push({ name: '_count', value: '1000' }); // Set the count to 100 for each page
+  params.push({ name: '_total', value: 'accurate' });
+  while (currentIndex < total) {
+    const bundledResponse = await oystehr.fhir.search<T>({
+      resourceType: fhirSearchParams.resourceType,
+      params,
+    });
+    total = bundledResponse.total || 0;
+    const unbundled = bundledResponse.unbundle();
+    result.push(...unbundled);
+    currentIndex += unbundled.length;
+  }
+
+  console.log('Found', result.length, `${fhirSearchParams.resourceType} resources`);
+  return result;
+}

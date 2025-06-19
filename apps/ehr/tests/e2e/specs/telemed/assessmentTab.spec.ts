@@ -6,8 +6,10 @@ import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../..
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { TelemedAssessmentPage } from '../../page/telemed/TelemedAssessmentPage';
 import { TelemedProgressNotePage } from '../../page/telemed/TelemedProgressNotePage';
+import { DateTime } from 'luxon';
 
-const resourceHandler = new ResourceHandler('telemed');
+const PROCESS_ID = `assessmentTab.spec.ts-telemed-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
 let assessmentPage: TelemedAssessmentPage;
 let progressNotePage: TelemedProgressNotePage;
 let context: BrowserContext;

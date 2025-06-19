@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { cleanAppointment, waitForResponseWithData } from 'test-utils';
+import { waitForResponseWithData } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { Homepage } from '../../utils/in-person/Homepage';
 import { PastVisitsPage } from '../../utils/in-person/PastVisitsPage';
@@ -18,15 +18,6 @@ test.beforeEach(async ({ page }) => {
       }
     }
   });
-});
-
-test.afterAll(async () => {
-  const env = process.env.ENV;
-
-  for (const appointmentId of appointmentIds) {
-    console.log(`Deleting ${appointmentId} on env: ${env}`);
-    await cleanAppointment(appointmentId, env!);
-  }
 });
 
 test.describe.serial('Past Visits - Empty State', () => {
