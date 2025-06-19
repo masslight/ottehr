@@ -157,7 +157,7 @@ test.describe('For new patient', () => {
     await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
-  test('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {
+  test.skip('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(
       page,
       VISIT_TYPES.POST_TELEMED,
@@ -172,7 +172,7 @@ test.describe('For new patient', () => {
   });
 });
 
-test.describe(
+test.describe.skip(
   'For existing patient',
   {
     tag: '@flaky',

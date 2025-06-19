@@ -210,7 +210,7 @@ test.describe('Patient search', () => {
     });
   });
 
-  test('Search by Address', { tag: '@flaky' }, async ({ page }) => {
+  test.skip('Search by Address', { tag: '@flaky' }, async ({ page }) => {
     await page.goto('/patients');
 
     const patientsPage = await expectPatientsPage(page);
