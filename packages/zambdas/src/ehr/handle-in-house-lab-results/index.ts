@@ -41,6 +41,7 @@ import {
   Practitioner,
   Patient,
   Location,
+  Schedule,
 } from 'fhir/r4b';
 import { randomUUID } from 'crypto';
 import { DateTime } from 'luxon';
@@ -78,6 +79,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       activityDefinition,
       currentUserPractitioner,
       attendingPractitioner,
+      schedule,
       location,
       serviceRequestsRelatedViaRepeat,
     } = await getInHouseLabResultResources(serviceRequestId, curUserPractitionerId, oystehr);
@@ -136,6 +138,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         encounter,
         patient,
         location,
+        schedule,
         attendingPractitioner,
         attendingPractitionerName,
         updatedInputResultTask,
@@ -185,10 +188,11 @@ const getInHouseLabResultResources = async (
   currentUserPractitioner: Practitioner;
   attendingPractitioner: Practitioner;
   location: Location | undefined;
+  schedule: Schedule;
   serviceRequestsRelatedViaRepeat: ServiceRequest[] | undefined;
 }> => {
   const labOrderResources = (
-    await oystehr.fhir.search<ServiceRequest | Patient | Encounter | Specimen | Task | Location>({
+    await oystehr.fhir.search<ServiceRequest | Patient | Encounter | Specimen | Task | Schedule | Location>({
       resourceType: 'ServiceRequest',
       params: [
         {
@@ -216,6 +220,18 @@ const getInHouseLabResultResources = async (
           value: 'Task:based-on',
         },
         { name: '_include:iterate', value: 'Encounter:location' },
+        {
+          name: '_include:iterate',
+          value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:slot',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Slot:schedule',
+        },
         // Include any related repeat test SRs
         {
           name: '_include:iterate',
@@ -236,6 +252,7 @@ const getInHouseLabResultResources = async (
   const inputRequestTasks: Task[] = []; // IRT tasks
   const specimens: Specimen[] = [];
   const encounters: Encounter[] = [];
+  const schedules: Schedule[] = [];
   const locations: Location[] = [];
 
   labOrderResources.forEach((resource) => {
@@ -243,6 +260,7 @@ const getInHouseLabResultResources = async (
     if (resource.resourceType === 'Patient') patients.push(resource);
     if (resource.resourceType === 'Specimen') specimens.push(resource);
     if (resource.resourceType === 'Encounter') encounters.push(resource);
+    if (resource.resourceType === 'Schedule') schedules.push(resource);
     if (resource.resourceType === 'Location') locations.push(resource);
     if (
       resource.resourceType === 'Task' &&
@@ -273,6 +291,7 @@ const getInHouseLabResultResources = async (
 
   const encounter = encounters[0];
   const attendingPractitionerId = getAttendingPractionerId(encounter);
+  const schedule = schedules[0];
   const location = locations.length ? locations[0] : undefined;
 
   const { url: adUrl, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
@@ -314,6 +333,7 @@ const getInHouseLabResultResources = async (
     currentUserPractitioner,
     attendingPractitioner,
     location,
+    schedule,
     serviceRequestsRelatedViaRepeat,
   };
 };

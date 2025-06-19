@@ -199,10 +199,6 @@ export interface ExternalLabResultsData extends LabResultsData {
   resultPhase: string;
   reviewed?: boolean;
   reviewingProvider: Practitioner | undefined;
-  reviewingProviderFirst: string;
-  reviewingProviderLast: string;
-  reviewingProviderTitle: string;
-  reviewingProviderLicense?: string;
   reviewDate: string | undefined;
   resultInterpretations: string[];
   externalLabResults: ExternalLabResult[];
