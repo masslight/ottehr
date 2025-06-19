@@ -15,10 +15,10 @@ on:
         type: choice
         options:
           - local
-          - demo
-          - development
           - testing
+          - development
           - staging
+          - demo
         default: 'local'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]

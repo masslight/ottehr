@@ -5,8 +5,8 @@ env:
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPO: masslight/ottehr-secrets
-  USER_JSON_CACHE_KEY_BASE: playwright-intake-user-${{ github.sha }}-${{ github.run_id }}
-  USER_JSON_CACHE_RESTORE_KEYS: playwright-intake-user-
+  USER_JSON_CACHE_KEY_BASE: playwright-intake-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}
+  USER_JSON_CACHE_RESTORE_KEYS: playwright-intake-user-${{ github.event.inputs.environment || 'local' }}-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
 
@@ -20,10 +20,10 @@ on:
         type: choice
         options:
           - local
-          - demo
-          - development
           - testing
+          - development
           - staging
+          - demo
         default: 'local'
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]

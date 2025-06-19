@@ -11,7 +11,7 @@ test('Should log in if not authorized', async ({ context, page }) => {
       await page.getByRole('button', { name: 'In-Person Check-In' }).click();
       await page.getByTestId('loading-button').click({ timeout: 20_000 });
       await expect(page.getByTestId('flow-page-title')).toBeVisible({
-        timeout: 45_000,
+        timeout: 18_000,
       });
       console.log('User is already logged in');
     } catch {
