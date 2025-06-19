@@ -1,27 +1,28 @@
+import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { validateRequestParameters } from './validateRequestParameters';
-import { ZambdaInput } from '../../shared/types';
-import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { Account, Coverage, Organization } from 'fhir/r4b';
 import {
-  LAB_ORG_TYPE_CODING,
-  OYSTEHR_LAB_GUID_SYSTEM,
-  flattenBundleResources,
-  OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
-  OrderableItemSearchResult,
-  LabOrderResourcesRes,
+  APIError,
   CODE_SYSTEM_COVERAGE_CLASS,
   EXTERNAL_LAB_ERROR,
+  LAB_ORG_TYPE_CODING,
+  LabOrderResourcesRes,
+  OYSTEHR_LAB_GUID_SYSTEM,
+  OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
+  OrderableItemSearchResult,
+  flattenBundleResources,
   isApiError,
-  APIError,
 } from 'utils';
-import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { Coverage, Account, Organization } from 'fhir/r4b';
+import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -66,7 +67,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body,
     };
   }
-};
+});
 
 const getResources = async (
   oystehr: Oystehr,

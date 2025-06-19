@@ -1,28 +1,29 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
-  Secrets,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
-  convertActivityDefinitionToTestItem,
   PRACTITIONER_CODINGS,
-  getFullestAvailableName,
+  Secrets,
   TestItem,
+  convertActivityDefinitionToTestItem,
+  getFullestAvailableName,
   getTimezone,
 } from 'utils';
 import {
   ZambdaInput,
-  topLevelCatch,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
+  topLevelCatch,
 } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import { Encounter, Practitioner, Location } from 'fhir/r4b';
 import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`get-create-in-house-lab-order-resources started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
@@ -166,4 +167,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   }
-};
+});

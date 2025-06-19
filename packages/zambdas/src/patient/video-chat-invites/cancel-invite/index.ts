@@ -1,4 +1,5 @@
 import { User } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, EncounterParticipant, RelatedPerson } from 'fhir/r4b';
 import { JSONPath } from 'jsonpath-plus';
@@ -11,17 +12,17 @@ import {
 } from 'utils';
 import {
   getAuth0Token,
+  getUser,
   getVideoEncounterForAppointment,
   lambdaResponse,
   searchInvitedParticipantResourcesByEncounterId,
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getUser } from '../../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {
@@ -114,7 +115,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log(error);
     return lambdaResponse(500, { error: 'Internal error' });
   }
-};
+});
 
 function findParticipantByEmail(participants: RelatedPerson[], matchingEmail: string): RelatedPerson | undefined {
   return participants.find((p) => {
