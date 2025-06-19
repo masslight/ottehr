@@ -1309,13 +1309,14 @@ export const getSlugForBookableResource = (resource: BookableResource): string |
 
 export async function getAllFhirSearchPages<T extends FhirResource>(
   fhirSearchParams: FhirSearchParams,
-  oystehr: Oystehr
+  oystehr: Oystehr,
+  maxMatchPerBatch = 1000
 ): Promise<T[]> {
   let currentIndex = 0;
   let total = 1;
   const result: T[] = [];
   const params = fhirSearchParams.params ?? [];
-  params.push({ name: '_count', value: '1000' }); // Set the count to 100 for each page
+  params.push({ name: '_count', value: `${maxMatchPerBatch}` }); // Set the count to 100 for each page
   params.push({ name: '_total', value: 'accurate' });
   while (currentIndex < total) {
     const bundledResponse = await oystehr.fhir.search<T>({

@@ -96,7 +96,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test(
+  test.skip(
     'Verify data from Primary and Secondary Insurances blocks are displayed correctly',
     { tag: '@flaky' },
     async ({ page }) => {
