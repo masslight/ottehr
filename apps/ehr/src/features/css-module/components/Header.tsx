@@ -6,7 +6,7 @@ import { styled } from '@mui/system';
 import { enqueueSnackbar } from 'notistack';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { VisitStatusLabel, PRACTITIONER_CODINGS } from 'utils';
+import { PRACTITIONER_CODINGS, VisitStatusLabel } from 'utils';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';

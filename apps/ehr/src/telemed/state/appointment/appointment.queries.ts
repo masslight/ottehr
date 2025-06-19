@@ -16,7 +16,7 @@ import {
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import { useEffect } from 'react';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery, UseQueryResult } from 'react-query';
 import {
   APIError,
   ChartDataFields,
@@ -157,7 +157,6 @@ export const useGetTelemedAppointmentPeriodicRefresh = (
 
 export type VisitResources = Appointment | DocumentReference | Encounter | Location | Patient | QuestionnaireResponse;
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetAppointment = (
   {
     appointmentId,
@@ -165,7 +164,7 @@ export const useGetAppointment = (
     appointmentId: string | undefined;
   },
   onSuccess: (data: VisitResources[]) => void
-) => {
+): UseQueryResult<VisitResources[], unknown> => {
   const { oystehr } = useApiClients();
   const query = useQuery(
     ['telemed-appointment', { appointmentId }],

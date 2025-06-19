@@ -40,12 +40,6 @@ export type PatientInfo = {
   reasonAdditional?: string;
 };
 
-export interface AssignPractitionerParameters {
-  encounterId: string | undefined;
-  practitioner: Practitioner | undefined;
-  userRole: Coding[];
-}
-
 export interface UnassignPractitionerParameters {
   encounterId: string | undefined;
   practitioner: Practitioner | undefined;
