@@ -27,7 +27,7 @@ export const messageIsFromPatient = (message: Message): boolean => {
 const getCheckInNeededTagsPatchOperation = (appointment: Appointment, user: EvolveUser | undefined): Operation => {
   const criticalUpdateTagCoding = {
     system: CRITICAL_CHANGE_SYSTEM,
-    display: `Staff ${user?.email ? user.email : `(${user?.id})`} via QRS`,
+    display: `Staff ${user?.email ? user.email : `(${user?.id})`}`,
     version: DateTime.now().toISO() || '',
   };
 
