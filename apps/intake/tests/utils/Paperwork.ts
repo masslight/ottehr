@@ -732,10 +732,8 @@ export class Paperwork {
     const insuranceOptionalData = await this.fillInsuranceOptionalFields(true);
     return { insuranceRequiredData, insuranceOptionalData };
   }
-  async fillResponsiblePartyDataSelf(): Promise<{ phone: string }> {
+  async fillResponsiblePartyDataSelf(): Promise<void> {
     await this.fillResponsiblePartySelfRelationship();
-    const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
-    return { phone };
   }
   async fillResponsiblePartyDataNotSelf(): Promise<{
     relationship: string;
