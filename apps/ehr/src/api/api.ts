@@ -3,6 +3,8 @@ import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 
 import {
   apiErrorToThrow,
   CancelRadiologyOrderZambdaInput,
+  ChangeInPersonVisitStatusInput,
+  ChangeInPersonVisitStatusResponse,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
   ConversationMessage,
@@ -53,7 +55,6 @@ import {
 import {
   AssignPractitionerParameters,
   CancelAppointmentParameters,
-  ChangeInPersonVisitStatusParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
@@ -338,8 +339,8 @@ export const unassignPractitioner = async (
 
 export const changeInPersonVisitStatus = async (
   oystehr: Oystehr,
-  parameters: ChangeInPersonVisitStatusParameters
-): Promise<any> => {
+  parameters: ChangeInPersonVisitStatusInput
+): Promise<ChangeInPersonVisitStatusResponse> => {
   try {
     if (CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID == null) {
       throw new Error('change in person visit status environment variable could not be loaded');
