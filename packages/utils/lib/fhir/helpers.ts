@@ -1108,6 +1108,15 @@ export const identifiersMatch = (ident1: Identifier, ident2: Identifier): boolea
   return systemAndValueMatch && assignerMatch;
 };
 
+export const getPlanIdentifierFromOrganization = (organization: Organization): string | undefined => {
+  return organization.identifier?.find(
+    (identifier) =>
+      !!identifier.type?.coding?.find(
+        (coding) => coding.code === 'XX' && coding.system === FHIR_EXTENSION.Organization.v2_0203.url
+      )
+  )?.value;
+};
+
 export const deduplicateContactPoints = (contactPoints: ContactPoint[]): ContactPoint[] => {
   const uniqueContactPoints: ContactPoint[] = [];
   contactPoints.forEach((contactPoint) => {

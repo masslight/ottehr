@@ -152,9 +152,14 @@ export const checkCoverageMatchesDetails = (coverage: Coverage, details: Coverag
     return false;
   }
   const { subscriberId: coverageSubscriberId, payorRef: coveragePayorRef, planId: coveragePlanId } = detailsForCoverage;
+  console.log('coverage details', details);
+  console.log('detailsForCoverage', detailsForCoverage);
   const subscriberIdMatches = subscriberId === coverageSubscriberId;
+  console.log('subscriberIdMatches', subscriberIdMatches);
   const payorRefMatches = payorRef === coveragePayorRef;
+  console.log('payorRefMatches', payorRefMatches);
   const planIdMatches = planId === coveragePlanId;
+  console.log('planIdMatches', planIdMatches, coveragePlanId, planId);
   return subscriberIdMatches && payorRefMatches && planIdMatches;
 };
 
@@ -164,5 +169,6 @@ export const getPlanIdFromCoverage = (coverage: Coverage): string | undefined =>
       return coding.system === INSURANCE_PLAN_ID_CODING.system && coding.code === INSURANCE_PLAN_ID_CODING.code;
     });
   });
+  console.log('planCoding', planCoding);
   return planCoding?.value;
 };
