@@ -111,7 +111,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // stamp critical update tag so this event can be surfaced in activity logs
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
     const cancelledBy = isEHRUser
-      ? `Staff ${user?.email} via QRS`
+      ? `Staff ${user?.email}`
       : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const criticalUpdateOp = getCriticalUpdateTagOp(appointment, cancelledBy);
 
