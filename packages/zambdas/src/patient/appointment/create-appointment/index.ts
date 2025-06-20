@@ -142,7 +142,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('appointment created');
 
-    const { message, appointment, fhirPatientId, questionnaireResponseId, encounterId, resources, relatedPersonId } =
+    const { message, appointmentId, fhirPatientId, questionnaireResponseId, encounterId, resources, relatedPersonId } =
       data_appointment;
 
     await createAuditEvent(
@@ -153,9 +153,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       validatedParameters.secrets
     );
 
-    const response = {
+    const response: CreateAppointmentResponse = {
       message,
-      appointment,
+      appointmentId,
       fhirPatientId,
       questionnaireResponseId,
       encounterId,
@@ -274,14 +274,26 @@ export async function createAppointment(
     }
   }
 
+  if (appointment.id === undefined) {
+    throw new Error('Appointment resource does not have an ID');
+  }
+
+  if (fhirPatient.id === undefined) {
+    throw new Error('Patient resource does not have an ID');
+  }
+
+  if (encounter.id === undefined) {
+    throw new Error('Encounter resource does not have an ID');
+  }
+
   console.log('success, here is the id: ', appointment.id);
 
   return {
     message: 'Successfully created an appointment and encounter',
-    appointment: appointment.id || '',
-    fhirPatientId: fhirPatient.id || '',
-    questionnaireResponseId: questionnaireResponseId || '',
-    encounterId: encounter.id || '',
+    appointmentId: appointment.id,
+    fhirPatientId: fhirPatient.id,
+    questionnaireResponseId: questionnaireResponseId,
+    encounterId: encounter.id,
     relatedPersonId: relatedPersonId,
     resources: {
       appointment,
@@ -660,13 +672,17 @@ const extractResourcesFromBundle = (bundle: Bundle<Resource>): TransactionOutput
     throw new Error('QuestionnaireResponse could not be created');
   }
 
+  if (questionnaireResponse.id === undefined) {
+    throw new Error('QuestionnaireResponse does not have an ID');
+  }
+
   console.log('successfully obtained resources from bundle');
   return {
     appointment,
     encounter,
     patient,
     questionnaire: questionnaireResponse,
-    questionnaireResponseId: questionnaireResponse.id || '',
+    questionnaireResponseId: questionnaireResponse.id,
   };
 };
 

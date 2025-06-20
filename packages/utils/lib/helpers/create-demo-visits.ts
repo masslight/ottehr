@@ -276,7 +276,7 @@ const processPaperwork = async (
   paperworkAnswers?: GetPaperworkAnswers
 ): Promise<void> => {
   try {
-    const { appointment: appointmentId, questionnaireResponseId } = appointmentData;
+    const { appointmentId, questionnaireResponseId } = appointmentData;
 
     if (!questionnaireResponseId) return;
 
