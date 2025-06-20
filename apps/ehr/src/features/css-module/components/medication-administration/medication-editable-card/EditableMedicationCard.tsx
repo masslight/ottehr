@@ -25,6 +25,9 @@ import {
   isUnsavedMedicationData,
   validateAllMedicationFields,
 } from './utils';
+import { ERX } from 'src/telemed/features/appointment/ERX';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { InteractionAlertsDialog } from '../InteractionAlertsDialog';
 
 export const EditableMedicationCard: React.FC<{
   medication?: ExtendedMedicationDataForResponse;
@@ -39,7 +42,9 @@ export const EditableMedicationCard: React.FC<{
   const [confirmationModalConfig, setConfirmationModalConfig] = useState<ConfirmSaveModalConfig | null>(null);
   const { mappedData, resources } = useAppointment(appointmentId);
   const [isReasonSelected, setIsReasonSelected] = useState(true);
+  const [showErx, setShowErx] = useState(false);
   const selectsOptions = useFieldsSelectsOptions();
+  const { oystehr } = useApiClients();
 
   const [localValues, setLocalValues] = useState<Partial<MedicationData>>(
     medication
@@ -72,6 +77,26 @@ export const EditableMedicationCard: React.FC<{
       setLocalValues((prev) => ({ ...prev, [field]: Number(value) }));
     } else {
       setLocalValues((prev) => ({ ...prev, [field]: value }));
+    }
+  };
+
+  const interactionsCheck = async (updatedRequestInput: UpdateMedicationOrderInput): Promise<void> => {
+    if (oystehr == null) {
+      console.error('oystehr is missing');
+      return;
+    }
+    const patientId = resources.patient?.id;
+    if (patientId == null) {
+      console.error('patientId is missing');
+      return;
+    }
+    await oystehr.erx.syncPatient({ patientId });
+    const interactionsCheckResult = await oystehr.erx.checkPrecheckInteractions({
+      patientId,
+      drugId: '5285',
+    });
+    if (interactionsCheckResult.allergies.length === 0 && interactionsCheckResult.medications.length === 0) {
+      await updateOrCreateOrder(updatedRequestInput);
     }
   };
 
@@ -219,7 +244,7 @@ export const EditableMedicationCard: React.FC<{
       <MedicationCardView
         isEditable={getIsMedicationEditable(type, medication)}
         type={type}
-        onSave={updateOrCreateOrder}
+        onSave={interactionsCheck}
         medication={medication}
         fieldsConfig={fieldsConfig[type]}
         localValues={localValues}
@@ -262,6 +287,37 @@ export const EditableMedicationCard: React.FC<{
         />
       ) : null}
       <ConfirmationModalForLeavePage />
+      {showErx ? (
+        <ERX
+          onClose={() => {
+            setShowErx(false);
+          }}
+          onStatusChange={(status: string) => {
+            console.log('onStatusChange ' + status);
+          }}
+        />
+      ) : undefined}
+      <InteractionAlertsDialog
+        medicationName="lisoniplir"
+        interactions={{
+          allergies: [
+            {
+              message: 'alg1',
+            },
+          ],
+          medications: [
+            {
+              message: 'med messsage',
+              severityLevel: 'MajorInteraction',
+              drugIds: [235235, 23423, 3425235],
+              includesPending: false,
+            },
+          ],
+        }}
+        onCancel={() => {
+          console.log('onCancel');
+        }}
+      />
     </>
   );
 };
