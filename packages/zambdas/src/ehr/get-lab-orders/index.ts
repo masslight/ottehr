@@ -1,13 +1,13 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import { getLabResources, mapResourcesToLabOrderDTOs } from './helpers';
 import { EMPTY_PAGINATION } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
+import { getLabResources, mapResourcesToLabOrderDTOs } from './helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.group('validateRequestParameters');
@@ -81,4 +81,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: `Error fetching external lab orders: ${error}` }),
     };
   }
-};
+});

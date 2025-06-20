@@ -210,7 +210,9 @@ export default function Data(): React.ReactElement {
           'ready for provider': { numAppointments: 0, averageTime: 0 },
           provider: { numAppointments: 0, averageTime: 0 },
           'ready for discharge': { numAppointments: 0, averageTime: 0 },
-          unknown: { numAppointments: 0, averageTime: 0 },
+          cancelled: { numAppointments: 0, averageTime: 0 },
+          'no show': { numAppointments: 0, averageTime: 0 },
+          completed: { numAppointments: 0, averageTime: 0 },
         };
 
         let patientToProviderIn45Count = 0; // count of appointments where the patient was seen by provider within 45 minutes of arriving

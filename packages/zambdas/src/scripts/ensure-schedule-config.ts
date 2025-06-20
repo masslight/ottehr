@@ -1,6 +1,12 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
-import { isLocationVirtual, ROOM_EXTENSION_URL, SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
+import {
+  isLocationVirtual,
+  ROOM_EXTENSION_URL,
+  SCHEDULE_EXTENSION_URL,
+  SlotServiceCategory,
+  TIMEZONE_EXTENSION_URL,
+} from 'utils';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
 import fs from 'fs';
@@ -45,6 +51,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
         (sched) => sched.actor?.some((act) => act.reference === `Location/${location.id}`)
       );
       const extension = location.extension ?? [];
+      const isVirtual = isLocationVirtual(location);
 
       const scheduleExtension = extension.find((ext) => ext.url === SCHEDULE_EXTENSION_URL);
       const timezoneExtension = extension.find((ext) => ext.url === TIMEZONE_EXTENSION_URL);
@@ -53,7 +60,7 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
 
       const roomExtensions = extension.filter((ext) => ext.url === ROOM_EXTENSION_URL);
       const newRoomExtensions =
-        !isLocationVirtual(location) && roomExtensions.length === 0
+        !isVirtual && roomExtensions.length === 0
           ? Array.from({ length: 11 }, (_, i) => ({
               url: ROOM_EXTENSION_URL,
               valueString: (i + 1).toString(),
@@ -83,6 +90,9 @@ const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> =>
               reference: `Location/${location.id}`,
             },
           ],
+          serviceCategory: isVirtual
+            ? [SlotServiceCategory.telehealthServiceMode]
+            : [SlotServiceCategory.inPersonServiceMode],
         };
         schedulePostRequests.push({
           method: 'POST',

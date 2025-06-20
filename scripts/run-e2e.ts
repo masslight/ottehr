@@ -1,9 +1,12 @@
 import { spawn, execSync } from 'child_process';
+import { DateTime } from 'luxon';
 import path from 'path';
 
 const ENV = process.env.ENV?.trim?.() || 'local';
 const INTEGRATION_TEST = process.env.INTEGRATION_TEST || 'false';
 const isUI = process.argv.includes('--ui');
+const isLoginOnly = process.argv.includes('--login-only');
+const isSpecsOnly = process.argv.includes('--specs-only');
 const isLocal = ENV === 'local';
 const isCI = Boolean(process.env.CI);
 const supportedApps = ['ehr', 'intake'] as const;
@@ -42,6 +45,10 @@ const appName = ((): 'ehr' | 'intake' => {
   }
   return appName;
 })();
+
+const pwSuiteId = `${appName}-${DateTime.now().toMillis()}`;
+process.env.PLAYWRIGHT_SUITE_ID = pwSuiteId;
+console.log('PLAYWRIGHT_SUITE_ID in run-e2e.ts:', pwSuiteId);
 
 const clearPorts = (): void => {
   if (isCI) {
@@ -135,49 +142,84 @@ const setupTestDeps = async (): Promise<void> => {
   }
 };
 
+const waitForZambdas = async (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const process = spawn('wait-on', [`http://localhost:${ports.backend}`, '--timeout', '60000'], {
+      shell: true,
+      stdio: 'inherit',
+    });
+
+    process.on('error', reject);
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Failed to start zambdas`));
+      }
+    });
+  });
+};
+
 const startApps = async (): Promise<void> => {
   startZambdas();
+  console.log('Waiting for zambdas to be ready...');
+  await waitForZambdas();
+  console.log('Zambdas are ready');
   for (const app of supportedApps) {
     console.log(`Starting ${app} application...`);
     await startApp(app);
   }
 };
 
+function createTestProcess(testType: 'login' | 'specs', appName: string): any {
+  const commands = {
+    login: ['run', 'e2e:login', `--filter=${appName}-ui`, '--verbosity=2'],
+    specs: ['run', isUI ? 'e2e:specs:ui' : 'e2e:specs', `--filter=${appName}-ui`, '--verbosity=2'],
+  };
+
+  const baseArgs = commands[testType];
+  const extraArgs = isUI ? [] : ['--', '--headed=false'];
+
+  return spawn('turbo', [...baseArgs, ...extraArgs], {
+    shell: true,
+    stdio: 'inherit',
+    env: {
+      ...process.env,
+      ENV,
+      PLAYWRIGHT_REPORT_SUFFIX: testType === 'login' ? '-login' : '',
+      IS_LOGIN_TEST: testType === 'login' ? 'true' : 'false',
+      ...(testType === 'specs' && { INTEGRATION_TEST }),
+    },
+  });
+}
+
 function runTests(): void {
-  const loginTest = spawn(
-    'turbo',
-    [
-      'run',
-      'e2e:login',
-      `--filter=${appName}-ui`,
-      '--verbosity=2',
-      ...(isUI ? [] : ['--', '--headed=false', '--reporter=null']),
-    ],
-    {
-      shell: true,
-      stdio: 'inherit',
-      env: { ...process.env, ENV },
-    }
-  );
+  if (isLoginOnly) {
+    console.log(`Running login only for ${appName}...`);
+    const loginTest = createTestProcess('login', appName);
+    loginTest.on('close', (code) => {
+      clearPorts();
+      process.exit(code ?? 1);
+    });
+    return;
+  }
+
+  if (isSpecsOnly) {
+    console.log(`Running specs only for ${appName}...`);
+    const specs = createTestProcess('specs', appName);
+    specs.on('close', (code) => {
+      clearPorts();
+      process.exit(code ?? 1);
+    });
+    return;
+  }
+
+  console.log(`Running full test suite for ${appName}...`);
+  const loginTest = createTestProcess('login', appName);
 
   loginTest.on('close', (loginCode) => {
     if (loginCode === 0) {
-      const specs = spawn(
-        'turbo',
-        [
-          'run',
-          isUI ? 'e2e:specs:ui' : 'e2e:specs',
-          `--filter=${appName}-ui`,
-          '--verbosity=2',
-          ...(isUI ? [] : ['--', '--headed=false']),
-        ],
-        {
-          shell: true,
-          stdio: 'inherit',
-          env: { ...process.env, ENV, INTEGRATION_TEST },
-        }
-      );
-
+      const specs = createTestProcess('specs', appName);
       specs.on('close', (specsCode) => {
         clearPorts();
         process.exit(specsCode ?? 1);

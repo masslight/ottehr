@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
 import {
@@ -24,7 +25,7 @@ import { getMedicationFromMA } from '../create-update-medication-order/helpers';
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -45,7 +46,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: `Error getting orders: ${error}` }),
     };
   }
-};
+});
 
 async function performEffect(
   oystehr: Oystehr,

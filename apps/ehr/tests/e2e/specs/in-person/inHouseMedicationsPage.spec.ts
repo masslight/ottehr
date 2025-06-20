@@ -6,8 +6,10 @@ import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPag
 import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
 import { expectPatientInfoPage } from '../../page/PatientInfo';
+import { DateTime } from 'luxon';
 
-const resourceHandler = new ResourceHandler('in-person');
+const PROCESS_ID = `inHouseMedicationsPage.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
 // cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';

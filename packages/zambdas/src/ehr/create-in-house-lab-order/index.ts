@@ -1,14 +1,31 @@
+import { BatchInputRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import {
-  Secrets,
+  Account,
+  ActivityDefinition,
+  Coverage,
+  Encounter,
+  FhirResource,
+  Location,
+  Patient,
+  Practitioner,
+  Provenance,
+  ServiceRequest,
+  Task,
+} from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  APIError,
   CreateInHouseLabOrderParameters,
   FHIR_IDC10_VALUESET_SYSTEM,
+  IN_HOUSE_LAB_ERROR,
   IN_HOUSE_LAB_TASK,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  Secrets,
   getFullestAvailableName,
-  IN_HOUSE_LAB_ERROR,
   isApiError,
-  APIError,
 } from 'utils';
 import {
   ZambdaInput,
@@ -17,29 +34,12 @@ import {
   getMyPractitionerId,
   parseCreatedResourcesBundle,
 } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import {
-  Account,
-  Coverage,
-  Encounter,
-  Patient,
-  ServiceRequest,
-  Location,
-  ActivityDefinition,
-  Provenance,
-  Task,
-  FhirResource,
-  Practitioner,
-} from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { getPrimaryInsurance } from '../shared/labs';
-import { BatchInputRequest } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
 import { getAttendingPractionerId } from '../shared/inhouse-labs';
-
+import { getPrimaryInsurance } from '../shared/labs';
+import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
@@ -448,4 +448,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body,
     };
   }
-};
+});

@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
 import {
   calculatePatientAge,
@@ -52,6 +52,7 @@ enum Gender {
 
 export const AppointmentSidePanel: FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
 
   const {
     appointment,
@@ -188,7 +189,12 @@ export const AppointmentSidePanel: FC = () => {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="h4" color="primary.dark">
+            <Typography
+              variant="h4"
+              color="primary.dark"
+              onClick={() => navigate(`/patient/${patient.id}`)}
+              sx={{ cursor: 'pointer' }}
+            >
               {getPatientName(patient.name).lastFirstName}
             </Typography>
 

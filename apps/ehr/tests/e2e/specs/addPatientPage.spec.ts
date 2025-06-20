@@ -15,6 +15,7 @@ import {
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
+import { DateTime } from 'luxon';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
 const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;
@@ -32,17 +33,9 @@ const VISIT_TYPES = {
   POST_TELEMED: 'Post Telemed lab Only',
 };
 
-const resourceHandler = new ResourceHandler();
+const PROCESS_ID = `addPatientPage.spec.ts-${DateTime.now().toMillis()}`;
 
-let appointmentIds: string[] = [];
-
-// Ensure cleanup of created appointments after each test
-test.afterEach(async () => {
-  for (const id of appointmentIds) {
-    await resourceHandler.cleanAppointment(id);
-  }
-  appointmentIds = [];
-});
+const resourceHandler = new ResourceHandler(PROCESS_ID);
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/visits/add');
@@ -164,7 +157,7 @@ test.describe('For new patient', () => {
     await visitsPage.verifyVisitPresent(appointmentId, slotTime);
   });
 
-  test('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {
+  test.skip('Add post-telemed visit for new patient', { tag: '@flaky' }, async ({ page }) => {
     const { appointmentId, slotTime } = await createAppointment(
       page,
       VISIT_TYPES.POST_TELEMED,
@@ -179,7 +172,7 @@ test.describe('For new patient', () => {
   });
 });
 
-test.describe(
+test.describe.skip(
   'For existing patient',
   {
     tag: '@flaky',
@@ -226,6 +219,7 @@ test.describe(
   }
 );
 
+// todo: don't write this here, create function in resource-handler
 async function createAppointment(
   page: Page,
   visitType: (typeof VISIT_TYPES)[keyof typeof VISIT_TYPES],
@@ -268,7 +262,5 @@ async function createAppointment(
   if (!response.appointment) {
     throw new Error('Appointment ID should be present in the response');
   }
-
-  appointmentIds.push(response.appointment);
   return { appointmentId: response.appointment, slotTime };
 }

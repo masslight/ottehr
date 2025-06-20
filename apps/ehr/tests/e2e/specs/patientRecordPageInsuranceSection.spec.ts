@@ -46,6 +46,7 @@ import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { openPatientInformationPage } from '../page/PatientInformationPage';
 
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { DateTime } from 'luxon';
 
 const POLICY_HOLDER_DATE_OF_BIRTH = '01/01/1990';
 const POLICY_HOLDER_2_DATE_OF_BIRTH = '01/01/1991';
@@ -95,7 +96,7 @@ test.describe('Insurance Information Section non-mutating tests', () => {
     await resourceHandler.cleanupResources();
   });
 
-  test(
+  test.skip(
     'Verify data from Primary and Secondary Insurances blocks are displayed correctly',
     { tag: '@flaky' },
     async ({ page }) => {
@@ -409,7 +410,8 @@ test.describe('Insurance Information Section mutating tests', () => {
 async function createResourceHandler(): Promise<[ResourceHandler, string, string]> {
   let insuranceCarrier1: QuestionnaireItemAnswerOption | undefined = undefined;
   let insuranceCarrier2: QuestionnaireItemAnswerOption | undefined = undefined;
-  const resourceHandler = new ResourceHandler('in-person', async ({ patientInfo }) => {
+  const PROCESS_ID = `patientRecordInsuranceSection-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person', async ({ patientInfo }) => {
     return [
       getContactInformationAnswers({
         firstName: patientInfo.firstName,

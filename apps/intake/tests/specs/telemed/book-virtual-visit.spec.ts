@@ -1,5 +1,4 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
-import { cleanAppointment } from 'test-utils';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
 import { Locators } from '../../utils/locators';
@@ -36,12 +35,6 @@ test.beforeAll(async ({ browser }) => {
 test.afterAll(async () => {
   await page.close();
   await context.close();
-  const env = process.env.ENV;
-
-  for (const appointmentId of appointmentIds) {
-    console.log(`Deleting ${appointmentId} on env: ${env}`);
-    await cleanAppointment(appointmentId, env!);
-  }
 });
 
 test('Should select state and time', async () => {

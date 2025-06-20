@@ -11,7 +11,6 @@ import {
 
 import { waitForResponseWithData } from 'test-utils';
 import {
-  chooseJson,
   CreateAppointmentResponse,
   DEMO_VISIT_CITY,
   DEMO_VISIT_MARKETING_MESSAGING,
@@ -45,6 +44,7 @@ import { expectPatientRecordPage } from '../page/PatientRecordPage';
 import { expectPatientsPage } from '../page/PatientsPage';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
+import { DateTime } from 'luxon';
 
 const NEW_PATIENT_LAST_NAME = 'Test_last_name';
 const NEW_PATIENT_FIRST_NAME = 'Test_first_name';
@@ -90,7 +90,8 @@ const NEW_PATIENT_DETAILS_PLEASE_SPECIFY_FIELD = 'testing gender';
 //const RX_HISTORY_CONSENT = 'Rx history consent signed by the patient';
 
 test.describe('Patient Record Page non-mutating tests', () => {
-  const resourceHandler = new ResourceHandler();
+  const PROCESS_ID = `patientRecordPage-non-mutating-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID);
 
   test.beforeAll(async () => {
     if (process.env.INTEGRATION_TEST === 'true') {
@@ -252,7 +253,8 @@ test.describe('Patient Record Page non-mutating tests', () => {
 });
 
 test.describe('Patient Record Page mutating tests', () => {
-  const resourceHandler = new ResourceHandler();
+  const PROCESS_ID = `patientRecordPage-mutating-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID);
 
   test.beforeEach(async () => {
     await resourceHandler.setResources();
@@ -759,32 +761,21 @@ test.describe('Patient Record Page mutating tests', () => {
   });
 });
 
-test.describe('Patient Record Page tests with zero patient data filled in', () => {
-  const resourceHandler = new ResourceHandler();
-  let appointmentIds: string[] = [];
+test.describe('Patient Record Page tests with zero patient data filled in', async () => {
+  const PROCESS_ID = `patientRecordPage-zero-data-${DateTime.now().toMillis()}`;
+  const resourceHandler = new ResourceHandler(PROCESS_ID);
+
   let context: BrowserContext;
   let page: Page;
 
   test.beforeAll(async ({ browser }) => {
+    await resourceHandler.setResources();
     context = await browser.newContext();
     page = await context.newPage();
-    page.on('response', async (response) => {
-      if (response.url().includes('/create-appointment/')) {
-        const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-        if (appointment && !appointmentIds.includes(appointment)) {
-          console.log('Created appointment: ', appointment);
-          appointmentIds.push(appointment);
-        }
-      }
-    });
-    await resourceHandler.setResources();
   });
 
-  test.afterEach(async () => {
-    for (const id of appointmentIds) {
-      await resourceHandler.cleanAppointment(id);
-    }
-    appointmentIds = [];
+  test.afterAll(async () => {
+    await resourceHandler.cleanupResources();
   });
 
   test('Check state, ethnicity, race, relationship to patient are required', async () => {

@@ -2,7 +2,13 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  CancelAppointmentZambdaInput,
+  CancelTelemedAppointmentZambdaInput,
+  CancelTelemedAppointmentZambdaOutput,
+  AssignPractitionerInput,
   CancelRadiologyOrderZambdaInput,
+  ChangeInPersonVisitStatusInput,
+  ChangeInPersonVisitStatusResponse,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
   ConversationMessage,
@@ -49,16 +55,10 @@ import {
   UpdateNursingOrderParameters,
   UpdateScheduleParams,
   UpdateUserParams,
+  DeactivateUserZambdaInput,
+  DeactivateUserZambdaOutput,
 } from 'utils';
-import {
-  AssignPractitionerParameters,
-  CancelAppointmentParameters,
-  ChangeInPersonVisitStatusParameters,
-  DeactivateUserParameters,
-  GetAppointmentsParameters,
-  SaveFollowupParameter,
-  UnassignPractitionerParameters,
-} from '../types/types';
+import { GetAppointmentsParameters, SaveFollowupParameter, UnassignPractitionerParameters } from '../types/types';
 
 export interface PatchOperation {
   // https://www.hl7.org/fhir/fhirpatch.html
@@ -221,12 +221,8 @@ export const saveFollowup = async (oystehr: Oystehr, parameters: SaveFollowupPar
 
 export const cancelTelemedAppointment = async (
   oystehr: Oystehr,
-  parameters: {
-    appointmentID: string;
-    cancellationReason: string;
-    cancellationReasonAdditional?: string | undefined;
-  }
-): Promise<any> => {
+  parameters: CancelTelemedAppointmentZambdaInput
+): Promise<CancelTelemedAppointmentZambdaOutput> => {
   try {
     if (CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('cancel appointment environment variable could not be loaded');
@@ -301,7 +297,7 @@ export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams)
   }
 };
 
-export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerParameters): Promise<any> => {
+export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerInput): Promise<any> => {
   try {
     if (ASSIGN_PRACTITIONER_ZAMBDA_ID == null) {
       throw new Error('assign practitioner environment variable could not be loaded');
@@ -338,8 +334,8 @@ export const unassignPractitioner = async (
 
 export const changeInPersonVisitStatus = async (
   oystehr: Oystehr,
-  parameters: ChangeInPersonVisitStatusParameters
-): Promise<any> => {
+  parameters: ChangeInPersonVisitStatusInput
+): Promise<ChangeInPersonVisitStatusResponse> => {
   try {
     if (CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID == null) {
       throw new Error('change in person visit status environment variable could not be loaded');
@@ -371,7 +367,10 @@ export const getUserDetails = async (oystehr: Oystehr, parameters: GetUserParams
   }
 };
 
-export const deactivateUser = async (oystehr: Oystehr, parameters: DeactivateUserParameters): Promise<any> => {
+export const deactivateUser = async (
+  oystehr: Oystehr,
+  parameters: DeactivateUserZambdaInput
+): Promise<DeactivateUserZambdaOutput> => {
   try {
     if (DEACTIVATE_USER_ZAMBDA_ID == null) {
       throw new Error('deactivate user environment variable could not be loaded');
@@ -442,7 +441,10 @@ export const getLocations = async (
   }
 };
 
-export const cancelAppointment = async (oystehr: Oystehr, parameters: CancelAppointmentParameters): Promise<any> => {
+export const cancelAppointment = async (
+  oystehr: Oystehr,
+  parameters: CancelAppointmentZambdaInput
+): Promise<Record<string, never>> => {
   try {
     if (CANCEL_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('cancel appointment environment variable could not be loaded');

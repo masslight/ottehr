@@ -7,8 +7,10 @@ import { CssHeader } from '../../page/CssHeader';
 import { InPersonAssessmentPage } from '../../page/in-person/InPersonAssessmentPage';
 import { InPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { SideMenu } from '../../page/SideMenu';
+import { DateTime } from 'luxon';
 
-const resourceHandler = new ResourceHandler('in-person');
+const PROCESS_ID = `assessmentTab.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 let assessmentPage: InPersonAssessmentPage;
 let progressNotePage: InPersonProgressNotePage;
 let sideMenu: SideMenu;

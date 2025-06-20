@@ -15,10 +15,10 @@ import {
 } from '@mui/material';
 import { Appointment, Encounter } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
+import { CancelAppointmentZambdaInput, CancellationReasonOptionsInPerson } from 'utils';
 import { cancelAppointment } from '../../api/api';
 import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
-import { CancelAppointmentParameters, CancellationReasonOptions } from '../../types/types';
 
 interface CancellationReasonDialogProps {
   handleClose: () => void;
@@ -36,7 +36,7 @@ export default function CancellationReasonDialog({
   open,
 }: CancellationReasonDialogProps): ReactElement {
   const { oystehrZambda } = useApiClients();
-  const [cancellationReason, setCancellationReason] = useState<CancellationReasonOptions | ''>('');
+  const [cancellationReason, setCancellationReason] = useState<CancellationReasonOptionsInPerson | ''>('');
   const [cancelLoading, setCancelLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const buttonSx = {
@@ -66,7 +66,7 @@ export default function CancellationReasonDialog({
       return;
     }
 
-    const zambdaParams: CancelAppointmentParameters = {
+    const zambdaParams: CancelAppointmentZambdaInput = {
       appointmentID: appointment.id || '',
       cancellationReason: cancellationReason,
     };
@@ -92,7 +92,7 @@ export default function CancellationReasonDialog({
   };
 
   const handleChange = (event: SelectChangeEvent<typeof cancellationReason>): void => {
-    const value = event.target.value as CancellationReasonOptions;
+    const value = event.target.value as CancellationReasonOptionsInPerson;
     value && setCancellationReason && setCancellationReason(value);
   };
 
@@ -132,7 +132,7 @@ export default function CancellationReasonDialog({
                 renderValue={(selected) => selected}
                 MenuProps={MenuProps}
               >
-                {Object.keys(CancellationReasonOptions).map((reason) => (
+                {Object.keys(CancellationReasonOptionsInPerson).map((reason) => (
                   <MenuItem key={reason} value={reason}>
                     <ListItemText primary={reason} />
                   </MenuItem>

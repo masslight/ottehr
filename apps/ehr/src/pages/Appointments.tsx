@@ -9,7 +9,7 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
 import { otherColors } from '@ehrTheme/colors';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
@@ -26,6 +26,7 @@ import { useDebounce } from '../telemed/hooks';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
+import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -102,12 +103,26 @@ export default function Appointments(): ReactElement {
     activeApptDatesBeforeToday = [],
   } = searchResults || {};
 
-  const encountersIdToShowInInHouseLabs = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const inOfficeEncounterIds = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
+  const encountersIdsEligibleForOrders = [...inOfficeEncounterIds, ...completedEncounterIds];
+
+  const externalLabOrders = usePatientLabOrders({
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+  });
+  const externalLabOrdersByAppointmentId = useMemo(() => {
+    return externalLabOrders?.labOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, LabOrderListPageDTO[]>
+    );
+  }, [externalLabOrders?.labOrders]);
 
   const inHouseOrders = useInHouseLabOrders({
-    searchBy: { field: 'encounterIds', value: encountersIdToShowInInHouseLabs },
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
   });
-
   const inHouseLabOrdersByAppointmentId = useMemo(() => {
     return inHouseOrders?.labOrders?.reduce(
       (acc, order) => {
@@ -276,6 +291,7 @@ export default function Appointments(): ReactElement {
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
       inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+      externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -309,6 +325,7 @@ interface AppointmentsBodyProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
+  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -332,6 +349,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     updateAppointments,
     setEditingComment,
     inHouseLabOrdersByAppointmentId,
+    externalLabOrdersByAppointmentId,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -520,6 +538,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
               inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}
