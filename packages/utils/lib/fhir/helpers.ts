@@ -1339,14 +1339,19 @@ export async function getAllFhirSearchPages<T extends FhirResource>(
   while (currentIndex < total) {
     const bundledResponse = await oystehr.fhir.search<T>({
       resourceType: fhirSearchParams.resourceType,
-      params,
+      params: [...params, { name: '_offset', value: `${currentIndex}` }],
     });
+    const matchedCount = bundledResponse.entry?.filter((entry) => entry.search?.mode === 'match').length || 0;
     total = bundledResponse.total || 0;
     const unbundled = bundledResponse.unbundle();
     result.push(...unbundled);
-    currentIndex += unbundled.length;
+    currentIndex += matchedCount;
   }
 
-  console.log('Found', result.length, `${fhirSearchParams.resourceType} resources`);
+  console.log(
+    'Found',
+    currentIndex,
+    `${fhirSearchParams.resourceType} resources and ${result.length - currentIndex} included resources`
+  );
   return result;
 }

@@ -56,8 +56,10 @@ import {
   UpdateScheduleParams,
   UpdateUserParams,
   GetAppointmentsZambdaInput,
+  DeactivateUserZambdaInput,
+  DeactivateUserZambdaOutput,
 } from 'utils';
-import { DeactivateUserParameters, SaveFollowupParameter, UnassignPractitionerParameters } from '../types/types';
+import { SaveFollowupParameter, UnassignPractitionerParameters } from '../types/types';
 
 export interface PatchOperation {
   // https://www.hl7.org/fhir/fhirpatch.html
@@ -366,7 +368,10 @@ export const getUserDetails = async (oystehr: Oystehr, parameters: GetUserParams
   }
 };
 
-export const deactivateUser = async (oystehr: Oystehr, parameters: DeactivateUserParameters): Promise<any> => {
+export const deactivateUser = async (
+  oystehr: Oystehr,
+  parameters: DeactivateUserZambdaInput
+): Promise<DeactivateUserZambdaOutput> => {
   try {
     if (DEACTIVATE_USER_ZAMBDA_ID == null) {
       throw new Error('deactivate user environment variable could not be loaded');

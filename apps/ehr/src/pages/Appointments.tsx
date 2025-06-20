@@ -229,7 +229,7 @@ export default function Appointments(): ReactElement {
         const searchResults = await getAppointments(client, {
           locationID: locationID || locationSelected?.id || undefined,
           searchDate,
-          visitType: visitType || [],
+          visitType: visitType,
           providerIDs: providers,
           groupIDs: groups,
         });
