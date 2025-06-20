@@ -1,8 +1,9 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
+import { Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
   AssignPractitionerInput,
+  AssignPractitionerResponse,
   CancelAppointmentZambdaInput,
   CancelRadiologyOrderZambdaInput,
   CancelTelemedAppointmentZambdaInput,
@@ -11,8 +12,8 @@ import {
   ChangeInPersonVisitStatusResponse,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
-  ConversationMessage,
   CreateAppointmentInputParams,
+  CreateAppointmentResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
@@ -27,6 +28,9 @@ import {
   DeleteInHouseLabOrderParameters,
   DeleteLabOrderParams,
   GetAppointmentsZambdaInput,
+  GetAppointmentsZambdaOutput,
+  GetConversationInput,
+  GetConversationZambdaOutput,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   GetEmployeesResponse,
@@ -34,6 +38,8 @@ import {
   GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetNursingOrdersInput,
+  GetOrUploadPatientProfilePhotoZambdaInput,
+  GetOrUploadPatientProfilePhotoZambdaResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -44,6 +50,7 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   InHouseGetOrdersResponseDTO,
+  InviteParticipantRequestParameters,
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
@@ -62,6 +69,7 @@ import {
   UpdateNursingOrderParameters,
   UpdateScheduleParams,
   UpdateUserParams,
+  UpdateUserZambdaOutput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -174,7 +182,10 @@ export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVis
   }
 };
 
-export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointmentsZambdaInput): Promise<any> => {
+export const getAppointments = async (
+  oystehr: Oystehr,
+  parameters: GetAppointmentsZambdaInput
+): Promise<GetAppointmentsZambdaOutput> => {
   try {
     if (GET_APPOINTMENTS_ZAMBDA_ID == null) {
       throw new Error('get appointments environment variable could not be loaded');
@@ -187,10 +198,14 @@ export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointme
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
+    throw error;
   }
 };
 
-export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppointmentInputParams): Promise<any> => {
+export const createAppointment = async (
+  oystehr: Oystehr,
+  parameters: CreateAppointmentInputParams
+): Promise<CreateAppointmentResponse> => {
   try {
     if (CREATE_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('create appointment environment variable could not be loaded');
@@ -203,6 +218,7 @@ export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppo
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
+    throw error;
   }
 };
 
@@ -248,13 +264,7 @@ export const cancelTelemedAppointment = async (
 
 export const inviteParticipant = async (
   oystehr: Oystehr,
-  parameters: {
-    appointmentId: string;
-    firstName: string;
-    lastName: string;
-    emailAddress: string;
-    phoneNumber: string;
-  }
+  parameters: InviteParticipantRequestParameters
 ): Promise<void> => {
   try {
     if (INVITE_PARTICIPANT_ZAMBDA_ID == null) {
@@ -288,7 +298,7 @@ export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams)
   }
 };
 
-export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams): Promise<any> => {
+export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams): Promise<UpdateUserZambdaOutput> => {
   try {
     if (UPDATE_USER_ZAMBDA_ID == null) {
       throw new Error('update user environment variable could not be loaded');
@@ -304,7 +314,10 @@ export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams)
   }
 };
 
-export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerInput): Promise<any> => {
+export const assignPractitioner = async (
+  oystehr: Oystehr,
+  parameters: AssignPractitionerInput
+): Promise<AssignPractitionerResponse> => {
   try {
     if (ASSIGN_PRACTITIONER_ZAMBDA_ID == null) {
       throw new Error('assign practitioner environment variable could not be loaded');
@@ -393,14 +406,10 @@ export const deactivateUser = async (
   }
 };
 
-interface GetConversationParams {
-  smsNumbers: string[];
-  timezone: string;
-}
 export const getConversation = async (
   oystehr: Oystehr,
-  parameters: GetConversationParams
-): Promise<ConversationMessage[]> => {
+  parameters: GetConversationInput
+): Promise<GetConversationZambdaOutput> => {
   try {
     if (GET_CONVERSATION_ZAMBDA_ID == null) {
       throw new Error('GET_CONVERSATION_ZAMBDA_ID environment variable could not be loaded');
@@ -415,18 +424,6 @@ export const getConversation = async (
     throw new Error(JSON.stringify(error));
   }
 };
-
-export interface AvailableLocationInformation {
-  id: string | undefined;
-  slug: string | undefined;
-  name: string | undefined;
-  description: string | undefined;
-  address: Address | undefined;
-  telecom: ContactPoint[] | undefined;
-  hoursOfOperation: LocationHoursOfOperation[] | undefined;
-  timezone: string | undefined;
-  otherOffices: { display: string; url: string }[];
-}
 
 export const getLocations = async (
   oystehr: Oystehr,
@@ -551,20 +548,17 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
   }
 };
 
-export interface UploadPatientProfilePhotoParameters {
-  patientId: string;
+export type UploadPatientProfilePhotoParameters = Omit<
+  GetOrUploadPatientProfilePhotoZambdaInput,
+  'z3PhotoUrl' | 'action'
+> & {
   patientPhotoFile: File;
-}
-
-export interface UploadPatientProfilePhotoResponse {
-  z3ImageUrl: string;
-  presignedImageUrl: string;
-}
+};
 
 export const uploadPatientProfilePhoto = async (
   oystehr: Oystehr,
   parameters: UploadPatientProfilePhotoParameters
-): Promise<UploadPatientProfilePhotoResponse> => {
+): Promise<GetOrUploadPatientProfilePhotoZambdaResponse> => {
   try {
     if (GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID == null) {
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');
@@ -599,18 +593,12 @@ export const uploadPatientProfilePhoto = async (
   }
 };
 
-export interface GetPatientProfilePhotoParameters {
-  z3PhotoUrl: string;
-}
-export interface GetPatientProfilePhotoResponse {
-  z3ImageUrl: string;
-  presignedImageUrl: string;
-}
+export type GetPatientProfilePhotoParameters = Omit<GetOrUploadPatientProfilePhotoZambdaInput, 'patientID' | 'action'>;
 
 export const getSignedPatientProfilePhotoUrl = async (
   oystehr: Oystehr,
   parameters: GetPatientProfilePhotoParameters
-): Promise<GetPatientProfilePhotoResponse> => {
+): Promise<GetOrUploadPatientProfilePhotoZambdaResponse> => {
   try {
     if (GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID == null) {
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');

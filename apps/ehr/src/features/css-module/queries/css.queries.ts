@@ -1,14 +1,14 @@
-import { useQuery, useMutation } from 'react-query';
-import { GetPatientProfilePhotoResponse, getSignedPatientProfilePhotoUrl } from '../../../api/api';
-import { useApiClients } from '../../../hooks/useAppClients';
-import { Patient } from 'fhir/r4b';
 import { Operation } from 'fast-json-patch';
-import { addOrReplaceOperation, removeOperation } from 'utils';
+import { Patient } from 'fhir/r4b';
+import { useMutation, useQuery } from 'react-query';
+import { addOrReplaceOperation, GetOrUploadPatientProfilePhotoZambdaResponse, removeOperation } from 'utils';
+import { getSignedPatientProfilePhotoUrl } from '../../../api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetSignedPatientProfilePhotoUrlQuery = (
   z3PhotoUrl?: string,
-  onSuccess?: (response: GetPatientProfilePhotoResponse) => void
+  onSuccess?: (response: GetOrUploadPatientProfilePhotoZambdaResponse) => void
 ) => {
   const { oystehrZambda } = useApiClients();
   return useQuery(

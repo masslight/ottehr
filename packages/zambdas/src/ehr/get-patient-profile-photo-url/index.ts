@@ -1,20 +1,16 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { GetOrUploadPatientProfilePhotoZambdaInput, getSecret, Secrets, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createPresignedUrl } from '../../shared/z3Utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { Secrets, getSecret, SecretsKeys } from 'utils';
 
 const logIt = (msg: string): void => {
   console.log(`PatientProfilePhoto: ${msg}`);
 };
 
 const PATIENT_PHOTO_ID_PREFIX = 'patient-photo';
-export interface UpdatePatientPhotoInput {
-  secrets: Secrets | null;
-  patientID: string;
-  action: 'upload' | 'download';
-  z3PhotoUrl?: string;
+export interface GetOrUploadPatientProfilePhotoZambdaInputValidated extends GetOrUploadPatientProfilePhotoZambdaInput {
+  secrets: Secrets;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations

@@ -1,7 +1,7 @@
-import { UpdatePatientPhotoInput } from '.';
+import { GetOrUploadPatientProfilePhotoZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): UpdatePatientPhotoInput {
+export function validateRequestParameters(input: ZambdaInput): GetOrUploadPatientProfilePhotoZambdaInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -29,6 +29,10 @@ export function validateRequestParameters(input: ZambdaInput): UpdatePatientPhot
     if (!patientId) {
       throw new Error('"patientId" filed is required for the "upload" action');
     }
+  }
+
+  if (!input.secrets) {
+    throw new Error('No secrets provided');
   }
 
   return {
