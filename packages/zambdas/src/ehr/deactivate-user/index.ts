@@ -1,16 +1,15 @@
-import { User } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { getSecret, Secrets } from 'utils';
+import { DeactivateUserZambdaInput, DeactivateUserZambdaOutput, getSecret, Secrets } from 'utils';
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-export interface DeactivateUserInput {
-  secrets: Secrets | null;
-  user: User;
-  // locations: Location[];
+
+export interface DeactivateUserZambdaInputValidated extends DeactivateUserZambdaInput {
+  secrets: Secrets;
 }
 
-let zapehrToken: string;
+let oystehrToken: string;
+
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -24,9 +23,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const userRoleIds = userRoles.map((role: any) => role.id);
     const userInactive = userRoles.find((role: any) => role.name === 'Inactive');
     if (!userInactive) {
-      if (!zapehrToken) {
+      if (!oystehrToken) {
         console.log('getting token');
-        zapehrToken = await getAuth0Token(secrets);
+        oystehrToken = await getAuth0Token(secrets);
       } else {
         console.log('already have token');
       }
@@ -35,7 +34,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       const headers = {
         accept: 'application/json',
         'content-type': 'application/json',
-        Authorization: `Bearer ${zapehrToken}`,
+        Authorization: `Bearer ${oystehrToken}`,
       };
 
       console.log('searching for Inactive role in the the project');
@@ -67,9 +66,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }
     }
 
-    const response = {
-      message: `Successfully deactivated user ${user.id}`,
-    };
+    const response: DeactivateUserZambdaOutput = {};
 
     return {
       statusCode: 200,
