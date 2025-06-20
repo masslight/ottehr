@@ -1,13 +1,12 @@
 import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { Encounter, EncounterParticipant, CodeableConcept, Coding, Reference, Location } from 'fhir/r4b';
-import {
-  PatientFollowupDetails,
-  FollowupEncounterDTO,
-  FOLLOWUP_SYSTEMS,
-  FollowupReason,
-  formatFhirEncounterToPatientFollowupDetails,
-} from 'utils';
 import { Operation } from 'fast-json-patch';
+import { CodeableConcept, Coding, Encounter, EncounterParticipant, Location, Reference } from 'fhir/r4b';
+import {
+  FollowupReason,
+  FOLLOWUP_SYSTEMS,
+  formatFhirEncounterToPatientFollowupDetails,
+  PatientFollowupDetails,
+} from 'utils';
 
 export async function createEncounterResource(
   encounterDetails: PatientFollowupDetails,
@@ -70,14 +69,6 @@ export async function createEncounterResource(
   }
 
   return await oystehr.fhir.create(encounterResource);
-}
-
-// todo do we need this ?
-export function makeEncounterDTO(resource: Encounter): FollowupEncounterDTO {
-  return {
-    encounterId: resource.id,
-    patientId: resource.subject?.id,
-  };
 }
 
 export async function updateEncounterResource(

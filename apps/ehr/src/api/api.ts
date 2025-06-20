@@ -51,6 +51,8 @@ import {
   PaginatedResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
+  SaveFollowupEncounterZambdaInput,
+  SaveFollowupEncounterZambdaOutput,
   ScheduleDTO,
   SubmitLabOrderDTO,
   SubmitLabOrderInput,
@@ -61,7 +63,6 @@ import {
   UpdateScheduleParams,
   UpdateUserParams,
 } from 'utils';
-import { SaveFollowupParameter } from '../types/types';
 
 export interface PatchOperation {
   // https://www.hl7.org/fhir/fhirpatch.html
@@ -205,7 +206,10 @@ export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppo
   }
 };
 
-export const saveFollowup = async (oystehr: Oystehr, parameters: SaveFollowupParameter): Promise<any> => {
+export const saveFollowup = async (
+  oystehr: Oystehr,
+  parameters: SaveFollowupEncounterZambdaInput
+): Promise<SaveFollowupEncounterZambdaOutput> => {
   try {
     if (SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID == null) {
       throw new Error('save followup environment variable could not be loaded');

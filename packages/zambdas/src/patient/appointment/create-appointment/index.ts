@@ -199,7 +199,7 @@ export async function createAppointment(
   const endTime = originalDate.plus({ minutes: getAppointmentDurationFromSlot(slot) }).toISO() || '';
   const formattedUserNumber = formatPhoneNumberDisplay(user.name.replace('+1', ''));
   const createdBy = isEHRUser
-    ? `Staff ${user?.email} via QRS`
+    ? `Staff ${user?.email}`
     : `${visitType === VisitType.WalkIn ? 'QR - ' : ''}Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
 
   console.log('getting questionnaire ID to create blank questionnaire response');
