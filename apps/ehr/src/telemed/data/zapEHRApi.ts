@@ -25,8 +25,6 @@ import {
   UpdateMedicationOrderInput,
   AssignPractitionerInput,
   AssignPractitionerResponse,
-  UnassignPractitionerInput,
-  UnassignPractitionerResponse,
   SignAppointmentInput,
   SignAppointmentResponse,
   ChangeInPersonVisitStatusInput,
@@ -38,6 +36,8 @@ import {
   SendFaxZambdaInput,
   GetCreateLabOrderResources,
   LabOrderResourcesRes,
+  UnassignPractitionerZambdaInput,
+  UnassignPractitionerZambdaOutput,
 } from 'utils';
 import { GetAppointmentsRequestParams } from '../utils';
 import { GetOystehrTelemedAPIParams } from './types';
@@ -228,8 +228,8 @@ export const getOystehrTelemedAPI = (
   };
 
   const unassignPractitioner = async (
-    parameters: Omit<UnassignPractitionerInput, 'secrets'>
-  ): Promise<UnassignPractitionerResponse> => {
+    parameters: Omit<UnassignPractitionerZambdaInput, 'secrets'>
+  ): Promise<UnassignPractitionerZambdaOutput> => {
     return await makeZapRequest('unassign practitioner', parameters);
   };
 

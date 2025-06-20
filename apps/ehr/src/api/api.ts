@@ -2,11 +2,11 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  AssignPractitionerInput,
   CancelAppointmentZambdaInput,
+  CancelRadiologyOrderZambdaInput,
   CancelTelemedAppointmentZambdaInput,
   CancelTelemedAppointmentZambdaOutput,
-  AssignPractitionerInput,
-  CancelRadiologyOrderZambdaInput,
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
   chooseJson,
@@ -22,8 +22,11 @@ import {
   CreateSlotParams,
   CreateUserOutput,
   CreateUserParams,
+  DeactivateUserZambdaInput,
+  DeactivateUserZambdaOutput,
   DeleteInHouseLabOrderParameters,
   DeleteLabOrderParams,
+  GetAppointmentsZambdaInput,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   GetEmployeesResponse,
@@ -51,15 +54,14 @@ import {
   ScheduleDTO,
   SubmitLabOrderDTO,
   SubmitLabOrderInput,
+  UnassignPractitionerZambdaInput,
+  UnassignPractitionerZambdaOutput,
   UpdateLabOrderResourcesParameters,
   UpdateNursingOrderParameters,
   UpdateScheduleParams,
   UpdateUserParams,
-  GetAppointmentsZambdaInput,
-  DeactivateUserZambdaInput,
-  DeactivateUserZambdaOutput,
 } from 'utils';
-import { SaveFollowupParameter, UnassignPractitionerParameters } from '../types/types';
+import { SaveFollowupParameter } from '../types/types';
 
 export interface PatchOperation {
   // https://www.hl7.org/fhir/fhirpatch.html
@@ -316,8 +318,8 @@ export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPra
 
 export const unassignPractitioner = async (
   oystehr: Oystehr,
-  parameters: UnassignPractitionerParameters
-): Promise<any> => {
+  parameters: UnassignPractitionerZambdaInput
+): Promise<UnassignPractitionerZambdaOutput> => {
   try {
     if (UNASSIGN_PRACTITIONER_ZAMBDA_ID == null) {
       throw new Error('unassign practitioner environment variable could not be loaded');

@@ -1,5 +1,5 @@
 import { User } from '@oystehr/sdk';
-import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
+import { Appointment, Slot } from 'fhir/r4b';
 import { FhirAppointmentType, OTTEHR_MODULE, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
 // this likely will be consolidated to utils package. doughty conflict resolver, take heed:
@@ -31,12 +31,6 @@ export type PatientInfo = {
   reasonForVisit: string | undefined;
   reasonAdditional?: string;
 };
-
-export interface UnassignPractitionerParameters {
-  encounterId: string | undefined;
-  practitioner: Practitioner | undefined;
-  userRole: Coding[];
-}
 
 export { AllStates } from 'utils';
 export type { State, StateType } from 'utils';

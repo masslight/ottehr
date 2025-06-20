@@ -1,7 +1,8 @@
-import { getSecret, SecretsKeys, UnassignPractitionerInput } from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
+import { UnassignPractitionerZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): UnassignPractitionerInput & { userToken: string } {
+export function validateRequestParameters(input: ZambdaInput): UnassignPractitionerZambdaInputValidated {
   console.group('validateRequestParameters');
 
   if (!input.body) {
@@ -23,6 +24,10 @@ export function validateRequestParameters(input: ZambdaInput): UnassignPractitio
   }
 
   const userToken = input.headers.Authorization.replace('Bearer ', '');
+
+  if (!input.secrets) {
+    throw new Error('No secrets provided');
+  }
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
