@@ -38,6 +38,7 @@ import {
   GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetNursingOrdersInput,
+  GetOrUploadPatientProfilePhotoZambdaInput,
   GetOrUploadPatientProfilePhotoZambdaResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
@@ -547,10 +548,12 @@ export const createSchedule = async (params: CreateScheduleParams, oystehr: Oyst
   }
 };
 
-export interface UploadPatientProfilePhotoParameters {
-  patientId: string;
+export type UploadPatientProfilePhotoParameters = Omit<
+  GetOrUploadPatientProfilePhotoZambdaInput,
+  'z3PhotoUrl' | 'action'
+> & {
   patientPhotoFile: File;
-}
+};
 
 export const uploadPatientProfilePhoto = async (
   oystehr: Oystehr,
@@ -590,18 +593,12 @@ export const uploadPatientProfilePhoto = async (
   }
 };
 
-export interface GetPatientProfilePhotoParameters {
-  z3PhotoUrl: string;
-}
-export interface GetPatientProfilePhotoResponse {
-  z3ImageUrl: string;
-  presignedImageUrl: string;
-}
+export type GetPatientProfilePhotoParameters = Omit<GetOrUploadPatientProfilePhotoZambdaInput, 'patientID' | 'action'>;
 
 export const getSignedPatientProfilePhotoUrl = async (
   oystehr: Oystehr,
   parameters: GetPatientProfilePhotoParameters
-): Promise<GetPatientProfilePhotoResponse> => {
+): Promise<GetOrUploadPatientProfilePhotoZambdaResponse> => {
   try {
     if (GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID == null) {
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');
