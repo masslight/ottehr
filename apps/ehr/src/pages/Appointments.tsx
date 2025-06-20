@@ -223,7 +223,7 @@ export default function Appointments(): ReactElement {
 
       if (
         (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
-        (searchDate || appointmentDate) &&
+        searchDate &&
         Array.isArray(visitType)
       ) {
         const searchResults = await getAppointments(client, {

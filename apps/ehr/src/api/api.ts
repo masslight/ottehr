@@ -55,13 +55,9 @@ import {
   UpdateNursingOrderParameters,
   UpdateScheduleParams,
   UpdateUserParams,
+  GetAppointmentsZambdaInput,
 } from 'utils';
-import {
-  DeactivateUserParameters,
-  GetAppointmentsParameters,
-  SaveFollowupParameter,
-  UnassignPractitionerParameters,
-} from '../types/types';
+import { DeactivateUserParameters, SaveFollowupParameter, UnassignPractitionerParameters } from '../types/types';
 
 export interface PatchOperation {
   // https://www.hl7.org/fhir/fhirpatch.html
@@ -173,7 +169,7 @@ export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVis
   }
 };
 
-export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointmentsParameters): Promise<any> => {
+export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointmentsZambdaInput): Promise<any> => {
   try {
     if (GET_APPOINTMENTS_ZAMBDA_ID == null) {
       throw new Error('get appointments environment variable could not be loaded');

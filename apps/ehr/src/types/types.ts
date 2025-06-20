@@ -2,14 +2,6 @@ import { User } from '@oystehr/sdk';
 import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
 import { FhirAppointmentType, OTTEHR_MODULE, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
-export interface GetAppointmentsParameters {
-  searchDate?: string;
-  locationID: string | undefined;
-  visitType?: string[];
-  providerIDs?: string[];
-  groupIDs?: string[];
-}
-
 // this likely will be consolidated to utils package. doughty conflict resolver, take heed:
 // the important change to include here is that slot is of type "Slot" rather than string
 export interface CreateAppointmentParameters {

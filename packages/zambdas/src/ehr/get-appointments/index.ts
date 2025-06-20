@@ -18,6 +18,7 @@ import {
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
   flattenItems,
+  GetAppointmentsZambdaInput,
   getChatContainsUnreadMessages,
   getMiddleName,
   getPatientFirstName,
@@ -57,12 +58,7 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export interface GetAppointmentsInput {
-  searchDate: string;
-  locationID?: string;
-  providerIDs?: string[];
-  groupIDs?: string[];
-  visitType: string[];
+export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZambdaInput {
   secrets: Secrets | null;
 }
 
