@@ -58,8 +58,10 @@ import {
   GetAppointmentsZambdaInput,
   DeactivateUserZambdaInput,
   DeactivateUserZambdaOutput,
+  SaveFollowupEncounterZambdaInput,
+  SaveFollowupEncounterZambdaOutput,
 } from 'utils';
-import { SaveFollowupParameter, UnassignPractitionerParameters } from '../types/types';
+import { UnassignPractitionerParameters } from '../types/types';
 
 export interface PatchOperation {
   // https://www.hl7.org/fhir/fhirpatch.html
@@ -203,7 +205,10 @@ export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppo
   }
 };
 
-export const saveFollowup = async (oystehr: Oystehr, parameters: SaveFollowupParameter): Promise<any> => {
+export const saveFollowup = async (
+  oystehr: Oystehr,
+  parameters: SaveFollowupEncounterZambdaInput
+): Promise<SaveFollowupEncounterZambdaOutput> => {
   try {
     if (SAVE_PATIENT_FOLLOWUP_ZAMBDA_ID == null) {
       throw new Error('save followup environment variable could not be loaded');
