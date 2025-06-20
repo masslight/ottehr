@@ -13,7 +13,7 @@ import {
   getPatientLastName,
   isPSCOrder,
   getTimezone,
-  allLicensesForPractitioner,
+  getFullestAvailableName,
   FHIR_IDENTIFIER_NPI,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
@@ -63,6 +63,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       task,
       appointment,
       encounter,
+      schedule,
       organization: labOrganization,
       specimens: specimenResourses,
     } = await getExternalLabOrderResources(oystehr, serviceRequestID);
@@ -153,10 +154,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
-    let timezone = undefined;
-
-    if (location) {
-      timezone = getTimezone(location);
+    let timezone;
+    if (schedule) {
+      timezone = getTimezone(schedule);
     }
 
     const sampleCollectionDates: DateTime[] = [];
@@ -361,7 +361,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
-    const allPractitionerLicenses = allLicensesForPractitioner(provider);
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -374,9 +373,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
-        providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
-        // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
-        providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',
+        providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
         providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],

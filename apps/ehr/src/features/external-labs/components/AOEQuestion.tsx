@@ -14,6 +14,7 @@ import { LabQuestionnaireResponseItem } from 'utils';
 interface AOEQuestionProps {
   question: QuestionnaireItem;
   answer?: LabQuestionnaireResponseItem;
+  isReadOnly?: boolean;
 }
 
 export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
@@ -53,6 +54,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   answer={answer?.join(',')}
                   answerOption={answerOption}
                   required={required || false}
+                  isReadOnly={questionProps.isReadOnly}
                   field={field}
                 />
               )}
@@ -65,6 +67,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                     answer={answer}
                     answerOption={answerOption}
                     required={required || false}
+                    isReadOnly={questionProps.isReadOnly}
                     field={field}
                   />
                 )}
@@ -74,6 +77,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   linkId={linkId}
                   answer={answer?.join(',')}
                   required={required || false}
+                  isReadOnly={questionProps.isReadOnly}
                 />
               )}
               {type === 'date' && extension && (
@@ -83,6 +87,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
+                  isReadOnly={questionProps.isReadOnly}
                   field={field}
                 />
               )}
@@ -93,6 +98,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
+                  isReadOnly={questionProps.isReadOnly}
                   idString={`integer-${linkId}`}
                   field={field}
                 />
@@ -104,6 +110,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
+                  isReadOnly={questionProps.isReadOnly}
                   idString={`decimal-${linkId}`}
                   field={field}
                 />
@@ -114,6 +121,7 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                   linkId={linkId}
                   answer={answer?.join(',')}
                   required={required || false}
+                  isReadOnly={questionProps.isReadOnly}
                   field={field}
                 />
               )}

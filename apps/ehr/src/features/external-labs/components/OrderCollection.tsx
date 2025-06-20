@@ -116,6 +116,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
         {showAOECard && (
           <AOECard
             questions={aoe}
+            isReadOnly={orderStatus !== 'pending'}
             labQuestionnaireResponses={labQuestionnaireResponses as LabQuestionnaireResponse[]}
             isCollapsed={isAOECollapsed}
           />

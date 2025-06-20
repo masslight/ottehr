@@ -16,6 +16,7 @@ import {
   DocumentReference,
   ActivityDefinition,
   Specimen,
+  Schedule,
 } from 'fhir/r4b';
 import {
   EncounterExternalLabResult,
@@ -43,6 +44,7 @@ export type LabOrderResources = {
   task: Task;
   organization: Organization | undefined;
   diagnosticReports: DiagnosticReport[];
+  schedule?: Schedule;
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
@@ -63,6 +65,7 @@ export async function getExternalLabOrderResources(
       | Organization
       | DiagnosticReport
       | Appointment
+      | Schedule
       | Encounter
       | Observation
       | Specimen
@@ -104,6 +107,14 @@ export async function getExternalLabOrderResources(
         {
           name: '_include:iterate',
           value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:slot',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Slot:schedule',
         },
         {
           name: '_include:iterate',
@@ -149,6 +160,10 @@ export async function getExternalLabOrderResources(
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system,
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
       )
+  );
+
+  const schedulesTemp: Schedule[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Schedule => resourceTemp.resourceType === 'Schedule'
   );
 
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
@@ -202,6 +217,7 @@ export async function getExternalLabOrderResources(
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
   const diagnosticReports = diagnosticReportsTemp;
+  const schedule = schedulesTemp?.[0];
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
@@ -214,6 +230,7 @@ export async function getExternalLabOrderResources(
     task,
     organization,
     diagnosticReports,
+    schedule,
     appointment,
     encounter,
     observations,

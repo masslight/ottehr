@@ -277,7 +277,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   if (hadSomeAddressInfo) await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.locationStreetAddress?.toUpperCase() || '');
-  drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularTextBold.font);
+  drawRegularTextRight(data.providerName, styles.regularTextBold.font);
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
   drawRegularTextLeft(locationCityStateZip);
@@ -398,10 +398,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   addNewLine(undefined, 4);
 
   // Signature
-  drawRegularTextLeft(
-    `Electronically signed by: ${data.providerName}, ${data.providerTitle}`,
-    styles.regularTextBold.font
-  );
+  drawRegularTextLeft(`Electronically signed by: ${data.providerName}`, styles.regularTextBold.font);
   addNewLine();
   drawSeparatorLine();
   addNewLine();

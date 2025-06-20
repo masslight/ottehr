@@ -17,6 +17,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import {
+  allLicensesForPractitioner,
   FHIR_EXTENSION,
   FHIR_IDENTIFIER_NPI,
   filterResources,
@@ -426,12 +427,23 @@ export const getFullestAvailableName = (
 ): string | undefined => {
   const firstName = getFirstName(individual);
   const lastName = getLastName(individual);
+  let license = undefined;
+  if (individual.resourceType === 'Practitioner') {
+    license = allLicensesForPractitioner(individual)[0]?.code;
+  }
   // const suffix = getSuffix(individual);
   if (firstName && lastName) {
     // return lastFirst
     //   ? `${lastName}${suffix ? ` ${suffix}` : ''}, ${firstName}`
     //   : `${firstName} ${lastName}${suffix ? ` ${suffix}` : ''}`;
-    return lastFirst ? `${lastName}, ${firstName}` : `${firstName} ${lastName}`;
+    if (lastFirst) {
+      return `${lastName}, ${firstName}`;
+    }
+
+    if (license) {
+      return `${firstName} ${lastName}, ${license}`;
+    }
+    return `${firstName} ${lastName}`;
   } else if (firstName) {
     return firstName;
   } else if (lastName) {
