@@ -67,10 +67,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
     if (!allFields) return [];
 
     return questionnaireItems.filter((qi) => {
-      if (!allFields) {
-        return false;
-      }
-      // console.log('allFields use items to auto fill', allFields);
+      console.log('allFields use items to auto fill', allFields);
       const displayStrategy = getItemDisplayStrategy(qi, questionnaireItems, allFields);
       return displayStrategy === 'enabled' && !!qi.autofillFromWhenDisabled;
     });
@@ -99,10 +96,10 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
       const shouldFill = isEmptyValue && !objectsEqual(currentValue, autoFilledValue);
 
       if (shouldFill) {
-        // console.log(`🔄 Auto-filling field [${id}] with value:`, autoFilledValue);
+        console.log(`🔄 Auto-filling field [${id}] with value:`, autoFilledValue);
         setValue(id, autoFilledValue, { shouldValidate: true });
       } else {
-        // console.log(`⏭ Skipping autofill for [${id}]. Already has value or no change needed.`);
+        console.log(`⏭ Skipping autofill for [${id}]. Already has value or no change needed.`);
       }
     });
   }, [visibleItemsToFill, allFields, getValues, setValue, parentItem, fieldId, formValues]);
