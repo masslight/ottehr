@@ -1,24 +1,43 @@
-import { DeactivateUserInput } from '.';
+import { DeactivateUserZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): DeactivateUserInput {
+export function validateRequestParameters(input: ZambdaInput): DeactivateUserZambdaInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { user } = JSON.parse(input.body);
+  let parsedBody: any;
+  try {
+    parsedBody = JSON.parse(input.body);
+  } catch (error) {
+    throw new Error('Invalid JSON in request body');
+  }
 
-  if (
-    user === undefined
-    // locations === undefined ||
-    // locations.length === 0
-  ) {
-    throw new Error('These fields are required: "user"');
+  if (!parsedBody || typeof parsedBody !== 'object') {
+    throw new Error('Request body must be a valid JSON object');
+  }
+
+  const { user } = parsedBody;
+
+  if (user == null) {
+    throw new Error('This field is required: "user"');
+  }
+
+  if (typeof user !== 'object') {
+    throw new Error('User must be a valid object');
+  }
+
+  // Validate that user has required properties for a User object
+  if (typeof user.id !== 'string') {
+    throw new Error('User must have a valid id');
+  }
+
+  if (input.secrets == null) {
+    throw new Error('No secrets provided');
   }
 
   return {
     user,
-    // locations,
     secrets: input.secrets,
   };
 }
