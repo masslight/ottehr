@@ -48,7 +48,7 @@ import {
   getServiceRequestsRelatedViaRepeat,
   fetchResultResourcesForRepeatServiceRequest,
 } from '../shared/inhouse-labs';
-import { fetchLabOrderPDFs } from '../shared/labs';
+import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
 
 // cache for the service request context
 type Cache = {
@@ -322,7 +322,7 @@ export const getInHouseResources = async (
 
     if (diagnosticReports.length > 0) {
       const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
-      const pdfs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mtoken);
       if (pdfs) resultsPDFs = pdfs.resultPDFs;
     }
   }

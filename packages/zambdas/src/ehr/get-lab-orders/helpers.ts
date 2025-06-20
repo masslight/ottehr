@@ -50,7 +50,7 @@ import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
 import { captureSentryException } from '../../shared';
 import { sendErrors } from '../../shared';
-import { fetchLabOrderPDFs } from '../shared/labs';
+import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
 
 // cache for the service request context: contains parsed tasks and results
 type Cache = {
@@ -480,7 +480,7 @@ export const getLabResources = async (
   let resultPDFs: LabResultPDF[] = [];
   let orderPDF: LabOrderPDF | undefined;
   if (isDetailPageRequest) {
-    const pdfs = await fetchLabOrderPDFs(documentReferences, m2mtoken);
+    const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mtoken);
     if (pdfs) {
       resultPDFs = pdfs.resultPDFs;
       orderPDF = pdfs.orderPDF;

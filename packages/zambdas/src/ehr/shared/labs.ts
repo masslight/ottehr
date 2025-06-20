@@ -468,7 +468,7 @@ const getDocRefRelatedId = (
 };
 
 type fetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
-export const fetchLabOrderPDFs = async (
+export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
   m2mtoken: string
 ): Promise<fetchLabOrderPDFRes | undefined> => {
