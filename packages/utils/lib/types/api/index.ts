@@ -28,6 +28,7 @@ export * from './prebook-create-appointment';
 export * from './procedures.constants';
 export * from './radiology';
 export * from './rcm-claims';
+export * from './save-followup-encounter.types';
 export * from './schedules';
 export * from './send-fax.types';
 export * from './sign-appointment';
