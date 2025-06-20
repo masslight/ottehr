@@ -1,5 +1,5 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
+import { Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
   AssignPractitionerInput,
@@ -38,6 +38,7 @@ import {
   GetLabelPdfParameters,
   GetLabOrdersParameters,
   GetNursingOrdersInput,
+  GetOrUploadPatientProfilePhotoZambdaResponse,
   GetRadiologyOrderListZambdaInput,
   GetRadiologyOrderListZambdaOutput,
   GetScheduleParams,
@@ -423,18 +424,6 @@ export const getConversation = async (
   }
 };
 
-export interface AvailableLocationInformation {
-  id: string | undefined;
-  slug: string | undefined;
-  name: string | undefined;
-  description: string | undefined;
-  address: Address | undefined;
-  telecom: ContactPoint[] | undefined;
-  hoursOfOperation: LocationHoursOfOperation[] | undefined;
-  timezone: string | undefined;
-  otherOffices: { display: string; url: string }[];
-}
-
 export const getLocations = async (
   oystehr: Oystehr,
   parameters: GetScheduleRequestParams
@@ -563,15 +552,10 @@ export interface UploadPatientProfilePhotoParameters {
   patientPhotoFile: File;
 }
 
-export interface UploadPatientProfilePhotoResponse {
-  z3ImageUrl: string;
-  presignedImageUrl: string;
-}
-
 export const uploadPatientProfilePhoto = async (
   oystehr: Oystehr,
   parameters: UploadPatientProfilePhotoParameters
-): Promise<UploadPatientProfilePhotoResponse> => {
+): Promise<GetOrUploadPatientProfilePhotoZambdaResponse> => {
   try {
     if (GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID == null) {
       throw new Error('Could not find environment variable GET_PATIENT_PROFILE_PHOTO_URL_ZAMBDA_ID');
