@@ -1,7 +1,6 @@
-import { ZambdaInput } from '../../shared';
+import Oystehr from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createOystehrClient } from '../../shared/helpers';
-import { validateRequestParameters } from './validateRequestParameters';
 import {
   Appointment,
   ChargeItem,
@@ -16,22 +15,24 @@ import {
   Practitioner,
   Resource,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   ClaimsQueueGetRequest,
   ClaimsQueueGetResponse,
   ClaimsQueueItem,
   ClaimsQueueItemStatus,
   ClaimsQueueItemStatuses,
+  createReference,
+  getResourcesFromBatchInlineRequests,
 } from 'utils';
-import { createReference, getResourcesFromBatchInlineRequests } from 'utils';
+import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
 import {
   addCoverageAndRelatedResourcesToPackages,
   addInsuranceToResultPackages,
   getInsuranceNameFromCoverage,
 } from './helpers/fhir-utils';
-import { DateTime } from 'luxon';
-import Oystehr from '@oystehr/sdk';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 export interface ClaimPackage {
   appointment?: Appointment;
@@ -52,7 +53,7 @@ export interface ClaimPackage {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
@@ -72,7 +73,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error trying to get claims.' }),
     };
   }
-};
+});
 
 async function performEffect(oystehr: Oystehr, validatedInput: ClaimsQueueGetRequest): Promise<ClaimsQueueGetResponse> {
   const packages = await getPrefilteredClaimPackages(oystehr, validatedInput);

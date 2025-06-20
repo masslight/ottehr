@@ -16,7 +16,7 @@ import {
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
 import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
 import AppointmentTableRow from './AppointmentTableRow';
 import { ApptTab } from './AppointmentTabs';
@@ -25,8 +25,10 @@ import {
   ACTION_WIDTH_MIN,
   CHAT_WIDTH,
   CHAT_WIDTH_MIN,
-  GO_TO_WIDTH,
-  GO_TO_WIDTH_MIN,
+  GO_TO_ONE_BUTTON_WIDTH,
+  GO_TO_ONE_BUTTON_WIDTH_MIN,
+  GO_TO_TWO_BUTTON_WIDTH,
+  GO_TO_TWO_BUTTON_WIDTH_MIN,
   NEXT_WIDTH,
   NOTES_WIDTH,
   NOTES_WIDTH_MIN,
@@ -52,6 +54,7 @@ interface AppointmentTableProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
+  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
 }
 
 export default function AppointmentTable({
@@ -62,6 +65,7 @@ export default function AppointmentTable({
   updateAppointments,
   setEditingComment,
   inHouseLabOrdersByAppointmentId,
+  externalLabOrdersByAppointmentId,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
@@ -112,7 +116,7 @@ export default function AppointmentTable({
                 </TableCell>
                 <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}>
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
-                    Visit Components
+                    {tab === ApptTab.completed ? 'Orders' : 'Visit Components'}
                   </Typography>
                 </TableCell>
                 <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}>
@@ -125,7 +129,12 @@ export default function AppointmentTable({
                     Chat
                   </Typography>
                 </TableCell>
-                <TableCell style={{ width: GO_TO_WIDTH, minWidth: GO_TO_WIDTH_MIN }}>
+                <TableCell
+                  style={{
+                    width: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH : GO_TO_TWO_BUTTON_WIDTH,
+                    minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_TWO_BUTTON_WIDTH_MIN,
+                  }}
+                >
                   <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
                     Go to...
                   </Typography>
@@ -185,6 +194,7 @@ export default function AppointmentTable({
                             setEditingComment={setEditingComment}
                             tab={tab}
                             inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
+                            externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
                           ></AppointmentTableRow>
                         );
                       })}
@@ -203,6 +213,7 @@ export default function AppointmentTable({
                       setEditingComment={setEditingComment}
                       tab={tab}
                       inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
+                      externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
                     ></AppointmentTableRow>
                   );
                 })
@@ -228,7 +239,9 @@ export default function AppointmentTable({
                   <TableCell style={{ width: VISIT_ICONS_WIDTH, minWidth: VISIT_ICONS_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: NOTES_WIDTH, minWidth: NOTES_WIDTH_MIN }}></TableCell>
                   <TableCell style={{ width: CHAT_WIDTH, minWidth: CHAT_WIDTH_MIN }}></TableCell>
-                  <TableCell style={{ width: GO_TO_WIDTH, minWidth: GO_TO_WIDTH_MIN }}></TableCell>
+                  <TableCell
+                    style={{ width: GO_TO_TWO_BUTTON_WIDTH, minWidth: GO_TO_TWO_BUTTON_WIDTH_MIN }}
+                  ></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -275,6 +288,7 @@ export default function AppointmentTable({
                           setEditingComment={setEditingComment}
                           tab={tab}
                           inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
+                          externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
                         ></AppointmentTableRow>
                       );
                     })}

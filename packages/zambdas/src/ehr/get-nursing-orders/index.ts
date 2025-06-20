@@ -1,12 +1,11 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { getNoursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
-import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
-
+import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`get-nursing-orders started, input: ${JSON.stringify(input)}`);
     const validatedParameters = validateRequestParameters(input);
@@ -45,4 +44,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: `Error fetching nursing orders: ${error}` }),
     };
   }
-};
+});

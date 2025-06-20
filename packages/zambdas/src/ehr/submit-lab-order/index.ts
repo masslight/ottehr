@@ -14,6 +14,7 @@ import {
   isPSCOrder,
   getTimezone,
   allLicensesForPractitioner,
+  FHIR_IDENTIFIER_NPI,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -376,7 +377,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
         providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',
-        providerNPI: 'test',
+        providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
         patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,
