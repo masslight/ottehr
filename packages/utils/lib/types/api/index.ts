@@ -1,6 +1,8 @@
 export * from './ai-interview.types';
 export * from './appointment.types';
 export * from './assign-practitioner';
+export * from './cancel-appointment.types';
+export * from './cancel-telemed-appointment.types';
 export * from './change-in-person-visit-status';
 export * from './change-telemed-appointment-status';
 export * from './chart-data';
@@ -21,6 +23,7 @@ export * from './patient-instructions';
 export * from './patient-payment-types';
 export * from './practitioner.types';
 export * from './prebook-create-appointment';
+export * from './procedures.constants';
 export * from './radiology';
 export * from './rcm-claims';
 export * from './schedules';

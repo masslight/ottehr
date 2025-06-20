@@ -1,5 +1,6 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
+import { dataTestIds } from '../configurations/data-test-ids';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 // import { LanguagePicker } from './LanguagePicker';
@@ -103,7 +104,11 @@ export const CustomContainer: FC<ContainerProps> = ({
         justifyContent: 'space-between',
       }}
     >
-      <AppBar position="static" sx={{ backgroundColor: theme.palette.primary.dark }}>
+      <AppBar
+        data-testid={isAuthenticated ? dataTestIds.header.authenticated : dataTestIds.header.unauthenticated} // used in e2e login test, dont remove
+        position="static"
+        sx={{ backgroundColor: theme.palette.primary.dark }}
+      >
         <Grid container justifyContent="center" alignItems="center" sx={{ position: 'relative' }}>
           <Grid item>
             <Box

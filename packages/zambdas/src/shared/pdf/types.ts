@@ -127,7 +127,7 @@ export interface LabsData {
   serviceRequestID: string;
   reqId: string; // this is only for external
   providerName: string;
-  providerNPI: string;
+  providerNPI: string | undefined;
   patientFirstName: string;
   patientMiddleName: string | undefined;
   patientLastName: string;

@@ -1,14 +1,14 @@
 import Oystehr from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Communication } from 'fhir/r4b';
+import { captureSentryException, checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     const { instructionId, secrets, userToken } = validateRequestParameters(input);
@@ -28,12 +28,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error) {
     console.log(error);
+    await topLevelCatch('delete-patient-instruction', error, input.secrets, captureSentryException);
     return {
       body: JSON.stringify({ message: 'Error deleting patient instructions...' }),
       statusCode: 500,
     };
   }
-};
+});
 
 async function deleteCommunication(oystehr: Oystehr, id: string): Promise<void> {
   await oystehr.fhir.delete({ resourceType: 'Communication', id });

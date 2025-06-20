@@ -14,6 +14,7 @@ import {
   isPSCOrder,
   getTimezone,
   getFullestAvailableName,
+  FHIR_IDENTIFIER_NPI,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -373,7 +374,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
         providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
-        providerNPI: 'test',
+        providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
         patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,

@@ -563,6 +563,14 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     });
   }
 
+  // tracking board case
+  if (searchBy.field === 'encounterIds') {
+    searchParams.push({
+      name: 'encounter',
+      value: searchBy.value.map((id) => `Encounter/${id}`).join(','),
+    });
+  }
+
   // patient page case
   if (searchBy.field === 'patientId') {
     searchParams.push({
@@ -1153,7 +1161,6 @@ export const parseReflexTestsCount = (
   return (reflexFinalAndCorrectedResults.length || 0) + (reflexPrelimResults.length || 0);
 };
 
-// todo i think the problem is here
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
   console.log('parsing performed by for specimen', specimen.id);
   const NOT_FOUND = '';
@@ -1167,6 +1174,7 @@ export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]
 };
 
 export const parsePerformedDate = (specimen: Specimen): string => {
+  console.log('parsing performed date for specimen', specimen.id);
   return specimen.collection?.collectedDateTime || '-';
 };
 
@@ -1410,7 +1418,9 @@ export const parseLabOrdersHistory = (
     });
   };
 
-  pushPerformedHistory(specimens[0]);
+  // only push performed to order history if this is a psc order or there is a specimen to parse data from
+  // not having a specimen for a non psc order is probably an edge case but was causing issues for autolab
+  (isPSC || specimens[0]) && pushPerformedHistory(specimens[0]);
 
   // todo: design is required https://github.com/masslight/ottehr/issues/2177
   // handle if there are multiple specimens (the first one is handled above)

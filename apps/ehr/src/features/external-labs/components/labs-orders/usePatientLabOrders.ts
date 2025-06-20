@@ -98,6 +98,14 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
         return;
       }
 
+      if (
+        !searchParams.searchBy.value ||
+        (Array.isArray(searchParams.searchBy.value) && searchParams.searchBy.value.length === 0)
+      ) {
+        // search params are not ready yet, that's ok probably
+        return;
+      }
+
       setLoading(true);
       setError(null);
 

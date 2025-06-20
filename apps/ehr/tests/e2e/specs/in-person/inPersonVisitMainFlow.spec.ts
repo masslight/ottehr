@@ -179,6 +179,8 @@ async function intakeTestAppointment(page: Page, resourceHandler: ResourceHandle
   const visitsPage = await openVisitsPage(page);
   await visitsPage.selectLocation(ENV_LOCATION_NAME!);
   await visitsPage.clickPrebookedTab();
+  await visitsPage.clickArrivedButton(resourceHandler.appointment.id!);
+  await visitsPage.clickInOfficeTab();
   await visitsPage.clickIntakeButton(resourceHandler.appointment.id!);
   return await expectPatientInfoPage(resourceHandler.appointment.id!, page);
 }

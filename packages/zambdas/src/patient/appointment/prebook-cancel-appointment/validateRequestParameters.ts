@@ -1,14 +1,13 @@
 import {
   CancellationReasonOptionsInPerson,
-  CancellationReasonOptionsTelemedEHR,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils';
-import { CancelAppointmentInput } from '.';
+import { CancelAppointmentZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../../shared';
 
-export function validateRequestParameters(input: ZambdaInput): CancelAppointmentInput {
+export function validateRequestParameters(input: ZambdaInput): CancelAppointmentZambdaInputValidated {
   if (!input.body) {
     throw MISSING_REQUEST_BODY;
   }
@@ -26,10 +25,7 @@ export function validateRequestParameters(input: ZambdaInput): CancelAppointment
     throw MISSING_REQUIRED_PARAMETERS(missingFields);
   }
 
-  const validReasons = [
-    ...Object.values(CancellationReasonOptionsInPerson),
-    ...Object.values(CancellationReasonOptionsTelemedEHR),
-  ];
+  const validReasons = Object.values(CancellationReasonOptionsInPerson);
 
   if (!validReasons.includes(cancellationReason)) {
     throw INVALID_INPUT_ERROR(

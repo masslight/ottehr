@@ -1,8 +1,9 @@
 import { User } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, Secrets } from 'utils';
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Secrets, getSecret } from 'utils';
 export interface DeactivateUserInput {
   secrets: Secrets | null;
   user: User;
@@ -10,7 +11,7 @@ export interface DeactivateUserInput {
 }
 
 let zapehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -82,4 +83,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(error.message),
     };
   }
-};
+});

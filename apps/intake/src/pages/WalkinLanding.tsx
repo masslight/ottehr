@@ -69,7 +69,7 @@ export const WalkinLanding: FC = () => {
                   const createSlotInput: CreateSlotParams = {
                     scheduleId: data.scheduleId,
                     startISO: DateTime.now().toISO(),
-                    serviceModality: data.serviceMode as ServiceMode,
+                    serviceModality: data.serviceMode ?? ServiceMode['in-person'],
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,

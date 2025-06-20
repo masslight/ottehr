@@ -6,15 +6,11 @@ import { Appointment, Encounter, HealthcareService, Location, Patient, Practitio
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
-  CANT_CANCEL_CHECKED_IN_APT_ERROR,
+  CancelAppointmentZambdaInput,
   CancellationReasonCodesInPerson,
-  CancellationReasonOptionsInPerson,
+  CANT_CANCEL_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
   FHIR_ZAPEHR_URL,
-  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
-  ScheduleOwnerFhirResource,
-  Secrets,
-  SecretsKeys,
   formatPhoneNumberDisplay,
   getAppointmentResourceById,
   getCriticalUpdateTagOp,
@@ -25,10 +21,13 @@ import {
   getSecret,
   isAppointmentVirtual,
   isPostTelemedAppointment,
+  POST_TELEMED_APPOINTMENT_CANT_BE_CANCELED_ERROR,
+  ScheduleOwnerFhirResource,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  ZambdaInput,
   captureSentryException,
   checkIsEHRUser,
   configSentry,
@@ -39,18 +38,14 @@ import {
   getUser,
   topLevelCatch,
   validateBundleAndExtractAppointment,
+  ZambdaInput,
 } from '../../../shared';
 import { sendInPersonCancellationEmail } from '../../../shared/communication';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export interface CancelAppointmentInput {
-  appointmentID: string;
-  cancellationReason: CancellationReasonOptionsInPerson;
-  silent?: boolean;
-  language: string;
+export interface CancelAppointmentZambdaInputValidated extends CancelAppointmentZambdaInput {
   secrets: Secrets | null;
 }
-
 interface CancellationDetails {
   startTime: string;
   email: string | undefined;
@@ -218,13 +213,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('building location information');
     //const locationInformation: AvailableLocationInformation = getLocationInformation(oystehr, scheduleResource);
 
-    const response = {
-      message: 'Successfully canceled an appointment',
-      appointment: appointmentUpdated.id ?? null,
-      //location: locationInformation,
-      visitType: visitType,
-    };
-
     if (!silent) {
       if (email) {
         console.group('sendCancellationEmail');
@@ -295,7 +283,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     return {
       statusCode: 200,
-      body: JSON.stringify(response),
+      body: JSON.stringify({}),
     };
   } catch (error: any) {
     return topLevelCatch('cancel-appointment', error, input.secrets, captureSentryException);

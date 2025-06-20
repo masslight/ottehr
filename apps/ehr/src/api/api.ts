@@ -2,7 +2,13 @@ import Oystehr, { User } from '@oystehr/sdk';
 import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 'fhir/r4b';
 import {
   apiErrorToThrow,
+  CancelAppointmentZambdaInput,
+  CancelTelemedAppointmentZambdaInput,
+  CancelTelemedAppointmentZambdaOutput,
+  AssignPractitionerInput,
   CancelRadiologyOrderZambdaInput,
+  ChangeInPersonVisitStatusInput,
+  ChangeInPersonVisitStatusResponse,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
   ConversationMessage,
@@ -51,9 +57,6 @@ import {
   UpdateUserParams,
 } from 'utils';
 import {
-  AssignPractitionerParameters,
-  CancelAppointmentParameters,
-  ChangeInPersonVisitStatusParameters,
   DeactivateUserParameters,
   GetAppointmentsParameters,
   SaveFollowupParameter,
@@ -101,9 +104,9 @@ const GET_CREATE_IN_HOUSE_LAB_ORDER_RESOURCES = import.meta.env.VITE_APP_GET_CRE
 const COLLECT_IN_HOUSE_LAB_SPECIMEN = import.meta.env.VITE_APP_COLLECT_IN_HOUSE_LAB_SPECIMEN;
 const HANDLE_IN_HOUSE_LAB_RESULTS = import.meta.env.VITE_APP_HANDLE_IN_HOUSE_LAB_RESULTS;
 const DELETE_IN_HOUSE_LAB_ORDER = import.meta.env.VITE_APP_DELETE_IN_HOUSE_LAB_ORDER;
-const GET_NURSING_ORDERS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_NURSING_ORDERS_ZAMBDA_ID;
-const CREATE_NURSING_ORDER_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_NURSING_ORDER_ZAMBDA_ID;
-const UPDATE_NURSING_ORDER = import.meta.env.VITE_APP_UPDATE_NURSING_ORDER_ZAMBDA_ID;
+const GET_NURSING_ORDERS_ZAMBDA_ID = 'get-nursing-orders';
+const CREATE_NURSING_ORDER_ZAMBDA_ID = 'create-nursing-order';
+const UPDATE_NURSING_ORDER = 'update-nursing-order';
 const GET_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_LABEL_PDF_ZAMBDA_ID;
 const GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID = import.meta.env.VITE_APP_GET_OR_CREATE_VISIT_LABEL_PDF_ZAMBDA_ID;
 
@@ -221,12 +224,8 @@ export const saveFollowup = async (oystehr: Oystehr, parameters: SaveFollowupPar
 
 export const cancelTelemedAppointment = async (
   oystehr: Oystehr,
-  parameters: {
-    appointmentID: string;
-    cancellationReason: string;
-    cancellationReasonAdditional?: string | undefined;
-  }
-): Promise<any> => {
+  parameters: CancelTelemedAppointmentZambdaInput
+): Promise<CancelTelemedAppointmentZambdaOutput> => {
   try {
     if (CANCEL_TELEMED_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('cancel appointment environment variable could not be loaded');
@@ -301,7 +300,7 @@ export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams)
   }
 };
 
-export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerParameters): Promise<any> => {
+export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerInput): Promise<any> => {
   try {
     if (ASSIGN_PRACTITIONER_ZAMBDA_ID == null) {
       throw new Error('assign practitioner environment variable could not be loaded');
@@ -338,8 +337,8 @@ export const unassignPractitioner = async (
 
 export const changeInPersonVisitStatus = async (
   oystehr: Oystehr,
-  parameters: ChangeInPersonVisitStatusParameters
-): Promise<any> => {
+  parameters: ChangeInPersonVisitStatusInput
+): Promise<ChangeInPersonVisitStatusResponse> => {
   try {
     if (CHANGE_IN_PERSON_VISIT_STATUS_ZAMBDA_ID == null) {
       throw new Error('change in person visit status environment variable could not be loaded');
@@ -442,7 +441,10 @@ export const getLocations = async (
   }
 };
 
-export const cancelAppointment = async (oystehr: Oystehr, parameters: CancelAppointmentParameters): Promise<any> => {
+export const cancelAppointment = async (
+  oystehr: Oystehr,
+  parameters: CancelAppointmentZambdaInput
+): Promise<Record<string, never>> => {
   try {
     if (CANCEL_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('cancel appointment environment variable could not be loaded');
