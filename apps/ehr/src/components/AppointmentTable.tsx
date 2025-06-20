@@ -135,7 +135,7 @@ export default function AppointmentTable({
                     minWidth: tab === ApptTab.prebooked ? GO_TO_ONE_BUTTON_WIDTH_MIN : GO_TO_TWO_BUTTON_WIDTH_MIN,
                   }}
                 >
-                  <Typography variant="subtitle2" sx={{ fontSize: '14px' }}>
+                  <Typography variant="subtitle2" sx={{ fontSize: '14px', textAlign: 'center' }}>
                     Go to...
                   </Typography>
                 </TableCell>
@@ -152,7 +152,7 @@ export default function AppointmentTable({
               {tab === ApptTab['in-office'] ? (
                 <>
                   <TableRow>
-                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={11}>
+                    <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={10}>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton onClick={() => setCollapseWaiting(!collapseWaiting)} sx={{ mr: 0.75, p: 0 }}>
                           <ArrowDropDownCircleOutlinedIcon
@@ -246,7 +246,7 @@ export default function AppointmentTable({
               </TableHead>
               <TableBody>
                 <TableRow>
-                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={11}>
+                  <TableCell sx={{ backgroundColor: alpha(theme.palette.secondary.main, 0.08) }} colSpan={10}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <IconButton onClick={() => setCollapseExam(!collapseExam)} sx={{ mr: 0.75, p: 0 }}>
                         <ArrowDropDownCircleOutlinedIcon
