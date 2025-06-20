@@ -3,6 +3,7 @@ import { Address, ContactPoint, LocationHoursOfOperation, Schedule, Slot } from 
 import {
   apiErrorToThrow,
   AssignPractitionerInput,
+  AssignPractitionerResponse,
   CancelAppointmentZambdaInput,
   CancelRadiologyOrderZambdaInput,
   CancelTelemedAppointmentZambdaInput,
@@ -11,8 +12,8 @@ import {
   ChangeInPersonVisitStatusResponse,
   chooseJson,
   CollectInHouseLabSpecimenParameters,
-  ConversationMessage,
   CreateAppointmentInputParams,
+  CreateAppointmentResponse,
   CreateInHouseLabOrderParameters,
   CreateInHouseLabOrderResponse,
   CreateLabOrderParameters,
@@ -28,6 +29,8 @@ import {
   DeleteLabOrderParams,
   GetAppointmentsZambdaInput,
   GetAppointmentsZambdaOutput,
+  GetConversationInput,
+  GetConversationZambdaOutput,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   GetEmployeesResponse,
@@ -45,6 +48,7 @@ import {
   GetVisitLabelInput,
   HandleInHouseLabResultsParameters,
   InHouseGetOrdersResponseDTO,
+  InviteParticipantRequestParameters,
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
@@ -63,6 +67,7 @@ import {
   UpdateNursingOrderParameters,
   UpdateScheduleParams,
   UpdateUserParams,
+  UpdateUserZambdaOutput,
 } from 'utils';
 
 export interface PatchOperation {
@@ -195,7 +200,10 @@ export const getAppointments = async (
   }
 };
 
-export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppointmentInputParams): Promise<any> => {
+export const createAppointment = async (
+  oystehr: Oystehr,
+  parameters: CreateAppointmentInputParams
+): Promise<CreateAppointmentResponse> => {
   try {
     if (CREATE_APPOINTMENT_ZAMBDA_ID == null) {
       throw new Error('create appointment environment variable could not be loaded');
@@ -208,6 +216,7 @@ export const createAppointment = async (oystehr: Oystehr, parameters: CreateAppo
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
+    throw error;
   }
 };
 
@@ -253,13 +262,7 @@ export const cancelTelemedAppointment = async (
 
 export const inviteParticipant = async (
   oystehr: Oystehr,
-  parameters: {
-    appointmentId: string;
-    firstName: string;
-    lastName: string;
-    emailAddress: string;
-    phoneNumber: string;
-  }
+  parameters: InviteParticipantRequestParameters
 ): Promise<void> => {
   try {
     if (INVITE_PARTICIPANT_ZAMBDA_ID == null) {
@@ -293,7 +296,7 @@ export const createUser = async (oystehr: Oystehr, parameters: CreateUserParams)
   }
 };
 
-export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams): Promise<any> => {
+export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams): Promise<UpdateUserZambdaOutput> => {
   try {
     if (UPDATE_USER_ZAMBDA_ID == null) {
       throw new Error('update user environment variable could not be loaded');
@@ -309,7 +312,10 @@ export const updateUser = async (oystehr: Oystehr, parameters: UpdateUserParams)
   }
 };
 
-export const assignPractitioner = async (oystehr: Oystehr, parameters: AssignPractitionerInput): Promise<any> => {
+export const assignPractitioner = async (
+  oystehr: Oystehr,
+  parameters: AssignPractitionerInput
+): Promise<AssignPractitionerResponse> => {
   try {
     if (ASSIGN_PRACTITIONER_ZAMBDA_ID == null) {
       throw new Error('assign practitioner environment variable could not be loaded');
@@ -398,14 +404,10 @@ export const deactivateUser = async (
   }
 };
 
-interface GetConversationParams {
-  smsNumbers: string[];
-  timezone: string;
-}
 export const getConversation = async (
   oystehr: Oystehr,
-  parameters: GetConversationParams
-): Promise<ConversationMessage[]> => {
+  parameters: GetConversationInput
+): Promise<GetConversationZambdaOutput> => {
   try {
     if (GET_CONVERSATION_ZAMBDA_ID == null) {
       throw new Error('GET_CONVERSATION_ZAMBDA_ID environment variable could not be loaded');

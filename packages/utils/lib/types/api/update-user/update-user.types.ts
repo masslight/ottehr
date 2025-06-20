@@ -20,3 +20,7 @@ export interface UpdateUserParams {
   addressState?: string;
   addressZip?: string;
 }
+
+export interface UpdateUserZambdaOutput {
+  message: string;
+}

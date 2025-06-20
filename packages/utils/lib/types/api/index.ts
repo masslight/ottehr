@@ -11,6 +11,7 @@ export * from './deactivate-user.types';
 export * from './encounter.types';
 export * from './get-appointments.types';
 export * from './get-employees';
+export * from './get-conversation.types';
 export * from './get-presigned-file-url';
 export * from './get-user.types';
 export * from './icd-search';
