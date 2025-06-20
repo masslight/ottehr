@@ -50,8 +50,8 @@ export const Visit_Status_Array = [
 ] as const;
 export type VISIT_STATUS_TYPE = typeof Visit_Status_Array;
 export type VisitStatusLabel = VISIT_STATUS_TYPE[number];
-export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel, 'unknown'>;
-export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown, 'ready'>;
+export type VisitStatusWithoutUnknown = Exclude<VisitStatusLabel[number], 'unknown'>;
+export type VisitStatusHistoryLabel = Exclude<VisitStatusWithoutUnknown[number], 'ready'>;
 
 export const visitStatusToFhirAppointmentStatusMap: Record<VisitStatusWithoutUnknown, FhirAppointmentStatus> = {
   pending: 'booked',
