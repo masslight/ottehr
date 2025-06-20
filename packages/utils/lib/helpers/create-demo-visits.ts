@@ -206,19 +206,22 @@ export const createSampleAppointments = async ({
 
         console.log(`Appointment ${i + 1} created successfully.`);
 
-        let appointmentData = await createAppointmentResponse.json();
+        const appointmentData = await createAppointmentResponse.json();
 
-        if ((appointmentData as any)?.output) {
-          appointmentData = (appointmentData as any).output as CreateAppointmentResponse;
+        if (!appointmentData.output) {
+          console.error('Error: appointment data output is missing');
+          throw new Error('Error: appointment data output is missing');
         }
 
-        if (!appointmentData) {
+        const typedAppointment = appointmentData.output as CreateAppointmentResponse;
+
+        if (!typedAppointment) {
           console.error('Error: appointment data is null');
           throw new Error('Error: appointment data is null');
         }
 
         await processPaperwork(
-          appointmentData,
+          typedAppointment,
           randomPatientInfo.patient,
           zambdaUrl,
           authToken,
@@ -230,13 +233,13 @@ export const createSampleAppointments = async ({
         // If it's a virtual appointment, mark it as 'arrived'
         if (serviceModeToUse === ServiceMode.virtual) {
           await oystehr.fhir.patch<Appointment>({
-            id: appointmentData.appointment!,
+            id: typedAppointment.appointmentId,
             resourceType: 'Appointment',
             operations: [{ op: 'replace', path: '/status', value: 'arrived' }],
           });
         }
 
-        return appointmentData;
+        return typedAppointment;
       } catch (error) {
         console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
         throw error;
