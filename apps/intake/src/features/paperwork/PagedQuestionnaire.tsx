@@ -17,6 +17,7 @@ import {
   Button,
   Card,
 } from '@mui/material';
+import _ from 'lodash';
 import { FC, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Controller, FormProvider, useForm, useFormContext } from 'react-hook-form';
 import {
@@ -166,18 +167,18 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   saveProgress,
 }) => {
   const { paperwork, allItems } = usePaperworkContext();
-
-  // console.log('questionnaireResponse', questionnaireResponse?.questionnaire, questionnaireResponse?.id);
-
-  // console.log('paperwork', JSON.stringify(paperwork, null, 2));
-  // console.log('items', JSON.stringify(allItems, null, 2));
+  const [cache, setCache] = useState({
+    pageId,
+    items,
+    defaultValues,
+  });
 
   const validationSchema = makeValidationSchema(items, pageId, {
     values: paperwork,
     items: allItems,
   }) as AnyObjectSchema;
   const methods = useForm({
-    mode: 'onSubmit', // onBlur doesnt seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
+    mode: 'onSubmit', // onBlur doesn't seem to work but we use onBlur of FormControl in NestedInput to implement the desired behavior
     reValidateMode: 'onChange',
     context: paperwork,
     defaultValues,
@@ -188,12 +189,17 @@ const PagedQuestionnaire: FC<PagedQuestionnaireInput> = ({
   const { reset } = methods;
 
   useEffect(() => {
-    if (items) {
+    if (
+      items &&
+      (cache.pageId !== pageId || !_.isEqual(cache.items, items) || !_.isEqual(cache.defaultValues, defaultValues))
+    ) {
+      setCache({ pageId, items, defaultValues });
+      console.log('resetting form with default values');
       reset({
         ...(defaultValues ?? {}),
       });
     }
-  }, [defaultValues, items, reset, pageId]);
+  }, [cache, defaultValues, items, reset, pageId]);
 
   return (
     <FormProvider {...methods}>

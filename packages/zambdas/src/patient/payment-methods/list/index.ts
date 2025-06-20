@@ -1,21 +1,22 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
-import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
-import { validateRequestParameters } from './validateRequestParameters';
-import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
+import { Account } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import {
   CreditCardInfo,
   FHIR_RESOURCE_NOT_FOUND,
   getStripeCustomerIdFromAccount,
   ListPaymentMethodsZambdaOutput,
 } from 'utils';
-import { Account } from 'fhir/r4b';
-import Stripe from 'stripe';
-import { DateTime } from 'luxon';
+import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
+import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
@@ -110,7 +111,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.error(error);
     return topLevelCatch('payment-methods-list', error, input.secrets);
   }
-};
+});
 
 const filterExpired = (cardList: CreditCardInfo[]): CreditCardInfo[] => {
   const isExpired = (month: number, year: number): boolean => {

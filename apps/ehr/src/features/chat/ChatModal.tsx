@@ -33,7 +33,7 @@ import { CompleteConfiguration } from '../../components/CompleteConfiguration';
 function scrollToBottomOfChat(): void {
   // this helps with the scroll working,
   // not sure why setting it to 0 works.
-  // maybe the element scrollheight isn't set
+  // maybe the element scrollHeight isn't set
   // and this waiting helps?
   setTimeout(() => {
     const element = document.getElementById('message-container');
@@ -108,7 +108,7 @@ const ChatModal = memo(
       patientName = `${patientFromAppointment?.firstName || ''} ${patientFromAppointment?.lastName || ''}`;
 
     const numbersToSendTo = useMemo(() => {
-      const numbers = (model?.recipients ?? []).map((recip) => recip.smsNumber);
+      const numbers = (model?.recipients ?? []).map((recipient) => recipient.smsNumber);
       const uniqueNumbers = Array.from(new Set(numbers));
       if (uniqueNumbers.length === 0) {
         return undefined;
@@ -240,7 +240,7 @@ const ChatModal = memo(
             contentKey={contentKey}
             message={message}
             hasNewMessageLine={newMessagesStartId !== undefined && message.id === newMessagesStartId}
-            showDaySent={true} //keeping this config incase minds change again, YAGNI, I know
+            showDaySent={true} //keeping this config in case minds change again, YAGNI, I know
           />
         );
       });

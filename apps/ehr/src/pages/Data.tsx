@@ -92,7 +92,7 @@ enum TimeRange {
 
 export default function Data(): React.ReactElement {
   const [appointmentCountByDate, setAppointmentCountByDate] = React.useState<AppointmentCount[] | undefined>(undefined);
-  const [appointmentStati, setAppointmentStati] = React.useState<
+  const [appointmentStatuses, setAppointmentStatuses] = React.useState<
     { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } | undefined
   >(undefined);
   const [appointmentsSeenIn45Ratio, setAppointmentsSeenIn45Ratio] = React.useState<number | undefined>(undefined);
@@ -103,8 +103,8 @@ export default function Data(): React.ReactElement {
   const [visitType, setVisitType] = React.useState<FhirAppointmentType | VisitTypeAll>(VisitTypeAll.All);
   const [filterStartDate, setStartFilterDate] = React.useState<DateTime | null>(DateTime.now());
   const [filterEndDate, setEndFilterDate] = React.useState<DateTime | null>(DateTime.now());
-  const [customfilterStartDate, setCustomStartFilterDate] = React.useState<DateTime | null>(null);
-  const [customfilterEndDate, setCustomEndFilterDate] = React.useState<DateTime | null>(null);
+  const [customFilterStartDate, setCustomStartFilterDate] = React.useState<DateTime | null>(null);
+  const [customFilterEndDate, setCustomEndFilterDate] = React.useState<DateTime | null>(null);
   const [loading, setLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
   const [now] = React.useState<DateTime>(DateTime.now());
@@ -203,14 +203,16 @@ export default function Data(): React.ReactElement {
         });
         console.log('visitCountByDay', visitCountByDay);
 
-        const statiCount: { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } = {
+        const statusesCount: { [status in VisitStatusHistoryLabel]: VisitStatusMetrics } = {
           pending: { numAppointments: 0, averageTime: 0 },
           arrived: { numAppointments: 0, averageTime: 0 },
           intake: { numAppointments: 0, averageTime: 0 },
           'ready for provider': { numAppointments: 0, averageTime: 0 },
           provider: { numAppointments: 0, averageTime: 0 },
           'ready for discharge': { numAppointments: 0, averageTime: 0 },
-          unknown: { numAppointments: 0, averageTime: 0 },
+          cancelled: { numAppointments: 0, averageTime: 0 },
+          'no show': { numAppointments: 0, averageTime: 0 },
+          completed: { numAppointments: 0, averageTime: 0 },
         };
 
         let patientToProviderIn45Count = 0; // count of appointments where the patient was seen by provider within 45 minutes of arriving
@@ -226,10 +228,10 @@ export default function Data(): React.ReactElement {
                   .diff(DateTime.fromISO(statusPeriod.start), 'minutes')
                   .toObject().minutes;
                 if (statusTime) {
-                  statiCount[statusName].averageTime =
-                    (statiCount[statusName].numAppointments * statiCount[statusName].averageTime + statusTime) /
-                    (statiCount[statusName].numAppointments + 1);
-                  statiCount[statusName].numAppointments = statiCount[statusName].numAppointments + 1;
+                  statusesCount[statusName].averageTime =
+                    (statusesCount[statusName].numAppointments * statusesCount[statusName].averageTime + statusTime) /
+                    (statusesCount[statusName].numAppointments + 1);
+                  statusesCount[statusName].numAppointments = statusesCount[statusName].numAppointments + 1;
                 }
               }
               if (statusName === 'arrived') {
@@ -248,7 +250,7 @@ export default function Data(): React.ReactElement {
             if (minutesToProviderTemp <= 45) patientToProviderIn45Count += 1;
             minutesToProvider.push(minutesToProviderTemp);
           }
-          setAppointmentStati(statiCount);
+          setAppointmentStatuses(statusesCount);
         });
 
         if (formattedAppointments.length) {
@@ -262,7 +264,7 @@ export default function Data(): React.ReactElement {
             setAvgMinutesToProvider(Math.round(avgMinutesToProviderTemp * 10) / 10);
           }
         } else {
-          setAppointmentStati(statiCount);
+          setAppointmentStatuses(statusesCount);
         }
 
         setLoading(false);
@@ -287,15 +289,15 @@ export default function Data(): React.ReactElement {
   }, [oystehr, now, visitType, filterStartDate, filterEndDate, locationSelected]);
 
   const handleCustomTimeRange = (): void => {
-    if (customfilterEndDate && customfilterStartDate) {
-      setStartFilterDate(customfilterStartDate);
-      setEndFilterDate(customfilterEndDate);
+    if (customFilterEndDate && customFilterStartDate) {
+      setStartFilterDate(customFilterStartDate);
+      setEndFilterDate(customFilterEndDate);
     }
   };
 
   const setFilterDates = (range: TimeRange): void => {
     let startDate, endDate;
-    if (range !== TimeRange.Custom && (customfilterEndDate || customfilterStartDate)) {
+    if (range !== TimeRange.Custom && (customFilterEndDate || customFilterStartDate)) {
       setCustomStartFilterDate(null);
       setCustomEndFilterDate(null);
     }
@@ -424,7 +426,7 @@ export default function Data(): React.ReactElement {
                           label: 'Start Date',
                         },
                       }}
-                      value={customfilterStartDate}
+                      value={customFilterStartDate}
                     />
                   </LocalizationProvider>
                 </Grid>
@@ -442,7 +444,7 @@ export default function Data(): React.ReactElement {
                           label: 'End Date',
                         },
                       }}
-                      value={customfilterEndDate}
+                      value={customFilterEndDate}
                     />
                   </LocalizationProvider>
                 </Grid>
@@ -498,7 +500,7 @@ export default function Data(): React.ReactElement {
             </Typography>
           </Grid>
         )}
-        {!loading && !error && appointmentStati && (
+        {!loading && !error && appointmentStatuses && (
           <>
             {singleNumberMetrics.map((metric, index) => (
               <Grid key={index} item md={4} xs={12} sx={{ width: '33%' }}>
@@ -611,7 +613,7 @@ export default function Data(): React.ReactElement {
                   )}, select "table" in the button group above for a table version`}
                   role="img"
                   data={{
-                    labels: Object.keys(appointmentStati).filter(
+                    labels: Object.keys(appointmentStatuses).filter(
                       (keyTemp) =>
                         keyTemp !== 'no show' &&
                         keyTemp !== 'canceled' &&
@@ -621,7 +623,7 @@ export default function Data(): React.ReactElement {
                     datasets: [
                       {
                         label: 'Status',
-                        data: Object.keys(appointmentStati)
+                        data: Object.keys(appointmentStatuses)
                           .filter(
                             (keyTemp) =>
                               keyTemp !== 'no show' &&
@@ -630,9 +632,9 @@ export default function Data(): React.ReactElement {
                               keyTemp !== 'pending'
                           )
                           .map((keyTemp) =>
-                            Math.round(appointmentStati[keyTemp as VisitStatusHistoryLabel].averageTime)
+                            Math.round(appointmentStatuses[keyTemp as VisitStatusHistoryLabel].averageTime)
                           ),
-                        backgroundColor: Object.keys(appointmentStati).map(
+                        backgroundColor: Object.keys(appointmentStatuses).map(
                           (statusTemp) => CHIP_STATUS_MAP[statusTemp as VisitStatusLabel].color.primary
                         ),
                       },
@@ -669,7 +671,7 @@ export default function Data(): React.ReactElement {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {Object.entries(appointmentStati).map(([statusTemp, averageTimeTemp]) => (
+                      {Object.entries(appointmentStatuses).map(([statusTemp, averageTimeTemp]) => (
                         <TableRow>
                           <TableCell>{statusTemp}</TableCell>
                           <TableCell>{Math.floor(averageTimeTemp.averageTime)}</TableCell>

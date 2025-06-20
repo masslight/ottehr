@@ -732,10 +732,8 @@ export class Paperwork {
     const insuranceOptionalData = await this.fillInsuranceOptionalFields(true);
     return { insuranceRequiredData, insuranceOptionalData };
   }
-  async fillResponsiblePartyDataSelf(): Promise<{ phone: string }> {
+  async fillResponsiblePartyDataSelf(): Promise<void> {
     await this.fillResponsiblePartySelfRelationship();
-    const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
-    return { phone };
   }
   async fillResponsiblePartyDataNotSelf(): Promise<{
     relationship: string;
@@ -756,7 +754,7 @@ export class Paperwork {
     const { paperworkDOB } = await this.fillPaperworkDOB(this.locator.responsiblePartyDOBAnswer);
     const { address: address1 } = await this.fillResponsiblePartyAddress();
     const { city } = await this.fillResponsiblePartyCity();
-    const { state } = await this.fillResponsiblePartytState();
+    const { state } = await this.fillResponsiblePartyState();
     const { zip } = await this.fillResponsiblePartyZip();
     const { address: additionalAddress } = await this.fillResponsiblePartyAdditionalAddress();
     const { formattedPhoneNumber: phone } = await this.fillResponsiblePartyPhone();
@@ -838,7 +836,7 @@ export class Paperwork {
     await this.locator.responsiblePartyCity.fill(city);
     return { city };
   }
-  async fillResponsiblePartytState(): Promise<{ state: string }> {
+  async fillResponsiblePartyState(): Promise<{ state: string }> {
     // const nyState = 'NY';
     await this.locator.responsiblePartyState.click();
     // await this.locator.responsiblePartyState.fill(nyState);

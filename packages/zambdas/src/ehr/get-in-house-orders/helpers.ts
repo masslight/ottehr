@@ -38,13 +38,13 @@ import {
   getFullestAvailableName,
   PRACTITIONER_CODINGS,
   TestStatus,
-  IN_HOUSE_TAG_DEFINITION,
   IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
 import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 import {
   determineOrderStatus,
   buildOrderHistory,
+  getUrlAndVersionForADFromServiceRequest,
   getServiceRequestsRelatedViaRepeat,
   fetchResultResourcesForRepeatServiceRequest,
 } from '../shared/inhouse-labs';
@@ -111,10 +111,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
         })
       );
     } catch (error) {
-      console.error(
-        `Error parsing order data for service request ${serviceRequest.id}:`,
-        typeof error === 'string' ? error : JSON.stringify(error, null, 2)
-      );
+      console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
       void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
     }
   }
@@ -155,6 +152,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   currentPractitionerId?: string;
   timezone?: string;
 }): InHouseGetOrdersResponseDTO<SearchBy>['data'][number] => {
+  console.log('parsing inhouse order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -173,9 +171,11 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
 
   const testItem = convertActivityDefinitionToTestItem(activityDefinition, observations, serviceRequest);
   const orderStatus = determineOrderStatus(serviceRequest, tasks);
+  console.log('orderStatus:', orderStatus);
   const attendingPractitioner = parseAttendingPractitioner(encounter, practitioners);
   const diagnosisDTO = parseDiagnoses(serviceRequest);
 
+  console.log('formatting listPageDTO');
   const listPageDTO: InHouseOrderListPageItemDTO = {
     appointmentId: appointmentId,
     testItemName: testItem.name,
@@ -190,6 +190,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
+    console.log('serchBy field === serviceRequestId - indicates request was triggered on detail page');
     const relatedSpecimen = specimens.find(
       (specimen) => specimen.request?.some((req) => req.reference === `ServiceRequest/${serviceRequest.id}`)
     );
@@ -274,8 +275,17 @@ export const getInHouseResources = async (
 
   const pagination = parsePaginationFromResponse(inHouseOrdersResponse);
 
-  const { serviceRequests, tasks, encounters, locations, provenances, specimens, observations, diagnosticReports } =
-    extractInHouseResources(resources);
+  const {
+    serviceRequests,
+    tasks,
+    encounters,
+    locations,
+    provenances,
+    specimens,
+    observations,
+    diagnosticReports,
+    activityDefinitions,
+  } = extractInHouseResources(resources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
@@ -317,10 +327,9 @@ export const getInHouseResources = async (
 
   const timezone = locations[0] ? getTimezone(locations[0]) : undefined;
 
-  const [practitioners, appointments, activityDefinitions] = await Promise.all([
+  const [practitioners, appointments] = await Promise.all([
     fetchPractitionersForServiceRequests(oystehr, serviceRequests, encounters),
     fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchActivityDefinitions(oystehr),
   ]);
 
   return {
@@ -386,6 +395,10 @@ export const createInHouseServiceRequestSearchParams = (params: GetZambdaInHouse
     {
       name: '_include:iterate',
       value: 'Encounter:location',
+    },
+    {
+      name: '_include',
+      value: 'ServiceRequest:instantiates-canonical',
     },
   ];
 
@@ -467,6 +480,7 @@ export const extractInHouseResources = (
   specimens: Specimen[];
   observations: Observation[];
   diagnosticReports: DiagnosticReport[];
+  activityDefinitions: ActivityDefinition[];
 } => {
   const serviceRequests: ServiceRequest[] = [];
   const tasks: Task[] = [];
@@ -476,6 +490,7 @@ export const extractInHouseResources = (
   const specimens: Specimen[] = [];
   const observations: Observation[] = [];
   const diagnosticReports: DiagnosticReport[] = [];
+  const activityDefinitions: ActivityDefinition[] = [];
 
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
@@ -494,6 +509,8 @@ export const extractInHouseResources = (
       observations.push(resource);
     } else if (resource.resourceType === 'DiagnosticReport') {
       diagnosticReports.push(resource);
+    } else if (resource.resourceType === 'ActivityDefinition') {
+      activityDefinitions.push(resource);
     }
   }
 
@@ -506,6 +523,7 @@ export const extractInHouseResources = (
     specimens,
     observations,
     diagnosticReports,
+    activityDefinitions,
   };
 };
 
@@ -581,26 +599,17 @@ export const fetchAppointmentsForServiceRequests = async (
   return appointmentsResponse.unbundle();
 };
 
-export const fetchActivityDefinitions = async (oystehr: Oystehr): Promise<ActivityDefinition[]> => {
-  return oystehr.fhir
-    .search<ActivityDefinition>({
-      resourceType: 'ActivityDefinition',
-      params: [
-        { name: '_tag', value: IN_HOUSE_TAG_DEFINITION.code },
-        { name: 'status', value: 'active' },
-      ],
-    })
-    .then((response) => response.unbundle());
-};
-
 export const findActivityDefinitionForServiceRequest = (
   serviceRequest: ServiceRequest,
   activityDefinitions: ActivityDefinition[]
 ): ActivityDefinition | undefined => {
-  const canonicalUrl = serviceRequest.instantiatesCanonical?.[0];
-  if (!canonicalUrl) return undefined;
+  const { url, version } = getUrlAndVersionForADFromServiceRequest(serviceRequest);
 
-  return activityDefinitions.find((ad) => ad.url === canonicalUrl);
+  return activityDefinitions.find((ad) => {
+    const versionMatch = ad.version === version;
+    const urlMatch = ad.url === url;
+    return versionMatch && urlMatch;
+  });
 };
 
 export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {

@@ -1,27 +1,27 @@
+import { BatchInputRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
+import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
-  Secrets,
   CollectInHouseLabSpecimenParameters,
   IN_HOUSE_LAB_TASK,
   PRACTITIONER_CODINGS,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
+  Secrets,
 } from 'utils';
 import {
   ZambdaInput,
-  topLevelCatch,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
+  topLevelCatch,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ServiceRequest, Specimen, Task, FhirResource, Encounter } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { BatchInputRequest } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
-
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
 
   let secrets = input.secrets;
@@ -218,4 +218,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   }
-};
+});

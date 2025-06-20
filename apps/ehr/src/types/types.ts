@@ -1,14 +1,6 @@
 import { User } from '@oystehr/sdk';
 import { Appointment, Coding, Practitioner, Slot } from 'fhir/r4b';
-import {
-  FhirAppointmentType,
-  OTTEHR_MODULE,
-  PatientFollowupDetails,
-  PractitionerLicense,
-  ScheduleType,
-  ServiceMode,
-  VisitStatusWithoutUnknown,
-} from 'utils';
+import { FhirAppointmentType, OTTEHR_MODULE, PatientFollowupDetails, ScheduleType, ServiceMode } from 'utils';
 
 export interface GetAppointmentsParameters {
   searchDate?: string;
@@ -48,35 +40,10 @@ export type PatientInfo = {
   reasonAdditional?: string;
 };
 
-export interface UpdateUserParameters {
-  userId: string | undefined;
-  firstName?: string;
-  middleName?: string;
-  lastName?: string;
-  nameSuffix?: string;
-  selectedRoles?: string[] | undefined;
-  licenses?: PractitionerLicense[];
-  phoneNumber?: string;
-  npi?: string;
-  // locations: Location[];
-}
-
-export interface AssignPractitionerParameters {
-  encounterId: string | undefined;
-  practitioner: Practitioner | undefined;
-  userRole: Coding[];
-}
-
 export interface UnassignPractitionerParameters {
   encounterId: string | undefined;
   practitioner: Practitioner | undefined;
   userRole: Coding[];
-}
-
-export interface ChangeInPersonVisitStatusParameters {
-  encounterId: string | undefined;
-  user: User | undefined;
-  updatedStatus: VisitStatusWithoutUnknown | undefined;
 }
 
 export { AllStates } from 'utils';
@@ -85,23 +52,6 @@ export type { State, StateType } from 'utils';
 export interface DeactivateUserParameters {
   user: User | undefined;
   // locations: Location[];
-}
-
-export interface CancelAppointmentParameters {
-  appointmentID: string;
-  cancellationReason: CancellationReasonOptions;
-}
-
-export enum CancellationReasonOptions {
-  'Patient improved' = 'Patient improved',
-  'Wait time too long' = 'Wait time too long',
-  'Prefer another provider' = 'Prefer another provider',
-  'Changing location' = 'Changing location',
-  'Changing to telemedicine' = 'Changing to telemedicine',
-  'Financial responsibility concern' = 'Financial responsibility concern',
-  'Insurance issue' = 'Insurance issue',
-  'Service never offered' = 'Service never offered',
-  'Duplicate visit or account error' = 'Duplicate visit or account error',
 }
 
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';
@@ -119,13 +69,13 @@ export enum VisitType {
   PostTelemed = 'post-telemed',
 }
 
-export const VisitTypeToLabel: { [visittype in VisitType]: string } = {
+export const VisitTypeToLabel: { [visitType in VisitType]: string } = {
   'walk-in': 'Walk-in In Person Visit',
   'pre-booked': 'Pre-booked In Person Visit',
   'post-telemed': 'Post Telemed Lab Only',
 };
 
-export const VisitTypeToLabelTelemed: { [visittype in VisitType]: string } = {
+export const VisitTypeToLabelTelemed: { [visitType in VisitType]: string } = {
   'walk-in': 'On-demand Telemed',
   'pre-booked': 'Pre-booked Telemed',
   'post-telemed': 'Post Telemed Lab Only',

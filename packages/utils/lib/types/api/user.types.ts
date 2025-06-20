@@ -3,6 +3,13 @@ import { Coding, Practitioner } from 'fhir/r4b';
 
 export type User = OystehrUser & {
   profileResource?: Practitioner;
+  faxNumber?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressZip?: string;
+  birthDate?: string;
 };
 
 export enum RoleType {

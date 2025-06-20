@@ -6,7 +6,6 @@ import {
   INSURANCE_CARD_CODE,
   PATIENT_PHOTO_CODE,
   PHOTO_ID_CARD_CODE,
-  PHOTON_PRACTITIONER_ENROLLED,
   PRIVACY_POLICY_CODE,
   RECEIPT_CODE,
   SCHOOL_WORK_NOTE_CODE,
@@ -91,12 +90,6 @@ export const FHIR_EXTENSION = {
       url: 'https://extensions.fhir.oystehr.com/contact-point/telecom-phone-erx',
     },
   },
-  Practitioner: {
-    isEnrolledInPhoton: {
-      url: PHOTON_PRACTITIONER_ENROLLED,
-    },
-  },
-
   InsurancePlan: {
     insuranceRequirements: {
       url: `${PUBLIC_EXTENSION_BASE_URL}/insurance-requirements`,
@@ -355,8 +348,13 @@ export const FOLDERS_CONFIG: ListConfig[] = [
   },
   {
     title: 'insurance-cards',
-    display: 'Ins Cards / Photo ID',
-    documentTypeCode: [INSURANCE_CARD_CODE, PHOTO_ID_CARD_CODE],
+    display: 'Insurance Cards',
+    documentTypeCode: INSURANCE_CARD_CODE,
+  },
+  {
+    title: 'photo-ids',
+    display: 'Photo ID',
+    documentTypeCode: PHOTO_ID_CARD_CODE,
   },
   {
     title: 'patient-photos',
@@ -364,9 +362,14 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
-    title: 'school-work-note-templates',
+    title: 'school-work-note',
     display: 'School/Work Notes',
-    documentTypeCode: [SCHOOL_WORK_NOTE_TEMPLATE_CODE, SCHOOL_WORK_NOTE_CODE],
+    documentTypeCode: SCHOOL_WORK_NOTE_CODE,
+  },
+  {
+    title: 'school-work-note-templates',
+    display: 'School/Work Note templates',
+    documentTypeCode: SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   },
   {
     title: 'receipts',

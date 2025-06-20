@@ -1,4 +1,5 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -7,8 +8,8 @@ import {
   createOystehrClient,
   FHIR_RESOURCE_NOT_FOUND,
   getClosingTime,
-  getScheduleExtension,
   getOpeningTime,
+  getScheduleExtension,
   getSecret,
   getServiceModeFromScheduleOwner,
   getTimezone,
@@ -30,7 +31,7 @@ import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 
 let zapehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
@@ -57,7 +58,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.error('walkin-check-availability error', error);
     return topLevelCatch('walkin-check-availability', error, input.secrets);
   }
-};
+});
 
 const performEffect = (input: EffectInput): WalkinAvailabilityCheckResult => {
   const { scheduleExtension, serviceMode, timezone, scheduleOwnerName, scheduleId } = input;

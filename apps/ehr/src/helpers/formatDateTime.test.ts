@@ -6,7 +6,6 @@ import {
   formatDateUsingSlashes,
   datesCompareFn,
   formatISODateToLocaleDate,
-  calculateDuration,
   formatISOStringToDateAndTime,
   getTimezone,
 } from './formatDateTime';
@@ -119,22 +118,6 @@ describe('formatDateTime helpers', () => {
 
     it('should handle invalid date strings', () => {
       expect(formatISODateToLocaleDate('invalid-date')).toBe('Invalid DateTime');
-    });
-  });
-
-  describe('calculateDuration', () => {
-    it('should calculate duration in minutes correctly', () => {
-      expect(calculateDuration('2023-05-15T10:00:00', '2023-05-15T11:30:00')).toBe(90);
-      expect(calculateDuration('2023-05-15T00:00:00', '2023-05-16T00:00:00')).toBe(1440);
-      expect(calculateDuration('2023-05-15T23:59:00', '2023-05-16T00:01:00')).toBe(2);
-    });
-
-    it('should handle negative durations', () => {
-      expect(calculateDuration('2023-05-15T11:30:00', '2023-05-15T10:00:00')).toBe(-90);
-    });
-
-    it('should handle durations across DST changes', () => {
-      expect(calculateDuration('2023-03-12T01:30:00', '2023-03-12T03:30:00')).toBe(120);
     });
   });
 

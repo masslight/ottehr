@@ -1,18 +1,17 @@
 import Oystehr from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Appointment, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { Appointment, Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { AssignPractitionerInput, AssignPractitionerResponse } from 'utils';
-import { ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
 import { assignPractitionerIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
-
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -37,7 +36,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error assigning encounter participant' }),
     };
   }
-};
+});
 
 export const complexValidation = async (
   oystehr: Oystehr,
@@ -48,7 +47,7 @@ export const complexValidation = async (
   appointment: Appointment;
   practitionerRole?: PractitionerRole;
   practitioner: Practitioner;
-  userRole: any;
+  userRole: Coding[];
 }> => {
   const { encounterId, practitioner, userRole } = params;
 
@@ -84,7 +83,7 @@ export const performEffect = async (
     appointment: Appointment;
     practitionerRole?: PractitionerRole;
     practitioner: Practitioner;
-    userRole: any;
+    userRole: Coding[];
   }
 ): Promise<AssignPractitionerResponse> => {
   const { encounter, appointment, practitionerRole, practitioner, userRole } = validatedData;
