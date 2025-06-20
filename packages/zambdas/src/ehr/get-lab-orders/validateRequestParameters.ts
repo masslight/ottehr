@@ -20,6 +20,10 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaLabOrder
     throw new Error(`Missing searchBy field or value: ${JSON.stringify(searchBy)}`);
   }
 
+  if (searchBy.field === 'encounterIds' && !Array.isArray(searchBy.value)) {
+    throw new Error('Invalid encounterIds. Must be an array');
+  }
+
   if (typeof itemsPerPage !== 'number' || isNaN(itemsPerPage) || itemsPerPage < 1) {
     throw new Error('Invalid parameter: itemsPerPage must be a number greater than 0');
   }

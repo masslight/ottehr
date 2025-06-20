@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 
 import { Operation } from 'fast-json-patch';
 
+import { wrapHandler } from '@sentry/aws-serverless';
 import {
   AllergyIntolerance,
   Bundle,
@@ -28,7 +29,6 @@ import {
   MedicationDTO,
   ObservationDTO,
 } from 'utils';
-import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, ZambdaInput } from '../../shared';
 import {
   chartDataResourceHasMetaTagByCode,
@@ -38,6 +38,7 @@ import {
 } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
 import { deleteZ3Object } from '../../shared/z3Utils';
+import { createFindResourceRequestByPatientField } from '../get-chart-data/helpers';
 import { deleteResourceRequest, getEncounterAndRelatedResources } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -55,7 +56,7 @@ type ChartData =
   | Procedure
   | ServiceRequest;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
@@ -298,4 +299,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 500,
     };
   }
-};
+});

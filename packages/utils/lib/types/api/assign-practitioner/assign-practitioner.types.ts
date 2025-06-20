@@ -4,8 +4,15 @@ import { Secrets } from '../../../secrets';
 export interface AssignPractitionerInput {
   encounterId: string;
   practitioner: Practitioner;
-  userRole: (code: string, display: string) => Coding[];
+  userRole: Coding[];
+}
+
+export interface AssignPractitionerInputValidated {
+  encounterId: string;
+  practitioner: Practitioner;
+  userRole: Coding[];
   secrets: Secrets | null;
+  userToken: string;
 }
 
 export interface AssignPractitionerResponse {

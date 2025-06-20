@@ -1,9 +1,5 @@
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
-import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
-import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
@@ -39,6 +35,7 @@ import {
   getPatchBinary,
   ROOM_EXTENSION_URL,
   InHouseOrderListPageItemDTO,
+  LabOrderListPageDTO,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
@@ -54,7 +51,7 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
-import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
+import { GenericToolTip } from './GenericToolTip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
 import { otherColors } from 'src/themes/ottehr/colors';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
@@ -62,9 +59,8 @@ import ReasonsForVisit from './ReasonForVisit';
 import { Operation } from 'fast-json-patch';
 import GoToButton from './GoToButton';
 import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
-import { InHouseLabsAppointmentTooltip } from 'src/features/in-house-labs/components/tracking-board/InHouseLabsAppointmentTooltip';
-import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
-import { getInHouseLabsUrl } from 'src/features/css-module/routing/helpers';
+import { InfoIconsToolTip } from './InfoIconsToolTip';
+import { displayOrdersToolTip } from '../helpers';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;
@@ -76,6 +72,7 @@ interface AppointmentTableProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
+  externalLabOrders: LabOrderListPageDTO[] | undefined;
 }
 
 const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
@@ -241,6 +238,7 @@ export default function AppointmentTableRow({
   updateAppointments,
   setEditingComment,
   inHouseLabOrders,
+  externalLabOrders,
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -649,6 +647,16 @@ export default function AppointmentTableRow({
     return undefined;
   };
 
+  // there are two different tooltips that are show on the tracking board depending which tab/section you are on
+  // 1. visit components on prebooked, inoffce/waiting and cancelled
+  // 2. orders on inoffice/inexam and discharged
+  // this bool determins what style mouse should show on hover for the cells that hold these tooltips
+  // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the clicky hand
+  // if visit components, there is always something in this cell, hence the default to true
+  const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
+    ? inHouseLabOrders?.length || externalLabOrders?.length
+    : true;
+
   return (
     <TableRow
       id="appointments-table-row"
@@ -816,61 +824,15 @@ export default function AppointmentTableRow({
       <TableCell
         sx={{
           verticalAlign: 'center',
-          cursor: 'pointer',
+          cursor: `${showPointerForInfoIcons ? 'pointer' : 'auto'}`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <GenericToolTip title={<PaperworkToolTipContent appointment={appointment} />} customWidth="none">
-            <Box sx={{ display: 'flex', gap: 0 }}>
-              <AccountCircleOutlinedIcon
-                sx={{ ml: 0, mr: 0.5, color: appointment.paperwork.demographics ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></AccountCircleOutlinedIcon>
-
-              <HealthAndSafetyOutlinedIcon
-                sx={{ mx: 0.5, color: appointment.paperwork.insuranceCard ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></HealthAndSafetyOutlinedIcon>
-
-              <BadgeOutlinedIcon
-                sx={{ mx: 0.5, color: appointment.paperwork.photoID ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></BadgeOutlinedIcon>
-
-              <AssignmentTurnedInOutlinedIcon
-                sx={{ mx: 0.5, color: appointment.paperwork.consent ? '#43A047' : '#BFC2C6' }}
-                fill={otherColors.cardChip}
-              ></AssignmentTurnedInOutlinedIcon>
-            </Box>
-          </GenericToolTip>
-
-          {!!inHouseLabOrders?.length && (
-            <GenericToolTip
-              title={<InHouseLabsAppointmentTooltip appointmentId={appointment.id} items={inHouseLabOrders} />}
-              customWidth="none"
-              placement="top"
-              leaveDelay={300}
-            >
-              <Link to={getInHouseLabsUrl(appointment.id)} style={{ textDecoration: 'none' }}>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    gap: 0,
-                    color: '#0F347C',
-                    backgroundColor: '#2169F514',
-                    borderRadius: '50%',
-                    width: '28px',
-                    height: '28px',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {sidebarMenuIcons['In-house Labs']}
-                </Box>
-              </Link>
-            </GenericToolTip>
-          )}
-        </div>
+        <InfoIconsToolTip
+          appointment={appointment}
+          tab={tab}
+          inHouseLabOrders={inHouseLabOrders}
+          externalLabOrders={externalLabOrders}
+        />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>
         <AppointmentNote

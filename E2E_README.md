@@ -492,19 +492,25 @@ test('Complete telemedicine booking', async () => {
 
 ## CI/CD Integration
 
-### GitHub Actions Configuration
+### CI Job Architecture
 
-```yaml
-strategy:
-  matrix:
-    app: ['ehr', 'intake']
-    node-version: ['20']
-  fail-fast: false
-```
+The EHR and Intake workflows use different job structures due to their authentication requirements.
+
+**EHR workflow** has a single job that runs all tests sequentially. Provider authentication uses username/password which doesn't have concurrency issues, so tests can run in parallel without problems.
+
+**Intake workflow** uses three jobs to handle SMS authentication challenges:
+
+1. **check-token-validity** - Checks if cached Auth0 token is still valid (>60 minutes remaining). If valid, skips login entirely.
+
+2. **intake-login** - Runs only if token is invalid/expired. Uses concurrency groups to prevent parallel executions since multiple SMS code requests would invalidate each other. The job extends timeout to 9 minutes to handle SMS delivery delays and includes 24 retry attempts.
+
+3. **intake-e2e-tests** - Runs the actual test specs using the cached authentication state. Depends on either successful login or valid existing token.
+
+This architecture solves the problem where multiple PR workflows would request SMS codes simultaneously, causing all but the last to fail. The token caching also reduces load on the SMS service and speeds up test execution when authentication isn't needed.
 
 ### Caching Strategy
 
-- **Node modules**: `~/.npm`
+- **Node modules**: `node_modules`
 - **Playwright browsers**: `~/.cache/ms-playwright`
 - **Authentication context**: `apps/intake/playwright/user.json`
 

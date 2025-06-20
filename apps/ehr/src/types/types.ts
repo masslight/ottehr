@@ -40,12 +40,6 @@ export type PatientInfo = {
   reasonAdditional?: string;
 };
 
-export interface AssignPractitionerParameters {
-  encounterId: string | undefined;
-  practitioner: Practitioner | undefined;
-  userRole: Coding[];
-}
-
 export interface UnassignPractitionerParameters {
   encounterId: string | undefined;
   practitioner: Practitioner | undefined;
@@ -58,23 +52,6 @@ export type { State, StateType } from 'utils';
 export interface DeactivateUserParameters {
   user: User | undefined;
   // locations: Location[];
-}
-
-export interface CancelAppointmentParameters {
-  appointmentID: string;
-  cancellationReason: CancellationReasonOptions;
-}
-
-export enum CancellationReasonOptions {
-  'Patient improved' = 'Patient improved',
-  'Wait time too long' = 'Wait time too long',
-  'Prefer another provider' = 'Prefer another provider',
-  'Changing location' = 'Changing location',
-  'Changing to telemedicine' = 'Changing to telemedicine',
-  'Financial responsibility concern' = 'Financial responsibility concern',
-  'Insurance issue' = 'Insurance issue',
-  'Service never offered' = 'Service never offered',
-  'Duplicate visit or account error' = 'Duplicate visit or account error',
 }
 
 export type EmailUserValue = 'Patient (Self)' | 'Parent/Guardian';

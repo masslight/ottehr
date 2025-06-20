@@ -1,0 +1,113 @@
+name: EHR E2E Tests
+
+env:
+  NODE_VERSION: 20
+  TEST_RESULTS_CACHE_RETENTION_DAYS: 30
+  SECRETS_REPO: masslight/ottehr-secrets
+  PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to run tests on'
+        required: true
+        type: choice
+        options:
+          - local
+          - testing
+          - development
+          - staging
+          - demo
+        default: 'local'
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main, develop, 'release/**']
+    paths:
+      - 'apps/ehr/**'
+      - 'packages/zambdas/**'
+      - 'packages/utils/**'
+      - 'packages/ui-components/**'
+      - '.github/**'
+      - '.prettierignore'
+      - 'package.json'
+
+jobs:
+  ehr-e2e-tests:
+    if: (github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Restore node modules
+        id: npm-cache-restore
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      - name: Install dependencies
+        if: steps.npm-cache-restore.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Restore Playwright browsers
+        id: playwright-cache-restore
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.PLAYWRIGHT_CACHE_PATH }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium
+
+      - name: Check out secrets repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SECRETS_REPO }}
+          ssh-key: ${{ secrets.DEPLOY_OTTEHR_KEY }}
+          path: 'secrets'
+
+      - name: Setup environment
+        run: |
+          setup_env() {
+            mkdir -p "packages/zambdas/.env"
+            cp secrets/zambdas/* "packages/zambdas/.env"
+            mkdir -p "apps/$app/env"
+            cp "secrets/$app/app/tests."*.json "apps/$app/env/"
+            cp "secrets/$app/app/.env"* "apps/$app/env/"
+          }
+
+          for app in ehr intake; do
+            setup_env "$app"
+          done
+      
+      - name: Run E2E tests
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "local" ] || [ "${{ github.event_name }}" == "pull_request" ]; then
+            npm run ehr:e2e:local:integration
+          else
+            npm run ehr:e2e:${{ github.event.inputs.environment }}
+          fi
+        env:
+          CI: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-ehr-${{ github.event.inputs.environment || 'local' }}
+          path: |
+            apps/ehr/playwright-report/
+            apps/ehr/test-results/
+          retention-days: ${{ env.TEST_RESULTS_CACHE_RETENTION_DAYS }}

@@ -1,11 +1,12 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, FhirResource, Person } from 'fhir/r4b';
+import { Coding, FhirResource, Observation, Person } from 'fhir/r4b';
 import { chunkThings, getAllFhirSearchPages } from '../fhir';
 import { sleep } from '../helpers';
 
 export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Promise<boolean> => {
   const allResources = await getAppointmentGraphByTag(oystehr, tag);
+
   const [deleteRequests, persons] = generateDeleteRequestsAndPerson(allResources);
 
   await Promise.all(persons.map((person) => patchPerson(oystehr, person, allResources)));
@@ -14,8 +15,9 @@ export const cleanAppointmentGraph = async (tag: Coding, oystehr: Oystehr): Prom
     console.log(`Deleting resources...`);
     const chunkedRequests = chunkThings(deleteRequests, 100);
     for (let i = 0; i < chunkedRequests.length; i++) {
-      await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
+      const result = await oystehr.fhir.transaction({ requests: [...chunkedRequests[i]] });
       console.log(`successfully deleted resources, chunk ${i + 1} of ${chunkedRequests.length}`);
+      console.log('delete result:', result?.entry?.[0]?.response?.status);
       await sleep(250);
     }
     return true;
@@ -39,7 +41,14 @@ const NEVER_DELETE = [
 const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchInputDeleteRequest[], Person[]] => {
   const deleteRequests: BatchInputDeleteRequest[] = [];
 
-  const persons = allResources.filter((resourceTemp) => resourceTemp.resourceType === 'Person') as Person[];
+  const personsSoFar = new Set<string>();
+  const persons = allResources.filter((resourceTemp) => {
+    if (resourceTemp.resourceType === 'Person' && resourceTemp.id && !personsSoFar.has(resourceTemp.id)) {
+      personsSoFar.add(resourceTemp.id);
+      return true;
+    }
+    return false;
+  }) as Person[];
   const addedSoFar = new Set<string>();
   deleteRequests.push(
     ...allResources.flatMap((resourceTemp) => {
@@ -51,12 +60,12 @@ const generateDeleteRequestsAndPerson = (allResources: FhirResource[]): [BatchIn
           return [] as BatchInputDeleteRequest[];
         }
         addedSoFar.add(url);
-        return { method: 'DELETE', url } as BatchInputDeleteRequest;
+        return [{ method: 'DELETE', url }] as BatchInputDeleteRequest[];
       }
     })
   );
 
-  const deleteMap = deleteRequests.reduce(
+  const deleteMap = [...deleteRequests].reduce(
     (accum, request) => {
       const [resourceType] = request.url.split('/');
       if (resourceType) {
@@ -94,20 +103,12 @@ const patchPerson = async (oystehr: Oystehr, person: Person, allResources: FhirR
     let retries = 0;
     while (retries < 20) {
       const operations: Operation[] = [];
-      for (const relatedPerson of relatedPersons) {
-        const linkIndex =
-          person?.link?.findIndex((linkTemp) => linkTemp.target?.reference === `RelatedPerson/${relatedPerson.id}`) ||
-          -1;
-        if (linkIndex >= 0) {
-          if (person?.link?.length === 1) {
-            operations.push({ op: 'remove', path: '/link' });
-          } else {
-            operations.push({ op: 'remove', path: `/link/${linkIndex}` });
-          }
-        } else {
-          console.log(`RelatedPerson/${relatedPerson.id} link not found in Person ${person?.id}`);
-        }
-      }
+      const newLink = (person.link ?? []).filter((linkTemp) => {
+        return !relatedPersons.some(
+          (relatedPerson) => linkTemp.target?.reference === `RelatedPerson/${relatedPerson.id}`
+        );
+      });
+      operations.push({ op: 'replace', path: '/link', value: newLink });
       try {
         if (operations.length > 0) {
           await oystehr.fhir.patch<Person>(
@@ -151,6 +152,10 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
       {
         name: '_tag',
         value: `${system}|${code}`,
+      },
+      {
+        name: '_sort',
+        value: '-_lastUpdated',
       },
       {
         name: '_include',
@@ -253,14 +258,23 @@ const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<
 
   // we limit the matches per search to 20 because the include list is very large and we want to avoid swelling the overall
   // response size to the point that it exceeds the API Gateway limits
-  const allResources = await getAllFhirSearchPages(appointmentSearchParams, oystehr, 20);
+  const allResources = await getAllFhirSearchPages(appointmentSearchParams, oystehr, 10);
   const allPatientRefs = allResources
     .filter((resourceTemp) => resourceTemp.resourceType === 'Patient')
     .map((p) => `Patient/${p.id}`);
-  const params = [{ name: 'patient', value: allPatientRefs.join(',') }];
 
-  const allObservations =
-    allPatientRefs.length > 0 ? await getAllFhirSearchPages({ resourceType: 'Observation', params }, oystehr) : [];
+  const allObservations: Observation[] = [];
+  const chunksOfPatients = chunkThings(allPatientRefs, 50);
+
+  for (const chunk of chunksOfPatients) {
+    const chunkParams = [{ name: 'patient', value: chunk.join(',') }];
+    const chunkObservations = await getAllFhirSearchPages<Observation>(
+      { resourceType: 'Observation', params: chunkParams },
+      oystehr
+    );
+    allObservations.push(...chunkObservations);
+  }
+
   console.log(`Found ${allResources.length} non-observation resources and ${allObservations.length} observations`);
   return [...allResources, ...allObservations];
 };
