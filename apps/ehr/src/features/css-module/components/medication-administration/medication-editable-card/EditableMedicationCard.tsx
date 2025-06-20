@@ -108,7 +108,6 @@ export const EditableMedicationCard: React.FC<{
         ...updatedRequestInput.orderData,
         patient: resources.patient?.id || '',
         encounter: appointmentId,
-        medicationId: medication?.medicationId === 'medicationId' ? undefined : medication?.medicationId,
       } as MedicationData,
     };
 

@@ -113,13 +113,13 @@ async function updateOrder(
     )}, newStatus: ${newStatus}`
   );
   if (orderData && newMedicationCopy) {
-    await updateMedicationAdministrationData(
+    await updateMedicationAdministrationData({
       oystehr,
       orderData,
       orderResources,
-      practitionerIdCalledZambda,
-      newMedicationCopy
-    );
+      administeredProviderId: newStatus !== undefined ? practitionerIdCalledZambda : undefined,
+      medicationResource: newMedicationCopy,
+    });
     console.log('MedicationAdministration data was successfully updated.');
   }
   if (currentStatus && newStatus) {

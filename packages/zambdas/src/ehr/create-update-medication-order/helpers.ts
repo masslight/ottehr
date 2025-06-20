@@ -77,13 +77,14 @@ export function validateProviderAccess(
     throw new Error(`You can't edit this order, because it was created by another provider`);
 }
 
-export async function updateMedicationAdministrationData(
-  oystehr: Oystehr,
-  orderData: MedicationData,
-  orderResources: OrderPackage,
-  administeredProviderId: string,
-  medicationResource: Medication
-): Promise<MedicationAdministration> {
+export async function updateMedicationAdministrationData(data: {
+  oystehr: Oystehr;
+  orderData: MedicationData;
+  orderResources: OrderPackage;
+  administeredProviderId?: string;
+  medicationResource: Medication;
+}): Promise<MedicationAdministration> {
+  const { oystehr, orderResources, orderData, administeredProviderId, medicationResource } = data;
   const routeCode = orderData.route
     ? orderData.route
     : getDosageUnitsAndRouteOfMedication(orderResources.medicationAdministration).route;
