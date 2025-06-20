@@ -211,14 +211,14 @@ const PatientInformationPage: FC = () => {
   };
 
   const handleSaveForm = async (values: Record<string, any>): Promise<void> => {
-    if (!questionnaire) {
+    if (!questionnaire || !patient?.id) {
       enqueueSnackbar('Something went wrong. Please reload the page.', { variant: 'error' });
       return;
     }
 
     const filteredValues = filterPCPFieldsIfInactive(values);
 
-    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, filteredValues, patient?.id ?? ''));
+    const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, filteredValues, patient.id));
     submitQR.mutate(qr);
   };
 
