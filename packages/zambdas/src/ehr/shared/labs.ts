@@ -33,6 +33,9 @@ import {
   LabType,
   InHouseLabResult,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
+  LabOrderPDF,
+  LabResultPDF,
+  LAB_ORDER_DOC_REF_CODING_CODE,
 } from 'utils';
 
 export type LabOrderResources = {
@@ -453,4 +456,75 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
 
 const diagnosticReportIncludesCategory = (diagnosicReport: DiagnosticReport, system: string, code: string): boolean => {
   return !!diagnosicReport.category?.find((cat) => cat?.coding?.find((c) => c.system === system && c.code === code));
+};
+
+const getDocRefRelatedId = (
+  docRef: DocumentReference,
+  relatedResourceType: FhirResource['resourceType']
+): string | undefined => {
+  const reference = docRef.context?.related?.find((rel) => rel.reference?.startsWith(`${relatedResourceType}/`))
+    ?.reference;
+  return reference?.split('/')[1];
+};
+
+type fetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
+export const fetchLabOrderPDFs = async (
+  documentReferences: DocumentReference[],
+  m2mtoken: string
+): Promise<fetchLabOrderPDFRes | undefined> => {
+  if (!documentReferences.length) {
+    return;
+  }
+  const pdfPromises: Promise<LabResultPDF | LabOrderPDF | null>[] = [];
+
+  for (const docRef of documentReferences) {
+    const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
+    const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
+    const isLabOrderDoc = docRef.type?.coding?.find(
+      (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
+    );
+    const docRefId = docRef.id;
+
+    for (const content of docRef.content) {
+      const z3Url = content.attachment?.url;
+      if (z3Url) {
+        pdfPromises.push(
+          getPresignedURL(z3Url, m2mtoken)
+            .then((presignedURL) => {
+              if (diagnosticReportId) {
+                return { presignedURL, diagnosticReportId } as LabResultPDF;
+              } else if (serviceRequestId && isLabOrderDoc) {
+                return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
+              }
+              return null;
+            })
+            .catch((error) => {
+              console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
+              return null;
+            })
+        );
+      }
+    }
+  }
+
+  const pdfs = await Promise.allSettled(pdfPromises);
+
+  const { resultPDFs, orderPDF } = pdfs
+    .filter(
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabOrderPDF> =>
+        result.status === 'fulfilled' && result.value !== null
+    )
+    .reduce(
+      (acc: fetchLabOrderPDFRes, result) => {
+        if ('diagnosticReportId' in result.value) {
+          acc.resultPDFs.push(result.value);
+        } else if ('serviceRequestId' in result.value) {
+          acc.orderPDF = result.value;
+        }
+        return acc;
+      },
+      { resultPDFs: [], orderPDF: undefined }
+    );
+
+  return { resultPDFs, orderPDF };
 };
