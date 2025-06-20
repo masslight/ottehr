@@ -9,6 +9,7 @@ export * from './chart-data';
 export * from './create-user.types';
 export * from './deactivate-user.types';
 export * from './encounter.types';
+export * from './get-appointments.types';
 export * from './get-employees';
 export * from './get-presigned-file-url';
 export * from './get-user.types';
