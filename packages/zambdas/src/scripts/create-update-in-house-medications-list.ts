@@ -1,18 +1,18 @@
 import Oystehr from '@oystehr/sdk';
-import { Medication, Resource } from 'fhir/r4b';
+import { Medication } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CPT, CODE_SYSTEM_NDC,
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_NDC,
   getMedicationName,
-  getMedicationTypeCode, getResourcesFromBatchInlineRequests,
   InHouseMedicationInfo,
   InHouseMedications,
   INVENTORY_MEDICATION_TYPE_CODE,
-  MEDICATION_IDENTIFIER_ADMIN_CODE_SYSTEM,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MEDICATION_IDENTIFIER_NAME_SYSTEM,
   MEDICATION_TYPE_SYSTEM,
 } from 'utils';
 import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience, performEffectWithEnvFile } from './helpers';
+import { fhirApiUrlFromAuth0Audience, getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
 
 const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
@@ -21,12 +21,7 @@ const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {
     fhirApiUrl: fhirApiUrlFromAuth0Audience(config.AUTH0_AUDIENCE),
     accessToken: token,
   });
-  const allResources = await getResourcesFromBatchInlineRequests(oystehr, [
-    `Medication?identifier=${INVENTORY_MEDICATION_TYPE_CODE}`,
-  ]);
-  console.log('Received all Medications from fhir.');
-
-  const medicationsResources = filterInHouseMedications(allResources);
+  const medicationsResources = await getInHouseInventoryMedications(oystehr);
 
   for (const jsonMedication of InHouseMedications) {
     const existedMedication = medicationsResources.find((medRes) => getMedicationName(medRes) === jsonMedication.name);
@@ -42,43 +37,37 @@ const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {
   }
 };
 
-function createMedicationResource(data: InHouseMedicationInfo): Medication {
+function createMedicationResource(inHouseMedInfo: InHouseMedicationInfo): Medication {
   return {
     resourceType: 'Medication',
     identifier: [
-      {
-        system: MEDICATION_IDENTIFIER_ADMIN_CODE_SYSTEM,
-        value: data.adminCode,
-      },
       {
         system: MEDICATION_TYPE_SYSTEM,
         value: INVENTORY_MEDICATION_TYPE_CODE,
       },
       {
         system: MEDICATION_IDENTIFIER_NAME_SYSTEM,
-        value: data.name,
+        value: inHouseMedInfo.name,
       },
     ],
     code: {
       coding: [
         {
           system: CODE_SYSTEM_CPT,
-          code: data.CPT,
+          code: inHouseMedInfo.CPT,
         },
         {
           system: CODE_SYSTEM_NDC,
-          code: data.NDC,
+          code: inHouseMedInfo.NDC,
+        },
+        {
+          system: MEDICATION_DISPENSABLE_DRUG_ID,
+          code: `${inHouseMedInfo.erxData.id}`, // drug id from erx medication search
+          display: inHouseMedInfo.erxData.name,
         },
       ],
     },
   };
-}
-
-function filterInHouseMedications(allResources: Resource[]): Medication[] {
-  return allResources.filter(
-    (res) =>
-      res.resourceType === 'Medication' && getMedicationTypeCode(res as Medication) === INVENTORY_MEDICATION_TYPE_CODE
-  ) as Medication[];
 }
 
 const main = async (): Promise<void> => {

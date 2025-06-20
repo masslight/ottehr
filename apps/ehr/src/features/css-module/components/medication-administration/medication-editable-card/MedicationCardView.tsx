@@ -204,9 +204,12 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           const value = getFieldValue(field as keyof MedicationData);
           let renderValue: string | undefined;
 
-          // renderValue handles edge case when backend created new resource with new id and we can't match it with standard select options
-          if (field === 'medicationId' && medication?.medicationName && value === medication?.medicationId) {
-            renderValue = medication.medicationName;
+          // renderValue handles edge case when backend created new medication resource without id
+          if (field === 'medicationId' && medication?.medicationName && !value) {
+            const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
+            const foundOption = options.find((option) => option.label === medication.medicationName)?.value;
+            if (foundOption) onFieldValueChange('medicationId', foundOption);
+            console.log('rerender');
           }
 
           return (

@@ -522,7 +522,15 @@ export interface InHouseMedicationInfo {
   name: string;
   NDC: string;
   CPT: string;
-  adminCode: string;
+  erxData: {
+    id: string;
+    routedDoseFormDrugId: string;
+    name: string;
+    rxcui: number | null;
+    ndc: string | null;
+    strength: string;
+    isObsolete: boolean;
+  };
 }
 
 export const InHouseMedications: InHouseMedicationInfo[] = [
@@ -530,31 +538,71 @@ export const InHouseMedications: InHouseMedicationInfo[] = [
     name: '0.9% Sodium Chloride IV (1000cc)',
     NDC: '1727170107',
     CPT: '96360',
-    adminCode: 'J7030',
+    erxData: {
+      id: '17134',
+      routedDoseFormDrugId: '71330',
+      name: 'Sodium Chloride Intravenous Solution',
+      rxcui: 1807627,
+      ndc: '79672061350',
+      strength: '0.9 %',
+      isObsolete: false,
+    },
   },
   {
     name: '0.9% Sodium Chloride IV (250cc)',
     NDC: '51662-1517-01',
     CPT: '96360',
-    adminCode: 'todo',
+    erxData: {
+      id: '17134',
+      routedDoseFormDrugId: '71330',
+      name: 'Sodium Chloride Intravenous Solution',
+      rxcui: 1807627,
+      ndc: '79672061350',
+      strength: '0.9 %',
+      isObsolete: false,
+    },
   },
   {
     name: '0.9% Sodium Chloride IV (500cc)',
     NDC: '172717106',
     CPT: '96360',
-    adminCode: 'j7050',
+    erxData: {
+      id: '17134',
+      routedDoseFormDrugId: '71330',
+      name: 'Sodium Chloride Intravenous Solution',
+      rxcui: 1807627,
+      ndc: '79672061350',
+      strength: '0.9 %',
+      isObsolete: false,
+    },
   },
   {
     name: 'Acetaminophen (120mg)  Suppository PR',
     NDC: '4580273230',
     CPT: 'PM101',
-    adminCode: 'todo',
+    erxData: {
+      id: '35133',
+      routedDoseFormDrugId: '649',
+      name: 'Acetaminophen Rectal Suppository',
+      rxcui: 198434,
+      ndc: '45802073233',
+      strength: '120 MG',
+      isObsolete: false,
+    },
   },
   {
     name: 'Acetaminophen (160mg)  Chewable Tablet PO',
     NDC: 'todo',
     CPT: 'PM101',
-    adminCode: 'todo',
+    erxData: {
+      id: '23170',
+      routedDoseFormDrugId: '2067',
+      name: 'Acetaminophen Childrens Oral Tablet Chewable',
+      rxcui: null,
+      ndc: '70000031001',
+      strength: '160 MG',
+      isObsolete: false,
+    },
   },
 ];
 
