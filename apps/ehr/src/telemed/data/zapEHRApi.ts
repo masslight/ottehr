@@ -221,14 +221,12 @@ export const getOystehrTelemedAPI = (
     return await makeZapRequest('change in person visit status', parameters);
   };
 
-  const assignPractitioner = async (
-    parameters: Omit<AssignPractitionerInput, 'secrets'>
-  ): Promise<AssignPractitionerResponse> => {
+  const assignPractitioner = async (parameters: AssignPractitionerInput): Promise<AssignPractitionerResponse> => {
     return await makeZapRequest('assign practitioner', parameters);
   };
 
   const unassignPractitioner = async (
-    parameters: Omit<UnassignPractitionerZambdaInput, 'secrets'>
+    parameters: UnassignPractitionerZambdaInput
   ): Promise<UnassignPractitionerZambdaOutput> => {
     return await makeZapRequest('unassign practitioner', parameters);
   };
