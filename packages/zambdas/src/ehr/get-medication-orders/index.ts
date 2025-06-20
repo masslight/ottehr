@@ -71,7 +71,6 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     status: mapFhirToOrderStatus(medicationAdministration) ?? 'pending',
     patient: medicationAdministration.subject.reference?.replace('Patient/', '') ?? '',
     encounter: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
-    medicationId: medication?.id ?? '', // todo now we don't have id anymore since it's not separate resource
     medicationName: (medication && getMedicationName(medication)) ?? '',
     dose: dosageUnitsRoute.dose ?? -1,
     route: dosageUnitsRoute.route ?? '',

@@ -23,6 +23,7 @@ export function getPerformerId(medicationAdministration: MedicationAdministratio
 export function createMedicationCopy(inventoryMedication: Medication, orderData: MedicationData): Medication {
   const resourceCopy = { ...inventoryMedication };
   delete resourceCopy.id;
+  delete resourceCopy.meta;
   // deleting identifier with code that indicates that this medication is inventory one
   const typeIdentifierArrId =
     resourceCopy.identifier?.findIndex((idn) => idn.value === INVENTORY_MEDICATION_TYPE_CODE) ?? -1;

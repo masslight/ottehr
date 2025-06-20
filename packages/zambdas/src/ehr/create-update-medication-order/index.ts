@@ -107,7 +107,12 @@ async function updateOrder(
   }
 
   const resultPromises: Promise<any>[] = [];
-  if (orderData && newMedicationCopy && (newStatus === 'administered' || newStatus === 'administered-partly')) {
+  console.log(
+    `Updating MedicationAdministration, orderData present: ${Boolean(orderData)}, newMedicationCopy present: ${Boolean(
+      newMedicationCopy
+    )}, newStatus: ${newStatus}`
+  );
+  if (orderData && newMedicationCopy) {
     await updateMedicationAdministrationData(
       oystehr,
       orderData,
@@ -152,6 +157,7 @@ async function createOrder(
   orderData: MedicationData,
   practitionerIdCalledZambda: string
 ): Promise<string | undefined> {
+  if (!orderData.medicationId) throw new Error('No "medicationId" provided');
   const inventoryMedication = await getMedicationById(oystehr, orderData.medicationId);
   if (inventoryMedication && getMedicationTypeCode(inventoryMedication) !== INVENTORY_MEDICATION_TYPE_CODE) {
     throw new Error(
@@ -159,7 +165,7 @@ async function createOrder(
     );
   }
   const medicationCopy = createMedicationCopy(inventoryMedication, orderData);
-  console.log(`Created copy: ${getMedicationName(medicationCopy)}`);
+  console.log(`Created medication copy: ${getMedicationName(medicationCopy)}`);
 
   const routeCoding = searchRouteByCode(orderData.route);
   if (!routeCoding) throw new Error(`No medication appliance route was found for code: ${orderData.route}`);
@@ -174,6 +180,7 @@ async function createOrder(
     location: locationCoding,
     createdProviderId: practitionerIdCalledZambda,
     dateTimeCreated: DateTime.now().toISO(),
+    medicationResource: medicationCopy,
   });
   console.log('MedicationAdministration resource: ', JSON.stringify(medicationAdministrationToCreate));
   const resultMedicationAdministration = await oystehr.fhir.create(medicationAdministrationToCreate);

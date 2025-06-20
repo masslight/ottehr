@@ -41,12 +41,14 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
     dateTimeCreated,
     medicationResource,
   } = data;
+  const medicationId = 'medicationId';
   // we can set existed resource as base for new resource
   const resource: MedicationAdministration = existedMA
     ? { ...existedMA }
     : {
         resourceType: 'MedicationAdministration',
         subject: { reference: `Patient/${orderData.patient}` },
+        medicationReference: { reference: `#${medicationId}` },
         status,
       };
 
@@ -78,7 +80,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   }
   if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated;
   if (medicationResource) {
-    resource.contained = [{ ...medicationResource }]; // should i add some kind of id here?
+    resource.contained = [{ ...medicationResource, id: medicationId }];
   }
   if (orderData.dose && orderData.units) {
     resource.dosage = {

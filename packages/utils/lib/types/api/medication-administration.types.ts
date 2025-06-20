@@ -27,7 +27,7 @@ export interface UpdateMedicationOrderInput {
 export interface MedicationData {
   patient: string;
   encounter: string;
-  medicationId: string;
+  medicationId?: string;
   dose: number;
   route: string;
   instructions?: string;
