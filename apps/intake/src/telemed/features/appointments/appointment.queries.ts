@@ -176,7 +176,6 @@ export const useGetSchedule = (
         throw new Error('API client not defined');
       }
       const res = await apiClient.getSchedule(params);
-      console.log('get location response', res);
       return res;
     },
     {
