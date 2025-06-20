@@ -140,7 +140,7 @@ const Schedule = ({
   const [firstAvailableDay, secondAvailableDay] = useMemo(() => {
     const firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotsList[0]?.start), timezone);
     const secondAvailableDay = nextAvailableFrom(firstAvailableDay, slotsList, timezone);
-    console.log(5, firstAvailableDay?.toISO());
+
     return [firstAvailableDay, secondAvailableDay];
   }, [slotsList, timezone]);
 
