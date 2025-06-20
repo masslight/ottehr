@@ -14,10 +14,10 @@ export interface CreateAppointmentInputParams {
 
 export interface CreateAppointmentResponse {
   message: string;
-  appointment: string | null;
+  appointmentId: string;
   fhirPatientId: string;
-  questionnaireResponseId: string | null;
-  encounterId: string | null;
+  questionnaireResponseId: string;
+  encounterId: string;
   relatedPersonId: string;
   resources: {
     appointment: Appointment;

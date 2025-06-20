@@ -2,9 +2,11 @@
 import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
-  AvailableLocationInformation,
+  CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
   chooseJson,
   CreateAppointmentInputParams,
+  CreateAppointmentResponse,
   CreateSlotParams,
   GetAppointmentDetailsResponse,
   GetEligibilityParameters,
@@ -25,11 +27,10 @@ import {
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentParameters,
-  VisitType,
   WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
 } from 'utils';
-import { CancelAppointmentParameters, GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
+import { GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
 
 export interface ZapehrSearchParameter {
@@ -57,25 +58,6 @@ const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTER
 const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
-
-export interface AppointmentBasicInfo {
-  start: string;
-  location: AvailableLocationInformation;
-  visitType: string;
-  status?: string;
-}
-
-export interface CreateAppointmentResponse {
-  message: string;
-  appointment: string;
-  fhirPatientId: string;
-}
-
-export interface CancelAppointmentResponse {
-  appointment: string | null;
-  location: AvailableLocationInformation;
-  visitType: VisitType;
-}
 
 class API {
   async checkIn(zambdaClient: ZambdaClient, appointmentID: string, throwError = true): Promise<any> {
@@ -117,9 +99,9 @@ class API {
 
   async cancelAppointment(
     zambdaClient: ZambdaClient,
-    parameters: CancelAppointmentParameters,
+    parameters: CancelAppointmentZambdaInput,
     throwError = true
-  ): Promise<CancelAppointmentResponse | void> {
+  ): Promise<CancelAppointmentZambdaOutput | void> {
     try {
       if (CANCEL_APPOINTMENT_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('cancel appointment environment variable could not be loaded');

@@ -83,14 +83,17 @@ export interface VisitStatusHistoryEntry {
   status: VisitStatusHistoryLabel;
   period: Period;
 }
+
+export interface GetAppointmentResponseAppointmentDetails {
+  start: string;
+  slot: Slot;
+  location: AvailableLocationInformation;
+  visitType: string;
+  status?: string;
+}
+
 export interface GetAppointmentDetailsResponse {
-  appointment: {
-    start: string;
-    slot: Slot;
-    location: AvailableLocationInformation;
-    visitType: string;
-    status?: string;
-  };
+  appointment: GetAppointmentResponseAppointmentDetails;
   availableSlots: SlotListItem[];
   displayTomorrowSlotsAtHour: number;
 }
