@@ -27,6 +27,7 @@ import {
   DeleteInHouseLabOrderParameters,
   DeleteLabOrderParams,
   GetAppointmentsZambdaInput,
+  GetAppointmentsZambdaOutput,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   GetEmployeesResponse,
@@ -174,7 +175,10 @@ export const getOrCreateVisitLabel = async (oystehr: Oystehr, parameters: GetVis
   }
 };
 
-export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointmentsZambdaInput): Promise<any> => {
+export const getAppointments = async (
+  oystehr: Oystehr,
+  parameters: GetAppointmentsZambdaInput
+): Promise<GetAppointmentsZambdaOutput> => {
   try {
     if (GET_APPOINTMENTS_ZAMBDA_ID == null) {
       throw new Error('get appointments environment variable could not be loaded');
@@ -187,6 +191,7 @@ export const getAppointments = async (oystehr: Oystehr, parameters: GetAppointme
     return chooseJson(response);
   } catch (error: unknown) {
     console.log(error);
+    throw error;
   }
 };
 
