@@ -2,30 +2,29 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import {
-  SignAppointmentInput,
-  SignAppointmentResponse,
-  getVisitStatus,
+  getCriticalUpdateTagOp,
   getEncounterStatusHistoryUpdateOp,
   getPatchBinary,
-  VisitStatusLabel,
+  getProgressNoteChartDataRequestedFields,
+  getVisitStatus,
+  OTTEHR_MODULE,
+  SignAppointmentInput,
+  SignAppointmentResponse,
+  telemedProgressNoteChartDataRequestedFields,
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
-  getCriticalUpdateTagOp,
-  getProgressNoteChartDataRequestedFields,
-  OTTEHR_MODULE,
-  telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 
-import { validateRequestParameters } from './validateRequestParameters';
-import { getChartData } from '../get-chart-data';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
+import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { VideoResourcesAppointmentPackage } from '../../shared/pdf/visit-details-pdf/types';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
-import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';
+import { getChartData } from '../get-chart-data';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -62,8 +61,6 @@ export const performEffect = async (
 ): Promise<SignAppointmentResponse> => {
   const { appointmentId, secrets } = params;
 
-  const newStatus = 'completed';
-
   const visitResources = await getVideoResources(oystehr, appointmentId, true);
 
   if (!visitResources) {
@@ -82,7 +79,7 @@ export const performEffect = async (
   console.log(`appointment and encounter statuses: ${appointment.status}, ${encounter.status}`);
   const currentStatus = getVisitStatus(appointment, encounter);
   if (currentStatus) {
-    await changeStatus(oystehr, oystehrCurrentUser, visitResources, newStatus, candidEncounterId);
+    await changeStatusToCompleted(oystehr, oystehrCurrentUser, visitResources, candidEncounterId);
   }
   console.debug(`Status has been changed.`);
 
@@ -116,11 +113,10 @@ export const performEffect = async (
   };
 };
 
-const changeStatus = async (
+const changeStatusToCompleted = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
   resourcesToUpdate: VideoResourcesAppointmentPackage,
-  status: VisitStatusLabel,
   candidEncounterId: string | undefined
 ): Promise<void> => {
   if (!resourcesToUpdate.appointment || !resourcesToUpdate.appointment.id) {
@@ -130,8 +126,8 @@ const changeStatus = async (
     throw new Error('Encounter is not defined');
   }
 
-  const appointmentStatus = visitStatusToFhirAppointmentStatusMap[status];
-  const encounterStatus = visitStatusToFhirEncounterStatusMap[status];
+  const appointmentStatus = visitStatusToFhirAppointmentStatusMap['completed'];
+  const encounterStatus = visitStatusToFhirEncounterStatusMap['completed'];
 
   const patchOps: Operation[] = [
     {
