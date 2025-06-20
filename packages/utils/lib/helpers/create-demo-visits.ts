@@ -156,113 +156,115 @@ export const createSampleAppointments = async ({
     const numberOfAppointments = demoData?.numberOfAppointments || 10;
 
     // Run all appointment creations in parallel
-    const appointmentPromises = Array.from({ length: numberOfAppointments }, async (_, i) => {
-      try {
-        const serviceModeToUse = serviceMode || (i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual);
+    const appointmentPromises: Promise<CreateAppointmentResponse | null>[] = Array.from(
+      { length: numberOfAppointments },
+      async (_, i) => {
+        try {
+          const serviceModeToUse = serviceMode || (i % 2 === 0 ? ServiceMode['in-person'] : ServiceMode.virtual);
 
-        const randomPatientInfo = await generateRandomPatientInfo(
-          oystehr,
-          zambdaUrl,
-          authToken,
-          projectId,
-          serviceModeToUse,
-          phoneNumber,
-          {
-            firstNames: DEFAULT_FIRST_NAMES,
-            lastNames: DEFAULT_LAST_NAMES,
-            reasonsForVisit: DEFAULT_REASONS_FOR_VISIT,
-            ...demoData,
-          },
-          selectedLocationId,
-          locationState
-        );
+          const randomPatientInfo = await generateRandomPatientInfo(
+            oystehr,
+            zambdaUrl,
+            authToken,
+            projectId,
+            serviceModeToUse,
+            phoneNumber,
+            {
+              firstNames: DEFAULT_FIRST_NAMES,
+              lastNames: DEFAULT_LAST_NAMES,
+              reasonsForVisit: DEFAULT_REASONS_FOR_VISIT,
+              ...demoData,
+            },
+            selectedLocationId,
+            locationState
+          );
 
-        if (appointmentMetadata) {
-          randomPatientInfo.appointmentMetadata = appointmentMetadata;
-        } else {
-          const sampleAppointmentMeta = {
-            tag: [
-              {
-                system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
-                code: `sample-appointments-from-outside-E2E-${DateTime.now().toISO()}`,
-              },
-            ],
-          };
-          randomPatientInfo.appointmentMetadata = sampleAppointmentMeta;
-        }
+          if (appointmentMetadata) {
+            randomPatientInfo.appointmentMetadata = appointmentMetadata;
+          } else {
+            const sampleAppointmentMeta = {
+              tag: [
+                {
+                  system: E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM,
+                  code: `sample-appointments-from-outside-E2E-${DateTime.now().toISO()}`,
+                },
+              ],
+            };
+            randomPatientInfo.appointmentMetadata = sampleAppointmentMeta;
+          }
 
-        const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify(randomPatientInfo),
-        });
-
-        if (!createAppointmentResponse.ok) {
-          throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
-        }
-
-        console.log(`Appointment ${i + 1} created successfully.`);
-
-        const appointmentData = await createAppointmentResponse.json();
-
-        if (!appointmentData.output) {
-          console.error('Error: appointment data output is missing');
-          throw new Error('Error: appointment data output is missing');
-        }
-
-        const typedAppointment = appointmentData.output as CreateAppointmentResponse;
-
-        if (!typedAppointment) {
-          console.error('Error: appointment data is null');
-          throw new Error('Error: appointment data is null');
-        }
-
-        await processPaperwork(
-          typedAppointment,
-          randomPatientInfo.patient,
-          zambdaUrl,
-          authToken,
-          projectId,
-          serviceModeToUse,
-          paperworkAnswers
-        );
-
-        // If it's a virtual appointment, mark it as 'arrived'
-        if (serviceModeToUse === ServiceMode.virtual) {
-          await oystehr.fhir.patch<Appointment>({
-            id: typedAppointment.appointmentId,
-            resourceType: 'Appointment',
-            operations: [{ op: 'replace', path: '/status', value: 'arrived' }],
+          const createAppointmentResponse = await fetch(`${zambdaUrl}/zambda/${createAppointmentZambdaId}/execute`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(randomPatientInfo),
           });
-        }
 
-        return typedAppointment;
-      } catch (error) {
-        console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
-        throw error;
+          if (!createAppointmentResponse.ok) {
+            throw new Error(`Failed to create appointment. Status: ${createAppointmentResponse.status}`);
+          }
+
+          console.log(`Appointment ${i + 1} created successfully.`);
+
+          const appointmentData = await createAppointmentResponse.json();
+
+          if (!appointmentData.output) {
+            console.error('Error: appointment data output is missing');
+            throw new Error('Error: appointment data output is missing');
+          }
+
+          if (appointmentData.status !== 200) {
+            console.error(`Error creating appointment: ${JSON.stringify(appointmentData)}`);
+            return null;
+          }
+
+          const typedAppointment = appointmentData.output as CreateAppointmentResponse;
+
+          if (!typedAppointment) {
+            console.error('Error: appointment data is null');
+            throw new Error('Error: appointment data is null');
+          }
+
+          await processPaperwork(
+            typedAppointment,
+            randomPatientInfo.patient,
+            zambdaUrl,
+            authToken,
+            projectId,
+            serviceModeToUse,
+            paperworkAnswers
+          );
+
+          // If it's a virtual appointment, mark it as 'arrived'
+          if (serviceModeToUse === ServiceMode.virtual) {
+            await oystehr.fhir.patch<Appointment>({
+              id: typedAppointment.appointmentId,
+              resourceType: 'Appointment',
+              operations: [{ op: 'replace', path: '/status', value: 'arrived' }],
+            });
+          }
+
+          return typedAppointment;
+        } catch (error) {
+          console.error(`Error processing appointment ${i + 1}:`, JSON.stringify(error));
+          throw error;
+        }
       }
-    });
+    );
 
     // Wait for all appointments to complete
     const results = await Promise.all(appointmentPromises);
 
     // Filter out failed attempts
-    const successfulAppointments = results.filter((data) => data.error === undefined) as CreateAppointmentResponse[];
+    const successfulAppointments = results.filter((data) => data != null);
 
     if (successfulAppointments.length > 0) {
-      return successfulAppointments[0]; // Return the first successful appointment
+      return successfulAppointments[0] as CreateAppointmentResponse; // Return the first successful appointment
     }
 
-    throw new Error(
-      `All appointment creation attempts failed. ${JSON.stringify(
-        results.find((r) => r.error !== undefined),
-        null,
-        2
-      )}`
-    );
+    throw new Error(`All appointment creation attempts failed.`);
   } catch (error) {
     console.error('Error creating appointments:', error);
     throw error;
