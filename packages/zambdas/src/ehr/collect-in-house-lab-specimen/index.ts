@@ -10,6 +10,7 @@ import {
   PRACTITIONER_CODINGS,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   Secrets,
+  CollectInHouseLabSpecimenZambdaOutput,
 } from 'utils';
 import {
   ZambdaInput,
@@ -201,12 +202,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw Error('Error collecting in-house lab specimen in transaction');
     }
 
+    const response: CollectInHouseLabSpecimenZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Successfully collected in-house lab specimen.',
-        transactionResponse,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error collecting in-house lab specimen:', error);

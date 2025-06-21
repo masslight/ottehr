@@ -163,6 +163,8 @@ export type CollectInHouseLabSpecimenParameters = {
   data: MarkAsCollectedData;
 };
 
+export type CollectInHouseLabSpecimenZambdaOutput = Record<string, never>;
+
 export interface ResultEntryInput {
   [observationDefinitionId: string]: any;
 }
@@ -172,9 +174,13 @@ export type HandleInHouseLabResultsParameters = {
   data: ResultEntryInput;
 };
 
+export type HandleInHouseLabResultsZambdaOutput = Record<string, never>;
+
 export type DeleteInHouseLabOrderParameters = {
   serviceRequestId: string;
 };
+
+export type DeleteInHouseLabOrderZambdaOutput = Record<string, never>;
 
 export type TestStatus = 'ORDERED' | 'COLLECTED' | 'FINAL';
 
