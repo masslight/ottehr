@@ -129,6 +129,7 @@ export type LabOrderDetailedPageDTO = LabOrderListPageDTO & {
   resultsDetails: LabOrderResultDetails[];
   questionnaire: QuestionnaireData[];
   samples: sampleDTO[];
+  orderPdfUrl?: string; // will exist after order is submitted
 };
 
 export type LabOrderDTO<SearchBy extends LabOrdersSearchBy> = SearchBy extends {
@@ -252,3 +253,14 @@ export interface LabelPdf {
   documentReference: DocumentReference;
   presignedURL: string;
 }
+
+export type LabOrderPDF = {
+  presignedURL: string;
+  serviceRequestId: string;
+  docRefId: string;
+};
+
+export type LabResultPDF = {
+  presignedURL: string;
+  diagnosticReportId: string;
+};

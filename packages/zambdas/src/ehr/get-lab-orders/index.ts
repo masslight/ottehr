@@ -31,7 +31,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       provenances,
       organizations,
       questionnaires,
-      labPDFs,
+      resultPDFs,
+      orderPDF,
       specimens,
       patientLabItems,
     } = await getLabResources(oystehr, validatedParameters, m2mtoken, {
@@ -61,7 +62,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       provenances,
       organizations,
       questionnaires,
-      labPDFs,
+      resultPDFs,
+      orderPDF,
       specimens,
       secrets
     );
