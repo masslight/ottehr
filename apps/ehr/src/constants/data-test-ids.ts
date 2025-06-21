@@ -115,11 +115,11 @@ export const dataTestIds = {
   },
   primaryCarePhysicianContainer: {
     pcpCheckbox: 'pcp-checkbox',
-    firstName: ' primaryCarePhysicianContainer-first-name',
-    lastName: ' primaryCarePhysicianContainer-last-name',
-    practiceName: ' primaryCarePhysicianContainer-practice-name',
-    address: ' primaryCarePhysicianContainer-address',
-    mobile: ' primaryCarePhysicianContainer-mobile',
+    firstName: 'primaryCarePhysicianContainer-first-name',
+    lastName: 'primaryCarePhysicianContainer-last-name',
+    practiceName: 'primaryCarePhysicianContainer-practice-name',
+    address: 'primaryCarePhysicianContainer-address',
+    mobile: 'primaryCarePhysicianContainer-mobile',
   },
   insuranceContainer: {
     type: 'insurance-type',
