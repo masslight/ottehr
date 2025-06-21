@@ -1,6 +1,7 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { DeleteLabOrderZambdaOutput } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { getLabOrderRelatedResources, makeDeleteResourceRequest } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -61,17 +62,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       });
     }
 
+    const response: DeleteLabOrderZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: `Successfully deleted external lab order resources`,
-        deletedResources: {
-          serviceRequest,
-          questionnaireResponse,
-          task,
-          labConditions,
-        },
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     await topLevelCatch('delete-lab-order', error, input.secrets);

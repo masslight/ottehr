@@ -195,6 +195,8 @@ export type CreateLabOrderParameters = {
   psc: boolean;
 };
 
+export type CreateLabOrderZambdaOutput = Record<string, never>;
+
 export type GetCreateLabOrderResources = {
   patientId?: string;
   search?: string;
@@ -231,9 +233,11 @@ export type UpdateLabOrderResourcesParameters =
   | (TaskReviewedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.reviewed })
   | (SpecimenDateChangedParameters & { event: typeof LAB_ORDER_UPDATE_RESOURCES_EVENTS.specimenDateChanged });
 
-export type DeleteLabOrderParams = {
+export type DeleteLabOrderZambdaInput = {
   serviceRequestId: string;
 };
+
+export type DeleteLabOrderZambdaOutput = Record<string, never>;
 export interface LabelConfig {
   heightInches: number;
   widthInches: number;

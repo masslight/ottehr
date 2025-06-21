@@ -1,7 +1,7 @@
 import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { Condition, Encounter, QuestionnaireResponse, ServiceRequest, Task } from 'fhir/r4b';
-import { DeleteLabOrderParams } from './validateRequestParameters';
 import { ADDED_VIA_LAB_ORDER_SYSTEM } from 'utils/lib/types/data/labs/labs.constants';
+import { DeleteLabOrderZambdaInputValidated } from './validateRequestParameters';
 
 export const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
   method: 'DELETE',
@@ -14,7 +14,7 @@ export const canDeleteLabOrder = (labOrder: ServiceRequest): boolean => {
 
 export const getLabOrderRelatedResources = async (
   oystehr: Oystehr,
-  params: DeleteLabOrderParams
+  params: DeleteLabOrderZambdaInputValidated
 ): Promise<{
   serviceRequest: ServiceRequest | null;
   questionnaireResponse: QuestionnaireResponse | null;

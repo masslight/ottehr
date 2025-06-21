@@ -22,6 +22,7 @@ import {
 import { DateTime } from 'luxon';
 import {
   APIError,
+  CreateLabOrderZambdaOutput,
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
@@ -274,9 +275,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.log('making transaction request');
     await oystehr.fhir.transaction({ requests });
 
+    const response: CreateLabOrderZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify('successfully created fhir resources for external lab order'),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     await topLevelCatch('admin-create-lab-order', error, input.secrets);
