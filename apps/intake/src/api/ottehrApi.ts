@@ -4,6 +4,8 @@ import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   CancelAppointmentZambdaInput,
   CancelAppointmentZambdaOutput,
+  CheckInInput,
+  CheckInZambdaOutput,
   chooseJson,
   CreateAppointmentInputParams,
   CreateAppointmentResponse,
@@ -60,12 +62,16 @@ const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 
 class API {
-  async checkIn(zambdaClient: ZambdaClient, appointmentID: string, throwError = true): Promise<any> {
+  async checkIn(
+    zambdaClient: ZambdaClient,
+    parameters: CheckInInput,
+    throwError = true
+  ): Promise<CheckInZambdaOutput | undefined> {
     try {
       if (CHECK_IN_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('check in environment variable could not be loaded');
       }
-      const response = await zambdaClient.executePublic(CHECK_IN_ZAMBDA_ID, { appointment: appointmentID });
+      const response = await zambdaClient.executePublic(CHECK_IN_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: any) {
@@ -73,7 +79,8 @@ class API {
         throw apiErrorToThrow(error, !isApiError(error));
       } else {
         // Fail silently
-        console.error('Error checking in appointment', error);
+        console.error('Error checking in appointment', error); // TODO this can't be a good thing why fail silently?
+        return undefined;
       }
     }
   }
