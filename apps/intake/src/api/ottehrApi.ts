@@ -27,6 +27,7 @@ import {
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentParameters,
+  UpdateAppointmentZambdaOutput,
   WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
 } from 'utils';
@@ -121,7 +122,10 @@ class API {
     }
   }
 
-  async updateAppointment(zambdaClient: ZambdaClient, parameters: UpdateAppointmentParameters): Promise<any> {
+  async updateAppointment(
+    zambdaClient: ZambdaClient,
+    parameters: UpdateAppointmentParameters
+  ): Promise<UpdateAppointmentZambdaOutput> {
     try {
       if (UPDATE_APPOINTMENT_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('update appointment environment variable could not be loaded');
