@@ -1,7 +1,6 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { vi, assert } from 'vitest';
+import { assert } from 'vitest';
 import { getAuth0Token } from '../../src/shared';
-import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import { SECRETS } from '../data/secrets';
 import { randomUUID } from 'crypto';
 import {
@@ -30,7 +29,6 @@ describe('busy slots tests', () => {
   let oystehr: Oystehr;
   let token = null;
   let processId: string | null = null;
-  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
 
   beforeAll(async () => {
     processId = randomUUID();

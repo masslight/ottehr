@@ -264,25 +264,26 @@ export function getSlotCapacityMapForDayAndSchedule(
   let scheduleCapacityList: Capacity[] = [];
   let dayString = now.toFormat(OVERRIDE_DATE_FORMAT);
 
-  //console.log('day:', dayString, 'closures:', closures);
   if (closures) {
     for (const closure of closures) {
       if (closure.type === ClosureType.OneDay && closure.start === dayString) {
-        //console.log('closing day', dayString);
         return {};
       } else if (closure.type === ClosureType.Period) {
-        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT).startOf('day');
-        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT).endOf('day');
-        if (now >= startClosure && now <= endClosure) {
-          //console.log('closing day', dayString);
+        const defaultTZ = TIMEZONES[0];
+        const startClosure = DateTime.fromFormat(closure.start, OVERRIDE_DATE_FORMAT, { zone: defaultTZ }).startOf(
+          'day'
+        );
+        const endClosure = DateTime.fromFormat(closure.end, OVERRIDE_DATE_FORMAT, { zone: defaultTZ }).endOf('day');
+        const nowFormatted = now.toFormat(OVERRIDE_DATE_FORMAT);
+        const nowInDefaultTZ = DateTime.fromFormat(nowFormatted, OVERRIDE_DATE_FORMAT, { zone: defaultTZ });
+        if (nowInDefaultTZ >= startClosure && nowInDefaultTZ <= endClosure) {
           return {};
         }
       }
     }
   }
 
-  const scheduleOverridden = Object.keys(scheduleOverrides).find((overrideTemp) => overrideTemp === dayString);
-  //console.log('day:', dayString, 'overrides:', Object.keys(scheduleOverrides));
+  const scheduleOverridden = Object.keys(scheduleOverrides).find((overrideTemplate) => overrideTemplate === dayString);
 
   let scheduleTemp = scheduleOverrides;
   if (!scheduleOverridden) {
@@ -396,6 +397,7 @@ interface GetSlotCapacityMapInput {
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
   const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
+  console.log('scheduleExtension', scheduleExtension);
   const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
     'day'
   );
@@ -489,7 +491,7 @@ export async function deleteSpecificBusySlot(start: string, locationID: string, 
   ).unbundle();
   // only delete one busy-tenative slot for this time
   if (slotResources.length > 0 && slotResources[0].id) {
-    console.log('deleteing slot: ', JSON.stringify(slotResources[0]));
+    console.log('deleting slot: ', JSON.stringify(slotResources[0]));
     await oystehr.fhir.delete({
       resourceType: 'Slot',
       id: slotResources[0].id,

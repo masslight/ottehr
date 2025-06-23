@@ -1,5 +1,4 @@
-import { assert, vi } from 'vitest';
-import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
+import { assert } from 'vitest';
 import {
   addClosureDay,
   addClosurePeriod,
@@ -24,8 +23,6 @@ import {
 import { DateTime } from 'luxon';
 
 describe('closure and override tests', () => {
-  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
-
   it('one day closure today results in no slots for today but all slots for tomorrow', () => {
     const startDate = startOfDayWithTimezone();
     const scheduleExtension = addClosureDay(DEFAULT_SCHEDULE_JSON, startDate);
@@ -141,7 +138,7 @@ describe('closure and override tests', () => {
       now = now.plus({ minutes: 15 });
     }
   });
-  it.only('period closure starting today results in no slots for either today or tomorrow (period.end is inclusive of the entire day)', () => {
+  it('period closure starting today results in no slots for either today or tomorrow (period.end is inclusive of the entire day)', () => {
     const startDate = startOfDayWithTimezone();
     const scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, startDate, 1);
     expect(scheduleExtension).toBeDefined();
