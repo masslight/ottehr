@@ -19,7 +19,7 @@ import {
   searchRouteByCode,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { checkOrCreateM2MClientToken, configSentry } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
@@ -45,6 +45,8 @@ export interface ExtendedMedicationData extends MedicationData {
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`create-update-medication-order, input: ${JSON.stringify(input)}`);
+  configSentry('create-update-medication-order', input.secrets);
   try {
     const validatedParameters = validateRequestParameters(input);
 

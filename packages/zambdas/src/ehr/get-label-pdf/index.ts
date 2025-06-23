@@ -2,13 +2,21 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
 import { APIError, getPresignedURL, isApiError, LabelPdf } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  configSentry,
+  createOystehrClient,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`get-label-pdf started, input: ${JSON.stringify(input)}`);
+  configSentry('get-label-pdf', input.secrets);
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');

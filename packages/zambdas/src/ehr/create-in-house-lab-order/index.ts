@@ -30,6 +30,7 @@ import {
 import {
   ZambdaInput,
   checkOrCreateM2MClientToken,
+  configSentry,
   createOystehrClient,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
@@ -41,6 +42,7 @@ let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
+  configSentry('create-in-house-lab-order', input.secrets);
 
   let secrets = input.secrets;
   let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };

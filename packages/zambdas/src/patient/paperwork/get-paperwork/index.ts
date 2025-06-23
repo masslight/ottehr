@@ -36,6 +36,7 @@ import {
   serviceModeForHealthcareService,
 } from 'utils';
 import {
+  configSentry,
   createOystehrClient,
   getAuth0Token,
   getOtherOfficesForLocation,
@@ -68,6 +69,7 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  configSentry('get-paperwork', input.secrets);
   console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');

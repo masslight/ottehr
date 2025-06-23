@@ -13,7 +13,12 @@ import {
 } from 'utils';
 
 import { wrapHandler } from '@sentry/aws-serverless';
-import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, saveResourceRequest } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  configSentry,
+  parseCreatedResourcesBundle,
+  saveResourceRequest,
+} from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-resources';
@@ -31,6 +36,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Input: ${JSON.stringify(input)}`);
+  configSentry('change-telemed-appointment-status', input.secrets);
   try {
     const validatedParameters = validateRequestParameters(input);
 

@@ -14,7 +14,7 @@ import {
   flattenBundleResources,
   isApiError,
 } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
+import { checkOrCreateM2MClientToken, configSentry, topLevelCatch } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
@@ -23,6 +23,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`get-create-lab-order-resources started, input: ${JSON.stringify(input)}`);
+  configSentry('get-create-lab-order-resources', input.secrets);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

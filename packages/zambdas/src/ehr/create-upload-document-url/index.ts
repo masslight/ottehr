@@ -6,7 +6,7 @@ import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { addOperation, OTTEHR_MODULE, replaceOperation, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, configSentry, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -36,7 +36,8 @@ export interface CreateUploadPatientDocumentOutput {
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  logIt(`handler() start.`);
+  logIt(`create-upload-document, input: ${JSON.stringify(input)}`);
+  configSentry('create-upload-document', input.secrets);
   try {
     const validatedInput = validateRequestParameters(input);
     const { secrets, patientId, fileFolderId, fileName } = validatedInput;

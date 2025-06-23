@@ -1,7 +1,7 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, configSentry, ZambdaInput } from '../../shared';
 import { makeCommunicationDTO } from '../../shared/chart-data';
 import { createOystehrClient } from '../../shared/helpers';
 import { getCommunicationResources } from './helpers';
@@ -10,8 +10,9 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`get-patient-instructions started, input: ${JSON.stringify(input)}`);
+  configSentry('get-patient-instructions', input.secrets);
   try {
-    console.log(`Input: ${JSON.stringify(input)}`);
     const { type, secrets, userToken } = validateRequestParameters(input);
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
     const oystehr = createOystehrClient(m2mtoken, secrets);

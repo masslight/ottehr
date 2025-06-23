@@ -23,6 +23,7 @@ import {
 import {
   ZambdaInput,
   checkOrCreateM2MClientToken,
+  configSentry,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
@@ -35,6 +36,7 @@ let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-nursing-order started, input: ${JSON.stringify(input)}`);
+  configSentry('create-nursing-order', input.secrets);
 
   let validatedParameters: CreateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
 

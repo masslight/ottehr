@@ -2,7 +2,13 @@ import { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DeleteLabOrderZambdaOutput } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  configSentry,
+  createOystehrClient,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../shared';
 import { getLabOrderRelatedResources, makeDeleteResourceRequest } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -10,6 +16,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`delete-lab-order started, input: ${JSON.stringify(input)}`);
+  configSentry('delete-lab-order', input.secrets);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

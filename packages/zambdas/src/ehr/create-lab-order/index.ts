@@ -36,7 +36,7 @@ import {
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch } from '../../shared';
+import { checkOrCreateM2MClientToken, configSentry, getMyPractitionerId, topLevelCatch } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
@@ -45,6 +45,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`create-lab-order started, input: ${JSON.stringify(input)}`);
+  configSentry('create-lab-order', input.secrets);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

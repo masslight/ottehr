@@ -3,7 +3,13 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, FhirResource, Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import { DeleteInHouseLabOrderParameters, DeleteInHouseLabOrderZambdaOutput, Secrets } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
+import {
+  ZambdaInput,
+  checkOrCreateM2MClientToken,
+  configSentry,
+  createOystehrClient,
+  topLevelCatch,
+} from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
@@ -93,6 +99,7 @@ const getInHouseLabOrderRelatedResources = async (
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`delete-in-house-lab-order started, input: ${JSON.stringify(input)}`);
+  configSentry('delete-in-house-lab-order', input.secrets);
 
   let secrets = input.secrets;
   let validatedParameters: DeleteInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };

@@ -11,6 +11,7 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
+  configSentry,
   getAuth0Token,
   getUser,
   getVideoEncounterForAppointment,
@@ -23,6 +24,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  configSentry('cancel-invite', input.secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const authorization = input.headers.Authorization;
     if (!authorization) {

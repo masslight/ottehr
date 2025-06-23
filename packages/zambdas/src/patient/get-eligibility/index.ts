@@ -13,7 +13,7 @@ import {
   createOystehrClient,
   getSecret,
 } from 'utils';
-import { ZambdaInput, getAuth0Token, lambdaResponse, topLevelCatch } from '../../shared';
+import { ZambdaInput, configSentry, getAuth0Token, lambdaResponse, topLevelCatch } from '../../shared';
 import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';
@@ -22,6 +22,8 @@ import { complexInsuranceValidation, validateRequestParameters } from './validat
 let oystehrToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  configSentry('get-eligibility', input.secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
   let primary: InsuranceCheckStatusWithDate | undefined;
   let secondary: InsuranceCheckStatusWithDate | undefined;
   try {

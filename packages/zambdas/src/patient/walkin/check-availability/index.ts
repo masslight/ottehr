@@ -28,10 +28,12 @@ import {
   WalkinAvailabilityCheckResult,
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 
 let zapehrToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  configSentry('check-availability', input.secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);

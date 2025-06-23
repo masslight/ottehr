@@ -15,7 +15,7 @@ import {
   Secrets,
   standardizePhoneNumber,
 } from 'utils';
-import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
+import { configSentry, getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -31,6 +31,8 @@ export interface GetEmployeesInput {
 
 let zapehrToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`get-employees started, input: ${JSON.stringify(input)}`);
+  configSentry('get-employees', input.secrets);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

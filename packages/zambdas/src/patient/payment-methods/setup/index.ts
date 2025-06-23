@@ -4,7 +4,14 @@ import { Account, Identifier } from 'fhir/r4b';
 import Stripe from 'stripe';
 import { FHIR_RESOURCE_NOT_FOUND, getEmailForIndividual, getFullName, getStripeCustomerIdFromAccount } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
-import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import {
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  lambdaResponse,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import { getStripeClient, makeStripeCustomerId, validateUserHasAccessToPatientAccount } from '../helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -12,6 +19,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mClientToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  configSentry('payment-setup', input.secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

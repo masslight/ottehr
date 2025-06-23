@@ -3,7 +3,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Coding, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
 import { AssignPractitionerInput, AssignPractitionerResponse } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, configSentry, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
@@ -12,6 +12,8 @@ import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Input: ${JSON.stringify(input)}`);
+  configSentry('assign-practitioner', input.secrets);
   try {
     const validatedParameters = validateRequestParameters(input);
 

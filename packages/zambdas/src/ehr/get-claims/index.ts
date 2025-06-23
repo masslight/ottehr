@@ -25,7 +25,7 @@ import {
   createReference,
   getResourcesFromBatchInlineRequests,
 } from 'utils';
-import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, configSentry, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import {
   addCoverageAndRelatedResourcesToPackages,
@@ -54,6 +54,8 @@ export interface ClaimPackage {
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`get-claims input: ${JSON.stringify(input)}`);
+  configSentry('get-claims', input.secrets);
   try {
     const validatedParameters = validateRequestParameters(input);
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);

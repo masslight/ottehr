@@ -4,14 +4,15 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { QuestionnaireResponse } from 'fhir/r4b';
 import {} from 'utils';
-import { createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
 // Lifting the token out of the handler function allows it to persist across warm lambda invocations.
 export let token: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input body: ${JSON.stringify(input.body)}`);
+  configSentry('patch-paperwork', input.secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
   try {
     const secrets = input.secrets;
     if (!token) {

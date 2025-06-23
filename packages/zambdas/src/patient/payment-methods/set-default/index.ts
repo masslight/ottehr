@@ -1,12 +1,21 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import {
+  configSentry,
+  createOystehrClient,
+  getAuth0Token,
+  lambdaResponse,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  configSentry('payment-set-default', input.secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

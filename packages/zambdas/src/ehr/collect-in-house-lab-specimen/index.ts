@@ -15,6 +15,7 @@ import {
 import {
   ZambdaInput,
   checkOrCreateM2MClientToken,
+  configSentry,
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
@@ -24,6 +25,7 @@ let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
+  configSentry('collect-in-house-lab-specimen', input.secrets);
 
   let secrets = input.secrets;
   let validatedParameters: CollectInHouseLabSpecimenParameters & { secrets: Secrets | null; userToken: string };

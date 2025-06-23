@@ -10,7 +10,7 @@ import {
   getPatientsForUser,
   getSecret,
 } from 'utils';
-import { ZambdaInput, getAuth0Token } from '../../shared';
+import { ZambdaInput, configSentry, getAuth0Token } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -22,6 +22,8 @@ export interface GetPatientsInput {
 let zapehrToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  configSentry('telemed-get-patients', input.secrets);
+  console.log(`Input: ${JSON.stringify(input)}`);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

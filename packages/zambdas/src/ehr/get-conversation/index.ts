@@ -16,7 +16,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
+import { configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 
 export interface GetConversationInputValidated extends GetConversationInput {
@@ -47,6 +47,8 @@ const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`get-conversation input: ${JSON.stringify(input)}`);
+  configSentry('get-conversation', input.secrets);
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

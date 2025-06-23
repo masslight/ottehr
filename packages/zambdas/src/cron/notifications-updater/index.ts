@@ -25,6 +25,7 @@ import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointm
 import {
   ZambdaInput,
   checkOrCreateM2MClientToken,
+  configSentry,
   getEmployees,
   getRoleMembers,
   getRoles,
@@ -43,6 +44,8 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`Input: ${JSON.stringify(input)}`);
+  configSentry('notifications-Updater', input.secrets);
   const sendSMSPractitionerCommunications: {
     [key: string]: { practitioner: Practitioner; communications: Communication[] };
   } = {};
