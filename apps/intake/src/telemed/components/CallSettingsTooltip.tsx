@@ -22,56 +22,58 @@ export const CallSettingsTooltip: FC<CallSettingsTooltipProps> = (props) => {
   const supportDialogOpen = useIntakeCommonStore((state) => state.supportDialogOpen);
 
   return (
-    <ClickAwayListener onClickAway={handleTooltipClose}>
-      <div>
-        <CustomTooltip
-          PopperProps={{
-            disablePortal: true,
-          }}
-          onClose={handleTooltipClose}
-          open={isTooltipOpen}
-          disableFocusListener
-          disableHoverListener
-          disableTouchListener
-          title={
-            <Box sx={{ p: 3, width: '300px', position: 'relative' }}>
-              {supportDialogOpen && (
-                <ContactSupportDialog onClose={() => useIntakeCommonStore.setState({ supportDialogOpen: false })} />
-              )}
-              <List sx={{ p: 0 }}>
-                <StyledListItemWithButton
-                  primaryText="Report problem"
-                  secondaryText="Send error report"
-                  onClick={() => {
-                    handleTooltipClose();
-                    useIntakeCommonStore.setState({ supportDialogOpen: true });
-                  }}
-                >
-                  <HelpOutlineIcon color="secondary" />
-                </StyledListItemWithButton>
-                <StyledListItemWithButton
-                  primaryText="Setting"
-                  secondaryText="Audio, video"
-                  onClick={() => {
-                    handleTooltipClose();
-                    openSettings();
-                  }}
-                  noDivider
-                >
-                  <SettingsOutlinedIcon sx={{ color: otherColors.purple }} />
-                </StyledListItemWithButton>
-              </List>
-              <IconButton onClick={handleTooltipClose} size="small" sx={{ position: 'absolute', right: 0, top: 0 }}>
-                <CloseIcon fontSize="small" sx={{ color: otherColors.toolTipClose }} />
-              </IconButton>
-            </Box>
-          }
-        >
-          <IconButtonContained onClick={handleTooltipOpen} variant={isTooltipOpen ? 'disabled' : undefined}>
-            <SettingsIcon sx={{ color: isTooltipOpen ? otherColors.darkPurple : otherColors.white }} />
-          </IconButtonContained>
-        </CustomTooltip>
-      </div>
-    </ClickAwayListener>
+    <>
+      <ClickAwayListener onClickAway={handleTooltipClose}>
+        <div>
+          <CustomTooltip
+            PopperProps={{
+              disablePortal: true,
+            }}
+            onClose={handleTooltipClose}
+            open={isTooltipOpen}
+            disableFocusListener
+            disableHoverListener
+            disableTouchListener
+            title={
+              <Box sx={{ p: 3, width: '300px', position: 'relative' }}>
+                <List sx={{ p: 0 }}>
+                  <StyledListItemWithButton
+                    primaryText="Report problem"
+                    secondaryText="Send error report"
+                    onClick={() => {
+                      handleTooltipClose();
+                      useIntakeCommonStore.setState({ supportDialogOpen: true });
+                    }}
+                  >
+                    <HelpOutlineIcon color="secondary" />
+                  </StyledListItemWithButton>
+                  <StyledListItemWithButton
+                    primaryText="Setting"
+                    secondaryText="Audio, video"
+                    onClick={() => {
+                      handleTooltipClose();
+                      openSettings();
+                    }}
+                    noDivider
+                  >
+                    <SettingsOutlinedIcon sx={{ color: otherColors.purple }} />
+                  </StyledListItemWithButton>
+                </List>
+                <IconButton onClick={handleTooltipClose} size="small" sx={{ position: 'absolute', right: 0, top: 0 }}>
+                  <CloseIcon fontSize="small" sx={{ color: otherColors.toolTipClose }} />
+                </IconButton>
+              </Box>
+            }
+          >
+            <IconButtonContained onClick={handleTooltipOpen} variant={isTooltipOpen ? 'disabled' : undefined}>
+              <SettingsIcon sx={{ color: isTooltipOpen ? otherColors.darkPurple : otherColors.white }} />
+            </IconButtonContained>
+          </CustomTooltip>
+        </div>
+      </ClickAwayListener>
+      {supportDialogOpen && (
+        <ContactSupportDialog onClose={() => useIntakeCommonStore.setState({ supportDialogOpen: false })} />
+      )}
+    </>
   );
 };
