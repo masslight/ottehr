@@ -397,7 +397,6 @@ interface GetSlotCapacityMapInput {
 export const getAllSlotsAsCapacityMap = (input: GetSlotCapacityMapInput): SlotCapacityMap => {
   const { now, finishDate, scheduleExtension, timezone } = input;
   const { schedule, scheduleOverrides, closures, slotLength } = scheduleExtension;
-  console.log('scheduleExtension', scheduleExtension);
   const nowForTimezone = DateTime.fromFormat(now.toFormat('MM/dd/yyyy'), 'MM/dd/yyyy', { zone: timezone }).startOf(
     'day'
   );
@@ -491,7 +490,6 @@ export async function deleteSpecificBusySlot(start: string, locationID: string, 
   ).unbundle();
   // only delete one busy-tenative slot for this time
   if (slotResources.length > 0 && slotResources[0].id) {
-    console.log('deleting slot: ', JSON.stringify(slotResources[0]));
     await oystehr.fhir.delete({
       resourceType: 'Slot',
       id: slotResources[0].id,
