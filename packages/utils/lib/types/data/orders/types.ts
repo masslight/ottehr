@@ -1,4 +1,6 @@
 import { NursingOrdersStatus } from './constants';
+import { z } from 'zod';
+import { Secrets } from '../../../secrets';
 
 export type CreateNursingOrderParameters = {
   encounterId: string;
@@ -10,11 +12,21 @@ export type UpdateNursingOrderParameters = {
   action: 'CANCEL ORDER' | 'COMPLETE ORDER';
 };
 
-export type NursingOrdersSearchBy = { field: 'serviceRequestId'; value: string };
+export const NursingOrdersSearchBySchema = z.object({
+  field: z.literal('serviceRequestId'),
+  value: z.string(),
+});
 
-export type GetNursingOrdersInput = {
+export type NursingOrdersSearchBy = z.infer<typeof NursingOrdersSearchBySchema>;
+
+export interface GetNursingOrdersInput {
   encounterId: string;
-};
+  searchBy?: NursingOrdersSearchBy;
+}
+
+export interface GetNursingOrdersInputValidated extends GetNursingOrdersInput {
+  secrets: Secrets | null;
+}
 
 export interface NursingOrder {
   serviceRequestId: string;

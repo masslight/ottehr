@@ -1,23 +1,22 @@
-import { GetNursingOrdersInput, NursingOrdersSearchBy } from 'utils';
+import { z } from 'zod';
+import { GetNursingOrdersInputValidated, NursingOrdersSearchBySchema } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export type GetZambdaNursingOrdersParams = GetNursingOrdersInput & { searchBy?: NursingOrdersSearchBy } & Pick<
-    ZambdaInput,
-    'secrets'
-  >;
+const RequestBodySchema = z.object({
+  encounterId: z.string().uuid(),
+  searchBy: NursingOrdersSearchBySchema.optional(),
+});
 
-export function validateRequestParameters(input: ZambdaInput): GetZambdaNursingOrdersParams {
+export function validateRequestParameters(input: ZambdaInput): GetNursingOrdersInputValidated {
   console.group('validateRequestParameters');
 
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { searchBy, encounterId } = JSON.parse(input.body);
+  const parsedJSON = JSON.parse(input.body) as unknown;
 
-  if (encounterId === undefined) {
-    throw new Error('These fields are required: "encounterId"');
-  }
+  const { encounterId, searchBy } = RequestBodySchema.parse(parsedJSON);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
