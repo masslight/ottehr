@@ -1,15 +1,14 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import { FOLLOWUP_TYPES, PatientFollowupDetails, Secrets } from 'utils';
+import { FOLLOWUP_TYPES, SaveFollowupEncounterZambdaInput, SaveFollowupEncounterZambdaOutput, Secrets } from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import { createEncounterResource, makeEncounterDTO, updateEncounterResource } from './helpers';
-import { checkOrCreateM2MClientToken } from '../../shared';
+import { createEncounterResource, updateEncounterResource } from './helpers';
 
-export function validateRequestParameters(input: ZambdaInput): {
-  secrets: Secrets | null;
-  encounterDetails: PatientFollowupDetails;
-} {
+export interface SaveFollowupEncounterZambdaInputValidated extends SaveFollowupEncounterZambdaInput {
+  secrets: Secrets;
+}
+export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncounterZambdaInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -24,6 +23,10 @@ export function validateRequestParameters(input: ZambdaInput): {
 
   if (!FOLLOWUP_TYPES.includes(encounterDetails.followupType)) {
     throw new Error(`followupType must be one of the following ${FOLLOWUP_TYPES}`);
+  }
+
+  if (!input.secrets) {
+    throw new Error('No secrets provided');
   }
 
   return {
@@ -51,8 +54,17 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('creating a followup encounter for patient', encounterDetails.patientId);
       encounter = await createEncounterResource(encounterDetails, oystehr);
     }
+
+    if (encounter.id === undefined) {
+      throw new Error('Encounter ID is undefined after creation or update');
+    }
+
+    const response: SaveFollowupEncounterZambdaOutput = {
+      encounterId: encounter.id,
+    };
+
     return {
-      body: JSON.stringify(makeEncounterDTO(encounter)),
+      body: JSON.stringify(response),
       statusCode: 200,
     };
   } catch (error) {

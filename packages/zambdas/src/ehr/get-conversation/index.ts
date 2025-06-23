@@ -1,27 +1,26 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  PROJECT_NAME,
   chunkThings,
+  GetConversationInput,
   getFirstName,
   getFullestAvailableName,
   getLastName,
   getMessageFromComm,
   getMessageHasBeenRead,
   getSecret,
+  PROJECT_NAME,
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { getAuth0Token, topLevelCatch } from '../../shared';
+import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
 
-export interface GetConversationInput {
-  secrets: Secrets | null;
-  smsNumbers: string[];
-  timezone: string;
+export interface GetConversationInputValidated extends GetConversationInput {
+  secrets: Secrets;
 }
 
 interface ProtoConversationItem {
@@ -47,7 +46,7 @@ let zapehrToken: string;
 const CHUNK_SIZE = 100;
 const MAX_MESSAGE_COUNT = '1000';
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -185,9 +184,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: error.message }),
     };
   }
-};
+});
 
-function validateRequestParameters(input: ZambdaInput): GetConversationInput {
+function validateRequestParameters(input: ZambdaInput): GetConversationInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -218,6 +217,10 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInput {
       throw new Error('smsNumber must be of the form "+1", followed by 10 digits');
     }
   });
+
+  if (!input.secrets) {
+    throw new Error('No secrets provided');
+  }
 
   return {
     smsNumbers: Array.from(new Set(smsNumbers)),

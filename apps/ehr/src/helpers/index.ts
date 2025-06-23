@@ -8,6 +8,7 @@ import { formatDateUsingSlashes, getTimezone } from './formatDateTime';
 import { CRITICAL_CHANGE_SYSTEM } from './activityLogsUtils';
 import { EvolveUser } from '../hooks/useEvolveUser';
 import { getCriticalUpdateTagOp } from './activityLogsUtils';
+import { ApptTab } from 'src/components/AppointmentTabs';
 
 export const classifyAppointments = (appointments: InPersonAppointmentInformation[]): Map<any, any> => {
   const statusCounts = new Map();
@@ -27,7 +28,7 @@ export const messageIsFromPatient = (message: Message): boolean => {
 const getCheckInNeededTagsPatchOperation = (appointment: Appointment, user: EvolveUser | undefined): Operation => {
   const criticalUpdateTagCoding = {
     system: CRITICAL_CHANGE_SYSTEM,
-    display: `Staff ${user?.email ? user.email : `(${user?.id})`} via QRS`,
+    display: `Staff ${user?.email ? user.email : `(${user?.id})`}`,
     version: DateTime.now().toISO() || '',
   };
 
@@ -169,4 +170,18 @@ export const patchAppointmentComment = async (
     operations: patchOperations,
   });
   return updatedAppointment;
+};
+
+// there are two different tooltips that are show on the tracking board depending which tab/section you are on
+// 1. visit components on prebooked, inoffce/waiting and cancelled
+// 2. orders on inoffice/inexam and completed
+export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation, tab: ApptTab): boolean => {
+  let display = false;
+  if (tab === ApptTab.completed) {
+    display = true;
+  } else if (tab === ApptTab['in-office'] && appointment.status !== 'arrived' && appointment.status !== 'ready') {
+    // in exam
+    display = true;
+  }
+  return display;
 };

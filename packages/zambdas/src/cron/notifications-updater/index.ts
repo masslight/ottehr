@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputPostRequest, BatchInputRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
@@ -20,11 +21,17 @@ import {
   getProviderNotificationSettingsForPractitioner,
   mapStatusToTelemed,
 } from 'utils';
-import { checkOrCreateM2MClientToken, getEmployees, getRoleMembers, getRoles, topLevelCatch } from '../../shared';
+import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
+import {
+  ZambdaInput,
+  checkOrCreateM2MClientToken,
+  getEmployees,
+  getRoleMembers,
+  getRoles,
+  topLevelCatch,
+} from '../../shared';
 import { removePrefix } from '../../shared/appointment/helpers';
 import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared';
-import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {
@@ -35,7 +42,7 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const sendSMSPractitionerCommunications: {
     [key: string]: { practitioner: Practitioner; communications: Communication[] };
   } = {};
@@ -447,7 +454,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(error.message),
     };
   }
-};
+});
 
 function checkPractitionerResourceDefined(resource: Practitioner | undefined | never): resource is Practitioner {
   return resource !== undefined;

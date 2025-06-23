@@ -12,9 +12,7 @@
         "name": [
           {
             "use": "official",
-            "given": [
-              "Jon"
-            ],
+            "given": ["Jon"],
             "family": "Snow"
           }
         ],
@@ -23,10 +21,7 @@
         "address": [
           {
             "city": "New York",
-            "line": [
-              "20250519 Test Line",
-              "Apt 4B"
-            ],
+            "line": ["20250519 Test Line", "Apt 4B"],
             "state": "NY",
             "country": "US",
             "postalCode": "06001"
@@ -64,9 +59,7 @@
             "id": "primary-care-physician",
             "name": [
               {
-                "given": [
-                  "Provider first name"
-                ],
+                "given": ["Provider first name"],
                 "family": "Provider last name"
               }
             ],
@@ -256,7 +249,7 @@
             },
             {
               "system": "created-by",
-              "display": "Staff e2euser@masslight.com via QRS"
+              "display": "Staff e2euser@masslight.com"
             },
             {
               "system": "appointment-preprocessing-status",
@@ -520,7 +513,7 @@
             {
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
               "code": "patient-docs-folder",
-              "display": "School/Work Notes"
+              "display": "School/Work Note templates"
             }
           ]
         },
@@ -539,6 +532,44 @@
               ]
             },
             "value": "school-work-note-templates"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/List"
+      },
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "school-work-note",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+              "code": "patient-docs-folder",
+              "display": "School/Work Notes"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "UDI",
+                  "display": "Universal Device Identifier"
+                }
+              ]
+            },
+            "value": "school-work-note"
           }
         ]
       }
@@ -719,7 +750,7 @@
             {
               "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
               "code": "patient-docs-folder",
-              "display": "Ins Cards / Photo ID"
+              "display": "Insurance Cards"
             }
           ]
         },
@@ -738,6 +769,44 @@
               ]
             },
             "value": "insurance-cards"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "url": "/List"
+      },
+      "resource": {
+        "resourceType": "List",
+        "status": "current",
+        "mode": "working",
+        "title": "photo-ids",
+        "code": {
+          "coding": [
+            {
+              "system": "https://fhir.zapehr.com/r4/StructureDefinitions",
+              "code": "patient-docs-folder",
+              "display": "Photo ID"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "urn:uuid:f6240915-8e9f-4e21-ac6d-ea68ff6b90eb"
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "UDI",
+                  "display": "Universal Device Identifier"
+                }
+              ]
+            },
+            "value": "photo-ids"
           }
         ]
       }
@@ -1332,9 +1401,7 @@
             "id": "accountGuarantorId",
             "name": [
               {
-                "given": [
-                  "fwe"
-                ],
+                "given": ["fwe"],
                 "family": "sf"
               }
             ],
@@ -1352,9 +1419,7 @@
             "address": [
               {
                 "city": "Cleveland",
-                "line": [
-                  "333 test street"
-                ],
+                "line": ["333 test street"],
                 "state": "OH",
                 "postalCode": "44101"
               }

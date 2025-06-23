@@ -795,7 +795,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
     await addPatientPage.clickAddButton();
 
     const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
-    const appointmentId = response.appointment;
+    const appointmentId = response.appointmentId;
     if (!appointmentId) {
       throw new Error('Appointment ID should be present in the response');
     }

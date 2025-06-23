@@ -1,14 +1,17 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { UnassignPractitionerInput, UnassignPractitionerResponse } from 'utils';
+import { Appointment, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { Secrets, UnassignPractitionerZambdaInput, UnassignPractitionerZambdaOutput } from 'utils';
+import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { getVisitResources } from '../../shared/practitioner/helpers';
 import { getMyPractitionerId } from '../../shared/practitioners';
-import { ZambdaInput } from '../../shared';
 import { unassignParticipantIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { getVisitResources } from '../../shared/practitioner/helpers';
-import { Appointment, Encounter, Practitioner, PractitionerRole } from 'fhir/r4b';
-import { checkOrCreateM2MClientToken } from '../../shared';
+export interface UnassignPractitionerZambdaInputValidated extends UnassignPractitionerZambdaInput {
+  secrets: Secrets;
+  userToken: string;
+}
 
 let m2mtoken: string;
 
@@ -41,7 +44,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 export const complexValidation = async (
   oystehr: Oystehr,
   oystehrCurrentUser: Oystehr,
-  params: UnassignPractitionerInput
+  params: UnassignPractitionerZambdaInputValidated
 ): Promise<{
   encounter: Encounter;
   appointment: Appointment;
@@ -85,7 +88,7 @@ export const performEffect = async (
     practitioner: Practitioner;
     userRole: any;
   }
-): Promise<UnassignPractitionerResponse> => {
+): Promise<UnassignPractitionerZambdaOutput> => {
   const { encounter, appointment, practitionerRole, practitioner, userRole } = validatedData;
 
   await unassignParticipantIfPossible(

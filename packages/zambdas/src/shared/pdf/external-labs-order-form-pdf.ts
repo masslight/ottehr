@@ -281,7 +281,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
   drawRegularTextLeft(locationCityStateZip);
-  drawFieldLineRight('NPI:', data.providerNPI);
+  drawFieldLineRight('NPI:', data.providerNPI || '');
   addNewLine();
   currXPos = styles.margin.x;
   if (data.locationPhone) await addLocationPhoneInfo();

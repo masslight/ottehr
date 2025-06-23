@@ -1,4 +1,5 @@
 import Oystehr from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -17,6 +18,7 @@ import {
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
   flattenItems,
+  GetAppointmentsZambdaInput,
   getChatContainsUnreadMessages,
   getMiddleName,
   getPatientFirstName,
@@ -36,9 +38,14 @@ import {
   ZAP_SMS_MEDIUM_CODE,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
-import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
-import { createOystehrClient, getRelatedPersonsFromResourceList } from '../../shared';
-import { sortAppointments } from '../../shared';
+import {
+  checkOrCreateM2MClientToken,
+  createOystehrClient,
+  getRelatedPersonsFromResourceList,
+  sortAppointments,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../shared';
 import {
   getActiveAppointmentsBeforeTodayQueryInput,
   getAppointmentQueryInput,
@@ -51,18 +58,13 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export interface GetAppointmentsInput {
-  searchDate: string;
-  locationID?: string;
-  providerIDs?: string[];
-  groupIDs?: string[];
-  visitType: string[];
+export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZambdaInput {
   secrets: Secrets | null;
 }
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -530,7 +532,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error getting patient appointments' }),
     };
   }
-};
+});
 
 interface AppointmentInformationInputs {
   appointment: Appointment;
