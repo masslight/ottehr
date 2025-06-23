@@ -1,5 +1,5 @@
 import { Coverage, RelatedPerson } from 'fhir/r4b';
-import { COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils';
+import { COVERAGE_ADDITIONAL_INFORMATION_URL, COVERAGE_MEMBER_IDENTIFIER_BASE } from 'utils';
 
 export const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
   resourceType: 'RelatedPerson',
@@ -155,7 +155,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     },
     extension: [
       {
-        url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+        url: COVERAGE_ADDITIONAL_INFORMATION_URL,
         valueString: 'Additional info to primary insurance',
       },
     ],

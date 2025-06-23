@@ -1,0 +1,144 @@
+[
+  {
+    "op": "add",
+    "path": "/contained",
+    "value": [
+      {
+        "resourceType": "RelatedPerson",
+        "id": "coverageSubscriber",
+        "name": [
+          {
+            "given": [
+              "Barnabas",
+              "Thaddeus"
+            ],
+            "family": "Picklesworth"
+          }
+        ],
+        "birthDate": "1982-02-23",
+        "gender": "male",
+        "patient": {
+          "reference": "Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61"
+        },
+        "address": [
+          {
+            "line": [
+              "317 Mustard Street",
+              "Unit 2"
+            ],
+            "city": "Deliciousville",
+            "state": "DE",
+            "postalCode": "20001"
+          }
+        ],
+        "relationship": [
+          {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype",
+                "code": "child",
+                "display": "Child"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "op": "replace",
+    "path": "/subscriber",
+    "value": {
+      "reference": "#coverageSubscriber"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/class",
+    "value": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+              "code": "plan"
+            }
+          ]
+        },
+        "value": "60054",
+        "name": "Aetna"
+      }
+    ]
+  },
+  {
+    "op": "add",
+    "path": "/contained",
+    "value": [
+      {
+        "resourceType": "RelatedPerson",
+        "id": "coverageSubscriber",
+        "name": [
+          {
+            "given": [
+              "Jennifer",
+              "Celeste"
+            ],
+            "family": "Picklesworth"
+          }
+        ],
+        "birthDate": "1983-02-23",
+        "gender": "female",
+        "patient": {
+          "reference": "Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61"
+        },
+        "address": [
+          {
+            "line": [
+              "317 R St NW Unit 2",
+              "conditional-filter-test-1234"
+            ],
+            "city": "Washington",
+            "state": "DC",
+            "postalCode": "20001"
+          }
+        ],
+        "relationship": [
+          {
+            "coding": [
+              {
+                "system": "http://hl7.org/fhir/ValueSet/relatedperson-relationshiptype",
+                "code": "child",
+                "display": "Child"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "op": "replace",
+    "path": "/subscriber",
+    "value": {
+      "reference": "#coverageSubscriber"
+    }
+  },
+  {
+    "op": "replace",
+    "path": "/class",
+    "value": [
+      {
+        "type": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/coverage-class",
+              "code": "plan"
+            }
+          ]
+        },
+        "value": "J1859",
+        "name": "United Heartland"
+      }
+    ]
+  }
+]

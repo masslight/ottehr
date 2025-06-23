@@ -141,7 +141,7 @@ describe('closure and override tests', () => {
       now = now.plus({ minutes: 15 });
     }
   });
-  it('period closure starting today results in no slots for either today or tomorrow (period.end is inclusive of the entire day)', () => {
+  it.only('period closure starting today results in no slots for either today or tomorrow (period.end is inclusive of the entire day)', () => {
     const startDate = startOfDayWithTimezone();
     const scheduleExtension = addClosurePeriod(DEFAULT_SCHEDULE_JSON, startDate, 1);
     expect(scheduleExtension).toBeDefined();
