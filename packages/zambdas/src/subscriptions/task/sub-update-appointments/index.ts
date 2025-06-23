@@ -9,14 +9,7 @@ import {
   getWaitingMinutesAtSchedule,
   TaskStatus,
 } from 'utils';
-import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
@@ -149,6 +142,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-update-appointments', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-update-appointments', error, input.secrets, true);
   }
 });

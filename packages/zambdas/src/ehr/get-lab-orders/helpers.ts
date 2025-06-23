@@ -48,7 +48,6 @@ import {
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
-import { captureSentryException } from '../../shared';
 import { sendErrors } from '../../shared';
 
 // cache for the service request context: contains parsed tasks and results
@@ -107,7 +106,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       );
     } catch (error) {
       console.error(`Error parsing service request ${serviceRequest.id}:`, error);
-      void sendErrors('get-lab-orders', error, secrets, captureSentryException);
+      void sendErrors('get-lab-orders', error, secrets, true);
     }
   }
   return result;

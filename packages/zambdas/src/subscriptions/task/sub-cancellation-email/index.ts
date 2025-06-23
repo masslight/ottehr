@@ -5,7 +5,6 @@ import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail } from 'utils';
 import { validateRequestParameters } from '../validateRequestParameters';
 import {
-  captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
@@ -177,6 +176,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-cancellation-email', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-cancellation-email', error, input.secrets, true);
   }
 });

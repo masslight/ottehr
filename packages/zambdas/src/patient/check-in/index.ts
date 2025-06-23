@@ -17,7 +17,6 @@ import {
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
-  captureSentryException,
   checkPaperworkComplete,
   configSentry,
   createOystehrClient,
@@ -160,7 +159,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    return topLevelCatch('check-in', error, input.secrets, captureSentryException);
+    return topLevelCatch('check-in', error, input.secrets, true);
   }
 });
 

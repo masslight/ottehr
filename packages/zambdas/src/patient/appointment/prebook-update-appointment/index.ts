@@ -27,7 +27,6 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   configSentry,
   createAuditEvent,
   createOystehrClient,
@@ -243,6 +242,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('update-appointment', error, input.secrets, captureSentryException);
+    return topLevelCatch('update-appointment', error, input.secrets, true);
   }
 });

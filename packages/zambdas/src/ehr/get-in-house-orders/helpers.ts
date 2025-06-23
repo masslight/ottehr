@@ -25,7 +25,7 @@ import {
   Secrets,
   InHouseGetOrdersResponseDTO,
 } from 'utils';
-import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
+import { getMyPractitionerId, createOystehrClient, sendErrors } from '../../shared';
 import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
 import {
   EMPTY_PAGINATION,
@@ -112,7 +112,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
       );
     } catch (error) {
       console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
-      void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
+      void sendErrors('get-in-house-orders', error, secrets, true);
     }
   }
 

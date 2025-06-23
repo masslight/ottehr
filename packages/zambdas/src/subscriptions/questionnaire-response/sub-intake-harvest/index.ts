@@ -38,7 +38,6 @@ import {
 } from '../../../ehr/shared/harvest';
 import { getStripeClient } from '../../../patient/payment-methods/helpers';
 import {
-  captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
@@ -79,7 +78,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('qr-subscription', error, input.secrets, captureSentryException);
+    return topLevelCatch('qr-subscription', error, input.secrets, true);
   }
 });
 

@@ -18,14 +18,7 @@ import {
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
 } from 'utils';
-import {
-  captureSentryException,
-  configSentry,
-  createOystehrClient,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../shared';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 
@@ -45,7 +38,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(result),
     };
   } catch (error: any) {
-    return topLevelCatch('get-presigned-file-url', error, input.secrets, captureSentryException);
+    return topLevelCatch('get-presigned-file-url', error, input.secrets, true);
   }
 });
 

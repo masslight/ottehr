@@ -7,7 +7,7 @@ export const sendErrors = async (
   zambda: string,
   error: any,
   secrets: Secrets | null,
-  captureSentryException?: (error: any) => void
+  shouldCaptureException?: boolean
 ): Promise<void> => {
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   // Only fires in testing, staging and production
@@ -15,7 +15,7 @@ export const sendErrors = async (
     return;
   }
 
-  if (captureSentryException) {
+  if (shouldCaptureException) {
     captureSentryException(error);
   } else {
     // const notification = ENVIRONMENT === 'production' ? '@channel' : '@ottehr-dev';

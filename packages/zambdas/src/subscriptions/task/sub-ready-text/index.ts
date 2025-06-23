@@ -3,14 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail, PROJECT_WEBSITE } from 'utils';
-import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+import { createOystehrClient, configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 import { patchTaskStatus } from '../../helpers';
@@ -150,6 +143,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-ready-text', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-ready-text', error, input.secrets, true);
   }
 });

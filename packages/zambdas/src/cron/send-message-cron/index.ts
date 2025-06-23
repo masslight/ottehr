@@ -5,7 +5,7 @@ import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, getSecret, Secrets, SecretsKeys } from 'utils';
 import { topLevelCatch, ZambdaInput } from '../../shared';
-import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../shared';
+import { createOystehrClient, configSentry, getAuth0Token } from '../../shared';
 import { getMessageRecipientForAppointment } from '../../shared/communication';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 
@@ -145,7 +145,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify({ status: 'hola' }),
     };
   } catch (error: any) {
-    return topLevelCatch('send-message-cron', error, input.secrets, captureSentryException);
+    return topLevelCatch('send-message-cron', error, input.secrets, true);
   }
 });
 

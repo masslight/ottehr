@@ -28,7 +28,6 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   checkIsEHRUser,
   configSentry,
   createAuditEvent,
@@ -286,7 +285,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify({}),
     };
   } catch (error: any) {
-    return topLevelCatch('cancel-appointment', error, input.secrets, captureSentryException);
+    return topLevelCatch('cancel-appointment', error, input.secrets, true);
   }
 });
 

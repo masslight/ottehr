@@ -11,7 +11,6 @@ import {
   getVisitStatus,
 } from 'utils';
 import {
-  captureSentryException,
   checkPaperworkComplete,
   configSentry,
   createOystehrClient,
@@ -227,6 +226,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('get-appointments', error, input.secrets, captureSentryException);
+    return topLevelCatch('get-appointments', error, input.secrets, true);
   }
 });

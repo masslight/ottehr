@@ -9,7 +9,6 @@ import {
   getAuth0Token,
   sendInPersonMessages,
   topLevelCatch,
-  captureSentryException,
   createOystehrClient,
 } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
@@ -177,6 +176,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-confirmation-messages', error, input.secrets, captureSentryException);
+    return topLevelCatch('sub-confirmation-messages', error, input.secrets, true);
   }
 });

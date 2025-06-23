@@ -48,7 +48,6 @@ import {
   VisitType,
 } from 'utils';
 import {
-  captureSentryException,
   createOystehrClient,
   configSentry,
   getAuth0Token,
@@ -169,7 +168,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('create-appointment', error, input.secrets, captureSentryException);
+    return topLevelCatch('create-appointment', error, input.secrets, true);
   }
 });
 

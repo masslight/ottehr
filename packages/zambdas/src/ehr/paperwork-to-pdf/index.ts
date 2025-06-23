@@ -16,7 +16,6 @@ import {
   SecretsKeys,
 } from 'utils';
 import {
-  captureSentryException,
   configSentry,
   createOystehrClient,
   getAuth0Token,
@@ -87,7 +86,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    return topLevelCatch(ZAMBDA_NAME, error, input.secrets, captureSentryException);
+    return topLevelCatch(ZAMBDA_NAME, error, input.secrets, true);
   }
 });
 

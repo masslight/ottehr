@@ -13,14 +13,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import {
-  captureSentryException,
-  configSentry,
-  createOystehrClient,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../shared';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 export interface GetAppointmentDetailInput {
@@ -169,6 +162,6 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('get-appointment-details', error, input.secrets, captureSentryException);
+    return topLevelCatch('get-appointment-details', error, input.secrets, true);
   }
 });
