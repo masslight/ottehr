@@ -3,6 +3,7 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
   getScheduleExtension,
+  getSecret,
   getSlugForBookableResource,
   getTimezone,
   INVALID_INPUT_ERROR,
@@ -19,6 +20,7 @@ import {
   ScheduleExtension,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   TIMEZONES,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
@@ -46,7 +48,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('ehr-get-schedule', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('ehr-get-schedule', error, ENVIRONMENT);
   }
 };
 

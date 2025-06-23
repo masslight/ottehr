@@ -23,6 +23,7 @@ import {
   ScheduleExtension,
   ScheduleType,
   Secrets,
+  SecretsKeys,
   ServiceMode,
   UCGetPaperworkResponse,
   VisitType,
@@ -31,6 +32,7 @@ import {
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
   getScheduleExtension,
+  getSecret,
   getUnconfirmedDOBForAppointment,
   mapQuestionnaireAndValueSetsToItemsList,
   serviceModeForHealthcareService,
@@ -319,7 +321,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
   } catch (error: any) {
-    return topLevelCatch('get-paperwork', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-paperwork', error, ENVIRONMENT);
   }
 });
 

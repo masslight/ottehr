@@ -22,7 +22,6 @@ import {
   LabOrderPDF,
   getTimezone,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
-  Secrets,
   InHouseGetOrdersResponseDTO,
 } from 'utils';
 import { getMyPractitionerId, createOystehrClient, sendErrors } from '../../shared';
@@ -68,7 +67,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
   resultsPDFs: LabOrderPDF[],
-  secrets: Secrets | null,
+  ENVIRONMENT: string,
   currentPractitioner?: Practitioner,
   timezone?: string
 ): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
@@ -112,7 +111,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
       );
     } catch (error) {
       console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
-      void sendErrors('get-in-house-orders', error, secrets, true);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
 

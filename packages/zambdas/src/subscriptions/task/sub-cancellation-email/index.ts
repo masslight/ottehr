@@ -2,7 +2,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail } from 'utils';
+import { DATETIME_FULL_NO_YEAR, Secrets, SecretsKeys, TaskStatus, getPatientContactEmail, getSecret } from 'utils';
 import { validateRequestParameters } from '../validateRequestParameters';
 import {
   configSentry,
@@ -176,6 +176,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-cancellation-email', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('sub-cancellation-email', error, ENVIRONMENT);
   }
 });

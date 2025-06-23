@@ -6,7 +6,9 @@ import {
   addWaitingMinutesToAppointment,
   DATETIME_FULL_NO_YEAR,
   getPatientContactEmail,
+  getSecret,
   getWaitingMinutesAtSchedule,
+  SecretsKeys,
   TaskStatus,
 } from 'utils';
 import { createOystehrClient, configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
@@ -142,6 +144,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-update-appointments', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('sub-update-appointments', error, ENVIRONMENT);
   }
 });

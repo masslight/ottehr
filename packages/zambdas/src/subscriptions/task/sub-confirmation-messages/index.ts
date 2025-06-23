@@ -2,7 +2,15 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
+import {
+  DATETIME_FULL_NO_YEAR,
+  SecretsKeys,
+  TaskStatus,
+  VisitType,
+  getPatientContactEmail,
+  getPatientFirstName,
+  getSecret,
+} from 'utils';
 import {
   ZambdaInput,
   configSentry,
@@ -176,6 +184,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-confirmation-messages', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('sub-confirmation-messages', error, ENVIRONMENT);
   }
 });

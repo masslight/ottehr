@@ -1,7 +1,7 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DocumentReference } from 'fhir/r4b';
-import { APIError, getPresignedURL, isApiError, LabelPdf } from 'utils';
+import { APIError, getPresignedURL, getSecret, isApiError, LabelPdf, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -66,7 +66,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   } catch (error: any) {
     console.log(error);
     console.log('get label pdf error:', JSON.stringify(error));
-    await topLevelCatch('admin-get-label-pdf', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-label-pdf', error, ENVIRONMENT);
     let body = JSON.stringify({ message: 'Error fetching label pdf' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;

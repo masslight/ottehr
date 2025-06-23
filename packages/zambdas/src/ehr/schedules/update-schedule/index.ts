@@ -12,6 +12,8 @@ import {
   ScheduleOverrides,
   ScheduleOwnerFhirResource,
   TIMEZONE_EXTENSION_URL,
+  getSecret,
+  SecretsKeys,
 } from 'utils';
 import Oystehr from '@oystehr/sdk';
 import { Extension, Schedule } from 'fhir/r4b';
@@ -38,7 +40,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('update-schedule', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-schedule', error, ENVIRONMENT);
   }
 };
 

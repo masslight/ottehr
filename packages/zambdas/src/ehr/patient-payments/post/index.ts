@@ -92,7 +92,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     return lambdaResponse(200, { notice, patientId, encounterId });
   } catch (error: any) {
     console.error(error);
-    return topLevelCatch('patient-payments-post', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('patient-payments-post', error, ENVIRONMENT);
   }
 };
 

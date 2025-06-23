@@ -43,7 +43,6 @@ import {
   LabOrderPDF,
   fetchDocumentReferencesForDiagnosticReports,
   fetchLabOrderPDFs,
-  Secrets,
   PatientLabItem,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
@@ -70,7 +69,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   questionnaires: QuestionnaireData[],
   labPDFs: LabOrderPDF[],
   specimens: Specimen[],
-  secrets: Secrets | null
+  ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
   const result: LabOrderDTO<SearchBy>[] = [];
@@ -106,7 +105,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       );
     } catch (error) {
       console.error(`Error parsing service request ${serviceRequest.id}:`, error);
-      void sendErrors('get-lab-orders', error, secrets, true);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
   return result;

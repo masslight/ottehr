@@ -15,6 +15,8 @@ import {
   getTimezone,
   allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
+  getSecret,
+  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -456,7 +458,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   } catch (error: any) {
     console.log(error);
     console.log('submit external lab order error:', JSON.stringify(error));
-    await topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-submit-lab-order', error, ENVIRONMENT);
     let body = JSON.stringify({ message: 'Error submitting external lab order' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;

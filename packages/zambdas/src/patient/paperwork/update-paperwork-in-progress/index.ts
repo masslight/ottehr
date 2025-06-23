@@ -3,7 +3,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import {} from 'utils';
+import { SecretsKeys, getSecret } from 'utils';
 import { createOystehrClient, configSentry, getAuth0Token, getUser, topLevelCatch, ZambdaInput } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
@@ -42,7 +42,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify({ message: 'Successfully updated appointment paperwork' }),
     };
   } catch (error: any) {
-    return topLevelCatch('update-paperwork', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-paperwork', error, ENVIRONMENT);
   }
 });
 

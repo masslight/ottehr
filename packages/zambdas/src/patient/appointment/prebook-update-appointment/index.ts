@@ -18,12 +18,14 @@ import {
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
+  getSecret,
   getSMSNumberForIndividual,
   isPostTelemedAppointment,
   UpdateAppointmentParameters,
   normalizeSlotToUTC,
   isValidUUID,
   isAppointmentVirtual,
+  SecretsKeys,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -242,6 +244,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('update-appointment', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-appointment', error, ENVIRONMENT, true);
   }
 });

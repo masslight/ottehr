@@ -6,8 +6,10 @@ import {
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   SLUG_SYSTEM,
   Secrets,
+  SecretsKeys,
   VisitStatusLabel,
   getPatientsForUser,
+  getSecret,
   getVisitStatus,
 } from 'utils';
 import {
@@ -226,6 +228,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('get-appointments', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-appointments', error, ENVIRONMENT, true);
   }
 });

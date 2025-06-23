@@ -5,6 +5,7 @@ import { Appointment } from 'fhir/r4b';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   getAppointmentResourceById,
+  getSecret,
   INSURANCE_CARD_BACK_2_ID,
   INSURANCE_CARD_BACK_ID,
   INSURANCE_CARD_FRONT_2_ID,
@@ -17,6 +18,7 @@ import {
   SCHOOL_WORK_NOTE_SCHOOL_ID,
   SCHOOL_WORK_NOTE_WORK_ID,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -38,7 +40,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(result),
     };
   } catch (error: any) {
-    return topLevelCatch('get-presigned-file-url', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-presigned-file-url', error, ENVIRONMENT, true);
   }
 });
 

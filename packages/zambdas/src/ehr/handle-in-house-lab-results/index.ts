@@ -21,7 +21,9 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
   getFullestAvailableName,
+  getSecret,
   LabComponentValueSetConfig,
+  SecretsKeys,
 } from 'utils';
 import {
   ServiceRequest,
@@ -160,7 +162,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
-    await topLevelCatch('handle-in-house-lab-results', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

@@ -1,7 +1,7 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DiagnosticReport, Task } from 'fhir/r4b';
-import { Secrets } from 'utils';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
 import { ZambdaInput } from '../../../shared/types';
 import { validateRequestParameters } from './validateRequestParameters';
 import { LAB_ORDER_TASK } from 'utils';
@@ -123,7 +123,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('handle-lab-result', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('handle-lab-result', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

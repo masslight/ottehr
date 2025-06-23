@@ -2,7 +2,14 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail, PROJECT_WEBSITE } from 'utils';
+import {
+  DATETIME_FULL_NO_YEAR,
+  TaskStatus,
+  getPatientContactEmail,
+  PROJECT_WEBSITE,
+  SecretsKeys,
+  getSecret,
+} from 'utils';
 import { createOystehrClient, configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -143,6 +150,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-ready-text', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('sub-ready-text', error, ENVIRONMENT);
   }
 });

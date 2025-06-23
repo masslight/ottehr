@@ -4,8 +4,10 @@ import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import {
   getPatchBinary,
+  getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   Secrets,
+  SecretsKeys,
   UpdateNursingOrderParameters,
 } from 'utils';
 import { Provenance, ServiceRequest, Task } from 'fhir/r4b';
@@ -162,7 +164,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('update-nursing-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-nursing-order', error, ENVIRONMENT);
 
     return {
       statusCode: error.statusCode || 500,

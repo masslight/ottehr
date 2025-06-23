@@ -25,6 +25,7 @@ import {
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  getSecret,
   isApiError,
   LAB_ORDER_TASK,
   OrderableItemSearchResult,
@@ -33,6 +34,7 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  SecretsKeys,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch } from '../../shared';
@@ -279,7 +281,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify('successfully created fhir resources for external lab order'),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-create-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
     let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
     if (isApiError(error)) {
       const { code, message } = error as APIError;

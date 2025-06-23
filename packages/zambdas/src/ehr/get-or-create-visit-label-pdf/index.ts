@@ -9,7 +9,9 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getPresignedURL,
+  getSecret,
   isApiError,
+  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { createVisitLabelPDF, VISIT_LABEL_DOC_REF_DOCTYPE, VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
@@ -127,7 +129,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     throw new Error(`Got ${labelDocRefs.length} docRefs for Encounter/${encounterId}. Expected 0 or 1`);
   } catch (error: any) {
     console.error('get or create visit label pdf error:', JSON.stringify(error));
-    await topLevelCatch('admin-get-or-create-visit-label-pdf', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-or-create-visit-label-pdf', error, ENVIRONMENT);
     let body = JSON.stringify({ message: 'Error fetching or creating visit label pdf' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;

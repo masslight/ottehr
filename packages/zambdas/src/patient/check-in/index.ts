@@ -11,8 +11,10 @@ import {
   getEncounterStatusHistoryIdx,
   getLocationInformation,
   getPatchBinary,
+  getSecret,
   getTaskResource,
   Secrets,
+  SecretsKeys,
   TaskIndicator,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
@@ -159,7 +161,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    return topLevelCatch('check-in', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('check-in', error, ENVIRONMENT, true);
   }
 });
 

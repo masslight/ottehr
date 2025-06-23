@@ -81,6 +81,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
     };
   } catch (error: any) {
-    return topLevelCatch('send-fax', error, input.secrets, true);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('send-fax', error, ENVIRONMENT);
   }
 };

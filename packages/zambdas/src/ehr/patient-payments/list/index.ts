@@ -13,6 +13,7 @@ import {
   CashPaymentDTO,
   convertPaymentNoticeListToCashPaymentDTOs,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   getStripeCustomerIdFromAccount,
   INVALID_INPUT_ERROR,
   isValidUUID,
@@ -23,6 +24,7 @@ import {
   NOT_AUTHORIZED,
   PatientPaymentDTO,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import { Account, PaymentNotice } from 'fhir/r4b';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
@@ -78,7 +80,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     return lambdaResponse(200, response);
   } catch (error: any) {
     console.error(error);
-    return topLevelCatch('patient-payments-list', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('patient-payments-list', error, ENVIRONMENT);
   }
 };
 interface EffectInput extends ListPatientPaymentInput {

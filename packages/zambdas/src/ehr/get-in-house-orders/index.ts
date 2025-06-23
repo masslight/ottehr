@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { compareDates, EMPTY_PAGINATION } from 'utils';
+import { compareDates, EMPTY_PAGINATION, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { getInHouseResources, mapResourcesToInHouseOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -73,6 +73,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
 
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const inHouseOrders = mapResourcesToInHouseOrderDTOs(
       { searchBy },
       serviceRequests,
@@ -86,7 +87,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       observations,
       diagnosticReports,
       resultsPDFs,
-      secrets,
+      ENVIRONMENT,
       currentPractitioner,
       timezone
     );
@@ -107,7 +108,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('get-in-house-orders', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-in-house-orders', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

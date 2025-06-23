@@ -4,6 +4,7 @@ import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   getVersionedReferencesFromBundleResources,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -11,6 +12,7 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import Oystehr, { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Account, AuditEvent, Bundle, Coverage } from 'fhir/r4b';
@@ -39,7 +41,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('remove-coverage', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('remove-coverage', error, ENVIRONMENT);
   }
 };
 

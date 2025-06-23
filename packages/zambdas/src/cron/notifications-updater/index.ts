@@ -13,12 +13,14 @@ import {
   ProviderNotificationSettings,
   RoleType,
   Secrets,
+  SecretsKeys,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
   allLicensesForPractitioner,
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
+  getSecret,
   mapStatusToTelemed,
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
@@ -447,7 +449,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: 'Successfully processed provider notifications',
     };
   } catch (error: any) {
-    await topLevelCatch('Notification-updater', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('Notification-updater', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,
