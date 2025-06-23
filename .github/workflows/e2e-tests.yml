@@ -131,6 +131,7 @@ jobs:
           fi
         env:
           CI: true
+          IS_LOGIN_TEST: 'true'
 
       - name: Upload test results
         if: always()
