@@ -3,11 +3,11 @@ import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import {
   chooseJson,
-  CopayBenefit,
   CoverageCheckWithDetails,
   EligibilityCheckSimpleStatus,
   isPostalCodeValid,
   mapEligibilityCheckResultToSimpleStatus,
+  PatientPaymentBenefit,
   REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import { BasicDatePicker as DatePicker, FormSelect, FormTextField } from '../../components/form';
@@ -71,7 +71,7 @@ function mapInitialStatus(
 interface SimpleStatusCheckWithDate {
   status: EligibilityCheckSimpleStatus;
   dateISO: string;
-  copay?: CopayBenefit[];
+  copay?: PatientPaymentBenefit[];
 }
 
 export const InsuranceContainer: FC<InsuranceContainerProps> = ({
@@ -221,7 +221,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           marginTop: 2,
         }}
       >
-        <CopayWidget copay={copayBenefits} benefitFilter={(b) => b.code === 'UC'} />
+        <CopayWidget copay={copayBenefits} />
       </Box>
       <Row label="Type" required dataTestId={dataTestIds.insuranceContainer.type}>
         <FormSelect

@@ -1,14 +1,22 @@
-import { Grid, Typography, useTheme } from '@mui/material';
-import { FC } from 'react';
-import { CopayBenefit } from 'utils';
+import { Box, Grid, Typography, useTheme } from '@mui/material';
+import { FC, useMemo } from 'react';
+import { PatientPaymentBenefit } from 'utils';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 
 interface CopayWidgetProps {
-  copay: CopayBenefit[];
-  benefitFilter?: (benefit: CopayBenefit) => boolean;
+  copay: PatientPaymentBenefit[];
 }
 
-export const CopayWidget: FC<CopayWidgetProps> = ({ copay, benefitFilter }) => {
-  const filteredList = benefitFilter ? copay.filter(benefitFilter) : copay;
+const supportedServiceCodes = new Set(['UC']);
+
+export const CopayWidget: FC<CopayWidgetProps> = ({ copay }) => {
+  const { inNetworkList, outOfNetworkList } = useMemo(() => {
+    const filteredByService = copay.filter((b) => supportedServiceCodes.has(b.code));
+    const inNetworkList = filteredByService.filter((b) => b.inNetwork);
+    const outOfNetworkList = filteredByService.filter((b) => !b.inNetwork);
+    return { inNetworkList, outOfNetworkList };
+  }, [copay]);
   const theme = useTheme();
 
   return (
@@ -22,11 +30,46 @@ export const CopayWidget: FC<CopayWidgetProps> = ({ copay, benefitFilter }) => {
     >
       <Grid item>
         <Typography variant="h5" color={theme.palette.primary.dark} fontWeight={theme.typography.fontWeightBold}>
-          Co-pay
+          Patient payment
         </Typography>
       </Grid>
-      {filteredList.length > 0 ? (
-        filteredList.map((benefit) => (
+      <BenefitSection
+        title={'Patient is In-Network'}
+        titleIcon={<HowToRegIcon sx={{ color: theme.palette.success.main, fontSize: 20 }} />}
+        emptyMessage={'No in-network benefits available.'}
+        benefits={inNetworkList}
+      />
+      <BenefitSection
+        title={'Patient is Out-of-Network'}
+        titleIcon={<PersonRemoveIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />}
+        emptyMessage={'No out-of-network benefits available.'}
+        benefits={outOfNetworkList}
+      />
+    </Grid>
+  );
+};
+
+interface BenefitSectionProps {
+  title: string;
+  titleIcon?: React.ReactNode;
+  emptyMessage: string;
+  benefits: PatientPaymentBenefit[];
+}
+
+const BenefitSection: FC<BenefitSectionProps> = ({ title, titleIcon, emptyMessage, benefits }) => {
+  const theme = useTheme();
+  return (
+    <Grid container item direction="column" spacing={1}>
+      <Grid item>
+        <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1 }}>
+          {titleIcon ?? <></>}
+          <Typography variant="h6" color={theme.palette.primary.dark}>
+            {title}
+          </Typography>
+        </Box>
+      </Grid>
+      {benefits.length > 0 ? (
+        benefits.map((benefit) => (
           <Grid
             container
             sx={{
@@ -45,7 +88,7 @@ export const CopayWidget: FC<CopayWidgetProps> = ({ copay, benefitFilter }) => {
             </Grid>
             <Grid item xs={5}>
               <Typography variant="body1" color={theme.palette.primary.dark}>
-                {benefit.inplanNetwork ? 'In network' : 'Out of network'}
+                {benefit.coverageCode === 'A' ? 'Co-Insurance' : 'Co-Pay'}
               </Typography>
             </Grid>
             <Grid item xs={2}>
@@ -55,14 +98,37 @@ export const CopayWidget: FC<CopayWidgetProps> = ({ copay, benefitFilter }) => {
                 color={theme.palette.text.primary}
                 textAlign="right"
               >
-                {`$${benefit.amountInUSD}`}
+                {amountStringForBenefit(benefit)}
               </Typography>
             </Grid>
           </Grid>
         ))
       ) : (
-        <p>No copay benefits available.</p>
+        <p>{emptyMessage}</p>
       )}
     </Grid>
   );
+};
+
+const amountStringForBenefit = (benefit: PatientPaymentBenefit): string => {
+  const amountInUSD = benefit.amountInUSD;
+  const percentage = benefit.percentage;
+
+  if (benefit.coverageCode === 'A') {
+    if (percentage > 0) {
+      return `${percentage}%`;
+    } else if (amountInUSD > 0) {
+      return `$${amountInUSD}`;
+    } else {
+      return '0%';
+    }
+  } else {
+    if (amountInUSD > 0) {
+      return `$${amountInUSD}`;
+    } else if (percentage > 0) {
+      return `${percentage}%`;
+    } else {
+      return '$0';
+    }
+  }
 };

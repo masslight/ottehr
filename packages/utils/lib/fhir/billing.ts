@@ -12,10 +12,10 @@ import {
   APIErrorCode,
   BillingProviderData,
   BillingProviderResource,
-  CopayBenefit,
   CoverageCheckCoverageDetails,
   InsuranceCheckStatusWithDate,
   InsuranceEligibilityCheckStatus,
+  PatientPaymentBenefit,
 } from '../types';
 import { getNPI, getTaxID } from './helpers';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../main';
@@ -124,7 +124,7 @@ export const parseCoverageEligibilityResponse = (
       const fullBenefitJSON = coverageResponse.extension?.find(
         (e) => e.url === 'https://extensions.fhir.oystehr.com/raw-response'
       )?.valueString;
-      let copay: CopayBenefit[] | undefined;
+      let copay: PatientPaymentBenefit[] | undefined;
       if (fullBenefitJSON) {
         try {
           const benefitList = JSON.parse(fullBenefitJSON)?.elig?.benefit;
@@ -145,19 +145,22 @@ export const parseCoverageEligibilityResponse = (
 
 // Define CopayBenefit type (replace with actual fields as needed)
 
-export const parseObjectsToCopayBenefits = (input: any[]): CopayBenefit[] => {
-  // TODO: Implement actual parsing logic
+export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit[] => {
   const filteredInputs = input.filter((item) => {
-    return item && typeof item === 'object' && item['benefit_coverage_code'] === 'B';
+    return (
+      item &&
+      typeof item === 'object' &&
+      (item['benefit_coverage_code'] === 'B' || item['benefit_coverage_code'] === 'A')
+    );
   });
 
-  console.log('filteredInputs', JSON.stringify(filteredInputs));
   return filteredInputs.map((item) => {
-    const CP: CopayBenefit = {
+    const CP: PatientPaymentBenefit = {
       amountInUSD: item['benefit_amount'] ?? 0,
+      percentage: item['benefit_percent'] ?? 0,
       code: item['benefit_code'] ?? '',
       description: item['benefit_description'] ?? '',
-      inplanNetwork: item['inplan_network'] === 'Y',
+      inNetwork: item['inplan_network'] === 'Y',
       coverageDescription: item['benefit_coverage_description'] ?? '',
       coverageCode: item['benefit_coverage_code'] ?? '',
       periodDescription: item['benefit_period_description'] ?? '',

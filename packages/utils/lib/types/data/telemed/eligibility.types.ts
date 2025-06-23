@@ -53,6 +53,7 @@ export interface CoverageBenefitInfo {
   amountInUSD: number;
   description: string;
   code: string;
+  percentage: number;
 
   coverageDescription: string;
   coverageCode: string;
@@ -63,15 +64,19 @@ export interface CoverageBenefitInfo {
   levelDescription: string;
   levelCode: string;
 
-  inplanNetwork: boolean;
+  inNetwork: boolean;
 }
 export interface CopayBenefit extends CoverageBenefitInfo {
   coverageCode: 'B';
 }
+export interface CoinsuranceBenefit extends CoverageBenefitInfo {
+  coverageCode: 'A';
+}
+export type PatientPaymentBenefit = CopayBenefit | CoinsuranceBenefit;
 export interface InsuranceCheckStatusWithDate {
   status: InsuranceEligibilityCheckStatus;
   dateISO: string;
-  copay?: CopayBenefit[];
+  copay?: PatientPaymentBenefit[];
 }
 
 export type GetEligibilityResponse = {
@@ -83,7 +88,7 @@ export type EligibilityCheckSimpleStatus = 'ELIGIBLE' | 'NOT ELIGIBLE' | 'UNKNOW
 
 export const mapEligibilityCheckResultToSimpleStatus = (
   result: InsuranceCheckStatusWithDate
-): { status: EligibilityCheckSimpleStatus; dateISO: string; copay?: CopayBenefit[] } => {
+): { status: EligibilityCheckSimpleStatus; dateISO: string; copay?: PatientPaymentBenefit[] } => {
   switch (result.status) {
     case InsuranceEligibilityCheckStatus.eligibilityConfirmed:
       return { status: 'ELIGIBLE', dateISO: result.dateISO, copay: result.copay };
