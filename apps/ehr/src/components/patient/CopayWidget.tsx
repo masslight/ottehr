@@ -8,6 +8,9 @@ interface CopayWidgetProps {
   copay: PatientPaymentBenefit[];
 }
 
+// This set contains the service codes that are supported by the CopayWidget.
+// Currently, it only includes 'UC' (Urgent Care), but can be overwritten to include any from
+// the enumeration defined as BenefitCoverageCodes in packages/utils/lib/types/data/telemed/eligibility.types.ts
 const supportedServiceCodes = new Set(['UC']);
 
 export const CopayWidget: FC<CopayWidgetProps> = ({ copay }) => {
@@ -74,8 +77,6 @@ const BenefitSection: FC<BenefitSectionProps> = ({ title, titleIcon, emptyMessag
             container
             sx={{
               borderTop: '1px solid  rgba(0, 0, 0, 0.12)',
-              // justifyContent: 'center',
-              // alignItems: 'center',
             }}
             item
             key={`${JSON.stringify(benefit)}`}

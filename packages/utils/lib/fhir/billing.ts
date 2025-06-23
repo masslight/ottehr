@@ -144,8 +144,6 @@ export const parseCoverageEligibilityResponse = (
   }
 };
 
-// Define CopayBenefit type (replace with actual fields as needed)
-
 export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit[] => {
   const filteredInputs = input.filter((item) => {
     return (
