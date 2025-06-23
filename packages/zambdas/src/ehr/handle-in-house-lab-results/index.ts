@@ -24,6 +24,7 @@ import {
   getSecret,
   LabComponentValueSetConfig,
   SecretsKeys,
+  HandleInHouseLabResultsZambdaOutput,
 } from 'utils';
 import {
   ServiceRequest,
@@ -154,11 +155,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       console.log('error:', e, JSON.stringify(e));
     }
 
+    const response: HandleInHouseLabResultsZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Successfully processed in-house lab results.',
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);

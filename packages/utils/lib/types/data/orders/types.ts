@@ -14,6 +14,7 @@ export type NursingOrdersSearchBy = { field: 'serviceRequestId'; value: string }
 
 export type GetNursingOrdersInput = {
   encounterId: string;
+  searchBy?: NursingOrdersSearchBy;
 };
 
 export interface NursingOrder {

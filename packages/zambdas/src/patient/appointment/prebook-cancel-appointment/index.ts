@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
   CancellationReasonCodesInPerson,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
@@ -283,9 +284,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);
 
+    const response: CancelAppointmentZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({}),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
