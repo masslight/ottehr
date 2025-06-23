@@ -1,4 +1,5 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
+import { captureException } from '@sentry/aws-serverless';
 import { DateTime } from 'luxon';
 import { getSecret, isFHIRError, Secrets, SecretsKeys, PROJECT_NAME, SUPPORT_EMAIL } from 'utils';
 import { triggerSlackAlarm } from './lambda';
@@ -16,7 +17,8 @@ export const sendErrors = async (
   }
 
   if (shouldCaptureException) {
-    captureSentryException(error);
+    const errorToThrow = handleUnknownError(error);
+    captureException(errorToThrow);
   } else {
     // const notification = ENVIRONMENT === 'production' ? '@channel' : '@ottehr-dev';
     const message = `Alert in ${ENVIRONMENT} zambda ${zambda}.\n\n${
