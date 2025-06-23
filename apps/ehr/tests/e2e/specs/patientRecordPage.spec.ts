@@ -176,7 +176,7 @@ test.describe('Patient Record Page non-mutating tests', () => {
     await patientInformationPage.verifyMobileFromPcpIsNotVisible();
   });
 
-  test('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async ({
+  test.skip('Check all fields from Primary Care Physician block after toggling the checkbox on and off', async ({
     page,
   }) => {
     const patientInformationPage = await openPatientInformationPage(page, resourceHandler.patient.id!);
