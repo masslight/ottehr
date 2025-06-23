@@ -13,6 +13,7 @@ import {
   BillingProviderData,
   BillingProviderResource,
   CoverageCheckCoverageDetails,
+  CoverageCodeToDescriptionMap,
   InsuranceCheckStatusWithDate,
   InsuranceEligibilityCheckStatus,
   PatientPaymentBenefit,
@@ -154,22 +155,25 @@ export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit
     );
   });
 
-  return filteredInputs.map((item) => {
-    const CP: PatientPaymentBenefit = {
-      amountInUSD: item['benefit_amount'] ?? 0,
-      percentage: item['benefit_percent'] ?? 0,
-      code: item['benefit_code'] ?? '',
-      description: item['benefit_description'] ?? '',
-      inNetwork: item['inplan_network'] === 'Y',
-      coverageDescription: item['benefit_coverage_description'] ?? '',
-      coverageCode: item['benefit_coverage_code'] ?? '',
-      periodDescription: item['benefit_period_description'] ?? '',
-      periodCode: item['benefit_period_code'] ?? '',
-      levelDescription: item['benefit_level_description'] ?? '',
-      levelCode: item['benefit_level_code'] ?? '',
-    };
-    return CP;
-  });
+  return filteredInputs
+    .map((item) => {
+      const benefitCoverageCode = item['benefit_coverage_code'] as 'A' | 'B';
+      const CP: PatientPaymentBenefit = {
+        amountInUSD: item['benefit_amount'] ?? 0,
+        percentage: item['benefit_percent'] ?? 0,
+        code: item['benefit_code'] ?? '',
+        description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',
+        inNetwork: item['inplan_network'] === 'Y',
+        coverageDescription: item['benefit_coverage_description'] ?? '',
+        coverageCode: benefitCoverageCode,
+        periodDescription: item['benefit_period_description'] ?? '',
+        periodCode: item['benefit_period_code'] ?? '',
+        levelDescription: item['benefit_level_description'] ?? '',
+        levelCode: item['benefit_level_code'] ?? '',
+      };
+      return CP;
+    })
+    .filter((benefit) => !!benefit.description && !!benefit.code);
 };
 
 export const pullCoverageIdentifyingDetails = (coverage: Coverage): CoverageCheckCoverageDetails | undefined => {

@@ -49,6 +49,120 @@ export interface GetEligibilityParameters {
   billingProvider?: string;
 }
 
+/*
+1 Active Coverage
+2 Active - Full Risk Capitation
+3 Active - Services Capitated
+4 Active - Services Capitated to Primary Care Physician
+5 Active - Pending Investigation
+6 Inactive
+7 Inactive - Pending Eligibility Update
+8 Inactive - Pending Investigation
+
+A Co-Insurance
+B Co-Payment
+C Deductible
+CB Coverage Basis
+D Benefit Description
+E Exclusions
+F Limitations
+G Out of Pocket (Stop Loss)
+H Unlimited
+I Non-Covered
+J Cost Containment
+K Reserve
+L Primary Care Provider
+M Pre-Existing Condition
+MC Managed Care Coordinator
+N Services Restricted to Following Provider
+O Not Deemed a Medical Necessity
+P Benefit Disclaimer
+Q Second Surgical Opinion Required
+R Other or Additional Payor
+S Prior Year(s) History
+T Card(s) Reported Lost/Stolen
+U Contact Following Entity for Eligibility or Benefit Information
+V Cannot Process
+W Other Source of Data
+X Health Care Facility
+Y Spend Down
+*/
+
+// it would be nice if the Oystehr service exposed this type via the SDK
+type BenefitCoverageCodes =
+  | '1'
+  | '2'
+  | '3'
+  | '4'
+  | '5'
+  | '6'
+  | '7'
+  | '8'
+  | 'A'
+  | 'B'
+  | 'C'
+  | 'CB'
+  | 'D'
+  | 'E'
+  | 'F'
+  | 'G'
+  | 'H'
+  | 'I'
+  | 'J'
+  | 'K'
+  | 'L'
+  | 'M'
+  | 'MC'
+  | 'N'
+  | 'O'
+  | 'P'
+  | 'Q'
+  | 'R'
+  | 'S'
+  | 'T'
+  | 'U'
+  | 'V'
+  | 'W'
+  | 'X'
+  | 'Y';
+
+export const CoverageCodeToDescriptionMap: Record<BenefitCoverageCodes, string> = {
+  '1': 'Active Coverage',
+  '2': 'Active - Full Risk Capitation',
+  '3': 'Active - Services Capitated',
+  '4': 'Active - Services Capitated to Primary Care Physician',
+  '5': 'Active - Pending Investigation',
+  '6': 'Inactive',
+  '7': 'Inactive - Pending Eligibility Update',
+  '8': 'Inactive - Pending Investigation',
+  A: 'Co-Insurance',
+  B: 'Co-Payment',
+  C: 'Deductible',
+  CB: 'Coverage Basis',
+  D: 'Benefit Description',
+  E: 'Exclusions',
+  F: 'Limitations',
+  G: 'Out of Pocket (Stop Loss)',
+  H: 'Unlimited',
+  I: 'Non-Covered',
+  J: 'Cost Containment',
+  K: 'Reserve',
+  L: 'Primary Care Provider',
+  M: 'Pre-Existing Condition',
+  MC: 'Managed Care Coordinator',
+  N: 'Services Restricted to Following Provider',
+  O: 'Not Deemed a Medical Necessity',
+  P: 'Benefit Disclaimer',
+  Q: 'Second Surgical Opinion Required',
+  R: 'Other or Additional Payor',
+  S: 'Prior Year(s) History',
+  T: 'Card(s) Reported Lost/Stolen',
+  U: 'Contact Following Entity for Eligibility or Benefit Information',
+  V: 'Cannot Process',
+  W: 'Other Source of Data',
+  X: 'Health Care Facility',
+  Y: 'Spend Down',
+};
 export interface CoverageBenefitInfo {
   amountInUSD: number;
   description: string;
