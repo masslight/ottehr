@@ -14,6 +14,7 @@ import {
 import * as fs from 'fs';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
+  getPlanIdentifierFromOrganization,
   isValidUUID,
   OTTEHR_MODULE,
   PATIENT_BILLING_ACCOUNT_TYPE,
@@ -53,7 +54,7 @@ const stubAccount: Account = {
 
 describe('Harvest Module Integration Tests', () => {
   const envConfig = JSON.parse(fs.readFileSync('.env/local.json', 'utf8'));
-  const INSURANCE_PLAN_ORG_MAP: Record<string, string> = {};
+  const INSURANCE_PLAN_ORG_MAP: Record<string, Organization> = {};
   let token: string | undefined;
   let oystehrClient: Oystehr;
   let BASE_QR: QuestionnaireResponse;
@@ -109,19 +110,22 @@ describe('Harvest Module Integration Tests', () => {
       encounter: string;
     }
   ): string[] => {
-    const [ipId, orgId] = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
+    const [ipId, org] = Object.entries(INSURANCE_PLAN_ORG_MAP)[0];
+    const orgId = org.id;
     const persistedIds = patientIdsForCleanup[pId];
     if (persistedIds === undefined && dummyResourceRefs) {
       const { appointment, encounter } = dummyResourceRefs;
       return [`InsurancePlan/${ipId}`, `Organization/${orgId}`, `Patient/${pId}`, encounter, appointment];
     }
     const [patientId, encounterId, appointmentId] = patientIdsForCleanup[pId];
+    const coveragePlanId = getPlanIdentifierFromOrganization(org);
     const refs = [
       `InsurancePlan/${ipId}`,
       `Organization/${orgId}`,
       `Patient/${patientId}`,
       `Encounter/${encounterId}`,
       `Appointment/${appointmentId}`,
+      `CoveragePlanIdentifier/${coveragePlanId}`,
     ];
     return refs;
   };
@@ -391,7 +395,7 @@ describe('Harvest Module Integration Tests', () => {
       if (ownedByReference) {
         const org = orgs.find((org) => `Organization/${org.id}` === ownedByReference);
         if (org) {
-          INSURANCE_PLAN_ORG_MAP[ip.id!] = org.id!;
+          INSURANCE_PLAN_ORG_MAP[ip.id!] = org!;
         }
       }
     });

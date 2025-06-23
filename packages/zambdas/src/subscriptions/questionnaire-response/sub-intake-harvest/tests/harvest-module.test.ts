@@ -41,6 +41,32 @@ const expectedSecondaryPolicyHolderFromQR1 = fillReferences(rawSPHQR1, [
 ]);
 const expectedAccountGuarantorFromQR1 = fillReferences(rawAGQR1, ['Patient/36ef99c2-43fa-40f6-bf9c-d9ea12c2bf61']);
 
+const AETNA_CLASS = {
+  name: 'Aetna',
+  type: {
+    coding: [
+      {
+        code: 'plan',
+        system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+      },
+    ],
+  },
+  value: '60054',
+};
+
+const UNITED_HEARTLAND_CLASS = {
+  name: 'United Heartland',
+  type: {
+    coding: [
+      {
+        code: 'plan',
+        system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
+      },
+    ],
+  },
+  value: 'J1859',
+};
+
 describe('Harvest Module', () => {
   const { orderedCoverages: coverageResources, accountCoverage } = getCoverageResources({
     questionnaireResponse: questionnaireResponse1,
@@ -222,20 +248,7 @@ describe('Harvest Module', () => {
             },
           ],
         },
-        class: [
-          {
-            name: 'Aetna',
-            type: {
-              coding: [
-                {
-                  code: 'plan',
-                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
-                },
-              ],
-            },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
-          },
-        ],
+        class: [AETNA_CLASS],
         type: {
           coding: [
             {
@@ -278,20 +291,7 @@ describe('Harvest Module', () => {
             },
           ],
         },
-        class: [
-          {
-            name: 'United Heartland',
-            type: {
-              coding: [
-                {
-                  code: 'plan',
-                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
-                },
-              ],
-            },
-            value: 'InsurancePlan/217badd9-ded4-4efa-91b9-10ab7cdcb8b8',
-          },
-        ],
+        class: [UNITED_HEARTLAND_CLASS],
         type: {
           coding: [
             {
@@ -797,7 +797,7 @@ describe('Harvest Module', () => {
         expect(relatedPersonUpdates).toBeDefined();
 
         expect(Object.values(relatedPersonUpdates).flatMap((v) => v).length).toBe(0);
-        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(2);
+        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(3);
         const coverageUpdate1 = Object.values(coverageUpdates).flatMap((v) => v)[0];
         const coverageUpdate2 = Object.values(coverageUpdates).flatMap((v) => v)[1];
         assert(coverageUpdate1);
@@ -1000,7 +1000,7 @@ describe('Harvest Module', () => {
         expect(relatedPersonUpdates).toBeDefined();
 
         expect(Object.values(relatedPersonUpdates).flatMap((v) => v).length).toBe(0);
-        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(2);
+        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(3);
         const coverageUpdate1 = Object.values(coverageUpdates).flatMap((v) => v)[0];
         const coverageUpdate2 = Object.values(coverageUpdates).flatMap((v) => v)[1];
         assert(coverageUpdate1);
@@ -1279,7 +1279,7 @@ describe('Harvest Module', () => {
         expect(relatedPersonUpdates).toBeDefined();
 
         expect(Object.values(relatedPersonUpdates).flatMap((v) => v).length).toBe(0);
-        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(4);
+        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(6);
       });
       it('should use a new contained RelatedPerson on Coverage when matching data differs between old and new subscriber, but coverage should be reused if it already exists', () => {
         const existingPrimarySubscriber: RelatedPerson = {
@@ -1309,16 +1309,21 @@ describe('Harvest Module', () => {
         expect(Object.keys(coverageUpdates).length).toBe(2);
         expect(relatedPersonUpdates).toBeDefined();
         expect(Object.values(relatedPersonUpdates).flatMap((v) => v).length).toBe(0);
-        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(4);
+        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(6);
         const coverageUpdateList = Object.values(coverageUpdates).flatMap((v) => v);
         const coverageUpdate1 = coverageUpdateList[0];
         const coverageUpdate2 = coverageUpdateList[1];
         const coverageUpdate3 = coverageUpdateList[2];
         const coverageUpdate4 = coverageUpdateList[3];
+        const coverageUpdate5 = coverageUpdateList[4];
+        const coverageUpdate6 = coverageUpdateList[5];
+
         assert(coverageUpdate1);
         assert(coverageUpdate2);
         assert(coverageUpdate3);
         assert(coverageUpdate4);
+        assert(coverageUpdate5);
+        assert(coverageUpdate6);
         expect(coverageUpdate1.op).toBe('add');
         expect(coverageUpdate1.path).toBe('/contained');
         expect((coverageUpdate1 as any).value).toEqual([expectedPrimaryPolicyHolderFromQR1]);
@@ -1327,14 +1332,20 @@ describe('Harvest Module', () => {
         expect((coverageUpdate2 as any).value).toEqual({
           reference: `#${expectedPrimaryPolicyHolderFromQR1.id}`,
         });
-        expect(coverageUpdate3.op).toBe('add');
-        expect(coverageUpdate3.path).toBe('/contained');
-        expect((coverageUpdate3 as any).value).toEqual([expectedSecondaryPolicyHolderFromQR1]);
-        expect(coverageUpdate4.op).toBe('replace');
-        expect(coverageUpdate4.path).toBe('/subscriber');
-        expect((coverageUpdate4 as any).value).toEqual({
+        expect(coverageUpdate3.op).toBe('replace');
+        expect(coverageUpdate3.path).toBe('/class');
+        expect((coverageUpdate3 as any).value).toEqual([AETNA_CLASS]);
+        expect(coverageUpdate4.op).toBe('add');
+        expect(coverageUpdate4.path).toBe('/contained');
+        expect((coverageUpdate4 as any).value).toEqual([expectedSecondaryPolicyHolderFromQR1]);
+        expect(coverageUpdate5.op).toBe('replace');
+        expect(coverageUpdate5.path).toBe('/subscriber');
+        expect((coverageUpdate5 as any).value).toEqual({
           reference: `#${expectedSecondaryPolicyHolderFromQR1.id}`,
         });
+        expect(coverageUpdate6.op).toBe('replace');
+        expect(coverageUpdate6.path).toBe('/class');
+        expect((coverageUpdate6 as any).value).toEqual([UNITED_HEARTLAND_CLASS]);
         const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
         const newSecondaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 2)?.coverage;
         assert(newPrimaryCoverage);
@@ -1623,12 +1634,13 @@ describe('Harvest Module', () => {
         expect(Object.keys(coverageUpdates).length).toBe(2);
         expect(relatedPersonUpdates).toBeDefined();
         expect(Object.values(relatedPersonUpdates).flatMap((v) => v).length).toBe(0);
-        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(4);
+        expect(Object.values(coverageUpdates).flatMap((v) => v).length).toBe(6);
         const coverageUpdateList = Object.values(coverageUpdates).flatMap((v) => v);
         const coverageUpdate1 = coverageUpdateList[0];
         const coverageUpdate2 = coverageUpdateList[1];
         const coverageUpdate3 = coverageUpdateList[2];
         const coverageUpdate4 = coverageUpdateList[3];
+        const coverageUpdate5 = coverageUpdateList[4];
         assert(coverageUpdate1);
         assert(coverageUpdate2);
         assert(coverageUpdate3);
@@ -1641,12 +1653,16 @@ describe('Harvest Module', () => {
         expect((coverageUpdate2 as any).value).toEqual({
           reference: `#${expectedPrimaryPolicyHolderFromQR1.id}`,
         });
-        expect(coverageUpdate3.op).toBe('add');
-        expect(coverageUpdate3.path).toBe('/contained');
-        expect((coverageUpdate3 as any).value).toEqual([expectedSecondaryPolicyHolderFromQR1]);
-        expect(coverageUpdate4.op).toBe('replace');
-        expect(coverageUpdate4.path).toBe('/subscriber');
-        expect((coverageUpdate4 as any).value).toEqual({
+        expect(coverageUpdate3.op).toBe('replace');
+        expect(coverageUpdate3.path).toBe('/class');
+        expect((coverageUpdate3 as any).value).toEqual([AETNA_CLASS]);
+        expect(coverageUpdate4.op).toBe('add');
+        expect(coverageUpdate4.path).toBe('/contained');
+        expect((coverageUpdate4 as any).value).toEqual([expectedSecondaryPolicyHolderFromQR1]);
+
+        expect(coverageUpdate5.op).toBe('replace');
+        expect(coverageUpdate5.path).toBe('/subscriber');
+        expect((coverageUpdate5 as any).value).toEqual({
           reference: `#${expectedSecondaryPolicyHolderFromQR1.id}`,
         });
         const newPrimaryCoverage = suggestedNewCoverageObject.find((c) => c.priority === 1)?.coverage;
@@ -2010,20 +2026,7 @@ describe('Harvest Module', () => {
             },
           ],
         },
-        class: [
-          {
-            name: 'Aetna',
-            type: {
-              coding: [
-                {
-                  code: 'plan',
-                  system: 'http://terminology.hl7.org/CodeSystem/coverage-class',
-                },
-              ],
-            },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
-          },
-        ],
+        class: [AETNA_CLASS],
         type: {
           coding: [
             {
@@ -2095,11 +2098,12 @@ describe('Harvest Module', () => {
       expect(patch?.length).toBe(1);
       const patchObj = patch?.[0];
       assert(patchObj);
+      console.log('coverageUpdateList', JSON.stringify(patchObj, null, 2));
       const patchOperations = (patchObj as any).operations;
       expect(patchOperations.length).toBe(3);
       expect(patchObj.url).toBe(`Coverage/${primary.id}`);
-      const [patch1, patch2] = patchOperations;
-      assert(patch1 && patch2);
+      const [patch1, patch2, patch3] = patchOperations;
+      assert(patch1 && patch2 && patch3);
       expect(patch1.op).toBe('add');
       expect(patch1.path).toBe('/contained');
       expect(patch1.value).toEqual([expectedPrimaryPolicyHolderFromQR1]);
@@ -2108,6 +2112,14 @@ describe('Harvest Module', () => {
       expect(patch2.value).toEqual({
         reference: `#coverageSubscriber`,
       });
+      expect(patch3.op).toBe('add');
+      expect(patch3.path).toBe('/extension');
+      expect(patch3.value).toEqual([
+        {
+          url: 'https://fhir.zapehr.com/r4/StructureDefinitions/additional-information',
+          valueString: 'Additional info to primary insurance',
+        },
+      ]);
     });
     it('should return a well formulated post request for new Account and patch operations to mark deactivated Coverages as inactive', () => {
       const primary: Coverage = {
@@ -2149,7 +2161,7 @@ describe('Harvest Module', () => {
                 },
               ],
             },
-            value: 'InsurancePlan/45ae21d2-12a3-4727-b915-896f7dc57dbd',
+            value: '34734',
           },
         ],
         type: {

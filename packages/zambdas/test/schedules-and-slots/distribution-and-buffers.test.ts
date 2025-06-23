@@ -1,5 +1,4 @@
-import { assert, vi } from 'vitest';
-import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
+import { assert } from 'vitest';
 import {
   applyBuffersToScheduleExtension,
   changeAllCapacities,
@@ -19,8 +18,6 @@ import {
 import { DateTime } from 'luxon';
 
 describe('slot availability tests', () => {
-  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
-
   it('24/7 schedule with capacity divisible by 4 should make n/4 slots available every 15 minutes', () => {
     const schedule = makeSchedule({ scheduleObject: DEFAULT_SCHEDULE_JSON });
     expect(schedule).toBeDefined();

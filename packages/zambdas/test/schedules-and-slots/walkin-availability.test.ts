@@ -1,5 +1,4 @@
-import { vi, assert } from 'vitest';
-import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
+import { assert } from 'vitest';
 import {
   addClosureDay,
   addClosurePeriod,
@@ -15,8 +14,6 @@ import {
 import { getScheduleExtension, getTimezone, isWalkinOpen } from 'utils';
 
 describe('walkin availability tests', () => {
-  vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
-
   it('should make walkin available before close time, but not at exactly close time', () => {
     // a reasonable requirement might be that some kind of buffer be applied so that walkin visits
     // can't be checked in right up to the brink of closing time, but that is not a feature thus far.

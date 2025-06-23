@@ -107,6 +107,7 @@ import {
   getPatchOperationToAddOrUpdatePreferredName,
   getPatchOperationToRemovePreferredLanguage,
   COVERAGE_ADDITIONAL_INFORMATION_URL,
+  getPlanIdentifierFromOrganization,
 } from 'utils';
 import _ from 'lodash';
 import { createOrUpdateFlags } from '../../../patient/paperwork/sharedHelpers';
@@ -1761,9 +1762,13 @@ interface CreateCoverageResourceInput {
 }
 const createCoverageResource = (input: CreateCoverageResourceInput): Coverage => {
   const { patientId, insurance } = input;
-  const { org, plan, policyHolder, additionalInformation } = insurance;
+  const { org, policyHolder, additionalInformation } = insurance;
   const memberId = policyHolder.memberId;
 
+  const coveragePlanId = getPlanIdentifierFromOrganization(org);
+  if (!coveragePlanId) {
+    throw new Error(`Organization ${org.id} does not have a valid insurance plan identifier`);
+  }
   const policyHolderId = 'coverageSubscriber';
   const policyHolderName = createFhirHumanName(policyHolder.firstName, policyHolder.middleName, policyHolder.lastName);
   const relationshipCode = SUBSCRIBER_RELATIONSHIP_CODE_MAP[policyHolder.relationship] || 'other';
@@ -1825,7 +1830,7 @@ const createCoverageResource = (input: CreateCoverageResourceInput): Coverage =>
             },
           ],
         },
-        value: `InsurancePlan/${plan.id}`, // not sure what to put here. will put ref to insurance plan for now
+        value: coveragePlanId,
         name: `${org.name ?? ''}`,
       },
     ],
