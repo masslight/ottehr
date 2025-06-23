@@ -1,8 +1,8 @@
 import { captureException, init, isInitialized, setTag } from '@sentry/aws-serverless';
-import { getSecret, handleUnknownError, Secrets } from 'utils';
+import { getSecret, handleUnknownError, Secrets, SecretsKeys } from 'utils';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
-  const environment = getSecret('ENVIRONMENT', secrets);
+  const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   if (isInitialized()) {
     console.log('Sentry is all ready initialized');
   } else {
