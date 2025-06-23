@@ -205,10 +205,11 @@ export interface ExternalLabResultsData extends LabResultsData {
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
   performingLabName: string;
-  performingLabStreetAddress: string;
-  performingLabCity: string;
-  performingLabState: string;
-  performingLabZip: string;
+  performingLabAddress?: string;
+  // performingLabStreetAddress: string;
+  // performingLabCity: string;
+  // performingLabState: string;
+  // performingLabZip: string;
   performingLabDirector?: string;
   performingLabPhone: string;
   performingLabDirectorFirstName: string;

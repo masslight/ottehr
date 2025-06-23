@@ -90,6 +90,7 @@ type LabTypeSpecificResources =
         reviewingProviderLast: string;
         reviewDate: string | undefined;
         resultInterpretations: string[];
+        performingLabAddress?: string;
       };
     }
   | { type: LabType.inhouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } };
@@ -159,6 +160,7 @@ const getResultDataConfig = (
       reviewingProviderLast,
       reviewDate,
       resultInterpretations,
+      performingLabAddress,
     } = specificResources;
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       reqId: serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value || '',
@@ -178,10 +180,7 @@ const getResultDataConfig = (
         diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
         '',
       performingLabName: organization?.name || '',
-      performingLabStreetAddress: organization?.address?.[0].line?.join(',') || '',
-      performingLabCity: organization?.address?.[0].city || '',
-      performingLabState: organization?.address?.[0].state || '',
-      performingLabZip: organization?.address?.[0].postalCode || '',
+      performingLabAddress: performingLabAddress,
       performingLabPhone:
         organization?.contact
           ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
@@ -393,6 +392,7 @@ export async function createExternalLabResultPDF(
       reviewingProviderLast,
       reviewDate,
       resultInterpretations: resultInterpretationDisplays,
+      performingLabAddress: formatPerformingLabAddress(organization),
     },
   };
   const commonResources: CommonDataConfigResources = {
@@ -668,11 +668,10 @@ async function createExternalLabsResultsFormPdfBytes(
 
   // Performing lab details
   pdfClient.drawText(`PERFORMING LAB: ${data.performingLabName}`, textStyles.textRight);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawText(
-    `${data.performingLabState}, ${data.performingLabCity}, ${data.performingLabState} ${data.performingLabZip}`,
-    textStyles.textRight
-  );
+  if (data.performingLabAddress) {
+    pdfClient.newLine(STANDARD_NEW_LINE);
+    pdfClient.drawText(data.performingLabAddress, textStyles.textRight);
+  }
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient.drawText(
     `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`,
@@ -1004,4 +1003,18 @@ const getAdditionalResultsForRepeats = async (
     configs.push(config);
   }
   return configs;
+};
+
+const formatPerformingLabAddress = (org: Organization | undefined): string | undefined => {
+  if (!org?.address?.[0]) return;
+  const address = org.address?.[0];
+  const streetAddress = address.line?.join(',');
+  const { city, state, postalCode } = address;
+  if (!streetAddress && !city && !state && !postalCode) return;
+  let formattedAddress = `${streetAddress}`;
+  if (city) formattedAddress += `, ${city}`;
+  if (state) formattedAddress += `, ${state}`;
+  if (postalCode) formattedAddress += ` ${postalCode}`;
+  console.log('formattedAddress', formattedAddress);
+  return formattedAddress;
 };
