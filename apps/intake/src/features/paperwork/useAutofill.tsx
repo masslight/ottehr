@@ -1,4 +1,4 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo, useLayoutEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { IntakeQuestionnaireItem } from 'utils';
 import { getItemDisplayStrategy } from './useSelectItems';
@@ -73,7 +73,7 @@ export const useAutoFillValues = (input: AutofillInputs): void => {
     });
   }, [allFields, questionnaireItems]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (visibleItemsToFill.length === 0) {
       return;
     }
