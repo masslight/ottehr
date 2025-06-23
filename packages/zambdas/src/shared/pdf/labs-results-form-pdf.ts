@@ -583,18 +583,22 @@ async function createExternalLabsResultsFormPdfBytes(
 ): Promise<Uint8Array> {
   // Order details
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
-  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order Create Date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting physician:', data.providerName);
-  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
-  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order Printed:', data.todayDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Req ID:', data.reqId);
-  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order Submit Date:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Create Date:', data.orderCreateDate);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Printed:', data.todayDate);
+  pdfClient.newLine(STANDARD_NEW_LINE);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Submit Date:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
