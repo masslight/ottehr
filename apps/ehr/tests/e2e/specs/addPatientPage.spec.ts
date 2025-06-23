@@ -259,8 +259,8 @@ async function createAppointment(
   await addPatientPage.clickAddButton();
   const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
 
-  if (!response.appointment) {
+  if (!response.appointmentId) {
     throw new Error('Appointment ID should be present in the response');
   }
-  return { appointmentId: response.appointment, slotTime };
+  return { appointmentId: response.appointmentId, slotTime };
 }

@@ -7,8 +7,4 @@ export interface CancelAppointmentZambdaInput {
   language?: string;
 }
 
-export interface CancelAppointmentZambdaOutput {
-  message: string;
-  appointmentId: string;
-  visitType: string;
-}
+export type CancelAppointmentZambdaOutput = Record<string, never>;

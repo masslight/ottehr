@@ -13,7 +13,10 @@ import {
   BillingProviderData,
   BillingProviderResource,
   CoverageCheckCoverageDetails,
+  CoverageCodeToDescriptionMap,
+  InsuranceCheckStatusWithDate,
   InsuranceEligibilityCheckStatus,
+  PatientPaymentBenefit,
 } from '../types';
 import { getNPI, getTaxID } from './helpers';
 import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../main';
@@ -93,7 +96,7 @@ const getBillingProviderDataFromResource = (
 
 export const parseCoverageEligibilityResponse = (
   coverageResponse: CoverageEligibilityResponse
-): { status: InsuranceEligibilityCheckStatus; dateISO: string } => {
+): InsuranceCheckStatusWithDate => {
   const dateISO = coverageResponse.created;
   try {
     if (coverageResponse.error) {
@@ -119,7 +122,19 @@ export const parseCoverageEligibilityResponse = (
     });
 
     if (eligible) {
-      return { status: InsuranceEligibilityCheckStatus.eligibilityConfirmed, dateISO };
+      const fullBenefitJSON = coverageResponse.extension?.find(
+        (e) => e.url === 'https://extensions.fhir.oystehr.com/raw-response'
+      )?.valueString;
+      let copay: PatientPaymentBenefit[] | undefined;
+      if (fullBenefitJSON) {
+        try {
+          const benefitList = JSON.parse(fullBenefitJSON)?.elig?.benefit;
+          copay = parseObjectsToCopayBenefits(benefitList);
+        } catch (error) {
+          console.error('Error parsing fullBenefitJSON', error);
+        }
+      }
+      return { status: InsuranceEligibilityCheckStatus.eligibilityConfirmed, dateISO, copay };
     } else {
       return { status: InsuranceEligibilityCheckStatus.eligibilityNotConfirmed, dateISO };
     }
@@ -127,6 +142,36 @@ export const parseCoverageEligibilityResponse = (
     console.error('Error parsing eligibility check response', error);
     return { status: InsuranceEligibilityCheckStatus.eligibilityNotChecked, dateISO };
   }
+};
+
+export const parseObjectsToCopayBenefits = (input: any[]): PatientPaymentBenefit[] => {
+  const filteredInputs = input.filter((item) => {
+    return (
+      item &&
+      typeof item === 'object' &&
+      (item['benefit_coverage_code'] === 'B' || item['benefit_coverage_code'] === 'A')
+    );
+  });
+
+  return filteredInputs
+    .map((item) => {
+      const benefitCoverageCode = item['benefit_coverage_code'] as 'A' | 'B';
+      const CP: PatientPaymentBenefit = {
+        amountInUSD: item['benefit_amount'] ?? 0,
+        percentage: item['benefit_percent'] ?? 0,
+        code: item['benefit_code'] ?? '',
+        description: item['benefit_description'] ?? CoverageCodeToDescriptionMap[benefitCoverageCode] ?? '',
+        inNetwork: item['inplan_network'] === 'Y',
+        coverageDescription: item['benefit_coverage_description'] ?? '',
+        coverageCode: benefitCoverageCode,
+        periodDescription: item['benefit_period_description'] ?? '',
+        periodCode: item['benefit_period_code'] ?? '',
+        levelDescription: item['benefit_level_description'] ?? '',
+        levelCode: item['benefit_level_code'] ?? '',
+      };
+      return CP;
+    })
+    .filter((benefit) => !!benefit.description && !!benefit.code);
 };
 
 export const pullCoverageIdentifyingDetails = (coverage: Coverage): CoverageCheckCoverageDetails | undefined => {
