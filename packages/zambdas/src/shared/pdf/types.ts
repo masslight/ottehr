@@ -206,15 +206,9 @@ export interface ExternalLabResultsData extends LabResultsData {
   testItemCode: string;
   performingLabName: string;
   performingLabAddress?: string;
-  // performingLabStreetAddress: string;
-  // performingLabCity: string;
-  // performingLabState: string;
-  // performingLabZip: string;
   performingLabDirector?: string;
   performingLabPhone: string;
-  performingLabDirectorFirstName: string;
-  performingLabDirectorLastName: string;
-  performingLabDirectorTitle: string;
+  performingLabDirectorFullName: string;
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];

@@ -90,6 +90,7 @@ type LabTypeSpecificResources =
         reviewingProviderLast: string;
         reviewDate: string | undefined;
         resultInterpretations: string[];
+        performingLabDirectorFullName: string;
         performingLabAddress?: string;
       };
     }
@@ -161,6 +162,7 @@ const getResultDataConfig = (
       reviewDate,
       resultInterpretations,
       performingLabAddress,
+      performingLabDirectorFullName,
     } = specificResources;
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
       reqId: serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value || '',
@@ -180,21 +182,13 @@ const getResultDataConfig = (
         diagnosticReport.code.coding?.find((temp) => temp.system === 'http://loinc.org')?.code ||
         '',
       performingLabName: organization?.name || '',
-      performingLabAddress: performingLabAddress,
+      performingLabAddress,
       performingLabPhone:
         organization?.contact
           ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
           ?.telecom?.find((temp) => temp.system === 'phone')?.value || '',
       // abnormalResult: true,
-      performingLabDirectorFirstName:
-        organization?.contact
-          ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
-          ?.name?.given?.join(',') || '',
-      performingLabDirectorLastName:
-        organization?.contact?.find(
-          (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
-        )?.name?.family || '',
-      performingLabDirectorTitle: '',
+      performingLabDirectorFullName,
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
     config = { type: LabType.external, data };
@@ -393,6 +387,7 @@ export async function createExternalLabResultPDF(
       reviewDate,
       resultInterpretations: resultInterpretationDisplays,
       performingLabAddress: formatPerformingLabAddress(organization),
+      performingLabDirectorFullName: formatPerformingLabDirectorName(organization),
     },
   };
   const commonResources: CommonDataConfigResources = {
@@ -673,10 +668,7 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient.drawText(data.performingLabAddress, textStyles.textRight);
   }
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawText(
-    `${data.performingLabDirectorFirstName} ${data.performingLabDirectorLastName}, ${data.performingLabDirectorTitle}, ${data.performingLabPhone}`,
-    textStyles.textRight
-  );
+  pdfClient.drawText(`${data.performingLabDirectorFullName}, ${data.performingLabPhone}`, textStyles.textRight);
   pdfClient.newLine(STANDARD_NEW_LINE);
 
   // Reviewed by
@@ -1017,4 +1009,15 @@ const formatPerformingLabAddress = (org: Organization | undefined): string | und
   if (postalCode) formattedAddress += ` ${postalCode}`;
   console.log('formattedAddress', formattedAddress);
   return formattedAddress;
+};
+
+const formatPerformingLabDirectorName = (org: Organization | undefined): string => {
+  if (!org) return ''; // this would be very strange to happen
+  const labDirectorName = org?.contact?.find(
+    (temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director')
+  )?.name;
+  if (!labDirectorName) return '';
+  let formattedName = labDirectorName.given?.join(',');
+  if (formattedName && labDirectorName?.family) formattedName += ` ${labDirectorName?.family}`;
+  return formattedName || '';
 };
