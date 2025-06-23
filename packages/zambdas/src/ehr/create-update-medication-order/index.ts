@@ -6,6 +6,7 @@ import {
   getMedicationName,
   getMedicationTypeCode,
   getPatchBinary,
+  IN_HOUSE_CONTAINED_MEDICATION_ID,
   INVENTORY_MEDICATION_TYPE_CODE,
   mapFhirToOrderStatus,
   mapOrderStatusToFhir,
@@ -96,7 +97,7 @@ async function updateOrder(
 
   const existingMedicationCopy = getMedicationFromMA(orderResources.medicationAdministration);
   let newMedicationCopy: Medication | undefined;
-  if (orderData?.medicationId) {
+  if (orderData?.medicationId && orderData?.medicationId !== IN_HOUSE_CONTAINED_MEDICATION_ID) {
     console.log('Creating new copy for order');
     const inventoryMedication = await getMedicationById(oystehr, orderData?.medicationId);
     newMedicationCopy = createMedicationCopy(inventoryMedication, orderData);

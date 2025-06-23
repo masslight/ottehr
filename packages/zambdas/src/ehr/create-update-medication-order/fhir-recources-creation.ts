@@ -1,5 +1,5 @@
 import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
-import { createReference, MedicationData } from 'utils';
+import { createReference, IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData } from 'utils';
 import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
@@ -41,14 +41,13 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
     dateTimeCreated,
     medicationResource,
   } = data;
-  const medicationId = 'medicationId';
   // we can set existed resource as base for new resource
   const resource: MedicationAdministration = existedMA
     ? { ...existedMA }
     : {
         resourceType: 'MedicationAdministration',
         subject: { reference: `Patient/${orderData.patient}` },
-        medicationReference: { reference: `#${medicationId}` },
+        medicationReference: { reference: `#${IN_HOUSE_CONTAINED_MEDICATION_ID}` },
         status,
       };
 
@@ -80,7 +79,7 @@ export function createMedicationAdministrationResource(data: MedicationAdministr
   }
   if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated;
   if (medicationResource) {
-    resource.contained = [{ ...medicationResource, id: medicationId }];
+    resource.contained = [{ ...medicationResource, id: IN_HOUSE_CONTAINED_MEDICATION_ID }];
   }
   if (orderData.dose && orderData.units) {
     resource.dosage = {

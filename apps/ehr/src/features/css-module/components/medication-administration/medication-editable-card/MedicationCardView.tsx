@@ -9,6 +9,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import {
   ExtendedMedicationDataForResponse,
+  IN_HOUSE_CONTAINED_MEDICATION_ID,
   makeMedicationOrderUpdateRequestInput,
   MedicationData,
   MedicationOrderStatusesType,
@@ -205,11 +206,8 @@ export const MedicationCardView: React.FC<MedicationCardViewProps> = ({
           let renderValue: string | undefined;
 
           // renderValue handles edge case when backend created new medication resource without id
-          if (field === 'medicationId' && medication?.medicationName && !value) {
-            const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
-            const foundOption = options.find((option) => option.label === medication.medicationName)?.value;
-            if (foundOption) onFieldValueChange('medicationId', foundOption);
-            console.log('rerender');
+          if (field === 'medicationId' && medication?.medicationName && value === IN_HOUSE_CONTAINED_MEDICATION_ID) {
+            renderValue = medication.medicationName;
           }
 
           return (

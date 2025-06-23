@@ -22,3 +22,4 @@ export const DATE_OF_MEDICATION_ADMINISTERED_SYSTEM = 'medication-administered-d
 export const TIME_OF_MEDICATION_ADMINISTERED_SYSTEM = 'medication-administered-time';
 
 export const MEDICATION_APPLIANCE_LOCATION_SYSTEM = 'http://snomed.info/sct';
+export const IN_HOUSE_CONTAINED_MEDICATION_ID = 'medicationId';
