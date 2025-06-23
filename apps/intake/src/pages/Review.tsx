@@ -81,8 +81,7 @@ const Review = (): JSX.Element => {
         unconfirmedDateOfBirth,
         language: 'en', // replace with i18n.language to enable
       });
-      const { appointment } = res;
-      const fhirAppointmentId = appointment;
+      const fhirAppointmentId = res.appointmentId;
 
       navigate(getNextPath(fhirAppointmentId));
       completeBooking();

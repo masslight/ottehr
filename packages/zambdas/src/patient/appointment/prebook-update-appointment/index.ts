@@ -231,7 +231,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const response = {
       message: 'Successfully updated an appointment',
-      appointmentID: updatedAppointment.id ?? null,
+      appointmentID: updatedAppointment.id,
     };
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentUpdate, oystehr, input, fhirPatient.id || '', secrets);

@@ -138,7 +138,7 @@ export const OrderCollection: React.FC<SampleCollectionProps> = ({
             </Box>
           ))}
 
-        {showOrderInfo && <OrderInformationCard />}
+        {showOrderInfo && <OrderInformationCard orderPdfUrl={labOrder.orderPdfUrl} />}
 
         <Box sx={{ mt: 2 }}>
           <OrderHistoryCard

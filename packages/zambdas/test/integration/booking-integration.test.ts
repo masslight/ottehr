@@ -106,13 +106,7 @@ const validateCreateAppointmentResponse = (
   const { createAppointmentResponse, timezone, patient, slot } = input;
   expect(createAppointmentResponse).toBeDefined();
   assert(createAppointmentResponse);
-  const {
-    appointment: appointmentId,
-    fhirPatientId,
-    questionnaireResponseId,
-    encounterId,
-    resources,
-  } = createAppointmentResponse;
+  const { appointmentId, fhirPatientId, questionnaireResponseId, encounterId, resources } = createAppointmentResponse;
   expect(appointmentId).toBeDefined();
   assert(appointmentId);
   expect(fhirPatientId).toBeDefined();

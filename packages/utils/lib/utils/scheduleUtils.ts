@@ -1572,15 +1572,12 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
   (slot.serviceCategory ?? []).forEach((category) => {
     const categoryCoding = category.coding?.[0] ?? {};
     if (codingContainedInList(categoryCoding, SlotServiceCategory.inPersonServiceMode.coding!)) {
-      console.log('service mode in-person found');
       serviceMode = ServiceMode['in-person'];
     }
     if (codingContainedInList(categoryCoding, SlotServiceCategory.virtualServiceMode.coding!)) {
-      console.log('service mode virtual found');
       serviceMode = ServiceMode.virtual;
     }
   });
-  console.log('service mode from slot', serviceMode, slot.id);
   return serviceMode;
 };
 
@@ -1729,7 +1726,6 @@ interface CreateSlotOptions {
 export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
   const { status, originalBookingUrl, postTelemedLabOnly } = options;
   const walkin = getSlotIsWalkin(slot);
-  console.log('service modality from slot', getServiceModeFromSlot(slot));
   return {
     scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
     startISO: slot.start,

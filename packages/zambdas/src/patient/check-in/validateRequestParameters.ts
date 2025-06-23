@@ -1,9 +1,7 @@
-import {} from 'utils';
+import { CheckInInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
-import { CheckInInput } from '.';
 
-// Note that this file is copied from BH and needs significant changes
-export function validateRequestParameters(input: ZambdaInput): CheckInInput {
+export function validateRequestParameters(input: ZambdaInput): CheckInInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -15,5 +13,9 @@ export function validateRequestParameters(input: ZambdaInput): CheckInInput {
     throw new Error('appointment field is required');
   }
 
-  return { appointment, secrets: input.secrets };
+  if (!input.secrets) {
+    throw new Error('secrets were not available');
+  }
+
+  return { appointmentId: appointment, secrets: input.secrets };
 }

@@ -1,6 +1,6 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, getSecret, makeQualificationForPractitioner } from 'utils';
+import { FHIR_IDENTIFIER_NPI, getSecret, makeQualificationForPractitioner, UpdateUserZambdaOutput } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
@@ -210,7 +210,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (!updatedUserResponse.ok) {
       throw new Error('Failed to update user');
     }
-    const response = {
+    const response: UpdateUserZambdaOutput = {
       message: `Successfully updated user ${userId}`,
     };
 

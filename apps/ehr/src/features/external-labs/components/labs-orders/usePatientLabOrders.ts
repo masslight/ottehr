@@ -4,7 +4,7 @@ import {
   LabOrderDTO,
   DEFAULT_LABS_ITEMS_PER_PAGE,
   GetLabOrdersParameters,
-  DeleteLabOrderParams,
+  DeleteLabOrderZambdaInput,
   LabOrdersSearchBy,
   TaskReviewedParameters,
   SpecimenDateChangedParameters,
@@ -34,7 +34,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   visitDateFilter: DateTime | null;
   fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
   showPagination: boolean;
-  deleteLabOrder: (params: DeleteLabOrderParams) => Promise<boolean>;
+  deleteLabOrder: (params: DeleteLabOrderZambdaInput) => Promise<boolean>;
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
@@ -177,7 +177,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   }, [fetchLabOrders, page, memoizedSearchBy]);
 
   const handleDeleteLabOrder = useCallback(
-    async ({ serviceRequestId }: DeleteLabOrderParams): Promise<boolean> => {
+    async ({ serviceRequestId }: DeleteLabOrderZambdaInput): Promise<boolean> => {
       if (!serviceRequestId) {
         console.error('Cannot delete lab order: Missing service request ID');
         setError(new Error('Missing service request ID'));
@@ -194,7 +194,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       setError(null);
 
       try {
-        const deleteParams: DeleteLabOrderParams = {
+        const deleteParams: DeleteLabOrderZambdaInput = {
           serviceRequestId,
         };
 

@@ -6,6 +6,8 @@ import { Appointment, Encounter, Location, Patient, QuestionnaireResponse, Task 
 import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
+  CheckInInput,
+  CheckInZambdaOutput,
   formatPhoneNumberDisplay,
   getCriticalUpdateTagOp,
   getEncounterStatusHistoryIdx,
@@ -14,6 +16,7 @@ import {
   getTaskResource,
   Secrets,
   TaskIndicator,
+  VisitType,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
@@ -29,9 +32,8 @@ import { getUser } from '../../shared/auth';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../shared/userAuditLog';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export interface CheckInInput {
-  appointment: string;
-  secrets: Secrets | null;
+export interface CheckInInputValidated extends CheckInInput {
+  secrets: Secrets;
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
@@ -50,7 +52,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
     const checkedInBy = `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const validatedParameters = validateRequestParameters(input);
-    const { appointment: appointmentID, secrets } = validatedParameters;
+    const { appointmentId: appointmentID, secrets } = validatedParameters;
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
@@ -150,14 +152,20 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.timeEnd('check-in-zambda');
 
+    if (!appointment.start) {
+      throw new Error('Appointment start time is missing');
+    }
+
+    const response: CheckInZambdaOutput = {
+      location: locationInformation,
+      visitType: appointment.appointmentType?.text as VisitType, // TODO safely check value is a VisitType
+      start: appointment.start,
+      paperworkCompleted,
+    };
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        location: locationInformation,
-        visitType: appointment.appointmentType?.text,
-        start: appointment.start,
-        paperworkCompleted,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     return topLevelCatch('check-in', error, input.secrets, captureSentryException);

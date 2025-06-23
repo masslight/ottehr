@@ -210,7 +210,7 @@ const ProfilePhotoImagePicker: FC<ProfilePhotoImageProps> = ({ open, setOpen, pa
 
       // TODO: useMutation for it ?
       const uploadResponse = await uploadPatientProfilePhoto(oystehrZambda, {
-        patientId: patientId,
+        patientID: patientId,
         patientPhotoFile: imageFile,
       });
 

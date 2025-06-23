@@ -8,8 +8,6 @@ export const ProtectedRoute: FC<{
 }> = ({ loadingFallback, errorFallback }) => {
   const { isAuthenticated, isLoading, error, loginWithRedirect } = useAuth0();
 
-  console.log('ProtectedRoute isAuthenticated:', isAuthenticated);
-
   if (error) {
     return errorFallback;
   }
@@ -22,7 +20,7 @@ export const ProtectedRoute: FC<{
     const path = window.location.pathname;
     const params = window.location.search;
     const redirectPath = `${path}${params}`;
-    console.log(`redirect path in protected route: ${path}${params}`);
+    // console.log(`redirect path in protected route: ${path}${params}`);
     void loginWithRedirect({
       appState: {
         target: redirectPath,
@@ -32,7 +30,7 @@ export const ProtectedRoute: FC<{
     });
     return loadingFallback;
   }
-  console.log('user is authenticated, rendering Outlet');
+  // console.log('user is authenticated, rendering Outlet');
   localStorage.removeItem('redirectDestination');
   return <Outlet />;
 };
