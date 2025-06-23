@@ -11,11 +11,14 @@ export const sendErrors = async (
 ): Promise<void> => {
   const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
   // Only fires in testing, staging and production
-  if (!['testing', 'staging', 'production'].includes(ENVIRONMENT)) {
+  if (!['development', 'testing', 'staging', 'production'].includes(ENVIRONMENT)) {
+    console.log(`sendErrors skipping environment ${ENVIRONMENT}`);
     return;
   }
+  console.log('sendErrors running');
 
   if (captureSentryException) {
+    console.log('capturing Sentry Exception');
     captureSentryException(error);
   } else {
     // const notification = ENVIRONMENT === 'production' ? '@channel' : '@ottehr-dev';

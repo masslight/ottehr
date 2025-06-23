@@ -39,6 +39,7 @@ export async function topLevelCatch(
   } else {
     await sendErrors(zambda, error, secrets, captureSentryException);
   }
+  console.log('handling Error Result');
   return handleErrorResult(error);
 }
 
