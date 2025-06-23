@@ -26,12 +26,21 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
   const { question, answer } = questionProps;
   const { linkId, text, type, required, extension, answerOption } = question;
 
-  const defaultValue =
-    type === 'choice' && answerOption && extension === undefined
-      ? ''
-      : type === 'choice' && answerOption && extension?.some((ext) => ext.valueString === 'multi-select list')
-      ? []
-      : undefined;
+  const questionIsList = type === 'choice' && answerOption && extension === undefined;
+  const questionIsMultiSelectList =
+    type === 'choice' && answerOption && extension?.some((ext) => ext.valueString === 'multi-select list');
+
+  let defaultValue = undefined;
+
+  if (questionIsMultiSelectList) {
+    if (!answer) {
+      defaultValue = [];
+    } else {
+      defaultValue = answer;
+    }
+  } else {
+    defaultValue = answer?.join(',');
+  }
 
   if (!text) {
     throw new Error('question text is not defined');
@@ -47,44 +56,39 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
         render={({ field }) => (
           <>
             <FormControl fullWidth required={required} error={!!errors[linkId]}>
-              {type === 'choice' && answerOption && extension === undefined && (
+              {questionIsList && (
                 <AOEListQuestion
                   questionText={text}
                   linkId={linkId}
-                  answer={answer?.join(',')}
                   answerOption={answerOption}
                   required={required || false}
                   isReadOnly={questionProps.isReadOnly}
                   field={field}
                 />
               )}
-              {type === 'choice' &&
-                answerOption &&
-                extension?.some((ext) => ext.valueString === 'multi-select list') && (
-                  <AOEMultiSelectListQuestion
-                    questionText={text}
-                    linkId={linkId}
-                    answer={answer}
-                    answerOption={answerOption}
-                    required={required || false}
-                    isReadOnly={questionProps.isReadOnly}
-                    field={field}
-                  />
-                )}
+              {questionIsMultiSelectList && (
+                <AOEMultiSelectListQuestion
+                  questionText={text}
+                  linkId={linkId}
+                  answerOption={answerOption}
+                  required={required || false}
+                  isReadOnly={questionProps.isReadOnly}
+                  field={field}
+                />
+              )}
               {type === 'text' && (
                 <AOEFreeTextQuestion
                   questionText={text}
                   linkId={linkId}
-                  answer={answer?.join(',')}
                   required={required || false}
                   isReadOnly={questionProps.isReadOnly}
+                  field={field}
                 />
               )}
               {type === 'date' && extension && (
                 <AOEDateQuestion
                   questionText={text}
                   linkId={linkId}
-                  answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
                   isReadOnly={questionProps.isReadOnly}
@@ -95,7 +99,6 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 <AOENumberQuestion
                   questionText={text}
                   linkId={linkId}
-                  answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
                   isReadOnly={questionProps.isReadOnly}
@@ -107,7 +110,6 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 <AOENumberQuestion
                   questionText={text}
                   linkId={linkId}
-                  answer={answer?.join(',')}
                   extension={extension}
                   required={required || false}
                   isReadOnly={questionProps.isReadOnly}
@@ -119,7 +121,6 @@ export const AOEQuestion: React.FC<AOEQuestionProps> = (questionProps) => {
                 <AOEYesNoQuestion
                   questionText={text}
                   linkId={linkId}
-                  answer={answer?.join(',')}
                   required={required || false}
                   isReadOnly={questionProps.isReadOnly}
                   field={field}
