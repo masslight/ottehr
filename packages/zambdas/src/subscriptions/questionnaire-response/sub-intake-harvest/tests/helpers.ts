@@ -4,15 +4,22 @@ import { uuid } from 'short-uuid';
 import altGuarantor from './data/alt-guarantor.json';
 
 export const fillReferences = (template: any, references: string[]): any => {
-  let stringinfiedTemplate = JSON.stringify(template);
+  let stringifiedTemplate = JSON.stringify(template);
   references.forEach((reference) => {
-    const [resourceType] = reference.split('/');
-    stringinfiedTemplate = stringinfiedTemplate.replace(
+    const [resourceType, resourceId] = reference.split('/');
+    const replacement = (() => {
+      if (resourceType === 'CoveragePlanIdentifier') {
+        return resourceId;
+      } else {
+        return reference;
+      }
+    })();
+    stringifiedTemplate = stringifiedTemplate.replace(
       new RegExp(`{{${resourceType.toUpperCase()}_REF}}`, 'g'),
-      reference
+      replacement
     );
   });
-  return JSON.parse(stringinfiedTemplate);
+  return JSON.parse(stringifiedTemplate);
 };
 
 interface BatchPostInput {
