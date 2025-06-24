@@ -267,6 +267,7 @@ export async function createExternalLabResultPDF(
     schedule,
     organization,
     observations,
+    specimens,
   } = await getExternalLabOrderResources(oystehr, serviceRequestID);
 
   const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
@@ -393,7 +394,13 @@ export async function createExternalLabResultPDF(
       if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
     });
 
-  const collectionDate = DateTime.now().setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
+  const sortedSpecimens = specimens?.sort((a, b) =>
+    compareDates(a.collection?.collectedDateTime, b.collection?.collectedDateTime)
+  );
+  const specimenCollectionDate = sortedSpecimens?.[0]?.collection?.collectedDateTime;
+  const collectionDate = specimenCollectionDate
+    ? DateTime.fromISO(specimenCollectionDate).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+    : DateTime.now().setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
 
   const externalSpecificResources: LabTypeSpecificResources = {
     type: LabType.external,
