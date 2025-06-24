@@ -1,8 +1,8 @@
-import { FC } from 'react';
-import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
-import { DistressDropdown, ExamCardContainer, ExamFieldsFactory, ExamCommentField } from './components';
 import { Box } from '@mui/material';
+import { FC } from 'react';
 import { dataTestIds } from '../../../../constants/data-test-ids';
+import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
+import { DistressDropdown, ExamCardContainer, ExamCommentField, ExamFieldsFactory } from './components';
 
 export const GeneralCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('general');

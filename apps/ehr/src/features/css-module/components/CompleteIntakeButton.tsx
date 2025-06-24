@@ -1,7 +1,7 @@
-import { GenericToolTip } from '../../../components/GenericToolTip';
-import { Box } from '@mui/system';
 import { Button } from '@mui/material';
+import { Box } from '@mui/system';
 import { VisitStatusLabel } from 'utils';
+import { GenericToolTip } from '../../../components/GenericToolTip';
 import { dataTestIds } from '../../../constants/data-test-ids';
 
 export const CompleteIntakeButton: React.FC<{

@@ -1,4 +1,8 @@
 import { FC, useState } from 'react';
+import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { useGetAppointmentAccessibility } from '../../../../hooks';
+import { useAppointmentStore } from '../../../../state';
 import { MedicalHistoryDoubleCard } from '../MedicalHistoryDoubleCard';
 import { ChiefComplaintPatientColumn } from './ChiefComplaintPatientColumn';
 import {
@@ -6,10 +10,6 @@ import {
   ChiefComplaintProviderColumnReadOnly,
   ChiefComplaintProviderColumnSkeleton,
 } from './ChiefComplaintProviderColumn';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
-import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
 
 export const ChiefComplaintCard: FC = () => {
   const [isHPICollapsed, setIsHPICollapsed] = useState(false);

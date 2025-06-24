@@ -1,7 +1,7 @@
+import { useNavigate } from 'react-router-dom';
 import { PageForm } from 'ui-components';
 import { intakeFlowPageRoute } from '../../../App';
 import { CustomContainer } from './CustomContainer';
-import { useNavigate } from 'react-router-dom';
 
 export const ErrorFallbackScreen = (): JSX.Element => {
   const navigate = useNavigate();

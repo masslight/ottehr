@@ -1,5 +1,5 @@
-import { ReactElement, Fragment } from 'react';
-import { Paper, Skeleton, Table, TableBody, TableCell, TableRow, Typography, useTheme, Box } from '@mui/material';
+import { Box, Paper, Skeleton, Table, TableBody, TableCell, TableRow, Typography, useTheme } from '@mui/material';
+import { Fragment, ReactElement } from 'react';
 import CopyButton from './CopyButton';
 
 export interface PatientProps {

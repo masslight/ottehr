@@ -1,8 +1,8 @@
-import React, { ReactElement } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material';
+import React, { ReactElement } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { useAppointmentStore } from '../state';
 import { getSelectors } from '../../shared/store/getSelectors';
+import { useAppointmentStore } from '../state';
 
 interface HearingRelayPopupProps {
   onClose: () => void;

@@ -1,10 +1,10 @@
 import { Skeleton, Typography } from '@mui/material';
 import { Variant } from '@mui/material/styles/createTypography';
+import { Patient } from 'fhir/r4b';
 import { FC, useMemo } from 'react';
 import { getFirstName, getLastName, getMiddleName, getNickname } from 'utils/lib/fhir/patient';
-import { formatPatientName } from '../../../helpers/formatPatientName';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { Patient } from 'fhir/r4b';
+import { formatPatientName } from '../../../helpers/formatPatientName';
 
 type Props = {
   patient: Patient | undefined;

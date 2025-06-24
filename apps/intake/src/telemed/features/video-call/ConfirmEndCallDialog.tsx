@@ -4,12 +4,10 @@ import { useMeetingManager } from 'amazon-chime-sdk-component-library-react';
 import { FC, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getSelectors } from 'utils';
-import { useVideoCallStore } from '.';
 import { intakeFlowPageRoute } from '../../../App';
-
 import { useAppointmentStore } from '../appointments';
-
 import { useGetWaitStatus, useWaitingRoomStore } from '../waiting-room';
+import { useVideoCallStore } from '.';
 
 interface ConfirmEndCallDialogProps {
   openModal: boolean;

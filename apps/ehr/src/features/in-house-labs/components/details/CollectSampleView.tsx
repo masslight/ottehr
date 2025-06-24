@@ -1,28 +1,28 @@
-import { useEffect, useState } from 'react';
-import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Grid,
-  TextField,
-  MenuItem,
-  IconButton,
-  Collapse,
-  useTheme,
-  Stack,
-  FormControl,
-} from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import {
+  Box,
+  Button,
+  Collapse,
+  FormControl,
+  Grid,
+  IconButton,
+  MenuItem,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { DateTime } from 'luxon';
-import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
-import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useEffect, useState } from 'react';
 import { getOrCreateVisitLabel } from 'src/api/api';
-import { useApiClients } from '../../../../hooks/useAppClients';
-import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData, PageName } from 'utils';
-import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 import useEvolveUser from 'src/hooks/useEvolveUser';
+import { getFormattedDiagnoses, InHouseOrderDetailPageItemDTO, MarkAsCollectedData, PageName } from 'utils';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { useAppointmentStore } from '../../../../telemed/state/appointment/appointment.store';
+import { InHouseLabsDetailsCard } from './InHouseLabsDetailsCard';
 
 interface CollectSampleViewProps {
   testDetails: InHouseOrderDetailPageItemDTO;

@@ -1,13 +1,13 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Typography } from '@mui/material';
 import { Box } from '@mui/system';
+import { ottehrLightBlue } from '@theme/icons';
 import { useNavigate } from 'react-router-dom';
+import { PROJECT_NAME } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
+import { dataTestIds } from '../../helpers/data-test-ids';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { CustomContainer } from '../features/common';
-import { ottehrLightBlue } from '@theme/icons';
-import { dataTestIds } from '../../helpers/data-test-ids';
-import { PROJECT_NAME } from 'utils';
 const Welcome = ({ showEmergencyBanner = true }: { showEmergencyBanner?: boolean }): JSX.Element => {
   const navigate = useNavigate();
 

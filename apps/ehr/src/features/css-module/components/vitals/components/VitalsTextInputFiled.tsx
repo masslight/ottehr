@@ -1,4 +1,4 @@
-import { TextFieldProps, styled, TextField, SxProps } from '@mui/material';
+import { styled, SxProps, TextField, TextFieldProps } from '@mui/material';
 
 export const VitalsTextInputFiled = styled((props: TextFieldProps & { extraSx?: SxProps; isInputError: boolean }) => (
   <TextField

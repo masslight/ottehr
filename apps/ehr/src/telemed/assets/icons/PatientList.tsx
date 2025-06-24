@@ -1,5 +1,5 @@
-import React, { FC } from 'react';
 import { SvgIcon, SvgIconProps } from '@mui/material';
+import React, { FC } from 'react';
 
 export const PatientListIcon: FC<SvgIconProps> = (props) => {
   return (

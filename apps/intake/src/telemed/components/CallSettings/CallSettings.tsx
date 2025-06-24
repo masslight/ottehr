@@ -1,13 +1,13 @@
-import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
+import { FC, useCallback, useEffect, useRef, useState } from 'react';
 import { CustomDialog } from 'ui-components';
-import { SoundSettings } from './SoundSettings';
-import { MicrophoneSettings } from './MicrophoneSettings';
-import { CameraSettings } from './CameraSettings';
+import { getSelectors } from 'utils';
 import { useIntakeCommonStore } from '../../features/common';
 import { useCallSettingsStore } from '../../features/video-call';
-import { getSelectors } from 'utils';
+import { CameraSettings } from './CameraSettings';
+import { MicrophoneSettings } from './MicrophoneSettings';
+import { SoundSettings } from './SoundSettings';
 
 interface CallSettingsProps {
   onClose: () => void;

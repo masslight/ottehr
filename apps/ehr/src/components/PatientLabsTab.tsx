@@ -1,5 +1,5 @@
-import { ReactElement } from 'react';
 import { Box } from '@mui/material';
+import { ReactElement } from 'react';
 import { LabsTable, LabsTableColumn } from '../features/external-labs/components/labs-orders/LabsTable';
 
 interface PatientLabsTabProps {

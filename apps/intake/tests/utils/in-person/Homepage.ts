@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
-import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
+import { CommonLocatorsHelper } from '../CommonLocatorsHelper';
 
 export class Homepage extends CommonLocatorsHelper {
   async navigate(): Promise<void> {

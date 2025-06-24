@@ -1,10 +1,9 @@
 import { FC, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { getFullName } from 'utils';
-
-import CustomBreadcrumbs from '../CustomBreadcrumbs';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../telemed';
+import CustomBreadcrumbs from '../CustomBreadcrumbs';
 
 export const BreadCrumbs: FC = () => {
   const location = useLocation();

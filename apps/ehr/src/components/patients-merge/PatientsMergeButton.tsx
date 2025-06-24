@@ -1,7 +1,7 @@
-import React, { FC, useState } from 'react';
 import { Button } from '@mui/material';
-import { PatientsMergeSelect } from './PatientsMergeSelect';
+import React, { FC, useState } from 'react';
 import { PatientsMergeDifference } from './PatientsMergeDifference';
+import { PatientsMergeSelect } from './PatientsMergeSelect';
 
 type PatientsMergeButtonProps = {
   patientIds?: string[];

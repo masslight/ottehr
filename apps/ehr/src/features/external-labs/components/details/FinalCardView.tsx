@@ -1,8 +1,8 @@
-import { Box, Button, Divider } from '@mui/material';
 import BiotechOutlinedIcon from '@mui/icons-material/BiotechOutlined';
+import { LoadingButton } from '@mui/lab';
+import { Box, Button, Divider } from '@mui/material';
 import { FC } from 'react';
 import { ExternalLabsStatus } from 'utils';
-import { LoadingButton } from '@mui/lab';
 
 interface FinalCardViewProps {
   resultPdfUrl: string | null;

@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
 import mixpanel from 'mixpanel-browser';
+import { useEffect } from 'react';
 import { useLocation, useParams } from 'react-router-dom';
 import { VisitType } from 'utils';
 

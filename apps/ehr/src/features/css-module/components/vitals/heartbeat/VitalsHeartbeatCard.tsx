@@ -1,22 +1,20 @@
-import React, { useCallback, useState, JSX, ChangeEvent } from 'react';
-import { Box, CircularProgress, Typography, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-
+import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import {
   toVitalHeartbeatObservationMethod,
   VitalFieldNames,
   VitalHeartbeatObservationMethod,
   VitalsHeartbeatObservationDTO,
 } from 'utils';
-import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
-
-import { VitalHeartbeatHistoryEntry } from './VitalHeartbeatHistoryEntry';
-import { composeHeartbeatHistoryEntries, textToHeartbeatNumber, isValidHeartbeatPerMinValue } from './helpers';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
-import VitalHeartbeatHistoryElement from './VitalHeartbeatHistoryElement';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { useVitalsCardState } from '../hooks/useVitalsCardState';
+import { composeHeartbeatHistoryEntries, isValidHeartbeatPerMinValue, textToHeartbeatNumber } from './helpers';
+import VitalHeartbeatHistoryElement from './VitalHeartbeatHistoryElement';
+import { VitalHeartbeatHistoryEntry } from './VitalHeartbeatHistoryEntry';
 
 const VitalsHeartbeatCard: React.FC = (): JSX.Element => {
   const {

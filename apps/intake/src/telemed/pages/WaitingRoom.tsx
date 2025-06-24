@@ -1,13 +1,13 @@
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Box, List, Typography, useTheme } from '@mui/material';
+import { ottehrLightBlue } from '@theme/icons';
 import { Duration } from 'luxon';
 import { useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { IntakeThemeContext, StyledListItemWithButton, safelyCaptureException } from 'ui-components';
+import { IntakeThemeContext, safelyCaptureException, StyledListItemWithButton } from 'ui-components';
 import { getSelectors } from 'utils';
 import { intakeFlowPageRoute } from '../../App';
-import { ottehrLightBlue } from '@theme/icons';
 import { CallSettings, CancelVisitDialog } from '../components';
 import { useAppointmentStore } from '../features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../features/common';

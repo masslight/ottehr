@@ -1,5 +1,5 @@
-import { FC, ReactElement } from 'react';
 import { Box, Card, Grid, Typography, useTheme } from '@mui/material';
+import { FC, ReactElement } from 'react';
 
 export interface CardWithDescriptionProps {
   icon: string;

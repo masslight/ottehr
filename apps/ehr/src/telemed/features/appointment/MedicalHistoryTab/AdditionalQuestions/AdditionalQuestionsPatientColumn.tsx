@@ -1,10 +1,10 @@
-import React, { FC } from 'react';
 import { Box, Divider } from '@mui/material';
+import React, { FC } from 'react';
 import { convertToBoolean, getQuestionnaireResponseByLinkId } from 'utils';
-import { AdditionalQuestionView } from '../components';
 import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
+import { AdditionalQuestionView } from '../components';
 
 export const AdditionalQuestionsPatientColumn: FC = () => {
   const { questionnaireResponse, isAppointmentLoading } = getSelectors(useAppointmentStore, [

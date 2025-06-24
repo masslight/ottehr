@@ -3,7 +3,7 @@ import { Operation } from 'fast-json-patch';
 import { Appointment, Bundle, Coding, Flag, Patient, Resource } from 'fhir/r4b';
 import { diff, IChange } from 'json-diff-ts';
 import { DateTime } from 'luxon';
-import { FhirAppointmentType, getFullName, getCriticalUpdateTagOp, CRITICAL_CHANGE_SYSTEM } from 'utils';
+import { CRITICAL_CHANGE_SYSTEM, FhirAppointmentType, getCriticalUpdateTagOp, getFullName } from 'utils';
 import { HOP_QUEUE_URI } from '../constants';
 import { appointmentTypeLabels } from '../types/types';
 import { formatDateUsingSlashes } from './formatDateTime';

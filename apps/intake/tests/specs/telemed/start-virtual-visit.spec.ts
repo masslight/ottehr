@@ -1,11 +1,11 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { dataTestIds } from '../../../src/helpers/data-test-ids';
-import { UploadDocs } from '../../utils/UploadDocs';
 import { Locators } from '../../utils/locators';
 import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { PaperworkTelemed } from '../../utils/telemed/Paperwork';
 import { TelemedVisitFlow } from '../../utils/telemed/TelemedVisitFlow';
+import { UploadDocs } from '../../utils/UploadDocs';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 enum PersonSex {

@@ -1,14 +1,14 @@
+import { ottehrAiIcon } from '@ehrTheme/icons';
 import { Box, Stack, Typography } from '@mui/material';
 import React from 'react';
 import { useParams } from 'react-router-dom';
+import { AiObservationField, ObservationTextFieldDTO } from 'utils';
+import { AiChatHistory } from '../../../components/AiChatHistory';
+import AiSuggestion from '../../../components/AiSuggestion';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { AccordionCard, useAppointmentStore } from '../../../telemed';
 import { CSSLoader } from '../components/CSSLoader';
 import { useAppointment } from '../hooks/useAppointment';
-import { AiObservationField, ObservationTextFieldDTO } from 'utils';
-import AiSuggestion from '../../../components/AiSuggestion';
-import { AiChatHistory } from '../../../components/AiChatHistory';
-import { ottehrAiIcon } from '@ehrTheme/icons';
 
 const AI_OBSERVATION_FIELDS = [
   [AiObservationField.HistoryOfPresentIllness, 'History of Present Illness (HPI)'],

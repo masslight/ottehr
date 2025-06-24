@@ -1,5 +1,5 @@
-import { ReactElement } from 'react';
 import { Chip, ChipProps } from '@mui/material';
+import { ReactElement } from 'react';
 import { NursingOrdersStatus } from 'utils';
 
 interface NursingOrdersStatusChipProps {

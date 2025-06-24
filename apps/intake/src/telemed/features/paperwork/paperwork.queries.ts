@@ -1,9 +1,9 @@
+import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
 import { ZapEHRAPIClient } from 'ui-components';
-import { GetAnswerOptionsRequest, PromiseReturnType, isNullOrUndefined } from 'utils';
+import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
 import { useZapEHRAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
-import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useGetPaperwork = (

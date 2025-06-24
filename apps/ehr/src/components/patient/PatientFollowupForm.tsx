@@ -1,41 +1,41 @@
 import { LoadingButton } from '@mui/lab';
 import {
+  Autocomplete,
+  Box,
   Button,
+  Checkbox,
+  Divider,
+  FormControlLabel,
   Grid,
+  lighten,
   Paper,
   TextField,
   Typography,
   useTheme,
-  Autocomplete,
-  FormControlLabel,
-  Checkbox,
-  lighten,
-  Box,
-  Divider,
 } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
-import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import Oystehr from '@oystehr/sdk';
 import { Patient } from 'fhir/r4b';
-import LocationSelect from '../LocationSelect';
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { saveFollowup, getEmployees } from '../../api/api';
-import { useApiClients } from '../../hooks/useAppClients';
-import {
-  PatientFollowupDetails,
-  ProviderDetails,
-  FOLLOWUP_TYPES,
-  FollowupType,
-  TELEPHONE_REASONS,
-  NON_BILLABLE_REASONS,
-  FollowupReason,
-  SLUG_SYSTEM,
-} from 'utils';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LocationWithWalkinSchedule } from 'src/pages/AddPatient';
+import {
+  FOLLOWUP_TYPES,
+  FollowupReason,
+  FollowupType,
+  NON_BILLABLE_REASONS,
+  PatientFollowupDetails,
+  ProviderDetails,
+  SLUG_SYSTEM,
+  TELEPHONE_REASONS,
+} from 'utils';
+import { getEmployees, saveFollowup } from '../../api/api';
+import { useApiClients } from '../../hooks/useAppClients';
+import LocationSelect from '../LocationSelect';
 
 interface PatientFollowupFormProps {
   patient: Patient | undefined;

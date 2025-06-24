@@ -1,4 +1,18 @@
 import { test } from '@playwright/test';
+import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  chooseJson,
+  getConsentStepAnswers,
+  getContactInformationAnswers,
+  getPatientDetailsStepAnswers,
+  getPaymentOptionInsuranceAnswers,
+  getPrimaryCarePhysicianStepAnswers,
+  getResponsiblePartyStepAnswers,
+  INSURANCE_PLAN_PAYER_META_TAG_CODE,
+  isoToDateObject,
+} from 'utils';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 import {
   PATIENT_INSURANCE_MEMBER_ID,
   PATIENT_INSURANCE_MEMBER_ID_2,
@@ -28,25 +42,7 @@ import {
   PATIENT_INSURANCE_POLICY_HOLDER_ZIP,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
-
-import {
-  chooseJson,
-  getConsentStepAnswers,
-  getContactInformationAnswers,
-  getPatientDetailsStepAnswers,
-  getPaymentOptionInsuranceAnswers,
-  getPrimaryCarePhysicianStepAnswers,
-  getResponsiblePartyStepAnswers,
-  INSURANCE_PLAN_PAYER_META_TAG_CODE,
-  isoToDateObject,
-} from 'utils';
-
-import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
-
 import { openPatientInformationPage } from '../page/PatientInformationPage';
-
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { DateTime } from 'luxon';
 
 const POLICY_HOLDER_DATE_OF_BIRTH = '01/01/1990';
 const POLICY_HOLDER_2_DATE_OF_BIRTH = '01/01/1991';

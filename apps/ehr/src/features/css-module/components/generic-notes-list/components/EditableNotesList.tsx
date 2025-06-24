@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-import { Grid, useTheme, CircularProgress } from '@mui/material';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+import { CircularProgress, Grid, useTheme } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
+import React, { useState } from 'react';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { CSSLoader } from '../../CSSLoader';
+import { useNoteHandlers } from '../hooks/useNoteHandlers';
 import { EditableNotesListProps } from '../types';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import { NoteEntity } from './NoteEntity';
 import { ButtonStyled } from './ui/ButtonStyled';
 import { PaperStyled } from './ui/PaperStyled';
 import { TextFieldStyled } from './ui/TextFieldStyled';
-import { useNoteHandlers } from '../hooks/useNoteHandlers';
 
 export const EditableNotesList: React.FC<EditableNotesListProps> = ({
   currentEncounterId,
