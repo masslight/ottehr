@@ -281,7 +281,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
   drawRegularTextLeft(locationCityStateZip);
-  drawFieldLineRight('NPI:', data.providerNPI || '');
+  drawFieldLineRight('NPI: ', data.providerNPI || '');
   addNewLine();
   currXPos = styles.margin.x;
   if (data.locationPhone) await addLocationPhoneInfo();
@@ -309,7 +309,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   addNewLine();
   currXPos = styles.margin.x;
   drawFieldLineLeft('ID:', data.patientId);
-  drawFieldLineRight('Order Date:', data.orderCreateDate);
+  drawFieldLineRight('Order Date: ', data.orderCreateDate);
   addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
@@ -320,7 +320,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientPhone);
   if (data.sampleCollectionDate) {
-    drawFieldLineRight('Collection Date:  ', data.sampleCollectionDate);
+    drawFieldLineRight('Collection Date: ', data.sampleCollectionDate);
   }
   currXPos = styles.margin.x;
   addNewLine();
