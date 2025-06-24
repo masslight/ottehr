@@ -1,8 +1,8 @@
 import { FC } from 'react';
 import { getQuestionnaireResponseByLinkId, mdyStringFromISOString } from 'utils';
-import { InformationCard } from './InformationCard';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
+import { InformationCard } from './InformationCard';
 
 export const InsuranceContainer: FC = () => {
   const { questionnaireResponse } = getSelectors(useAppointmentStore, ['questionnaireResponse']);

@@ -1,22 +1,22 @@
 import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
-import { getRelatedPersonForPatient } from './patients';
 import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  createOystehrClient,
   formatPhoneNumberDisplay,
+  getSecret,
   isLocationVirtual,
   PROJECT_DOMAIN,
   PROJECT_NAME,
-  SLUG_SYSTEM,
-  ServiceMode,
-  createOystehrClient,
   Secrets,
   SecretsKeys,
-  getSecret,
+  ServiceMode,
+  SLUG_SYSTEM,
 } from 'utils';
-import { sendErrors } from './errors';
 import { getNameForOwner } from '../ehr/schedules/shared';
+import { sendErrors } from './errors';
+import { getRelatedPersonForPatient } from './patients';
 
 export interface InPersonCancellationEmailSettings {
   email: string;

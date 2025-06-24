@@ -1,5 +1,5 @@
-import { FormLabel, RadioGroup, FormControlLabel, Radio } from '@mui/material';
 import { otherColors } from '@ehrTheme/colors';
+import { FormControlLabel, FormLabel, Radio, RadioGroup } from '@mui/material';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
 
 interface YesNoQuestionProps {

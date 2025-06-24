@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Box, Link, Typography } from '@mui/material';
+import { FC } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   dispositionCheckboxOptions,
@@ -7,13 +7,13 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
 } from 'utils';
-import { AssessmentTitle } from '../../AssessmentTab';
-import { SectionList } from '../../../../components';
-import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
 import { followUpInOptions } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { SectionList } from '../../../../components';
+import { useExcusePresignedFiles, usePatientInstructionsVisibility } from '../../../../hooks';
+import { useAppointmentStore } from '../../../../state';
+import { AssessmentTitle } from '../../AssessmentTab';
 
 export const PatientInstructionsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

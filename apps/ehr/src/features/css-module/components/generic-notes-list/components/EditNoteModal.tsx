@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Box,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Typography,
   useTheme,
-  CircularProgress,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
+import React, { useState } from 'react';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { EditableNote, NoteLocales } from '../types';
 import { TextFieldStyled } from './ui/TextFieldStyled';

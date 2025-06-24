@@ -15,6 +15,8 @@ export interface CancelRadiologyOrderZambdaInput {
   serviceRequestId: string;
 }
 
+export type CancelRadiologyOrderZambdaOutput = Record<string, never>;
+
 export interface RadiologyLaunchViewerZambdaInput {
   serviceRequestId: string;
 }

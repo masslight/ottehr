@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import config from '../deploy-config.json';
-import { updateZapehr, updateEnvFiles } from '../helpers';
+import { updateEnvFiles, updateZapehr } from '../helpers';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;

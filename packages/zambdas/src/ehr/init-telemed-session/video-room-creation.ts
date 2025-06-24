@@ -1,12 +1,12 @@
 import Oystehr from '@oystehr/sdk';
 import { Appointment, Encounter, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token } from '../../shared';
 import { getPatientFromAppointment } from '../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../shared/helpers';
 import { getRelatedPersonForPatient } from '../../shared/patients';
 import { CreateTelemedVideoRoomResponse } from '../../shared/types/telemed/video-room.types';
-import { getSecret, Secrets, SecretsKeys } from 'utils';
 
 export const createVideoRoom = async (
   appointment: Appointment,

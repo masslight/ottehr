@@ -1,3 +1,4 @@
+import Oystehr, { User } from '@oystehr/sdk';
 import { Appointment, Location, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
@@ -26,7 +27,6 @@ import {
   VisitType,
 } from 'utils';
 import { checkIsEHRUser, isTestUser, phoneRegex, userHasAccessToPatient, ZambdaInput } from '../../../shared';
-import Oystehr, { User } from '@oystehr/sdk';
 import { getCanonicalUrlForPrevisitQuestionnaire } from '../helpers';
 
 export type CreateAppointmentBasicInput = CreateAppointmentInputParams & {

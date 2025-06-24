@@ -1,7 +1,7 @@
-import { AvailableLocationInformation, FileURLs, FormItemType } from '../common';
+import { HealthcareService, Location, QuestionnaireResponse } from 'fhir/r4b';
 import { OptionConfig } from '../../helpers';
-import { AppointmentSummary, PaperworkPatient, IntakeQuestionnaireItem } from './paperwork/paperwork.types';
-import { HealthcareService, QuestionnaireResponse, Location } from 'fhir/r4b';
+import { AvailableLocationInformation, FileURLs, FormItemType } from '../common';
+import { AppointmentSummary, IntakeQuestionnaireItem, PaperworkPatient } from './paperwork/paperwork.types';
 
 export type QuestionOperator = 'exists' | '=' | '!=' | '>' | '<' | '>=' | '<=' | undefined;
 

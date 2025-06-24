@@ -1,11 +1,11 @@
-import React, { FC, useState } from 'react';
-import { Box, Popover, Typography } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, Popover, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
+import React, { FC, useState } from 'react';
 import { SchoolWorkNoteExcuseDocFileDTO } from 'utils';
+import { RoundedButton } from '../../../../../components/RoundedButton';
 import { UppercaseCaptionTypography } from '../../../../components';
 import { ExcuseLink } from './ExcuseLink';
-import { RoundedButton } from '../../../../../components/RoundedButton';
 
 type ExcuseCardProps = {
   label: string;

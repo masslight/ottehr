@@ -1,7 +1,7 @@
-import { Stack, FormControl, InputLabel, MenuItem, TextField, Select } from '@mui/material';
-import { useState, useEffect, MutableRefObject } from 'react';
-import { ReasonListCodes, reasonListValues } from '../medicationTypes';
+import { FormControl, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material';
+import { MutableRefObject, useEffect, useState } from 'react';
 import { UpdateMedicationOrderInput } from 'utils';
+import { ReasonListCodes, reasonListValues } from '../medicationTypes';
 
 export const ReasonSelect: React.FC<{
   updateRequestInputRef: MutableRefObject<UpdateMedicationOrderInput | null>;

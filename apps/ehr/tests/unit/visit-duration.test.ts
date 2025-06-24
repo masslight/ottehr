@@ -1,8 +1,8 @@
-import { describe, expect, test } from 'vitest';
-import { getVisitStatusHistory } from 'utils';
 // import { DateTime } from 'luxon';
 // import { getDurationOfStatus, getVisitTotalTime } from 'utils';
 import { Encounter } from 'fhir/r4b';
+import { getVisitStatusHistory } from 'utils';
+import { describe, expect, test } from 'vitest';
 
 const finishedEncounter: Encounter = {
   resourceType: 'Encounter',

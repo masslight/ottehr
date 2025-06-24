@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { FormControl, FormControlLabel, Radio, RadioGroup, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { ExamCardsNames, ExamFieldsNames } from 'utils';
 import { useExamObservations } from '../../../../hooks/useExamObservations';
 

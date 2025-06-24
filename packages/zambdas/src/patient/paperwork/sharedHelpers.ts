@@ -1,6 +1,6 @@
 import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { Coding, Flag } from 'fhir/r4b';
-import { getPatchBinary, formatPhoneNumberDisplay } from 'utils';
+import { formatPhoneNumberDisplay, getPatchBinary } from 'utils';
 
 export async function createOrUpdateFlags(
   flagName: string,

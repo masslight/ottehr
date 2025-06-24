@@ -5,8 +5,8 @@ import {
   VitalsHeartbeatObservationDTO,
   VitalsObservationDTO,
 } from 'utils';
-import { VitalHeartbeatHistoryEntry } from './VitalHeartbeatHistoryEntry';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalHeartbeatHistoryEntry } from './VitalHeartbeatHistoryEntry';
 
 export const textToHeartbeatNumber = (text: string): number | undefined => {
   const hrVal = textToNumericValue(text);

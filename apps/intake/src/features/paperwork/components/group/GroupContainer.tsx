@@ -1,9 +1,9 @@
-import MultiAnswerHeader from './MultiAnswerHeader';
-import { IntakeQuestionnaireItem, QuestionnaireItemGroupType } from 'utils';
-import { FC, ReactNode } from 'react';
-import { otherColors } from '../../../../IntakeThemeProvider';
 import { Grid } from '@mui/material';
+import { FC, ReactNode } from 'react';
+import { IntakeQuestionnaireItem, QuestionnaireItemGroupType } from 'utils';
+import { otherColors } from '../../../../IntakeThemeProvider';
 import { RenderItemsProps } from '../../PagedQuestionnaire';
+import MultiAnswerHeader from './MultiAnswerHeader';
 
 interface GroupContainerProps extends Omit<RenderItemsProps, 'items'> {
   item: IntakeQuestionnaireItem;

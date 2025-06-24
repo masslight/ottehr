@@ -1,19 +1,22 @@
-import {} from 'utils';
+import { CheckInInput } from 'utils';
 import { ZambdaInput } from '../../shared';
-import { CheckInInput } from '.';
+import { CheckInInputValidated } from '.';
 
-// Note that this file is copied from BH and needs significant changes
-export function validateRequestParameters(input: ZambdaInput): CheckInInput {
+export function validateRequestParameters(input: ZambdaInput): CheckInInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
 
-  const { appointment } = JSON.parse(input.body);
+  const { appointmentId } = JSON.parse(input.body) as unknown as CheckInInput;
 
   // Check existence of necessary fields
-  if (appointment === undefined) {
+  if (appointmentId === undefined) {
     throw new Error('appointment field is required');
   }
 
-  return { appointment, secrets: input.secrets };
+  if (!input.secrets) {
+    throw new Error('secrets were not available');
+  }
+
+  return { appointmentId, secrets: input.secrets };
 }

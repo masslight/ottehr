@@ -1,7 +1,7 @@
-import React, { FC } from 'react';
 import { Box, Divider, Skeleton, Typography } from '@mui/material';
-import { DeleteIconButton } from '../../../components';
+import React, { FC } from 'react';
 import { dataTestIds } from '../../../../constants/data-test-ids';
+import { DeleteIconButton } from '../../../components';
 
 export const ProviderSideListSkeleton: FC = () => {
   return (

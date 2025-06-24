@@ -1,4 +1,4 @@
-import { QuestionnaireResponseItem, QuestionnaireResponseItemAnswer, QuestionnaireResponse } from 'fhir/r4b';
+import { QuestionnaireResponse, QuestionnaireResponseItem, QuestionnaireResponseItemAnswer } from 'fhir/r4b';
 
 interface QuestionnaireResponseItemAnswerWithValueArray extends QuestionnaireResponseItemAnswer {
   valueArray?: Record<string, string>[];

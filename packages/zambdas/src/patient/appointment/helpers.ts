@@ -2,14 +2,14 @@ import Oystehr from '@oystehr/sdk';
 import { Coding, DocumentReference, Extension, Practitioner, Questionnaire } from 'fhir/r4b';
 import {
   CanonicalUrl,
+  getCanonicalQuestionnaire,
+  getSecret,
   OtherParticipantsExtension,
   PatientAccountResponse,
   Secrets,
   SecretsKeys,
   ServiceMode,
   TELEMED_VIDEO_ROOM_CODE,
-  getCanonicalQuestionnaire,
-  getSecret,
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
 

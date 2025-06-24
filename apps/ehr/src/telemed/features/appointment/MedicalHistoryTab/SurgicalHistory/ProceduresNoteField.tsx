@@ -1,10 +1,10 @@
+import { Skeleton, TextField } from '@mui/material';
 import React, { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { Skeleton, TextField } from '@mui/material';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
-import { useDebounceNotesField } from '../../../../hooks';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { useDebounceNotesField } from '../../../../hooks';
+import { useAppointmentStore } from '../../../../state';
 
 export const ProceduresNoteField: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

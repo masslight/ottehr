@@ -1,10 +1,9 @@
 import { Button, Card, Typography, useTheme } from '@mui/material';
 import { Box, Container } from '@mui/system';
+import { ottehrLightBlue } from '@theme/icons';
 import { useLocation, useNavigate } from 'react-router-dom';
-
 import { intakeFlowPageRoute } from '../../App';
 import { CustomContainer } from '../features/common';
-import { ottehrLightBlue } from '@theme/icons';
 
 const CallEndedPage = (): JSX.Element => {
   const navigate = useNavigate();

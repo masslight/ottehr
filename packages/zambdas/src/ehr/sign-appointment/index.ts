@@ -14,7 +14,6 @@ import {
   visitStatusToFhirAppointmentStatusMap,
   visitStatusToFhirEncounterStatusMap,
 } from 'utils';
-
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createPublishExcuseNotesOps } from '../../shared/createPublishExcuseNotesOps';

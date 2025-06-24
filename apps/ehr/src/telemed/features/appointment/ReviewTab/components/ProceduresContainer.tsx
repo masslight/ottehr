@@ -1,8 +1,8 @@
-import { FC, ReactElement } from 'react';
 import { Box, Stack, Typography, useTheme } from '@mui/material';
+import { DateTime } from 'luxon';
+import { FC, ReactElement } from 'react';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { DateTime } from 'luxon';
 
 export const ProceduresContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

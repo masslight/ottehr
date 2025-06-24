@@ -1,11 +1,11 @@
-import { FC, ReactElement } from 'react';
 import { Box, Divider, Typography, useTheme } from '@mui/material';
+import { FC, ReactElement } from 'react';
 import { AiObservationField, getQuestionnaireResponseByLinkId, ObservationTextFieldDTO } from 'utils';
+import AiSuggestion from '../../../../../components/AiSuggestion';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
 import { PatientSideListSkeleton } from '../PatientSideListSkeleton';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
-import AiSuggestion from '../../../../../components/AiSuggestion';
 
 export const KnownAllergiesPatientColumn: FC = () => {
   const theme = useTheme();

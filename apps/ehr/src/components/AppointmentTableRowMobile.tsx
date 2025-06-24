@@ -1,12 +1,12 @@
-import { Box, Grid, TableCell, TableRow, Typography, capitalize, Modal } from '@mui/material';
-import { ReactElement, CSSProperties, useState } from 'react';
 import { otherColors } from '@ehrTheme/colors';
-import ReasonsForVisit from './ReasonForVisit';
-import { InPersonAppointmentInformation } from 'utils';
-import { ApptTab } from './AppointmentTabs';
+import { Box, capitalize, Grid, Modal, TableCell, TableRow, Typography } from '@mui/material';
+import { CSSProperties, ReactElement, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { InPersonAppointmentInformation } from 'utils';
 import { MOBILE_MODAL_STYLE } from '../constants';
+import { ApptTab } from './AppointmentTabs';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
+import ReasonsForVisit from './ReasonForVisit';
 
 interface AppointmentTableRowMobileProps {
   appointment: InPersonAppointmentInformation;

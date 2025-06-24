@@ -1,9 +1,12 @@
 import { expect, test } from '@playwright/test';
 import {
+  Account,
   Appointment,
   ClinicalImpression,
+  Consent,
   DocumentReference,
   Encounter,
+  FhirResource,
   List,
   Observation,
   Patient,
@@ -13,12 +16,9 @@ import {
   Resource,
   ServiceRequest,
   Slot,
-  Consent,
-  Account,
-  FhirResource,
 } from 'fhir/r4b';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
 import { DateTime } from 'luxon';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 const PROCESS_ID = `contractTests-${DateTime.now().toMillis()}`;
 const e2eHandler = new ResourceHandler(PROCESS_ID);

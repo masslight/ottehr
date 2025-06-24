@@ -14,6 +14,7 @@ import {
   getTimezone,
   OVERRIDE_DATE_FORMAT,
 } from 'utils';
+import { vi } from 'vitest';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotMap, addDateToSlotTimes } from './data/slot-constants';
 import {
@@ -22,7 +23,6 @@ import {
   replaceSchedule,
   setHourlyCapacity,
 } from './helpers/testScheduleUtils';
-import { vi } from 'vitest';
 export const DEFAULT_TEST_TIMEOUT = 100000;
 /*
 

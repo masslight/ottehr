@@ -1,4 +1,3 @@
-import { create } from 'zustand';
 import {
   ExamCardsNames,
   ExamFieldsNames,
@@ -10,6 +9,7 @@ import {
   InPersonExamObservationCardsDetails,
   InPersonExamObservationFieldsDetails,
 } from 'utils';
+import { create } from 'zustand';
 
 type ExamObservationsState = { [field in ExamFieldsNames | ExamCardsNames]: ExamObservationDTO };
 

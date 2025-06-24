@@ -19,8 +19,8 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../ehr/shared/harvest';
+import { ZambdaInput } from '../../shared';
 
 interface GetEligibilityStandardInput {
   type: 'standard';

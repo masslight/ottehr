@@ -1,10 +1,10 @@
-import { FC } from 'react';
+import { otherColors } from '@ehrTheme/colors';
 import { Box, Card, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import { ClaimCard } from './ClaimCard';
-import { BillingModal } from './modals';
+import { FC } from 'react';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimStore } from '../../state';
-import { otherColors } from '@ehrTheme/colors';
+import { ClaimCard } from './ClaimCard';
+import { BillingModal } from './modals';
 
 export const BillingCard: FC = () => {
   const { organizations, facilities, claimData, coverageData } = getSelectors(useClaimStore, [

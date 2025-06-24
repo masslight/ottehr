@@ -3,51 +3,50 @@ import {
   ActivityDefinition,
   Appointment,
   BundleEntry,
-  Encounter,
-  Resource,
-  Practitioner,
-  ServiceRequest,
-  Task,
-  Provenance,
-  Location,
-  FhirResource,
-  Specimen,
-  Observation,
   DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Observation,
+  Practitioner,
+  Provenance,
+  Resource,
+  ServiceRequest,
+  Specimen,
+  Task,
 } from 'fhir/r4b';
 import {
   compareDates,
-  fetchLabOrderPDFs,
-  fetchDocumentReferencesForDiagnosticReports,
-  LabOrderPDF,
-  getTimezone,
+  convertActivityDefinitionToTestItem,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
-  Secrets,
-  InHouseGetOrdersResponseDTO,
-} from 'utils';
-import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
-import { getSpecimenDetails, taskIsBasedOnServiceRequest } from '../shared/inhouse-labs';
-import {
+  DiagnosisDTO,
   EMPTY_PAGINATION,
-  isPositiveNumberOrZero,
+  fetchDocumentReferencesForDiagnosticReports,
+  getFullestAvailableName,
+  getTimezone,
+  IN_HOUSE_TEST_CODE_SYSTEM,
+  InHouseGetOrdersResponseDTO,
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
+  isPositiveNumberOrZero,
+  LabResultPDF,
   Pagination,
-  DiagnosisDTO,
-  convertActivityDefinitionToTestItem,
-  getFullestAvailableName,
   PRACTITIONER_CODINGS,
+  Secrets,
   TestStatus,
-  IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
-import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
+import { captureSentryException, createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
 import {
-  determineOrderStatus,
   buildOrderHistory,
-  getUrlAndVersionForADFromServiceRequest,
-  getServiceRequestsRelatedViaRepeat,
+  determineOrderStatus,
   fetchResultResourcesForRepeatServiceRequest,
+  getServiceRequestsRelatedViaRepeat,
+  getSpecimenDetails,
+  getUrlAndVersionForADFromServiceRequest,
+  taskIsBasedOnServiceRequest,
 } from '../shared/inhouse-labs';
+import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
+import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context
 type Cache = {
@@ -67,7 +66,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   specimens: Specimen[],
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
-  resultsPDFs: LabOrderPDF[],
+  resultsPDFs: LabResultPDF[],
   secrets: Secrets | null,
   currentPractitioner?: Practitioner,
   timezone?: string
@@ -147,7 +146,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
   specimens: Specimen[];
   observations: Observation[];
   cache?: Cache;
-  resultsPDF?: LabOrderPDF;
+  resultsPDF?: LabResultPDF;
   currentPractitionerName?: string;
   currentPractitionerId?: string;
   timezone?: string;
@@ -205,7 +204,7 @@ export const parseOrderData = <SearchBy extends InHouseOrdersSearchBy>({
       orderingPhysicianId: attendingPractitioner?.id || '',
       currentUserFullName: currentPractitionerName || '',
       currentUserId: currentPractitionerId || '',
-      resultsPDFUrl: resultsPDF?.url,
+      resultsPDFUrl: resultsPDF?.presignedURL,
       orderHistory,
       specimen: relatedSpecimens[0] ? getSpecimenDetails(relatedSpecimens[0]) : undefined,
       notes: serviceRequest.note?.[0]?.text || '',
@@ -260,7 +259,7 @@ export const getInHouseResources = async (
   observations: Observation[];
   pagination: Pagination;
   diagnosticReports: DiagnosticReport[];
-  resultsPDFs: LabOrderPDF[];
+  resultsPDFs: LabResultPDF[];
   currentPractitioner?: Practitioner;
   timezone: string | undefined;
 }> => {
@@ -290,7 +289,7 @@ export const getInHouseResources = async (
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
 
   let currentPractitioner: Practitioner | undefined;
-  let resultsPDFs: LabOrderPDF[] = [];
+  let resultsPDFs: LabResultPDF[] = [];
 
   if (isDetailPageRequest && userToken) {
     // if more than one ServiceRequest is returned for when this is called from the detail page
@@ -320,8 +319,9 @@ export const getInHouseResources = async (
     }
 
     if (diagnosticReports.length > 0) {
-      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports);
-      resultsPDFs = await fetchLabOrderPDFs(resultsDocumentReferences, m2mtoken);
+      const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mtoken);
+      if (pdfs) resultsPDFs = pdfs.resultPDFs;
     }
   }
 

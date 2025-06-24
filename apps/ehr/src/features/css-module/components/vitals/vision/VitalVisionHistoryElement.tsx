@@ -1,7 +1,7 @@
-import React, { JSX, useMemo, useState } from 'react';
-import { useTheme, Box, Typography, IconButton } from '@mui/material';
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
-import { VitalsObservationDTO, getVisionExtraOptionsFormattedString } from 'utils';
+import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import React, { JSX, useMemo, useState } from 'react';
+import { getVisionExtraOptionsFormattedString, VitalsObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 import { VitalVisionHistoryEntry } from './VitalVisionEntry';
 

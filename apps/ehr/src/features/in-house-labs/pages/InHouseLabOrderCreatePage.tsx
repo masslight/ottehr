@@ -1,36 +1,36 @@
-import React, { useEffect, useRef, useState } from 'react';
 import {
-  Box,
-  Paper,
-  Typography,
-  Button,
-  Grid,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  TextField,
-  CircularProgress,
-  Stack,
   Autocomplete,
-  useTheme,
-  Chip,
-  FormControlLabel,
+  Box,
+  Button,
   Checkbox,
+  Chip,
+  CircularProgress,
+  FormControl,
+  FormControlLabel,
+  Grid,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Stack,
+  TextField,
+  Typography,
+  useTheme,
 } from '@mui/material';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
-import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
-import { useApiClients } from '../../../hooks/useAppClients';
-import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
-import { useGetIcd10Search, useDebounce, ActionsList, DeleteIconButton } from '../../../telemed';
-import { enqueueSnackbar } from 'notistack';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { enqueueSnackbar } from 'notistack';
+import React, { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
-import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
+import { isApiError, PRACTITIONER_CODINGS, TestItem } from 'utils';
+import { DiagnosisDTO } from 'utils/lib/types/api/chart-data';
+import { createInHouseLabOrder, getCreateInHouseLabOrderResources, getOrCreateVisitLabel } from '../../../api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { getSelectors } from '../../../shared/store/getSelectors';
+import { ActionsList, DeleteIconButton, useDebounce, useGetIcd10Search } from '../../../telemed';
+import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
 import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
+import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();

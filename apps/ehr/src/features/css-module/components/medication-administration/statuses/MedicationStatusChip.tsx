@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import { Chip, Popover, Box, MenuItem, Typography, Stack } from '@mui/material';
+import { Box, Chip, MenuItem, Popover, Stack, Typography } from '@mui/material';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { MedicationOrderStatusesType } from 'utils';
 import { ExtendedMedicationDataForResponse } from 'utils';
+import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { medicationStatusDisplayLabelMap } from '../medication-editable-card/utils';
 
 interface MedicationStatusChipProps {

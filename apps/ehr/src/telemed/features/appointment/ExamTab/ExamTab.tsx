@@ -1,21 +1,21 @@
-import React, { FC } from 'react';
 import { Box } from '@mui/material';
+import React, { FC } from 'react';
+import { useGetAppointmentAccessibility } from '../../../hooks';
+import { AbdomenCard } from './AbdomenCard';
+import { BackCard } from './BackCard';
+import { ChestCard } from './ChestCard';
+import { EarsCard } from './EarsCard';
+import { EyesCard } from './EyesCard';
 import { GeneralCard } from './GeneralCard';
 import { HeadCard } from './HeadCard';
-import { EyesCard } from './EyesCard';
 import { MouthCard } from './MouthCard';
-import { NeckCard } from './NeckCard';
-import { ChestCard } from './ChestCard';
-import { BackCard } from './BackCard';
-import { SkinCard } from './SkinCard';
-import { AbdomenCard } from './AbdomenCard';
 import { MusculoskeletalCard } from './MusculoskeletalCard';
+import { NeckCard } from './NeckCard';
 import { NeurologicalCard } from './NeurologicalCard';
-import { PsychCard } from './PsychCard';
 import { NoseCard } from './NoseCard';
-import { EarsCard } from './EarsCard';
+import { PsychCard } from './PsychCard';
 import { ReadOnlyCard } from './ReadOnlyCard';
-import { useGetAppointmentAccessibility } from '../../../hooks';
+import { SkinCard } from './SkinCard';
 
 export const ExamTab: FC = () => {
   const { isAppointmentReadOnly: isReadOnly } = useGetAppointmentAccessibility();

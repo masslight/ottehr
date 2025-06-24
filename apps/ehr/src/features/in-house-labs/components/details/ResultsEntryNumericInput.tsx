@@ -1,7 +1,7 @@
 import { TextField, useTheme } from '@mui/material';
-import { TestItemComponent } from 'utils';
 // import InputMask from 'src/components/InputMask';
-import { useFormContext, Controller } from 'react-hook-form';
+import { Controller, useFormContext } from 'react-hook-form';
+import { TestItemComponent } from 'utils';
 
 interface ResultEntryNumericInputProps {
   testItemComponent: TestItemComponent;

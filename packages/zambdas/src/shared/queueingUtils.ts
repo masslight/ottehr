@@ -1,7 +1,7 @@
 import { Appointment, Encounter } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getTimeSpentInCurrentStatus, getWaitingTimeForAppointment } from './waitTimeUtils';
 import { appointmentTypeForAppointment, getVisitStatus } from 'utils';
+import { getTimeSpentInCurrentStatus, getWaitingTimeForAppointment } from './waitTimeUtils';
 
 const ARRIVED_PREBOOKED_EARLY_ARRIVAL_LIMIT = 15;
 const READY_PREBOOKED_EARLY_ARRIVAL_LIMIT = 10;

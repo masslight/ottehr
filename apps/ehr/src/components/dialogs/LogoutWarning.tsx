@@ -1,5 +1,5 @@
-import { ReactElement, useEffect, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, useTheme } from '@mui/material';
+import { ReactElement, useEffect, useState } from 'react';
 
 interface LogoutWarningProps {
   modalOpen: boolean;

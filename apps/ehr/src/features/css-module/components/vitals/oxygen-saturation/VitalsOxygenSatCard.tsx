@@ -1,20 +1,20 @@
-import React, { useCallback, useState, JSX, ChangeEvent } from 'react';
-import { Box, CircularProgress, Typography, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import React, { ChangeEvent, JSX, useCallback, useState } from 'react';
 import {
   toVitalOxygenSatObservationMethod,
   VitalFieldNames,
   VitalsOxygenSatObservationDTO,
   VitalsOxygenSatObservationMethod,
 } from 'utils';
-import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
-import { VitalsOxygenSatHistoryEntry } from './VitalsOxygenSatHistoryEntry';
-import { composeOxygenSatHistoryEntries, textToOxygenSatNumber, isValidOxySatPercentageValue } from './helpers';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
-import VitalOxygenSatHistoryElement from './VitalOxygenSatHistoryElement';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { useVitalsCardState } from '../hooks/useVitalsCardState';
+import { composeOxygenSatHistoryEntries, isValidOxySatPercentageValue, textToOxygenSatNumber } from './helpers';
+import VitalOxygenSatHistoryElement from './VitalOxygenSatHistoryElement';
+import { VitalsOxygenSatHistoryEntry } from './VitalsOxygenSatHistoryEntry';
 
 const VitalsOxygenSatCard: React.FC = (): JSX.Element => {
   const {

@@ -1,6 +1,6 @@
+import { Checkbox, FormControlLabel } from '@mui/material';
 import React, { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { Checkbox, FormControlLabel } from '@mui/material';
 import { SchoolExcuseFields, WorkExcuseFields } from '../../../../utils';
 
 type ControlledExcuseCheckboxProps = {

@@ -1,6 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import {
-  FhirResource,
   Extension,
+  FhirResource,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireItemAnswerOption,
@@ -9,26 +10,25 @@ import {
   QuestionnaireResponseItemAnswer,
   ValueSet,
 } from 'fhir/r4b';
+import _ from 'lodash';
+import { DateTime } from 'luxon';
+import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
 import {
+  AnswerLoadingOptions,
+  ConditionKeyObject,
+  FormDisplayElementList,
+  FormElement,
+  FormSelectionElementList,
+  InputWidthOption,
   IntakeQuestionnaireItem,
   Question,
+  QuestionnaireItemConditionDefinition,
   QuestionnaireItemExtension,
+  QuestionnaireItemGroupType,
   QuestionnaireItemTextWhen,
   validateQuestionnaireDataType,
-  FormDisplayElementList,
-  FormSelectionElementList,
-  FormElement,
-  QuestionnaireItemGroupType,
-  AnswerLoadingOptions,
-  InputWidthOption,
-  QuestionnaireItemConditionDefinition,
-  ConditionKeyObject,
 } from '../../types';
-import Oystehr from '@oystehr/sdk';
-import { getCanonicalQuestionnaire, OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../fhir';
-import { DateTime } from 'luxon';
 import { DOB_DATE_FORMAT } from '../../utils';
-import _ from 'lodash';
 
 export interface OptionConfig {
   label: string;

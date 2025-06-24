@@ -1,14 +1,14 @@
-import React, { FC, useEffect, useState } from 'react';
-import { Autocomplete, Box, TextField, Typography } from '@mui/material';
-import { Controller, FormProvider, useForm } from 'react-hook-form';
-import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 import { otherColors } from '@ehrTheme/colors';
+import { Autocomplete, Box, TextField, Typography } from '@mui/material';
+import React, { FC, useEffect, useState } from 'react';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ExamObservationDTO } from 'utils';
-import { useExamObservations } from '../../../../hooks/useExamObservations';
-import { ActionsList, DeleteIconButton } from '../../../../components';
 import { parseRashesFieldToName, rashesFields, rashesOptions } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { ActionsList, DeleteIconButton } from '../../../../components';
+import { useExamObservations } from '../../../../hooks/useExamObservations';
+import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type FormValues = {
   rashes: string | null;

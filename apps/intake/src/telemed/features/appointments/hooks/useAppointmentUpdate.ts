@@ -1,6 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
+import { useQueryClient } from 'react-query';
 import { getSelectors, isoStringFromMDYString, PatientInfo, UpdateAppointmentResponse, yupDateTransform } from 'utils';
+import { CreateAppointmentUCTelemedResponse } from 'utils';
 import { useZapEHRAPIClient } from '../../../utils';
+import { useIntakeCommonStore } from '../../common';
 import { usePatientInfoStore } from '../../patient-info';
 import {
   createPatientInfoWithChangedFields,
@@ -10,9 +13,6 @@ import {
   useCreateAppointmentMutation,
   useUpdateAppointmentMutation,
 } from '..';
-import { useQueryClient } from 'react-query';
-import { useIntakeCommonStore } from '../../common';
-import { CreateAppointmentUCTelemedResponse } from 'utils';
 
 export type UpdateAppointmentFn = (data: {
   patientInfo: PatientInfo;

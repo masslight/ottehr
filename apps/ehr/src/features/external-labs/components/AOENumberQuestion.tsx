@@ -1,8 +1,8 @@
-import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
-import React from 'react';
-import { Extension } from 'fhir/r4b';
-import InputMask from '../../../components/InputMask';
 import { TextField } from '@mui/material';
+import { Extension } from 'fhir/r4b';
+import React from 'react';
+import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import InputMask from '../../../components/InputMask';
 
 interface NumberQuestionProps {
   questionText: string;

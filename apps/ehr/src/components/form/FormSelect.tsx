@@ -1,4 +1,4 @@
-import { Select, MenuItem, SelectProps, FormHelperText } from '@mui/material';
+import { FormHelperText, MenuItem, Select, SelectProps } from '@mui/material';
 import { Box } from '@mui/system';
 import React, { ReactElement } from 'react';
 import { Control, Controller, FieldValues, Path, RegisterOptions } from 'react-hook-form';

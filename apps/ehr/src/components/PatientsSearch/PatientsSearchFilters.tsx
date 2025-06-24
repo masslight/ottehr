@@ -1,13 +1,13 @@
-import { Box, Button, FormControl, MenuItem, TextField } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import { useState } from 'react';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import { useLocationsOptions } from './useLocationsOptions';
-import { PartialSearchOptionsState, SearchOptionsFilters } from './types';
+import SearchIcon from '@mui/icons-material/Search';
+import { Box, Button, FormControl, MenuItem, TextField } from '@mui/material';
+import { DateTime } from 'luxon';
+import { useState } from 'react';
 import { dataTestIds } from '../../constants/data-test-ids';
 import DateSearch from '../DateSearch';
-import { DateTime } from 'luxon';
+import { PartialSearchOptionsState, SearchOptionsFilters } from './types';
+import { useLocationsOptions } from './useLocationsOptions';
 
 export const PatientsSearchFilters: React.FC<{
   searchFilters: SearchOptionsFilters;

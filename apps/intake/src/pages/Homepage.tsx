@@ -1,12 +1,15 @@
 import CloseIcon from '@mui/icons-material/Close';
 import LiveHelpOutlinedIcon from '@mui/icons-material/LiveHelpOutlined';
-import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
 import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
+import VideoCameraFrontOutlinedIcon from '@mui/icons-material/VideoCameraFrontOutlined';
 import { Box, Button, Skeleton, Typography } from '@mui/material';
+import { pastVisits } from '@theme/icons';
 import { useEffect, useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
+import { PROJECT_NAME, ServiceMode } from 'utils';
 import { BOOKING_SERVICE_MODE_PARAM, intakeFlowPageRoute } from '../App';
-import { ServiceMode, PROJECT_NAME } from 'utils';
+import HomepageOption from '../components/HomepageOption';
+import { dataTestIds } from '../helpers/data-test-ids';
 import { otherColors } from '../IntakeThemeProvider';
 import { CancelVisitDialog } from '../telemed/components';
 import {
@@ -16,10 +19,7 @@ import {
   useGetAppointments,
 } from '../telemed/features/appointments';
 import { CustomContainer, useIntakeCommonStore } from '../telemed/features/common';
-import HomepageOption from '../components/HomepageOption';
 import { useZapEHRAPIClient } from '../telemed/utils';
-import { dataTestIds } from '../helpers/data-test-ids';
-import { pastVisits } from '@theme/icons';
 
 const DEFAULT_WALKIN_LOCATION_NAME = import.meta.env.VITE_APP_DEFAULT_WALKIN_LOCATION_NAME;
 

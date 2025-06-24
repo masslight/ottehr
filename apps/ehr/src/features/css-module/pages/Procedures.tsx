@@ -1,16 +1,16 @@
-import { ReactElement, useMemo } from 'react';
-import { PageTitle } from 'src/telemed/components/PageTitle';
-import { AccordionCard, useAppointmentStore, useGetAppointmentAccessibility } from 'src/telemed';
+import AddIcon from '@mui/icons-material/Add';
+import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
 import { Box, Stack } from '@mui/system';
+import { DateTime } from 'luxon';
+import { ReactElement, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { RoundedButton } from 'src/components/RoundedButton';
-import AddIcon from '@mui/icons-material/Add';
-import { ROUTER_PATH } from '../routing/routesCSS';
+import { AccordionCard, useAppointmentStore, useGetAppointmentAccessibility } from 'src/telemed';
+import { PageTitle } from 'src/telemed/components/PageTitle';
 import { getSelectors, getVisitStatus, TelemedAppointmentStatusEnum } from 'utils';
-import { Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material';
-import { DateTime } from 'luxon';
 import { CSSLoader } from '../components/CSSLoader';
 import { useFeatureFlags } from '../context/featureFlags';
+import { ROUTER_PATH } from '../routing/routesCSS';
 
 export default function Procedures(): ReactElement {
   const navigate = useNavigate();

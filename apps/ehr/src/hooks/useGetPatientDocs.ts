@@ -1,12 +1,12 @@
+import { useAuth0 } from '@auth0/auth0-react';
+import { SearchParam } from '@oystehr/sdk';
+import { DocumentReference, FhirResource, List, Reference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { useCallback, useState } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
-import { FhirResource, List, DocumentReference, Reference } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { useApiClients } from './useAppClients';
-import { SearchParam } from '@oystehr/sdk';
-import { useAuth0 } from '@auth0/auth0-react';
-import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
 import { chooseJson } from 'utils';
+import { getPresignedFileUrl, parseFileExtension } from '../helpers/files.helper';
+import { useApiClients } from './useAppClients';
 
 const PATIENT_FOLDERS_CODE = 'patient-docs-folder';
 

@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import {
@@ -22,14 +23,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import { otherColors } from '@ehrTheme/colors';
 import { InsurancePlan } from 'fhir/r4b';
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
-import { BooleanStateChip } from '../..';
 import { INSURANCES_URL } from '../../../App';
 import { INSURANCE_ROWS_PER_PAGE } from '../../../constants';
 import { dataTestIds } from '../../../constants/data-test-ids';
+import { BooleanStateChip } from '../..';
 import { useInsurancesQuery } from './telemed-admin.queries';
 
 enum IsActiveStatus {

@@ -1,15 +1,15 @@
-import { FC, ReactElement, useEffect, useState } from 'react';
-import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
-import { useApiClients } from '../../hooks/useAppClients';
-import { DataGridPro, GridColDef, GridRowParams } from '@mui/x-data-grid-pro';
-import { formatISOStringToDateAndTime } from '../../helpers/formatDateTime';
-import { RoundedButton } from '../RoundedButton';
-import styled from 'styled-components';
-import { Box, Paper, Stack, Typography, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { Patient, Encounter } from 'fhir/r4b';
+import { Box, Chip, Paper, Stack, Typography } from '@mui/material';
+import { DataGridPro, GridColDef, GridRowParams } from '@mui/x-data-grid-pro';
+import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
+import { Encounter, Patient } from 'fhir/r4b';
+import { FC, ReactElement, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 import { FOLLOWUP_SYSTEMS } from 'utils';
+import { formatISOStringToDateAndTime } from '../../helpers/formatDateTime';
+import { useApiClients } from '../../hooks/useAppClients';
+import { RoundedButton } from '../RoundedButton';
 
 type PatientEncountersGridProps = {
   patient?: Patient;

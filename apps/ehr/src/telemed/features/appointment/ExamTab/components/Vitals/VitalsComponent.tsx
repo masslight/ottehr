@@ -1,11 +1,11 @@
 import { FC, useCallback, useEffect } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { useAppointmentStore, useUpdatePaperwork } from '../../../../../state';
-import { useDebounce } from '../../../../../hooks';
 import { getSelectors } from '../../../../../../shared/store/getSelectors';
-import { NumberInput } from '../NumberInput';
+import { useDebounce } from '../../../../../hooks';
+import { useAppointmentStore, useUpdatePaperwork } from '../../../../../state';
 import { updateQuestionnaireResponse } from '../../../../../utils';
+import { NumberInput } from '../NumberInput';
 
 type VitalsComponentProps = {
   name: 'vitals-pulse' | 'vitals-hr' | 'vitals-rr' | 'vitals-bp';

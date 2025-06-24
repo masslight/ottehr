@@ -2,54 +2,58 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import {
   ActivityDefinition,
   Appointment,
+  Bundle,
   BundleEntry,
   DiagnosticReport,
+  DocumentReference,
   Encounter,
-  Observation,
-  Resource,
-  Practitioner,
-  ServiceRequest,
-  Task,
-  Reference,
-  Provenance,
-  Organization,
-  QuestionnaireResponse,
-  Questionnaire,
-  QuestionnaireResponseItem,
   Location,
+  Observation,
+  Organization,
+  Practitioner,
+  Provenance,
+  Questionnaire,
+  QuestionnaireResponse,
+  QuestionnaireResponseItem,
+  Reference,
+  Resource,
+  ServiceRequest,
   Specimen,
-  Bundle,
+  Task,
 } from 'fhir/r4b';
 import {
   compareDates,
   DEFAULT_LABS_ITEMS_PER_PAGE,
+  DiagnosisDTO,
   EMPTY_PAGINATION,
+  ExternalLabsStatus,
+  getTimezone,
   isPositiveNumberOrZero,
   LAB_ACCOUNT_NUMBER_SYSTEM,
+  LAB_ORDER_TASK,
   LabOrderDetailedPageDTO,
+  LabOrderDTO,
   LabOrderHistoryRow,
   LabOrderListPageDTO,
+  LabOrderPDF,
   LabOrderResultDetails,
   LabOrdersSearchBy,
+  LabResultPDF,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   Pagination,
-  QuestionnaireData,
+  PatientLabItem,
   PROVENANCE_ACTIVITY_CODES,
   PROVENANCE_ACTIVITY_TYPE_SYSTEM,
-  getTimezone,
-  sampleDTO,
-  SPECIMEN_CODING_CONFIG,
+  PSC_HOLD_CONFIG,
+  QuestionnaireData,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
-  LabOrderPDF,
-  fetchDocumentReferencesForDiagnosticReports,
-  fetchLabOrderPDFs,
+  sampleDTO,
   Secrets,
-  PatientLabItem,
+  SPECIMEN_CODING_CONFIG,
 } from 'utils';
+import { captureSentryException, sendErrors } from '../../shared';
+import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
-import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
-import { captureSentryException } from '../../shared';
-import { sendErrors } from '../../shared';
 
 // cache for the service request context: contains parsed tasks and results
 type Cache = {
@@ -69,7 +73,8 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   provenances: Provenance[],
   organizations: Organization[],
   questionnaires: QuestionnaireData[],
-  labPDFs: LabOrderPDF[],
+  resultPDFs: LabResultPDF[],
+  orderPDF: LabOrderPDF | undefined,
   specimens: Specimen[],
   secrets: Secrets | null
 ): LabOrderDTO<SearchBy>[] => {
@@ -100,7 +105,8 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
           provenances,
           organizations,
           questionnaires,
-          labPDFs,
+          resultPDFs,
+          orderPDF,
           specimens,
           cache,
         })
@@ -125,7 +131,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances,
   organizations,
   questionnaires,
-  labPDFs,
+  resultPDFs,
+  orderPDF,
   specimens,
   cache,
 }: {
@@ -140,7 +147,8 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
-  labPDFs: LabOrderPDF[];
+  resultPDFs: LabResultPDF[];
+  orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
@@ -189,9 +197,18 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
         cache
       ),
       accountNumber: parseAccountNumber(serviceRequest, organizations),
-      resultsDetails: parseLResultsDetails(serviceRequest, results, tasks, practitioners, provenances, labPDFs, cache),
+      resultsDetails: parseLResultsDetails(
+        serviceRequest,
+        results,
+        tasks,
+        practitioners,
+        provenances,
+        resultPDFs,
+        cache
+      ),
       questionnaire: questionnaires,
       samples: parseSamples(serviceRequest, specimens),
+      orderPdfUrl: orderPDF?.presignedURL,
     };
 
     return detailedPageDTO as LabOrderDTO<SearchBy>;
@@ -386,7 +403,8 @@ export const getLabResources = async (
   provenances: Provenance[];
   organizations: Organization[];
   questionnaires: QuestionnaireData[];
-  labPDFs: LabOrderPDF[];
+  resultPDFs: LabResultPDF[];
+  orderPDF: LabOrderPDF | undefined;
   specimens: Specimen[];
   patientLabItems: PatientLabItem[];
 }> => {
@@ -428,6 +446,7 @@ export const getLabResources = async (
           | Organization
           | Location
           | QuestionnaireResponse
+          | DocumentReference
           | Specimen => Boolean(res)
       ) || [];
 
@@ -443,32 +462,33 @@ export const getLabResources = async (
     questionnaireResponses,
     specimens,
     practitioners,
+    documentReferences,
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
   console.log('isDetailPageRequest', isDetailPageRequest);
 
-  const [
-    serviceRequsetPractitioners,
-    appointments,
-    finalAndPrelimAndCorrectedTasks,
-    questionnaires,
-    documentReferences,
-  ] = await Promise.all([
-    fetchPractitionersForServiceRequests(oystehr, serviceRequests),
-    fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
-    fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
-    executeByCondition(isDetailPageRequest, () =>
-      fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
-    ),
-    executeByCondition(isDetailPageRequest, () =>
-      fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports)
-    ),
-  ]);
+  const [serviceRequsetPractitioners, appointments, finalAndPrelimAndCorrectedTasks, questionnaires] =
+    await Promise.all([
+      fetchPractitionersForServiceRequests(oystehr, serviceRequests),
+      fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
+      fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
+      executeByCondition(isDetailPageRequest, () =>
+        fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
+      ),
+    ]);
 
   const allPractitioners = [...practitioners, ...serviceRequsetPractitioners];
 
-  const labPDFs = await executeByCondition(isDetailPageRequest, () => fetchLabOrderPDFs(documentReferences, m2mtoken));
+  let resultPDFs: LabResultPDF[] = [];
+  let orderPDF: LabOrderPDF | undefined;
+  if (isDetailPageRequest) {
+    const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mtoken);
+    if (pdfs) {
+      resultPDFs = pdfs.resultPDFs;
+      orderPDF = pdfs.orderPDF;
+    }
+  }
 
   const pagination = parsePaginationFromResponse(labOrdersResponse);
 
@@ -484,7 +504,8 @@ export const getLabResources = async (
     provenances,
     organizations,
     questionnaires,
-    labPDFs,
+    resultPDFs,
+    orderPDF,
     specimens,
     pagination,
     patientLabItems,
@@ -605,6 +626,11 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
       name: '_include:iterate',
       value: 'Specimen:collector',
     });
+
+    searchParams.push({
+      name: '_revinclude:iterate',
+      value: 'DocumentReference:related',
+    });
   }
 
   if (visitDate) {
@@ -630,6 +656,7 @@ export const extractLabResources = (
     | Location
     | Specimen
     | Practitioner
+    | DocumentReference
   )[]
 ): {
   serviceRequests: ServiceRequest[];
@@ -643,6 +670,7 @@ export const extractLabResources = (
   questionnaireResponses: QuestionnaireResponse[];
   specimens: Specimen[];
   practitioners: Practitioner[];
+  documentReferences: DocumentReference[];
 } => {
   console.log('extracting lab resources');
   console.log(`${resources.length} resources total`);
@@ -658,6 +686,7 @@ export const extractLabResources = (
   const questionnaireResponses: QuestionnaireResponse[] = [];
   const specimens: Specimen[] = [];
   const practitioners: Practitioner[] = [];
+  const documentReferences: DocumentReference[] = [];
   for (const resource of resources) {
     if (resource.resourceType === 'ServiceRequest') {
       const serviceRequest = resource as ServiceRequest;
@@ -687,6 +716,8 @@ export const extractLabResources = (
       specimens.push(resource);
     } else if (resource.resourceType === 'Practitioner') {
       practitioners.push(resource);
+    } else if (resource.resourceType === 'DocumentReference') {
+      documentReferences.push(resource);
     }
   }
 
@@ -702,6 +733,7 @@ export const extractLabResources = (
     questionnaireResponses,
     specimens,
     practitioners,
+    documentReferences,
   };
 };
 
@@ -1576,7 +1608,7 @@ export const parseLResultsDetails = (
   tasks: Task[],
   practitioners: Practitioner[],
   provenances: Provenance[],
-  labPDFs: LabOrderPDF[],
+  resultPDFs: LabResultPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
   console.log('parsing external lab order results for service request', serviceRequest.id);
@@ -1636,7 +1668,7 @@ export const parseLResultsDetails = (
         compareDates(a.authoredOn, b.authoredOn)
       )[0];
       const reviewedDate = parseTaskReviewedInfo(task, practitioners, provenances)?.date || null;
-      const resultPdfUrl = labPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.url || null;
+      const resultPdfUrl = resultPDFs.find((pdf) => pdf.diagnosticReportId === result.id)?.presignedURL || null;
       if (details) resultsDetails.push({ ...details, testType, resultType, reviewedDate, resultPdfUrl });
     });
   });

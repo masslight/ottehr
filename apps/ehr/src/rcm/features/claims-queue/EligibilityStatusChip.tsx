@@ -1,6 +1,6 @@
-import { FC } from 'react';
 import { Chip } from '@mui/material';
 import { Appointment, CoverageEligibilityResponse } from 'fhir/r4b';
+import { FC } from 'react';
 
 // todo: delete this file?
 type EligibilityStatusChipProps = {
