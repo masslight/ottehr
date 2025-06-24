@@ -37,6 +37,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
     const basicInput = validateRequestParameters(input);
 
+    console.log('basicInput', JSON.stringify(basicInput));
+
     if (!zapehrToken) {
       console.log('getting m2m token for service calls');
       zapehrToken = await getAuth0Token(input.secrets);
@@ -47,6 +49,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const oystehr = createOystehrClient(zapehrToken, fhirAPI, projectAPI);
 
     const effectInput = await complexValidation(basicInput, oystehr);
+
+    console.log('effectInput', JSON.stringify(effectInput));
 
     const response = performEffect(effectInput);
 
@@ -124,10 +128,6 @@ const validateRequestParameters = (input: ZambdaInput): BasicInput => {
 
   if (scheduleId && isValidUUID(scheduleId) === false) {
     throw INVALID_INPUT_ERROR('"scheduleId" must be a valid UUID');
-  }
-
-  if (locationName && typeof locationName !== 'string') {
-    throw INVALID_INPUT_ERROR('"scheduleName" must be a string');
   }
 
   return { scheduleId, locationName };
