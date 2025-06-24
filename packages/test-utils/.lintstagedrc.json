@@ -1,6 +1,6 @@
 {
   "*.(tsx|ts|js|jsx)": [
-    "npm run lint:fix",
-    "npm run prettier"
+    "cross-env NODE_OPTIONS='--max-old-space-size=8192' eslint --report-unused-disable-directives --max-warnings 0 --fix",
+    "prettier --write"
   ]
 }
