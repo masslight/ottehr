@@ -1,9 +1,9 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
 import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
 import { complexValidation, validateRequestParameters } from './validateRequestParameters';
-import { getSecret, SecretsKeys } from 'utils';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
