@@ -7,7 +7,7 @@ import {
   Organization,
   Practitioner,
 } from 'fhir/r4b';
-
+import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../main';
 import {
   APIErrorCode,
   BillingProviderData,
@@ -19,7 +19,6 @@ import {
   PatientPaymentBenefit,
 } from '../types';
 import { getNPI, getTaxID } from './helpers';
-import { ELIGIBILITY_BENEFIT_CODES, INSURANCE_PLAN_ID_CODING } from '../main';
 
 export interface InsurancePlanResources {
   insurancePlan: InsurancePlan;

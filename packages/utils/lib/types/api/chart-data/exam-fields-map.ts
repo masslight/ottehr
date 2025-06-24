@@ -1,3 +1,4 @@
+import { CodeableConcept } from 'fhir/r4b';
 import {
   ExamCardsNames,
   ExamFieldsNames,
@@ -5,7 +6,6 @@ import {
   InPersonExamFieldsNames,
   SNOMEDCodeConceptInterface,
 } from './save-chart-data.types';
-import { CodeableConcept } from 'fhir/r4b';
 
 export function createCodingCode(code: string, display?: string, system?: string): CodeableConcept {
   return {

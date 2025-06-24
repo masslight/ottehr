@@ -11,8 +11,8 @@ import {
   QuestionnaireResponse,
   Task,
 } from 'fhir/r4b';
-import { TIMEZONES } from './constants';
 import { ScheduleExtension } from '../utils';
+import { TIMEZONES } from './constants';
 
 export interface PatientBaseInfo {
   firstName?: string;
