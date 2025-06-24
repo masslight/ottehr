@@ -1,6 +1,6 @@
 import { ExamTabCardNames, InPersonExamTabProviderCardNames } from 'utils';
-import { useExamCardsStore, useInPersonExamCardsStore } from '../state/appointment/exam-cards.store';
 import { useFeatureFlags } from '../../features/css-module/context/featureFlags';
+import { useExamCardsStore, useInPersonExamCardsStore } from '../state/appointment/exam-cards.store';
 
 export const useExamCardCollapsed = (
   cardName: ExamTabCardNames | InPersonExamTabProviderCardNames

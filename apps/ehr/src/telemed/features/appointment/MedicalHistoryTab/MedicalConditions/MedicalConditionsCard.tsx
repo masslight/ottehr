@@ -1,7 +1,7 @@
 import React, { FC, useState } from 'react';
 import { MedicalHistoryDoubleCard } from '../MedicalHistoryDoubleCard';
-import { MedicalConditionsProviderColumn } from './MedicalConditionsProviderColumn';
 import { MedicalConditionsPatientColumn } from './MedicalConditionsPatientColumn';
+import { MedicalConditionsProviderColumn } from './MedicalConditionsProviderColumn';
 
 export const MedicalConditionsCard: FC = () => {
   const [isConditionsCollapsed, setIsConditionsCollapsed] = useState(false);

@@ -1,3 +1,12 @@
+import { DateTime } from 'luxon';
+import {
+  Capacity,
+  getAllSlotsAsCapacityMap,
+  getAvailableSlots,
+  GetAvailableSlotsInput,
+  getTimezone,
+  HourOfDay,
+} from 'utils';
 import { assert, vi } from 'vitest';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import {
@@ -13,15 +22,6 @@ import {
   OverrideScheduleConfig,
   startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
-import {
-  Capacity,
-  getAllSlotsAsCapacityMap,
-  getAvailableSlots,
-  GetAvailableSlotsInput,
-  getTimezone,
-  HourOfDay,
-} from 'utils';
-import { DateTime } from 'luxon';
 
 describe('closure and override tests', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });

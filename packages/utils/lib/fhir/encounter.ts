@@ -1,16 +1,16 @@
 import Oystehr from '@oystehr/sdk';
+import { Operation } from 'fast-json-patch';
 import { Encounter, EncounterStatusHistory, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 import {
-  TelemedStatusHistoryElement,
-  mapStatusToTelemed,
   FhirEncounterStatus,
+  mapStatusToTelemed,
   PatientFollowupDetails,
   ProviderDetails,
+  TelemedStatusHistoryElement,
 } from '../types';
-import { Operation } from 'fast-json-patch';
 import { FHIR_BASE_URL } from './constants';
-import { CODE_SYSTEM_ACT_CODE_V3 } from '../helpers';
 
 // follow up encounter consts
 export const FOLLOWUP_TYPES = ['Telephone Encounter', 'Non-Billable'] as const;

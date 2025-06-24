@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Chip } from '@mui/material';
+import { FC } from 'react';
 import { ClaimsQueueItemStatus } from 'utils';
 
 type ClaimStatusChipProps = {

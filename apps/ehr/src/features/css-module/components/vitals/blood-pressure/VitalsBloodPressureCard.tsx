@@ -1,25 +1,25 @@
-import React, { useCallback, useState, JSX, useMemo, ChangeEvent } from 'react';
-import { Box, CircularProgress, Typography, Grid, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, CircularProgress, FormControl, Grid, InputLabel, MenuItem, Select, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import React, { ChangeEvent, JSX, useCallback, useMemo, useState } from 'react';
 import {
   toVitalBloodPressureObservationMethod,
   VitalBloodPressureObservationMethod,
   VitalFieldNames,
   VitalsBloodPressureObservationDTO,
 } from 'utils';
-import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
-import { VitalBloodPressureHistoryEntry } from './VitalBloodPressureHistoryEntry';
+import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
+import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import {
   composeBloodPressureVitalsHistoryEntries,
-  textToBloodPressureNumber,
-  isValidSystolicPressure,
   isValidDiastolicPressure,
+  isValidSystolicPressure,
+  textToBloodPressureNumber,
 } from './helpers';
-import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
 import VitalBloodPressureHistoryElement from './VitalBloodPressureHistoryElement';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
-import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { VitalBloodPressureHistoryEntry } from './VitalBloodPressureHistoryEntry';
 
 const VitalsBloodPressureCard: React.FC = (): JSX.Element => {
   const {

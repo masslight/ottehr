@@ -1,13 +1,13 @@
+import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import mixpanel from 'mixpanel-browser';
 import { intakeFlowPageRoute } from '../../App';
-import { useIntakeCommonStore, LoadingScreen, initialLocationState } from '../features/common';
-import { usePatientInfoStore } from '../features/patient-info';
-import { useFilesStore } from '../features/files';
 import { useAppointmentStore } from '../features/appointments';
-import { useZapEHRAPIClient } from '../utils';
+import { initialLocationState, LoadingScreen, useIntakeCommonStore } from '../features/common';
+import { useFilesStore } from '../features/files';
+import { usePatientInfoStore } from '../features/patient-info';
 import { useGetPatients, usePatientsStore } from '../features/patients';
+import { useZapEHRAPIClient } from '../utils';
 
 const UserFlowRoot = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();

@@ -1,5 +1,5 @@
 import { Stack } from '@mui/material';
-import { ReactNode, ReactElement } from 'react';
+import { ReactElement, ReactNode } from 'react';
 
 interface DetailPageContainerProps {
   children: ReactNode;

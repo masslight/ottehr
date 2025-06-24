@@ -2,7 +2,7 @@ import fontkit from '@pdf-lib/fontkit';
 import { remove as removeDiacritics } from 'diacritics';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
-import { Color, PDFDocument, PDFFont, PDFPage, PageSizes, StandardFonts, rgb } from 'pdf-lib';
+import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import { ConsentSigner, formatDateTimeToLocaleString, getSecret, Secrets } from 'utils';
 import { triggerSlackAlarm } from './lambda';
 

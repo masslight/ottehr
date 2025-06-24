@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { checkTelemedLocationAvailability, getSelectors, PROJECT_WEBSITE, TelemedLocation } from 'utils';
 import { useZapEHRAPIClient } from '../../utils';
-import { useIntakeCommonStore } from '../common';
 import { UpdateAppointmentFn, useAppointmentsData, useAppointmentUpdate, useGetTelemedStates } from '../appointments';
+import { useIntakeCommonStore } from '../common';
 import { usePatientInfoStore } from '../patient-info';
 
 type HookReturnType = CurrentLocation & {

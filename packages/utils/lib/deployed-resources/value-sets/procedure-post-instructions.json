@@ -1,32 +1,32 @@
 {
-    "resourceType": "ValueSet",
-    "url": "https://fhir.ottehr.com/ValueSet/procedure-post-instructions",
-    "version": "1.0.0",
-    "name": "Procedures - Post-procedure instructions",
-    "status": "active",
-    "expansion": {
-        "timestamp": "2025-06-10T11:36:51.034Z",
-        "contains": [
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
-                "code": "wound-care",
-                "display": "Wound Care"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
-                "code": "fu-with-pcp",
-                "display": "F/U with PCP"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
-                "code": "return-if-worsening",
-                "display": "Return if worsening"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
-                "code": "other",
-                "display": "Other"
-            }
-        ]
-    }
+  "resourceType": "ValueSet",
+  "url": "https://fhir.ottehr.com/ValueSet/procedure-post-instructions",
+  "version": "1.0.0",
+  "name": "Procedures - Post-procedure instructions",
+  "status": "active",
+  "expansion": {
+    "timestamp": "2025-06-10T11:36:51.034Z",
+    "contains": [
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+        "code": "wound-care",
+        "display": "Wound Care"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+        "code": "fu-with-pcp",
+        "display": "F/U with PCP"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+        "code": "return-if-worsening",
+        "display": "Return if worsening"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-post-instructions",
+        "code": "other",
+        "display": "Other"
+      }
+    ]
+  }
 }

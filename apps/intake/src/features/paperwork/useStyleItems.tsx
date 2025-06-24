@@ -1,18 +1,18 @@
-import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
 import { GridSize } from '@mui/system';
+import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
+import { useMemo } from 'react';
 import {
   EMAIL_FIELDS,
-  FULL_ADDRESS_FIELDS,
-  PHONE_NUMBER_FIELDS,
-  IntakeQuestionnaireItem,
-  SIGNATURE_FIELDS,
   evalItemText,
   evalRequired,
+  FULL_ADDRESS_FIELDS,
+  IntakeQuestionnaireItem,
+  PHONE_NUMBER_FIELDS,
+  SIGNATURE_FIELDS,
 } from 'utils';
-import { getItemDisplayStrategy } from './useSelectItems';
-import { useMemo } from 'react';
-import { useQRState } from './useFormHelpers';
 import { usePaperworkContext } from './context';
+import { useQRState } from './useFormHelpers';
+import { getItemDisplayStrategy } from './useSelectItems';
 
 export interface StyledQuestionnaireItem extends IntakeQuestionnaireItem {
   hideControlLabel: boolean;

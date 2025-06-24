@@ -1,5 +1,5 @@
-import { FC, useState } from 'react';
 import { Alert, Typography } from '@mui/material';
+import { FC, useState } from 'react';
 
 type InfoAlertProps = {
   text: string;

@@ -1,9 +1,9 @@
-import { DocumentReference } from 'fhir/r4b';
-import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
-import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
-import { Y_POS_GAP, STANDARD_FONT_SIZE, STANDARD_FONT_SPACING } from './pdf-consts';
+import { DocumentReference } from 'fhir/r4b';
 import fs from 'fs';
+import { Color, PDFDocument, PDFFont, PDFImage, PDFPage, rgb, StandardFonts } from 'pdf-lib';
+import { STANDARD_FONT_SIZE, STANDARD_FONT_SPACING, Y_POS_GAP } from './pdf-consts';
+import { ImageStyle, LineStyle, PageStyles, PdfClient, PdfClientStyles, TextStyle } from './types';
 
 export type PdfInfo = { uploadURL: string; title: string };
 

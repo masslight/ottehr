@@ -1,6 +1,6 @@
-import { Select, MenuItem, InputLabel } from '@mui/material';
-import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
+import { InputLabel, MenuItem, Select } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
+import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
 
 interface ListQuestionProps {
   questionText: string;

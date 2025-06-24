@@ -1,15 +1,16 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Encounter, Appointment as FhirAppointment, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
+import { Appointment as FhirAppointment, Encounter, Location, Patient, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  SLUG_SYSTEM,
-  Secrets,
-  VisitStatusLabel,
   getPatientsForUser,
   getVisitStatus,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  Secrets,
+  SLUG_SYSTEM,
+  VisitStatusLabel,
 } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import {
   captureSentryException,
   checkPaperworkComplete,
@@ -21,7 +22,6 @@ import {
   ZambdaInput,
 } from '../../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPatientsInput {
   patientID?: string;

@@ -1,11 +1,11 @@
-import { Typography, IconButton } from '@mui/material';
+import { IconButton, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { deleteIcon } from 'ui-components/lib/assets';
 import { FC, useMemo } from 'react';
-import { IntakeQuestionnaireItem } from 'utils';
-import { getPaperworkFieldId, useFormValues } from '../../useFormHelpers';
 import { useFormContext } from 'react-hook-form';
+import { deleteIcon } from 'ui-components/lib/assets';
+import { IntakeQuestionnaireItem } from 'utils';
 import { dataTestIds } from '../../../../helpers/data-test-ids';
+import { getPaperworkFieldId, useFormValues } from '../../useFormHelpers';
 
 interface MultiAnswerHeader {
   item: IntakeQuestionnaireItem;

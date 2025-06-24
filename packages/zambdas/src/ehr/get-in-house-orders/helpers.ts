@@ -3,52 +3,50 @@ import {
   ActivityDefinition,
   Appointment,
   BundleEntry,
-  Encounter,
-  Resource,
-  Practitioner,
-  ServiceRequest,
-  Task,
-  Provenance,
-  Location,
-  FhirResource,
-  Specimen,
-  Observation,
   DiagnosticReport,
+  Encounter,
+  FhirResource,
+  Location,
+  Observation,
+  Practitioner,
+  Provenance,
+  Resource,
+  ServiceRequest,
+  Specimen,
+  Task,
 } from 'fhir/r4b';
 import {
   compareDates,
-  fetchDocumentReferencesForDiagnosticReports,
-  LabResultPDF,
-  getTimezone,
+  convertActivityDefinitionToTestItem,
   DEFAULT_IN_HOUSE_LABS_ITEMS_PER_PAGE,
-  Secrets,
-  InHouseGetOrdersResponseDTO,
-} from 'utils';
-import { getMyPractitionerId, createOystehrClient, sendErrors, captureSentryException } from '../../shared';
-import {
+  DiagnosisDTO,
   EMPTY_PAGINATION,
-  isPositiveNumberOrZero,
+  fetchDocumentReferencesForDiagnosticReports,
+  getFullestAvailableName,
+  getTimezone,
+  IN_HOUSE_TEST_CODE_SYSTEM,
+  InHouseGetOrdersResponseDTO,
   InHouseOrderListPageItemDTO,
   InHouseOrdersSearchBy,
+  isPositiveNumberOrZero,
+  LabResultPDF,
   Pagination,
-  DiagnosisDTO,
-  convertActivityDefinitionToTestItem,
-  getFullestAvailableName,
   PRACTITIONER_CODINGS,
+  Secrets,
   TestStatus,
-  IN_HOUSE_TEST_CODE_SYSTEM,
 } from 'utils';
-import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
+import { captureSentryException, createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
 import {
-  getSpecimenDetails,
-  taskIsBasedOnServiceRequest,
-  determineOrderStatus,
   buildOrderHistory,
-  getUrlAndVersionForADFromServiceRequest,
-  getServiceRequestsRelatedViaRepeat,
+  determineOrderStatus,
   fetchResultResourcesForRepeatServiceRequest,
+  getServiceRequestsRelatedViaRepeat,
+  getSpecimenDetails,
+  getUrlAndVersionForADFromServiceRequest,
+  taskIsBasedOnServiceRequest,
 } from '../shared/inhouse-labs';
 import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
+import { GetZambdaInHouseOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context
 type Cache = {

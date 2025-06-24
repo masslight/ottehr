@@ -1,8 +1,8 @@
-import React, { FC } from 'react';
-import { Card, Typography, useTheme } from '@mui/material';
-import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
-import { Link } from 'react-router-dom';
 import { otherColors } from '@ehrTheme/colors';
+import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined';
+import { Card, Typography, useTheme } from '@mui/material';
+import React, { FC } from 'react';
+import { Link } from 'react-router-dom';
 import { DeleteIconButton } from '../../../../components';
 
 type ExcuseCardProps = {

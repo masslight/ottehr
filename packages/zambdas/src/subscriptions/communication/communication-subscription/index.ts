@@ -11,9 +11,9 @@ import {
 } from 'utils';
 import { getAuth0Token, sendgridEmail, sendSlackNotification, topLevelCatch } from '../../../shared';
 import { createOystehrClient } from '../../../shared/helpers';
+import { ZambdaInput } from '../../../shared/types';
 import { bundleResourcesConfig, codingContainedInList, getEmailsFromGroup } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ZambdaInput } from '../../../shared/types';
 
 export interface CommunicationSubscriptionInput {
   communication: Communication;

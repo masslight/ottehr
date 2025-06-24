@@ -1,5 +1,3 @@
-import React, { FC, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
 import {
   Button,
   FormControlLabel,
@@ -14,10 +12,12 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
+import { Patient, Task } from 'fhir/r4b';
+import React, { FC, useState } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { InnerStateDialog } from '../../telemed';
 import { RoundedButton } from '../RoundedButton';
 import { useGetPatientForUpdate } from './queries';
-import { Patient, Task } from 'fhir/r4b';
-import { InnerStateDialog } from '../../telemed';
 
 type PatientInformationUpdatesProps = {
   patientId?: string;

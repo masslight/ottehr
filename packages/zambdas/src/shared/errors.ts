@@ -1,6 +1,6 @@
 import sendgrid, { ClientResponse } from '@sendgrid/mail';
 import { DateTime } from 'luxon';
-import { getSecret, isFHIRError, Secrets, SecretsKeys, PROJECT_NAME, SUPPORT_EMAIL } from 'utils';
+import { getSecret, isFHIRError, PROJECT_NAME, Secrets, SecretsKeys, SUPPORT_EMAIL } from 'utils';
 import { triggerSlackAlarm } from './lambda';
 
 export const sendErrors = async (

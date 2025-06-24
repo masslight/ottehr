@@ -1,8 +1,8 @@
-import React, { FC } from 'react';
 import { Box, Typography } from '@mui/material';
+import React, { FC } from 'react';
+import { ExamObservationFieldItem, InPersonExamObservationFieldItem } from 'utils';
 import { AssessmentTitle } from '../../AssessmentTab';
 import { ExamReviewItem } from './ExamReviewItem';
-import { ExamObservationFieldItem, InPersonExamObservationFieldItem } from 'utils';
 
 type ExamReviewGroupProps = {
   label: string;

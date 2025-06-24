@@ -6,8 +6,8 @@ import { DateTime } from 'luxon';
 import { FHIR_EXTENSION, OTTEHR_MODULE } from 'utils';
 import {
   captureSentryException,
-  createOystehrClient,
   configSentry,
+  createOystehrClient,
   getAuth0Token,
   topLevelCatch,
   ZambdaInput,

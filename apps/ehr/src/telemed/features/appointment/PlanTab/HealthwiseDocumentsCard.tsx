@@ -1,7 +1,7 @@
-import React, { FC, useState } from 'react';
 import { Box } from '@mui/material';
-import { AccordionCard } from '../../../components';
+import React, { FC, useState } from 'react';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { AccordionCard } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 
 export const HealthwiseDocumentsCard: FC = () => {

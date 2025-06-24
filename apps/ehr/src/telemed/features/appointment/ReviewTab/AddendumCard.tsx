@@ -1,10 +1,10 @@
-import React, { FC } from 'react';
 import { Box, CircularProgress, TextField, Typography } from '@mui/material';
+import React, { FC } from 'react';
+import { Controller, useForm } from 'react-hook-form';
+import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard } from '../../../components';
 import { useDebounceNotesField, useGetAppointmentAccessibility } from '../../../hooks';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
-import { Controller, useForm } from 'react-hook-form';
 
 export const AddendumCard: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

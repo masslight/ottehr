@@ -1,4 +1,7 @@
 import {
+  Box,
+  Button,
+  Paper,
   Table,
   TableBody,
   TableCell,
@@ -6,17 +9,14 @@ import {
   TableHead,
   TableRow,
   Typography,
-  Box,
-  Paper,
-  Button,
 } from '@mui/material';
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNursingOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
 import { useAppointmentStore } from 'src/telemed';
+import { getSelectors } from 'utils';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
 import { useGetNursingOrders } from './useNursingOrders';
-import { getSelectors } from 'utils';
 
 export type NursingOrdersTableColumn = 'order' | 'orderAdded' | 'status';
 

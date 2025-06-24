@@ -1,10 +1,10 @@
+import Oystehr from '@oystehr/sdk';
+import { Location } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { isLocationVirtual } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Location } from 'fhir/r4b';
-import { useApiClients } from '../../hooks/useAppClients';
 import { Option } from '../../features/css-module/components/medication-administration/medicationTypes';
+import { useApiClients } from '../../hooks/useAppClients';
 
 export const useLocationsOptions = (): {
   location: {

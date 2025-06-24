@@ -1,6 +1,6 @@
+import { Box, useTheme } from '@mui/material';
 import CircularProgress from '@mui/material/CircularProgress';
 import { FC, useContext } from 'react';
-import { useTheme, Box } from '@mui/material';
 import { IntakeThemeContext } from 'ui-components';
 
 interface LoadingSpinnerProps {

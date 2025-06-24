@@ -1,9 +1,9 @@
-import React from 'react';
 import { styled, Typography, useTheme } from '@mui/material';
-import { BarIcon } from './BarIcon';
+import React from 'react';
 // import { ScanStatusChip } from '../statuses/ScanStatusChip';
 // import { MedicationField } from '../medicationTypes';
 import { ExtendedMedicationDataForResponse } from 'utils';
+import { BarIcon } from './BarIcon';
 
 interface MedicationNameProps {
   medication: ExtendedMedicationDataForResponse;

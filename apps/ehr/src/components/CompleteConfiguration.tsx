@@ -1,6 +1,6 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Box, Button, Typography } from '@mui/material';
 import { FC } from 'react';
-import { otherColors } from '@ehrTheme/colors';
 interface CompleteConfigurationProps {
   handleSetup: () => void;
 }

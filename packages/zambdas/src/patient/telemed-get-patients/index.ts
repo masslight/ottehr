@@ -1,16 +1,16 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
-  FHIR_EXTENSION,
-  PRIVATE_EXTENSION_BASE_URL,
-  PatientInfo,
-  Secrets,
-  SecretsKeys,
   createOystehrClient,
+  FHIR_EXTENSION,
   getPatientsForUser,
   getSecret,
+  PatientInfo,
+  PRIVATE_EXTENSION_BASE_URL,
+  Secrets,
+  SecretsKeys,
 } from 'utils';
-import { ZambdaInput, getAuth0Token } from '../../shared';
+import { getAuth0Token, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
 

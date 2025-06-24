@@ -1,5 +1,5 @@
-import fs from 'fs';
 import Oystehr, { ZambdaFunction } from '@oystehr/sdk';
+import fs from 'fs';
 import { getAuth0Token } from '../shared';
 
 const projectApiUrlFromAuth0Audience = (auth0Audience: string): string => {

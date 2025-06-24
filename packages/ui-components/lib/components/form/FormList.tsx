@@ -1,11 +1,11 @@
+import { Box, Card, Grid, IconButton, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Controller, FieldValues, useFormContext } from 'react-hook-form';
-import { Box, Card, Grid, IconButton, Typography, useTheme } from '@mui/material';
-import { FormInputTypeField } from '../../types';
 import { deleteIcon } from '../../assets';
-import PageForm from '../PageForm';
 import { getFormInputField } from '../../helpers';
+import { FormInputTypeField } from '../../types';
+import PageForm from '../PageForm';
 
 const FormListInner: FC<{
   formInput: FormInputTypeField;

@@ -1,10 +1,10 @@
-import { Appointment, Encounter, EncounterStatusHistory, EncounterParticipant } from 'fhir/r4b';
+import { Appointment, Encounter, EncounterParticipant, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   InPersonAppointmentInformation,
   VisitStatusHistoryEntry,
-  VisitStatusLabel,
   VisitStatusHistoryLabel,
+  VisitStatusLabel,
 } from 'utils';
 
 export const getDurationOfStatus = (statusEntry: VisitStatusHistoryEntry, dateTimeNow: DateTime): number => {

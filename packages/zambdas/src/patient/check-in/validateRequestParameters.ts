@@ -1,5 +1,5 @@
-import { CheckInInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
+import { CheckInInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CheckInInputValidated {
   if (!input.body) {

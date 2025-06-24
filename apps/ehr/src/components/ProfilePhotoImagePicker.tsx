@@ -1,4 +1,8 @@
+import './ProfilePhotoImagePicker.css';
+import AddAPhotoOutlinedIcon from '@mui/icons-material/AddAPhotoOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
+import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
@@ -10,22 +14,18 @@ import {
   IconButton,
   Typography,
 } from '@mui/material';
-import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
-import AddAPhotoOutlinedIcon from '@mui/icons-material/AddAPhotoOutlined';
-import DeleteForeverOutlinedIcon from '@mui/icons-material/DeleteForeverOutlined';
 import { styled } from '@mui/material';
+import { Attachment, Patient } from 'fhir/r4b';
+import React, { ChangeEvent, FC, ReactElement, useCallback, useState } from 'react';
 import Cropper from 'react-easy-crop';
-import { Point, Area } from 'react-easy-crop/types';
-import { getCroppedImg, ImageCropResult } from '../helpers/canvasUtils';
-import { LoadingButton } from '@mui/lab';
-import { useApiClients } from '../hooks/useAppClients';
+import { Area, Point } from 'react-easy-crop/types';
 import { uploadPatientProfilePhoto } from '../api/api';
 import {
   useEditPatientProfilePhotoMutation,
   useGetSignedPatientProfilePhotoUrlQuery,
 } from '../features/css-module/queries/css.queries';
-import { Attachment, Patient } from 'fhir/r4b';
-import './ProfilePhotoImagePicker.css';
+import { getCroppedImg, ImageCropResult } from '../helpers/canvasUtils';
+import { useApiClients } from '../hooks/useAppClients';
 
 export interface ProfileImageItem {
   alt: string;

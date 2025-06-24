@@ -1,10 +1,10 @@
 import {
   INVALID_INPUT_ERROR,
+  isPhoneNumberValid,
   MISSING_AUTH_TOKEN,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   SendFaxZambdaInput,
-  isPhoneNumberValid,
 } from 'utils';
 import { ZambdaInput } from '../../shared';
 

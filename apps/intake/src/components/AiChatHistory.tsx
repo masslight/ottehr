@@ -1,8 +1,8 @@
+import { Avatar, Typography } from '@mui/material';
+import { Box } from '@mui/system';
+import { ottehrDarkBlue } from '@theme/icons';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { FC, useEffect, useRef } from 'react';
-import { Box } from '@mui/system';
-import { Avatar, Typography } from '@mui/material';
-import { ottehrDarkBlue } from '@theme/icons';
 const MESSAGES_CONTAINER_ID = 'messages-container';
 
 export interface AiChatHistoryProps {

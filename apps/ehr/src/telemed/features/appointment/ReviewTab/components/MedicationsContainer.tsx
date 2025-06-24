@@ -1,8 +1,8 @@
-import { FC } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 export const MedicationsContainer: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);
   const theme = useTheme();

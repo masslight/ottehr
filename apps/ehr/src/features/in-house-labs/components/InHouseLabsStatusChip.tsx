@@ -1,5 +1,5 @@
-import { ReactElement } from 'react';
 import { Chip, ChipProps, SxProps } from '@mui/material';
+import { ReactElement } from 'react';
 import { TestStatus } from 'utils/lib/types/data/in-house';
 
 interface StatusColorConfig {

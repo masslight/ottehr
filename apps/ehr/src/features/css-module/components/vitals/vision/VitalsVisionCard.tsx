@@ -1,21 +1,21 @@
-import React, { useCallback, useState, JSX, useMemo } from 'react';
-import { useTheme, Box, CircularProgress, Typography, Grid, FormControlLabel, Checkbox, lighten } from '@mui/material';
+import { Box, Checkbox, CircularProgress, FormControlLabel, Grid, lighten, Typography, useTheme } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
+import React, { JSX, useCallback, useMemo, useState } from 'react';
 import {
+  getVisionExtraOptionsFormattedString,
   textToNumericValue,
   VitalFieldNames,
   VitalsVisionObservationDTO,
   VitalsVisionOption,
-  getVisionExtraOptionsFormattedString,
 } from 'utils';
-import { enqueueSnackbar } from 'notistack';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed/components';
-import { VitalVisionHistoryEntry } from './VitalVisionEntry';
-import { composeVisionVitalsHistoryEntries } from './helpers';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';
-import VitalVisionHistoryElement from './VitalVisionHistoryElement';
-import { useVitalsCardState } from '../hooks/useVitalsCardState';
 import { VitalsTextInputFiled } from '../components/VitalsTextInputFiled';
+import { useVitalsCardState } from '../hooks/useVitalsCardState';
+import { composeVisionVitalsHistoryEntries } from './helpers';
+import { VitalVisionHistoryEntry } from './VitalVisionEntry';
+import VitalVisionHistoryElement from './VitalVisionHistoryElement';
 
 const VitalsVisionCard: React.FC = (): JSX.Element => {
   const theme = useTheme();

@@ -1,4 +1,5 @@
 import { Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { Field } from '../../page/EditMedicationCard';
 import { InHouseMedicationsPage } from '../../page/in-person/InHouseMedicationsPage';
@@ -6,7 +7,6 @@ import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPag
 import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
 import { expectPatientInfoPage } from '../../page/PatientInfo';
-import { DateTime } from 'luxon';
 
 const PROCESS_ID = `inHouseMedicationsPage.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');

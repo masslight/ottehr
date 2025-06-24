@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PatientInfo, Secrets, getPatientsForUser } from 'utils';
+import { getPatientsForUser, PatientInfo, Secrets } from 'utils';
 import {
   captureSentryException,
   configSentry,

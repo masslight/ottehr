@@ -1,7 +1,7 @@
-import { FC, Fragment } from 'react';
 import { Box, Typography } from '@mui/material';
+import { FC, Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { InHouseLabResult, ExternalLabOrderResult, LabType } from 'utils';
+import { ExternalLabOrderResult, InHouseLabResult, LabType } from 'utils';
 
 interface LabResultsReviewContainerProps {
   resultDetails:

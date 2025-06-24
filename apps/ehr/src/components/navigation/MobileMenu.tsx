@@ -1,8 +1,8 @@
-import { useTheme, Box, IconButton, Menu, MenuItem } from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
+import { Box, IconButton, Menu, MenuItem, useTheme } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppTab, useNavStore } from '../../state/nav.store';
-import MenuIcon from '@mui/icons-material/Menu';
 import { NavbarItems } from './Navbar';
 
 interface MobileMenuProps {

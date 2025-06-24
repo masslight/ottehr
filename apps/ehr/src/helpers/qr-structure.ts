@@ -1,6 +1,6 @@
 import { Questionnaire, QuestionnaireItem, QuestionnaireResponse, QuestionnaireResponseItem } from 'fhir/r4b';
 import _ from 'lodash';
-import { mapQuestionnaireAndValueSetsToItemsList, IntakeQuestionnaireItem, makeQRResponseItem } from 'utils';
+import { IntakeQuestionnaireItem, makeQRResponseItem, mapQuestionnaireAndValueSetsToItemsList } from 'utils';
 
 const containedItemWithLinkId = (item: QuestionnaireItem, linkId: string): QuestionnaireItem | undefined => {
   // note: if item.linkId === linkId, return item

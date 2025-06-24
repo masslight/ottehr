@@ -1,6 +1,6 @@
+import { Button } from '@mui/material';
 import { FC, MouseEventHandler, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@mui/material';
 
 interface LinkedButtonWithIconProps {
   to: string;

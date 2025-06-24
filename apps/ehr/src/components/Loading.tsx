@@ -1,6 +1,6 @@
-import { ReactElement } from 'react';
-import { Tooltip, Typography } from '@mui/material';
 import { Favorite, Refresh } from '@mui/icons-material';
+import { Tooltip, Typography } from '@mui/material';
+import { ReactElement } from 'react';
 import { dataTestIds } from '../constants/data-test-ids';
 
 export default function Loading(): ReactElement {

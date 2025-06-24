@@ -1,8 +1,8 @@
+import HowToRegIcon from '@mui/icons-material/HowToReg';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import { Box, Grid, Typography, useTheme } from '@mui/material';
 import { FC, useMemo } from 'react';
 import { PatientPaymentBenefit } from 'utils';
-import HowToRegIcon from '@mui/icons-material/HowToReg';
-import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 
 interface CopayWidgetProps {
   copay: PatientPaymentBenefit[];

@@ -1,7 +1,9 @@
 import { Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import { unpackFhirResponse } from 'utils';
 import { CreateAppointmentResponse } from 'utils/lib/types/api/prebook-create-appointment';
+import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
   PATIENT_BIRTH_DATE_LONG,
   PATIENT_BIRTH_DATE_SHORT,
@@ -12,10 +14,8 @@ import {
   PATIENT_REASON_FOR_VISIT,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
-import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectAddPatientPage } from '../page/AddPatientPage';
 import { expectVisitsPage } from '../page/VisitsPage';
-import { DateTime } from 'luxon';
 
 const PATIENT_PREFILL_NAME = PATIENT_FIRST_NAME + ' ' + PATIENT_LAST_NAME;
 const PATIENT_INPUT_BIRTHDAY = PATIENT_BIRTH_DATE_SHORT;

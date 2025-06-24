@@ -1,6 +1,6 @@
 import { getSecret, SecretsKeys } from 'utils';
-import { UnassignPractitionerZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
+import { UnassignPractitionerZambdaInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): UnassignPractitionerZambdaInputValidated {
   console.group('validateRequestParameters');

@@ -1,6 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { AppointmentParticipant, Location } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   fillWaitAndSelectDropdown,
   getPatientConditionPhotosStepAnswers,
@@ -32,7 +33,6 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { awaitAppointmentsTableToBeVisible, telemedDialogConfirm } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { DateTime } from 'luxon';
 
 const DEFAULT_TIMEOUT = { timeout: 15000 };
 

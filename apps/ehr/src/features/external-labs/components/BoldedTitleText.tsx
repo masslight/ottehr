@@ -1,4 +1,4 @@
-import { Typography, Box } from '@mui/material';
+import { Box, Typography } from '@mui/material';
 import React from 'react';
 
 export const BoldedTitleText: React.FC<{ title: string; description: string }> = ({ title, description }) => {

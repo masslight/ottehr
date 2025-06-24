@@ -1,11 +1,11 @@
 import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { MedicationDTO } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { DATE_FORMAT } from '../../../../../helpers/formatDateTime';
 import { ActionsList, DeleteIconButton } from '../../../../components';
 import { MedHistorySubsectionTypography } from '../../../../components/MedHistorySubsectionTypography';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const CurrentMedicationGroup = ({
   label,

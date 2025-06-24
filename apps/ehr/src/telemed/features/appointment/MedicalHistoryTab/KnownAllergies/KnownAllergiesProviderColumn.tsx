@@ -1,34 +1,34 @@
-import React, { FC, useMemo, useState } from 'react';
+import { otherColors } from '@ehrTheme/colors';
 import {
+  Autocomplete,
   Box,
+  Card,
+  CircularProgress,
+  debounce,
   Divider,
   FormControlLabel,
   Switch,
-  Typography,
   TextField,
-  debounce,
-  CircularProgress,
-  Card,
-  Autocomplete,
+  Typography,
 } from '@mui/material';
+import { ErxSearchAllergensResponse } from '@oystehr/sdk';
+import { enqueueSnackbar } from 'notistack';
+import React, { FC, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { AllergyDTO } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { useFeatureFlags } from '../../../../../features/css-module/context/featureFlags';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { DeleteIconButton } from '../../../../components';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
 import {
+  ExtractObjectType,
   useAppointmentStore,
   useDeleteChartData,
   useGetAllergiesSearch,
   useSaveChartData,
-  ExtractObjectType,
 } from '../../../../state';
 import { ProviderSideListSkeleton } from '../ProviderSideListSkeleton';
-import { DeleteIconButton } from '../../../../components';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
-import { ErxSearchAllergensResponse } from '@oystehr/sdk';
 
 export const KnownAllergiesProviderColumn: FC = () => {
   const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);

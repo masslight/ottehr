@@ -1,4 +1,4 @@
-import { BrowserContext, Page, expect } from '@playwright/test';
+import { BrowserContext, expect, Page } from '@playwright/test';
 import { FillingInfo } from './in-person/FillingInfo';
 import { Locators } from './locators';
 

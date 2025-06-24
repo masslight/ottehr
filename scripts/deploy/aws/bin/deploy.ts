@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import * as cdk from 'aws-cdk-lib';
-import config from '../../deploy-config.json';
-import { OttehrInfraStack } from '../lib/ottehr-infra-stack';
-import { OttehrDataStack } from '../lib/ottehr-data-stack';
 import { CloudFrontClient, ListDistributionsCommand, ListDistributionsCommandOutput } from '@aws-sdk/client-cloudfront';
 import { fromIni } from '@aws-sdk/credential-providers';
+import * as cdk from 'aws-cdk-lib';
+import config from '../../deploy-config.json';
+import { OttehrDataStack } from '../lib/ottehr-data-stack';
+import { OttehrInfraStack } from '../lib/ottehr-infra-stack';
 
 const app = new cdk.App();
 const projectConfig: any = config;

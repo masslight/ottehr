@@ -1,6 +1,6 @@
+import { otherColors } from '@ehrTheme/colors';
 import React, { FC, ReactNode } from 'react';
 import { AccordionCard, DoubleColumnContainer, UppercaseCaptionTypography } from '../../../components';
-import { otherColors } from '@ehrTheme/colors';
 
 type MedicalHistoryDoubleCardProps = {
   collapsed?: boolean;
