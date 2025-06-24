@@ -58,7 +58,8 @@
     "apps:start": "turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "integration:zambdas": "npm run build && ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
     "test": "turbo test",
-    "prepare": "husky"
+    "prepare": "husky",
+    "spellcheck": "cspell ."
   },
   "workspaces": [
     "packages/**/*",
