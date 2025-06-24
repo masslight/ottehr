@@ -1,6 +1,6 @@
 import { Box, Button, Paper, Stack } from '@mui/material';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
+import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { openPdf } from './OrderCollection';
 interface OrderInfoProps {
   orderPdfUrl: string | undefined;

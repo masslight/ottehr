@@ -1,7 +1,7 @@
 import { Box, CircularProgress, Grid, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import React, { JSX, useCallback, useMemo, useState } from 'react';
-import { VitalFieldNames, VitalsWeightObservationDTO, textToWeightNumber, kgToLb } from 'utils';
+import { kgToLb, textToWeightNumber, VitalFieldNames, VitalsWeightObservationDTO } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { AccordionCard, DoubleColumnContainer } from '../../../../../telemed';
 import VitalsHistoryContainer from '../components/VitalsHistoryContainer';

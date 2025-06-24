@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import LoadingButton, { LoadingButtonProps } from '@mui/lab/LoadingButton';
+import { FC } from 'react';
 
 export const CustomLoadingButton: FC<LoadingButtonProps> = (props) => {
   return (

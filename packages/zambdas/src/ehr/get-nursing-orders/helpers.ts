@@ -1,5 +1,5 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { Practitioner, ServiceRequest, Task, Provenance } from 'fhir/r4b';
+import { Practitioner, Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import {
   compareDates,
   NursingOrder,

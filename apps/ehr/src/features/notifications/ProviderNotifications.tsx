@@ -1,18 +1,18 @@
+import { notificationSound } from '@ehrTheme/index';
 import { NotificationsOutlined } from '@mui/icons-material';
-import { Badge, Box, Button, Menu, Typography, alpha, useTheme } from '@mui/material';
+import { alpha, Badge, Box, Button, Menu, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { EventHandler, FC, MouseEvent, memo, useEffect, useMemo, useRef, useState } from 'react';
+import { EventHandler, FC, memo, MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  getProviderNotificationSettingsForPractitioner,
   ProviderNotificationMethod,
   ProviderNotificationSettings,
-  getProviderNotificationSettingsForPractitioner,
 } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { IconButtonContained } from '../../telemed/components/IconButtonContained';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 import { useProviderNotificationsStore } from './notifications.store';
-import { notificationSound } from '@ehrTheme/index';
 
 type ProviderNotificationDisplay = {
   id: string;

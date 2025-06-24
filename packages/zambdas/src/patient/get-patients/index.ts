@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { PatientInfo, Secrets, SecretsKeys, getPatientsForUser, getSecret } from 'utils';
+import { getPatientsForUser, getSecret, PatientInfo, Secrets, SecretsKeys } from 'utils';
 import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { getUser } from '../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';

@@ -1,5 +1,5 @@
 import { PageSizes } from 'pdf-lib';
-import { PdfClientStyles, ImageStyle } from './types';
+import { ImageStyle, PdfClientStyles } from './types';
 
 export const Y_POS_GAP = 30;
 

@@ -1,16 +1,16 @@
 import { Box, Typography, useTheme } from '@mui/material';
-import { FC, useEffect, useMemo, useState } from 'react';
 import {
-  useRemoteVideoTileState,
-  useLocalVideo,
-  RemoteVideo,
   LocalVideo,
+  RemoteVideo,
+  useLocalVideo,
+  useRemoteVideoTileState,
   useRosterState,
 } from 'amazon-chime-sdk-component-library-react';
-import { VideoControls } from './VideoControls';
+import { RosterAttendeeType } from 'amazon-chime-sdk-component-library-react/lib/types';
+import { FC, useEffect, useMemo, useState } from 'react';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useVideoCallStore } from '../../state';
-import { RosterAttendeeType } from 'amazon-chime-sdk-component-library-react/lib/types';
+import { VideoControls } from './VideoControls';
 import { VideoTimer } from './VideoTimer';
 
 type Participant = RosterAttendeeType & {

@@ -4,10 +4,10 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { DATETIME_FULL_NO_YEAR, getSecret, SecretsKeys } from 'utils';
-import { sendErrors, topLevelCatch, ZambdaInput } from '../../shared';
-import { createOystehrClient, configSentry, getAuth0Token } from '../../shared';
-import { getMessageRecipientForAppointment } from '../../shared/communication';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
+import { sendErrors, topLevelCatch, ZambdaInput } from '../../shared';
+import { configSentry, createOystehrClient, getAuth0Token } from '../../shared';
+import { getMessageRecipientForAppointment } from '../../shared/communication';
 
 let zapehrToken: string;
 

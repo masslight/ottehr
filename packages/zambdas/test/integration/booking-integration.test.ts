@@ -1,19 +1,7 @@
 import Oystehr from '@oystehr/sdk';
-import { assert, inject } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
-import { SECRETS } from '../data/secrets';
 import { randomUUID } from 'crypto';
-import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
-  cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
-  makeTestPatient,
-  persistSchedule,
-  persistTestPatient,
-  startOfDayWithTimezone,
-  tagForProcessId,
-} from '../helpers/testScheduleUtils';
+import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   APIError,
   appointmentTypeForAppointment,
@@ -42,8 +30,20 @@ import {
   SLUG_SYSTEM,
   Timezone,
 } from 'utils';
-import { Appointment, Location, Patient, Schedule, Slot } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { assert, inject } from 'vitest';
+import { getAuth0Token } from '../../src/shared';
+import { SECRETS } from '../data/secrets';
+import {
+  adjustHoursOfOperation,
+  changeAllCapacities,
+  cleanupTestScheduleResources,
+  DEFAULT_SCHEDULE_JSON,
+  makeTestPatient,
+  persistSchedule,
+  persistTestPatient,
+  startOfDayWithTimezone,
+  tagForProcessId,
+} from '../helpers/testScheduleUtils';
 
 const createSlotAndValidate = async (
   input: { params: CreateSlotParams; schedule: Schedule; selectedSlot?: SlotListItem },

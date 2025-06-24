@@ -1,30 +1,30 @@
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
+  Autocomplete,
   Dialog,
-  Grid,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
+  Grid,
   IconButton,
   // MenuItem,
   // Select,
   TextField,
   Typography,
-  Autocomplete,
   // InputLabel,
 } from '@mui/material';
 import { Address, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import DateSearch from '../DateSearch';
+import { PatternFormat } from 'react-number-format';
+import { AllStatesToVirtualLocationsData } from 'utils';
+import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
 import { getSelectors } from '../../shared/store/getSelectors';
 import { useAppointmentStore, useEditPatientInformationMutation } from '../../telemed/state';
-import { PatternFormat } from 'react-number-format';
-import { EMAIL_REGEX, ZIP_REGEX } from '../../constants';
-import { AllStatesToVirtualLocationsData } from 'utils';
+import DateSearch from '../DateSearch';
 import { RoundedButton } from '../RoundedButton';
 
 interface EditPatientDialogProps {

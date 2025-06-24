@@ -1,5 +1,6 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
 import {
   BLANK_SCHEDULE_JSON_TEMPLATE,
   getScheduleExtension,
@@ -23,8 +24,7 @@ import {
   SecretsKeys,
   TIMEZONES,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { addressStringFromAddress, getNameForOwner } from '../shared';
 
 let m2mtoken: string;

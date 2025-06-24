@@ -1,9 +1,9 @@
-import { Grid, Typography, Box, CircularProgress } from '@mui/material';
+import { Box, CircularProgress, Grid, Typography } from '@mui/material';
 import { useParams } from 'react-router-dom';
-import CustomBreadcrumbs from '../CustomBreadcrumbs';
-import PageContainer from '../../layout/PageContainer';
 import { getFullName } from 'utils';
 import { useGetPatient } from '../../hooks/useGetPatient';
+import PageContainer from '../../layout/PageContainer';
+import CustomBreadcrumbs from '../CustomBreadcrumbs';
 import PatientFollowupForm from './PatientFollowupForm';
 
 export default function AddPatientFollowup(): JSX.Element {

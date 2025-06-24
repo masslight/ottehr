@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { PaletteColor } from '@mui/material';
+import { FC } from 'react';
 
 type CustomRadioIconProps = {
   color: PaletteColor;

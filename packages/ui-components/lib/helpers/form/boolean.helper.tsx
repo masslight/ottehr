@@ -1,9 +1,9 @@
-import { ReactNode, useContext } from 'react';
-import { Chip } from '@mui/material';
-import CheckCircle from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
-import { IntakeThemeContext } from '../../contexts';
+import CheckCircle from '@mui/icons-material/CheckCircle';
+import { Chip } from '@mui/material';
+import { ReactNode, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
+import { IntakeThemeContext } from '../../contexts';
 
 export function getValueBoolean(value: boolean): ReactNode {
   // eslint-disable-next-line react-hooks/rules-of-hooks

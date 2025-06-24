@@ -1,11 +1,11 @@
 import {
   Appointment,
   Bundle,
+  HealthcareService,
   Location,
   Patient,
-  QuestionnaireResponse,
-  HealthcareService,
   Practitioner,
+  QuestionnaireResponse,
 } from 'fhir/r4b';
 import { SCHEDULE_NOT_FOUND_ERROR } from 'utils';
 

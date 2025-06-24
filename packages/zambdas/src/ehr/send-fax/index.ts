@@ -1,10 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createOystehrClient } from '../../shared/helpers';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
 import { Appointment, DocumentReference, Patient } from 'fhir/r4b';
 import { getSecret, SecretsKeys, VISIT_NOTE_SUMMARY_CODE } from 'utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 

@@ -4,20 +4,20 @@ import { Appointment, HealthcareService, Location, Patient, Practitioner, Relate
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
-  SecretsKeys,
-  TaskStatus,
-  VisitType,
   getPatientContactEmail,
   getPatientFirstName,
   getSecret,
+  SecretsKeys,
+  TaskStatus,
+  VisitType,
 } from 'utils';
 import {
-  ZambdaInput,
   configSentry,
+  createOystehrClient,
   getAuth0Token,
   sendInPersonMessages,
   topLevelCatch,
-  createOystehrClient,
+  ZambdaInput,
 } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';

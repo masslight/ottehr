@@ -4,16 +4,16 @@ import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
-  TaskStatus,
   getPatientContactEmail,
+  getSecret,
   PROJECT_WEBSITE,
   SecretsKeys,
-  getSecret,
+  TaskStatus,
 } from 'utils';
-import { createOystehrClient, configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { patchTaskStatus } from '../../helpers';
 
 let zapehrToken: string;
 

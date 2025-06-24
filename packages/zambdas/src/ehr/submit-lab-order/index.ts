@@ -1,36 +1,36 @@
+import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
+import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { uuid } from 'short-uuid';
 import {
-  getPatchBinary,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  getPresignedURL,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
-  EXTERNAL_LAB_ERROR,
-  isApiError,
+  allLicensesForPractitioner,
   APIError,
   DYMO_30334_LABEL_CONFIG,
+  EXTERNAL_LAB_ERROR,
+  FHIR_IDENTIFIER_NPI,
+  getPatchBinary,
   getPatientFirstName,
   getPatientLastName,
-  isPSCOrder,
-  getTimezone,
-  allLicensesForPractitioner,
-  FHIR_IDENTIFIER_NPI,
+  getPresignedURL,
   getSecret,
+  getTimezone,
+  isApiError,
+  isPSCOrder,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
   SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
-import { Coverage, FhirResource, Location, Organization, Patient, Provenance, ServiceRequest } from 'fhir/r4b';
-import { DateTime } from 'luxon';
-import { uuid } from 'short-uuid';
+import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
 import { getExternalLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
-import { BatchInputPatchRequest } from '@oystehr/sdk';
-import { Operation } from 'fast-json-patch';
-import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;

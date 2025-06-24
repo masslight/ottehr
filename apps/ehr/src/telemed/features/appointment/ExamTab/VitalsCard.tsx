@@ -1,11 +1,11 @@
-import { FC } from 'react';
 import { Box, Typography } from '@mui/material';
+import { FC } from 'react';
+import { getSelectors } from '../../../../shared/store/getSelectors';
 import { AccordionCard } from '../../../components';
 import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
-import { VitalsBloodPressure, VitalsComponent, VitalsTemperature } from './components';
-import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
 import { getValidationValuesByDOB, isEmptyValidation, isNumberValidation } from '../../../utils';
+import { VitalsBloodPressure, VitalsComponent, VitalsTemperature } from './components';
 
 export const VitalsCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('vitals');

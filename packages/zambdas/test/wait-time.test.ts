@@ -1,8 +1,8 @@
-import { expect, test } from 'vitest';
-import { getWaitingTimeForAppointment } from '../src/shared/waitTimeUtils';
 import { Encounter, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { FhirEncounterStatus } from 'utils';
+import { expect, test } from 'vitest';
+import { getWaitingTimeForAppointment } from '../src/shared/waitTimeUtils';
 
 const makeEncounter = (statusHistory: EncounterStatusHistory[], status: FhirEncounterStatus): Encounter => {
   return {

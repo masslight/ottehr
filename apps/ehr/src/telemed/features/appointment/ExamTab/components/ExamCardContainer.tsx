@@ -1,5 +1,5 @@
-import { FC, type ReactNode } from 'react';
 import { Box, Divider, Typography, useTheme } from '@mui/material';
+import { FC, type ReactNode } from 'react';
 import { PropsWithChildren } from '../../../../../shared/types';
 import { AccordionCard } from '../../../../components';
 

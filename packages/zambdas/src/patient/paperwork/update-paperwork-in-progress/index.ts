@@ -3,8 +3,8 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Flag } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { SecretsKeys, getSecret } from 'utils';
-import { createOystehrClient, configSentry, getAuth0Token, getUser, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getSecret, SecretsKeys } from 'utils';
+import { configSentry, createOystehrClient, getAuth0Token, getUser, topLevelCatch, ZambdaInput } from '../../../shared';
 import { createOrUpdateFlags } from '../sharedHelpers';
 import { validateUpdatePaperworkParams } from './validateRequestParameters';
 

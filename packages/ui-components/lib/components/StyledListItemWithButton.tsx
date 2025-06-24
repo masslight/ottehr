@@ -1,14 +1,14 @@
-import { FC } from 'react';
 import {
+  Box,
+  Divider,
   ListItem,
   ListItemAvatar,
   ListItemButton,
   ListItemText,
   Typography,
   useTheme,
-  Divider,
-  Box,
 } from '@mui/material';
+import { FC } from 'react';
 import { PropsWithChildren } from '../types';
 
 type StyledListItemWithButtonProps = PropsWithChildren<{

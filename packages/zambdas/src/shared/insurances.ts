@@ -1,9 +1,9 @@
 import { InsurancePlan } from 'fhir/r4b';
 import {
+  eligibilityRequirementKeys,
   InsurancePlanDTO,
   InsurancePlanRequirementKeyBooleans,
   InsurancePlanRequirementKeys,
-  eligibilityRequirementKeys,
 } from 'utils';
 
 export const createInsurancePlanDto = (insurancePlan: InsurancePlan): InsurancePlanDTO => {

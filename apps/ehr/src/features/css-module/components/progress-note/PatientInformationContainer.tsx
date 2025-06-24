@@ -1,12 +1,12 @@
-import React, { FC, useState } from 'react';
-import { capitalize, IconButton, Stack, Typography } from '@mui/material';
-import { getPatientAddress, getSelectors, standardizePhoneNumber, calculatePatientAge } from 'utils';
-import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
-import { ActionsList, useAppointmentStore } from '../../../../telemed';
-import { getPatientName } from '../../../../telemed/utils';
-import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
-import { EditPatientDialog } from '../../../../components/dialogs';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import { capitalize, IconButton, Stack, Typography } from '@mui/material';
+import React, { FC, useState } from 'react';
+import { calculatePatientAge, getPatientAddress, getSelectors, standardizePhoneNumber } from 'utils';
+import { EditPatientDialog } from '../../../../components/dialogs';
+import { formatDateUsingSlashes } from '../../../../helpers/formatDateTime';
+import { ActionsList, useAppointmentStore } from '../../../../telemed';
+import { VisitNoteItem } from '../../../../telemed/features/appointment/ReviewTab';
+import { getPatientName } from '../../../../telemed/utils';
 
 export const PatientInformationContainer: FC = () => {
   const { patient } = getSelectors(useAppointmentStore, ['patient']);

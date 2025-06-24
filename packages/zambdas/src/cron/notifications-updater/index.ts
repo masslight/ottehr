@@ -4,8 +4,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
+  allLicensesForPractitioner,
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
+  getPatchBinary,
+  getPatchOperationForNewMetaTag,
+  getProviderNotificationSettingsForPractitioner,
+  getSecret,
+  mapStatusToTelemed,
   OTTEHR_MODULE,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
@@ -16,21 +22,15 @@ import {
   SecretsKeys,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
-  allLicensesForPractitioner,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  getProviderNotificationSettingsForPractitioner,
-  getSecret,
-  mapStatusToTelemed,
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   getEmployees,
   getRoleMembers,
   getRoles,
   topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { removePrefix } from '../../shared/appointment/helpers';
 import { createOystehrClient } from '../../shared/helpers';

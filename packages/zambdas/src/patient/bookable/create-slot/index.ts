@@ -1,5 +1,7 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Schedule, Slot } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   CreateSlotParams,
   FHIR_RESOURCE_NOT_FOUND,
@@ -17,9 +19,7 @@ import {
   SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
   SlotServiceCategory,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Schedule, Slot } from 'fhir/r4b';
-import { DateTime } from 'luxon';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 
 let m2mtoken: string;
 

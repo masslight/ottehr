@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useAuth0 } from '@auth0/auth0-react';
 import { Typography } from '@mui/material';
+import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,23 +8,22 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
+  AvailableLocationInformation,
   CANT_UPDATE_CANCELED_APT_ERROR,
+  GetAppointmentResponseAppointmentDetails,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  SlotListItem,
-  VisitType,
   PROJECT_NAME,
   PROJECT_WEBSITE,
-  AvailableLocationInformation,
-  GetAppointmentResponseAppointmentDetails,
+  SlotListItem,
+  VisitType,
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
-import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
+import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { useVisitContext } from './ThankYou';
-import { Slot } from 'fhir/r4b';
 
 const Reschedule = (): JSX.Element => {
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });

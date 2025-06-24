@@ -1,6 +1,6 @@
+import Oystehr from '@oystehr/sdk';
 import { PaymentMethodDeleteParameters, Secrets } from 'utils';
 import { ZambdaInput } from '../../../shared';
-import Oystehr from '@oystehr/sdk';
 import { getStripeCustomerId } from '../helpers';
 
 export function validateRequestParameters(

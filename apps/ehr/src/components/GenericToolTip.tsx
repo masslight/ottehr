@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
 import BadgeOutlinedIcon from '@mui/icons-material/BadgeOutlined';
@@ -5,7 +6,6 @@ import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutl
 import { Box, styled, Tooltip, tooltipClasses, TooltipProps, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
 
 export const GenericToolTip = styled(
   ({ className, customWidth, ...props }: TooltipProps & { customWidth?: number | string }) => (

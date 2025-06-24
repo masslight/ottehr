@@ -1,10 +1,7 @@
+import Oystehr from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import Oystehr from '@oystehr/sdk';
-import { createDocument } from './document';
-import { generatePdf } from './draw';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
-import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
 import {
   addOperation,
@@ -15,6 +12,7 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
+import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import {
   configSentry,
   createOystehrClient,
@@ -24,6 +22,8 @@ import {
   validateString,
   ZambdaInput,
 } from '../../shared';
+import { createDocument } from './document';
+import { generatePdf } from './draw';
 
 interface Input {
   questionnaireResponseId: string;

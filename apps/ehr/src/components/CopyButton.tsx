@@ -1,5 +1,5 @@
-import { ReactElement, useState } from 'react';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { ReactElement, useState } from 'react';
 import { GenericToolTip } from './GenericToolTip';
 
 interface CopyButtonProps {

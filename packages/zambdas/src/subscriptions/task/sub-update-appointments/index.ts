@@ -11,7 +11,7 @@ import {
   SecretsKeys,
   TaskStatus,
 } from 'utils';
-import { createOystehrClient, configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 

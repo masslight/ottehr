@@ -1,6 +1,6 @@
-import { cleanAppointmentGraph, E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils';
-import _ from 'lodash';
 import fs from 'fs';
+import _ from 'lodash';
+import { cleanAppointmentGraph, E2E_TEST_RESOURCE_PROCESS_ID_SYSTEM } from 'utils';
 import { createOystehrClientFromConfig } from './helpers';
 
 const deleteAppointmentData = async (config: any): Promise<void> => {

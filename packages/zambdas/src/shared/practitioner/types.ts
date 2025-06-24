@@ -1,4 +1,4 @@
-import { Appointment, Encounter, Patient, Location, Practitioner, PractitionerRole } from 'fhir/r4b';
+import { Appointment, Encounter, Location, Patient, Practitioner, PractitionerRole } from 'fhir/r4b';
 
 export interface EncounterPackage {
   appointment: Appointment;

@@ -1,5 +1,5 @@
-import React, { FC } from 'react';
 import { Box, Typography } from '@mui/material';
+import React, { FC } from 'react';
 import {
   ExamObservationFieldItem,
   examObservationFieldsDetailsArray,
@@ -7,12 +7,12 @@ import {
   parseRashesFieldToName,
   rashesFields,
 } from 'utils';
-import { useExamObservationsStore } from '../../../../state';
-import { useExamObservations } from '../../../../hooks/useExamObservations';
-import { ActionsList } from '../../../../components';
-import { ExamReviewGroup } from './ExamReviewGroup';
-import { ExamReviewComment } from './ExamReviewComment';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { ActionsList } from '../../../../components';
+import { useExamObservations } from '../../../../hooks/useExamObservations';
+import { useExamObservationsStore } from '../../../../state';
+import { ExamReviewComment } from './ExamReviewComment';
+import { ExamReviewGroup } from './ExamReviewGroup';
 
 type ExaminationContainerProps = {
   noTitle?: boolean;

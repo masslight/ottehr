@@ -1,9 +1,9 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { useEffect, useState } from 'react';
-import { useAppointmentStore } from '../state';
+import { SCHOOL_WORK_NOTE } from 'utils';
 import { getPresignedFileUrl } from '../../helpers/files.helper';
 import { getSelectors } from '../../shared/store/getSelectors';
-import { SCHOOL_WORK_NOTE } from 'utils';
+import { useAppointmentStore } from '../state';
 
 export const usePatientProvidedExcusePresignedFiles = (): {
   patientSchoolPresignedUrl: string | undefined;

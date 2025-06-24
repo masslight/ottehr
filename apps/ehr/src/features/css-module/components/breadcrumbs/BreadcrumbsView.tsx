@@ -1,6 +1,6 @@
+import { Box, Typography, useTheme } from '@mui/material';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Box, Typography, useTheme } from '@mui/material';
 
 interface BreadcrumbItem {
   text: string;

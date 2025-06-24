@@ -1,6 +1,6 @@
-import { describe, test, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { describe, expect, test, vi } from 'vitest';
 import { ScrollToTop } from '../../lib/components';
 
 describe('ScrollToTop', () => {

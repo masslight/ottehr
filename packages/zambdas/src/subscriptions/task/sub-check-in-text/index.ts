@@ -4,17 +4,17 @@ import { Appointment, Location, Patient, RelatedPerson, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
   DATETIME_FULL_NO_YEAR,
-  Secrets,
-  SecretsKeys,
-  TaskStatus,
   getPatientContactEmail,
   getPatientFirstName,
   getSecret,
+  Secrets,
+  SecretsKeys,
+  TaskStatus,
 } from 'utils';
-import { createOystehrClient, configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { patchTaskStatus } from '../../helpers';
 
 export interface TaskSubscriptionInput {
   task: Task;

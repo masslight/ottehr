@@ -3,12 +3,12 @@ import { Communication, Encounter, Extension } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
 import {
   AppointmentProviderNotificationTypes,
-  PROVIDER_NOTIFICATIONS_ENABLED_URL,
-  PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
+  getPatchBinary,
   PROVIDER_NOTIFICATION_METHOD_URL,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
+  PROVIDER_NOTIFICATIONS_ENABLED_URL,
+  PROVIDER_NOTIFICATIONS_SETTINGS_EXTENSION_URL,
   ProviderNotificationMethod,
-  getPatchBinary,
 } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser from '../../hooks/useEvolveUser';

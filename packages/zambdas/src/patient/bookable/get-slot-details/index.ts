@@ -1,5 +1,6 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   getOriginalBookingUrlFromSlot,
@@ -20,9 +21,8 @@ import {
   SecretsKeys,
   ServiceMode,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 
 let m2mtoken: string;
 

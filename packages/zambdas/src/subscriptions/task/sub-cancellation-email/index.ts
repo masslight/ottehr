@@ -2,8 +2,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, Secrets, SecretsKeys, TaskStatus, getPatientContactEmail, getSecret } from 'utils';
-import { validateRequestParameters } from '../validateRequestParameters';
+import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, getSecret, Secrets, SecretsKeys, TaskStatus } from 'utils';
 import {
   configSentry,
   createOystehrClient,
@@ -12,6 +11,7 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
+import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
   task: Task;

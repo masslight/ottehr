@@ -5,11 +5,11 @@ import { Bundle, FhirResource, Provenance, ServiceRequest, Task } from 'fhir/r4b
 import {
   DeleteInHouseLabOrderParameters,
   DeleteInHouseLabOrderZambdaOutput,
+  getSecret,
   Secrets,
   SecretsKeys,
-  getSecret
 } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 

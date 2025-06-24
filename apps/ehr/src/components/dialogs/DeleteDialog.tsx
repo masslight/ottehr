@@ -1,5 +1,5 @@
-import { MouseEventHandler, ReactElement } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, useTheme } from '@mui/material';
+import { MouseEventHandler, ReactElement } from 'react';
 
 interface DeleteDialogProps {
   closeButtonText: string;

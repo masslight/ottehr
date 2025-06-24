@@ -1,15 +1,17 @@
 import {
+  Address,
+  DocumentReference,
   Patient,
   Practitioner,
-  DocumentReference,
   Questionnaire,
   QuestionnaireItem,
   QuestionnaireResponseItem,
   QuestionnaireResponseItemAnswer,
   Reference,
   RelatedPerson,
-  Address,
 } from 'fhir/r4b';
+import { capitalize } from 'lodash-es';
+import { DateTime } from 'luxon';
 import {
   getFirstName,
   getLastName,
@@ -18,8 +20,6 @@ import {
   getPronounsFromExtension,
   PRIVATE_EXTENSION_BASE_URL,
 } from '../../fhir';
-import { DateTime } from 'luxon';
-import { formatPhoneNumberDisplay } from '../helpers';
 import {
   COVERAGE_ADDITIONAL_INFORMATION_URL,
   PATIENT_GENDER_IDENTITY_URL,
@@ -27,8 +27,8 @@ import {
   PATIENT_SEXUAL_ORIENTATION_URL,
   PatientAccountResponse,
 } from '../../types';
-import { capitalize } from 'lodash-es';
 import { PRACTICE_NAME_URL } from '../../types';
+import { formatPhoneNumberDisplay } from '../helpers';
 
 const genderMap = {
   male: 'Male',

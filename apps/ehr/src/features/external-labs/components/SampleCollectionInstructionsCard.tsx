@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { LoadingButton } from '@mui/lab';
+import { Box, Grid, Paper, Stack, TextField, Typography, useTheme } from '@mui/material';
 import { DateTime } from 'luxon';
-import { Box, Grid, Paper, TextField, Stack, Typography, useTheme } from '@mui/material';
-import { APIError, sampleDTO, EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE } from 'utils';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useApiClients } from 'src/hooks/useAppClients';
+import { APIError, EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE, sampleDTO } from 'utils';
+import { getLabelPdf } from '../../../api/api';
 import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import { BoldedTitleText } from './BoldedTitleText';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { getLabelPdf } from '../../../api/api';
 import { openPdf } from './OrderCollection';
-import { LoadingButton } from '@mui/lab';
 
 interface SampleCollectionInstructionsCardProps {
   sample: sampleDTO;

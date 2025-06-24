@@ -2,7 +2,6 @@ import Oystehr, { BatchInputPutRequest, User } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Patient, Practitioner, ServiceRequest } from 'fhir/r4b';
 import { ServiceRequest as ServiceRequestR5 } from 'fhir/r5';
-
 import { DateTime } from 'luxon';
 import {
   CreateRadiologyZambdaOrderInput,

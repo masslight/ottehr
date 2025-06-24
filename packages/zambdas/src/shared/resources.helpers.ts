@@ -1,5 +1,5 @@
-import { Bundle, FhirResource } from 'fhir/r4b';
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
+import { Bundle, FhirResource } from 'fhir/r4b';
 
 export function saveOrUpdateResourceRequest<F extends FhirResource>(
   resource: F

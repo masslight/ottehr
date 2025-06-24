@@ -1,5 +1,5 @@
 import { RelatedPerson, Task } from 'fhir/r4b';
-import { Secrets, SecretsKeys, TaskStatus, createOystehrClient, getSMSNumberForIndividual, getSecret } from 'utils';
+import { createOystehrClient, getSecret, getSMSNumberForIndividual, Secrets, SecretsKeys, TaskStatus } from 'utils';
 import { sendErrors } from '../../shared';
 
 export const getDocReferenceIDFromFocus = (task: Task): string => {

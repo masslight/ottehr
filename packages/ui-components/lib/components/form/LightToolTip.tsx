@@ -1,5 +1,5 @@
-import Tooltip, { TooltipProps, tooltipClasses } from '@mui/material/Tooltip';
 import { styled } from '@mui/material/styles';
+import Tooltip, { tooltipClasses, TooltipProps } from '@mui/material/Tooltip';
 
 export const LightToolTip = styled(
   ({ className, ...props }: TooltipProps & { backgroundColor: string; color: string }) => (

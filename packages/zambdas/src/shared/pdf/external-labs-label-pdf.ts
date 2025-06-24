@@ -1,21 +1,21 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { StandardFonts } from 'pdf-lib';
 import {
   createFilesDocumentReferences,
   EXTERNAL_LAB_LABEL_DOC_REF_DOCTYPE,
   EXTERNAL_LAB_LABEL_PDF_BASE_NAME,
-  Secrets,
   getPresignedURL,
   LabelConfig,
+  Secrets,
 } from 'utils';
-import { PdfInfo, createPdfClient } from './pdf-utils';
-import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
-import { PdfClientStyles, TextStyle } from './types';
 import { makeZ3Url } from './../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from './../z3Utils';
-import Oystehr from '@oystehr/sdk';
-import { DocumentReference } from 'fhir/r4b';
-import { randomUUID } from 'crypto';
-import { StandardFonts } from 'pdf-lib';
+import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
+import { createPdfClient, PdfInfo } from './pdf-utils';
+import { PdfClientStyles, TextStyle } from './types';
 
 interface ExternalLabsLabelContent {
   patientLastName: string;

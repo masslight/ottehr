@@ -1,6 +1,6 @@
-import { FC, useEffect, useState } from 'react';
-import { Box, Card, Divider, IconButton, Paper } from '@mui/material';
 import FilterAltOffOutlinedIcon from '@mui/icons-material/FilterAltOffOutlined';
+import { Box, Card, Divider, IconButton, Paper } from '@mui/material';
+import { FC, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ClaimQueueTypes, ClaimsQueueType } from 'utils';
 import { ClaimsQueueButtons, ClaimsQueueFilters, ClaimsQueueGrid } from '../features';

@@ -1,14 +1,14 @@
-import { FC } from 'react';
-import { ClickAwayListener, IconButton, List, Box } from '@mui/material';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import SettingsIcon from '@mui/icons-material/Settings';
 import CloseIcon from '@mui/icons-material/Close';
-import { StyledListItemWithButton, CustomTooltip } from 'ui-components';
-import { otherColors } from '../../IntakeThemeProvider';
-import { IconButtonContained } from './IconButtonContained';
-import { ContactSupportDialog } from '../../components/ContactSupportDialog';
-import { useIntakeCommonStore } from '../features/common';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import SettingsIcon from '@mui/icons-material/Settings';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import { Box, ClickAwayListener, IconButton, List } from '@mui/material';
+import { FC } from 'react';
+import { CustomTooltip, StyledListItemWithButton } from 'ui-components';
+import { ContactSupportDialog } from '../../components/ContactSupportDialog';
+import { otherColors } from '../../IntakeThemeProvider';
+import { useIntakeCommonStore } from '../features/common';
+import { IconButtonContained } from './IconButtonContained';
 
 type CallSettingsTooltipProps = {
   isTooltipOpen: boolean;
