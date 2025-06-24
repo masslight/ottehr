@@ -185,6 +185,7 @@ export interface LabResultsData
     | 'providerTitle'
     | 'providerNPI'
     | 'patientAddress'
+    | 'sampleCollectionDate'
   > {
   testName: string;
   resultStatus: string;
@@ -196,6 +197,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   orderSubmitDate: string;
   collectionDate: string;
   resultPhase: string;
+  resultsRecievedDate: string;
   reviewed?: boolean;
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
