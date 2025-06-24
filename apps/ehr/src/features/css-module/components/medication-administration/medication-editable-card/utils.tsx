@@ -1,6 +1,4 @@
 import { Box, Typography } from '@mui/material';
-import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
-import { ReasonSelect } from './ReasonSelect';
 import { DateTime } from 'luxon';
 import {
   ExtendedMedicationDataForResponse,
@@ -8,6 +6,8 @@ import {
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
+import { fieldsConfig, MedicationOrderType } from './fieldsConfig';
+import { ReasonSelect } from './ReasonSelect';
 
 export const medicationOrderFieldsWithOptions: Partial<keyof ExtendedMedicationDataForResponse>[] = [
   'medicationId',

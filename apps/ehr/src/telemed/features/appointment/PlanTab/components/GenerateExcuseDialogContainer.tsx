@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   Dialog,
   DialogActions,
@@ -9,7 +9,7 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import React, { FC } from 'react';
 import { RoundedButton } from '../../../../../components/RoundedButton';
 import { PropsWithChildren } from '../../../../../shared/types';
 

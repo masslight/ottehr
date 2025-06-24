@@ -1,8 +1,8 @@
 // cSpell:ignore IPPP, networkidle
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
-import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
+import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
 

@@ -1,6 +1,7 @@
+import { rgbToHex } from '@mui/system';
 import { expect, Locator, Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
+import { DateTime } from 'luxon';
+import { waitForSaveChartDataResponse } from 'test-utils';
 import {
   ExamFieldsNames,
   ExamObservationFieldItem,
@@ -10,10 +11,9 @@ import {
   TelemedAppointmentVisitTabs,
 } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { waitForSaveChartDataResponse } from 'test-utils';
+import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
-import { rgbToHex } from '@mui/system';
-import { DateTime } from 'luxon';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 async function checkCheckboxValueInLocator(locator: Locator, value: boolean): Promise<void> {
   if (value) {

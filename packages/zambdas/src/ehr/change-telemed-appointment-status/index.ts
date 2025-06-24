@@ -1,18 +1,17 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
-  SecretsKeys,
-  TelemedAppointmentStatusEnum,
   getQuestionnaireResponseByLinkId,
   getSecret,
   mapStatusToTelemed,
+  SecretsKeys,
+  TelemedAppointmentStatusEnum,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
-
-import { wrapHandler } from '@sentry/aws-serverless';
 import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, saveResourceRequest } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
@@ -89,7 +88,8 @@ export const performEffect = async (
   const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
   if (currentStatus) {
     const myPractId = await getMyPractitionerId(oystehrCurrentUser);
-    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId, ENVIRONMENT);
   }
 
   console.debug(`Status has been changed.`);

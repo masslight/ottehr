@@ -1,7 +1,7 @@
 import Oystehr from '@oystehr/sdk';
 import { Communication } from 'fhir/r4b';
-import { fillMeta } from '../../shared/helpers';
 import { PATIENT_INSTRUCTIONS_TEMPLATE_CODE } from 'utils';
+import { fillMeta } from '../../shared/helpers';
 
 export async function checkIfProvidersInstruction(
   communicationId: string,

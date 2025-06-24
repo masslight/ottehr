@@ -1,11 +1,11 @@
 import React from 'react';
-import { usePatientLabOrders } from '../components/labs-orders/usePatientLabOrders';
 import { useParams } from 'react-router-dom';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { DetailsWithoutResults } from '../components/details/DetailsWithoutResults';
-import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
 import { DetailsWithResults } from '../components/details/DetailsWithResults';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
-import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
+import { usePatientLabOrders } from '../components/labs-orders/usePatientLabOrders';
 
 export const OrderDetailsPage: React.FC = () => {
   const urlParams = useParams();

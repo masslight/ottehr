@@ -1,5 +1,4 @@
 import { FC } from 'react';
-
 import CustomBreadcrumbs from 'src/components/CustomBreadcrumbs';
 import { useAppointmentStore } from 'src/telemed';
 import { getSelectors } from 'utils';

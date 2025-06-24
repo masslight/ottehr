@@ -1,6 +1,6 @@
-import { DateTime } from 'luxon';
 import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import { DateTime } from 'luxon';
 
 const exec = promisify(execCb);
 let totalResourceCleanupTime = 0;

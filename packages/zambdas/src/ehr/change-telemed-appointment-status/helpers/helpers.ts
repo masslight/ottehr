@@ -4,6 +4,11 @@ import { Operation } from 'fast-json-patch';
 import { Account, Appointment, ChargeItem, DocumentReference, Encounter, EncounterStatusHistory, List } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { createFilesDocumentReferences, getPatchBinary, OTTEHR_MODULE, RECEIPT_CODE, TelemedCallStatuses } from 'utils';
+import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
+import { sendSmsForPatient } from '../../../shared/communication';
+import { createPublishExcuseNotesOps } from '../../../shared/createPublishExcuseNotesOps';
+import { PdfInfo } from '../../../shared/pdf/pdf-utils';
+import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
 import {
   addPeriodEndOp,
   addStatusHistoryRecordOp,
@@ -12,18 +17,14 @@ import {
   deleteStatusHistoryRecordOp,
   handleEmptyEncounterStatusHistoryOp,
 } from './fhir-res-patch-operations';
-import { telemedStatusToEncounter } from '../../../shared/appointment/helpers';
-import { sendSmsForPatient } from '../../../shared/communication';
-import { createPublishExcuseNotesOps } from '../../../shared/createPublishExcuseNotesOps';
-import { PdfInfo } from '../../../shared/pdf/pdf-utils';
-import { VideoResourcesAppointmentPackage } from '../../../shared/pdf/visit-details-pdf/types';
 
 export const changeStatusIfPossible = async (
   oystehr: Oystehr,
   resourcesToUpdate: VideoResourcesAppointmentPackage,
   currentStatus: TelemedCallStatuses,
   newStatus: TelemedCallStatuses,
-  practitionerId: string
+  practitionerId: string,
+  ENVIRONMENT: string
 ): Promise<void> => {
   const { patient, appointment } = resourcesToUpdate;
   let appointmentPatchOp: Operation[] = [];
@@ -120,7 +121,7 @@ export const changeStatusIfPossible = async (
   promises.push(oystehr.fhir.transaction({ requests: patchOperationsBinaries }));
   if (smsToSend)
     promises.push(
-      sendSmsForPatient(smsToSend, oystehr, patient).catch((error) =>
+      sendSmsForPatient(smsToSend, oystehr, patient, ENVIRONMENT).catch((error) =>
         console.error('Error trying to send SMS message to patient on appointment change', error, smsToSend)
       )
     );

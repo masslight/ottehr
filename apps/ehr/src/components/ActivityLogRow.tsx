@@ -1,6 +1,6 @@
+import { Box, Link, Table, TableBody, TableCell, TableHead, TableRow, Typography, useTheme } from '@mui/material';
 import { ReactElement, useState } from 'react';
 import { ActivityLogData } from '../helpers/activityLogsUtils';
-import { TableRow, TableCell, Typography, Link, Box, Table, TableHead, TableBody, useTheme } from '@mui/material';
 
 interface ActivityLogRowProps {
   log: ActivityLogData;

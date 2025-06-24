@@ -3,15 +3,8 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { FHIR_EXTENSION, OTTEHR_MODULE } from 'utils';
-import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+import { FHIR_EXTENSION, getSecret, OTTEHR_MODULE, SecretsKeys } from 'utils';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { AuditableZambdaEndpoints, createAuditEvent } from '../../../shared/userAuditLog';
 import { SubmitPaperworkEffectInput, validateSubmitInputs } from '../validateRequestParameters';
 
@@ -43,7 +36,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(qr),
     };
   } catch (error: any) {
-    return topLevelCatch('submit-paperwork', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('submit-paperwork', error, ENVIRONMENT);
   }
 });
 

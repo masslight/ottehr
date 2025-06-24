@@ -1,10 +1,11 @@
-import { TextField, FormControl } from '@mui/material';
+import { FormControl, TextField } from '@mui/material';
 import { Controller, useFormContext } from 'react-hook-form';
 interface FreeTextQuestionProps {
   questionText: string;
   linkId: string;
   answer?: string;
   required: boolean;
+  isReadOnly?: boolean;
 }
 
 export const AOEFreeTextQuestion: React.FC<FreeTextQuestionProps> = (props) => {
@@ -14,7 +15,7 @@ export const AOEFreeTextQuestion: React.FC<FreeTextQuestionProps> = (props) => {
     formState: { errors },
   } = useFormContext();
 
-  const { questionText, linkId, answer, required } = props;
+  const { questionText, linkId, answer, required, isReadOnly } = props;
 
   return (
     <Controller
@@ -30,8 +31,8 @@ export const AOEFreeTextQuestion: React.FC<FreeTextQuestionProps> = (props) => {
             sx={{ width: '100%' }}
             required={required}
             error={!!errors[linkId]}
-            value={answer}
-            inputProps={{ readOnly: answer !== undefined }}
+            defaultValue={answer}
+            inputProps={{ readOnly: isReadOnly }}
           />
           {/* {isError && <FormHelperText>Required</FormHelperText>} */}
         </FormControl>

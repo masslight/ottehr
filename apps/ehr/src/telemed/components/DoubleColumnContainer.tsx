@@ -1,5 +1,5 @@
-import React, { FC, ReactNode } from 'react';
 import { Divider, Grid } from '@mui/material';
+import React, { FC, ReactNode } from 'react';
 
 type DoubleColumnContainerProps = {
   leftColumn: ReactNode;

@@ -1,7 +1,7 @@
-import { FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../../types';
-import { FieldValues } from 'react-hook-form';
-import { ReactElement } from 'react';
 import { Box, Button, Grid, Typography } from '@mui/material';
+import { ReactElement } from 'react';
+import { FieldValues } from 'react-hook-form';
+import { FileURLs } from 'utils';
 import {
   ControlledCheckBox,
   DateInput,
@@ -17,7 +17,7 @@ import {
 import CoalescedDateInput from '../../components/form/CoalescedDateInput';
 import { DateFieldMap } from '../../components/form/DateInput';
 import { PhotosUpload } from '../../components/form/PhotosUpload';
-import { FileURLs } from 'utils';
+import { FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../../types';
 
 function checkRequire(item: FormInputTypeField, values: FieldValues): boolean {
   if (item.required && !item.requireWhen) {

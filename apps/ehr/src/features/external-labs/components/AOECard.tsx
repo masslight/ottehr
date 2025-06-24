@@ -1,17 +1,23 @@
-import { Paper, Grid, CircularProgress, Typography } from '@mui/material';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
-import React, { useState } from 'react';
-import { AOEQuestion } from './AOEQuestion';
+import { CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
+import React, { useState } from 'react';
 import { LabQuestionnaireResponse } from 'utils';
+import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { AOEQuestion } from './AOEQuestion';
 
 interface AOEProps {
   questions: QuestionnaireItem[];
   labQuestionnaireResponses: LabQuestionnaireResponse[] | undefined;
+  isReadOnly?: boolean;
   isCollapsed?: boolean;
 }
 
-export const AOECard: React.FC<AOEProps> = ({ questions, labQuestionnaireResponses, isCollapsed = false }) => {
+export const AOECard: React.FC<AOEProps> = ({
+  questions,
+  labQuestionnaireResponses,
+  isReadOnly,
+  isCollapsed = false,
+}) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
   const [isLoading, _setLoading] = useState(false);
 
@@ -36,6 +42,7 @@ export const AOECard: React.FC<AOEProps> = ({ questions, labQuestionnaireRespons
                     <AOEQuestion
                       key={index}
                       question={question}
+                      isReadOnly={isReadOnly}
                       answer={
                         labQuestionnaireResponses?.find((response) => response.linkId === question.linkId)?.response
                       }

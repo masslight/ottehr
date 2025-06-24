@@ -14,12 +14,12 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUCZambdaClient, ZambdaClient } from 'ui-components';
 import { VisitType } from 'utils';
-import { otherColors, palette } from '../IntakeThemeProvider';
 import { ottehrApi } from '../api';
 import { LinkedButtonWithIcon, PageContainer } from '../components';
 import { useIntakeCommonStore } from '../features/common';
 import { getLocaleDateTimeString } from '../helpers/dateUtils';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
+import { otherColors, palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { Appointment } from '../types';
 

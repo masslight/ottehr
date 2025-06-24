@@ -1,7 +1,7 @@
-import { FC } from 'react';
-import { List, ListItemIcon, ListItemText, ListItemButton, useTheme, Typography, Skeleton } from '@mui/material';
-import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import { List, ListItemButton, ListItemIcon, ListItemText, Skeleton, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { PatientDocumentsFolder } from '../../../hooks/useGetPatientDocs';
 
 export type PatientDocumentFoldersColumnProps = {

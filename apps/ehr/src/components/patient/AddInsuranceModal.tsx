@@ -1,4 +1,5 @@
 import { Close } from '@mui/icons-material';
+import { LoadingButton } from '@mui/lab';
 import {
   Autocomplete,
   Button,
@@ -11,19 +12,18 @@ import {
   TextField,
   useTheme,
 } from '@mui/material';
+import { Questionnaire } from 'fhir/r4b';
 import React, { useEffect } from 'react';
-import { useForm, Controller, FormProvider } from 'react-hook-form';
+import { Controller, FormProvider, useForm } from 'react-hook-form';
+import { useQueryClient } from 'react-query';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import { InsurancePlanDTO, isPostalCodeValid, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { RELATIONSHIP_TO_INSURED_OPTIONS, SEX_OPTIONS, STATE_OPTIONS } from '../../constants';
-import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
-import { usePatientStore } from '../../state/patient.store';
-import { Questionnaire } from 'fhir/r4b';
 import { FormFields as AllFormFields } from '../../constants';
-import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
 import { structureQuestionnaireResponse } from '../../helpers/qr-structure';
-import { useQueryClient } from 'react-query';
-import { LoadingButton } from '@mui/lab';
-import { dataTestIds } from 'src/constants/data-test-ids';
+import { useUpdatePatientAccount } from '../../hooks/useGetPatient';
+import { usePatientStore } from '../../state/patient.store';
+import { BasicDatePicker as DatePicker, FormSelect, FormTextField, LabeledField, Option } from '../form';
 
 interface AddInsuranceModalProps {
   open: boolean;

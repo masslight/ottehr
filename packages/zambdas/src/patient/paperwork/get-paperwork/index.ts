@@ -13,28 +13,31 @@ import {
 import {
   AppointmentSummary,
   AvailableLocationInformation,
+  checkEncounterIsVirtual,
   Closure,
   DOB_UNCONFIRMED_ERROR,
-  HealthcareServiceWithLocationContext,
-  NO_READ_ACCESS_TO_PATIENT_ERROR,
-  PaperworkSupportingInfo,
-  PersonSex,
-  SLUG_SYSTEM,
-  ScheduleExtension,
-  ScheduleType,
-  Secrets,
-  ServiceMode,
-  UCGetPaperworkResponse,
-  VisitType,
-  checkEncounterIsVirtual,
   extractHealthcareServiceAndSupportingLocations,
   getLastUpdateTimestampForResource,
   getQuestionnaireAndValueSets,
   getScheduleExtension,
+  getSecret,
   getUnconfirmedDOBForAppointment,
+  HealthcareServiceWithLocationContext,
   mapQuestionnaireAndValueSetsToItemsList,
+  NO_READ_ACCESS_TO_PATIENT_ERROR,
+  PaperworkSupportingInfo,
+  PersonSex,
+  ScheduleExtension,
+  ScheduleType,
+  Secrets,
+  SecretsKeys,
+  ServiceMode,
   serviceModeForHealthcareService,
+  SLUG_SYSTEM,
+  UCGetPaperworkResponse,
+  VisitType,
 } from 'utils';
+import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -44,7 +47,6 @@ import {
 } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
 import { validateRequestParameters } from './validateRequestParameters';
-import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 
 export interface GetPaperworkInput {
   appointmentID: string;
@@ -319,7 +321,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
   } catch (error: any) {
-    return topLevelCatch('get-paperwork', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-paperwork', error, ENVIRONMENT);
   }
 });
 

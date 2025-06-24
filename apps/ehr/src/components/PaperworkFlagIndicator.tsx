@@ -1,8 +1,8 @@
-import { ReactElement, useState } from 'react';
-import { Box, Typography } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
 import ClearIcon from '@mui/icons-material/Clear';
+import { LoadingButton } from '@mui/lab';
+import { Box, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
+import { ReactElement, useState } from 'react';
 
 interface PaperworkFlagIndicatorProps {
   title: string;

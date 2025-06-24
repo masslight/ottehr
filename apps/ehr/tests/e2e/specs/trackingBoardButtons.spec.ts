@@ -1,10 +1,10 @@
 import { test } from '@playwright/test';
-import { expectAddPatientPage } from '../page/AddPatientPage';
-import { openVisitsPage } from '../page/VisitsPage';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
-import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
-import { expectPatientInfoPage } from '../page/PatientInfo';
 import { DateTime } from 'luxon';
+import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import { expectAddPatientPage } from '../page/AddPatientPage';
+import { expectPatientInfoPage } from '../page/PatientInfo';
+import { openVisitsPage } from '../page/VisitsPage';
 
 const PROCESS_ID = `trackingBoardButtons.spec.ts-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');

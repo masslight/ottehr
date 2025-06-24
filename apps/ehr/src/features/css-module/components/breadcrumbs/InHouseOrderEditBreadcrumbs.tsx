@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import { BreadcrumbsView } from './BreadcrumbsView';
 import { getInHouseMedicationMARUrl } from '../../routing/helpers';
+import { BreadcrumbsView } from './BreadcrumbsView';
 
 export const InHouseOrderEditBreadcrumbs: React.FC = () => {
   const { id: appointmentId } = useParams();

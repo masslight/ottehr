@@ -11,10 +11,10 @@ import {
   useTheme,
 } from '@mui/material';
 import { FC, ReactElement } from 'react';
-import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n';
+import { Link } from 'react-router-dom';
 import { PROJECT_WEBSITE } from 'utils';
+import i18n from '../i18n';
 
 export interface ErrorDialogConfig {
   title: string;

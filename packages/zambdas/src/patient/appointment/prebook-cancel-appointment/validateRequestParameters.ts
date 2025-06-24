@@ -4,8 +4,8 @@ import {
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
 } from 'utils';
-import { CancelAppointmentZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../../shared';
+import { CancelAppointmentZambdaInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): CancelAppointmentZambdaInputValidated {
   if (!input.body) {

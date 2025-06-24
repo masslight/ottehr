@@ -1,6 +1,6 @@
-import { ReactElement } from 'react';
-import { Box, SxProps, Typography, useTheme } from '@mui/material';
 import DoneOutlinedIcon from '@mui/icons-material/DoneOutlined';
+import { Box, SxProps, Typography, useTheme } from '@mui/material';
+import { ReactElement } from 'react';
 
 interface CustomChipProps {
   type: 'status bullet' | 'document';

@@ -1,6 +1,6 @@
-import { isWeightVitalObservation, VitalsObservationDTO, VitalsWeightObservationDTO, kgToLb } from 'utils';
-import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
+import { isWeightVitalObservation, kgToLb, VitalsObservationDTO, VitalsWeightObservationDTO } from 'utils';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
 
 export const composeWeightVitalsHistoryEntries = (
   encounterId: string,

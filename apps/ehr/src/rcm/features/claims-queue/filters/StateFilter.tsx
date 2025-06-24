@@ -1,7 +1,7 @@
-import React, { FC } from 'react';
 import { Autocomplete, TextField } from '@mui/material';
-import { AllStatesToVirtualLocationsData, AllStatesValues, ClaimsQueueGetRequest } from 'utils';
+import React, { FC } from 'react';
 import type { StateType } from 'utils';
+import { AllStatesToVirtualLocationsData, AllStatesValues, ClaimsQueueGetRequest } from 'utils';
 
 type StateFilterProps = {
   value: ClaimsQueueGetRequest['state'];

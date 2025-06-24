@@ -1,16 +1,16 @@
-import React, { useEffect, useRef, useCallback, useLayoutEffect, useState } from 'react';
-import { Box, Tabs, Tab, AppBar, useTheme } from '@mui/material';
-import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
-import { OrderButton } from '../components/medication-administration/OrderButton';
-import { MarTable } from '../components/medication-administration/mar/MarTable';
-import { MedicationList } from '../components/medication-administration/medication-details/MedicationList';
-import { useMedicationAPI } from '../hooks/useMedicationOperations';
-import { MedicationNotes } from '../components/medication-administration/MedicationNotes';
+import { AppBar, Box, Tab, Tabs, useTheme } from '@mui/material';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getInHouseMedicationMARUrl, getInHouseMedicationDetailsUrl } from '../routing/helpers';
-import { CSSLoader } from '../components/CSSLoader';
 import { dataTestIds } from '../../../constants/data-test-ids';
 import { PageTitle } from '../../../telemed/components/PageTitle';
+import { CSSLoader } from '../components/CSSLoader';
+import { MarTable } from '../components/medication-administration/mar/MarTable';
+import { MedicationList } from '../components/medication-administration/medication-details/MedicationList';
+import { MedicationHistoryList } from '../components/medication-administration/medication-history/MedicationHistoryList';
+import { MedicationNotes } from '../components/medication-administration/MedicationNotes';
+import { OrderButton } from '../components/medication-administration/OrderButton';
+import { useMedicationAPI } from '../hooks/useMedicationOperations';
+import { getInHouseMedicationDetailsUrl, getInHouseMedicationMARUrl } from '../routing/helpers';
 
 interface TabContentProps {
   isActive: boolean;

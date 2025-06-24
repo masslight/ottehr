@@ -3,8 +3,8 @@ import { useQueryClient } from 'react-query';
 import { ChartDataFields, GetChartDataResponse, VitalsObservationDTO } from 'utils';
 import { useDeleteChartData } from '../../../../../telemed';
 import { useChartData } from '../../../hooks/useChartData';
-import { UseDeleteVitals } from '../types';
 import { useChartDataCacheKey } from '../../generic-notes-list/hooks/useChartDataCacheKey';
+import { UseDeleteVitals } from '../types';
 
 export const useDeleteVitals: UseDeleteVitals = ({ encounterId, searchConfig }) => {
   const queryClient = useQueryClient();

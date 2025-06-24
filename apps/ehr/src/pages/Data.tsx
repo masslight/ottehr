@@ -19,16 +19,16 @@ import {
   Typography,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers';
-import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { LocalizationProvider } from '@mui/x-date-pickers-pro';
 import {
   BarElement,
   CategoryScale,
   Chart as ChartJS,
   Colors,
   Legend,
-  LineElement,
   LinearScale,
+  LineElement,
   PointElement,
   Title,
   Tooltip,
@@ -38,13 +38,13 @@ import { DateTime } from 'luxon';
 import React from 'react';
 import { Bar, Line } from 'react-chartjs-2';
 import {
-  VisitStatusLabel,
   FhirAppointmentType,
-  OTTEHR_MODULE,
-  VisitStatusHistoryLabel,
   getVisitStatus,
   getVisitStatusHistory,
+  OTTEHR_MODULE,
   VisitStatusHistoryEntry,
+  VisitStatusHistoryLabel,
+  VisitStatusLabel,
 } from 'utils';
 import { CHIP_STATUS_MAP } from '../components/AppointmentTableRow';
 import LocationSelect from '../components/LocationSelect';

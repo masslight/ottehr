@@ -3,7 +3,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Operation } from 'fast-json-patch';
 import { QuestionnaireResponse } from 'fhir/r4b';
-import {} from 'utils';
+import { getSecret, SecretsKeys } from 'utils';
 import { createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { PatchPaperworkEffectInput, validatePatchInputs } from '../validateRequestParameters';
 
@@ -42,7 +42,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(qr),
     };
   } catch (error: any) {
-    return topLevelCatch('patch-paperwork', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('patch-paperwork', error, ENVIRONMENT);
   }
 });
 

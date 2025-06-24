@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
+import ottehrSpec from '../../ottehr-spec.json';
 import { getAuth0Token } from '../shared/';
 import { projectApiUrlFromAuth0Audience } from './helpers';
-import ottehrSpec from '../../ottehr-spec.json';
 
 const setupSecrets = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
@@ -60,7 +60,7 @@ const main = async (): Promise<void> => {
   if (!env) {
     throw new Error('Please provide an environment to configure secrets.');
   }
-  
+
   const secrets = prepareSecretsFromSpecAndEnv(env);
   await setupSecrets(secrets);
 };

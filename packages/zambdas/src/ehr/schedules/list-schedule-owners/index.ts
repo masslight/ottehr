@@ -7,6 +7,7 @@ import {
   ClosureType,
   DOW,
   getScheduleExtension,
+  getSecret,
   getTimezone,
   INVALID_INPUT_ERROR,
   ListScheduleOwnersParams,
@@ -18,6 +19,7 @@ import {
   ScheduleListItem,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   TIMEZONES,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
@@ -52,7 +54,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('list-schedule-owners', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('list-schedule-owners', error, ENVIRONMENT);
   }
 };
 

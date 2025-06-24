@@ -1,5 +1,5 @@
-import React, { FC } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
+import React, { FC } from 'react';
 
 type ExamReviewItemProps = {
   label: string;

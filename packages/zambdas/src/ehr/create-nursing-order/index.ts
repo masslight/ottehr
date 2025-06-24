@@ -16,16 +16,18 @@ import {
 import { DateTime } from 'luxon';
 import {
   CreateNursingOrderInputValidated,
+  getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   PRACTITIONER_CODINGS,
+  SecretsKeys,
 } from 'utils';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   fillMeta,
   getMyPractitionerId,
   topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -256,7 +258,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('create-nursing-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('create-nursing-order', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

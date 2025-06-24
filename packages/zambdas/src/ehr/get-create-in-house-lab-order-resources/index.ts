@@ -2,21 +2,23 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
+  convertActivityDefinitionToTestItem,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
+  getFullestAvailableName,
+  getSecret,
+  getTimezone,
   PRACTITIONER_CODINGS,
   Secrets,
+  SecretsKeys,
   TestItem,
-  convertActivityDefinitionToTestItem,
-  getFullestAvailableName,
-  getTimezone,
 } from 'utils';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -159,7 +161,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     console.error('Error processing in-house lab order resources:', error);
-    await topLevelCatch('get-create-in-house-lab-order-resources', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-create-in-house-lab-order-resources', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

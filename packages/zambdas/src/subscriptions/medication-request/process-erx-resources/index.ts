@@ -1,8 +1,8 @@
 import { BatchInputRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, MedicationRequest } from 'fhir/r4b';
-import { getPatchBinary, isTruthy, Secrets } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../../shared';
+import { getPatchBinary, getSecret, isTruthy, Secrets, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): { secrets: Secrets | null } {
   return {
@@ -121,7 +121,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: 'Successfully processed erx resources',
     };
   } catch (error: any) {
-    await topLevelCatch('Process ERX resources error', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('Process ERX resources error', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,

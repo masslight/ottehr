@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import FmdBadOutlinedIcon from '@mui/icons-material/FmdBadOutlined';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Box, Grid, Tab, Typography } from '@mui/material';
@@ -5,10 +6,9 @@ import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import React, { ReactElement, useState } from 'react';
 import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
+import { dataTestIds } from '../constants/data-test-ids';
 import AppointmentTable from './AppointmentTable';
 import Loading from './Loading';
-import { dataTestIds } from '../constants/data-test-ids';
 
 export enum ApptTab {
   'prebooked' = 'prebooked',

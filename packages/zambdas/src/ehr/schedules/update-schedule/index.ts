@@ -1,20 +1,22 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Extension, Schedule } from 'fhir/r4b';
 import {
   Closure,
   DailySchedule,
   getScheduleExtension,
+  getSecret,
   MISSING_SCHEDULE_EXTENSION_ERROR,
-  SLUG_SYSTEM,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleExtension,
   ScheduleOverrides,
   ScheduleOwnerFhirResource,
+  SecretsKeys,
+  SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
-import Oystehr from '@oystehr/sdk';
-import { Extension, Schedule } from 'fhir/r4b';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { UpdateScheduleBasicInput, validateUpdateScheduleParameters } from '../shared';
 
 let m2mtoken: string;
@@ -38,7 +40,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('update-schedule', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-schedule', error, ENVIRONMENT);
   }
 };
 

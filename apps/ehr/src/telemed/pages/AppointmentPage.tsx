@@ -1,5 +1,5 @@
 import { Box } from '@mui/material';
-import { GlobalStyles, MeetingProvider, lightTheme } from 'amazon-chime-sdk-component-library-react';
+import { GlobalStyles, lightTheme, MeetingProvider } from 'amazon-chime-sdk-component-library-react';
 import {
   Appointment,
   DocumentReference,
@@ -14,13 +14,13 @@ import { FC, useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import {
+  getQuestionnaireResponseByLinkId,
+  isLocationVirtual,
+  mapStatusToTelemed,
   RefreshableAppointmentData,
   SCHOOL_WORK_NOTE_CODE,
   SCHOOL_WORK_NOTE_TEMPLATE_CODE,
   TelemedAppointmentStatusEnum,
-  getQuestionnaireResponseByLinkId,
-  isLocationVirtual,
-  mapStatusToTelemed,
 } from 'utils';
 import { getSelectors } from '../../shared/store/getSelectors';
 import HearingRelayPopup from '../components/HearingRelayPopup';

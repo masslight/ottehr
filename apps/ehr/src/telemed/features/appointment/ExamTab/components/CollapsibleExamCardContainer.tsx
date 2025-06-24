@@ -1,7 +1,7 @@
 import { FC } from 'react';
-import { ExamCardContainer, ExamCardContainerProps } from './ExamCardContainer';
 import { ExamTabCardNames, InPersonExamTabProviderCardNames } from 'utils';
 import { useExamCardCollapsed } from '../../../../hooks/useExamCardCollapsed';
+import { ExamCardContainer, ExamCardContainerProps } from './ExamCardContainer';
 
 type CollapsibleExamCardContainerProps = Omit<ExamCardContainerProps, 'collapsed' | 'onSwitch'> & {
   cardName: ExamTabCardNames | InPersonExamTabProviderCardNames;

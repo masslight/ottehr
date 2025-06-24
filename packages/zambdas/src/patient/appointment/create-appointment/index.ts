@@ -18,6 +18,7 @@ import {
   Slot,
   Task,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -34,6 +35,7 @@ import {
   formatPhoneNumberDisplay,
   getAppointmentDurationFromSlot,
   getCanonicalQuestionnaire,
+  getSecret,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
@@ -42,27 +44,26 @@ import {
   PatientInfo,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   ServiceMode,
   TaskIndicator,
   User,
   VisitType,
 } from 'utils';
 import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
   AuditableZambdaEndpoints,
+  configSentry,
   createAuditEvent,
+  createOystehrClient,
   generatePatientRelatedRequests,
+  getAuth0Token,
   getUser,
+  isTestUser,
   topLevelCatch,
   ZambdaInput,
-  isTestUser,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
 import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
-import _ from 'lodash';
 
 interface CreateAppointmentInput {
   slot: Slot;
@@ -169,7 +170,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('create-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('create-appointment', error, ENVIRONMENT, true);
   }
 });
 

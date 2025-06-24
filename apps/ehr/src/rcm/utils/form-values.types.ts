@@ -1,5 +1,5 @@
-import { DateTime } from 'luxon';
 import { InsurancePlan, Location, Organization } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import { IcdSearchResponse } from 'utils';
 
 export type PlanOwnedBy = Omit<InsurancePlan, 'ownedBy'> & { ownedBy?: Organization };

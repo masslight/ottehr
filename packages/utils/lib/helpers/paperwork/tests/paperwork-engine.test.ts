@@ -1,17 +1,17 @@
-import { describe, expect, it, assert } from 'vitest';
+import { Extension, Questionnaire, QuestionnaireItem, QuestionnaireItemEnableWhen } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { assert, describe, expect, it } from 'vitest';
+import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir';
+import { ConditionKeyObject, QuestionnaireItemConditionDefinition, QuestionnaireItemTextWhen } from '../../../types';
+import { DOB_DATE_FORMAT } from '../../../utils';
+import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
 import {
-  evalEnableWhen,
-  evalRequired,
   evalComplexValidationTrigger,
+  evalEnableWhen,
   evalItemText,
+  evalRequired,
   recursiveGroupTransform,
 } from '../validation';
-import { Extension, Questionnaire, QuestionnaireItem, QuestionnaireItemEnableWhen } from 'fhir/r4b';
-import { mapQuestionnaireAndValueSetsToItemsList } from '../paperwork';
-import { DateTime } from 'luxon';
-import { DOB_DATE_FORMAT } from '../../../utils';
-import { ConditionKeyObject, QuestionnaireItemConditionDefinition, QuestionnaireItemTextWhen } from '../../../types';
-import { OTTEHR_QUESTIONNAIRE_EXTENSION_KEYS } from '../../../fhir';
 
 const KEYS = {
   triggers: {

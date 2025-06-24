@@ -1,15 +1,17 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Provenance, ServiceRequest, Task } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import {
+  getPatchBinary,
+  getSecret,
+  NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SecretsKeys,
+  UpdateNursingOrderInputValidated,
+} from 'utils';
 import { getMyPractitionerId, topLevelCatch, ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-import {
-  getPatchBinary,
-  NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
-  UpdateNursingOrderInputValidated,
-} from 'utils';
-import { Provenance, ServiceRequest, Task } from 'fhir/r4b';
-import { DateTime } from 'luxon';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
@@ -162,7 +164,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('update-nursing-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-nursing-order', error, ENVIRONMENT);
 
     return {
       statusCode: error.statusCode || 500,

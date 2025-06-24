@@ -1,11 +1,11 @@
 import { Box, Button, Skeleton, Typography } from '@mui/material';
+import { generatePath, useNavigate, useParams } from 'react-router-dom';
+import { AppointmentInformationIntake } from 'utils';
+import { formatVisitDate } from 'utils';
 import { intakeFlowPageRoute } from '../App';
 import { useGetPastVisits } from '../features/past-visits';
-import { useZapEHRAPIClient } from '../telemed/utils';
-import { AppointmentInformationIntake } from 'utils';
 import { otherColors } from '../IntakeThemeProvider';
-import { generatePath, useNavigate, useParams } from 'react-router-dom';
-import { formatVisitDate } from 'utils';
+import { useZapEHRAPIClient } from '../telemed/utils';
 
 const PastVisits = (): JSX.Element => {
   const apiClient = useZapEHRAPIClient();

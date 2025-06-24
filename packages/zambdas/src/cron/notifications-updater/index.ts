@@ -4,8 +4,14 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Communication, Encounter, EncounterStatusHistory, Location, Practitioner } from 'fhir/r4b';
 import { DateTime, Duration } from 'luxon';
 import {
+  allLicensesForPractitioner,
   AppointmentProviderNotificationTags,
   AppointmentProviderNotificationTypes,
+  getPatchBinary,
+  getPatchOperationForNewMetaTag,
+  getProviderNotificationSettingsForPractitioner,
+  getSecret,
+  mapStatusToTelemed,
   OTTEHR_MODULE,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
   PROVIDER_NOTIFICATION_TYPE_SYSTEM,
@@ -13,22 +19,18 @@ import {
   ProviderNotificationSettings,
   RoleType,
   Secrets,
+  SecretsKeys,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
-  allLicensesForPractitioner,
-  getPatchBinary,
-  getPatchOperationForNewMetaTag,
-  getProviderNotificationSettingsForPractitioner,
-  mapStatusToTelemed,
 } from 'utils';
 import { getTelemedEncounterAppointmentId } from '../../ehr/get-telemed-appointments/helpers/mappers';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   getEmployees,
   getRoleMembers,
   getRoles,
   topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { removePrefix } from '../../shared/appointment/helpers';
 import { createOystehrClient } from '../../shared/helpers';
@@ -447,7 +449,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: 'Successfully processed provider notifications',
     };
   } catch (error: any) {
-    await topLevelCatch('Notification-updater', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('Notification-updater', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,

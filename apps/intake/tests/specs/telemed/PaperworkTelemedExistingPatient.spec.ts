@@ -2,9 +2,9 @@
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
 import { Locators } from '../../utils/locators';
-import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
-import { FillingInfo } from '../../utils/telemed/FillingInfo';
 import { Paperwork, PATIENT_ADDRESS, PATIENT_ADDRESS_LINE_2, PATIENT_CITY, PATIENT_ZIP } from '../../utils/Paperwork';
+import { FillingInfo } from '../../utils/telemed/FillingInfo';
+import { PrebookTelemedFlow } from '../../utils/telemed/PrebookTelemedFlow';
 
 let page: Page;
 let context: BrowserContext;

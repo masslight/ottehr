@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { Encounter } from 'fhir/r4b';
 import { CODE_SYSTEM_ICD_10, getSecret, Secrets, SecretsKeys } from 'utils';
-import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { EnhancedBody, ValidatedCPTCode, ValidatedICD10Code, ValidatedInput } from '.';
 
 export const validateInput = async (
   input: ZambdaInput,

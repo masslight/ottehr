@@ -1,11 +1,11 @@
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
+import { Secrets } from 'utils';
+import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo } from './pdf-utils';
 import { LabsData } from './types';
-import { Secrets } from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
 
 async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint8Array> {
   if (!data.orderName) {
@@ -277,7 +277,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   if (hadSomeAddressInfo) await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.locationStreetAddress?.toUpperCase() || '');
-  drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularTextBold.font);
+  drawRegularTextRight(data.providerName, styles.regularTextBold.font);
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
   drawRegularTextLeft(locationCityStateZip);
@@ -398,10 +398,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   addNewLine(undefined, 4);
 
   // Signature
-  drawRegularTextLeft(
-    `Electronically signed by: ${data.providerName}, ${data.providerTitle}`,
-    styles.regularTextBold.font
-  );
+  drawRegularTextLeft(`Electronically signed by: ${data.providerName}`, styles.regularTextBold.font);
   addNewLine();
   drawSeparatorLine();
   addNewLine();

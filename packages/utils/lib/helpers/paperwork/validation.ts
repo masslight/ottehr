@@ -7,16 +7,16 @@ import {
 import { DateTime } from 'luxon';
 import {
   DATE_ERROR_MESSAGE,
-  IntakeQuestionnaireItem,
-  isoDateRegex,
+  DOB_DATE_FORMAT,
   emailRegex,
   emojiRegex,
+  IntakeQuestionnaireItem,
+  isoDateRegex,
   phoneRegex,
   pickFirstValueFromAnswerItem,
-  zipRegex,
   QuestionnaireItemConditionDefinition,
-  DOB_DATE_FORMAT,
   REQUIRED_FIELD_ERROR_MESSAGE,
+  zipRegex,
 } from 'utils';
 import * as Yup from 'yup';
 

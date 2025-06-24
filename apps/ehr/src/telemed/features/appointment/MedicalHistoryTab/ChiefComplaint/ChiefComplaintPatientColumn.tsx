@@ -1,13 +1,13 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { Box, Skeleton, Typography, useTheme } from '@mui/material';
 import { FC, useEffect, useState } from 'react';
+import { AiObservationField, ObservationTextFieldDTO } from 'utils';
+import AiSuggestion from '../../../../../components/AiSuggestion';
 import ImageCarousel, { ImageCarouselObject } from '../../../../../components/ImageCarousel';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getPresignedFileUrl } from '../../../../../helpers/files.helper';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../state';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
-import AiSuggestion from '../../../../../components/AiSuggestion';
-import { AiObservationField, HISTORY_OBTAINED_FROM_FIELD, HistorySourceKeys, ObservationTextFieldDTO } from 'utils';
 
 export const ChiefComplaintPatientColumn: FC = () => {
   const theme = useTheme();

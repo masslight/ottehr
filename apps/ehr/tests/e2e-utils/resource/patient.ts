@@ -1,4 +1,4 @@
-import { Patient, ContactPoint, Address, CodeableConcept, Coding, HumanName } from 'fhir/r4';
+import { Address, CodeableConcept, Coding, ContactPoint, HumanName, Patient } from 'fhir/r4';
 
 export interface PatientParams {
   firstName: string;

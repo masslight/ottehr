@@ -1,5 +1,5 @@
-import { GetOrUploadPatientProfilePhotoZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
+import { GetOrUploadPatientProfilePhotoZambdaInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetOrUploadPatientProfilePhotoZambdaInputValidated {
   if (!input.body) {

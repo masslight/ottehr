@@ -1,13 +1,13 @@
+import { Box, Typography } from '@mui/material';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
-import { useAppointmentStore, useUpdatePaperwork } from '../../../../../state';
-import { useDebounce } from '../../../../../hooks';
-import { Box, Typography } from '@mui/material';
-import { NumberInput } from '../NumberInput';
 import { convertTemperature } from 'utils';
-import { getSelectors } from '../../../../../../shared/store/getSelectors';
 import { getQuestionnaireResponseByLinkId } from 'utils';
+import { getSelectors } from '../../../../../../shared/store/getSelectors';
+import { useDebounce } from '../../../../../hooks';
+import { useAppointmentStore, useUpdatePaperwork } from '../../../../../state';
 import { updateQuestionnaireResponse } from '../../../../../utils';
+import { NumberInput } from '../NumberInput';
 
 type VitalsTemperatureProps = {
   validate: (value: string) => string | undefined;

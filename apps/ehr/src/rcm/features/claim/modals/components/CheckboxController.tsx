@@ -1,5 +1,5 @@
-import React, { FC } from 'react';
 import { Checkbox, FormControlLabel } from '@mui/material';
+import React, { FC } from 'react';
 import { Controller, ControllerProps, useFormContext } from 'react-hook-form';
 
 type CheckboxControllerProps = Pick<ControllerProps, 'name' | 'rules'> & { label?: string };

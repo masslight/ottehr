@@ -1,8 +1,8 @@
-import React, { FC } from 'react';
 import { Box, CircularProgress } from '@mui/material';
-import { AssessmentCard } from './AssessmentCard';
+import React, { FC } from 'react';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
+import { AssessmentCard } from './AssessmentCard';
 
 export const AssessmentTab: FC = () => {
   const { isChartDataLoading } = getSelectors(useAppointmentStore, ['isChartDataLoading']);

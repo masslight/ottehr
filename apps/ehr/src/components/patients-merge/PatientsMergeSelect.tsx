@@ -1,6 +1,5 @@
-import React, { FC, useMemo, useState } from 'react';
-import { Patient } from 'fhir/r4b';
-import { enqueueSnackbar } from 'notistack';
+import CloseIcon from '@mui/icons-material/Close';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   CircularProgress,
   Dialog,
@@ -16,12 +15,13 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
+import { Patient } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
+import React, { FC, useMemo, useState } from 'react';
 import { getFullName, standardizePhoneNumber } from 'utils';
-import { RoundedButton } from '../RoundedButton';
-import { ConfirmationDialog, DeleteIconButton } from '../../telemed';
 import { formatDateUsingSlashes } from '../../helpers/formatDateTime';
+import { ConfirmationDialog, DeleteIconButton } from '../../telemed';
+import { RoundedButton } from '../RoundedButton';
 import { useGetPatientById, useGetPatientsForMerge } from './queries';
 
 type PatientsMergeSelectProps = {

@@ -1,11 +1,11 @@
 import { expect, Page, test } from '@playwright/test';
-import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
-import { dataTestIds } from '../../../../src/constants/data-test-ids';
-import { TelemedAppointmentVisitTabs } from 'utils';
-import { waitForSaveChartDataResponse } from 'test-utils';
-import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
 import { DateTime } from 'luxon';
+import { waitForSaveChartDataResponse } from 'test-utils';
+import { TelemedAppointmentVisitTabs } from 'utils';
+import { dataTestIds } from '../../../../src/constants/data-test-ids';
+import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
+import { getDropdownOption } from '../../../e2e-utils/helpers/tests-utils';
+import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 
 test.describe('Disposition', async () => {
   test.describe('Primary Care Physician', async () => {
@@ -151,7 +151,7 @@ test.describe('Disposition', async () => {
     });
   });
 
-  test.describe('Speciality transfer', async () => {
+  test.describe('Specialty transfer', async () => {
     const PROCESS_ID = `planTab.spec.ts-specialty-transfer-${DateTime.now().toMillis()}`;
     const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
     let page: Page;

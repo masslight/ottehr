@@ -39,7 +39,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     return response;
   } catch (error: any) {
-    await topLevelCatch('update-appointment', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-appointment', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal error' }),

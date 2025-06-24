@@ -1,10 +1,10 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createOystehrClient } from '../../shared/helpers';
-import { captureSentryException, topLevelCatch, ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
 import { Appointment, DocumentReference, Patient } from 'fhir/r4b';
 import { getSecret, SecretsKeys, VISIT_NOTE_SUMMARY_CODE } from 'utils';
+import { topLevelCatch, ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 
@@ -81,6 +81,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
     };
   } catch (error: any) {
-    return topLevelCatch('send-fax', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('send-fax', error, ENVIRONMENT);
   }
 };

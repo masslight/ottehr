@@ -1,9 +1,9 @@
-import React, { JSX, useState } from 'react';
-import { useTheme, Box, Typography, IconButton } from '@mui/material';
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
-import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
+import { Box, IconButton, Typography, useTheme } from '@mui/material';
+import React, { JSX, useState } from 'react';
 import { VitalsObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
+import { VitalWeightHistoryEntry } from './VitalWeightHistoryEntry';
 
 type VitalWeightHistoryElementProps = {
   historyEntry: VitalWeightHistoryEntry;

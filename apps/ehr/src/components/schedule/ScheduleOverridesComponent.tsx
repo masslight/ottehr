@@ -1,31 +1,31 @@
-import React, { useState, ReactElement, Fragment, useMemo, useEffect } from 'react';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
-  Paper,
+  AlertColor,
   Box,
-  Typography,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  MenuItem,
   Button,
-  Select,
-  InputLabel,
   FormControl,
   IconButton,
-  AlertColor,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import DeleteIcon from '@mui/icons-material/Delete';
 import { DateTime } from 'luxon';
+import React, { Fragment, ReactElement, useEffect, useMemo, useState } from 'react';
+import { HourOfDay, ScheduleExtension, ScheduleOverrides } from 'utils';
+import { datesCompareFn, OVERRIDE_DATE_FORMAT } from '../../helpers/formatDateTime';
+import { Closure, ClosureType, Day, DOW } from '../../types/types';
 import DateSearch from '../DateSearch';
 import OfficeClosures from './OfficeClosures';
-import ScheduleOverridesDialog from './ScheduleOverridesDialog';
 import { ScheduleCapacity } from './ScheduleCapacity';
-import { OVERRIDE_DATE_FORMAT, datesCompareFn } from '../../helpers/formatDateTime';
-import { Closure, DOW, Day, ClosureType } from '../../types/types';
-import { HourOfDay, ScheduleExtension, ScheduleOverrides } from 'utils';
+import ScheduleOverridesDialog from './ScheduleOverridesDialog';
 
 export interface UpdateOverridesInput {
   scheduleOverrides: ScheduleOverrides;

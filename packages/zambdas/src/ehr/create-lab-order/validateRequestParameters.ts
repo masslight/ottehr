@@ -1,5 +1,5 @@
+import { CreateLabOrderParameters, MISSING_REQUEST_BODY, MISSING_REQUIRED_PARAMETERS } from 'utils';
 import { ZambdaInput } from '../../shared/types';
-import { CreateLabOrderParameters, MISSING_REQUIRED_PARAMETERS, MISSING_REQUEST_BODY } from 'utils';
 
 export function validateRequestParameters(input: ZambdaInput): CreateLabOrderParameters & { secrets: any } {
   if (!input.body) {

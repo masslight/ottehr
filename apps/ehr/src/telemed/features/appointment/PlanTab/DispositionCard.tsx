@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useEffect, useState, useRef } from 'react';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import {
   Autocomplete,
   Box,
@@ -13,8 +13,9 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import { enqueueSnackbar } from 'notistack';
+import React, { FC, useCallback, useEffect, useRef, useState } from 'react';
+import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import {
   dispositionCheckboxOptions,
   DispositionType,
@@ -23,26 +24,25 @@ import {
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   NOTHING_TO_EAT_OR_DRINK_LABEL,
 } from 'utils';
-import { AccordionCard, ContainedPrimaryToggleButton, UppercaseCaptionTypography } from '../../../components';
-import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
-import { useDebounce, useGetAppointmentAccessibility } from '../../../hooks';
-import { getSelectors } from '../../../../shared/store/getSelectors';
-import { useAppointmentStore, useSaveChartData } from '../../../state';
-import {
-  DispositionFormValues,
-  mapDispositionToForm,
-  DEFAULT_DISPOSITION_VALUES,
-  dispositionFieldsPerType,
-  labServiceOptions,
-  virusTestsOptions,
-  followUpInOptions,
-  SEND_OUT_VIRUS_TEST_LABEL,
-  reasonsForTransferOptions,
-} from '../../../utils';
-import { useDispositionMultipleNotes } from './useDispositionMultipleNotes';
 import { RoundedButton } from '../../../../components/RoundedButton';
 import { dataTestIds } from '../../../../constants/data-test-ids';
 import { useChartData } from '../../../../features/css-module/hooks/useChartData';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { AccordionCard, ContainedPrimaryToggleButton, UppercaseCaptionTypography } from '../../../components';
+import { useDebounce, useGetAppointmentAccessibility } from '../../../hooks';
+import { useAppointmentStore, useSaveChartData } from '../../../state';
+import {
+  DEFAULT_DISPOSITION_VALUES,
+  dispositionFieldsPerType,
+  DispositionFormValues,
+  followUpInOptions,
+  labServiceOptions,
+  mapDispositionToForm,
+  reasonsForTransferOptions,
+  SEND_OUT_VIRUS_TEST_LABEL,
+  virusTestsOptions,
+} from '../../../utils';
+import { useDispositionMultipleNotes } from './useDispositionMultipleNotes';
 
 const ERROR_TEXT = 'Disposition data update was unsuccessful, please change some disposition field data to try again.';
 

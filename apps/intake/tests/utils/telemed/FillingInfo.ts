@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 import { DateTime } from 'luxon';
 import { Locators } from '../locators';
 

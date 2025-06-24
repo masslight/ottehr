@@ -1,7 +1,7 @@
-import { Link } from 'react-router-dom';
-import { Box, Typography, Link as MuiLink } from '@mui/material';
+import { Box, Link as MuiLink, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { FC } from 'react';
+import { Link } from 'react-router-dom';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
 

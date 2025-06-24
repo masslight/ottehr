@@ -1,3 +1,4 @@
+import { Practitioner } from 'fhir/r4b';
 import { Color, PDFFont, PDFImage, StandardFonts } from 'pdf-lib';
 import {
   AdditionalBooleanQuestionsFieldsNames,
@@ -5,10 +6,10 @@ import {
   ExamTabCardNames,
   InPersonExamObservationFieldItem,
   InPersonExamTabProviderCardNames,
+  LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
   VitalsVisitNoteData,
-  LabType,
 } from 'utils';
 
 export interface PageElementStyle {
@@ -126,7 +127,6 @@ export interface LabsData {
   serviceRequestID: string;
   reqId: string; // this is only for external
   providerName: string;
-  providerTitle: string;
   providerNPI: string | undefined;
   patientFirstName: string;
   patientMiddleName: string | undefined;
@@ -197,9 +197,7 @@ export interface ExternalLabResultsData extends LabResultsData {
   collectionDate: string;
   resultPhase: string;
   reviewed?: boolean;
-  reviewingProviderFirst: string;
-  reviewingProviderLast: string;
-  reviewingProviderTitle: string;
+  reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
   resultInterpretations: string[];
   externalLabResults: ExternalLabResult[];
@@ -221,7 +219,7 @@ export interface InHouseLabResultsData extends LabResultsData {
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
-  | { type: LabType.inhouse; data: InHouseLabResultsData };
+  | { type: LabType.inHouse; data: InHouseLabResultsData };
 
 export interface VisitNoteData extends ExaminationBlockData {
   patientName: string;

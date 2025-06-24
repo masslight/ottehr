@@ -1,22 +1,22 @@
 import Oystehr, { TransactionalSMSSendParams } from '@oystehr/sdk';
 import sendgrid from '@sendgrid/mail';
-import { getRelatedPersonForPatient } from './patients';
 import { Appointment, HealthcareService, Location, Patient, Practitioner } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  createOystehrClient,
   formatPhoneNumberDisplay,
+  getSecret,
   isLocationVirtual,
   PROJECT_DOMAIN,
   PROJECT_NAME,
-  SLUG_SYSTEM,
-  ServiceMode,
-  createOystehrClient,
   Secrets,
   SecretsKeys,
-  getSecret,
+  ServiceMode,
+  SLUG_SYSTEM,
 } from 'utils';
-import { sendErrors } from './errors';
 import { getNameForOwner } from '../ehr/schedules/shared';
+import { sendErrors } from './errors';
+import { getRelatedPersonForPatient } from './patients';
 
 export interface InPersonCancellationEmailSettings {
   email: string;
@@ -187,6 +187,7 @@ export async function sendInPersonMessages(
     console.log('message send successful', commid);
   } catch (e) {
     console.log('message send error: ', JSON.stringify(e));
+    void sendErrors(e, getSecret(SecretsKeys.ENVIRONMENT, secrets));
   } finally {
     const end = DateTime.now();
     const messagesExecutionTime = end.toMillis() - start.toMillis();
@@ -304,10 +305,9 @@ export async function sendEmail(
       )}`
     );
   } catch (error) {
-    const errorMessage = `Error sending email confirmation to ${email}`;
+    const errorMessage = `Error sending email with subject ${subject} to ${email}`;
     console.error(`${errorMessage}: ${error}`);
-    // Send alert to Slack
-    await sendErrors('email', errorMessage, secrets);
+    void sendErrors(errorMessage, ENVIRONMENT);
   }
 }
 
@@ -370,7 +370,12 @@ export const sendVideoChatInvititationEmail = async (input: VideoChatInvitationE
   }
 };
 
-export async function sendSms(message: string, resourceReference: string, oystehr: Oystehr): Promise<void> {
+export async function sendSms(
+  message: string,
+  resourceReference: string,
+  oystehr: Oystehr,
+  ENVIRONMENT: string
+): Promise<void> {
   try {
     const commid = await oystehr.transactionalSMS.send({
       message,
@@ -379,13 +384,15 @@ export async function sendSms(message: string, resourceReference: string, oysteh
     console.log('message send res: ', commid);
   } catch (e) {
     console.log('message send error: ', JSON.stringify(e));
+    void sendErrors(e, ENVIRONMENT);
   }
 }
 
 export async function sendSmsForPatient(
   message: string,
   oystehr: Oystehr,
-  patient: Patient | undefined
+  patient: Patient | undefined,
+  ENVIRONMENT: string
 ): Promise<void> {
   if (!patient) {
     console.error("Message didn't send because no patient was found for encounter");
@@ -397,5 +404,5 @@ export async function sendSmsForPatient(
     return;
   }
   const recepient = `RelatedPerson/${relatedPerson.id}`;
-  await sendSms(message, recepient, oystehr);
+  await sendSms(message, recepient, oystehr, ENVIRONMENT);
 }

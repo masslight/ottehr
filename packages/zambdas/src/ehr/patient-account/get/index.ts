@@ -1,7 +1,9 @@
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
 import {
   CoverageCheckWithDetails,
+  getSecret,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
   MISSING_REQUEST_BODY,
@@ -9,11 +11,11 @@ import {
   PatientAccountResponse,
   pullCoverageIdentifyingDetails,
   Secrets,
+  SecretsKeys,
 } from 'utils';
-import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
-import { Coverage, CoverageEligibilityResponse, Practitioner } from 'fhir/r4b';
-import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 import { parseCoverageEligibilityResponse } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
 let m2mtoken: string;
 
@@ -34,7 +36,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('get-patient-account', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-patient-account', error, ENVIRONMENT);
   }
 };
 
