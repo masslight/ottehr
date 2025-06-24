@@ -6,9 +6,11 @@ import {
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
   getFullestAvailableName,
+  getSecret,
   getTimezone,
   PRACTITIONER_CODINGS,
   Secrets,
+  SecretsKeys,
   TestItem,
 } from 'utils';
 import {
@@ -159,7 +161,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     console.error('Error processing in-house lab order resources:', error);
-    await topLevelCatch('get-create-in-house-lab-order-resources', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-create-in-house-lab-order-resources', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

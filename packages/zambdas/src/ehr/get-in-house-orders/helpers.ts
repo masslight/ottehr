@@ -32,10 +32,9 @@ import {
   LabResultPDF,
   Pagination,
   PRACTITIONER_CODINGS,
-  Secrets,
   TestStatus,
 } from 'utils';
-import { captureSentryException, createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
+import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
 import {
   buildOrderHistory,
   determineOrderStatus,
@@ -67,7 +66,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
   resultsPDFs: LabResultPDF[],
-  secrets: Secrets | null,
+  ENVIRONMENT: string,
   currentPractitioner?: Practitioner,
   timezone?: string
 ): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
@@ -111,7 +110,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
       );
     } catch (error) {
       console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
-      void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
 

@@ -28,6 +28,7 @@ import {
   extractAbnormalValueSetValues,
   extractQuantityRange,
   getFullestAvailableName,
+  getSecret,
   HandleInHouseLabResultsZambdaOutput,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
@@ -38,6 +39,7 @@ import {
   NORMAL_OBSERVATION_INTERPRETATION,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   ResultEntryInput,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -164,7 +166,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
-    await topLevelCatch('handle-in-house-lab-results', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

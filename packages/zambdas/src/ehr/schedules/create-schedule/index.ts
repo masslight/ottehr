@@ -4,12 +4,14 @@ import { Extension, Schedule } from 'fhir/r4b';
 import {
   CreateScheduleParams,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   INVALID_INPUT_ERROR,
   MISSING_REQUEST_BODY,
   MISSING_REQUIRED_PARAMETERS,
   SCHEDULE_EXTENSION_URL,
   ScheduleExtension,
   Secrets,
+  SecretsKeys,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
@@ -36,7 +38,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('create-schedule', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('create-schedule', error, ENVIRONMENT);
   }
 };
 

@@ -5,6 +5,7 @@ import { DateTime } from 'luxon';
 import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
+  getSecret,
   getVersionedReferencesFromBundleResources,
   isValidUUID,
   makeValidationSchema,
@@ -16,6 +17,7 @@ import {
   QUESTIONNAIRE_RESPONSE_INVALID_CUSTOM_ERROR,
   QUESTIONNAIRE_RESPONSE_INVALID_ERROR,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import { ValidationError } from 'yup';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
@@ -41,7 +43,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('update-patient-account-from-questionnaire', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-patient-account-from-questionnaire', error, ENVIRONMENT);
   }
 };
 

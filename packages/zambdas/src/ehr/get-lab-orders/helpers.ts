@@ -49,10 +49,9 @@ import {
   QuestionnaireData,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
-  Secrets,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
-import { captureSentryException, sendErrors } from '../../shared';
+import { sendErrors } from '../../shared';
 import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
@@ -77,7 +76,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   resultPDFs: LabResultPDF[],
   orderPDF: LabOrderPDF | undefined,
   specimens: Specimen[],
-  secrets: Secrets | null
+  ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
   const result: LabOrderDTO<SearchBy>[] = [];
@@ -114,7 +113,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       );
     } catch (error) {
       console.error(`Error parsing service request ${serviceRequest.id}:`, error);
-      void sendErrors('get-lab-orders', error, secrets, captureSentryException);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
   return result;

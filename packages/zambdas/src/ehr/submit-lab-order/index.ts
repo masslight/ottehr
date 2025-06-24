@@ -14,12 +14,14 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getPresignedURL,
+  getSecret,
   getTimezone,
   isApiError,
   isPSCOrder,
   OYSTEHR_LAB_OI_CODE_SYSTEM,
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
+  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
@@ -452,7 +454,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   } catch (error: any) {
     console.log(error);
     console.log('submit external lab order error:', JSON.stringify(error));
-    await topLevelCatch('admin-submit-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-submit-lab-order', error, ENVIRONMENT);
     let body = JSON.stringify({ message: 'Error submitting external lab order' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;
