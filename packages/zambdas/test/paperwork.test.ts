@@ -122,7 +122,7 @@ describe.skip('paperwork tests', () => {
     }
 
     if (!formsConsentResource) {
-      throw new Error('Forms Consent informaton not found!');
+      throw new Error('Forms Consent information not found!');
     }
     expect(response.message).toEqual('Successfully updated paperwork');
     expect(response?.insurance).toEqual(insuranceCoverageResource);
@@ -189,7 +189,7 @@ describe.skip('paperwork tests', () => {
     }
 
     if (!formsConsentResource) {
-      throw new Error('Forms Consent informaton not found!');
+      throw new Error('Forms Consent information not found!');
     }
 
     expect(response.message).toEqual('Successfully updated paperwork');
@@ -276,7 +276,7 @@ describe.skip('paperwork tests', () => {
     }
 
     if (!formsConsentResource) {
-      throw new Error('Forms Consent informaton not found!');
+      throw new Error('Forms Consent information not found!');
     }
     expect(response.message).toEqual('Successfully updated paperwork');
     expect(response?.insurance).toEqual(insuranceCoverageResource);
@@ -445,7 +445,7 @@ describe.skip('paperwork tests', () => {
     }
 
     if (!formsConsentResource) {
-      throw new Error('Forms Consent informaton not found!');
+      throw new Error('Forms Consent information not found!');
     }
     expect(response.message).toEqual('Successfully updated paperwork');
     expect(response?.insurance).toEqual(insuranceCoverageResource);
@@ -545,7 +545,7 @@ describe.skip('paperwork tests', () => {
     }
 
     if (!formsConsentResource) {
-      throw new Error('Forms Consent informaton not found!');
+      throw new Error('Forms Consent information not found!');
     }
     expect(updatedResponse.message).toEqual('Successfully updated paperwork');
     expect(updatedResponse?.insurance).toEqual(insuranceCoverageResource);

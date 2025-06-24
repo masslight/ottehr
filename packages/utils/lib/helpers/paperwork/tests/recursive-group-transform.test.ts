@@ -32,7 +32,7 @@ const BASE_FORM_VALUES = [
     linkId: 'insurance-member-id',
     answer: [
       {
-        valueString: 'FAfonejwgndkoetwwe6',
+        valueString: 'FafOneJwgNdkOetWwe6',
       },
     ],
   },
@@ -198,7 +198,7 @@ const BASE_FORM_VALUES = [
         linkId: 'policy-holder-last-name-2',
         answer: [
           {
-            valueString: 'Picklesworth',
+            valueString: 'PicklesWorth',
           },
         ],
       },

@@ -1370,6 +1370,7 @@ export const makeTestPatient = (partial?: Partial<Patient>): Patient => {
     name: [
       {
         use: 'official',
+        // cSpell:disable-next Olha
         given: ['Olha'],
         family: 'Test0418',
       },
@@ -1486,6 +1487,7 @@ export const persistTestPatient = async (input: PersistTestPatientInput, oystehr
       name: [
         {
           family: 'Horseman',
+          // cSpell:disable-next Bojack
           given: ['Bojack'],
         },
       ],
