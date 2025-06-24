@@ -373,7 +373,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
-        reqId: orderID || ORDER_ITEM_UNKNOWN,
+        orderNumber: orderID || ORDER_ITEM_UNKNOWN,
         providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
         // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
         providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',

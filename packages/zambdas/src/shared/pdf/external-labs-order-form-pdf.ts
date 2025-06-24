@@ -11,7 +11,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   if (!data.orderName) {
     throw new Error('Order name is required');
   }
-  console.log('drawing pdf for ', data.reqId, data.orderName);
+  console.log('drawing pdf for ', data.orderNumber, data.orderName);
 
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -272,7 +272,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
 
   // Location details
   drawSubHeader(data?.locationName || '');
-  drawFieldLineRight('Req ID:', data.reqId);
+  drawFieldLineRight('Req ID:', data.orderNumber);
   addNewLine();
   if (hadSomeAddressInfo) await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;

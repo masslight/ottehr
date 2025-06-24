@@ -165,7 +165,8 @@ const getResultDataConfig = (
       performingLabDirectorFullName,
     } = specificResources;
     const externalLabData: Omit<ExternalLabResultsData, keyof LabResultsData> = {
-      reqId: serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value || '',
+      orderNumber:
+        serviceRequest.identifier?.find((item) => item.system === OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM)?.value || '',
       accessionNumber: diagnosticReport.identifier?.find((item) => item.type?.coding?.[0].code === 'FILL')?.value || '',
       collectionDate,
       orderSubmitDate,
@@ -582,7 +583,7 @@ async function createExternalLabsResultsFormPdfBytes(
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Req ID:', data.reqId);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.orderNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
   pdfClient.newLine(STANDARD_NEW_LINE);
@@ -700,7 +701,7 @@ async function createInHouseLabsResultsFormPdfBytes(
   data: InHouseLabResultsData
 ): Promise<Uint8Array> {
   // Order details
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order ID:', data.serviceRequestID);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.serviceRequestID);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);

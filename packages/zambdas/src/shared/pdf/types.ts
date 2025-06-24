@@ -124,7 +124,7 @@ export interface LabsData {
   locationFax?: string;
   labOrganizationName: string; // this is only mapped for order pdf
   serviceRequestID: string;
-  reqId: string; // this is only for external
+  orderNumber: string; // this is only for external
   providerName: string;
   providerTitle: string;
   providerNPI: string | undefined;
@@ -179,7 +179,7 @@ export interface LabResultsData
   extends Omit<
     LabsData,
     | 'aoeAnswers'
-    | 'reqId'
+    | 'orderNumber'
     | 'labOrganizationName'
     | 'orderSubmitDate'
     | 'providerTitle'
@@ -191,7 +191,7 @@ export interface LabResultsData
   abnormalResult?: boolean;
 }
 export interface ExternalLabResultsData extends LabResultsData {
-  reqId: string;
+  orderNumber: string;
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
