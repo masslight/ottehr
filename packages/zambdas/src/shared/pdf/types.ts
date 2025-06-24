@@ -216,7 +216,7 @@ export interface InHouseLabResultsData extends LabResultsData {
 
 export type ResultDataConfig =
   | { type: LabType.external; data: ExternalLabResultsData }
-  | { type: LabType.inhouse; data: InHouseLabResultsData };
+  | { type: LabType.inHouse; data: InHouseLabResultsData };
 
 export interface VisitNoteData extends ExaminationBlockData {
   patientName: string;

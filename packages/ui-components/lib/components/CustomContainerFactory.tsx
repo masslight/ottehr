@@ -44,7 +44,7 @@ export const CustomContainerFactory = ({
 }: CustomContainerFactoryProps): FC<WrappedContainerProps> => {
   const CustomContainerWrapped: FC<WrappedContainerProps> = (props) => {
     const passThroughProps = {
-      ...props, // factory args will overwrrite anything passed through
+      ...props, // factory args will overwrite anything passed through
       logo,
       showLanguagePicker,
       alt,

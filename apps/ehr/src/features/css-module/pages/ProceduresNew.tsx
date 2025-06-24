@@ -172,19 +172,19 @@ export default function ProceduresNew(): ReactElement {
       procedureTime: procedureDateTime,
       performerType: procedure.performerType,
       medicationUsed: procedure.medicationUsed,
-      bodySite: getValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
-      otherBodySite: getOtherValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
+      bodySite: getPredefinedValueOrOther(procedure.bodySite, selectOptions?.bodySites),
+      otherBodySite: getPredefinedValueIfOther(procedure.bodySite, selectOptions?.bodySites),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
-      suppliesUsed: getValueForOtherable(procedure.suppliesUsed, selectOptions?.supplies),
-      otherSuppliesUsed: getOtherValueForOtherable(procedure.suppliesUsed, selectOptions?.supplies),
+      suppliesUsed: getPredefinedValueOrOther(procedure.suppliesUsed, selectOptions?.supplies),
+      otherSuppliesUsed: getPredefinedValueIfOther(procedure.suppliesUsed, selectOptions?.supplies),
       procedureDetails: procedure.procedureDetails,
       specimenSent: procedure.specimenSent,
-      complications: getValueForOtherable(procedure.complications, selectOptions?.complications),
-      otherComplications: getOtherValueForOtherable(procedure.complications, selectOptions?.complications),
+      complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
+      otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
       patientResponse: procedure.patientResponse,
-      postInstructions: getValueForOtherable(procedure.postInstructions, selectOptions?.postProcedureInstructions),
-      otherPostInstructions: getOtherValueForOtherable(
+      postInstructions: getPredefinedValueOrOther(procedure.postInstructions, selectOptions?.postProcedureInstructions),
+      otherPostInstructions: getPredefinedValueIfOther(
         procedure.postInstructions,
         selectOptions?.postProcedureInstructions
       ),
@@ -664,14 +664,17 @@ export default function ProceduresNew(): ReactElement {
   );
 }
 
-function getValueForOtherable(value: string | undefined, predefinedValues: string[] | undefined): string | undefined {
+function getPredefinedValueOrOther(
+  value: string | undefined,
+  predefinedValues: string[] | undefined
+): string | undefined {
   if (value != null && predefinedValues?.includes(value)) {
     return value;
   }
   return value != null ? OTHER : undefined;
 }
 
-function getOtherValueForOtherable(
+function getPredefinedValueIfOther(
   value: string | undefined,
   predefinedValues: string[] | undefined
 ): string | undefined {

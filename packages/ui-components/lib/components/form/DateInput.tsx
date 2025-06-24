@@ -57,7 +57,6 @@ const DateInput: FC<DateInputProps> = ({ name, label, helperText, showHelperText
         errors={errors}
         helperText={helperText}
         showHelperTextIcon={showHelperTextIcon}
-        key={'helpertext'}
       />
     </Box>
   );

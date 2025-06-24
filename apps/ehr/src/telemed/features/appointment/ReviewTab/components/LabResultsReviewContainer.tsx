@@ -10,7 +10,7 @@ interface LabResultsReviewContainerProps {
         results: ExternalLabOrderResult[];
       }
     | {
-        type: LabType.inhouse;
+        type: LabType.inHouse;
         results: InHouseLabResult[];
       };
   resultsPending: boolean;
@@ -19,7 +19,7 @@ interface LabResultsReviewContainerProps {
 export const LabResultsReviewContainer: FC<LabResultsReviewContainerProps> = ({ resultDetails, resultsPending }) => {
   const isExternal = resultDetails.type === LabType.external;
   const title = isExternal ? 'External Labs' : 'In-House Labs';
-  const keyIdentifier = isExternal ? 'external-lab-result' : 'inhouse-lab-result';
+  const keyIdentifier = isExternal ? 'external-lab-result' : 'in-house-lab-result';
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, width: '100%' }}>
       <Typography variant="h5" color="primary.dark">
