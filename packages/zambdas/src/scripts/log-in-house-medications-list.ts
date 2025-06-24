@@ -1,7 +1,7 @@
-import { getAuth0Token } from '../shared';
-import { fhirApiUrlFromAuth0Audience, getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
 import Oystehr from '@oystehr/sdk';
 import { getMedicationName } from 'utils';
+import { getAuth0Token } from '../shared';
+import { fhirApiUrlFromAuth0Audience, getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
 
 async function checkInHouseMedications(config: any): Promise<void> {
   const token = await getAuth0Token(config);

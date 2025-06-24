@@ -19,9 +19,9 @@ import {
 } from 'utils';
 import { createOystehrClient } from '../../shared';
 import { ZambdaInput } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedicationFromMA } from '../create-update-medication-order/helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 

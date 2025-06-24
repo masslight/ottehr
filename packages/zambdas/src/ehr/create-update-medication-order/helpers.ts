@@ -13,8 +13,8 @@ import {
   Secrets,
 } from 'utils';
 import { createOystehrClient } from '../../shared';
-import { createMedicationAdministrationResource } from './fhir-recources-creation';
 import { ZambdaInput } from '../../shared';
+import { createMedicationAdministrationResource } from './fhir-recources-creation';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;
