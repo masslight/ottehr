@@ -726,9 +726,9 @@ async function createInHouseLabsResultsFormPdfBytes(
   // Order details
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.serviceRequestID);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering Physician:', data.providerName);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order date:', data.orderCreateDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
   pdfClient.drawText('IQC Valid', textStyles.textBold);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
@@ -787,9 +787,9 @@ async function createInHouseLabsResultsFormPdfBytes(
       pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     }
-    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collected:', labResult.collectionDate);
+    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Collection Date:', labResult.collectionDate);
     pdfClient.newLine(STANDARD_FONT_SIZE + 3);
-    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Final result:', labResult.finalResultDateTime);
+    pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Results Date:', labResult.finalResultDateTime);
     pdfClient.newLine(24);
   }
 
