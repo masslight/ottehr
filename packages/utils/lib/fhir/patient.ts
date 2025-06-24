@@ -16,15 +16,6 @@ import {
   RelatedPerson,
   Resource,
 } from 'fhir/r4b';
-import {
-  allLicensesForPractitioner,
-  FHIR_EXTENSION,
-  FHIR_IDENTIFIER_NPI,
-  filterResources,
-  getCommunicationsAndSenders,
-  getUniquePhonesNumbers,
-  PRIVATE_EXTENSION_BASE_URL,
-} from '.';
 import { removePrefix } from '../helpers';
 import {
   PATIENT_INDIVIDUAL_PRONOUNS_URL,
@@ -36,6 +27,15 @@ import {
   ProviderNotificationSettings,
   RelatedPersonMaps,
 } from '../types';
+import {
+  allLicensesForPractitioner,
+  FHIR_EXTENSION,
+  FHIR_IDENTIFIER_NPI,
+  filterResources,
+  getCommunicationsAndSenders,
+  getUniquePhonesNumbers,
+  PRIVATE_EXTENSION_BASE_URL,
+} from '.';
 
 // Return true if a new user
 export async function createUserResourcesForPatient(
