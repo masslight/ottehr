@@ -7,6 +7,7 @@
   "useGitignore": true,
   "dictionaries": ["en_US", "softwareTerms", "bash", "css", "filetypes", "html", "node", "npm", "typescript"],
   "ignorePaths": ["**/package.json", "**/seed-ehr-appointment-data.json", "**/i18n-es.json"],
+  "flagWords": ["hte"],
   "words": [
     "accum",
     "albuterol",

@@ -296,7 +296,7 @@ export const makeEncounterLabResults = async (
       if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
           resource: resource as ServiceRequest,
-          type: isExternalLabServiceRequest ? LabType.external : LabType.inhouse,
+          type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
           if (isExternalLabServiceRequest) activeExternalLabServiceRequests.push(resource);
@@ -361,14 +361,14 @@ export const makeEncounterLabResults = async (
           } else {
             externalLabOrderResults.push(...externalResultConfigs);
           }
-        } else if (relatedSRDetail.type === LabType.inhouse) {
+        } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mtoken,
-            { type: LabType.inhouse }
+            { type: LabType.inHouse }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -424,7 +424,7 @@ const getLabOrderResultPDFConfig = async (
         orderNumber?: string;
       }
     | {
-        type: LabType.inhouse;
+        type: LabType.inHouse;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -441,7 +441,7 @@ const getLabOrderResultPDFConfig = async (
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
-      } else if (resultDetails.type === LabType.inhouse) {
+      } else if (resultDetails.type === LabType.inHouse) {
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
