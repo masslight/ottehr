@@ -90,7 +90,7 @@ type LabTypeSpecificResources =
         reviewingProviderLast: string;
         reviewDate: string | undefined;
         resultInterpretations: string[];
-        performingLabDirectorFullName: string;
+        performingLabDirectorFullName?: string;
         performingLabAddress?: string;
       };
     }
@@ -183,10 +183,9 @@ const getResultDataConfig = (
         '',
       performingLabName: organization?.name || '',
       performingLabAddress,
-      performingLabPhone:
-        organization?.contact
-          ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
-          ?.telecom?.find((temp) => temp.system === 'phone')?.value || '',
+      performingLabPhone: organization?.contact
+        ?.find((temp) => temp.purpose?.coding?.find((purposeTemp) => purposeTemp.code === 'lab_director'))
+        ?.telecom?.find((temp) => temp.system === 'phone')?.value,
       // abnormalResult: true,
       performingLabDirectorFullName,
     };
@@ -668,8 +667,17 @@ async function createExternalLabsResultsFormPdfBytes(
     pdfClient.drawText(data.performingLabAddress, textStyles.textRight);
   }
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient.drawText(`${data.performingLabDirectorFullName}, ${data.performingLabPhone}`, textStyles.textRight);
-  pdfClient.newLine(STANDARD_NEW_LINE);
+
+  if (data.performingLabDirectorFullName && data.performingLabPhone) {
+    pdfClient.drawText(`${data.performingLabDirectorFullName}, ${data.performingLabPhone}`, textStyles.textRight);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  } else if (data.performingLabDirectorFullName) {
+    pdfClient.drawText(data.performingLabDirectorFullName, textStyles.textRight);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  } else if (data.performingLabPhone) {
+    pdfClient.drawText(data.performingLabPhone, textStyles.textRight);
+    pdfClient.newLine(STANDARD_NEW_LINE);
+  }
 
   // Reviewed by
   if (data.reviewed) {

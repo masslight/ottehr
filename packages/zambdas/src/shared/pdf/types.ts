@@ -207,8 +207,8 @@ export interface ExternalLabResultsData extends LabResultsData {
   performingLabName: string;
   performingLabAddress?: string;
   performingLabDirector?: string;
-  performingLabPhone: string;
-  performingLabDirectorFullName: string;
+  performingLabPhone?: string;
+  performingLabDirectorFullName?: string;
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];
