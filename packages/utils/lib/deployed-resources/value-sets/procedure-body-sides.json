@@ -1,32 +1,32 @@
 {
-    "resourceType": "ValueSet",
-    "url": "https://fhir.ottehr.com/ValueSet/procedure-body-sides",
-    "version": "1.0.0",
-    "name": "Procedures - Body side",
-    "status": "active",
-    "expansion": {
-        "timestamp": "2025-06-10T11:36:51.034Z",
-        "contains": [
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
-                "code": "left",
-                "display": "Left"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
-                "code": "right",
-                "display": "Right"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
-                "code": "midline",
-                "display": "Midline"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
-                "code": "not-applicable",
-                "display": "Not Applicable"
-            }
-        ]
-    }
+  "resourceType": "ValueSet",
+  "url": "https://fhir.ottehr.com/ValueSet/procedure-body-sides",
+  "version": "1.0.0",
+  "name": "Procedures - Body side",
+  "status": "active",
+  "expansion": {
+    "timestamp": "2025-06-10T11:36:51.034Z",
+    "contains": [
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
+        "code": "left",
+        "display": "Left"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
+        "code": "right",
+        "display": "Right"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
+        "code": "midline",
+        "display": "Midline"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sides",
+        "code": "not-applicable",
+        "display": "Not Applicable"
+      }
+    ]
+  }
 }

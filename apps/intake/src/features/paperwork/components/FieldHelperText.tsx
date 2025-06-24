@@ -1,6 +1,6 @@
-import { FC } from 'react';
-import { Box, FormHelperText, Typography } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, FormHelperText, Typography } from '@mui/material';
+import { FC } from 'react';
 
 type FieldHelperTextProps = {
   name: string;

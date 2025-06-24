@@ -1,14 +1,14 @@
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
+import { Box, Button, CircularProgress, Collapse, Divider, IconButton, Paper, Typography } from '@mui/material';
 import React, { useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, CircularProgress, Collapse, IconButton, Divider } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ButtonRounded } from 'src/features/css-module/components/RoundedButton';
-import { OrderDetails } from '../components/details/OrderDetails';
-import { getSelectors, NursingOrdersSearchBy } from 'utils';
-import { History } from '../components/details/History';
-import { BreadCrumbs } from '../components/BreadCrumbs';
-import { useGetNursingOrders, useUpdateNursingOrder } from '../components/orders/useNursingOrders';
 import { useAppointmentStore } from 'src/telemed';
+import { getSelectors, NursingOrdersSearchBy } from 'utils';
+import { BreadCrumbs } from '../components/BreadCrumbs';
+import { History } from '../components/details/History';
+import { OrderDetails } from '../components/details/OrderDetails';
+import { useGetNursingOrders, useUpdateNursingOrder } from '../components/orders/useNursingOrders';
 
 export const NursingOrderDetailsPage: React.FC = () => {
   const navigate = useNavigate();

@@ -1,4 +1,5 @@
 import { Address, FhirResource, HealthcareService, Location, Practitioner } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   ClosureType,
   getFullName,
@@ -13,7 +14,6 @@ import {
   UpdateScheduleParams,
 } from 'utils';
 import { ZambdaInput } from '../../../shared';
-import { DateTime } from 'luxon';
 
 export const addressStringFromAddress = (address: Address): string => {
   let addressString = '';

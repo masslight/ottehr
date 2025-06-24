@@ -1,15 +1,15 @@
+import { otherColors } from '@ehrTheme/colors';
+import { logo } from '@ehrTheme/icons';
 import { TabList } from '@mui/lab';
 import { AppBar, Container, Tab, Toolbar, useMediaQuery, useTheme } from '@mui/material';
 import { ReactElement, SyntheticEvent, useEffect, useMemo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 import { PROJECT_NAME, RoleType } from 'utils';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { AppTab, useNavStore } from '../../state/nav.store';
 import MobileMenu from './MobileMenu';
-import { otherColors } from '@ehrTheme/colors';
-import { logo } from '@ehrTheme/icons';
 import { UserMenu } from './UserMenu';
-import { adjustTopForBannerHeight } from 'src/helpers/misc.helper';
 
 const { VITE_APP_ORGANIZATION_NAME_SHORT: ORGANIZATION_NAME_SHORT } = import.meta.env;
 if (ORGANIZATION_NAME_SHORT == null) {

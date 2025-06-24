@@ -1,25 +1,25 @@
-import { ReactElement, useState, useMemo } from 'react';
-import { Appointment, Location } from 'fhir/r4b';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import {
-  Paper,
-  Typography,
-  useTheme,
-  TableCell,
-  TableRow,
+  Box,
   CircularProgress,
   IconButton,
-  Box,
-  TextField,
+  Paper,
   Table,
   TableBody,
+  TableCell,
+  TableRow,
+  TextField,
+  Typography,
+  useTheme,
 } from '@mui/material';
-import { formatLastModifiedTag } from '../helpers';
-import { NoteHistory } from '../helpers/activityLogsUtils';
-import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { patchAppointmentComment } from '../helpers';
-import { EditPatientInfoDialog } from './dialogs';
-import { EvolveUser } from '../hooks/useEvolveUser';
 import Oystehr from '@oystehr/sdk';
+import { Appointment, Location } from 'fhir/r4b';
+import { ReactElement, useMemo, useState } from 'react';
+import { formatLastModifiedTag } from '../helpers';
+import { patchAppointmentComment } from '../helpers';
+import { NoteHistory } from '../helpers/activityLogsUtils';
+import { EvolveUser } from '../hooks/useEvolveUser';
+import { EditPatientInfoDialog } from './dialogs';
 
 interface AppointmentNotesHistoryProps {
   appointment: Appointment | undefined;

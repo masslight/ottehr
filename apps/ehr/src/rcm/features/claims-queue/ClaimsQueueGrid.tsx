@@ -1,9 +1,9 @@
-import React, { FC } from 'react';
 import { DataGridPro } from '@mui/x-data-grid-pro';
+import React, { FC } from 'react';
 import { ClaimsQueueType } from 'utils';
-import { useClaimsQueueStore, useGetClaims } from '../../state';
-import { useZapEHRAPIClient } from '../../hooks';
 import { getSelectors } from '../../../shared/store/getSelectors';
+import { useZapEHRAPIClient } from '../../hooks';
+import { useClaimsQueueStore, useGetClaims } from '../../state';
 import { ClaimsQueueColumns, mapClaimTypeToColumnNames } from '../../utils';
 
 type ClaimsQueueGridProps = {

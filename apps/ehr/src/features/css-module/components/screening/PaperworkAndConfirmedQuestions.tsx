@@ -1,10 +1,10 @@
+import { otherColors } from '@ehrTheme/colors';
+import { Box, Grid, Paper, Typography, useTheme } from '@mui/material';
 import React from 'react';
-import { Grid, Paper, Box, Typography, useTheme } from '@mui/material';
 import {
   AdditionalQuestionsPatientColumn,
   AdditionalQuestionsProviderColumn,
 } from '../../../../telemed/features/appointment';
-import { otherColors } from '@ehrTheme/colors';
 interface PatientInfoProps {
   appointmentID?: string;
 }

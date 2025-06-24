@@ -1,17 +1,17 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
   ChangeTelemedAppointmentStatusInput,
   ChangeTelemedAppointmentStatusResponse,
-  SecretsKeys,
-  TelemedAppointmentStatusEnum,
   getQuestionnaireResponseByLinkId,
   getSecret,
   mapStatusToTelemed,
+  SecretsKeys,
+  TelemedAppointmentStatusEnum,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
-
 import { wrapHandler } from '@sentry/aws-serverless';
 import {
   checkOrCreateM2MClientToken,

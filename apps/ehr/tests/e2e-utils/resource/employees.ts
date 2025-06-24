@@ -1,7 +1,7 @@
 // cSpell:ignore ASSISTA, CISW, CMSW
+import { randomUUID } from 'node:crypto';
 import Oystehr, { UserInviteParams } from '@oystehr/sdk';
 import { Practitioner } from 'fhir/r4b';
-import { randomUUID } from 'node:crypto';
 import {
   allLicensesForPractitioner,
   getFirstName,

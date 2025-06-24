@@ -1,20 +1,20 @@
-import { ValueSet, ObservationDefinition, ActivityDefinition, Observation, ServiceRequest } from 'fhir/r4b';
+import { ActivityDefinition, Observation, ObservationDefinition, ServiceRequest, ValueSet } from 'fhir/r4b';
 import {
-  TestItem,
-  TestItemComponent,
-  CodeableConceptComponent,
-  QuantityComponent,
   CODE_SYSTEM_CPT,
-  OD_DISPLAY_CONFIG,
+  CodeableConceptComponent,
+  DiagnosisDTO,
   IN_HOUSE_LAB_OD_NULL_OPTION_SYSTEM,
   IN_HOUSE_OBS_DEF_ID_SYSTEM,
+  IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+  LabComponentValueSetConfig,
   OBSERVATION_INTERPRETATION_SYSTEM,
   ObservationCode,
-  TestComponentResult,
-  IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
+  OD_DISPLAY_CONFIG,
+  QuantityComponent,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
-  DiagnosisDTO,
-  LabComponentValueSetConfig,
+  TestComponentResult,
+  TestItem,
+  TestItemComponent,
 } from 'utils';
 
 export const extractAbnormalValueSetValues = (

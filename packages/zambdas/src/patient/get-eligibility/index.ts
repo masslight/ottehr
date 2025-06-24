@@ -3,15 +3,15 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, CoverageEligibilityRequest } from 'fhir/r4b';
 import {
-  ELIGIBILITY_FAILED_REASONS,
+  createOystehrClient,
   ELIGIBILITY_FAILED_REASON_META_TAG,
+  ELIGIBILITY_FAILED_REASONS,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   InsuranceCheckStatusWithDate,
   InsuranceEligibilityCheckStatus,
   PRIVATE_EXTENSION_BASE_URL,
   SecretsKeys,
-  createOystehrClient,
-  getSecret,
 } from 'utils';
 import { ZambdaInput, configSentry, getAuth0Token, lambdaResponse, topLevelCatch } from '../../shared';
 import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';

@@ -14,9 +14,9 @@ import {
   Secrets,
 } from 'utils';
 import { createOystehrClient } from '../../shared/helpers';
+import { ZambdaInput } from '../../shared/types';
 import { createMedicationAdministrationResource } from './fhir-recources-creation';
 import { ExtendedMedicationData } from './index';
-import { ZambdaInput } from '../../shared/types';
 
 export function getPerformerId(medicationAdministration: MedicationAdministration): string | undefined {
   return medicationAdministration.performer?.find((perf) => perf.actor.reference)?.actor.reference;

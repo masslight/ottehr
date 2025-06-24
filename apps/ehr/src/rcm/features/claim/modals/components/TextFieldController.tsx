@@ -1,6 +1,6 @@
+import { TextField, TextFieldProps } from '@mui/material';
 import React, { FC } from 'react';
 import { Controller, ControllerProps, useFormContext } from 'react-hook-form';
-import { TextField, TextFieldProps } from '@mui/material';
 
 type TextFieldControllerProps = Pick<ControllerProps, 'name' | 'rules'> &
   Pick<

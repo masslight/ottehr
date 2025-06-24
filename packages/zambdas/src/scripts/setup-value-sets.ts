@@ -1,8 +1,8 @@
 import { BatchInputPostRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
 import { ValueSet } from 'fhir/r4b';
 import fs from 'fs';
-import { getAuth0Token, createOystehrClient } from '../shared';
 import path from 'path';
+import { createOystehrClient, getAuth0Token } from '../shared';
 
 const VALUE_SETS_DIR = '../../../../packages/utils/lib/deployed-resources/value-sets';
 

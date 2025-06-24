@@ -1,20 +1,20 @@
 import {
+  Appointment,
   Bundle,
-  FhirResource,
-  InsurancePlan,
-  Organization,
-  Location,
   Claim,
   Coverage,
-  RelatedPerson,
   DocumentReference,
   Encounter,
+  FhirResource,
+  InsurancePlan,
+  Location,
+  Organization,
   Patient,
-  Appointment,
+  RelatedPerson,
 } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
-import { useApiClients } from '../../../hooks/useAppClients';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
+import { useApiClients } from '../../../hooks/useAppClients';
 import { findResourceByType, generateOpByResourceData, getCoverageRelatedResources } from '../../utils';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

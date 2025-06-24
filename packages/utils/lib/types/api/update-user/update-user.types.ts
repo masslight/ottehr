@@ -1,5 +1,4 @@
 import { PractitionerLicense } from '../../../main';
-
 import { RoleType } from '../../../main';
 
 export interface UpdateUserParams {

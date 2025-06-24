@@ -2,22 +2,22 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, Location, Practitioner } from 'fhir/r4b';
 import {
+  convertActivityDefinitionToTestItem,
   GetCreateInHouseLabOrderResourcesParameters,
   GetCreateInHouseLabOrderResourcesResponse,
+  getFullestAvailableName,
+  getTimezone,
   PRACTITIONER_CODINGS,
   Secrets,
   TestItem,
-  convertActivityDefinitionToTestItem,
-  getFullestAvailableName,
-  getTimezone,
 } from 'utils';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   configSentry,
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
 import { validateRequestParameters } from './validateRequestParameters';

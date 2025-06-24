@@ -1,22 +1,22 @@
 import { Box } from '@mui/material';
 import { Link } from 'react-router-dom';
-import { GenericToolTip } from './GenericToolTip';
 import { OrdersToolTip } from 'src/features/common/OrdersToolTip';
 import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
 import {
-  getInHouseLabsUrl,
-  getInHouseLabOrderDetailsUrl,
-  getExternalLabOrdersUrl,
   getExternalLabOrderEditUrl,
+  getExternalLabOrdersUrl,
+  getInHouseLabOrderDetailsUrl,
+  getInHouseLabsUrl,
 } from 'src/features/css-module/routing/helpers';
+import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
 import {
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
   OrderToolTipConfig,
 } from 'utils';
-import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
-import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
+import { GenericToolTip } from './GenericToolTip';
 
 interface OrdersIconsToolTipProps {
   appointment: InPersonAppointmentInformation;

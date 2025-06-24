@@ -1,11 +1,11 @@
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
+import { Secrets } from 'utils';
+import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo } from './pdf-utils';
 import { LabsData } from './types';
-import { Secrets } from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
 
 async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint8Array> {
   if (!data.orderName) {

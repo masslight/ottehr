@@ -1,4 +1,5 @@
-import { vi, assert } from 'vitest';
+import { getScheduleExtension, getTimezone, isWalkinOpen } from 'utils';
+import { assert, vi } from 'vitest';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import {
   addClosureDay,
@@ -12,7 +13,6 @@ import {
   OverrideScheduleConfig,
   startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
-import { getScheduleExtension, getTimezone, isWalkinOpen } from 'utils';
 
 describe('walkin availability tests', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });

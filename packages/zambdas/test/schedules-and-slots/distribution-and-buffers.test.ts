@@ -1,3 +1,12 @@
+import { DateTime } from 'luxon';
+import {
+  getAllSlotsAsCapacityMap,
+  getAvailableSlots,
+  GetAvailableSlotsInput,
+  getPostTelemedSlots,
+  getScheduleExtension,
+  getTimezone,
+} from 'utils';
 import { assert, vi } from 'vitest';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import {
@@ -8,15 +17,6 @@ import {
   setSlotLengthInMinutes,
   startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
-import {
-  getAllSlotsAsCapacityMap,
-  getAvailableSlots,
-  GetAvailableSlotsInput,
-  getPostTelemedSlots,
-  getScheduleExtension,
-  getTimezone,
-} from 'utils';
-import { DateTime } from 'luxon';
 
 describe('slot availability tests', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });

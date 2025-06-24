@@ -1,6 +1,6 @@
-import { FC, ReactNode } from 'react';
-import { Stack, Typography } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
+import { Stack, Typography } from '@mui/material';
+import { FC, ReactNode } from 'react';
 import { otherColors } from '../IntakeThemeProvider';
 
 interface CheckIconWithTextProps {

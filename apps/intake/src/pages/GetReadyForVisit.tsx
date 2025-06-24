@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { generatePath, useLocation, useNavigate } from 'react-router-dom';
 import { PageForm } from 'ui-components';
 import { VisitType } from 'utils';
-import { otherColors } from '../IntakeThemeProvider';
 import { PageContainer } from '../components';
 import { WaitingEstimateCard } from '../components/WaitingEstimateCard';
 import { usePreserveQueryParams } from '../hooks/usePreserveQueryParams';
+import { otherColors } from '../IntakeThemeProvider';
 import { useBookingContext } from './BookingHome';
 
 const GetReadyForVisit = (): JSX.Element => {

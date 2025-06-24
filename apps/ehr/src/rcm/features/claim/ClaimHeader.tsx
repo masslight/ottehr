@@ -1,14 +1,14 @@
-import React, { FC, useEffect, useState } from 'react';
-import { Box, Button, Card, Typography } from '@mui/material';
-import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
-import { DateTime } from 'luxon';
+import { useAuth0 } from '@auth0/auth0-react';
 import { otherColors } from '@ehrTheme/colors';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import { Box, Button, Card, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
+import React, { FC, useEffect, useState } from 'react';
+import { ClaimsQueueItemStatus } from 'utils';
+import { getPresignedFileUrl } from '../../../helpers/files.helper';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimStore } from '../../state';
 import { ClaimStatusChip } from '../claims-queue';
-import { ClaimsQueueItemStatus } from 'utils';
-import { useAuth0 } from '@auth0/auth0-react';
-import { getPresignedFileUrl } from '../../../helpers/files.helper';
 
 const formatDate = (date: string): string => {
   const dt = DateTime.fromISO(date);

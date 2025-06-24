@@ -1,41 +1,41 @@
+import { LoadingButton } from '@mui/lab';
 import {
-  Typography,
-  useTheme,
+  Autocomplete,
+  Box,
+  Button,
+  FormControl,
+  FormControlLabel,
+  Grid,
+  InputLabel,
+  MenuItem,
   Paper,
   Select,
-  MenuItem,
-  InputLabel,
-  FormControl,
-  Grid,
-  TextField,
-  Autocomplete,
-  Button,
   Switch,
-  FormControlLabel,
-  Box,
+  TextField,
+  Typography,
+  useTheme,
 } from '@mui/material';
-import { LoadingButton } from '@mui/lab';
+import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
+import { enqueueSnackbar } from 'notistack';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS, PSC_HOLD_LOCALE } from 'utils';
+import { createExternalLabOrder } from '../../../api/api';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { getSelectors } from '../../../shared/store/getSelectors';
 import {
-  useAppointmentStore,
-  useGetIcd10Search,
-  useDebounce,
   ActionsList,
   DeleteIconButton,
-  useSaveChartData,
+  useAppointmentStore,
+  useDebounce,
   useGetCreateExternalLabResources,
+  useGetIcd10Search,
+  useSaveChartData,
 } from '../../../telemed';
-import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS, PSC_HOLD_LOCALE } from 'utils';
-import { useApiClients } from '../../../hooks/useAppClients';
-import { LabsAutocomplete } from '../components/LabsAutocomplete';
-import { createExternalLabOrder } from '../../../api/api';
-import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
-import { enqueueSnackbar } from 'notistack';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
-import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
-import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { LabOrderLoading } from '../components/labs-orders/LabOrderLoading';
+import { LabsAutocomplete } from '../components/LabsAutocomplete';
 
 interface CreateExternalLabOrdersProps {
   appointmentID?: string;

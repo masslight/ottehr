@@ -1,5 +1,6 @@
 import ArrowDropDownCircleOutlinedIcon from '@mui/icons-material/ArrowDropDownCircleOutlined';
 import {
+  alpha,
   Box,
   IconButton,
   Paper,
@@ -10,16 +11,12 @@ import {
   TableHead,
   TableRow,
   Typography,
-  alpha,
   useTheme,
 } from '@mui/material';
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
 import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
-import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
-import AppointmentTableRow from './AppointmentTableRow';
-import { ApptTab } from './AppointmentTabs';
 import {
   ACTION_WIDTH,
   ACTION_WIDTH_MIN,
@@ -45,6 +42,9 @@ import {
   VISIT_ICONS_WIDTH_MIN,
 } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
+import { AppointmentsStatusChipsCount } from './AppointmentStatusChipsCount';
+import AppointmentTableRow from './AppointmentTableRow';
+import { ApptTab } from './AppointmentTabs';
 
 interface AppointmentTableProps {
   appointments: InPersonAppointmentInformation[];

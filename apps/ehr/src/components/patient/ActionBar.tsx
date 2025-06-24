@@ -1,7 +1,7 @@
+import { LoadingButton } from '@mui/lab';
 import { Box, Button, useTheme } from '@mui/material';
 import { FC } from 'react';
 import { dataTestIds } from '../../constants/data-test-ids';
-import { LoadingButton } from '@mui/lab';
 
 type ActionBarProps = {
   handleDiscard: () => void;

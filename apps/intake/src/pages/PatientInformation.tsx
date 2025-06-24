@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { useCallback, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +14,7 @@ import {
   REASON_ADDITIONAL_MAX_CHAR,
   ServiceMode,
 } from 'utils';
+import { bookingBasePath } from '../App';
 import { PageContainer } from '../components';
 import {
   PatientInfoInProgress,
@@ -23,8 +25,6 @@ import {
 import { getPatientAgeDependentDataWithPatientData } from '../helpers/validation';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
 import { useBookingContext } from './BookingHome';
-import { bookingBasePath } from '../App';
-import { DateTime } from 'luxon';
 
 interface PatientInformation {
   dobYear: string | undefined;

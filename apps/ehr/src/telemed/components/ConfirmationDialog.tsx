@@ -1,8 +1,8 @@
-import { FC, ReactNode } from 'react';
 import { DialogContentText, Stack } from '@mui/material';
+import { FC, ReactNode } from 'react';
 import { RoundedButton } from '../../components/RoundedButton';
-import { InnerStateDialog } from './InnerStateDialog';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { InnerStateDialog } from './InnerStateDialog';
 
 type ConfirmationDialogProps = {
   response: () => void;

@@ -1,7 +1,10 @@
+import { otherColors } from '@ehrTheme/colors';
+import { Add } from '@mui/icons-material';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
   Button,
+  capitalize,
   Paper,
   Table,
   TableBody,
@@ -12,23 +15,19 @@ import {
   TableRow,
   TextField,
   Typography,
-  capitalize,
 } from '@mui/material';
-import { ReactElement, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { otherColors } from '@ehrTheme/colors';
-
-import { Add } from '@mui/icons-material';
 import Oystehr from '@oystehr/sdk';
 import { HealthcareService, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useMemo, useState } from 'react';
+import { useQuery } from 'react-query';
+import { Link } from 'react-router-dom';
+import { APIError, isApiError, SchedulesAndOwnerListItem } from 'utils';
+import { listScheduleOwners } from '../api/api';
 import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import Loading from './Loading';
-import { APIError, isApiError, SchedulesAndOwnerListItem } from 'utils';
-import { useQuery } from 'react-query';
-import { listScheduleOwners } from '../api/api';
-import { enqueueSnackbar } from 'notistack';
 
 export type ScheduleType = 'location' | 'provider' | 'group';
 

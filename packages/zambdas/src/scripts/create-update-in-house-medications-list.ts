@@ -1,9 +1,11 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication, Resource } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CPT, CODE_SYSTEM_NDC,
+  CODE_SYSTEM_CPT,
+  CODE_SYSTEM_NDC,
   getMedicationName,
-  getMedicationTypeCode, getResourcesFromBatchInlineRequests,
+  getMedicationTypeCode,
+  getResourcesFromBatchInlineRequests,
   InHouseMedicationInfo,
   InHouseMedications,
   INVENTORY_MEDICATION_TYPE_CODE,

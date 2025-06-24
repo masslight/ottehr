@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import config from '../../deploy-config.json';
 import { CloudFrontClient, ListDistributionsCommand, ListDistributionsCommandOutput } from '@aws-sdk/client-cloudfront';
 import { fromIni } from '@aws-sdk/credential-providers';
-import { updateEnvFiles, updateZapehr } from '../../helpers';
 import Oystehr from '@oystehr/sdk';
+import config from '../../deploy-config.json';
+import { updateEnvFiles, updateZapehr } from '../../helpers';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;

@@ -1,15 +1,15 @@
 import {
   Box,
   Checkbox,
+  FormControl,
   FormControlLabel,
+  FormHelperText,
+  MenuItem,
+  Radio,
+  RadioGroup,
+  Select,
   TextField,
   Typography,
-  RadioGroup,
-  Radio,
-  FormControl,
-  MenuItem,
-  Select,
-  FormHelperText,
 } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
@@ -22,10 +22,10 @@ import {
   REQUIRED_FIELD_ERROR_MESSAGE,
 } from 'utils';
 import { RX_HISTORY_CONSENT_OPTIONS } from '../../constants';
+import { dataTestIds } from '../../constants/data-test-ids';
+import { usePatientStore } from '../../state/patient.store';
 import { BasicDatePicker as DatePicker, FormSelect } from '../form';
 import { Row, Section } from '../layout';
-import { usePatientStore } from '../../state/patient.store';
-import { dataTestIds } from '../../constants/data-test-ids';
 
 export const SettingsContainer: FC = () => {
   const { patient } = usePatientStore();

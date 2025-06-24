@@ -1,7 +1,7 @@
 import { Button, Grid, Typography, useTheme } from '@mui/material';
+import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { dataTestIds } from '../constants/data-test-ids';
-import { Slot } from 'fhir/r4b';
 
 interface SlotsProps {
   slots: Slot[];

@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Typography } from '@mui/material';
+import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const RequiredNote: FC = () => {

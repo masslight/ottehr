@@ -1,9 +1,9 @@
-import { ReactElement } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
+import { ReactElement } from 'react';
 import { LabOrderDetailedPageDTO, LabOrderResultDetails, PSC_LOCALE } from 'utils';
+import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 import { FinalCardView } from './FinalCardView';
 import { PrelimCardView } from './PrelimCardView';
-import { LabsOrderStatusChip } from '../ExternalLabsStatusChip';
 
 interface ResultItemProps {
   labOrder: LabOrderDetailedPageDTO;

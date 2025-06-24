@@ -1,5 +1,5 @@
-import { FC, useState, ReactNode } from 'react';
-import { Typography, Button, ButtonProps, Box } from '@mui/material';
+import { Box, Button, ButtonProps, Typography } from '@mui/material';
+import { FC, ReactNode, useState } from 'react';
 import { CustomDialog } from './CustomDialog';
 
 type ConfirmationDialogProps = {

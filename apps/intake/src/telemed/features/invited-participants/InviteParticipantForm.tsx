@@ -1,5 +1,5 @@
+import { Alert, Box, Snackbar } from '@mui/material';
 import { FC, useState } from 'react';
-import { Alert, Snackbar, Box } from '@mui/material';
 import { FieldValues } from 'react-hook-form';
 import { PageForm } from 'ui-components';
 import { useCreateInviteMutation } from '../waiting-room';

@@ -5,8 +5,8 @@ import {
   VitalsObservationDTO,
   VitalsOxygenSatObservationDTO,
 } from 'utils';
-import { VitalsOxygenSatSeverity, VitalsOxygenSatHistoryEntry } from './VitalsOxygenSatHistoryEntry';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalsOxygenSatHistoryEntry, VitalsOxygenSatSeverity } from './VitalsOxygenSatHistoryEntry';
 
 export const textToOxygenSatNumber = (text: string): number | undefined => {
   const oxySatVal = textToNumericValue(text);

@@ -18,6 +18,7 @@ import {
   Slot,
   Task,
 } from 'fhir/r4b';
+import _ from 'lodash';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
@@ -48,21 +49,20 @@ import {
   VisitType,
 } from 'utils';
 import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
   AuditableZambdaEndpoints,
+  captureSentryException,
+  configSentry,
   createAuditEvent,
+  createOystehrClient,
   generatePatientRelatedRequests,
+  getAuth0Token,
   getUser,
+  isTestUser,
   topLevelCatch,
   ZambdaInput,
-  isTestUser,
 } from '../../../shared';
 import { getEncounterClass, getRelatedResources, getTelemedRequiredAppointmentEncounterExtensions } from '../helpers';
 import { createAppointmentComplexValidation, validateCreateAppointmentParams } from './validateRequestParameters';
-import _ from 'lodash';
 
 interface CreateAppointmentInput {
   slot: Slot;

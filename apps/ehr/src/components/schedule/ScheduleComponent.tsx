@@ -1,7 +1,9 @@
+import { otherColors } from '@ehrTheme/colors';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
   Box,
+  capitalize,
   Checkbox,
   FormControl,
   FormControlLabel,
@@ -11,17 +13,15 @@ import {
   Select,
   Tab,
   Typography,
-  capitalize,
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import { DateTime } from 'luxon';
 import React, { ReactElement, useMemo } from 'react';
+import { DailySchedule, DOW, HourOfDay, ScheduleDTO, UpdateScheduleParams } from 'utils';
+import { Day, Weekday } from '../../types/types';
 import { ScheduleCapacity } from './ScheduleCapacity';
 import { ScheduleOverridesComponent, UpdateOverridesInput } from './ScheduleOverridesComponent';
-import { otherColors } from '@ehrTheme/colors';
-import { DateTime } from 'luxon';
-import { Day, Weekday } from '../../types/types';
-import { DailySchedule, DOW, HourOfDay, ScheduleDTO, UpdateScheduleParams } from 'utils';
 
 interface InfoForDayProps {
   day: Weekday;

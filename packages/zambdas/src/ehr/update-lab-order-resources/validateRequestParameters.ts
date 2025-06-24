@@ -1,6 +1,6 @@
-import { Secrets, UpdateLabOrderResourcesParameters, LAB_ORDER_UPDATE_RESOURCES_EVENTS } from 'utils';
-import { ZambdaInput } from '../../shared';
 import { DateTime } from 'luxon';
+import { LAB_ORDER_UPDATE_RESOURCES_EVENTS, Secrets, UpdateLabOrderResourcesParameters } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(
   input: ZambdaInput

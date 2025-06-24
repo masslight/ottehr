@@ -1,11 +1,11 @@
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
 import { PageSizes } from 'pdf-lib';
+import { Secrets } from 'utils';
+import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { createPdfClient, PdfInfo } from './pdf-utils';
 import { ImageStyle, PdfClientStyles, ReceiptData, TextStyle } from './types';
-import { Secrets } from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
 
 async function createReceiptPdfBytes(data: ReceiptData): Promise<Uint8Array> {
   const pdfClientStyles: PdfClientStyles = {

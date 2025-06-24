@@ -2,16 +2,16 @@ import Oystehr, { BatchInputRequest, User } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import { Communication, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPatchBinary, getPatchOperationForNewMetaTag, getSMSNumberForIndividual } from '.';
 import {
   ConversationMessage,
+  EvolvePatientMessageStatus,
   PATIENT_MESSAGE_CODE,
   PATIENT_MESSAGE_SYSTEM,
-  EvolvePatientMessageStatus,
   RelatedPersonMaps,
   SMSModel,
   SMSRecipient,
 } from '../types';
+import { getPatchBinary, getPatchOperationForNewMetaTag, getSMSNumberForIndividual } from '.';
 
 export const ZAP_SMS_MEDIUM_SYSTEM = 'http://terminology.hl7.org/CodeSystem/v3-ParticipationMode';
 export const ZAP_SMS_MEDIUM_CODE = 'SMSWRIT';

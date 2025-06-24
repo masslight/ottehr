@@ -1,5 +1,5 @@
-import { GetAppointmentsZambdaInputValidated } from '.';
 import { ZambdaInput } from '../../shared';
+import { GetAppointmentsZambdaInputValidated } from '.';
 
 export function validateRequestParameters(input: ZambdaInput): GetAppointmentsZambdaInputValidated {
   if (!input.body) {

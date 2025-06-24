@@ -1,8 +1,8 @@
 import { FC } from 'react';
 import { getQuestionnaireResponseByLinkId } from 'utils';
-import { InformationCard } from './InformationCard';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../state';
+import { InformationCard } from './InformationCard';
 
 export const PatientDetailsContainer: FC = () => {
   const { patient, questionnaireResponse } = getSelectors(useAppointmentStore, ['patient', 'questionnaireResponse']);

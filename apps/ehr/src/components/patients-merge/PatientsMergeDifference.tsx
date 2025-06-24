@@ -1,5 +1,4 @@
-import React, { FC, useState } from 'react';
-import { Patient } from 'fhir/r4';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   Dialog,
   FormControlLabel,
@@ -15,12 +14,13 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import { RoundedButton } from '../RoundedButton';
-import { useGetPatientsForMerge } from './queries';
-import { ConfirmationDialog, ContainedPrimaryToggleButton } from '../../telemed';
+import { Patient } from 'fhir/r4';
+import React, { FC, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { PROJECT_NAME } from 'utils';
+import { ConfirmationDialog, ContainedPrimaryToggleButton } from '../../telemed';
+import { RoundedButton } from '../RoundedButton';
+import { useGetPatientsForMerge } from './queries';
 
 type PatientFormValues = {
   birthGender?: 'male' | 'female' | 'other' | 'unknown';

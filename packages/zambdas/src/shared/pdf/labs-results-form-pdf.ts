@@ -1,71 +1,71 @@
-import fs from 'fs';
-import { Color } from 'pdf-lib';
-import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import {
-  LabResultsData,
-  ExternalLabResult,
-  InHouseLabResult,
-  InHouseLabResultConfig,
-  InHouseLabResultsData,
-  ExternalLabResultsData,
-  PdfClient,
-  ResultDataConfig,
-} from './types';
-import {
-  compareDates,
-  createFilesDocumentReferences,
-  LAB_ORDER_DOC_REF_CODING_CODE,
-  LAB_ORDER_TASK,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
-  Secrets,
-  LabType,
-  IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
-  convertActivityDefinitionToTestItem,
-  quantityRangeFormat,
-  getTimezone,
-  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
-  TestItemComponent,
-  IN_HOUSE_LAB_TASK,
-} from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
-import { DateTime } from 'luxon';
-import { randomUUID } from 'crypto';
 import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import {
   ActivityDefinition,
   DiagnosticReport,
   DocumentReference,
+  Encounter,
   List,
   Location,
+  Observation,
+  Organization,
+  Patient,
   Practitioner,
   Provenance,
+  ServiceRequest,
   Specimen,
   Task,
-  ServiceRequest,
-  Encounter,
-  Observation,
-  Patient,
-  Organization,
 } from 'fhir/r4b';
-import { getExternalLabOrderResources } from '../../ehr/shared/labs';
-import { PDF_CLIENT_STYLES, STANDARD_NEW_LINE, STANDARD_FONT_SIZE, ICON_STYLE } from './pdf-consts';
+import fs from 'fs';
+import { DateTime } from 'luxon';
+import { Color } from 'pdf-lib';
 import {
-  createPdfClient,
-  PdfInfo,
-  getTextStylesForLabsPDF,
+  compareDates,
+  convertActivityDefinitionToTestItem,
+  createFilesDocumentReferences,
+  EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
+  getTimezone,
+  IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
+  IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
+  IN_HOUSE_LAB_TASK,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_ORDER_TASK,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  LabType,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
+  quantityRangeFormat,
+  Secrets,
+  TestItemComponent,
+} from 'utils';
+import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/inhouse-labs';
+import { getExternalLabOrderResources } from '../../ehr/shared/labs';
+import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
+import { makeZ3Url } from '../presigned-file-urls';
+import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
+import { ICON_STYLE, PDF_CLIENT_STYLES, STANDARD_FONT_SIZE, STANDARD_NEW_LINE } from './pdf-consts';
+import {
   calculateAge,
-  LabsPDFTextStyleConfig,
-  SEPARATED_LINE_STYLE,
-  LAB_PDF_STYLES,
+  createPdfClient,
   drawFieldLine,
   drawFieldLineRight,
   drawFourColumnText,
+  getTextStylesForLabsPDF,
+  LAB_PDF_STYLES,
+  LabsPDFTextStyleConfig,
+  PdfInfo,
+  SEPARATED_LINE_STYLE,
 } from './pdf-utils';
-import { LABS_DATE_STRING_FORMAT } from '../../ehr/submit-lab-order';
-import { fetchResultResourcesForRepeatServiceRequest } from '../../ehr/shared/inhouse-labs';
+import {
+  ExternalLabResult,
+  ExternalLabResultsData,
+  InHouseLabResult,
+  InHouseLabResultConfig,
+  InHouseLabResultsData,
+  LabResultsData,
+  PdfClient,
+  ResultDataConfig,
+} from './types';
 
 interface CommonDataConfigResources {
   location: Location | undefined;

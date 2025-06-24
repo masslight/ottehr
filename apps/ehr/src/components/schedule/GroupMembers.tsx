@@ -1,5 +1,5 @@
+import { Autocomplete, capitalize, TextField } from '@mui/material';
 import { ReactElement } from 'react';
-import { Autocomplete, TextField, capitalize } from '@mui/material';
 
 interface GroupMembersProps {
   option: 'locations' | 'providers';

@@ -1,4 +1,4 @@
-import { Locator, Page, expect } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/explicit-function-return-type */
 export class Validations {
