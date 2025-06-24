@@ -1,6 +1,9 @@
+import { LoadingButton } from '@mui/lab';
 import { Autocomplete, Box, Checkbox, FormControlLabel, TextField, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement, useEffect, useMemo, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useMutation } from 'react-query';
+import { useApiClients } from 'src/hooks/useAppClients';
 import {
   chooseJson,
   CoverageCheckWithDetails,
@@ -19,17 +22,14 @@ import {
   SEX_OPTIONS,
   STATE_OPTIONS,
 } from '../../constants';
-import { Row, Section } from '../layout';
-import ShowMoreButton from './ShowMoreButton';
-import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
 import { PatientAddressFields } from '../../constants';
 import { FormFields as AllFormFields } from '../../constants';
-import { LoadingButton } from '@mui/lab';
 import { dataTestIds } from '../../constants/data-test-ids';
+import { InsurancePlanDTO, usePatientStore } from '../../state/patient.store';
+import { Row, Section } from '../layout';
 import { RefreshableStatusChip, StatusStyleObject } from '../RefreshableStatusWidget';
-import { useApiClients } from 'src/hooks/useAppClients';
-import { useMutation } from 'react-query';
 import { CopayWidget } from './CopayWidget';
+import ShowMoreButton from './ShowMoreButton';
 
 type InsuranceContainerProps = {
   ordinal: number;
@@ -183,7 +183,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
     }
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRecheckEligibility = async (): Promise<void> => {
     console.log('recheck eligibility', recheckEligibility);
     try {

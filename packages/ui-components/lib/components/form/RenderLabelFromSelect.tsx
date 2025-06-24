@@ -1,5 +1,5 @@
-import { FC, ReactNode } from 'react';
 import { Typography } from '@mui/material';
+import { FC, ReactNode } from 'react';
 
 interface RenderLabelFromSelectProps {
   children: ReactNode;

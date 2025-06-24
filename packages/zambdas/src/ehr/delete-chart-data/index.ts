@@ -1,9 +1,7 @@
 import { BatchInputDeleteRequest, BatchInputGetRequest, BatchInputPutRequest, BatchInputRequest } from '@oystehr/sdk';
-import { APIGatewayProxyResult } from 'aws-lambda';
-
-import { Operation } from 'fast-json-patch';
-
 import { wrapHandler } from '@sentry/aws-serverless';
+import { APIGatewayProxyResult } from 'aws-lambda';
+import { Operation } from 'fast-json-patch';
 import {
   AllergyIntolerance,
   Bundle,

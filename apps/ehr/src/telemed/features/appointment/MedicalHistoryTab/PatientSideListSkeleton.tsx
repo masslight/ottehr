@@ -1,5 +1,5 @@
-import React, { FC } from 'react';
 import { Box, Divider, Skeleton, Typography } from '@mui/material';
+import React, { FC } from 'react';
 
 export const PatientSideListSkeleton: FC = () => {
   return (

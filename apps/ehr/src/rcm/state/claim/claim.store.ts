@@ -1,25 +1,25 @@
+import {
+  Appointment,
+  Bundle,
+  Claim,
+  Coverage,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  InsurancePlan,
+  Location,
+  Organization,
+  Patient,
+  RelatedPerson,
+} from 'fhir/r4b';
 import { create } from 'zustand';
 import {
-  Claim,
-  Patient,
-  Appointment,
-  Coverage,
-  Encounter,
-  Bundle,
-  FhirResource,
-  RelatedPerson,
-  InsurancePlan,
-  Organization,
-  Location,
-  DocumentReference,
-} from 'fhir/r4b';
-import {
-  getPatientData,
   findResourceByType,
-  getCoverageData,
   findResourceByTypeAndId,
-  PlanOwnedBy,
   getClaimData,
+  getCoverageData,
+  getPatientData,
+  PlanOwnedBy,
 } from '../../utils';
 
 export type ClaimState = {

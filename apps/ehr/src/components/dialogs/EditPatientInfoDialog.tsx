@@ -1,7 +1,7 @@
-import { ReactElement } from 'react';
-import { Box, Dialog, IconButton, Paper, Typography } from '@mui/material';
 import { Close } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
+import { Box, Dialog, IconButton, Paper, Typography } from '@mui/material';
+import { ReactElement } from 'react';
 
 interface EditPatientInfoDialogProps {
   title: string;

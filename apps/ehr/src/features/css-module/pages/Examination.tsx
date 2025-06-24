@@ -1,13 +1,13 @@
-import React, { FC } from 'react';
 import { Box, Stack } from '@mui/material';
-import { InPersonExamCardsNames, IN_PERSON_EXAM_CARDS } from 'utils';
+import React, { FC } from 'react';
+import { IN_PERSON_EXAM_CARDS, InPersonExamCardsNames } from 'utils';
+import { useGetAppointmentAccessibility } from '../../../telemed';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import {
   CollapsibleExamCardContainer,
   ExamCommentField,
   ExamFieldsFactory,
 } from '../../../telemed/features/appointment';
-import { useGetAppointmentAccessibility } from '../../../telemed';
 import { ExamReadOnly } from '../components/examination/ExamReadOnly';
 
 export const Examination: FC = () => {

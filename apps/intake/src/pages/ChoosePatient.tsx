@@ -1,5 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, CircularProgress, Dialog, IconButton, Paper, Typography } from '@mui/material';
+import { ottehrLightBlue } from '@theme/icons';
 import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
@@ -7,16 +8,15 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { CustomLoadingButton, ErrorDialog, ErrorDialogConfig, useUCZambdaClient, ZambdaClient } from 'ui-components';
 import { CancellationReasonOptionsInPerson, getDateComponentsFromISOString, VisitType } from 'utils';
-import { otherColors } from '../IntakeThemeProvider';
 import { ottehrApi } from '../api';
+import { intakeFlowPageRoute } from '../App';
 import { CardWithDescriptionAndLink, PageContainer } from '../components';
+import PatientList from '../features/patients/components/selectable-list';
 import { safelyCaptureException } from '../helpers/sentry';
 import { useNavigateInFlow } from '../hooks/useNavigateInFlow';
+import { otherColors } from '../IntakeThemeProvider';
 import { Appointment } from '../types';
 import { useBookingContext } from './BookingHome';
-import PatientList from '../features/patients/components/selectable-list';
-import { ottehrLightBlue } from '@theme/icons';
-import { intakeFlowPageRoute } from '../App';
 
 const ChoosePatient = (): JSX.Element => {
   const navigate = useNavigate();

@@ -1,4 +1,4 @@
-import { Breadcrumbs, Typography, Link as MuiLink } from '@mui/material';
+import { Breadcrumbs, Link as MuiLink, Typography } from '@mui/material';
 import { FC, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 

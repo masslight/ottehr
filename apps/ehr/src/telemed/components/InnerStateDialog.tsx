@@ -1,6 +1,6 @@
-import React, { FC, useState, ReactNode } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Typography, DialogProps, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { Dialog, DialogActions, DialogContent, DialogProps, DialogTitle, IconButton, Typography } from '@mui/material';
+import React, { FC, ReactNode, useState } from 'react';
 
 type InnerStateDialogProps = {
   children: (showDialog: () => void) => ReactNode;

@@ -1,8 +1,8 @@
-import { ReactElement } from 'react';
-import { Box, Grid } from '@mui/material';
 import { otherColors } from '@ehrTheme/colors';
-import DownloadImagesButton from './DownloadImagesButton';
+import { Box, Grid } from '@mui/material';
+import { ReactElement } from 'react';
 import { DocumentInfo } from '../types/types';
+import DownloadImagesButton from './DownloadImagesButton';
 
 interface CardGridItemProps {
   card: DocumentInfo;

@@ -1,19 +1,19 @@
+import { promisify } from 'node:util';
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { exec } from 'child_process';
 import { FhirResource, HealthcareService, Organization, PractitionerRole, Schedule } from 'fhir/r4b';
 import fs from 'fs';
-import { promisify } from 'node:util';
 import path from 'path';
 import {
   FHIR_BASE_URL,
   FOLDERS_CONFIG,
+  generateDeployAccountNumber,
   PROJECT_DOMAIN,
   PROJECT_NAME,
   PROJECT_NAME_LOWER,
   SCHEDULE_EXTENSION_URL,
   ScheduleStrategyCoding,
   TIMEZONE_EXTENSION_URL,
-  generateDeployAccountNumber,
 } from 'utils';
 import { inviteUser } from './invite-user';
 import { defaultGroup } from './setup-default-locations';

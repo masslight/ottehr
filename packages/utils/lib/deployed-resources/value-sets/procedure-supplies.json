@@ -1,47 +1,47 @@
 {
-    "resourceType": "ValueSet",
-    "url": "https://fhir.ottehr.com/ValueSet/procedure-supplies",
-    "version": "1.0.0",
-    "name": "Procedures - Supplies used",
-    "status": "active",
-    "expansion": {
-        "timestamp": "2025-06-10T11:36:51.034Z",
-        "contains": [
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
-                "code": "suture-kit",
-                "display": "Suture Kit"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
-                "code": "splint",
-                "display": "Splint"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
-                "code": "irrigation-syringe",
-                "display": "Irrigation Syringe"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
-                "code": "speculum",
-                "display": "Speculum"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
-                "code": "forceps",
-                "display": "Forceps"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
-                "code": "iv-kit",
-                "display": "IV Kit"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
-                "code": "other",
-                "display": "Other"
-            }
-        ]
-    }
+  "resourceType": "ValueSet",
+  "url": "https://fhir.ottehr.com/ValueSet/procedure-supplies",
+  "version": "1.0.0",
+  "name": "Procedures - Supplies used",
+  "status": "active",
+  "expansion": {
+    "timestamp": "2025-06-10T11:36:51.034Z",
+    "contains": [
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+        "code": "suture-kit",
+        "display": "Suture Kit"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+        "code": "splint",
+        "display": "Splint"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+        "code": "irrigation-syringe",
+        "display": "Irrigation Syringe"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+        "code": "speculum",
+        "display": "Speculum"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+        "code": "forceps",
+        "display": "Forceps"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+        "code": "iv-kit",
+        "display": "IV Kit"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-supplies",
+        "code": "other",
+        "display": "Other"
+      }
+    ]
+  }
 }

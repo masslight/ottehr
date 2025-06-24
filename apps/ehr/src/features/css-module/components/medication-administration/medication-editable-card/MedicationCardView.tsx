@@ -1,12 +1,7 @@
-import React from 'react';
-import { Typography, Paper, Grid, Box } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { ButtonRounded } from '../../RoundedButton';
-import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
-import { MedicationCardField } from './MedicationCardField';
-import { CSSLoader } from '../../CSSLoader';
+import { Box, Grid, Paper, Typography } from '@mui/material';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
 import {
   ExtendedMedicationDataForResponse,
   IN_HOUSE_CONTAINED_MEDICATION_ID,
@@ -15,8 +10,13 @@ import {
   MedicationOrderStatusesType,
   UpdateMedicationOrderInput,
 } from 'utils';
-import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { getInHouseMedicationMARUrl } from '../../../routing/helpers';
+import { CSSLoader } from '../../CSSLoader';
+import { ButtonRounded } from '../../RoundedButton';
+import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
+import { MedicationCardField } from './MedicationCardField';
 import { InHouseMedicationFieldType } from './utils';
 
 type MedicationCardViewProps = {

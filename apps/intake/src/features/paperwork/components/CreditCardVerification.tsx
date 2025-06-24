@@ -14,16 +14,16 @@ import {
 import { Elements } from '@stripe/react-stripe-js';
 import { loadStripe } from '@stripe/stripe-js';
 import { FC, useState } from 'react';
+import { BoldPurpleInputLabel } from 'ui-components';
+import { AddCreditCardForm } from 'ui-components';
 import { CreditCardInfo } from 'utils';
+import { dataTestIds } from '../../../helpers/data-test-ids';
+import { otherColors } from '../../../IntakeThemeProvider';
 import {
   useGetPaymentMethods,
   useSetDefaultPaymentMethod,
   useSetupPaymentMethod,
 } from '../../../telemed/features/paperwork/paperwork.queries';
-import { otherColors } from '../../../IntakeThemeProvider';
-import { BoldPurpleInputLabel } from 'ui-components';
-import { dataTestIds } from '../../../helpers/data-test-ids';
-import { AddCreditCardForm } from 'ui-components';
 import { usePaperworkContext } from '../context';
 
 const stripePromise = loadStripe(import.meta.env.VITE_APP_STRIPE_KEY);

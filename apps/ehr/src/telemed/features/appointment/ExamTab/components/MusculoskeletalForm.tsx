@@ -1,21 +1,21 @@
-import React, { FC, useState } from 'react';
+import { otherColors } from '@ehrTheme/colors';
 import { Autocomplete, Box, FormControlLabel, Radio, RadioGroup, TextField, Typography } from '@mui/material';
+import React, { FC, useState } from 'react';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ExamObservationDTO } from 'utils';
-import { useExamObservations } from '../../../../hooks/useExamObservations';
-import { ActionsList, DeleteIconButton } from '../../../../components';
-import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 import {
-  musculoskeletalFields,
-  parseMusculoskeletalFieldToName,
-  musculoskeletalSideOptions,
-  musculoskeletalBodyPartOptions,
-  musculoskeletalFingerOptions,
-  musculoskeletalToeOptions,
   musculoskeletalAbnormalOptions,
+  musculoskeletalBodyPartOptions,
+  musculoskeletalFields,
+  musculoskeletalFingerOptions,
+  musculoskeletalSideOptions,
+  musculoskeletalToeOptions,
+  parseMusculoskeletalFieldToName,
 } from 'utils';
 import { RoundedButton } from '../../../../../components/RoundedButton';
-import { otherColors } from '@ehrTheme/colors';
+import { ActionsList, DeleteIconButton } from '../../../../components';
+import { useExamObservations } from '../../../../hooks/useExamObservations';
+import { StatelessExamCheckbox } from './StatelessExamCheckbox';
 
 type FormValues = {
   side: string;

@@ -1,3 +1,4 @@
+import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Condition, Encounter, Observation, Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import {
@@ -19,7 +20,6 @@ import {
   validateJsonBody,
   ZambdaInput,
 } from '../../../shared';
-import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';

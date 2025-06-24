@@ -1,7 +1,7 @@
-import React, { JSX, useMemo, useState } from 'react';
-import { Box, Button, Divider, Skeleton, Typography } from '@mui/material';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
+import { Box, Button, Divider, Skeleton, Typography } from '@mui/material';
+import React, { JSX, useMemo, useState } from 'react';
 import { VitalsObservationDTO } from 'utils';
 import { VitalHistoryEntry } from '../types';
 

@@ -1,4 +1,4 @@
-import { VitalsSearchConfig, VitalsObservationDTO } from 'utils';
+import { VitalsObservationDTO, VitalsSearchConfig } from 'utils';
 
 export type UseVitalsHandlers = (props: { encounterId: string; searchConfig: VitalsSearchConfig }) => {
   vitalsEntities: VitalsObservationDTO[];

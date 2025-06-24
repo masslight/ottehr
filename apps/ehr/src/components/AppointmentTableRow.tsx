@@ -1,11 +1,13 @@
+import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
-import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import MedicalInformationIcon from '@mui/icons-material/MedicalInformationOutlined';
 import PriorityHighRoundedIcon from '@mui/icons-material/PriorityHighRounded';
 import { LoadingButton } from '@mui/lab';
 import {
   Badge,
   Box,
+  capitalize,
   Grid,
   IconButton,
   MenuItem,
@@ -15,33 +17,35 @@ import {
   TextField,
   Tooltip,
   Typography,
-  capitalize,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
+import { Operation } from 'fast-json-patch';
 import { Appointment, Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { enqueueSnackbar } from 'notistack';
 import React, { ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { otherColors } from 'src/themes/ottehr/colors';
 import {
-  InPersonAppointmentInformation,
-  VisitStatusLabel,
   formatMinutes,
   getDurationOfStatus,
-  PROJECT_NAME,
-  getVisitTotalTime,
-  PRACTITIONER_CODINGS,
   getPatchBinary,
-  ROOM_EXTENSION_URL,
+  getVisitTotalTime,
   InHouseOrderListPageItemDTO,
+  InPersonAppointmentInformation,
   LabOrderListPageDTO,
+  PRACTITIONER_CODINGS,
+  PROJECT_NAME,
+  ROOM_EXTENSION_URL,
+  VisitStatusLabel,
 } from 'utils';
 import { LANGUAGES } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import ChatModal from '../features/chat/ChatModal';
 import { usePractitionerActions } from '../features/css-module/hooks/usePractitioner';
 import { checkInPatient } from '../helpers';
+import { displayOrdersToolTip } from '../helpers';
 import { getTimezone } from '../helpers/formatDateTime';
 import { formatPatientName } from '../helpers/formatPatientName';
 import { getOfficePhoneNumber } from '../helpers/getOfficePhoneNumber';
@@ -52,15 +56,11 @@ import AppointmentNote from './AppointmentNote';
 import AppointmentTableRowMobile from './AppointmentTableRowMobile';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip } from './GenericToolTip';
+import GoToButton from './GoToButton';
+import { InfoIconsToolTip } from './InfoIconsToolTip';
 import { PatientDateOfBirth } from './PatientDateOfBirth';
-import { otherColors } from 'src/themes/ottehr/colors';
 import { PriorityIconWithBorder } from './PriorityIconWithBorder';
 import ReasonsForVisit from './ReasonForVisit';
-import { Operation } from 'fast-json-patch';
-import GoToButton from './GoToButton';
-import { progressNoteIcon, startIntakeIcon } from '@ehrTheme/icons';
-import { InfoIconsToolTip } from './InfoIconsToolTip';
-import { displayOrdersToolTip } from '../helpers';
 
 interface AppointmentTableProps {
   appointment: InPersonAppointmentInformation;

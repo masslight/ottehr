@@ -2,8 +2,8 @@ import { Oystehr } from '@oystehr/sdk/dist/cjs/resources/classes';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, Coding, Encounter, EncounterParticipant, Location, Reference } from 'fhir/r4b';
 import {
-  FollowupReason,
   FOLLOWUP_SYSTEMS,
+  FollowupReason,
   formatFhirEncounterToPatientFollowupDetails,
   PatientFollowupDetails,
 } from 'utils';

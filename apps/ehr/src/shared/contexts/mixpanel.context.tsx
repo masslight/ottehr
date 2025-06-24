@@ -1,5 +1,5 @@
 import mixpanel, { Config, Dict } from 'mixpanel-browser';
-import { Provider, ProviderExoticComponent, ReactElement, createContext, useRef } from 'react';
+import { createContext, Provider, ProviderExoticComponent, ReactElement, useRef } from 'react';
 import { PropsWithChildren } from '../types';
 
 export interface MixpanelContextProps {

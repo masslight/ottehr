@@ -1,14 +1,14 @@
+import { Box, Button, CircularProgress, Paper, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
-import { Box, Paper, Typography, Button, CircularProgress } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useApiClients } from '../../../hooks/useAppClients';
-import { CollectSampleView } from '../components/details/CollectSampleView';
-import { PerformTestView } from '../components/details/PerformTestView';
-import { FinalResultView } from '../components/details/FinalResultView';
-import { getSelectors, MarkAsCollectedData, LoadingState, InHouseOrderDetailPageItemDTO } from 'utils';
-import { useAppointmentStore } from 'src/telemed';
 import { collectInHouseLabSpecimen, getInHouseOrders } from 'src/api/api';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+import { useAppointmentStore } from 'src/telemed';
+import { getSelectors, InHouseOrderDetailPageItemDTO, LoadingState, MarkAsCollectedData } from 'utils';
+import { useApiClients } from '../../../hooks/useAppClients';
+import { CollectSampleView } from '../components/details/CollectSampleView';
+import { FinalResultView } from '../components/details/FinalResultView';
+import { PerformTestView } from '../components/details/PerformTestView';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
 
 export const InHouseLabTestDetailsPage: React.FC = () => {

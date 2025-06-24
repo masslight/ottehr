@@ -1,4 +1,3 @@
-import { Cms1500 } from '../../../types';
 import {
   Claim,
   ClaimAccident,
@@ -10,14 +9,17 @@ import {
   CodeableConcept,
   Extension,
 } from 'fhir/r4b';
+import { codeableConcept, filterUndefined, money, undefinedIfEmptyArray } from '../../../fhir';
+import { Cms1500 } from '../../../types';
+import { validateDefined } from '../../helpers';
 import {
   CODE_SYSTEM_ACT_CODE_V3,
   CODE_SYSTEM_CLAIM_INFORMATION_CATEGORY,
   CODE_SYSTEM_CLAIM_TYPE,
   CODE_SYSTEM_CMS_PLACE_OF_SERVICE,
   CODE_SYSTEM_CPT,
-  CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_ICD_9,
+  CODE_SYSTEM_ICD_10,
   CODE_SYSTEM_PAYEE_TYPE,
   CODE_SYSTEM_PROCESS_PRIORITY,
   CODE_SYSTEM_ZAPEHR_RCM_CMS1500_DATE_TYPE,
@@ -33,8 +35,6 @@ import {
   EXTENSION_PATIENT_SIGNED_DATE,
   EXTENSION_PRACTITIONER_SIGNED_DATE,
 } from '../constants';
-import { validateDefined } from '../../helpers';
-import { undefinedIfEmptyArray, filterUndefined, codeableConcept, money } from '../../../fhir';
 
 export function cms1500ToFhir(cms1500: Cms1500): Claim {
   return {

@@ -1,7 +1,7 @@
 import { FC } from 'react';
-import { ExamCardContainer, ExamCommentField, ExamFieldsFactory, MusculoskeletalForm } from './components';
-import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
 import { dataTestIds } from '../../../../constants/data-test-ids';
+import { useExamCardCollapsed } from '../../../hooks/useExamCardCollapsed';
+import { ExamCardContainer, ExamCommentField, ExamFieldsFactory, MusculoskeletalForm } from './components';
 
 export const MusculoskeletalCard: FC = () => {
   const [isCollapsed, onSwitch] = useExamCardCollapsed('musculoskeletal');

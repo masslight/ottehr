@@ -1,5 +1,6 @@
 import { BatchInputPostRequest, BatchInputPutRequest } from '@oystehr/sdk';
 import { FhirResource, HealthcareService, Location, Practitioner, PractitionerRole, Schedule } from 'fhir/r4b';
+import fs from 'fs';
 import {
   isLocationVirtual,
   ROOM_EXTENSION_URL,
@@ -9,7 +10,6 @@ import {
 } from 'utils';
 import { getAuth0Token } from '../shared';
 import { createOystehrClient } from '../shared';
-import fs from 'fs';
 
 type EnsureScheduleResult = { telemedError: null | Error; inPersonGroupError: null | Error };
 const ensureSchedules = async (envConfig: any): Promise<EnsureScheduleResult> => {

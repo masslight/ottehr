@@ -1,14 +1,14 @@
-import { CircularProgress, FormControl, Grid, MenuItem, Select, Skeleton, SelectChangeEvent } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { CircularProgress, FormControl, Grid, MenuItem, Select, SelectChangeEvent, Skeleton } from '@mui/material';
 import { styled } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
+import React, { useEffect, useState } from 'react';
+import { getVisitStatus, Visit_Status_Array, VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils';
 import { CHIP_STATUS_MAP } from '../../../components/AppointmentTableRow';
-import { Visit_Status_Array, VisitStatusLabel, getVisitStatus, VisitStatusWithoutUnknown } from 'utils';
-import { useAppointment } from '../hooks/useAppointment';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from '../../../helpers/inPersonVisitStatusUtils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../constants/data-test-ids';
+import { useAppointment } from '../hooks/useAppointment';
 
 const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
   ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({

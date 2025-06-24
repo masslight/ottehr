@@ -1,8 +1,8 @@
 import { expect, Locator, Page } from '@playwright/test';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { PatientHeader } from './PatientHeader';
 import { formatPhoneNumberForQuestionnaire } from 'utils';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { AddInsuranceDialog } from './patient-information/AddInsuranceDialog';
+import { PatientHeader } from './PatientHeader';
 
 export enum Field {
   PATIENT_LAST_NAME,

@@ -1,5 +1,5 @@
-import React, { ReactElement } from 'react';
 import { Chip } from '@mui/material';
+import React, { ReactElement } from 'react';
 
 interface BooleanStateChip {
   state: boolean;

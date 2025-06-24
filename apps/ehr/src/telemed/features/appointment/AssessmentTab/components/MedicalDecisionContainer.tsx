@@ -1,10 +1,10 @@
-import React, { FC, useState } from 'react';
-import { AssessmentTitle } from './AssessmentTitle';
 import { Box, CircularProgress, Typography } from '@mui/material';
-import { MedicalDecisionField } from './MedicalDecisionField';
-import { useGetAppointmentAccessibility } from '../../../../hooks';
+import React, { FC, useState } from 'react';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { useGetAppointmentAccessibility } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
+import { AssessmentTitle } from './AssessmentTitle';
+import { MedicalDecisionField } from './MedicalDecisionField';
 
 export const MedicalDecisionContainer: FC = () => {
   const { chartData, isChartDataLoading: isLoading } = getSelectors(useAppointmentStore, [

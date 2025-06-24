@@ -1,7 +1,7 @@
 import { NOTHING_TO_EAT_OR_DRINK_FIELD } from 'utils';
-import { useExcusePresignedFiles } from '.';
-import { useAppointmentStore } from '../state';
 import { getSelectors } from '../../shared/store/getSelectors';
+import { useAppointmentStore } from '../state';
+import { useExcusePresignedFiles } from '.';
 
 export const usePatientInstructionsVisibility = (): {
   showInstructions: boolean;

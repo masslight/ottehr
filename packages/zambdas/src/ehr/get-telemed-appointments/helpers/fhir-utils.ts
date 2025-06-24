@@ -2,11 +2,11 @@ import Oystehr from '@oystehr/sdk';
 import { FhirResource, Location, Practitioner, Resource } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
+  allLicensesForPractitioner,
   GetTelemedAppointmentsInput,
+  isLocationVirtual,
   OTTEHR_MODULE,
   PatientFilterType,
-  allLicensesForPractitioner,
-  isLocationVirtual,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import { joinLocationsIdsForFhirSearch } from './helpers';

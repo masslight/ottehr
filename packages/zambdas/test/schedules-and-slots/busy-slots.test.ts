@@ -1,17 +1,7 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { vi, assert } from 'vitest';
-import { getAuth0Token } from '../../src/shared';
-import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
-import { SECRETS } from '../data/secrets';
 import { randomUUID } from 'crypto';
-import {
-  adjustHoursOfOperation,
-  changeAllCapacities,
-  cleanupTestScheduleResources,
-  DEFAULT_SCHEDULE_JSON,
-  persistSchedule,
-  startOfDayWithTimezone,
-} from '../helpers/testScheduleUtils';
+import { Location, Slot } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   getAllSlotsAsCapacityMap,
   getAvailableSlots,
@@ -23,8 +13,18 @@ import {
   getTimezone,
   SlotServiceCategory,
 } from 'utils';
-import { DateTime } from 'luxon';
-import { Location, Slot } from 'fhir/r4b';
+import { assert, vi } from 'vitest';
+import { getAuth0Token } from '../../src/shared';
+import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
+import { SECRETS } from '../data/secrets';
+import {
+  adjustHoursOfOperation,
+  changeAllCapacities,
+  cleanupTestScheduleResources,
+  DEFAULT_SCHEDULE_JSON,
+  persistSchedule,
+  startOfDayWithTimezone,
+} from '../helpers/testScheduleUtils';
 
 describe('busy slots tests', () => {
   let oystehr: Oystehr;

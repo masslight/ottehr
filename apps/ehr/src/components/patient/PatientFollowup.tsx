@@ -1,14 +1,14 @@
+import { Box, CircularProgress, Grid, Typography } from '@mui/material';
 import Oystehr from '@oystehr/sdk';
-import { Grid, Typography, Box, CircularProgress } from '@mui/material';
 import { Encounter, Location } from 'fhir/r4b';
-import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { formatFhirEncounterToPatientFollowupDetails, getFullName, PatientFollowupDetails } from 'utils';
 import { useApiClients } from '../../hooks/useAppClients';
 import { useGetPatient } from '../../hooks/useGetPatient';
-import { getFullName, PatientFollowupDetails, formatFhirEncounterToPatientFollowupDetails } from 'utils';
-import { getFollowupStatusChip } from './PatientFollowupEncountersGrid';
-import CustomBreadcrumbs from '../CustomBreadcrumbs';
 import PageContainer from '../../layout/PageContainer';
+import CustomBreadcrumbs from '../CustomBreadcrumbs';
+import { getFollowupStatusChip } from './PatientFollowupEncountersGrid';
 import PatientFollowupForm from './PatientFollowupForm';
 
 export default function PatientFollowup(): JSX.Element {

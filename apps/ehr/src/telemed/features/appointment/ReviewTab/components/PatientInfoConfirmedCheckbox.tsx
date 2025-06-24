@@ -1,10 +1,10 @@
-import React, { FC } from 'react';
 import { Checkbox, FormControlLabel } from '@mui/material';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore, useSaveChartData } from '../../../../state';
 import { enqueueSnackbar } from 'notistack';
-import { useGetAppointmentAccessibility } from '../../../../hooks';
+import React, { FC } from 'react';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { useGetAppointmentAccessibility } from '../../../../hooks';
+import { useAppointmentStore, useSaveChartData } from '../../../../state';
 
 export const PatientInfoConfirmedCheckbox: FC = () => {
   const { chartData, setPartialChartData } = getSelectors(useAppointmentStore, ['chartData', 'setPartialChartData']);

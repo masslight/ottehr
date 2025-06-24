@@ -6,8 +6,8 @@ import {
   VitalsHeightObservationDTO,
   VitalsObservationDTO,
 } from 'utils';
-import { VitalHeightHistoryEntry } from './VitalHeightHistoryEntry';
 import { composeVitalsHistoryEntries } from '../utils';
+import { VitalHeightHistoryEntry } from './VitalHeightHistoryEntry';
 
 export const textToHeightNumber = (text: string): number | undefined => {
   const heightVal = textToNumericValue(text);

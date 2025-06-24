@@ -1,11 +1,11 @@
 import { Box, FormControl, FormControlLabel, Radio, RadioGroup, Skeleton, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect } from 'react';
+import { AdditionalBooleanQuestionsFieldsNames, convertToBoolean, ObservationBooleanFieldDTO } from 'utils';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { setNavigationDisable } from '../../../../../features/css-module/context/NavigationContext';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useSaveChartData } from '../../../../state';
-import { AdditionalBooleanQuestionsFieldsNames, convertToBoolean, ObservationBooleanFieldDTO } from 'utils';
-import { setNavigationDisable } from '../../../../../features/css-module/context/NavigationContext';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const AdditionalQuestionEdit = ({
   label,

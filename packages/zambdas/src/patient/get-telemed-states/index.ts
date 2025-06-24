@@ -1,7 +1,7 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { GetTelemedLocationsResponse, SecretsKeys, createOystehrClient, getSecret, getTelemedLocations } from 'utils';
-import { ZambdaInput, getAuth0Token } from '../../shared';
+import { createOystehrClient, getSecret, getTelemedLocations, GetTelemedLocationsResponse, SecretsKeys } from 'utils';
+import { getAuth0Token, ZambdaInput } from '../../shared';
 
 let zapehrToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {

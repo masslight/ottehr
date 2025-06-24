@@ -1,11 +1,11 @@
-import React, { FC } from 'react';
 import { Box } from '@mui/material';
+import React, { FC } from 'react';
+import { AdditionalQuestionsCard } from './AdditionalQuestions';
 import { ChiefComplaintCard } from './ChiefComplaint';
 import { CurrentMedicationsCard } from './CurrentMedications';
 import { KnownAllergiesCard } from './KnownAllergies';
 import { MedicalConditionsCard } from './MedicalConditions';
 import { SurgicalHistoryCard } from './SurgicalHistory';
-import { AdditionalQuestionsCard } from './AdditionalQuestions';
 
 export const MedicalHistoryTab: FC = () => {
   return (

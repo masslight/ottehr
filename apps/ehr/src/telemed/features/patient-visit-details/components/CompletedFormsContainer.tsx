@@ -1,13 +1,13 @@
 import { useAuth0 } from '@auth0/auth0-react';
-import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
+import { otherColors } from '@ehrTheme/colors';
 import { Button } from '@mui/material';
+import { Bundle, BundleEntry, DocumentReference } from 'fhir/r4b';
 import { FC, ReactElement, useState } from 'react';
 import { CONSENT_CODE, getIpAddress, getQuestionnaireResponseByLinkId, mdyStringFromISOString } from 'utils';
 import { getPresignedFileUrl } from '../../../../helpers/files.helper';
-import { InformationCard } from './InformationCard';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore, useGetDocumentReferences } from '../../../state';
-import { otherColors } from '@ehrTheme/colors';
+import { InformationCard } from './InformationCard';
 const PdfButton = ({ pdfUrl }: { pdfUrl?: string }): ReactElement => {
   return (
     <Button

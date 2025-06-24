@@ -3,6 +3,7 @@ import SendIcon from '@mui/icons-material/Send';
 import { LoadingButton } from '@mui/lab';
 import {
   Avatar,
+  Box,
   CircularProgress,
   Dialog,
   Divider,
@@ -12,23 +13,22 @@ import {
   ListItem,
   Modal,
   TextField,
-  useTheme,
-  ToggleButtonGroup,
   ToggleButton,
-  Box,
+  ToggleButtonGroup,
+  useTheme,
 } from '@mui/material';
 import Typography from '@mui/material/Typography';
 import { Location, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { ChangeEvent, ReactElement, UIEvent, memo, useEffect, useMemo, useState } from 'react';
-import { LANGUAGES } from '../../constants';
+import { ChangeEvent, memo, ReactElement, UIEvent, useEffect, useMemo, useState } from 'react';
 import { AppointmentMessaging, ConversationMessage, initialsFromName, markAllMessagesRead } from 'utils';
+import { CompleteConfiguration } from '../../components/CompleteConfiguration';
+import { LANGUAGES } from '../../constants';
+import { dataTestIds } from '../../constants/data-test-ids';
 import { useApiClients } from '../../hooks/useAppClients';
 import useEvolveUser, { EvolveUser } from '../../hooks/useEvolveUser';
-import { useFetchChatMessagesQuery, useSendMessagesMutation, useGetMessagingConfigQuery } from './chat.queries';
 import { getPatientName, removeHtmlTags } from '../../telemed/utils';
-import { dataTestIds } from '../../constants/data-test-ids';
-import { CompleteConfiguration } from '../../components/CompleteConfiguration';
+import { useFetchChatMessagesQuery, useGetMessagingConfigQuery, useSendMessagesMutation } from './chat.queries';
 
 function scrollToBottomOfChat(): void {
   // this helps with the scroll working,

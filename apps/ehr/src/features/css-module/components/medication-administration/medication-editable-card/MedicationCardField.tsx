@@ -1,19 +1,19 @@
-import React from 'react';
 import {
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  FormHelperText,
-  Skeleton,
   Autocomplete,
+  FormControl,
+  FormHelperText,
+  InputLabel,
+  MenuItem,
+  Select,
+  Skeleton,
+  TextField,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import React from 'react';
 import { IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 
 interface MedicationCardFieldProps {
   field: keyof MedicationData;

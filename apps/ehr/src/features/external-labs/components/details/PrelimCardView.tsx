@@ -1,4 +1,4 @@
-import { Box, Typography, Button, Paper } from '@mui/material';
+import { Box, Button, Paper, Typography } from '@mui/material';
 import { DateTime } from 'luxon';
 import { FC } from 'react';
 

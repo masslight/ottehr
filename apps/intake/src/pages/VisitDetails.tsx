@@ -1,14 +1,14 @@
 import DownloadIcon from '@mui/icons-material/Download';
 import { Box, Button, CircularProgress, Divider, Typography } from '@mui/material';
+import { DateTime } from 'luxon';
 import { generatePath, useNavigate, useParams } from 'react-router-dom';
+import { GetVisitDetailsResponse } from 'utils';
 import { intakeFlowPageRoute } from '../App';
+import { otherColors } from '../IntakeThemeProvider';
 import { useGetVisitDetails } from '../telemed/features/appointments';
 import { useIntakeCommonStore } from '../telemed/features/common';
-import { otherColors } from '../IntakeThemeProvider';
 import { useOpenExternalLink } from '../telemed/hooks/useOpenExternalLink';
 import { useZapEHRAPIClient } from '../telemed/utils';
-import { DateTime } from 'luxon';
-import { GetVisitDetailsResponse } from 'utils';
 
 const ExcuseNoteContent = ({
   data,

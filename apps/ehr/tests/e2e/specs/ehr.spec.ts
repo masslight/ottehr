@@ -1,9 +1,11 @@
 import { expect, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { formatDOB } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
+import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import {
-  PATIENT_BIRTHDAY,
   PATIENT_BIRTH_DATE_SHORT,
+  PATIENT_BIRTHDAY,
   PATIENT_CITY,
   PATIENT_EMAIL,
   PATIENT_FIRST_NAME,
@@ -16,10 +18,8 @@ import {
   PATIENT_STATE,
   ResourceHandler,
 } from '../../e2e-utils/resource-handler';
-import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
 import { expectPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientsPage } from '../page/PatientsPage';
-import { DateTime } from 'luxon';
 import { openVisitsPage } from '../page/VisitsPage';
 
 // We may create new instances for the tests with mutable operations, and keep parallel tests isolated
