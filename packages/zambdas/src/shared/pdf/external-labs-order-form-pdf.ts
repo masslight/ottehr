@@ -272,7 +272,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
 
   // Location details
   drawSubHeader(data?.locationName || '');
-  drawFieldLineRight('Order number:', data.orderNumber);
+  drawFieldLineRight('Order Number: ', data.orderNumber);
   addNewLine();
   if (hadSomeAddressInfo) await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
