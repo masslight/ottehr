@@ -272,7 +272,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
 
   // Location details
   drawSubHeader(data?.locationName || '');
-  drawFieldLineRight('Req ID:', data.orderNumber);
+  drawFieldLineRight('Order number:', data.orderNumber);
   addNewLine();
   if (hadSomeAddressInfo) await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
@@ -306,11 +306,10 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   drawRegularTextLeft(`${data.patientSex},`);
   currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientSex, styles.regularText.fontSize) + regularTextWidth;
   drawRegularTextLeft(`${data.patientDOB},`);
-  drawFieldLineRight(`Today's Date: `, data.todayDate);
   addNewLine();
   currXPos = styles.margin.x;
   drawFieldLineLeft('ID:', data.patientId);
-  drawFieldLineRight('Order Create Date:', data.orderCreateDate);
+  drawFieldLineRight('Order Date:', data.orderCreateDate);
   addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
@@ -321,10 +320,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientPhone);
   if (data.sampleCollectionDate) {
-    drawFieldLineRight('Sample Collection Date:  ', data.sampleCollectionDate);
-    addNewLine();
+    drawFieldLineRight('Collection Date:  ', data.sampleCollectionDate);
   }
-  drawFieldLineRight('Order Submit Date: ', data.orderSubmitDate);
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
