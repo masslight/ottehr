@@ -695,7 +695,8 @@ async function createInHouseLabsResultsFormPdfBytes(
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order ID:', data.serviceRequestID);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
-  pdfClient = drawFieldLineRight(pdfClient, textStyles, 'Order date:', data.orderCreateDate);
+  pdfClient.newLine(STANDARD_FONT_SIZE + 4);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order date:', data.orderCreateDate);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
   pdfClient.drawText('IQC Valid', textStyles.textBold);
   pdfClient.newLine(STANDARD_FONT_SIZE + 4);
