@@ -164,7 +164,7 @@ export type LabOrdersPaginationOptions = {
 
 export enum LabType {
   external = 'external',
-  inhouse = 'in-house',
+  inHouse = 'in-house',
 }
 
 export type GetLabOrdersParameters = LabOrdersSearchBy & LabOrdersSearchFilters & LabOrdersPaginationOptions;

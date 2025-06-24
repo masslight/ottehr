@@ -151,7 +151,7 @@ test.describe('Disposition', async () => {
     });
   });
 
-  test.describe('Speciality transfer', async () => {
+  test.describe('Specialty transfer', async () => {
     const PROCESS_ID = `planTab.spec.ts-specialty-transfer-${DateTime.now().toMillis()}`;
     const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');
     let page: Page;

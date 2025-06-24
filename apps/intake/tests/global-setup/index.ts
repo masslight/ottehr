@@ -45,6 +45,7 @@ const globalSetup = async (_config: FullConfig): Promise<void> => {
       const hasAuth0Token = parsed.origins?.some?.(
         (origin: any) =>
           origin?.localStorage?.some?.(
+            // cSpell:disable-next spa js?
             (item: any) => item?.name?.includes('@@auth0spajs@@') && !item?.name?.includes('@@user@@')
           )
       );
