@@ -1,14 +1,28 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { GetNursingOrdersInputValidated } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { getNoursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+  console.log(`get-nursing-orders started, input: ${JSON.stringify(input)}`);
+
+  let validatedParameters: GetNursingOrdersInputValidated;
+
   try {
-    console.log(`get-nursing-orders started, input: ${JSON.stringify(input)}`);
-    const validatedParameters = validateRequestParameters(input);
+    validatedParameters = validateRequestParameters(input);
+  } catch (error: any) {
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        message: `Invalid request parameters. ${error.message || error}`,
+      }),
+    };
+  }
+
+  try {
     const { secrets, searchBy } = validatedParameters;
 
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);

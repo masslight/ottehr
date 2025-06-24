@@ -15,10 +15,9 @@ import {
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import {
-  CreateNursingOrderParameters,
+  CreateNursingOrderInputValidated,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   PRACTITIONER_CODINGS,
-  Secrets,
 } from 'utils';
 import {
   ZambdaInput,
@@ -36,7 +35,7 @@ let m2mtoken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-nursing-order started, input: ${JSON.stringify(input)}`);
 
-  let validatedParameters: CreateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: CreateNursingOrderInputValidated;
 
   try {
     validatedParameters = validateRequestParameters(input);

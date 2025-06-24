@@ -1,3 +1,4 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getMyPractitionerId, topLevelCatch, ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
@@ -5,8 +6,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 import {
   getPatchBinary,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
-  Secrets,
-  UpdateNursingOrderParameters,
+  UpdateNursingOrderInputValidated,
 } from 'utils';
 import { Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -14,10 +14,10 @@ import { DateTime } from 'luxon';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`update-nursing-order started, input: ${JSON.stringify(input)}`);
 
-  let validatedParameters: UpdateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
+  let validatedParameters: UpdateNursingOrderInputValidated;
 
   try {
     validatedParameters = validateRequestParameters(input);
@@ -169,7 +169,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: `Error updating nursing order: ${error.message || error}` }),
     };
   }
-};
+});
 
 const getTaskStatusForAction = (action: string): string => {
   switch (action) {

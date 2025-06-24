@@ -1,11 +1,5 @@
-import { z } from 'zod';
-import { GetNursingOrdersInputValidated, NursingOrdersSearchBySchema } from 'utils';
+import { GetNursingOrdersInputSchema, GetNursingOrdersInputValidated } from 'utils';
 import { ZambdaInput } from '../../shared';
-
-const RequestBodySchema = z.object({
-  encounterId: z.string().uuid(),
-  searchBy: NursingOrdersSearchBySchema.optional(),
-});
 
 export function validateRequestParameters(input: ZambdaInput): GetNursingOrdersInputValidated {
   console.group('validateRequestParameters');
@@ -16,7 +10,7 @@ export function validateRequestParameters(input: ZambdaInput): GetNursingOrdersI
 
   const parsedJSON = JSON.parse(input.body) as unknown;
 
-  const { encounterId, searchBy } = RequestBodySchema.parse(parsedJSON);
+  const { encounterId, searchBy } = GetNursingOrdersInputSchema.parse(parsedJSON);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
