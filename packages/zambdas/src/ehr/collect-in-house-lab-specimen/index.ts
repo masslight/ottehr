@@ -7,9 +7,11 @@ import { DateTime } from 'luxon';
 import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
+  getSecret,
   IN_HOUSE_LAB_TASK,
   PRACTITIONER_CODINGS,
   Secrets,
+  SecretsKeys,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
 } from 'utils';
 import {
@@ -210,7 +212,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     console.error('Error collecting in-house lab specimen:', error);
-    await topLevelCatch('collect-in-house-lab-specimen', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('collect-in-house-lab-specimen', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

@@ -5,12 +5,14 @@ import {
   Closure,
   DailySchedule,
   getScheduleExtension,
+  getSecret,
   MISSING_SCHEDULE_EXTENSION_ERROR,
   SCHEDULE_EXTENSION_URL,
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleExtension,
   ScheduleOverrides,
   ScheduleOwnerFhirResource,
+  SecretsKeys,
   SLUG_SYSTEM,
   TIMEZONE_EXTENSION_URL,
 } from 'utils';
@@ -38,7 +40,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('update-schedule', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-schedule', error, ENVIRONMENT);
   }
 };
 

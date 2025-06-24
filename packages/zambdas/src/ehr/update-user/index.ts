@@ -1,6 +1,12 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { HumanName, Practitioner } from 'fhir/r4b';
-import { FHIR_IDENTIFIER_NPI, getSecret, makeQualificationForPractitioner, UpdateUserZambdaOutput } from 'utils';
+import {
+  FHIR_IDENTIFIER_NPI,
+  getSecret,
+  makeQualificationForPractitioner,
+  SecretsKeys,
+  UpdateUserZambdaOutput,
+} from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
@@ -219,7 +225,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-update-user', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-update-user', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

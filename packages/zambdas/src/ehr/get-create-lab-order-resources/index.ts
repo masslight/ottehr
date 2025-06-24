@@ -7,12 +7,14 @@ import {
   CODE_SYSTEM_COVERAGE_CLASS,
   EXTERNAL_LAB_ERROR,
   flattenBundleResources,
+  getSecret,
   isApiError,
   LAB_ORG_TYPE_CODING,
   LabOrderResourcesRes,
   OrderableItemSearchResult,
   OYSTEHR_LAB_GUID_SYSTEM,
   OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
+  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
@@ -56,7 +58,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-get-create-lab-order-resources', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-create-lab-order-resources', error, ENVIRONMENT);
     let body = JSON.stringify({ message: `Error getting resources for create lab order: ${error}` });
     if (isApiError(error)) {
       const { code, message } = error as APIError;

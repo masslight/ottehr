@@ -56,7 +56,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     console.error('walkin-check-availability error', error);
-    return topLevelCatch('walkin-check-availability', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('walkin-check-availability', error, ENVIRONMENT);
   }
 });
 

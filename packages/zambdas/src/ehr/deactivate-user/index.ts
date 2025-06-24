@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { DeactivateUserZambdaInput, DeactivateUserZambdaOutput, getSecret, Secrets } from 'utils';
+import { DeactivateUserZambdaInput, DeactivateUserZambdaOutput, getSecret, Secrets, SecretsKeys } from 'utils';
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
@@ -73,7 +73,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-deactivate-user', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-deactivate-user', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,

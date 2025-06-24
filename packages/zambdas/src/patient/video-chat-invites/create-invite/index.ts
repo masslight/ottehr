@@ -149,7 +149,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         const message = `You have been invited to join a telemedicine visit with ${patientChosenName}. Please click ${inviteUrl} to join.`;
         console.log(`Sms data: recipient: ${relatedPersonRef}; verifiedPhoneNumber: ${phone};`);
 
-        await sendSms(message, relatedPersonRef, oystehr);
+        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+        await sendSms(message, relatedPersonRef, oystehr, ENVIRONMENT);
       }
     }
 

@@ -15,7 +15,14 @@ import {
   Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getPatchBinary, PROVENANCE_ACTIVITY_CODING_ENTITY, Secrets, UpdateLabOrderResourcesParameters } from 'utils';
+import {
+  getPatchBinary,
+  getSecret,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  Secrets,
+  SecretsKeys,
+  UpdateLabOrderResourcesParameters,
+} from 'utils';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -99,7 +106,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
   } catch (error: any) {
     console.error('Error updating external lab order resource:', error);
-    await topLevelCatch('update-lab-order-resources', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-lab-order-resources', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

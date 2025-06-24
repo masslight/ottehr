@@ -10,6 +10,7 @@ import {
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
+  getSecret,
   mapStatusToTelemed,
   OTTEHR_MODULE,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
@@ -18,6 +19,7 @@ import {
   ProviderNotificationSettings,
   RoleType,
   Secrets,
+  SecretsKeys,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -447,7 +449,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: 'Successfully processed provider notifications',
     };
   } catch (error: any) {
-    await topLevelCatch('Notification-updater', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('Notification-updater', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,

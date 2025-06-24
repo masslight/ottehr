@@ -1,6 +1,13 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter } from 'fhir/r4b';
-import { FOLLOWUP_TYPES, SaveFollowupEncounterZambdaInput, SaveFollowupEncounterZambdaOutput, Secrets } from 'utils';
+import {
+  FOLLOWUP_TYPES,
+  getSecret,
+  SaveFollowupEncounterZambdaInput,
+  SaveFollowupEncounterZambdaOutput,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { createEncounterResource, updateEncounterResource } from './helpers';
@@ -68,7 +75,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 200,
     };
   } catch (error) {
-    await topLevelCatch('admin-save-followup-encounter', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-save-followup-encounter', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error saving followup encounter' }),

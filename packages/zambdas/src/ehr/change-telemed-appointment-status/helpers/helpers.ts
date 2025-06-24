@@ -23,7 +23,8 @@ export const changeStatusIfPossible = async (
   resourcesToUpdate: VideoResourcesAppointmentPackage,
   currentStatus: TelemedCallStatuses,
   newStatus: TelemedCallStatuses,
-  practitionerId: string
+  practitionerId: string,
+  ENVIRONMENT: string
 ): Promise<void> => {
   const { patient, appointment } = resourcesToUpdate;
   let appointmentPatchOp: Operation[] = [];
@@ -120,7 +121,7 @@ export const changeStatusIfPossible = async (
   promises.push(oystehr.fhir.transaction({ requests: patchOperationsBinaries }));
   if (smsToSend)
     promises.push(
-      sendSmsForPatient(smsToSend, oystehr, patient).catch((error) =>
+      sendSmsForPatient(smsToSend, oystehr, patient, ENVIRONMENT).catch((error) =>
         console.error('Error trying to send SMS message to patient on appointment change', error, smsToSend)
       )
     );
