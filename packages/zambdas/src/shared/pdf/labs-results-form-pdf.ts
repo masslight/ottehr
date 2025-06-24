@@ -93,7 +93,7 @@ type LabTypeSpecificResources =
         resultInterpretations: string[];
       };
     }
-  | { type: LabType.inhouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } };
+  | { type: LabType.inHouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } };
 
 const getResultDataConfig = (
   commonResourceConfig: CommonDataConfigResources,
@@ -140,13 +140,13 @@ const getResultDataConfig = (
     resultStatus: diagnosticReport.status.toUpperCase(),
   };
 
-  if (type === LabType.inhouse) {
+  if (type === LabType.inHouse) {
     const { inHouseLabResults } = specificResources;
     const inhouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
     };
     const data: InHouseLabResultsData = { ...baseData, ...inhouseData };
-    config = { type: LabType.inhouse, data };
+    config = { type: LabType.inHouse, data };
   }
 
   if (type === LabType.external) {
@@ -457,7 +457,7 @@ export async function createInHouseLabResultPDF(
   }
 
   const inhouseSpecificResources: LabTypeSpecificResources = {
-    type: LabType.inhouse,
+    type: LabType.inHouse,
     specificResources: { inHouseLabResults: [inHouseLabResults, ...additionalResultsForRelatedSrs] },
   };
   const commonResources: CommonDataConfigResources = {
@@ -560,7 +560,7 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   let pdfBytes: Uint8Array | undefined;
   if (type === LabType.external) {
     pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
-  } else if (type === LabType.inhouse) {
+  } else if (type === LabType.inHouse) {
     pdfBytes = await createInHouseLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   }
   if (!pdfBytes) throw new Error('pdfBytes could not be drawn');
