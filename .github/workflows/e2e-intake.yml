@@ -10,7 +10,6 @@ env:
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
 
-
 on:
   workflow_dispatch:
     inputs:
@@ -28,18 +27,28 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, 'release/**']
-    paths:
-      - 'apps/intake/**'
-      - 'packages/zambdas/**'
-      - 'packages/utils/**'
-      - 'packages/ui-components/**'
-      - '.github/**'
-      - '.prettierignore'
-      - 'package.json'
 
 jobs:
+  check-changes:
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+      skip-reason: ${{ steps.check.outputs.skip-reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need at least 2 commits to compare
+
+      - name: Check if Intake changes are relevant
+        id: check
+        run: node .github/check-changed-files.js apps/intake/ packages/zambdas/ packages/utils/ packages/ui-components/ .github/ .prettierignore package.json
+
   check-token-validity:
-    if: (github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch')
+    needs: check-changes
+    if: needs.check-changes.outputs.should-run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
@@ -129,8 +138,8 @@ jobs:
           echo "needs-login=$NEEDS_LOGIN" >> $GITHUB_OUTPUT
 
   intake-login:
-    needs: check-token-validity
-    if: needs.check-token-validity.outputs.needs-login == 'true'
+    needs: [check-changes, check-token-validity]
+    if: needs.check-changes.outputs.should-run == 'true' && needs.check-token-validity.outputs.needs-login == 'true'
     concurrency: # to prevent parallel login jobs; we can optimize it and eliminate user.json related steps when we have email login
       group: intake-login
       cancel-in-progress: false
@@ -250,11 +259,11 @@ jobs:
             apps/intake/test-results-login/
           retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}      
 
-  intake-e2e-tests:
-    needs: [check-token-validity, intake-login]
+  intake-e2e-tests-run:
+    needs: [check-changes, check-token-validity, intake-login]
     if: |
       always() && !cancelled() && 
-      (github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch') &&
+      needs.check-changes.outputs.should-run == 'true' &&
       (
         needs.check-token-validity.outputs.needs-login == 'false' ||
         needs.intake-login.result == 'success'
@@ -342,3 +351,28 @@ jobs:
             apps/intake/playwright-report/
             apps/intake/test-results/
           retention-days: ${{ fromJson(env.TEST_RESULTS_CACHE_RETENTION_DAYS) }}
+
+  # This job always runs and satisfies branch protection rules
+  intake-e2e-tests:
+    needs: [check-changes, check-token-validity, intake-login, intake-e2e-tests-run]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report status
+        run: |
+          if [ "${{ needs.check-changes.outputs.should-run }}" == "false" ]; then
+            echo "Intake E2E tests skipped: ${{ needs.check-changes.outputs.skip-reason }}"
+            exit 0
+          elif [ "${{ needs.intake-e2e-tests-run.result }}" == "success" ]; then
+            echo "Intake E2E tests passed"
+            exit 0
+          elif [ "${{ needs.intake-e2e-tests-run.result }}" == "failure" ]; then
+            echo "Intake E2E tests failed"
+            exit 1
+          elif [ "${{ needs.intake-e2e-tests-run.result }}" == "cancelled" ]; then
+            echo "Intake E2E tests cancelled"
+            exit 1
+          else
+            echo "Intake E2E tests status unknown: ${{ needs.intake-e2e-tests-run.result }}"
+            exit 1
+          fi
