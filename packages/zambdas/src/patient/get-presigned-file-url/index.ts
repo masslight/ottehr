@@ -26,8 +26,8 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let zapehrToken: string;
 

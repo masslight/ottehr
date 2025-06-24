@@ -6,18 +6,18 @@ import { DateTime } from 'luxon';
 import {
   Capacity,
   Closure,
+  ClosureType,
   DailySchedule,
   DOW,
+  FHIR_BASE_URL,
   HourOfDay,
   OVERRIDE_DATE_FORMAT,
-  FHIR_BASE_URL,
+  SCHEDULE_EXTENSION_URL,
+  ScheduleDay,
   ScheduleExtension,
   ScheduleOverrides,
-  SLUG_SYSTEM,
-  SCHEDULE_EXTENSION_URL,
-  ClosureType,
-  ScheduleDay,
   ScheduleOwnerFhirResource,
+  SLUG_SYSTEM,
 } from 'utils';
 
 const DAYS_LONG = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];

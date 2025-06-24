@@ -1,5 +1,4 @@
 import { MedicationAdministration, MedicationStatement } from 'fhir/r4b';
-import { ExtendedMedicationData } from './index';
 import { createReference } from 'utils';
 import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
@@ -18,6 +17,7 @@ import {
   PRACTITIONER_ORDERED_MEDICATION_CODE,
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from 'utils';
+import { ExtendedMedicationData } from './index';
 
 export function createMedicationAdministrationResource(
   data: ExtendedMedicationData,

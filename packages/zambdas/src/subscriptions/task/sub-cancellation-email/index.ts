@@ -2,8 +2,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, Task } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, Secrets, TaskStatus, getPatientContactEmail } from 'utils';
-import { validateRequestParameters } from '../validateRequestParameters';
+import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, Secrets, TaskStatus } from 'utils';
 import {
   captureSentryException,
   configSentry,
@@ -13,6 +12,7 @@ import {
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
+import { validateRequestParameters } from '../validateRequestParameters';
 
 export interface TaskSubscriptionInput {
   task: Task;

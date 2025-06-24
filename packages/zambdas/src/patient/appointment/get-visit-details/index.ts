@@ -1,9 +1,9 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { Appointment, Encounter } from 'fhir/r4b';
 import { createOystehrClient, getSecret, GetVisitDetailsResponse, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, ZambdaInput } from '../../../shared';
 import { getMedications, getPaymentDataRequest, getPresignedURLs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { Appointment, Encounter } from 'fhir/r4b';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;

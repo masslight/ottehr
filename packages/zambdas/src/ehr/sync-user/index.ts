@@ -3,18 +3,18 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ContactPoint, Identifier, Practitioner } from 'fhir/r4b';
 import {
+  allLicensesForPractitioner,
   FHIR_IDENTIFIER_NPI,
+  getPractitionerNPIIdentifier,
+  makeQualificationForPractitioner,
   PractitionerLicense,
   Secrets,
   SyncUserResponse,
-  allLicensesForPractitioner,
-  getPractitionerNPIIdentifier,
-  makeQualificationForPractitioner,
 } from 'utils';
-import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared';
-import { validateRequestParameters } from './validateRequestParameters';
 import { checkOrCreateM2MClientToken } from '../../shared';
+import { createOystehrClient } from '../../shared/helpers';
+import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;

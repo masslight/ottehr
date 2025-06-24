@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Appointment, Encounter, EncounterStatusHistory } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { getWaitingMinutes, AppointmentType, WaitTimeRange, FhirAppointmentStatus, FhirEncounterStatus } from 'utils';
+import { AppointmentType, FhirAppointmentStatus, FhirEncounterStatus, getWaitingMinutes, WaitTimeRange } from 'utils';
 
 let NOW: DateTime;
 

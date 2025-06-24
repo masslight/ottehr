@@ -5,17 +5,17 @@ import React from 'react';
 import {
   AvailableLocationInformation,
   getAvailableSlots,
-  getScheduleExtension,
   getLocationInformation,
+  getScheduleExtension,
   getSlotCapacityMapForDayAndSchedule,
 } from 'utils';
 import { vi } from 'vitest';
 import { useCheckOfficeOpen } from '../../../apps/intake/src/hooks/useCheckOfficeOpen';
+import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 import * as overrideData from './data/override-constants';
 import * as slotData from './data/slot-constants';
 import { addDateToSlotTimes } from './data/slot-constants';
 import { HoursOfOpConfig, makeLocationWithSchedule, OverrideScheduleConfig } from './helpers/testScheduleUtils';
-import { getNextOpeningDateTime } from '../src/patient/get-schedule';
 
 const oystehr = new Oystehr({});
 

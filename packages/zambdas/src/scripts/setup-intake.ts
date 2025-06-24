@@ -1,8 +1,8 @@
+import Oystehr, { AccessPolicy, Application } from '@oystehr/sdk';
+import { FhirResource, Location, Organization } from 'fhir/r4b';
 import fs from 'fs';
 import path from 'path';
-import Oystehr, { AccessPolicy, Application } from '@oystehr/sdk';
-import { TIMEZONE_EXTENSION_URL, SCHEDULE_EXTENSION_URL } from 'utils';
-import { FhirResource, Organization, Location } from 'fhir/r4b';
+import { SCHEDULE_EXTENSION_URL, TIMEZONE_EXTENSION_URL } from 'utils';
 import { checkLocations } from './setup-default-locations';
 
 export const defaultLocation: Location = {

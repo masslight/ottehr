@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 import { sentryEsbuildPlugin } from '@sentry/esbuild-plugin';
 import archiver from 'archiver';
 import * as esbuild from 'esbuild';

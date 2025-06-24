@@ -1,15 +1,15 @@
+import Oystehr from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
+import { DocumentReference } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { createFilesDocumentReferences, Secrets, getPresignedURL, LabelConfig } from 'utils';
-import { PdfInfo, createPdfClient } from './pdf-utils';
-import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
-import { TextStyle } from './types';
+import { StandardFonts } from 'pdf-lib';
+import { createFilesDocumentReferences, getPresignedURL, LabelConfig, Secrets } from 'utils';
 import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
-import Oystehr from '@oystehr/sdk';
-import { DocumentReference } from 'fhir/r4b';
-import { randomUUID } from 'crypto';
-import { StandardFonts } from 'pdf-lib';
 import { convertLabeConfigToPdfClientStyles } from './external-labs-label-pdf';
+import { Y_POS_GAP as pdfClientGapSubtraction } from './pdf-consts';
+import { createPdfClient, PdfInfo } from './pdf-utils';
+import { TextStyle } from './types';
 
 const VISIT_LABEL_PDF_BASE_NAME = 'VisitLabel';
 

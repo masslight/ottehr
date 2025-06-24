@@ -1,5 +1,5 @@
-import { ZambdaInput } from '../../shared';
 import { CreateUserParams } from 'utils';
+import { ZambdaInput } from '../../shared';
 
 export function validateRequestParameters(input: ZambdaInput): CreateUserParams & Pick<ZambdaInput, 'secrets'> {
   if (!input.body) {

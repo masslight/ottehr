@@ -14,12 +14,12 @@ import {
 import { FC, SyntheticEvent, useContext, useRef } from 'react';
 import { Controller, FieldValues, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { CustomRadioButtonIcon, useLabelDimensions } from 'ui-components';
 import { IntakeThemeContext } from '../../contexts';
 import { RadioOption, RadioStyling } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { LightToolTip } from './LightToolTip';
-import { CustomRadioButtonIcon, useLabelDimensions } from 'ui-components';
 
 type RadioInputProps = {
   name: string;

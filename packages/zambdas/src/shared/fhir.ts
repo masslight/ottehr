@@ -18,6 +18,7 @@ import {
   Schedule,
   Slot,
 } from 'fhir/r4b';
+import { uuid } from 'short-uuid';
 import {
   BookableScheduleData,
   isValidUUID,
@@ -30,7 +31,6 @@ import {
   SLUG_SYSTEM,
   unbundleBatchPostOutput,
 } from 'utils';
-import { uuid } from 'short-uuid';
 
 export async function getPatientResource(patientID: string, oystehr: Oystehr): Promise<Patient> {
   const response: Patient = await oystehr.fhir.get({

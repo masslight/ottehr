@@ -6,13 +6,13 @@ import {
   APIError,
   CODE_SYSTEM_COVERAGE_CLASS,
   EXTERNAL_LAB_ERROR,
-  LAB_ORG_TYPE_CODING,
-  LabOrderResourcesRes,
-  OYSTEHR_LAB_GUID_SYSTEM,
-  OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
-  OrderableItemSearchResult,
   flattenBundleResources,
   isApiError,
+  LAB_ORG_TYPE_CODING,
+  LabOrderResourcesRes,
+  OrderableItemSearchResult,
+  OYSTEHR_LAB_GUID_SYSTEM,
+  OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
 } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';

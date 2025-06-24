@@ -1,4 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import Oystehr, { User } from '@oystehr/sdk';
+import { Account, Identifier } from 'fhir/r4b';
+import Stripe from 'stripe';
 import {
   ACCOUNT_PAYMENT_PROVIDER_ID_SYSTEM_STRIPE,
   FHIR_RESOURCE_NOT_FOUND,
@@ -9,9 +11,6 @@ import {
   SecretsKeys,
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
 } from 'utils';
-import Stripe from 'stripe';
-import Oystehr, { User } from '@oystehr/sdk';
-import { Account, Identifier } from 'fhir/r4b';
 import { getUser, userHasAccessToPatient, ZambdaInput } from '../../shared';
 
 export interface BasePaymentMgmtInput {

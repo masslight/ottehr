@@ -1,3 +1,4 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Encounter, QuestionnaireResponse } from 'fhir/r4b';
 import {
@@ -9,7 +10,6 @@ import {
   StartInterviewInput,
 } from 'utils';
 import { getAuth0Token, validateJsonBody, validateString, ZambdaInput } from '../../../shared';
-import Oystehr from '@oystehr/sdk';
 import { invokeChatbot } from '../../../shared/ai';
 
 export const INTERVIEW_COMPLETED = 'Interview completed.';

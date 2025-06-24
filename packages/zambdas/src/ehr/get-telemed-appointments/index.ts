@@ -2,15 +2,15 @@ import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment } from 'fhir/r4b';
 import {
-  GetTelemedAppointmentsInput,
-  GetTelemedAppointmentsResponseEhr,
-  TelemedAppointmentInformation,
   appointmentTypeForAppointment,
   createSmsModel,
+  GetTelemedAppointmentsInput,
+  GetTelemedAppointmentsResponseEhr,
   getVisitStatusHistory,
   relatedPersonAndCommunicationMaps,
+  TelemedAppointmentInformation,
 } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken } from '../../shared';
+import { checkOrCreateM2MClientToken, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { filterAppointmentsAndCreatePackages, filterPatientForAppointment } from './helpers/fhir-resources-filters';
 import { getAllPartiallyPrefilteredFhirResources, getAllVirtualLocationsMap } from './helpers/fhir-utils';

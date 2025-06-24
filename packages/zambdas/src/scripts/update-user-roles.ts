@@ -1,13 +1,13 @@
+import fs from 'fs';
 import fetch from 'node-fetch';
 import { AccessPolicy, RoleType } from 'utils';
-import fs from 'fs';
 import {
   ADMINISTRATOR_RULES,
+  getAuth0Token,
   INACTIVE_RULES,
   MANAGER_RULES,
   PROVIDER_RULES,
   STAFF_RULES,
-  getAuth0Token,
 } from '../shared/';
 import { FRONT_DESK_RULES } from '../shared/accessPolicies';
 

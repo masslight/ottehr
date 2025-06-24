@@ -1,4 +1,5 @@
 import Oystehr, { BatchInputDeleteRequest, BatchInputPostRequest } from '@oystehr/sdk';
+import { randomUUID } from 'crypto';
 import {
   Account,
   Appointment,
@@ -12,6 +13,7 @@ import {
   Resource,
 } from 'fhir/r4b';
 import * as fs from 'fs';
+import { uuid } from 'short-uuid';
 import {
   COVERAGE_MEMBER_IDENTIFIER_BASE,
   isValidUUID,
@@ -20,14 +22,15 @@ import {
   unbundleBatchPostOutput,
 } from 'utils';
 import { assert, describe, expect, it } from 'vitest';
-import { performEffect } from '..';
+import { relatedPersonsAreSame } from '../../../../ehr/shared/harvest';
 import { createOystehrClient, getAuth0Token } from '../../../../shared';
+import { performEffect } from '..';
 import questionnaireResponse from './data/base-qr.json';
 import {
   expectedAccountGuarantorFromQR1,
+  expectedCoverageResources as qr1ExpectedCoverageResources,
   expectedPrimaryPolicyHolderFromQR1,
   expectedSecondaryPolicyHolderFromQR1,
-  expectedCoverageResources as qr1ExpectedCoverageResources,
 } from './data/expected-coverage-resources-qr1';
 import {
   batchTestInsuranceWrites,
@@ -36,10 +39,6 @@ import {
   replaceGuarantorWithPatient,
   replaceSubscriberWithPatient,
 } from './helpers';
-
-import { randomUUID } from 'crypto';
-import { uuid } from 'short-uuid';
-import { relatedPersonsAreSame } from '../../../../ehr/shared/harvest';
 
 const DEFAULT_TIMEOUT = 20000;
 
