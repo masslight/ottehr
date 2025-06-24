@@ -212,7 +212,7 @@ export const EditableMedicationCard: React.FC<{
         }
       });
     }
-  }, [getFieldValue, selectsOptions, type]);
+  }, []);
 
   return (
     <>
