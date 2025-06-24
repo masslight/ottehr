@@ -552,7 +552,7 @@
         "resourceType": "List",
         "status": "current",
         "mode": "working",
-        "title": "school-work-note",
+        "title": "school-work-notes",
         "code": {
           "coding": [
             {
@@ -576,7 +576,7 @@
                 }
               ]
             },
-            "value": "school-work-note"
+            "value": "school-work-notes"
           }
         ]
       }

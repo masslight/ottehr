@@ -362,7 +362,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
-    title: 'school-work-note',
+    title: 'school-work-notes',
     display: 'School/Work Notes',
     documentTypeCode: SCHOOL_WORK_NOTE_CODE,
   },

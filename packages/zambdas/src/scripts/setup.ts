@@ -18,8 +18,6 @@ import {
 import { inviteUser } from './invite-user';
 import { defaultGroup } from './setup-default-locations';
 
-export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
-
 async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   const application = await oystehr.application.create({
     name: applicationName,
@@ -346,7 +344,7 @@ export async function setupEHR(
   console.log('Created environment file:', envPath2);
 
   const documentExplorerFolders = FOLDERS_CONFIG.map((folder) => folder.title);
-  const bucketNames = ['photo-id-cards', 'school-work-notes', BUCKET_PAPERWORK_PDF, ...documentExplorerFolders];
+  const bucketNames = [...documentExplorerFolders];
 
   await createZ3(oystehr, bucketNames);
 
