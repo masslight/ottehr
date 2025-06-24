@@ -10,6 +10,7 @@ import {
   Organization,
   RelatedPerson,
 } from 'fhir/r4b';
+import { DateTime } from 'luxon';
 import {
   BillingProviderDataObject,
   createFhirHumanName,
@@ -32,7 +33,6 @@ import {
   EligibilityCheckPrevalidationStructuredInput,
   validateInsuranceRequirements,
 } from './validation';
-import { DateTime } from 'luxon';
 
 interface Input extends EligibilityCheckPrevalidationStructuredInput {
   apiUrl: string;

@@ -2,8 +2,8 @@ import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, FhirResource, Provenance, ServiceRequest, Task } from 'fhir/r4b';
-import { DeleteInHouseLabOrderParameters, Secrets } from 'utils';
-import { ZambdaInput, checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
+import { DeleteInHouseLabOrderParameters, DeleteInHouseLabOrderZambdaOutput, Secrets } from 'utils';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
 
@@ -164,12 +164,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }
     }
 
+    const response: DeleteInHouseLabOrderZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Successfully deleted in-house lab order.',
-        deletedResources: transactionResponse,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error deleting in-house lab order:', error);

@@ -1,4 +1,4 @@
-import { Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from '@mui/material';
+import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material';
 import { TestItemComponent } from 'utils';
 import { ResultEntryTableRow } from './ResultsEntryTableRow';
 

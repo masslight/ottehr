@@ -6,8 +6,8 @@ import { DateTime } from 'luxon';
 import {} from 'utils';
 import {
   captureSentryException,
-  createOystehrClient,
   configSentry,
+  createOystehrClient,
   getAuth0Token,
   getUser,
   topLevelCatch,

@@ -1,17 +1,17 @@
-import { ReactElement } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogActions,
   Button,
+  Dialog,
+  DialogActions,
   DialogContent,
-  TableBody,
-  TableRow,
+  DialogTitle,
   Table,
+  TableBody,
   TableCell,
   TableHead,
+  TableRow,
   Typography,
 } from '@mui/material';
+import { ReactElement } from 'react';
 import { ActivityLogData } from '../../helpers/activityLogsUtils';
 import ActivityLogRow from '../ActivityLogRow';
 

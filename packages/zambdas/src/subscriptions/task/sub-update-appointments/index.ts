@@ -11,8 +11,8 @@ import {
 } from 'utils';
 import {
   captureSentryException,
-  createOystehrClient,
   configSentry,
+  createOystehrClient,
   getAuth0Token,
   topLevelCatch,
   ZambdaInput,

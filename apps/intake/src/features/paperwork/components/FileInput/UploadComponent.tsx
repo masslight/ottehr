@@ -1,8 +1,8 @@
 import { Box, Button, Container, Typography, useTheme } from '@mui/material';
-import { ChangeEvent, FC, useContext, RefObject } from 'react';
+import { ChangeEvent, FC, RefObject, useContext } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
-import { IntakeThemeContext, DescriptionRenderer } from 'ui-components';
+import { DescriptionRenderer, IntakeThemeContext } from 'ui-components';
 import { AttachmentType } from '.';
 
 interface UploadComponentProps {

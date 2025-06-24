@@ -1,14 +1,14 @@
-import { CircularProgress, FormControl, Grid, MenuItem, Select, Skeleton, SelectChangeEvent } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { CircularProgress, FormControl, Grid, MenuItem, Select, SelectChangeEvent, Skeleton } from '@mui/material';
 import { styled } from '@mui/system';
+import { enqueueSnackbar } from 'notistack';
+import React, { useEffect, useState } from 'react';
+import { getVisitStatus, Visit_Status_Array, VisitStatusLabel, VisitStatusWithoutUnknown } from 'utils';
 import { CHIP_STATUS_MAP } from '../../../components/AppointmentTableRow';
-import { Visit_Status_Array, VisitStatusLabel, getVisitStatus } from 'utils';
-import { useAppointment } from '../hooks/useAppointment';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { handleChangeInPersonVisitStatus } from '../../../helpers/inPersonVisitStatusUtils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import useEvolveUser from '../../../hooks/useEvolveUser';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../constants/data-test-ids';
+import { useAppointment } from '../hooks/useAppointment';
 
 const StyledSelect = styled(Select)<{ hasDropdown?: string; arrowColor: string }>(
   ({ hasDropdown: hasDropdown, arrowColor: arrowColor }) => ({
@@ -52,10 +52,10 @@ export const ChangeStatusDropdown = ({
   onStatusChange,
 }: {
   appointmentID?: string;
-  onStatusChange: (status: VisitStatusLabel | undefined) => void;
+  onStatusChange: (status: VisitStatusWithoutUnknown) => void;
 }): React.ReactElement => {
   const [statusLoading, setStatusLoading] = useState<boolean>(false);
-  const [status, setStatus] = useState<VisitStatusLabel | undefined>(undefined);
+  const [status, setStatus] = useState<VisitStatusWithoutUnknown | undefined>(undefined);
   const { oystehrZambda } = useApiClients();
   const user = useEvolveUser();
   const { visitState: telemedData, refetch } = useAppointment(appointmentID);
@@ -83,7 +83,7 @@ export const ChangeStatusDropdown = ({
         {
           encounterId: encounter.id,
           user,
-          updatedStatus: event.target.value as VisitStatusLabel,
+          updatedStatus: event.target.value as VisitStatusWithoutUnknown,
         },
         oystehrZambda
       );
@@ -98,6 +98,12 @@ export const ChangeStatusDropdown = ({
   useEffect(() => {
     if (appointment && encounter) {
       const encounterStatus = getVisitStatus(appointment, encounter);
+
+      if (encounterStatus === 'unknown') {
+        console.warn('Encounter status is unknown, so not setting a status');
+        return;
+      }
+
       setStatus(encounterStatus);
       onStatusChange(encounterStatus);
     } else {

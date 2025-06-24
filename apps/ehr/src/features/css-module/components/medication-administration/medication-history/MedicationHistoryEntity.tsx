@@ -1,7 +1,7 @@
 import { Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { Practitioner } from 'fhir/r4b';
-import { mdyStringFromISOString, getProviderNameWithProfession, MedicationDTO } from 'utils';
+import { getProviderNameWithProfession, mdyStringFromISOString, MedicationDTO } from 'utils';
 
 const StyledEntity = styled('div')({
   display: 'flex',

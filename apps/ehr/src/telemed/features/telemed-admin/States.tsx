@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Box,
@@ -17,14 +18,13 @@ import {
 import React, { ReactElement } from 'react';
 import { Link } from 'react-router-dom';
 import { AllStates, AllStatesToNames, AllStatesToVirtualLocationsData, State, StateType } from 'utils';
-import { BooleanStateChip } from '../..';
+import { isLocationVirtual } from 'utils';
 import { STATES_URL } from '../../../App';
-import { otherColors } from '@ehrTheme/colors';
 import Loading from '../../../components/Loading';
 import { STATES_ROWS_PER_PAGE } from '../../../constants';
-import { useStatesQuery } from './telemed-admin.queries';
 import { dataTestIds } from '../../../constants/data-test-ids';
-import { isLocationVirtual } from 'utils';
+import { BooleanStateChip } from '../..';
+import { useStatesQuery } from './telemed-admin.queries';
 
 export default function StatesPage(): ReactElement {
   const theme = useTheme();
@@ -34,7 +34,7 @@ export default function StatesPage(): ReactElement {
   const [searchText, setSearchText] = React.useState('');
 
   const { data, isFetching } = useStatesQuery();
-  const stateLocations = data || [];
+  const stateLocations = React.useMemo(() => data || [], [data]);
 
   // Filter the states based on the locations
   const fhirLocationStates = React.useMemo(

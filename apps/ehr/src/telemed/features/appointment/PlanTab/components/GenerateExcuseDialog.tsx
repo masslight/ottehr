@@ -1,7 +1,8 @@
 import { Box, FormControl, FormGroup, FormLabel, Typography } from '@mui/material';
+import { enqueueSnackbar } from 'notistack';
 import { FC } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { PATIENT_SUPPORT_PHONE_NUMBER, getQuestionnaireResponseByLinkId } from 'utils';
+import { getQuestionnaireResponseByLinkId, PATIENT_SUPPORT_PHONE_NUMBER } from 'utils';
 import useEvolveUser from '../../../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useAppointmentStore, useSaveChartData } from '../../../../state';
@@ -17,7 +18,6 @@ import { ControlledExcuseCheckbox } from './ControlledExcuseCheckbox';
 import { ControlledExcuseDatePicker } from './ControlledExcuseDatePicker';
 import { ControlledExcuseTextField } from './ControlledExcuseTextField';
 import { GenerateExcuseDialogContainer } from './GenerateExcuseDialogContainer';
-import { enqueueSnackbar } from 'notistack';
 
 type GenerateExcuseDialogExtendedProps = {
   open: boolean;

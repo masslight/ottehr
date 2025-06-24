@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useAuth0 } from '@auth0/auth0-react';
 import { Typography } from '@mui/material';
+import { Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,22 +8,22 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
+  AvailableLocationInformation,
   CANT_UPDATE_CANCELED_APT_ERROR,
+  GetAppointmentResponseAppointmentDetails,
   PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  SlotListItem,
-  VisitType,
   PROJECT_NAME,
   PROJECT_WEBSITE,
-  AvailableLocationInformation,
+  SlotListItem,
+  VisitType,
 } from 'utils';
-import ottehrApi, { AppointmentBasicInfo } from '../api/ottehrApi';
-import { ottehrLightBlue } from '../themes/ottehr/icons';
+import ottehrApi from '../api/ottehrApi';
 import { PageContainer, Schedule } from '../components';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
 import i18n from '../lib/i18n';
+import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { useVisitContext } from './ThankYou';
-import { Slot } from 'fhir/r4b';
 
 const Reschedule = (): JSX.Element => {
   const tokenlessZambdaClient = useUCZambdaClient({ tokenless: true });
@@ -31,7 +31,7 @@ const Reschedule = (): JSX.Element => {
   const [loading, setLoading] = useState<boolean>(true);
   const [slotData, setSlotData] = useState<SlotListItem[] | undefined>(undefined);
   const [selectedSlot, setSelectedSlot] = useState<Slot | undefined>(undefined);
-  const [appointment, setAppointment] = useState<AppointmentBasicInfo | undefined>();
+  const [appointment, setAppointment] = useState<GetAppointmentResponseAppointmentDetails | undefined>();
   const [pageNotFound, setPageNotFound] = useState(false);
   const { isLoading } = useAuth0();
   const navigate = useNavigate();

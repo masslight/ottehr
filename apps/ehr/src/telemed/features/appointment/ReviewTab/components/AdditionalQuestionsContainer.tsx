@@ -1,8 +1,5 @@
-import { FC } from 'react';
 import { Box, Typography } from '@mui/material';
-import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
-import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
+import { FC } from 'react';
 import {
   ASQ_FIELD,
   ASQKeys,
@@ -20,8 +17,11 @@ import {
   SEEN_IN_LAST_THREE_YEARS_FIELD,
   SEEN_IN_LAST_THREE_YEARS_LABEL,
 } from 'utils';
-import { AssessmentTitle } from '../../AssessmentTab';
+import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { getSelectors } from '../../../../../shared/store/getSelectors';
+import { useAppointmentStore } from '../../../../state';
+import { AssessmentTitle } from '../../AssessmentTab';
 
 type AdditionalQuestionsContainerProps = {
   notes?: NoteDTO[];

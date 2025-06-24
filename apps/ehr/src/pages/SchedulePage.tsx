@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import { LoadingButton, TabContext, TabList, TabPanel } from '@mui/lab';
 import {
@@ -14,7 +15,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { otherColors } from '@ehrTheme/colors';
 import { Location, Practitioner, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';

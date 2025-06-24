@@ -1,12 +1,12 @@
-import { FC, useEffect, useState } from 'react';
-import { DateTime, Duration } from 'luxon';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Box, Checkbox, darken, FormControlLabel, Typography } from '@mui/material';
+import { DateTime, Duration } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { FC, useEffect, useState } from 'react';
 import { getSelectors } from '../../../shared/store/getSelectors';
+import { InnerStatePopover } from '../../components';
 import { useAppointmentStore, useSaveChartData } from '../../state';
 import { formatVideoTimerTime } from '../../utils';
-import { InnerStatePopover } from '../../components';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { enqueueSnackbar } from 'notistack';
 
 export const VideoTimer: FC = () => {
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);

@@ -1,12 +1,12 @@
-import React, { FC, useState } from 'react';
+import CloseIcon from '@mui/icons-material/Close';
 import { Box, Dialog, IconButton, Link, Skeleton, Typography } from '@mui/material';
+import React, { FC, useState } from 'react';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { PastVisitsTable } from '../../../components/PastVisitsTable';
+import { useGetPatient } from '../../../hooks/useGetPatient';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../state';
-import { useGetPatient } from '../../../hooks/useGetPatient';
-import { PastVisitsTable } from '../../../components/PastVisitsTable';
-import CloseIcon from '@mui/icons-material/Close';
 import { getPatientName } from '../../utils';
-import { dataTestIds } from 'src/constants/data-test-ids';
 
 export const PastVisits: FC = () => {
   const { patient } = getSelectors(useAppointmentStore, ['patient']);

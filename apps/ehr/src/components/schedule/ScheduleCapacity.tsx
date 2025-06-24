@@ -1,5 +1,5 @@
+import { Box, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import React from 'react';
-import { Box, Table, TableHead, TableRow, TableCell, TableBody, Typography, TextField } from '@mui/material';
 import { formatHourNumber } from '../../helpers/formatDateTime';
 import { Capacity, Day, HourOfDay } from '../../types/types';
 

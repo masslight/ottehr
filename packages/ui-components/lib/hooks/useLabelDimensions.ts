@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useEffect, useCallback, RefObject } from 'react';
+import { RefObject, useCallback, useEffect, useLayoutEffect, useState } from 'react';
 
 export const useLabelDimensions = (
   labelRef: RefObject<HTMLLabelElement>

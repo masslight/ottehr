@@ -1,6 +1,6 @@
 {
   "name": "zambdas",
-  "version": "1.11.17",
+  "version": "1.12.1",
   "private": true,
   "scripts": {
     "start": "ENV=${ENV:-local} npm run setup-deployed-resources ${ENV:-local} && tsx watch --include './src/**/*' src/local-server/index.ts -- env=.env/${ENV:-local}.json",
@@ -22,7 +22,8 @@
     "clean-up-e2e": "tsx src/scripts/clean-up-e2e.ts",
     "build": "tsc",
     "bundle": "tsx bundle.ts",
-    "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 .",
+    "lint:fix": "eslint --ext .ts,.js --report-unused-disable-directives --max-warnings 0 --fix .",
     "prettier": "prettier --write .",
     "clear-tasks": "tsx src/scripts/clear-tasks.ts production",
     "stub-zambdas:prod": "tsx src/scripts/create-zambda-stubs.ts production",

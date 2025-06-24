@@ -1,7 +1,7 @@
 {
   "extends": "tsconfig/react.json",
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "."
   },
-  "include": ["lib", "test", ".esclintrc.cjs"]
+  "include": [".", ".eslintrc.cjs"]
 }

@@ -1,8 +1,8 @@
-import { Typography, TableCell, TableRow, SxProps, Theme } from '@mui/material';
-import { TestItemComponent, OBSERVATION_CODES, quantityRangeFormat } from 'utils';
+import { SxProps, TableCell, TableRow, Theme, Typography } from '@mui/material';
+import { useEffect, useState } from 'react';
+import { OBSERVATION_CODES, quantityRangeFormat, TestItemComponent } from 'utils';
 import { ResultEntrySelect } from './ResultEntrySelect';
 import { ResultEntryNumericInput } from './ResultsEntryNumericInput';
-import { useState, useEffect } from 'react';
 
 interface ResultEntryTableRowProps {
   component: TestItemComponent;

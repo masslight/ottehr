@@ -5,7 +5,7 @@ env:
   TOKEN_VALIDITY_THRESHOLD_MINUTES: 60
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPO: masslight/ottehr-secrets
-  USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}
+  USER_JSON_CACHE_KEY: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
   USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
@@ -162,6 +162,14 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             ${{ runner.os }}-playwright-
+
+      - name: Try restore user.json cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.USER_JSON_PATH }}
+          key: ${{ env.USER_JSON_CACHE_KEY }}
+          restore-keys: ${{ env.USER_JSON_CACHE_RESTORE_KEYS }}              
 
       - name: Check out secrets repo
         uses: actions/checkout@v4

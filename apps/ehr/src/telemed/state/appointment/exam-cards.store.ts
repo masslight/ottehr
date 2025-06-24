@@ -1,5 +1,5 @@
-import { create } from 'zustand';
 import { ExamTabCardNames, InPersonExamTabProviderCardNames } from 'utils';
+import { create } from 'zustand';
 
 type ExamCardsState = { [name in ExamTabCardNames]: boolean };
 

@@ -1,14 +1,14 @@
-import { FC, useContext, useState, ReactNode } from 'react';
-import { Autocomplete, Box, Chip, FormControl, SelectProps, TextField, Typography, useTheme } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Autocomplete, Box, Chip, FormControl, SelectProps, TextField, Typography, useTheme } from '@mui/material';
+import { FC, ReactNode, useContext, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { IntakeThemeContext, usePageFormContext } from '../../contexts';
+import { SelectInputOption } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { LightToolTip } from './LightToolTip';
 import { VirtualizedListboxComponent } from './VirtualizedListboxComponent';
-import { IntakeThemeContext, usePageFormContext } from '../../contexts';
-import { SelectInputOption } from '../../types';
-import { useTranslation } from 'react-i18next';
 
 type FreeMultiSelectOptions = string[] | SelectInputOption[];
 

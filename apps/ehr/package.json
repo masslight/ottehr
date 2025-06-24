@@ -1,6 +1,6 @@
 {
   "name": "ehr-ui",
-  "version": "1.11.17",
+  "version": "1.12.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -22,7 +22,8 @@
   "scripts": {
     "start": "vite --mode default",
     "preview": "vite preview --port 4002",
-    "lint": "eslint --ext ts,tsx,js,jsx --report-unused-disable-directives --max-warnings 0",
+    "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
+    "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
     "prettier": "prettier --write .",
     "build": "tsc && vite build --mode default",
     "build:env": "ENV=$npm_config_env npm run build-skeleton",

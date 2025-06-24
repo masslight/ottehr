@@ -7,23 +7,23 @@ import {
   BookableScheduleData,
   CANT_UPDATE_CANCELED_APT_ERROR,
   CANT_UPDATE_CHECKED_IN_APT_ERROR,
-  DATETIME_FULL_NO_YEAR,
-  PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
-  SCHEDULE_NOT_FOUND_ERROR,
-  ScheduleType,
-  Secrets,
   checkValidBookingTime,
+  DATETIME_FULL_NO_YEAR,
   getAvailableSlotsForSchedules,
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
   getSMSNumberForIndividual,
-  isPostTelemedAppointment,
-  UpdateAppointmentParameters,
-  normalizeSlotToUTC,
-  isValidUUID,
   isAppointmentVirtual,
+  isPostTelemedAppointment,
+  isValidUUID,
+  normalizeSlotToUTC,
+  PAST_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+  POST_TELEMED_APPOINTMENT_CANT_BE_MODIFIED_ERROR,
+  SCHEDULE_NOT_FOUND_ERROR,
+  ScheduleType,
+  Secrets,
+  UpdateAppointmentParameters,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
@@ -231,7 +231,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     const response = {
       message: 'Successfully updated an appointment',
-      appointmentID: updatedAppointment.id ?? null,
+      appointmentID: updatedAppointment.id,
     };
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentUpdate, oystehr, input, fhirPatient.id || '', secrets);

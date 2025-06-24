@@ -13,9 +13,9 @@ import {
 import { FC, MouseEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getFullestAvailableName, PROJECT_NAME, RoleType } from 'utils';
+import { dataTestIds } from '../../constants/data-test-ids';
 import { ProviderNotifications } from '../../features';
 import useEvolveUser from '../../hooks/useEvolveUser';
-import { dataTestIds } from '../../constants/data-test-ids';
 
 export const UserMenu: FC = () => {
   const [anchorElement, setAnchorElement] = useState<HTMLElement | null>(null);

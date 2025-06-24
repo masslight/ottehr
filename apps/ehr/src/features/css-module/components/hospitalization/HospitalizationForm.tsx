@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Autocomplete, Box, Card, TextField, Typography } from '@mui/material';
 import { FC, useCallback, useMemo } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -11,7 +12,6 @@ import {
   useGetAppointmentAccessibility,
 } from '../../../../telemed';
 import { ProviderSideListSkeleton } from '../../../../telemed/features/appointment';
-import { otherColors } from '@ehrTheme/colors';
 
 const HospitalizationOptions: HospitalizationDTO[] = [
   {

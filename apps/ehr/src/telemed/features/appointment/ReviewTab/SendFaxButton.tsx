@@ -1,15 +1,15 @@
 import FaxOutlinedIcon from '@mui/icons-material/FaxOutlined';
 import { Box, FormControl, FormHelperText, InputLabel, OutlinedInput, Tooltip, Typography } from '@mui/material';
+import { Appointment, Encounter } from 'fhir/r4b';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useMemo, useState } from 'react';
+import InputMask from 'src/components/InputMask';
 import { getVisitStatus, isPhoneNumberValid, TelemedAppointmentStatusEnum } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { dataTestIds } from '../../../../constants/data-test-ids';
 import { ConfirmationDialog } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
 import { useZapEHRAPIClient } from '../../../hooks/useOystehrAPIClient';
-import { enqueueSnackbar } from 'notistack';
-import { dataTestIds } from '../../../../constants/data-test-ids';
-import InputMask from 'src/components/InputMask';
-import { Appointment, Encounter } from 'fhir/r4b';
 
 interface SendFaxButtonProps {
   appointment?: Appointment;

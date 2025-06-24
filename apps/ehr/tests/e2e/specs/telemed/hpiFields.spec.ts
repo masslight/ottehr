@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import {
   getAdditionalQuestionsAnswers,
@@ -21,7 +22,6 @@ import { dataTestIds } from '../../../../src/constants/data-test-ids';
 import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../../e2e-utils/helpers/telemed.test-helpers';
 import { checkDropdownHasOptionAndSelectIt } from '../../../e2e-utils/helpers/tests-utils';
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
-import { DateTime } from 'luxon';
 
 async function checkDropdownNoOptions(
   page: Page,

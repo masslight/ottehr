@@ -1,17 +1,17 @@
+import { ExpandMore } from '@mui/icons-material';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, FormControl, MenuItem, Select, SelectProps, Typography, useTheme } from '@mui/material';
 import { FC, useContext, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { FormControl, SelectProps, MenuItem, Select, useTheme, Box, Typography } from '@mui/material';
-import { ExpandMore } from '@mui/icons-material';
-import { SelectInputOption } from '../../types';
+import { useTranslation } from 'react-i18next';
+import { useLabelDimensions } from 'ui-components';
 import { IntakeThemeContext } from '../../contexts';
 import { findLabelFromOptions } from '../../helpers';
+import { SelectInputOption } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
-import RenderLabelFromSelect from './RenderLabelFromSelect';
 import { LightToolTip } from './LightToolTip';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import { useLabelDimensions } from 'ui-components';
-import { useTranslation } from 'react-i18next';
+import RenderLabelFromSelect from './RenderLabelFromSelect';
 
 type SelectInputProps = {
   name: string;

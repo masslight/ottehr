@@ -1,4 +1,4 @@
-import { isApiError, APIError } from 'utils';
+import { APIError, isApiError } from 'utils';
 import { useIntakeCommonStore } from '../features/common';
 
 type InternalError = Omit<APIError, 'code'>;

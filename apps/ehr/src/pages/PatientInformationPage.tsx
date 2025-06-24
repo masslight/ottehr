@@ -1,8 +1,15 @@
+import { otherColors } from '@ehrTheme/colors';
+import CloseIcon from '@mui/icons-material/Close';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { Box, Button, Typography, useTheme } from '@mui/material';
 import { BundleEntry, Coverage, InsurancePlan, Organization, QuestionnaireResponseItem } from 'fhir/r4b';
+import _ from 'lodash';
+import { enqueueSnackbar } from 'notistack';
 import { FC, useEffect, useMemo, useState } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
+import { useQueryClient } from 'react-query';
 import { useNavigate, useParams } from 'react-router-dom';
+import { dataTestIds } from 'src/constants/data-test-ids';
 import {
   checkCoverageMatchesDetails,
   CoverageCheckWithDetails,
@@ -25,26 +32,19 @@ import {
   PrimaryCareContainer,
   ResponsibleInformationContainer,
 } from '../components/patient';
+import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
+import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
+import { structureQuestionnaireResponse } from '../helpers/qr-structure';
 import {
   useGetInsurancePlans,
   useGetPatient,
   useGetPatientAccount,
   useGetPatientDetailsUpdateForm,
-  useUpdatePatientAccount,
   useRemovePatientCoverage,
+  useUpdatePatientAccount,
 } from '../hooks/useGetPatient';
 import { createInsurancePlanDto, InsurancePlanDTO, usePatientStore } from '../state/patient.store';
-import CloseIcon from '@mui/icons-material/Close';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import { otherColors } from '@ehrTheme/colors';
-import { AddInsuranceModal } from '../components/patient/AddInsuranceModal';
 import { useZapEHRAPIClient } from '../telemed/hooks/useOystehrAPIClient';
-import { enqueueSnackbar } from 'notistack';
-import { structureQuestionnaireResponse } from '../helpers/qr-structure';
-import { useQueryClient } from 'react-query';
-import { INSURANCE_COVERAGE_OPTIONS, InsurancePriorityOptions } from '../constants';
-import _ from 'lodash';
-import { dataTestIds } from 'src/constants/data-test-ids';
 
 const getAnyAnswer = (item: QuestionnaireResponseItem): any | undefined => {
   let index = 0;

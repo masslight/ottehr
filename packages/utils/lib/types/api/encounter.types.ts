@@ -1,5 +1,5 @@
-import { FollowupType, FollowupReason } from '../../fhir';
 import { Location } from 'fhir/r4b';
+import { FollowupReason, FollowupType } from '../../fhir';
 
 export interface FollowupEncounterDTO {
   encounterId?: string;

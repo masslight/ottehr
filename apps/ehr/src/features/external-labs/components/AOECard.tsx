@@ -1,9 +1,9 @@
-import { Paper, Grid, CircularProgress, Typography } from '@mui/material';
-import { AccordionCard } from '../../../telemed/components/AccordionCard';
-import React, { useState } from 'react';
-import { AOEQuestion } from './AOEQuestion';
+import { CircularProgress, Grid, Paper, Typography } from '@mui/material';
 import { QuestionnaireItem } from 'fhir/r4b';
+import React, { useState } from 'react';
 import { LabQuestionnaireResponse } from 'utils';
+import { AccordionCard } from '../../../telemed/components/AccordionCard';
+import { AOEQuestion } from './AOEQuestion';
 
 interface AOEProps {
   questions: QuestionnaireItem[];

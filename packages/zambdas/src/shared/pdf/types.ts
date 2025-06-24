@@ -6,10 +6,10 @@ import {
   ExamTabCardNames,
   InPersonExamObservationFieldItem,
   InPersonExamTabProviderCardNames,
+  LabType,
   NOTHING_TO_EAT_OR_DRINK_FIELD,
   QuantityComponent,
   VitalsVisitNoteData,
-  LabType,
 } from 'utils';
 
 export interface PageElementStyle {

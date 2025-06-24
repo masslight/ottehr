@@ -21,9 +21,9 @@ import { Link, useParams } from 'react-router-dom';
 import { AllStatesToVirtualLocationsData, isLocationVirtual, StateType } from 'utils';
 import { STATES_URL } from '../../../App';
 import CustomBreadcrumbs from '../../../components/CustomBreadcrumbs';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { useApiClients } from '../../../hooks/useAppClients';
 import PageContainer from '../../../layout/PageContainer';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 export default function EditStatePage(): JSX.Element {
   const { oystehr } = useApiClients();

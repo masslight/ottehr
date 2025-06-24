@@ -11,40 +11,40 @@ import {
   Slot,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 import {
-  SCHEDULE_EXTENSION_URL,
-  TIMEZONE_EXTENSION_URL,
-  getPatchOperationForNewMetaTag,
   BookableScheduleData,
-  SCHEDULE_NUM_DAYS,
-  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
-  scheduleStrategyForHealthcareService,
-  ScheduleStrategy,
-  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
-  makeBookingOriginExtensionEntry,
-  getFullName,
-  WALKIN_APPOINTMENT_TYPE_CODE,
-  isLocationVirtual,
-  SlotServiceCategory,
   codingContainedInList,
-  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
-  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
+  DEFAULT_APPOINTMENT_LENGTH_MINUTES,
+  getFullName,
+  getPatchOperationForNewMetaTag,
+  isLocationVirtual,
+  makeBookingOriginExtensionEntry,
+  SCHEDULE_EXTENSION_URL,
+  SCHEDULE_NUM_DAYS,
+  ScheduleStrategy,
+  scheduleStrategyForHealthcareService,
   SLOT_BOOKING_FLOW_ORIGIN_EXTENSION_URL,
+  SLOT_BUSY_TENTATIVE_EXPIRATION_MINUTES,
+  SLOT_POST_TELEMED_APPOINTMENT_TYPE_CODING,
+  SLOT_WALKIN_APPOINTMENT_TYPE_CODING,
+  SlotServiceCategory,
+  TIMEZONE_EXTENSION_URL,
+  WALKIN_APPOINTMENT_TYPE_CODE,
 } from '../fhir';
 import {
   Closure,
+  ClosureType,
+  CreateSlotParams,
+  OVERRIDE_DATE_FORMAT,
+  ScheduleOwnerFhirResource,
+  ScheduleType,
+  ServiceMode,
   Timezone,
   TIMEZONES,
-  OVERRIDE_DATE_FORMAT,
-  ClosureType,
   VisitType,
-  ScheduleType,
-  ScheduleOwnerFhirResource,
-  ServiceMode,
-  CreateSlotParams,
 } from '../types';
 import { getDateTimeFromDateAndTime } from './date';
+import { convertCapacityListToBucketedTimeSlots, createMinimumAndMaximumTime, distributeTimeSlots } from './dateUtils';
 
 export interface WaitTimeRange {
   low: number;
@@ -1572,15 +1572,12 @@ export const getServiceModeFromSlot = (slot: Slot): ServiceMode | undefined => {
   (slot.serviceCategory ?? []).forEach((category) => {
     const categoryCoding = category.coding?.[0] ?? {};
     if (codingContainedInList(categoryCoding, SlotServiceCategory.inPersonServiceMode.coding!)) {
-      console.log('service mode in-person found');
       serviceMode = ServiceMode['in-person'];
     }
     if (codingContainedInList(categoryCoding, SlotServiceCategory.virtualServiceMode.coding!)) {
-      console.log('service mode virtual found');
       serviceMode = ServiceMode.virtual;
     }
   });
-  console.log('service mode from slot', serviceMode, slot.id);
   return serviceMode;
 };
 
@@ -1729,7 +1726,6 @@ interface CreateSlotOptions {
 export const createSlotParamsFromSlotAndOptions = (slot: Slot, options: CreateSlotOptions): CreateSlotParams => {
   const { status, originalBookingUrl, postTelemedLabOnly } = options;
   const walkin = getSlotIsWalkin(slot);
-  console.log('service modality from slot', getServiceModeFromSlot(slot));
   return {
     scheduleId: slot.schedule.reference?.replace('Schedule/', '') ?? '',
     startISO: slot.start,

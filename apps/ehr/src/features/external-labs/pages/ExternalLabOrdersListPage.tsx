@@ -3,9 +3,9 @@ import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PageTitle } from '../../../telemed/components/PageTitle';
 import { useAppointmentStore } from '../../../telemed/state/appointment/appointment.store';
+import ListViewContainer from '../../common/ListViewContainer';
 import { ButtonRounded } from '../../css-module/components/RoundedButton';
 import { LabsTable, LabsTableColumn } from '../components/labs-orders/LabsTable';
-import ListViewContainer from '../../common/ListViewContainer';
 
 const externalLabsColumns: LabsTableColumn[] = ['testType', 'orderAdded', 'provider', 'dx', 'status', 'psc', 'actions'];
 

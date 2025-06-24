@@ -43,10 +43,10 @@ import {
   SecretsKeys,
 } from 'utils';
 import { CODE_SYSTEM_CMS_PLACE_OF_SERVICE } from 'utils/lib/helpers/rcm';
+import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 import { chartDataResourceHasMetaTagByCode } from './chart-data';
 import { assertDefined } from './helpers';
 import { VideoResourcesAppointmentPackage } from './pdf/visit-details-pdf/types';
-import { getAccountAndCoverageResourcesForPatient } from '../ehr/shared/harvest';
 
 export const CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM =
   'https://api.joincandidhealth.com/api/encounters/v4/response/encounter_id';

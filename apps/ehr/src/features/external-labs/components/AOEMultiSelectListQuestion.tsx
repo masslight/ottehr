@@ -1,4 +1,4 @@
-import { Select, MenuItem, InputLabel, OutlinedInput, Box, Chip } from '@mui/material';
+import { Box, Chip, InputLabel, MenuItem, OutlinedInput, Select } from '@mui/material';
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
 import { LabQuestionnaireResponseItem } from 'utils';

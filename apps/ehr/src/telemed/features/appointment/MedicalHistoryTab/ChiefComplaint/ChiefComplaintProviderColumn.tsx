@@ -1,10 +1,10 @@
 import { Box, FormControlLabel, Skeleton, Switch, TextField, Typography } from '@mui/material';
 import { FC } from 'react';
 import { Controller, useForm } from 'react-hook-form';
+import { dataTestIds } from '../../../../../constants/data-test-ids';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
 import { useDebounceNotesField } from '../../../../hooks';
 import { useAppointmentStore } from '../../../../state';
-import { dataTestIds } from '../../../../../constants/data-test-ids';
 
 export const ChiefComplaintProviderColumn: FC = () => {
   const { chartData } = getSelectors(useAppointmentStore, ['chartData']);

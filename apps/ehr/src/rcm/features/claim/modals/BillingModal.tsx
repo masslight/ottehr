@@ -1,5 +1,5 @@
-import React, { FC } from 'react';
-import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
+import { otherColors } from '@ehrTheme/colors';
+import AddIcon from '@mui/icons-material/Add';
 import {
   Box,
   Card,
@@ -13,15 +13,15 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { DateTime } from 'luxon';
+import React, { FC } from 'react';
+import { Controller, FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { RoundedButton } from '../../../../components/RoundedButton';
-import { DeleteIconButton } from '../../../../telemed';
-import { TextFieldController, DateRangePickerController, EditModal, CheckboxController } from './components';
 import { getSelectors } from '../../../../shared/store/getSelectors';
+import { DeleteIconButton } from '../../../../telemed';
 import { ClaimState, useClaimStore, useEditClaimInformationMutation } from '../../../state';
 import { BillingFormValues, mapBillingToClaimResource } from '../../../utils';
-import { DateTime } from 'luxon';
-import { otherColors } from '@ehrTheme/colors';
+import { CheckboxController, DateRangePickerController, EditModal, TextFieldController } from './components';
 const getDefaultValues = (claimData: ClaimState['claimData']): BillingFormValues => ({
   items: claimData?.billingItems || [],
   payment: claimData?.patientPaid || NaN,

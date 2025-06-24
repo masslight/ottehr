@@ -1,5 +1,5 @@
 import Oystehr from '@oystehr/sdk';
-import { CodeableConcept, Coding, Group, Practitioner, Location } from 'fhir/r4b';
+import { CodeableConcept, Coding, Group, Location, Practitioner } from 'fhir/r4b';
 
 export interface bundleResourcesConfig {
   location?: Location;

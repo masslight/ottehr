@@ -1,13 +1,13 @@
 import { AppBar, Box, Typography, useTheme } from '@mui/material';
 import { FC, useState } from 'react';
-import { TelemedAppointmentStatusEnum, mapEncounterStatusHistory } from 'utils';
+import { mapEncounterStatusHistory, TelemedAppointmentStatusEnum } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import InviteParticipant from '../../components/InviteParticipant';
 import { useGetAppointmentAccessibility } from '../../hooks';
 import { useAppointmentStore, useVideoCallStore } from '../../state';
 import { getAppointmentWaitingTime } from '../../utils';
 import { AppointmentFooterButton } from './AppointmentFooterButton';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 export const AppointmentFooter: FC = () => {
   const theme = useTheme();

@@ -1,5 +1,4 @@
 import { PractitionerLicense } from '../../../main';
-
 import { RoleType } from '../../../main';
 
 export interface UpdateUserParams {
@@ -19,4 +18,8 @@ export interface UpdateUserParams {
   addressCity?: string;
   addressState?: string;
   addressZip?: string;
+}
+
+export interface UpdateUserZambdaOutput {
+  message: string;
 }

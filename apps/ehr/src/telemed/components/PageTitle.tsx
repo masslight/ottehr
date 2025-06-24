@@ -1,9 +1,9 @@
-import React, { ReactElement, useState } from 'react';
+import { Grid } from '@mui/material';
+import { TypographyOptions } from '@mui/material/styles/createTypography';
 import Typography from '@mui/material/Typography';
 import { styled } from '@mui/system';
-import { Grid } from '@mui/material';
+import React, { ReactElement, useState } from 'react';
 import { IntakeNote } from '../../features/css-module/components/IntakeNotes';
-import { TypographyOptions } from '@mui/material/styles/createTypography';
 
 interface PageTitleProps {
   label: string;

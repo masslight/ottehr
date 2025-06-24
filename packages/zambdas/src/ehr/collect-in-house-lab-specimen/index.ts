@@ -6,17 +6,18 @@ import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4
 import { DateTime } from 'luxon';
 import {
   CollectInHouseLabSpecimenParameters,
+  CollectInHouseLabSpecimenZambdaOutput,
   IN_HOUSE_LAB_TASK,
   PRACTITIONER_CODINGS,
-  SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
   Secrets,
+  SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
 } from 'utils';
 import {
-  ZambdaInput,
   checkOrCreateM2MClientToken,
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
@@ -201,12 +202,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       throw Error('Error collecting in-house lab specimen in transaction');
     }
 
+    const response: CollectInHouseLabSpecimenZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({
-        message: 'Successfully collected in-house lab specimen.',
-        transactionResponse,
-      }),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
     console.error('Error collecting in-house lab specimen:', error);

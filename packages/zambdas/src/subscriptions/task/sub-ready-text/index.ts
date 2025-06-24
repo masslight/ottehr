@@ -2,18 +2,18 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Location, Patient, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, getPatientContactEmail, PROJECT_WEBSITE } from 'utils';
+import { DATETIME_FULL_NO_YEAR, getPatientContactEmail, PROJECT_WEBSITE, TaskStatus } from 'utils';
 import {
   captureSentryException,
-  createOystehrClient,
   configSentry,
+  createOystehrClient,
   getAuth0Token,
   topLevelCatch,
   ZambdaInput,
 } from '../../../shared';
+import { patchTaskStatus } from '../../helpers';
 import { sendText } from '../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
-import { patchTaskStatus } from '../../helpers';
 
 let zapehrToken: string;
 

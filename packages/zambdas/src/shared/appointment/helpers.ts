@@ -4,23 +4,23 @@ import { Appointment, Encounter, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
-  FHIR_EXTENSION,
-  PATIENT_NOT_FOUND_ERROR,
-  PatientInfo,
-  TelemedCallStatuses,
-  User,
   createPatientDocumentLists,
   createUserResourcesForPatient,
+  FHIR_EXTENSION,
   formatPhoneNumber,
   getPatchBinary,
   getPatientResourceWithVerifiedPhoneNumber,
   mapStatusToTelemed,
   normalizePhoneNumber,
+  PATIENT_NOT_FOUND_ERROR,
+  PatientInfo,
   removeTimeFromDate,
+  TelemedCallStatuses,
+  User,
 } from 'utils';
 import { AppointmentInsuranceRelatedResourcesExtension } from 'utils';
-import { assertDefined } from '../helpers';
 import { checkIsEHRUser } from '../auth';
+import { assertDefined } from '../helpers';
 
 export function getPatientFromAppointment(appointment: Appointment): string | undefined {
   return appointment.participant
