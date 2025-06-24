@@ -27,6 +27,7 @@ import {
   DiagnosisDTO,
   EMPTY_PAGINATION,
   ExternalLabsStatus,
+  getFullestAvailableName,
   getTimezone,
   isPositiveNumberOrZero,
   LAB_ACCOUNT_NUMBER_SYSTEM,
@@ -1148,13 +1149,13 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
     return NOT_FOUND;
   }
 
-  const name = practitioner.name?.[0];
+  const providerName = getFullestAvailableName(practitioner);
 
-  if (!name) {
+  if (!providerName) {
     return NOT_FOUND;
   }
 
-  return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || NOT_FOUND;
+  return providerName;
 };
 
 export const parseLabInfo = (serviceRequest: ServiceRequest): { testItem: string; fillerLab: string } => {

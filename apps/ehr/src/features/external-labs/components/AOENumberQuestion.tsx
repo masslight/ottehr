@@ -10,6 +10,7 @@ interface NumberQuestionProps {
   answer?: string;
   extension: Extension[];
   required: boolean;
+  isReadOnly?: boolean;
   idString: string;
   field: ControllerRenderProps<FieldValues, string>;
 }
@@ -20,7 +21,7 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
   } = useFormContext();
 
   // Note: the extension will tell you the necessary number validation. See Oystehr docs for full explanation
-  const { questionText, linkId, answer, extension, required, idString, field } = props;
+  const { questionText, linkId, answer, extension, required, isReadOnly, idString, field } = props;
 
   // splitting out the RHF passed ref here so it gets passed correctly to the styled component
   const { ref: fieldRef, ...otherField } = field;
@@ -63,7 +64,7 @@ export const AOENumberQuestion: React.FC<NumberQuestionProps> = (props) => {
           padFractionalZeros: true,
           scale: decimals,
           // step: decimals ? `0.${'0'.padStart(decimals - 1, '0')}1` : null,
-          readOnly: answer !== undefined,
+          readOnly: isReadOnly,
         },
       }}
       defaultValue={answer}

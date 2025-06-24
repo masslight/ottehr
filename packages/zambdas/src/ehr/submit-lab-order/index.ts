@@ -5,11 +5,11 @@ import { Coverage, FhirResource, Location, Organization, Patient, Provenance, Se
 import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import {
-  allLicensesForPractitioner,
   APIError,
   DYMO_30334_LABEL_CONFIG,
   EXTERNAL_LAB_ERROR,
   FHIR_IDENTIFIER_NPI,
+  getFullestAvailableName,
   getPatchBinary,
   getPatientFirstName,
   getPatientLastName,
@@ -21,8 +21,7 @@ import {
   OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils';
-import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
-import { ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { createExternalLabsLabelPDF, ExternalLabsLabelConfig } from '../../shared/pdf/external-labs-label-pdf';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
@@ -63,6 +62,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       task,
       appointment,
       encounter,
+      schedule,
       organization: labOrganization,
       specimens: specimenResourses,
     } = await getExternalLabOrderResources(oystehr, serviceRequestID);
@@ -153,10 +153,9 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
-    let timezone = undefined;
-
-    if (location) {
-      timezone = getTimezone(location);
+    let timezone;
+    if (schedule) {
+      timezone = getTimezone(schedule);
     }
 
     const sampleCollectionDates: DateTime[] = [];
@@ -361,7 +360,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
-    const allPractitionerLicenses = allLicensesForPractitioner(provider);
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -374,9 +372,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
-        providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
-        // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
-        providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',
+        providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
         providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
