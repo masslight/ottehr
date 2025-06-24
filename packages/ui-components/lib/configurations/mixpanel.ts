@@ -1,6 +1,6 @@
 import mixpanel, { Config, Dict } from 'mixpanel-browser';
 
-let mixpanelWasInited = false;
+let mixpanelWasInitiated = false;
 
 export interface MixpanelContextProps {
   token: string;
@@ -11,12 +11,12 @@ export interface MixpanelContextProps {
 export function setupMixpanel({ token, config, registerProps }: MixpanelContextProps): void {
   if (!token) {
     console.error('Mixpanel token is not set');
-  } else if (!mixpanelWasInited) {
+  } else if (!mixpanelWasInitiated) {
     mixpanel.init(token, config);
     if (registerProps) {
       mixpanel.register(registerProps);
     }
 
-    mixpanelWasInited = true;
+    mixpanelWasInitiated = true;
   }
 }
