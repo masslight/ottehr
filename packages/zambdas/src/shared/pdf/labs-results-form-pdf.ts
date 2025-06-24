@@ -90,6 +90,7 @@ type LabTypeSpecificResources =
         reviewed: boolean;
         reviewingProvider: Practitioner | undefined;
         reviewDate: string | undefined;
+        resultsRecievedDate: string;
         resultInterpretations: string[];
         performingLabDirectorFullName?: string;
         performingLabAddress?: string;
@@ -160,6 +161,7 @@ const getResultDataConfig = (
       reviewed,
       reviewingProvider,
       reviewDate,
+      resultsRecievedDate,
       resultInterpretations,
       performingLabAddress,
       performingLabDirectorFullName,
@@ -187,6 +189,7 @@ const getResultDataConfig = (
         ?.telecom?.find((temp) => temp.system === 'phone')?.value,
       // abnormalResult: true,
       performingLabDirectorFullName,
+      resultsRecievedDate,
     };
     const data: ExternalLabResultsData = { ...baseData, ...externalLabData };
     config = { type: LabType.external, data };
@@ -268,7 +271,6 @@ export async function createExternalLabResultPDF(
 
   const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
-  // theres probably a better way to handle this
   let location: Location | undefined;
   if (locationID) {
     location = await oystehr.fhir.get<Location>({
@@ -288,8 +290,8 @@ export async function createExternalLabResultPDF(
 
   const { reviewDate: orderSubmitDate } = await getTaskCompletedByAndWhen(oystehr, pstTask, timezone);
 
-  const taskRequestTemp = (
-    await oystehr.fhir.search<Task | Provenance>({
+  const taskSearchForFinalOrCorrected = (
+    await oystehr.fhir.search<Task>({
       resourceType: 'Task',
       params: [
         {
@@ -298,7 +300,7 @@ export async function createExternalLabResultPDF(
         },
         {
           name: 'status',
-          value: 'completed',
+          value: 'completed,ready',
         },
         {
           name: 'code',
@@ -308,16 +310,44 @@ export async function createExternalLabResultPDF(
     })
   )?.unbundle();
 
-  const reviewTasksFinalOrCorrected: Task[] | undefined = taskRequestTemp?.filter(
-    (resourceTemp): resourceTemp is Task => resourceTemp.resourceType === 'Task'
+  const { completedFinalOrCorrected, readyFinalOrCorrected } = taskSearchForFinalOrCorrected.reduce(
+    (acc: { completedFinalOrCorrected: Task[]; readyFinalOrCorrected: Task[] }, task) => {
+      if (task.status === 'completed') acc.completedFinalOrCorrected.push(task);
+      if (task.status === 'ready') acc.readyFinalOrCorrected.push(task);
+      return acc;
+    },
+    { completedFinalOrCorrected: [], readyFinalOrCorrected: [] }
   );
-  const latestReviewTask = reviewTasksFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
-  console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, JSON.stringify(latestReviewTask));
+
+  const sortedCompletedFinalOrCorrected = completedFinalOrCorrected?.sort((a, b) =>
+    compareDates(a.authoredOn, b.authoredOn)
+  );
+
+  const latestReviewTask = sortedCompletedFinalOrCorrected[0];
+  console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, latestReviewTask?.id);
 
   let reviewDate = '',
-    reviewingProvider = undefined;
+    reviewingProvider = undefined,
+    resultsRecievedDate = '';
+
   if (latestReviewTask) {
-    ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask, timezone));
+    resultsRecievedDate = latestReviewTask?.authoredOn
+      ? DateTime.fromISO(latestReviewTask.authoredOn).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT)
+      : '';
+    if (latestReviewTask.status === 'completed') {
+      ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask, timezone));
+    }
+  }
+  if (!resultsRecievedDate && !latestReviewTask) {
+    console.log('no completed final or corrected tasks, checking ready tasks to parse a results recieved date');
+    const sortedReadyFinalOrCorrected = readyFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn));
+    const readyReviewTask = sortedReadyFinalOrCorrected[0];
+    if (readyReviewTask && readyReviewTask?.authoredOn) {
+      console.log('readyReviewTask: ', readyReviewTask.id);
+      resultsRecievedDate = DateTime.fromISO(readyReviewTask.authoredOn)
+        .setZone(timezone)
+        .toFormat(LABS_DATE_STRING_FORMAT);
+    }
   }
 
   const resultInterpretationDisplays: string[] = [];
@@ -375,6 +405,7 @@ export async function createExternalLabResultPDF(
       reviewed,
       reviewingProvider,
       reviewDate,
+      resultsRecievedDate,
       resultInterpretations: resultInterpretationDisplays,
       performingLabAddress: formatPerformingLabAddress(organization),
       performingLabDirectorFullName: formatPerformingLabDirectorName(organization),
@@ -570,21 +601,19 @@ async function createExternalLabsResultsFormPdfBytes(
   // Order details
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Accession ID:', data.accessionNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting physician:', data.providerName);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Requesting Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering physician:', data.providerName);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Ordering Physician:', data.providerName);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Number:', data.orderNumber);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Priority:', data.orderPriority.toUpperCase());
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Create Date:', data.orderCreateDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Date:', data.orderSubmitDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
   pdfClient = drawFieldLine(pdfClient, textStyles, 'Collection Date:', data.collectionDate);
   pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Printed:', data.todayDate);
-  pdfClient.newLine(STANDARD_NEW_LINE);
-  pdfClient = drawFieldLine(pdfClient, textStyles, 'Order Submit Date:', data.orderSubmitDate);
+  pdfClient = drawFieldLine(pdfClient, textStyles, 'Results Date:', data.resultsRecievedDate);
   pdfClient.newLine(STANDARD_FONT_SIZE);
   pdfClient.newLine(STANDARD_FONT_SIZE);
 
