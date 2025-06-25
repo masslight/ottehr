@@ -60,6 +60,7 @@ import {
   isVitalObservation,
   makeVitalsObservationDTO,
   MedicalConditionDTO,
+  MEDICATION_DISPENSABLE_DRUG_ID,
   MedicationDTO,
   MEDISPAN_DISPENSABLE_DRUG_ID_CODE_SYSTEM,
   NoteDTO,
@@ -1011,6 +1012,11 @@ export const chartDataResourceHasMetaTagByCode = (
   metaTagCode?: ProviderChartDataFieldsNames | DispositionMetaFieldsNames
 ): boolean => (metaTagCode ? Boolean(resource?.meta?.tag?.find((tag) => tag.code === metaTagCode)) : true);
 
+export const chartDataResourceHasMedicationCodableConcept = (resource: Resource, system: string): boolean =>
+  system
+    ? Boolean((resource as MedicationStatement)?.medicationCodeableConcept?.coding?.find((v) => v.system === system))
+    : true;
+
 interface EncounterLinked extends Resource {
   encounter?: Reference | undefined;
 }
@@ -1057,6 +1063,12 @@ const mapResourceToChartDataFields = (
     chartDataResourceHasMetaTagByCode(resource, 'current-medication')
   ) {
     data.medications?.push(makeMedicationDTO(resource));
+    resourceMapped = true;
+  } else if (
+    resource?.resourceType === 'MedicationStatement' &&
+    chartDataResourceHasMedicationCodableConcept(resource, MEDICATION_DISPENSABLE_DRUG_ID)
+  ) {
+    data.inhouseMedications?.push(makeMedicationDTO(resource));
     resourceMapped = true;
   } else if (resource?.resourceType === 'MedicationRequest') {
     data.prescribedMedications?.push(makePrescribedMedicationDTO(resource));

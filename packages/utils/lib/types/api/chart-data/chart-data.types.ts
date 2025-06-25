@@ -43,6 +43,7 @@ export interface ChartDataFields {
   ros?: FreeTextNoteDTO;
   conditions?: MedicalConditionDTO[];
   medications?: MedicationDTO[];
+  inhouseMedications?: MedicationDTO[];
   prescribedMedications?: PrescribedMedicationDTO[];
   allergies?: AllergyDTO[];
   surgicalHistory?: CPTCodeDTO[];

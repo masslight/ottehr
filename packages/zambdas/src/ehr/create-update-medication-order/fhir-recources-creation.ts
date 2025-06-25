@@ -174,5 +174,6 @@ export function createMedicationStatementResource(
     ],
     subject: medicationAdministration.subject,
     informationSource: { reference: 'Practitioner/' + getCreatedTheOrderProviderId(medicationAdministration) },
+    effectiveDateTime: medicationAdministration.effectiveDateTime, // is it correct or shold be used date.now or something else?
   };
 }
