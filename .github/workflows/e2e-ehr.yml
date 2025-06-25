@@ -5,7 +5,6 @@ env:
   TEST_RESULTS_CACHE_RETENTION_DAYS: 30
   SECRETS_REPO: masslight/ottehr-secrets
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
-  PATHS_CONFIG_FILE: .github/trigger-paths.yml
 
 on:
   workflow_dispatch:
@@ -42,7 +41,10 @@ jobs:
       - name: Check if EHR changes are relevant
         id: check
         run: |
-          TRACKED_FILES=$(yq eval '.ehr | join(" ")' ${{ env.PATHS_CONFIG_FILE }})
+          TRACKED_FILES=$(node -e "
+            const config = require('./.github/trigger-paths.js');
+            console.log(config.getPaths('ehr').join(' '));
+          ")
           node .github/check-changed-files.js $TRACKED_FILES
 
   ehr-e2e-tests-run:

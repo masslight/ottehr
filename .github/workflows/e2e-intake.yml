@@ -9,7 +9,6 @@ env:
   USER_JSON_CACHE_RESTORE_KEYS: intake-playwright-user-${{ github.event.inputs.environment || 'local' }}-
   PLAYWRIGHT_CACHE_PATH: ~/.cache/ms-playwright
   USER_JSON_PATH: apps/intake/playwright/user.json
-  PATHS_CONFIG_FILE: .github/trigger-paths.yml
 
 on:
   workflow_dispatch:
@@ -46,7 +45,10 @@ jobs:
       - name: Check if Intake changes are relevant
         id: check
         run: |
-          TRACKED_FILES=$(yq eval '.intake | join(" ")' ${{ env.PATHS_CONFIG_FILE }})
+          TRACKED_FILES=$(node -e "
+            const config = require('./.github/trigger-paths.js');
+            console.log(config.getPaths('intake').join(' '));
+          ")
           node .github/check-changed-files.js $TRACKED_FILES
 
   check-token-validity:
