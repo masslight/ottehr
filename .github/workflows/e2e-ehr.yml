@@ -43,7 +43,7 @@ jobs:
         run: |
           TRACKED_FILES=$(node -e "
             const config = require('./.github/trigger-paths.js');
-            console.log(config.getPaths('ehr').join(' '));
+            console.log(config.getE2EPaths('ehr').join(' '));
           ")
           node .github/check-changed-files.js $TRACKED_FILES
 

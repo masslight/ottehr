@@ -47,7 +47,7 @@ jobs:
         run: |
           TRACKED_FILES=$(node -e "
             const config = require('./.github/trigger-paths.js');
-            console.log(config.getPaths('intake').join(' '));
+            console.log(config.getE2EPaths('intake').join(' '));
           ")
           node .github/check-changed-files.js $TRACKED_FILES
 
