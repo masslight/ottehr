@@ -68,9 +68,7 @@ export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => 
   const plusOneRegex = /^\+1\d{10}$/;
   const tenDigitRegex = /^\d{10}$/;
   return (
-    plusOneRegex.test(phoneNumber) ||
-    tenDigitRegex.test(phoneNumber) ||
-    phoneRegex.test(phoneNumber) ||
+    (plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber)) &&
     phone(phoneNumber).isValid
   );
 };
@@ -81,7 +79,7 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
     return phoneNumber;
   }
   if (!isPhoneNumberValid(phoneNumber)) {
-    throw new Error('Invalid phone number format');
+    throw new Error('Invalid phone number');
   }
   const tenDigitRegex = /^\d{10}$/;
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
