@@ -1370,7 +1370,6 @@ export const makeTestPatient = (partial?: Partial<Patient>): Patient => {
     name: [
       {
         use: 'official',
-        // cSpell:disable-next Olha
         given: ['Olha'],
         family: 'Test0418',
       },

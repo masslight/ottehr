@@ -22,7 +22,7 @@ import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -33,8 +33,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const { accounts, coverages, labOrgsGuids } = await getResources(oystehr, patientId, labSearch);
 
@@ -126,7 +126,7 @@ const getResources = async (
 const getLabs = async (
   labOrgsGuids: string[],
   search: string,
-  m2mtoken: string
+  m2mToken: string
 ): Promise<OrderableItemSearchResult[]> => {
   const labIds = labOrgsGuids.join(',');
   let cursor = '';
@@ -137,7 +137,7 @@ const getLabs = async (
     const orderableItemsSearch = await fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${m2mtoken}`,
+        Authorization: `Bearer ${m2mToken}`,
       },
     });
     const response = await orderableItemsSearch.json();

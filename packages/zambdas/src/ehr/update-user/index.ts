@@ -12,7 +12,7 @@ import { createOystehrClient } from '../../shared/helpers';
 import { getRoleId } from '../../shared/rolesUtils';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
@@ -40,13 +40,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const PROJECT_API = getSecret('PROJECT_API', secrets);
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const headers = {
       accept: 'application/json',
       'content-type': 'application/json',
-      Authorization: `Bearer ${m2mtoken}`,
+      Authorization: `Bearer ${m2mToken}`,
     };
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const user = await oystehr.user.get({ id: userId });
     const userProfile = user.profile;
     const userProfileString = userProfile.split('/');
@@ -59,7 +59,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     if (selectedRoles && selectedRoles.length > 0) {
       const promises = selectedRoles
         .filter((roleName) => roleName !== 'Inactive')
-        .map((roleName) => getRoleId(roleName, m2mtoken, PROJECT_API));
+        .map((roleName) => getRoleId(roleName, m2mToken, PROJECT_API));
       roles = await Promise.all(promises);
     }
     const updatedUserResponse = await fetch(`${PROJECT_API}/user/${userId}`, {
