@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Coverage, Organization } from 'fhir/r4b';
 import {
@@ -16,17 +15,16 @@ import {
   OYSTEHR_LAB_ORDERABLE_ITEM_SEARCH_API,
   SecretsKeys,
 } from 'utils';
-import { checkOrCreateM2MClientToken, configSentry, topLevelCatch } from '../../shared';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
+const ZAMBDA_NAME = 'get-create-lab-order-resources';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`get-create-lab-order-resources started, input: ${JSON.stringify(input)}`);
-  configSentry('get-create-lab-order-resources', input.secrets);
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

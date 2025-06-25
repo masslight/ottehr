@@ -1,5 +1,4 @@
 import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Medication, MedicationAdministration, MedicationStatement, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';

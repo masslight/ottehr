@@ -1,12 +1,11 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { addOperation, OTTEHR_MODULE, replaceOperation, Secrets } from 'utils';
-import { checkOrCreateM2MClientToken, configSentry, topLevelCatch, ZambdaInput } from '../../shared';
+import { addOperation, getSecret, OTTEHR_MODULE, replaceOperation, Secrets, SecretsKeys } from 'utils';
+import { checkOrCreateM2MClientToken, topLevelCatch, wrapHandler, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
 import { createPresignedUrl } from '../../shared/z3Utils';
@@ -35,150 +34,151 @@ export interface CreateUploadPatientDocumentOutput {
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  logIt(`create-upload-document, input: ${JSON.stringify(input)}`);
-  configSentry('create-upload-document', input.secrets);
-  try {
-    const validatedInput = validateRequestParameters(input);
-    const { secrets, patientId, fileFolderId, fileName } = validatedInput;
-    logIt(`validatedInput => `);
-    logIt(JSON.stringify(validatedInput));
+export const index = wrapHandler(
+  'create-upload-document',
+  async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+    try {
+      const validatedInput = validateRequestParameters(input);
+      const { secrets, patientId, fileFolderId, fileName } = validatedInput;
+      logIt(`validatedInput => `);
+      logIt(JSON.stringify(validatedInput));
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    logIt(`Got m2mToken`);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+      m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+      logIt(`Got m2mToken`);
+      const oystehr = createOystehrClient(m2mtoken, secrets);
 
-    // const token = m2mtoken;
+      // const token = m2mtoken;
 
-    logIt('fetching list .......');
-    const listAndPatientResource = await getListAndPatientResource(fileFolderId, oystehr);
-    logIt('Got list resource');
+      logIt('fetching list .......');
+      const listAndPatientResource = await getListAndPatientResource(fileFolderId, oystehr);
+      logIt('Got list resource');
 
-    const documentsFolder: List | undefined = listAndPatientResource.list;
+      const documentsFolder: List | undefined = listAndPatientResource.list;
 
-    if (!documentsFolder) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: `Can't fetch List resource with id=${fileFolderId}` }),
-      };
-    }
+      if (!documentsFolder) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({ error: `Can't fetch List resource with id=${fileFolderId}` }),
+        };
+      }
 
-    const folderId = documentsFolder.identifier?.find((id) => {
-      return id.type?.coding?.at(0)?.code === UNIVERSAL_DEVICE_IDENTIFIER_CODE && id.value;
-    });
-    const folderName = folderId?.value;
-    if (!folderName) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: `Found List resource with id=${fileFolderId} but it does not have Folder identifier`,
-        }),
-      };
-    }
+      const folderId = documentsFolder.identifier?.find((id) => {
+        return id.type?.coding?.at(0)?.code === UNIVERSAL_DEVICE_IDENTIFIER_CODE && id.value;
+      });
+      const folderName = folderId?.value;
+      if (!folderName) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            error: `Found List resource with id=${fileFolderId} but it does not have Folder identifier`,
+          }),
+        };
+      }
 
-    logIt(`Folder name => [${folderName}]`);
+      logIt(`Folder name => [${folderName}]`);
 
-    const fileZ3Url = makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName });
-    const presignedFileUploadUrl = await createPresignedUrl(m2mtoken, fileZ3Url, 'upload');
+      const fileZ3Url = makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName });
+      const presignedFileUploadUrl = await createPresignedUrl(m2mtoken, fileZ3Url, 'upload');
 
-    logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
+      logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
 
-    // const alterationRequests: BatchInputPostRequest<UpdateResourcesData>[] = [];
+      // const alterationRequests: BatchInputPostRequest<UpdateResourcesData>[] = [];
 
-    const docRefReq = createDocumentReferenceRequest({
-      patientId: patientId,
-      folder: documentsFolder,
-      documentReferenceData: {
-        attachmentInfo: {
-          fileUrl: fileZ3Url,
-          fileTitle: fileName,
+      const docRefReq = createDocumentReferenceRequest({
+        patientId: patientId,
+        folder: documentsFolder,
+        documentReferenceData: {
+          attachmentInfo: {
+            fileUrl: fileZ3Url,
+            fileTitle: fileName,
+          },
         },
-      },
-    });
+      });
 
-    logIt(`making DocumentReference ...`);
+      logIt(`making DocumentReference ...`);
 
-    const results = await oystehr.fhir.transaction<DocumentReference>({
-      requests: [docRefReq],
-    });
+      const results = await oystehr.fhir.transaction<DocumentReference>({
+        requests: [docRefReq],
+      });
 
-    logIt(`making DocumentReference results => `);
-    logIt(JSON.stringify(results));
+      logIt(`making DocumentReference results => `);
+      logIt(JSON.stringify(results));
 
-    const docRef = results.entry?.[0]?.resource;
-    if (!docRef || docRef?.resourceType !== 'DocumentReference') {
+      const docRef = results.entry?.[0]?.resource;
+      if (!docRef || docRef?.resourceType !== 'DocumentReference') {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            error: `Can't create a DocumentReference resource for the file ${fileName}`,
+          }),
+        };
+      }
+
+      const documentRefId = docRef.id;
+      logIt(`created DocumentReference id = [${documentRefId}]`);
+      if (!documentRefId) {
+        return {
+          statusCode: 500,
+          body: JSON.stringify({
+            error: `Can't create a DocumentReference resource for the file ${fileName} - empty documentRefId`,
+          }),
+        };
+      }
+
+      const updatedFolderEntries = [...(documentsFolder.entry ?? [])];
+      updatedFolderEntries.push({
+        date: DateTime.now().setZone('UTC').toISO() ?? '',
+        item: {
+          type: 'DocumentReference',
+          reference: `DocumentReference/${documentRefId}`,
+        },
+      });
+
+      const operations: Operation[] = [];
+
+      operations.push(
+        documentsFolder.entry && documentsFolder.entry?.length > 0
+          ? replaceOperation('/entry', updatedFolderEntries)
+          : addOperation('/entry', updatedFolderEntries)
+      );
+
+      logIt(`patching documents folder List ...`);
+
+      const listPatchResult = await oystehr.fhir.patch<List>({
+        resourceType: 'List',
+        id: documentsFolder.id ?? '',
+        operations: operations,
+      });
+
+      logIt(`patch results => `);
+      logIt(JSON.stringify(listPatchResult));
+
+      // const updatedFolder: List = { ...documentsFolder, entry: updatedFolderEntries };
+      // await oystehr.fhir.patch<List>()
+
+      const response: CreateUploadPatientDocumentOutput = {
+        z3Url: fileZ3Url,
+        presignedUploadUrl: presignedFileUploadUrl,
+        documentRefId: documentRefId,
+        folderId: fileFolderId,
+      };
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify(response),
+      };
+    } catch (error: any) {
+      const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+      await topLevelCatch('create-upload-document-url', error, ENVIRONMENT);
       return {
         statusCode: 500,
-        body: JSON.stringify({
-          error: `Can't create a DocumentReference resource for the file ${fileName}`,
-        }),
+        body: JSON.stringify({ error: error.message }),
       };
+    } finally {
+      logIt(`handler() end`);
     }
-
-    const documentRefId = docRef.id;
-    logIt(`created DocumentReference id = [${documentRefId}]`);
-    if (!documentRefId) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({
-          error: `Can't create a DocumentReference resource for the file ${fileName} - empty documentRefId`,
-        }),
-      };
-    }
-
-    const updatedFolderEntries = [...(documentsFolder.entry ?? [])];
-    updatedFolderEntries.push({
-      date: DateTime.now().setZone('UTC').toISO() ?? '',
-      item: {
-        type: 'DocumentReference',
-        reference: `DocumentReference/${documentRefId}`,
-      },
-    });
-
-    const operations: Operation[] = [];
-
-    operations.push(
-      documentsFolder.entry && documentsFolder.entry?.length > 0
-        ? replaceOperation('/entry', updatedFolderEntries)
-        : addOperation('/entry', updatedFolderEntries)
-    );
-
-    logIt(`patching documents folder List ...`);
-
-    const listPatchResult = await oystehr.fhir.patch<List>({
-      resourceType: 'List',
-      id: documentsFolder.id ?? '',
-      operations: operations,
-    });
-
-    logIt(`patch results => `);
-    logIt(JSON.stringify(listPatchResult));
-
-    // const updatedFolder: List = { ...documentsFolder, entry: updatedFolderEntries };
-    // await oystehr.fhir.patch<List>()
-
-    const response: CreateUploadPatientDocumentOutput = {
-      z3Url: fileZ3Url,
-      presignedUploadUrl: presignedFileUploadUrl,
-      documentRefId: documentRefId,
-      folderId: fileFolderId,
-    };
-
-    return {
-      statusCode: 200,
-      body: JSON.stringify(response),
-    };
-  } catch (error: any) {
-    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
-    await topLevelCatch('create-upload-document-url', error, ENVIRONMENT);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message }),
-    };
-  } finally {
-    logIt(`handler() end`);
   }
-});
+);
 
 type ListAndPatientResource = {
   list?: List;

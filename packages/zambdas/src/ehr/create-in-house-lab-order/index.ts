@@ -1,5 +1,4 @@
 import { BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import {
@@ -29,21 +28,18 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  configSentry,
   createOystehrClient,
   getMyPractitionerId,
   parseCreatedResourcesBundle,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getAttendingPractionerId } from '../shared/inhouse-labs';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
-
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
-  configSentry('create-in-house-lab-order', input.secrets);
-
+const ZAMBDA_NAME = 'create-in-house-lab-order';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let secrets = input.secrets;
   let validatedParameters: CreateInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
 

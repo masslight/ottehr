@@ -1,5 +1,7 @@
-import { init, isInitialized, setTag } from '@sentry/aws-serverless';
+import { init, isInitialized, setTag, wrapHandler as sentryWrapHandler } from '@sentry/aws-serverless';
+import { APIGatewayProxyResult, Handler } from 'aws-lambda';
 import { getSecret, Secrets, SecretsKeys } from 'utils';
+import { ZambdaInput } from './types';
 
 export function configSentry(zambdaName: string, secrets: Secrets | null): void {
   const environment = getSecret(SecretsKeys.ENVIRONMENT, secrets);
@@ -27,4 +29,14 @@ export function configSentry(zambdaName: string, secrets: Secrets | null): void 
 
   setTag('zambda', zambdaName);
   setTag('environment', environment);
+}
+
+export function wrapHandler(
+  zambdaName: string,
+  handler: (input: ZambdaInput) => Promise<APIGatewayProxyResult>
+): Handler<ZambdaInput, APIGatewayProxyResult> {
+  return sentryWrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+    configSentry(zambdaName, input.secrets);
+    return handler(input);
+  });
 }

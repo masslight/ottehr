@@ -1,12 +1,11 @@
 import { BatchInputDeleteRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { DeleteLabOrderZambdaOutput, getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  configSentry,
   createOystehrClient,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getLabOrderRelatedResources, makeDeleteResourceRequest } from './helpers';
@@ -15,9 +14,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`delete-lab-order started, input: ${JSON.stringify(input)}`);
-  configSentry('delete-lab-order', input.secrets);
+export const index = wrapHandler('delete-lab-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

@@ -1,5 +1,4 @@
 import { BatchInputRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { randomUUID } from 'crypto';
 import { Encounter, FhirResource, ServiceRequest, Specimen, Task } from 'fhir/r4b';
@@ -16,19 +15,16 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  configSentry,
   createOystehrClient,
   getMyPractitionerId,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 let m2mtoken: string;
-
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
-  configSentry('collect-in-house-lab-specimen', input.secrets);
-
+const ZAMBDA_NAME = 'collect-in-house-lab-specimen';
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let secrets = input.secrets;
   let validatedParameters: CollectInHouseLabSpecimenParameters & { secrets: Secrets | null; userToken: string };
 

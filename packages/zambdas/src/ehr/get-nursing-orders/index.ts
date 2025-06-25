@@ -1,11 +1,10 @@
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  configSentry,
   createOystehrClient,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../shared';
 import { getNoursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
@@ -13,9 +12,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`get-nursing-orders started, input: ${JSON.stringify(input)}`);
-  configSentry('get-nursing-orders', input.secrets);
+export const index = wrapHandler('get-nursing-orders', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
     const { secrets, searchBy } = validatedParameters;

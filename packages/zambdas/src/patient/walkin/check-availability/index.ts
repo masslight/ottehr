@@ -1,5 +1,4 @@
 import Oystehr, { SearchParam } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { PractitionerRole, Schedule } from 'fhir/r4b';
 import { DateTime } from 'luxon';
@@ -28,12 +27,10 @@ import {
   WalkinAvailabilityCheckResult,
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
-import { configSentry, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getAuth0Token, topLevelCatch, wrapHandler, ZambdaInput } from '../../../shared';
 
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('check-availability', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('check-availability', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);

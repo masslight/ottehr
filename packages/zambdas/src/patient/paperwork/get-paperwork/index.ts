@@ -1,5 +1,4 @@
 import Oystehr, { User } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import {
   Appointment,
@@ -39,11 +38,11 @@ import {
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import {
-  configSentry,
   createOystehrClient,
   getAuth0Token,
   getOtherOfficesForLocation,
   topLevelCatch,
+  wrapHandler,
   ZambdaInput,
 } from '../../../shared';
 import { getUser, userHasAccessToPatient } from '../../../shared/auth';
@@ -70,9 +69,7 @@ export type FullAccessPaperworkSupportingInfo = Omit<PaperworkSupportingInfo, 'p
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  configSentry('get-paperwork', input.secrets);
-  console.log(`Input: ${JSON.stringify(input)}`);
+export const index = wrapHandler('get-paperwork', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);

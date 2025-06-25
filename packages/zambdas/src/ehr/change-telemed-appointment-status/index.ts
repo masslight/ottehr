@@ -1,6 +1,4 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
-import { wrapHandler } from '@sentry/aws-serverless';
-import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
@@ -15,9 +13,9 @@ import {
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
-  configSentry,
   parseCreatedResourcesBundle,
   saveResourceRequest,
+  wrapHandler,
 } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
@@ -34,10 +32,9 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
+const ZAMBDA_NAME = 'change-telemed-appointment-status';
 
-export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`Input: ${JSON.stringify(input)}`);
-  configSentry('change-telemed-appointment-status', input.secrets);
+export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
