@@ -51,7 +51,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.error('Failed to get bookables', error);
-    return topLevelCatch('list-bookables', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('list-bookables', error, ENVIRONMENT);
   }
 };
 

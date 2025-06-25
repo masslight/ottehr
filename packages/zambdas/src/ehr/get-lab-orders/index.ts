@@ -1,6 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EMPTY_PAGINATION } from 'utils';
+import { EMPTY_PAGINATION, getSecret, SecretsKeys } from 'utils';
 import {
   checkOrCreateM2MClientToken,
   configSentry,
@@ -57,6 +57,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
 
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const labOrders = mapResourcesToLabOrderDTOs(
       { searchBy },
       serviceRequests,
@@ -72,7 +73,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       resultPDFs,
       orderPDF,
       specimens,
-      secrets
+      ENVIRONMENT
     );
 
     return {
@@ -84,7 +85,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('get-lab-orders', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-lab-orders', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: `Error fetching external lab orders: ${error}` }),

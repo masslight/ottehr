@@ -16,9 +16,11 @@ import {
 import { DateTime } from 'luxon';
 import {
   CreateNursingOrderParameters,
+  getSecret,
   NURSING_ORDER_PROVENANCE_ACTIVITY_CODING_ENTITY,
   PRACTITIONER_CODINGS,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -259,7 +261,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('create-nursing-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('create-nursing-order', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

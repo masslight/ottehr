@@ -13,7 +13,7 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   SecretsKeys,
 } from 'utils';
-import { ZambdaInput, configSentry, getAuth0Token, lambdaResponse, topLevelCatch } from '../../shared';
+import { configSentry, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
 import { getPayorRef, makeCoverageEligibilityRequest, parseEligibilityCheckResponsePromiseResult } from './helpers';
 import { prevalidationHandler } from './prevalidation-handler';
 import { complexInsuranceValidation, validateRequestParameters } from './validation';
@@ -128,7 +128,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     return lambdaResponse(200, { primary, secondary });
   } catch (error: any) {
     console.error(error, error.issue);
-    return topLevelCatch('get-eligibility', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-eligibility', error, ENVIRONMENT);
   }
 });
 

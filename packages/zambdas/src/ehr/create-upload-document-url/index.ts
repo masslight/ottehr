@@ -169,7 +169,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('create-upload-document-url', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('create-upload-document-url', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

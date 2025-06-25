@@ -1,7 +1,8 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils';
 import { version } from '../../../package.json';
-import { captureSentryException, configSentry, topLevelCatch, ZambdaInput } from '../../shared';
+import { configSentry, topLevelCatch, ZambdaInput } from '../../shared';
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   configSentry('version', input.secrets);
@@ -11,6 +12,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify({ version: version }),
     };
   } catch (error: any) {
-    return topLevelCatch('version', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('version', error, ENVIRONMENT);
   }
 });

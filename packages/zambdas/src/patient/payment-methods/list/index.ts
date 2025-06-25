@@ -6,8 +6,10 @@ import Stripe from 'stripe';
 import {
   CreditCardInfo,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   getStripeCustomerIdFromAccount,
   ListPaymentMethodsZambdaOutput,
+  SecretsKeys,
 } from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
@@ -118,7 +120,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     return lambdaResponse(200, output);
   } catch (error: any) {
     console.error(error);
-    return topLevelCatch('payment-methods-list', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('payment-methods-list', error, ENVIRONMENT);
   }
 });
 

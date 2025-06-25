@@ -13,14 +13,15 @@ import {
   getEncounterStatusHistoryIdx,
   getLocationInformation,
   getPatchBinary,
+  getSecret,
   getTaskResource,
   Secrets,
+  SecretsKeys,
   TaskIndicator,
   VisitType,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
 import {
-  captureSentryException,
   checkPaperworkComplete,
   configSentry,
   createOystehrClient,
@@ -168,7 +169,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('check-in', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('check-in', error, ENVIRONMENT, true);
   }
 });
 

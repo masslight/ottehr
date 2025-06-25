@@ -2,7 +2,14 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Account, Identifier } from 'fhir/r4b';
 import Stripe from 'stripe';
-import { FHIR_RESOURCE_NOT_FOUND, getEmailForIndividual, getFullName, getStripeCustomerIdFromAccount } from 'utils';
+import {
+  FHIR_RESOURCE_NOT_FOUND,
+  getEmailForIndividual,
+  getFullName,
+  getSecret,
+  getStripeCustomerIdFromAccount,
+  SecretsKeys,
+} from 'utils';
 import { getAccountAndCoverageResourcesForPatient } from '../../../ehr/shared/harvest';
 import {
   configSentry,
@@ -96,6 +103,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     return lambdaResponse(200, setupIntent.client_secret);
   } catch (error: any) {
     console.error(error);
-    return topLevelCatch('payment-methods-setup', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('payment-methods-setup', error, ENVIRONMENT);
   }
 });

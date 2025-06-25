@@ -1,5 +1,6 @@
 import Oystehr, { BatchInputPostRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { ChargeItem, Encounter, Task } from 'fhir/r4b';
 import {
@@ -12,7 +13,6 @@ import {
   TelemedAppointmentStatusEnum,
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
-import { wrapHandler } from '@sentry/aws-serverless';
 import {
   checkOrCreateM2MClientToken,
   configSentry,
@@ -96,7 +96,8 @@ export const performEffect = async (
   const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
   if (currentStatus) {
     const myPractId = await getMyPractitionerId(oystehrCurrentUser);
-    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId, ENVIRONMENT);
   }
 
   console.debug(`Status has been changed.`);

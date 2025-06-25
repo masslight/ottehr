@@ -1,5 +1,6 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { getSecret, SecretsKeys } from 'utils';
 import {
   configSentry,
   createOystehrClient,
@@ -50,6 +51,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     return lambdaResponse(200, {});
   } catch (error: any) {
     console.error(error);
-    return topLevelCatch('payment-methods-set-default', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('payment-methods-set-default', error, ENVIRONMENT);
   }
 });
