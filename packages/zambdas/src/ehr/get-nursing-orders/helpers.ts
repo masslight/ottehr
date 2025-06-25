@@ -2,6 +2,7 @@ import Oystehr, { SearchParam } from '@oystehr/sdk';
 import { Practitioner, Provenance, ServiceRequest, Task } from 'fhir/r4b';
 import {
   compareDates,
+  GetNursingOrdersInputValidated,
   NursingOrder,
   NursingOrderDetailedDTO,
   NursingOrderHistoryRow,
@@ -10,7 +11,6 @@ import {
   PRIVATE_EXTENSION_BASE_URL,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
 } from 'utils';
-import { GetZambdaNursingOrdersParams } from './validateRequestParameters';
 
 export const mapResourcesNursingOrderDTOs = (
   serviceRequests: ServiceRequest[],
@@ -93,7 +93,7 @@ const parseOrderData = ({
 
 export const getNoursingOrderResources = async (
   oystehr: Oystehr,
-  params: GetZambdaNursingOrdersParams
+  params: GetNursingOrdersInputValidated
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -122,7 +122,7 @@ export const getNoursingOrderResources = async (
   };
 };
 
-const createNursingServiceRequestSearchParams = (params: GetZambdaNursingOrdersParams): SearchParam[] => {
+const createNursingServiceRequestSearchParams = (params: GetNursingOrdersInputValidated): SearchParam[] => {
   const searchParams: SearchParam[] = [
     {
       name: 'encounter',
