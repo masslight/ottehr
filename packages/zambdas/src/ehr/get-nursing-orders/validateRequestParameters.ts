@@ -1,10 +1,7 @@
-import { GetNursingOrdersInput, NursingOrdersSearchBy } from 'utils';
+import { GetNursingOrdersInput } from 'utils';
 import { ZambdaInput } from '../../shared';
 
-export type GetZambdaNursingOrdersParams = GetNursingOrdersInput & { searchBy?: NursingOrdersSearchBy } & Pick<
-    ZambdaInput,
-    'secrets'
-  >;
+export type GetZambdaNursingOrdersParams = GetNursingOrdersInput & Pick<ZambdaInput, 'secrets'>;
 
 export function validateRequestParameters(input: ZambdaInput): GetZambdaNursingOrdersParams {
   console.group('validateRequestParameters');
@@ -13,17 +10,12 @@ export function validateRequestParameters(input: ZambdaInput): GetZambdaNursingO
     throw new Error('No request body provided');
   }
 
-  const { searchBy, encounterId } = JSON.parse(input.body);
-
-  if (encounterId === undefined) {
-    throw new Error('These fields are required: "encounterId"');
-  }
+  const { searchBy } = JSON.parse(input.body);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
   return {
     searchBy,
-    encounterId,
     secrets: input.secrets,
   };
 }

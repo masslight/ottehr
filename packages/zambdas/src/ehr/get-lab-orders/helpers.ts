@@ -52,7 +52,7 @@ import {
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { sendErrors } from '../../shared';
-import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
+import { fetchLabOrderPDFsPresignedUrls, parseAppointmentIdForServiceRequest } from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
 // cache for the service request context: contains parsed tasks and results
@@ -157,7 +157,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     throw new Error('ServiceRequest ID is required');
   }
 
-  const appointmentId = parseAppointmentId(serviceRequest, encounters);
+  const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters);
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
@@ -783,7 +783,9 @@ export const fetchAppointmentsForServiceRequests = async (
   serviceRequests: ServiceRequest[],
   encounters: Encounter[]
 ): Promise<Appointment[]> => {
-  const appointmentsIds = serviceRequests.map((sr) => parseAppointmentId(sr, encounters)).filter(Boolean);
+  const appointmentsIds = serviceRequests
+    .map((sr) => parseAppointmentIdForServiceRequest(sr, encounters))
+    .filter(Boolean);
 
   if (!appointmentsIds.length) {
     return [] as Appointment[];
@@ -1268,24 +1270,6 @@ export const parsePaginationFromResponse = (data: {
   };
 };
 
-export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {
-  console.log('getting appointment id for service request', serviceRequest.id);
-  const encounterId = parseEncounterId(serviceRequest);
-  const NOT_FOUND = '';
-
-  if (!encounterId) {
-    return NOT_FOUND;
-  }
-
-  const relatedEncounter = encounters.find((encounter) => encounter.id === encounterId);
-
-  if (relatedEncounter?.appointment?.length) {
-    return relatedEncounter.appointment[0]?.reference?.split('/').pop() || NOT_FOUND;
-  }
-
-  return NOT_FOUND;
-};
-
 const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: Location[]): string | undefined => {
   const location = locations.find((location) => {
     const locationRef = `Location/${location.id}`;
@@ -1297,11 +1281,6 @@ const parseLocationTimezoneForSR = (serviceRequest: ServiceRequest, locations: L
 
 export const parseVisitDate = (appointment: Appointment | undefined): string => {
   return appointment?.created || '';
-};
-
-const parseEncounterId = (serviceRequest: ServiceRequest): string => {
-  const NOT_FOUND = '';
-  return serviceRequest.encounter?.reference?.split('/').pop() || NOT_FOUND;
 };
 
 export const parsePractitionerIdFromServiceRequest = (serviceRequest: ServiceRequest): string => {

@@ -545,3 +545,24 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 
   return { resultPDFs, orderPDF };
 };
+
+export const parseAppointmentIdForServiceRequest = (
+  serviceRequest: ServiceRequest,
+  encounters: Encounter[]
+): string => {
+  console.log('getting appointment id for service request', serviceRequest.id);
+  const encounterId = serviceRequest.encounter?.reference?.split('/').pop();
+  const NOT_FOUND = '';
+
+  if (!encounterId) {
+    return NOT_FOUND;
+  }
+
+  const relatedEncounter = encounters.find((encounter) => encounter.id === encounterId);
+
+  if (relatedEncounter?.appointment?.length) {
+    return relatedEncounter.appointment[0]?.reference?.split('/').pop() || NOT_FOUND;
+  }
+
+  return NOT_FOUND;
+};

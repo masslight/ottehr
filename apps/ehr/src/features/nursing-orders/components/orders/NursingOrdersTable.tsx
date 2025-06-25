@@ -13,8 +13,7 @@ import {
 import { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getNursingOrderDetailsUrl } from 'src/features/css-module/routing/helpers';
-import { useAppointmentStore } from 'src/telemed';
-import { getSelectors } from 'utils';
+import { NursingOrdersSearchBy } from 'utils';
 import { NursingOrdersTableRow } from './NursingOrdersTableRow';
 import { useGetNursingOrders } from './useNursingOrders';
 
@@ -22,26 +21,24 @@ export type NursingOrdersTableColumn = 'order' | 'orderAdded' | 'status';
 
 type NursingOrdersTableProps = {
   columns: NursingOrdersTableColumn[];
+  searchBy: NursingOrdersSearchBy;
+  appointmentId: string;
   allowDelete?: boolean;
   onCreateOrder?: () => void;
 };
 
-export const NursingOrdersTable = ({ columns, onCreateOrder }: NursingOrdersTableProps): ReactElement => {
+export const NursingOrdersTable = ({
+  columns,
+  searchBy,
+  appointmentId,
+  onCreateOrder,
+}: NursingOrdersTableProps): ReactElement => {
   const navigateTo = useNavigate();
-  const { appointment, encounter } = getSelectors(useAppointmentStore, ['appointment', 'encounter']);
 
-  const {
-    nursingOrders,
-    loading,
-    error,
-    fetchNursingOrders: refetch,
-  } = useGetNursingOrders({ encounterId: encounter.id || '' });
+  const { nursingOrders, loading, error, fetchNursingOrders: refetch } = useGetNursingOrders({ searchBy });
 
   const onRowClick = (nursingOrderData: { serviceRequestId: string }): void => {
-    if (!appointment?.id) {
-      return;
-    }
-    navigateTo(getNursingOrderDetailsUrl(appointment.id, nursingOrderData.serviceRequestId));
+    navigateTo(getNursingOrderDetailsUrl(appointmentId, nursingOrderData.serviceRequestId));
   };
 
   if (loading) {
