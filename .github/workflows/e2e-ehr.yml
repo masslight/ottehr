@@ -23,18 +23,33 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, develop, 'release/**']
-    paths:
-      - 'apps/ehr/**'
-      - 'packages/zambdas/**'
-      - 'packages/utils/**'
-      - 'packages/ui-components/**'
-      - '.github/**'
-      - '.prettierignore'
-      - 'package.json'
 
 jobs:
-  ehr-e2e-tests:
-    if: (github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch')
+  check-changes:
+    if: github.event.pull_request.draft == false || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+      skip-reason: ${{ steps.check.outputs.skip-reason }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need at least 2 commits to compare
+
+      - name: Check if EHR changes are relevant
+        id: check
+        run: |
+          TRACKED_FILES=$(node -e "
+            const config = require('./.github/trigger-paths.js');
+            console.log(config.getE2EPaths('ehr').join(' '));
+          ")
+          node .github/check-changed-files.js $TRACKED_FILES
+
+  ehr-e2e-tests-run:
+    needs: check-changes
+    if: always() && !cancelled() && needs.check-changes.outputs.should-run == 'true'
     runs-on: ubuntu-latest-8-cores
     timeout-minutes: 30
     steps:
@@ -111,3 +126,28 @@ jobs:
             apps/ehr/playwright-report/
             apps/ehr/test-results/
           retention-days: ${{ env.TEST_RESULTS_CACHE_RETENTION_DAYS }}
+
+  # This job always runs and satisfies branch protection rules
+  ehr-e2e-tests:
+    needs: [check-changes, ehr-e2e-tests-run]
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report status
+        run: |
+          if [ "${{ needs.check-changes.outputs.should-run }}" == "false" ]; then
+            echo "EHR E2E tests skipped: ${{ needs.check-changes.outputs.skip-reason }}"
+            exit 0
+          elif [ "${{ needs.ehr-e2e-tests-run.result }}" == "success" ]; then
+            echo "EHR E2E tests passed"
+            exit 0
+          elif [ "${{ needs.ehr-e2e-tests-run.result }}" == "failure" ]; then
+            echo "EHR E2E tests failed"
+            exit 1
+          elif [ "${{ needs.ehr-e2e-tests-run.result }}" == "cancelled" ]; then
+            echo "EHR E2E tests cancelled"
+            exit 1
+          else
+            echo "EHR E2E tests status unknown: ${{ needs.ehr-e2e-tests-run.result }}"
+            exit 1
+          fi
