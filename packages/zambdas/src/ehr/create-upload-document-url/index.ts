@@ -34,7 +34,7 @@ export interface CreateUploadPatientDocumentOutput {
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   logIt(`handler() start.`);
   try {
@@ -43,11 +43,9 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     logIt(`validatedInput => `);
     logIt(JSON.stringify(validatedInput));
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     logIt(`Got m2mToken`);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
-
-    // const token = m2mtoken;
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     logIt('fetching list .......');
     const listAndPatientResource = await getListAndPatientResource(fileFolderId, oystehr);
@@ -78,7 +76,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     logIt(`Folder name => [${folderName}]`);
 
     const fileZ3Url = makeZ3Url({ secrets, patientID: patientId, bucketName: folderName, fileName });
-    const presignedFileUploadUrl = await createPresignedUrl(m2mtoken, fileZ3Url, 'upload');
+    const presignedFileUploadUrl = await createPresignedUrl(m2mToken, fileZ3Url, 'upload');
 
     logIt(`created fileZ3Url: [${fileZ3Url}] :: presignedFileUploadUrl: [${presignedFileUploadUrl}]`);
 

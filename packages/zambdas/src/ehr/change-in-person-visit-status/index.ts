@@ -21,15 +21,15 @@ export interface ChangeInPersonVisitStatusInputValidated extends ChangeInPersonV
   userToken: string;
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
     const validatedData = await complexValidation(oystehr, validatedParameters);

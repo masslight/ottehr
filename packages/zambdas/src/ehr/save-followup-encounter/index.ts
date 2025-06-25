@@ -42,7 +42,7 @@ export function validateRequestParameters(input: ZambdaInput): SaveFollowupEncou
   };
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -50,8 +50,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const { secrets, encounterDetails } = validateRequestParameters(input);
     console.log('updated encounter details', encounterDetails);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     let encounter: Encounter | undefined;
 
     if (encounterDetails.encounterId) {

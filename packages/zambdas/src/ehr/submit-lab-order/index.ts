@@ -32,7 +32,7 @@ import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './he
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 export const LABS_DATE_STRING_FORMAT = 'MM/dd/yyyy hh:mm a ZZZZ';
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -48,10 +48,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     } = validateRequestParameters(input);
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const currentUser = await createOystehrClient(userToken, secrets).user.me();
@@ -224,7 +224,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     let questionsAndAnswers: AOEDisplayForOrderForm[] = [];
     if (questionnaireResponse !== undefined && questionnaireResponse.id) {
       const { questionnaireResponseItems, questionsAndAnswersForFormDisplay } =
-        await populateQuestionnaireResponseItems(questionnaireResponse, data, m2mtoken);
+        await populateQuestionnaireResponseItems(questionnaireResponse, data, m2mToken);
 
       questionsAndAnswers = questionsAndAnswersForFormDisplay;
 
@@ -256,7 +256,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     const submitLabRequest = await fetch('https://labs-api.zapehr.com/v1/submit', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${m2mtoken}`,
+        Authorization: `Bearer ${m2mToken}`,
       },
       body: JSON.stringify({
         serviceRequest: `ServiceRequest/${serviceRequest.id}`,
@@ -410,7 +410,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       },
       patient.id,
       secrets,
-      m2mtoken
+      m2mToken
     );
 
     await makeLabPdfDocumentReference({
@@ -422,7 +422,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       serviceRequestID: serviceRequest.id,
     });
 
-    const presignedOrderFormURL = await getPresignedURL(orderFormPdfDetail.uploadURL, m2mtoken);
+    const presignedOrderFormURL = await getPresignedURL(orderFormPdfDetail.uploadURL, m2mToken);
     let presignedLabelURL: string | undefined = undefined;
 
     if (!isPSCOrder(serviceRequest)) {
@@ -440,7 +440,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       };
 
       presignedLabelURL = (
-        await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mtoken, oystehr)
+        await createExternalLabsLabelPDF(labelConfig, encounter.id!, serviceRequest.id!, secrets, m2mToken, oystehr)
       ).presignedURL;
     }
 
