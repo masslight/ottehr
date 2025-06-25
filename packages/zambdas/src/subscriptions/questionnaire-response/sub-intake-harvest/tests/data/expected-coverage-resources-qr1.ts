@@ -107,7 +107,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     identifier: [
       {
         ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-        value: 'FafOneJwgNdkOetWwe6',
+        value: 'FAfonejwgndkoetwwe6',
         assigner: {
           reference: '{{ORGANIZATION_REF}}',
           display: 'Aetna',
@@ -118,7 +118,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     status: 'active',
     beneficiary: { reference: '{{PATIENT_REF}}', type: 'Patient' },
     payor: [{ reference: '{{ORGANIZATION_REF}}' }],
-    subscriberId: 'FafOneJwgNdkOetWwe6',
+    subscriberId: 'FAfonejwgndkoetwwe6',
     subscriber: {
       reference: `#coverageSubscriber`,
     },
