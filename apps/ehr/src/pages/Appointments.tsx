@@ -104,11 +104,9 @@ export default function Appointments(): ReactElement {
     activeApptDatesBeforeToday = [],
   } = searchResults || {};
 
-  const encountersIdsEligibleForOrders = useMemo(() => {
-    const inOfficeEncounterIds = inOfficeAppointments.map((appointment) => appointment.encounterId);
-    const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
-    return [...inOfficeEncounterIds, ...completedEncounterIds];
-  }, [inOfficeAppointments, completedAppointments]);
+  const inOfficeEncounterIds = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
+  const encountersIdsEligibleForOrders = [...inOfficeEncounterIds, ...completedEncounterIds];
 
   const externalLabOrders = usePatientLabOrders({
     searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },

@@ -80,7 +80,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
       tableUrl: getNursingOrdersUrl(appointment.id),
       orders: nursingOrders.map((order) => ({
         serviceRequestId: order.serviceRequestId,
-        testItemName: order.note,
+        testItemName: order.note, // todo maybe update testItemName to be more generic
         detailPageUrl: getNursingOrderDetailsUrl(appointment.id, order.serviceRequestId),
         statusChip: <NursingOrdersStatusChip status={order.status} />,
       })),
