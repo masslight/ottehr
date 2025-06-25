@@ -521,89 +521,65 @@ export const FacilitiesTelemed: FacilityInfo[] = [
 export interface InHouseMedicationInfo {
   name: string;
   NDC: string;
-  CPT: string;
   erxData: {
     id: string;
-    routedDoseFormDrugId: string;
-    name: string;
-    rxcui: number | null;
-    ndc: string | null;
-    strength: string;
-    isObsolete: boolean;
   };
 }
 
 export const InHouseMedications: InHouseMedicationInfo[] = [
-  {
-    name: '0.9% Sodium Chloride IV (1000cc)',
-    NDC: '1727170107',
-    CPT: '96360',
-    erxData: {
-      id: '17134',
-      routedDoseFormDrugId: '71330',
-      name: 'Sodium Chloride Intravenous Solution',
-      rxcui: 1807627,
-      ndc: '79672061350',
-      strength: '0.9 %',
-      isObsolete: false,
-    },
-  },
-  {
-    name: '0.9% Sodium Chloride IV (250cc)',
-    NDC: '51662-1517-01',
-    CPT: '96360',
-    erxData: {
-      id: '17134',
-      routedDoseFormDrugId: '71330',
-      name: 'Sodium Chloride Intravenous Solution',
-      rxcui: 1807627,
-      ndc: '79672061350',
-      strength: '0.9 %',
-      isObsolete: false,
-    },
-  },
-  {
-    name: '0.9% Sodium Chloride IV (500cc)',
-    NDC: '172717106',
-    CPT: '96360',
-    erxData: {
-      id: '17134',
-      routedDoseFormDrugId: '71330',
-      name: 'Sodium Chloride Intravenous Solution',
-      rxcui: 1807627,
-      ndc: '79672061350',
-      strength: '0.9 %',
-      isObsolete: false,
-    },
-  },
-  {
-    name: 'Acetaminophen (120mg)  Suppository PR',
-    NDC: '4580273230',
-    CPT: 'PM101',
-    erxData: {
-      id: '35133',
-      routedDoseFormDrugId: '649',
-      name: 'Acetaminophen Rectal Suppository',
-      rxcui: 198434,
-      ndc: '45802073233',
-      strength: '120 MG',
-      isObsolete: false,
-    },
-  },
-  {
-    name: 'Acetaminophen (160mg)  Chewable Tablet PO',
-    NDC: 'todo',
-    CPT: 'PM101',
-    erxData: {
-      id: '23170',
-      routedDoseFormDrugId: '2067',
-      name: 'Acetaminophen Childrens Oral Tablet Chewable',
-      rxcui: null,
-      ndc: '70000031001',
-      strength: '160 MG',
-      isObsolete: false,
-    },
-  },
+  { name: 'Acetaminophen (Liquid)', NDC: '50580-170-01', erxData: { id: '23562' } },
+  { name: 'Acetaminophen (Tabs)', NDC: '71399-8024-1', erxData: { id: '23170' } },
+  { name: 'Acetaminophen (80mg Suppository)', NDC: '51672-2114-2', erxData: { id: '23565' } },
+  { name: 'Acetaminophen (325mg Suppository)', NDC: '51672-2116-2', erxData: { id: '23564' } },
+  { name: 'Acetaminophen (120mg Suppository)', NDC: '45802-732-30', erxData: { id: '21887' } },
+  { name: 'Activated Charcoal', NDC: '66689-203-04', erxData: { id: '32034' } },
+  { name: 'Albuterol', NDC: '0487-9501-25', erxData: { id: '29518' } },
+  { name: 'Ventolin HFA', NDC: '0173-0682-24', erxData: { id: '38526' } },
+  { name: 'Amoxicillin', NDC: '0143-9887-01', erxData: { id: '34220' } },
+  { name: 'Amoxicillin Clavulanate', NDC: '65862-535-75', erxData: { id: '22329' } },
+  { name: 'Azithromycin (Liquid)', NDC: '59762-3140-1', erxData: { id: '5675' } },
+  { name: 'Azithromycin (Tabs)', NDC: '65862-641-69', erxData: { id: '16811' } },
+  { name: 'Cefdinir', NDC: '00093-4137-64', erxData: { id: '10052' } },
+  { name: 'Ceftriaxone', NDC: '60505-6148-0', erxData: { id: '30900' } },
+  { name: 'Cephalexin', NDC: '67877-545-88', erxData: { id: '24460' } },
+  { name: 'Cetirizine (Tabs)', NDC: '43598-811-12', erxData: { id: '15066' } },
+  { name: 'Cetirizine (Liquid)', NDC: '50580-730-05', erxData: { id: '15065' } },
+  { name: 'Clindamycin', NDC: '63304-692-01', erxData: { id: '1447' } },
+  { name: 'Dexamethasone', NDC: '00641-0367-21', erxData: { id: '25582' } },
+  { name: 'Diphenhydramine (Caps)', NDC: '00185-0648-01', erxData: { id: '27641' } },
+  { name: 'Diphenhydramine (IM)', NDC: '00641-0376-21', erxData: { id: '28533' } },
+  { name: 'Diphenhydramine (Liquid)', NDC: '57237-317-05', erxData: { id: '27640' } },
+  { name: 'Docusate Sodium', NDC: '00121-0935-05', erxData: { id: '29722' } },
+  { name: 'Epinephrine (1mg/mL)', NDC: '42023-159-01', erxData: { id: '29233' } },
+  { name: 'Fluorescein (Strips)', NDC: '17238-900-11', erxData: { id: '2016' } },
+  { name: 'Fluorescein (Sterile Dropper)', NDC: '59390-218-05', erxData: { id: '2017' } },
+  { name: 'Glucose (Glutose15)', NDC: '0574-0069-15', erxData: { id: '8601' } },
+  { name: 'Glucose (D10 500mL)', NDC: '0264-7520-10', erxData: { id: '25596' } },
+  { name: 'Glycerin (Infant)', NDC: '58980-409-12', erxData: { id: '8432' } },
+  { name: 'Glycerin Suppository (Pediatrics)', NDC: '49781-0080-25', erxData: { id: '10251' } },
+  { name: 'Ibuprofen (Tabs)', NDC: '0113-0604-90', erxData: { id: '3784' } },
+  { name: 'Ibuprofen (Chew)', NDC: '70000-0239-1', erxData: { id: '3345' } },
+  { name: 'Ibuprofen (Liquid)', NDC: '51672-2130-8', erxData: { id: '3695' } },
+  { name: 'Ipratropium-Albuterol', NDC: '76204-600-30', erxData: { id: '31529' } },
+  { name: 'Ketorolac', NDC: '00338-0072-25', erxData: { id: '7271' } },
+  { name: 'Lidocaine (LET)', NDC: '51552-1345-1', erxData: { id: '3757' } },
+  { name: 'Lidocaine cream (LMX)', NDC: '0496-0882-30', erxData: { id: '3757' } },
+  { name: 'Lidocaine (Viscous)', NDC: '0054-3500-49', erxData: { id: '34978' } },
+  { name: 'Magnesium/Aluminum/Simethicone (Gerilanta)', NDC: '57896-629-12', erxData: { id: '20352' } },
+  { name: 'Midazolam', NDC: '00641-6063-25', erxData: { id: '10764' } },
+  { name: 'Ondansetron (Solution)', NDC: '54838-555-50', erxData: { id: '8335' } },
+  { name: 'Ondansetron (ODT)', NDC: '68462-157-13', erxData: { id: '38750' } },
+  { name: 'Phenylephrine', NDC: '37808-728-30', erxData: { id: '1112' } },
+  { name: 'Prednisone', NDC: '0591-5443-01', erxData: { id: '8051' } },
+  { name: 'Racemic Epinephrine', NDC: '0487-5901-99', erxData: { id: '21383' } },
+  { name: 'Silver Nitrate stick', NDC: '0404-1000-03', erxData: { id: '77520' } },
+  { name: 'Sodium Chloride (NS 500mL)', NDC: '17271-701-06', erxData: { id: '17134' } },
+  { name: 'Sodium Phosphate (Fleet) (Pediatric) Enema PR', NDC: '00132-0119-46', erxData: { id: '22481' } },
+  { name: 'Sodium Phosphate (Fleet) (Adult) Enema PR', NDC: '00132-0202-20', erxData: { id: '23832' } },
+  { name: 'Sulfamethoxazole-Trimethoprim (Susp)', NDC: '0121-0854-16', erxData: { id: '28085' } },
+  { name: 'Sulfamethoxazole-Trimethoprim (Tabs)', NDC: '57237-232-01', erxData: { id: '35643' } },
+  { name: 'Tetanus-Diphtheria-Pertussis Vaccine', NDC: '49281-400-20', erxData: { id: '32367' } },
+  { name: 'Adenosine', NDC: '63323-651-00', erxData: { id: '16418' } },
 ];
 
 export type TaskStatus = 'completed' | 'failed' | 'rejected' | undefined;
