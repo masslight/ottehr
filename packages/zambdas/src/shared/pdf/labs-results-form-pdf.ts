@@ -365,6 +365,7 @@ export async function createExternalLabResultPDF(
         resultInterpretationDisplay: interpretationDisplay,
         resultValue: value || '',
         referenceRangeText,
+        resultNotes: observation.note?.map((note) => note.text),
       };
       externalLabResults.push(labResult);
       if (interpretationDisplay) resultInterpretationDisplays.push(interpretationDisplay);
@@ -405,6 +406,7 @@ export async function createExternalLabResultPDF(
     encounterID: encounter.id,
     diagnosticReportID: diagnosticReport.id,
     reviewed,
+    listResources: [],
   });
 }
 
@@ -481,6 +483,7 @@ export async function createInHouseLabResultPDF(
     encounterID: encounter.id,
     diagnosticReportID: diagnosticReport.id,
     reviewed: false,
+    listResources: [], // this needs to be passed so the helper returns docRefs
   });
 }
 
@@ -646,6 +649,28 @@ async function createExternalLabsResultsFormPdfBytes(
     if (labResult.referenceRangeText) {
       pdfClient.newLine(STANDARD_NEW_LINE);
       pdfClient.drawText(`Reference range: ${labResult.referenceRangeText}`, textStyles.text);
+    }
+
+    // add any notes included for the observation
+    if (labResult.resultNotes?.length) {
+      pdfClient.newLine(STANDARD_NEW_LINE);
+      pdfClient.drawText('Notes:', textStyles.textBold);
+      pdfClient.newLine(STANDARD_NEW_LINE);
+
+      labResult.resultNotes?.forEach((note) => {
+        const noteLines = note.split('\n');
+
+        noteLines.forEach((noteLine) => {
+          if (noteLine === '') pdfClient.newLine(STANDARD_NEW_LINE);
+          else {
+            // adding a little bit of a left indent for notes
+            pdfClient.drawTextSequential(noteLine, textStyles.text, 50);
+            pdfClient.newLine(STANDARD_NEW_LINE);
+          }
+        });
+
+        pdfClient.newLine(STANDARD_NEW_LINE);
+      });
     }
   }
 

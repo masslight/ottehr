@@ -716,7 +716,7 @@ export const extractLabResources = (
       specimens.push(resource);
     } else if (resource.resourceType === 'Practitioner') {
       practitioners.push(resource);
-    } else if (resource.resourceType === 'DocumentReference') {
+    } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
       documentReferences.push(resource);
     }
   }
