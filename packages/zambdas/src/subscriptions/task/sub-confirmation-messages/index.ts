@@ -88,7 +88,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         ],
       })
     ).unbundle();
-    console.log(`number of reasources returned ${allResources.length}`);
+    console.log(`number of resources returned ${allResources.length}`);
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
