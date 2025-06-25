@@ -373,7 +373,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         locationFax: location?.telecom?.find((t) => t.system === 'fax')?.value,
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
-        reqId: orderID || ORDER_ITEM_UNKNOWN,
+        orderNumber: orderID || ORDER_ITEM_UNKNOWN,
         providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
         providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
