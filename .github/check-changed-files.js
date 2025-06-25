@@ -1,5 +1,45 @@
 #!/usr/bin/env node
 
+/**
+ * GitHub Actions utility to determine if CI jobs should run based on changed files
+ * 
+ * Designed to work with GitHub branch protection rules by providing a final job
+ * that always runs and reports the correct status regardless of whether main jobs were skipped.
+ * 
+ * Purpose: Skip expensive CI jobs when only unrelated files have changed,
+ * saving CI time and resources while ensuring jobs run when needed.
+ * 
+ * Usage: node check-changed-files.js <path1> <path2> ...
+ * Example: node check-changed-files.js apps/intake/ packages/zambdas/ .github/
+ * 
+ * Outputs GitHub Actions variables:
+ * - should-run: 'true' if jobs should run, 'false' to skip
+ * - skip-reason: explanation when skipping jobs
+ * 
+ * Logic:
+ * - Always runs jobs for manual workflow_dispatch events
+ * - Compares changed files (git diff) against provided path patterns
+ * 
+ * Branch Protection Integration:
+ * The final job in workflow should always run and report status for branch protection:
+ * 
+ *   final-job:
+ *     needs: [check-changes, main-job]
+ *     if: always() && !cancelled()
+ *     steps:
+ *       - run: |
+ *           if [ "${{ needs.check-changes.outputs.should-run }}" == "false" ]; then
+ *             echo "Jobs skipped: ${{ needs.check-changes.outputs.skip-reason }}"
+ *             exit 0
+ *           elif [ "${{ needs.main-job.result }}" == "success" ]; then
+ *             echo "Jobs passed"
+ *             exit 0
+ *           else
+ *             echo "Jobs failed"
+ *             exit 1
+ *           fi
+ */
+
 const { execSync } = require('child_process');
 const fs = require('fs');
 
