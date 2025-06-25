@@ -62,7 +62,7 @@ describe('closure and override tests', () => {
     expect(expectedList.length).toEqual(96);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -121,7 +121,7 @@ describe('closure and override tests', () => {
     expect(expectedList.length).toEqual(96);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -171,7 +171,7 @@ describe('closure and override tests', () => {
     expect(expectedList.length).toEqual(0);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -223,7 +223,7 @@ describe('closure and override tests', () => {
     expect(expectedList.length).toEqual(96);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -276,7 +276,7 @@ describe('closure and override tests', () => {
     expect(expectedList.length).toEqual(96);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,

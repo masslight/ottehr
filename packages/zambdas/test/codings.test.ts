@@ -31,7 +31,9 @@ const contactArray = [
   {
     name: {
       use: 'usual',
+      // cSpell:disable-next Yevheniia
       given: ['Yevheniia'],
+      // cSpell:disable-next Yevheniia
       family: 'Yevheniia',
     },
     telecom: [

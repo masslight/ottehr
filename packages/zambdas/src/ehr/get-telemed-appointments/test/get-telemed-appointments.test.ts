@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import { mapStatusToTelemed } from '../../../shared/appointment/helpers';
 import { getVideoRoomResourceExtension } from '../../../shared/helpers';
 import { filterAppointmentsAndCreatePackages } from '../helpers/fhir-resources-filters';
-import { getPractLicensesLocationsAbbreviations } from '../helpers/fhir-utils';
+import { getPractitionerLicensesLocationsAbbreviations } from '../helpers/fhir-utils';
 import { mapQuestionnaireToEncountersIds } from '../helpers/mappers';
 import {
   allLocations,
@@ -137,17 +137,17 @@ describe('Test "get-telemed-appointments" endpoint', () => {
     });
 
     test('Getting practitioner license locations abbreviations, success', async () => {
-      const abbreviations = await getPractLicensesLocationsAbbreviations(oystehr);
+      const abbreviations = await getPractitionerLicensesLocationsAbbreviations(oystehr);
       expect(abbreviations).toEqual(['LA', 'NY']);
     });
   });
 
   describe('Questionnaire tests', () => {
     test('Test questionnaire to encounters mapping, success', async () => {
-      const mapa = mapQuestionnaireToEncountersIds(allTestResources);
+      const mapAll = mapQuestionnaireToEncountersIds(allTestResources);
 
-      expect(mapa[virtualReadyAppointmentEncounter.id!]).toEqual(questionnaireForReadyEncounter);
-      expect(mapa[virtualPreVideoAppointmentEncounter.id!]).toEqual(questionnaireForPreVideoEncounter);
+      expect(mapAll[virtualReadyAppointmentEncounter.id!]).toEqual(questionnaireForReadyEncounter);
+      expect(mapAll[virtualPreVideoAppointmentEncounter.id!]).toEqual(questionnaireForPreVideoEncounter);
     });
   });
 
