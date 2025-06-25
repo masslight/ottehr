@@ -1,10 +1,12 @@
 import { SCHOOL_WORK_NOTE } from '../../data';
+import { MEDICATION_DISPENSABLE_DRUG_ID } from '../medication-administration.constants';
 import { CSS_NOTE_ID, NOTHING_TO_EAT_OR_DRINK_ID } from './chart-data.types';
 
 export type ProviderChartDataFieldsNames =
   | 'chief-complaint'
   | 'ros'
   | 'current-medication'
+  | typeof MEDICATION_DISPENSABLE_DRUG_ID
   | 'prescribed-medication'
   | 'known-allergy'
   | 'medical-condition'

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { MedicationDTO, removePrefix, SearchParams } from 'utils';
+import { QueryObserverResult } from 'react-query';
+import { GetChartDataResponse, MedicationDTO, removePrefix, SearchParams } from 'utils';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../telemed';
 import { useChartData } from './useChartData';
@@ -7,11 +7,12 @@ import { useChartData } from './useChartData';
 export const useMedicationHistory = (
   search_by: SearchParams['_search_by'] = 'encounter',
   count = 10
-): { isLoading: boolean; medicationHistory: MedicationDTO[] } => {
+): {
+  isLoading: boolean;
+  medicationHistory: MedicationDTO[];
+  refetchHistory: () => Promise<QueryObserverResult<GetChartDataResponse, unknown>>;
+} => {
   const { encounter } = getSelectors(useAppointmentStore, ['encounter']);
-  const [_, setCurrentMeds] = useState<MedicationDTO[] | null | undefined>(null);
-
-  const { chartData: currentMedicationsData } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);
 
   const {
     isLoading,
@@ -20,7 +21,7 @@ export const useMedicationHistory = (
   } = useChartData({
     encounterId: encounter.id || '',
     requestedFields: {
-      medications: {
+      inhouseMedications: {
         _sort: '-effective',
         _include: 'MedicationStatement:source',
         _search_by: search_by,
@@ -30,22 +31,8 @@ export const useMedicationHistory = (
     enabled: !!encounter.id,
   });
 
-  useEffect(() => {
-    setCurrentMeds((oldCurrentMeds) => {
-      console.log(oldCurrentMeds, currentMedicationsData?.medications);
-      if (
-        oldCurrentMeds &&
-        currentMedicationsData?.medications &&
-        oldCurrentMeds.length !== currentMedicationsData.medications.length
-      ) {
-        void refetchHistory();
-      }
-      return currentMedicationsData?.medications;
-    });
-  }, [currentMedicationsData?.medications, refetchHistory]);
-
-  if (historyData?.practitioners?.length && historyData.practitioners.length > 0) {
-    historyData.medications?.forEach((val) => {
+  if (historyData?.practitioners?.length) {
+    historyData.inhouseMedications?.forEach((val) => {
       if ('practitioner' in val && val.practitioner && 'reference' in val.practitioner && val.practitioner.reference) {
         const ref = removePrefix('Practitioner/', val.practitioner.reference);
         const practitioner = historyData.practitioners?.find((practitioner) => practitioner.id === ref);
@@ -54,5 +41,5 @@ export const useMedicationHistory = (
     });
   }
 
-  return { isLoading, medicationHistory: historyData?.medications || [] };
+  return { isLoading, medicationHistory: historyData?.inhouseMedications || [], refetchHistory };
 };

@@ -7,7 +7,8 @@ import { useMedicationHistory } from '../../../hooks/useMedicationHistory';
 import { ButtonStyled } from '../../generic-notes-list/components/ui/ButtonStyled';
 import { MedicationHistoryEntity } from './MedicationHistoryEntity';
 
-const PATIENT_MEDS_COUNT_TO_LOAD = 100;
+export const PATIENT_MEDS_COUNT_TO_LOAD = 100;
+const COLLAPSED_MEDS_COUNT = 3;
 
 export const MedicationHistoryList: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -16,7 +17,7 @@ export const MedicationHistoryList: React.FC = () => {
 
   const shownMeds = useMemo(() => {
     if (!seeMoreOpen) {
-      return medicationHistory.slice(0, 3);
+      return medicationHistory.slice(0, COLLAPSED_MEDS_COUNT);
     } else {
       return medicationHistory;
     }
@@ -52,7 +53,7 @@ export const MedicationHistoryList: React.FC = () => {
             </>
           )}
         </List>
-        {!isLoading && medicationHistory.length > 0 && (
+        {!isLoading && medicationHistory.length > COLLAPSED_MEDS_COUNT && (
           <ButtonStyled onClick={toggleShowMore} startIcon={seeMoreOpen ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}>
             {getSeeMoreButtonLabel()}
           </ButtonStyled>
