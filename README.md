@@ -91,7 +91,7 @@ You only need to run the setup script once. To start the apps going forward, use
 
 The Patient app starts up at <http://localhost:3002>
 
-By default, the Patient app uses password-less SMS for authentication. On the login screen, enter your mobile phone number followed by the one-time passcode which is sent to your device.
+By default, the Patient app uses passwordless SMS for authentication. On the login screen, enter your mobile phone number followed by the one-time passcode which is sent to your device.
 
 ### Log in and explore the EHR
 
