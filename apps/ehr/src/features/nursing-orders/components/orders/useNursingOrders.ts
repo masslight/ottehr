@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getNursingOrders, updateNursingOrder as updateNursingOrderApi } from 'src/api/api';
-import { GetNursingOrdersInput, NursingOrdersSearchBy } from 'utils';
+import { GetNursingOrdersInput } from 'utils';
 import { useApiClients } from '../../../../hooks/useAppClients';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const useGetNursingOrders = ({
-  encounterId,
-  searchBy,
-}: GetNursingOrdersInput & { searchBy?: NursingOrdersSearchBy }) => {
+export const useGetNursingOrders = ({ encounterId, searchBy }: GetNursingOrdersInput) => {
   const { oystehrZambda } = useApiClients();
   const [nursingOrders, setNursingOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
