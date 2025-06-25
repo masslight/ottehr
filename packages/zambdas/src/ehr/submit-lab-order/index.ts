@@ -224,7 +224,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     let questionsAndAnswers: AOEDisplayForOrderForm[] = [];
     if (questionnaireResponse !== undefined && questionnaireResponse.id) {
       const { questionnaireResponseItems, questionsAndAnswersForFormDisplay } =
-        await populateQuestionnaireResponseItems(questionnaireResponse, data, m2mtoken);
+        await populateQuestionnaireResponseItems(questionnaireResponse, data, m2mToken);
 
       questionsAndAnswers = questionsAndAnswersForFormDisplay;
 

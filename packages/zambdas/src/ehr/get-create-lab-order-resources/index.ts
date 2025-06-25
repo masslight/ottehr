@@ -45,7 +45,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     let labs: OrderableItemSearchResult[] = [];
     if (labSearch) {
-      labs = await getLabs(labOrgsGuids, labSearch, m2mtoken);
+      labs = await getLabs(labOrgsGuids, labSearch, m2mToken);
     }
 
     const response: LabOrderResourcesRes = {
