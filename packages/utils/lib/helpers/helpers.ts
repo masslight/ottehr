@@ -61,12 +61,13 @@ export const isPostalCodeValid = (postalCode: string | undefined): boolean => {
   return zipRegex.test(postalCode);
 };
 
+const tenDigitRegex = /^\d{10}$/;
+
 export const isPhoneNumberValid = (phoneNumber: string | undefined): boolean => {
   if (!phoneNumber) {
     return false;
   }
   const plusOneRegex = /^\+1\d{10}$/;
-  const tenDigitRegex = /^\d{10}$/;
   return (
     (plusOneRegex.test(phoneNumber) || tenDigitRegex.test(phoneNumber) || phoneRegex.test(phoneNumber)) &&
     phone(phoneNumber).isValid
@@ -81,7 +82,6 @@ export function formatPhoneNumber(phoneNumber: string | undefined): string | und
   if (!isPhoneNumberValid(phoneNumber)) {
     throw new Error('Invalid phone number');
   }
-  const tenDigitRegex = /^\d{10}$/;
   return tenDigitRegex.test(phoneNumber) ? `+1${phoneNumber}` : phoneNumber;
 }
 
