@@ -42,7 +42,7 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler('notification-Updater', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const sendSMSPractitionerCommunications: {
@@ -88,8 +88,8 @@ export const index = wrapHandler('notification-Updater', async (input: ZambdaInp
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('Created zapToken and fhir client');
 
     const [readyOrUnsignedVisitPackages, assignedOrInProgressVisitPackages, statePractitionerMap] = await Promise.all([

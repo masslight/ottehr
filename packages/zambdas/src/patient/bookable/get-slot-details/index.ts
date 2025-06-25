@@ -24,7 +24,7 @@ import {
 import { getNameForOwner } from '../../../ehr/schedules/shared';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -33,8 +33,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success', JSON.stringify(validatedParameters));
     const { secrets } = validatedParameters;
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const effectInput = await complexValidation(validatedParameters, oystehr);
 
     const slotDetails = performEffect(effectInput);
@@ -148,7 +148,7 @@ const complexValidation = async (input: BasicInput, oystehr: Oystehr): Promise<E
   );
   if (!scheduleOwner) {
     const scheduleOwnerNotFoundError = SCHEDULE_NOT_FOUND_CUSTOM_ERROR(
-      `The schedule resoure owning this slot, Schedule/${schedule.id}, could not be connected to any resource referenced by its "actor" field. Please ensure that Schedule.actor[0] references an existing Practitioner, Location, or HealthcareService resource.`
+      `The schedule resource owning this slot, Schedule/${schedule.id}, could not be connected to any resource referenced by its "actor" field. Please ensure that Schedule.actor[0] references an existing Practitioner, Location, or HealthcareService resource.`
     );
     throw scheduleOwnerNotFoundError;
   }

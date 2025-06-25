@@ -71,7 +71,7 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
         ],
       })
     ).unbundle();
-    console.log(`number of reasources returned ${allResources.length}`);
+    console.log(`number of resources returned ${allResources.length}`);
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {

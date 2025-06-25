@@ -56,7 +56,7 @@ import {
 } from '../shared/inhouse-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -66,10 +66,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('validateRequestParameters success');
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
 
@@ -148,7 +148,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         observations,
         diagnosticReport,
         secrets,
-        m2mtoken,
+        m2mToken,
         activityDefinition,
         serviceRequestsRelatedViaRepeat,
         specimen

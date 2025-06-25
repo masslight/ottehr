@@ -10,7 +10,7 @@ import {
 import { getInHouseResources, mapResourcesToInHouseOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -36,10 +36,10 @@ export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInpu
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const userToken = input.headers.Authorization.replace('Bearer ', '');
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const {
       serviceRequests,
@@ -63,7 +63,7 @@ export const index = wrapHandler('get-in-house-orders', async (input: ZambdaInpu
         searchBy: validatedParameters.searchBy,
       },
       userToken,
-      m2mtoken
+      m2mToken
     );
 
     if (!serviceRequests.length) {

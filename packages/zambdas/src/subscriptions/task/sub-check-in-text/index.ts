@@ -76,7 +76,7 @@ export const index = wrapHandler('sub-check-in-text', async (input: ZambdaInput)
         ],
       })
     ).unbundle();
-    console.log(`number of reasources returned ${allResources.length}`);
+    console.log(`number of resources returned ${allResources.length}`);
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {

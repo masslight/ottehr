@@ -1,6 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { Medication, MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
+import { MedicationAdministration, Patient, Practitioner } from 'fhir/r4b';
 import {
   ExtendedMedicationDataForResponse,
   getDosageUnitsAndRouteOfMedication,
@@ -16,18 +16,20 @@ import {
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   OrderPackage,
 } from 'utils';
-import { checkOrCreateM2MClientToken, wrapHandler, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
+import { createOystehrClient } from '../../shared';
+import { ZambdaInput } from '../../shared';
+import { checkOrCreateM2MClientToken } from '../../shared';
+import { getMedicationFromMA } from '../create-update-medication-order/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mtoken: string;
+let m2mToken: string;
 const ZAMBDA_NAME = 'get-medication-orders';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     console.log('Created zapToken, fhir and clients.');
 
     const response = await performEffect(oystehr, validatedParameters);
@@ -57,7 +59,8 @@ async function performEffect(
 }
 
 function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedicationDataForResponse {
-  const { medicationAdministration, medication, providerCreatedOrder, providerAdministeredOrder } = orderPackage;
+  const { medicationAdministration, providerCreatedOrder, providerAdministeredOrder } = orderPackage;
+  const medication = getMedicationFromMA(medicationAdministration);
   const dosageUnitsRoute = getDosageUnitsAndRouteOfMedication(medicationAdministration);
   const orderReasons = getReasonAndOtherReasonForNotAdministeredOrder(medicationAdministration);
   const administeredInfo = getProviderIdAndDateMedicationWasAdministered(medicationAdministration);
@@ -68,7 +71,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     status: mapFhirToOrderStatus(medicationAdministration) ?? 'pending',
     patient: medicationAdministration.subject.reference?.replace('Patient/', '') ?? '',
     encounter: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
-    medicationId: medication?.id ?? '',
+    medicationId: medication?.id,
     medicationName: (medication && getMedicationName(medication)) ?? '',
     dose: dosageUnitsRoute.dose ?? -1,
     route: dosageUnitsRoute.route ?? '',
@@ -111,10 +114,6 @@ async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<
       },
       {
         name: '_include',
-        value: 'MedicationAdministration:medication',
-      },
-      {
-        name: '_include',
         value: 'MedicationAdministration:subject',
       },
       {
@@ -147,14 +146,9 @@ async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<
     const idOfProviderAdministeredOrder = getProviderIdAndDateMedicationWasAdministered(ma)?.administeredProviderId;
     const providerAdministeredOrder = resources.find((res) => res.id === idOfProviderAdministeredOrder) as Practitioner;
 
-    const medication = resources.find(
-      (res) => res.id === ma.medicationReference?.reference?.replace('Medication/', '')
-    ) as Medication;
-
     resultPackages.push({
       medicationAdministration: ma,
       patient,
-      medication,
       providerCreatedOrder,
       providerAdministeredOrder,
     });

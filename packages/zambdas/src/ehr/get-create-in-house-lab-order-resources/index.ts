@@ -23,7 +23,8 @@ import {
 import { fetchActiveInHouseLabActivityDefinitions } from '../shared/inhouse-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+
+let m2mToken: string;
 const ZAMBDA_NAME = 'get-create-in-house-lab-order-resources';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
@@ -46,8 +47,8 @@ export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promis
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const {
       attendingPractitionerName,

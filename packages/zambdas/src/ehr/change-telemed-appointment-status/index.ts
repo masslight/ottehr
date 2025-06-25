@@ -31,16 +31,16 @@ import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueReque
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 const ZAMBDA_NAME = 'change-telemed-appointment-status';
 
 export const index = wrapHandler(ZAMBDA_NAME, async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
 
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
     console.log('Created Oystehr client');
 
@@ -104,10 +104,10 @@ export const performEffect = async (
     const createResourcesRequests: BatchInputPostRequest<ChargeItem | Task>[] = [];
     console.debug(`Status change detected from ${currentStatus} to ${newStatus}`);
 
-    const chartDataPromise = getChartData(oystehr, m2mtoken, visitResources.encounter.id!);
+    const chartDataPromise = getChartData(oystehr, m2mToken, visitResources.encounter.id!);
     const additionalChartDataPromise = getChartData(
       oystehr,
-      m2mtoken,
+      m2mToken,
       visitResources.encounter.id!,
       telemedProgressNoteChartDataRequestedFields
     );
@@ -121,7 +121,7 @@ export const performEffect = async (
       { chartData, additionalChartData },
       visitResources,
       secrets,
-      m2mtoken
+      m2mToken
     );
     if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
     console.log(`Creating visit note pdf docRef`);
@@ -177,18 +177,18 @@ export const performEffect = async (
       try {
         const chargeOutcome = await postChargeIssueRequest(
           getSecret(SecretsKeys.PROJECT_API, params.secrets),
-          m2mtoken,
+          m2mToken,
           visitResources.encounter.id
         );
         console.log(`Charge outcome: ${JSON.stringify(chargeOutcome)}`);
 
         const paymentInfo = await getPaymentDataRequest(
           getSecret(SecretsKeys.PROJECT_API, params.secrets),
-          m2mtoken,
+          m2mToken,
           visitResources.encounter.id
         );
 
-        const pdfInfo = await composeAndCreateReceiptPdf(paymentInfo, chartData, visitResources, secrets, m2mtoken);
+        const pdfInfo = await composeAndCreateReceiptPdf(paymentInfo, chartData, visitResources, secrets, m2mToken);
         if (!patient?.id) throw new Error(`No patient has been found for encounter: ${encounter.id}`);
 
         const resources = await makeReceiptPdfDocumentReference(

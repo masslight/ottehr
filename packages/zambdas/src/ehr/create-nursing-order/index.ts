@@ -33,7 +33,7 @@ import {
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler('create-nursing-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   let validatedParameters: CreateNursingOrderParameters & { secrets: Secrets | null; userToken: string };
@@ -53,8 +53,8 @@ export const index = wrapHandler('create-nursing-order', async (input: ZambdaInp
   try {
     const { userToken, secrets, encounterId, notes } = validatedParameters;
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);

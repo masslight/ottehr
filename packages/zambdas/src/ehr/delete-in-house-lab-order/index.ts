@@ -16,7 +16,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mtoken: string;
+let m2mToken: string;
 
 const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
   method: 'DELETE',
@@ -108,9 +108,13 @@ export const index = wrapHandler(
     let secrets = input.secrets;
     let validatedParameters: DeleteInHouseLabOrderParameters & { secrets: Secrets | null; userToken: string };
 
-    try {
-      validatedParameters = validateRequestParameters(input);
-    } catch (error: any) {
+
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
+
+    const { serviceRequest, task, provenance } = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
+
+    if (!serviceRequest) {
       return {
         statusCode: 400,
         body: JSON.stringify({

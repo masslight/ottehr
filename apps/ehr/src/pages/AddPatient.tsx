@@ -295,7 +295,6 @@ export default function AddPatient(): JSX.Element {
           },
           {
             name: '_include',
-            // cSpell:disable-next relatedperson
             value: 'Person:relatedperson',
           },
           {

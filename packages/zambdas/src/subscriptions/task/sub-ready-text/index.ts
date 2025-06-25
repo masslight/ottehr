@@ -70,7 +70,7 @@ export const index = wrapHandler('sub-ready-text', async (input: ZambdaInput): P
         ],
       })
     ).unbundle();
-    console.log(`number of reasources returned ${allResources.length}`);
+    console.log(`number of resources returned ${allResources.length}`);
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {

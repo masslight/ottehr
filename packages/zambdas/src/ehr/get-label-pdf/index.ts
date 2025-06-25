@@ -11,7 +11,7 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -20,10 +20,10 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
     const { contextRelatedReference, searchParams, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const labelDocRefs = (
       await oystehr.fhir.search<DocumentReference>({
@@ -53,7 +53,7 @@ export const index = wrapHandler('get-label-pdf', async (input: ZambdaInput): Pr
 
         return {
           documentReference: labelDocRef,
-          presignedURL: await getPresignedURL(url, m2mtoken),
+          presignedURL: await getPresignedURL(url, m2mToken),
         };
       })
     ).then((results) => {
