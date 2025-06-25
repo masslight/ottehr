@@ -5,7 +5,7 @@ import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, Zambda
 import { getNoursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -13,8 +13,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const validatedParameters = validateRequestParameters(input);
     const { secrets, searchBy } = validatedParameters;
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const { serviceRequests, tasks, practitioners, provenances } = await getNoursingOrderResources(
       oystehr,

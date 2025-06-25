@@ -62,14 +62,14 @@ const ADVAPACS_ORDER_DETAIL_MODALITY_CODE_SYSTEM_URL =
   'http://advapacs.com/fhir/servicerequest-orderdetail-parameter-code';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (unsafeInput: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const secrets = validateSecrets(unsafeInput.secrets);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const validatedInput = await validateInput(unsafeInput, secrets, oystehr);
 
