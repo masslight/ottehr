@@ -22,7 +22,7 @@ describe('walkin availability tests', () => {
     // can't be checked in right up to the brink of closing time, but that is not a feature thus far.
     let timeNow = startOfDayWithTimezone().plus({ hours: 17, minutes: 59, seconds: 59 });
 
-    const adjustedScheuleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
+    const adjustedScheduleJSON = adjustHoursOfOperation(DEFAULT_SCHEDULE_JSON, [
       {
         dayOfWeek: timeNow.toLocaleString({ weekday: 'long' }).toLowerCase(),
         open: 8,
@@ -31,7 +31,7 @@ describe('walkin availability tests', () => {
       },
     ]);
 
-    const schedule = makeSchedule({ scheduleObject: adjustedScheuleJSON });
+    const schedule = makeSchedule({ scheduleObject: adjustedScheduleJSON });
     const scheduleExtension = getScheduleExtension(schedule);
     expect(scheduleExtension).toBeDefined();
     assert(scheduleExtension);
