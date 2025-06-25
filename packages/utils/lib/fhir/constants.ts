@@ -352,7 +352,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: INSURANCE_CARD_CODE,
   },
   {
-    title: 'photo-ids',
+    title: 'photo-id-cards',
     display: 'Photo ID',
     documentTypeCode: PHOTO_ID_CARD_CODE,
   },
