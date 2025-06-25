@@ -1,16 +1,27 @@
 import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 import { Box, IconButton, Link } from '@mui/material';
 import { FC, useContext } from 'react';
+import { useFormContext } from 'react-hook-form';
 import { IntakeThemeContext } from 'src/contexts';
 
 interface NonImageCardComponentProps {
+  name: string;
   fileName?: string;
   fileUrl?: string;
+  setPreviewUrl: (previewUrl: string | null) => void;
+  setFileUrl: (fileUrl: string | undefined) => void;
   onClear: () => void;
 }
 
-const NonImageCardComponent: FC<NonImageCardComponentProps> = ({ fileName, fileUrl, onClear }): JSX.Element => {
-  // const { setValue } = useFormContext();
+const NonImageCardComponent: FC<NonImageCardComponentProps> = ({
+  name,
+  fileName,
+  fileUrl,
+  setPreviewUrl,
+  setFileUrl,
+  onClear,
+}): JSX.Element => {
+  const { setValue } = useFormContext();
   const { otherColors } = useContext(IntakeThemeContext);
 
   return (
@@ -32,6 +43,9 @@ const NonImageCardComponent: FC<NonImageCardComponentProps> = ({ fileName, fileU
       <IconButton
         aria-label="remove-attachment"
         onClick={() => {
+          setValue(name, '');
+          setPreviewUrl(null);
+          setFileUrl(undefined);
           onClear();
         }}
         sx={{

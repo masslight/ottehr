@@ -3,5 +3,23 @@
   "compilerOptions": {
     "baseUrl": "."
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": [
+    ".",
+    ".eslintrc.cjs",
+    "../../apps/intake/src/components/CustomTooltip.tsx",
+    "../../apps/intake/src/components/ErrorDialog.tsx",
+    "../../apps/intake/src/components/LanguagePicker.tsx",
+    "../../apps/intake/src/components/PageForm.tsx",
+    "../../apps/intake/src/components/ScrollToTop.tsx",
+    "../../apps/intake/src/components/StyledListItemWithButton.tsx",
+    "../../apps/intake/src/helpers/custom-adapter-luxon.ts",
+    "../../apps/intake/src/helpers/files.helper.ts",
+    "../../apps/intake/src/helpers/objects.helper.ts",
+    "../../apps/intake/src/hooks/useLabelDimensions.ts",
+    "../../apps/intake/src/hooks/useUCZambdaClient.ts",
+    "../../apps/intake/src/hooks/useWindowResize.ts",
+    "../../apps/intake/src/hooks/zambdaClient.tsx",
+    "../../apps/intake/src/providers",
+    "../../apps/intake/tests/component/ScrollToTop.test.tsx"
+  ]
 }

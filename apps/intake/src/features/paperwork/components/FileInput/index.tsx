@@ -4,7 +4,7 @@ import { Attachment } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ChangeEvent, FC, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import { useUCZambdaClient, ZambdaClient } from 'src/hooks/useUCZambdaClient';
 import { addContentTypeToAttachment } from 'utils';
 import { ottehrApi } from '../../../../api';
 import { PaperworkContext } from '../../context';

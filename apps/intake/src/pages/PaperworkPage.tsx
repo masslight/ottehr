@@ -19,7 +19,7 @@ import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork';
-import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
+import { useUCZambdaClient, ZambdaClient } from 'src/hooks/useUCZambdaClient';
 import {
   APIError,
   ComplexValidationResult,
