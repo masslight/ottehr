@@ -3,7 +3,8 @@ export const MEDICATION_TYPE_SYSTEM = 'virtual-medication-type';
 export const INVENTORY_MEDICATION_TYPE_CODE = 'virtual-medication-inventory';
 
 export const MEDICATION_IDENTIFIER_NAME_SYSTEM = 'virtual-medication-identifier-name-system';
-export const MEDICATION_IDENTIFIER_ADMIN_CODE_SYSTEM = 'virtual-medication-name';
+export const MEDICATION_DISPENSABLE_DRUG_ID =
+  'https://terminology.fhir.oystehr.com/CodeSystem/medispan-dispensable-drug-id';
 
 export const MEDICATION_ADMINISTRATION_PERFORMER_TYPE_SYSTEM = 'performer-type';
 export const PRACTITIONER_ORDERED_MEDICATION_CODE = 'practitioner-ordered-medication';
@@ -19,7 +20,6 @@ export const MEDICATION_ADMINISTRATION_OTHER_REASON_CODE = 'otherReason';
 
 export const DATE_OF_MEDICATION_ADMINISTERED_SYSTEM = 'medication-administered-date';
 export const TIME_OF_MEDICATION_ADMINISTERED_SYSTEM = 'medication-administered-time';
-// medication system i've copied from chart-data MedicationStatement, i'm not sure this is right one
-export const IN_HOUSE_MEDICATION_STATEMENT_MEDICATION_SYSTEM = 'medication-id';
 
 export const MEDICATION_APPLIANCE_LOCATION_SYSTEM = 'http://snomed.info/sct';
+export const IN_HOUSE_CONTAINED_MEDICATION_ID = 'medicationId';
