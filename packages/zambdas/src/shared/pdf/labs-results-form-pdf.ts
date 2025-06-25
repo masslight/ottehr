@@ -12,6 +12,7 @@ import {
   Patient,
   Practitioner,
   Provenance,
+  Schedule,
   ServiceRequest,
   Specimen,
   Task,
@@ -24,6 +25,7 @@ import {
   convertActivityDefinitionToTestItem,
   createFilesDocumentReferences,
   EXTERNAL_LAB_RESULT_PDF_BASE_NAME,
+  getFullestAvailableName,
   getTimezone,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
   IN_HOUSE_LAB_RESULT_PDF_BASE_NAME,
@@ -86,13 +88,12 @@ type LabTypeSpecificResources =
         collectionDate: string;
         orderSubmitDate: string;
         reviewed: boolean;
-        reviewingProviderFirst: string;
-        reviewingProviderLast: string;
+        reviewingProvider: Practitioner | undefined;
         reviewDate: string | undefined;
         resultInterpretations: string[];
       };
     }
-  | { type: LabType.inhouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } };
+  | { type: LabType.inHouse; specificResources: { inHouseLabResults: InHouseLabResultConfig[] } };
 
 const getResultDataConfig = (
   commonResourceConfig: CommonDataConfigResources,
@@ -139,13 +140,13 @@ const getResultDataConfig = (
     resultStatus: diagnosticReport.status.toUpperCase(),
   };
 
-  if (type === LabType.inhouse) {
+  if (type === LabType.inHouse) {
     const { inHouseLabResults } = specificResources;
     const inhouseData: Omit<InHouseLabResultsData, keyof LabResultsData> = {
       inHouseLabResults,
     };
     const data: InHouseLabResultsData = { ...baseData, ...inhouseData };
-    config = { type: LabType.inhouse, data };
+    config = { type: LabType.inHouse, data };
   }
 
   if (type === LabType.external) {
@@ -155,8 +156,7 @@ const getResultDataConfig = (
       collectionDate,
       orderSubmitDate,
       reviewed,
-      reviewingProviderFirst,
-      reviewingProviderLast,
+      reviewingProvider,
       reviewDate,
       resultInterpretations,
     } = specificResources;
@@ -167,9 +167,7 @@ const getResultDataConfig = (
       orderSubmitDate,
       resultPhase: diagnosticReport.status.charAt(0).toUpperCase() || '',
       reviewed,
-      reviewingProviderFirst,
-      reviewingProviderLast,
-      reviewingProviderTitle: '', // todo where should this come from ??
+      reviewingProvider,
       reviewDate,
       resultInterpretations,
       externalLabResults,
@@ -214,8 +212,7 @@ const getTaskCompletedByAndWhen = async (
   task: Task,
   timezone: string | undefined
 ): Promise<{
-  reviewingProviderFirst: string;
-  reviewingProviderLast: string;
+  reviewingProvider: Practitioner;
   reviewDate: string;
 }> => {
   console.log('getting provenance for task', task.id);
@@ -251,11 +248,9 @@ const getTaskCompletedByAndWhen = async (
   const taskProvenance = taskProvenanceTemp[0];
   const taskPractitioner = taskPractitionersTemp[0];
 
-  const reviewingProviderFirst = taskPractitioner.name?.[0].given?.join(',') || '';
-  const reviewingProviderLast = taskPractitioner.name?.[0].family || '';
   const reviewDate = DateTime.fromISO(taskProvenance.recorded).setZone(timezone).toFormat(LABS_DATE_STRING_FORMAT);
 
-  return { reviewingProviderFirst, reviewingProviderLast, reviewDate };
+  return { reviewingProvider: taskPractitioner, reviewDate };
 };
 
 export async function createExternalLabResultPDF(
@@ -273,6 +268,7 @@ export async function createExternalLabResultPDF(
     task: pstTask,
     appointment,
     encounter,
+    schedule,
     organization,
     observations,
   } = await getExternalLabOrderResources(oystehr, serviceRequestID);
@@ -287,9 +283,9 @@ export async function createExternalLabResultPDF(
       id: locationID,
     });
   }
-  let timezone = undefined;
-  if (location) {
-    timezone = getTimezone(location);
+  let timezone;
+  if (schedule) {
+    timezone = getTimezone(schedule);
   }
 
   if (!appointment.id) throw new Error('appointment id is undefined');
@@ -325,15 +321,10 @@ export async function createExternalLabResultPDF(
   const latestReviewTask = reviewTasksFinalOrCorrected?.sort((a, b) => compareDates(a.authoredOn, b.authoredOn))[0];
   console.log(`>>> in labs-results-form-pdf, this is the latestReviewTask`, JSON.stringify(latestReviewTask));
 
-  let reviewingProviderFirst = '',
-    reviewingProviderLast = '',
-    reviewDate = '';
+  let reviewDate = '',
+    reviewingProvider = undefined;
   if (latestReviewTask) {
-    ({ reviewingProviderFirst, reviewingProviderLast, reviewDate } = await getTaskCompletedByAndWhen(
-      oystehr,
-      latestReviewTask,
-      timezone
-    ));
+    ({ reviewingProvider, reviewDate } = await getTaskCompletedByAndWhen(oystehr, latestReviewTask, timezone));
   }
 
   const resultInterpretationDisplays: string[] = [];
@@ -389,8 +380,7 @@ export async function createExternalLabResultPDF(
       collectionDate,
       orderSubmitDate,
       reviewed,
-      reviewingProviderFirst,
-      reviewingProviderLast,
+      reviewingProvider,
       reviewDate,
       resultInterpretations: resultInterpretationDisplays,
     },
@@ -401,7 +391,7 @@ export async function createExternalLabResultPDF(
     serviceRequest,
     patient,
     diagnosticReport,
-    providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : undefined,
+    providerName: getFullestAvailableName(provider),
     testName: diagnosticReport.code.coding?.[0].display,
   };
   const dataConfig = getResultDataConfig(commonResources, externalSpecificResources);
@@ -424,6 +414,7 @@ export async function createInHouseLabResultPDF(
   encounter: Encounter,
   patient: Patient,
   location: Location | undefined,
+  schedule: Schedule,
   attendingPractitioner: Practitioner,
   attendingPractitionerName: string | undefined,
   inputRequestTask: Task,
@@ -441,8 +432,8 @@ export async function createInHouseLabResultPDF(
 
   // todo will probably need to update to accomodate a more resilient method of fetching timezone
   let timezone = undefined;
-  if (location) {
-    timezone = getTimezone(location);
+  if (schedule) {
+    timezone = getTimezone(schedule);
   }
 
   const inHouseLabResults = await getFormattedInHouseLabResults(
@@ -466,7 +457,7 @@ export async function createInHouseLabResultPDF(
   }
 
   const inhouseSpecificResources: LabTypeSpecificResources = {
-    type: LabType.inhouse,
+    type: LabType.inHouse,
     specificResources: { inHouseLabResults: [inHouseLabResults, ...additionalResultsForRelatedSrs] },
   };
   const commonResources: CommonDataConfigResources = {
@@ -569,7 +560,7 @@ async function createLabsResultsFormPdfBytes(dataConfig: ResultDataConfig): Prom
   let pdfBytes: Uint8Array | undefined;
   if (type === LabType.external) {
     pdfBytes = await createExternalLabsResultsFormPdfBytes(pdfClient, textStyles, data);
-  } else if (type === LabType.inhouse) {
+  } else if (type === LabType.inHouse) {
     pdfBytes = await createInHouseLabsResultsFormPdfBytes(pdfClient, textStyles, data);
   }
   if (!pdfBytes) throw new Error('pdfBytes could not be drawn');
@@ -680,12 +671,8 @@ async function createExternalLabsResultsFormPdfBytes(
   if (data.reviewed) {
     pdfClient.drawSeparatedLine(SEPARATED_LINE_STYLE);
     pdfClient.newLine(STANDARD_NEW_LINE);
-    pdfClient = drawFieldLine(
-      pdfClient,
-      textStyles,
-      `Reviewed: ${data.reviewDate} by`,
-      `${data.reviewingProviderTitle} ${data.reviewingProviderFirst} ${data.reviewingProviderLast}`
-    );
+    const name = data.reviewingProvider ? getFullestAvailableName(data.reviewingProvider) : '';
+    pdfClient = drawFieldLine(pdfClient, textStyles, `Reviewed: ${data.reviewDate} by`, name || '');
   }
 
   return await pdfClient.save();

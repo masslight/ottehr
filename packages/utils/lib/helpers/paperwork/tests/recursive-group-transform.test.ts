@@ -198,7 +198,7 @@ const BASE_FORM_VALUES = [
         linkId: 'policy-holder-last-name-2',
         answer: [
           {
-            valueString: 'Picklesworth',
+            valueString: 'PicklesWorth',
           },
         ],
       },

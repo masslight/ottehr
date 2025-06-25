@@ -4,6 +4,7 @@ import { Appointment, Schedule, Slot } from 'fhir/r4b';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   getOriginalBookingUrlFromSlot,
+  getSecret,
   getServiceModeFromScheduleOwner,
   getServiceModeFromSlot,
   GetSlotDetailsParams,
@@ -17,6 +18,7 @@ import {
   SCHEDULE_NOT_FOUND_CUSTOM_ERROR,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   ServiceMode,
 } from 'utils';
 import { getNameForOwner } from '../../../ehr/schedules/shared';
@@ -43,7 +45,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('get-slot-details', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-slot-details', error, ENVIRONMENT);
   }
 };
 

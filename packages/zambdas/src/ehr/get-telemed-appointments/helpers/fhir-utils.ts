@@ -101,7 +101,7 @@ export const getAllResourcesFromFhir = async (
     .filter((resource) => isNonPaperworkQuestionnaireResponse(resource) === false);
 };
 
-export const getPractLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
+export const getPractitionerLicensesLocationsAbbreviations = async (oystehr: Oystehr): Promise<string[]> => {
   const practitionerId = (await oystehr.user.me()).profile.replace('Practitioner/', '');
 
   const practitioner: Practitioner =
@@ -159,7 +159,7 @@ const locationIdsForAppointmentsSearch = async (
   }
 
   if (patientFilter === 'my-patients') {
-    const licensedPractitionerStates = await getPractLicensesLocationsAbbreviations(oystehr);
+    const licensedPractitionerStates = await getPractitionerLicensesLocationsAbbreviations(oystehr);
     console.log('Licensed Practitioner US_states: ' + JSON.stringify(licensedPractitionerStates));
 
     if (hasNoUsStatesFiltersSet) {

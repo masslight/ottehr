@@ -173,8 +173,8 @@ export const patchAppointmentComment = async (
 };
 
 // there are two different tooltips that are show on the tracking board depending which tab/section you are on
-// 1. visit components on prebooked, inoffce/waiting and cancelled
-// 2. orders on inoffice/inexam and completed
+// 1. visit components on prebooked, in-office/waiting and cancelled
+// 2. orders on in-office/in-exam and completed
 export const displayOrdersToolTip = (appointment: InPersonAppointmentInformation, tab: ApptTab): boolean => {
   let display = false;
   if (tab === ApptTab.completed) {

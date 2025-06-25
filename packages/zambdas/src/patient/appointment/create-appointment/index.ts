@@ -35,6 +35,7 @@ import {
   formatPhoneNumberDisplay,
   getAppointmentDurationFromSlot,
   getCanonicalQuestionnaire,
+  getSecret,
   getTaskResource,
   isValidUUID,
   makePrepopulatedItemsForPatient,
@@ -43,6 +44,7 @@ import {
   PatientInfo,
   ScheduleOwnerFhirResource,
   Secrets,
+  SecretsKeys,
   ServiceMode,
   TaskIndicator,
   User,
@@ -50,7 +52,6 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   configSentry,
   createAuditEvent,
   createOystehrClient,
@@ -169,7 +170,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('create-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('create-appointment', error, ENVIRONMENT, true);
   }
 });
 

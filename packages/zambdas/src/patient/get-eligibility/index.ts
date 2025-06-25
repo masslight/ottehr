@@ -126,7 +126,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     return lambdaResponse(200, { primary, secondary });
   } catch (error: any) {
     console.error(error, error.issue);
-    return topLevelCatch('get-eligibility', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-eligibility', error, ENVIRONMENT);
   }
 });
 

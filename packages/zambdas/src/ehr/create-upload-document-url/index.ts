@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import { Operation } from 'fast-json-patch';
 import { CodeableConcept, DocumentReference, List, Patient } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { addOperation, OTTEHR_MODULE, replaceOperation, Secrets } from 'utils';
+import { addOperation, getSecret, OTTEHR_MODULE, replaceOperation, Secrets, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { makeZ3Url } from '../../shared/presigned-file-urls';
@@ -168,7 +168,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('create-upload-document-url', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('create-upload-document-url', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

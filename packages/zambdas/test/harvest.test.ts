@@ -93,6 +93,7 @@ describe('Patient Master Record Tests', () => {
       {
         op: 'replace',
         path: '/name/0/given',
+        // cSpell:disable-next Olha
         value: ['Olha'],
       },
       {

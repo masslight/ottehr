@@ -13,6 +13,7 @@ import {
   Patient,
   Practitioner,
   QuestionnaireResponse,
+  Schedule,
   ServiceRequest,
   Specimen,
   Task,
@@ -46,6 +47,7 @@ export type LabOrderResources = {
   task: Task;
   organization: Organization | undefined;
   diagnosticReports: DiagnosticReport[];
+  schedule?: Schedule;
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
@@ -66,6 +68,7 @@ export async function getExternalLabOrderResources(
       | Organization
       | DiagnosticReport
       | Appointment
+      | Schedule
       | Encounter
       | Observation
       | Specimen
@@ -107,6 +110,14 @@ export async function getExternalLabOrderResources(
         {
           name: '_include:iterate',
           value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:slot',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Slot:schedule',
         },
         {
           name: '_include:iterate',
@@ -152,6 +163,10 @@ export async function getExternalLabOrderResources(
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system,
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
       )
+  );
+
+  const schedulesTemp: Schedule[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Schedule => resourceTemp.resourceType === 'Schedule'
   );
 
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
@@ -205,6 +220,7 @@ export async function getExternalLabOrderResources(
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
   const diagnosticReports = diagnosticReportsTemp;
+  const schedule = schedulesTemp?.[0];
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
@@ -217,6 +233,7 @@ export async function getExternalLabOrderResources(
     task,
     organization,
     diagnosticReports,
+    schedule,
     appointment,
     encounter,
     observations,
@@ -279,7 +296,7 @@ export const makeEncounterLabResults = async (
       if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
           resource: resource as ServiceRequest,
-          type: isExternalLabServiceRequest ? LabType.external : LabType.inhouse,
+          type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
           if (isExternalLabServiceRequest) activeExternalLabServiceRequests.push(resource);
@@ -344,14 +361,14 @@ export const makeEncounterLabResults = async (
           } else {
             externalLabOrderResults.push(...externalResultConfigs);
           }
-        } else if (relatedSRDetail.type === LabType.inhouse) {
+        } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
             m2mtoken,
-            { type: LabType.inhouse }
+            { type: LabType.inHouse }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -407,7 +424,7 @@ const getLabOrderResultPDFConfig = async (
         orderNumber?: string;
       }
     | {
-        type: LabType.inhouse;
+        type: LabType.inHouse;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -424,7 +441,7 @@ const getLabOrderResultPDFConfig = async (
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
-      } else if (resultDetails.type === LabType.inhouse) {
+      } else if (resultDetails.type === LabType.inHouse) {
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,

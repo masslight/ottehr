@@ -23,6 +23,7 @@ import {
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
+  getSecret,
   getSMSNumberForIndividual,
   getUnconfirmedDOBForAppointment,
   getVisitStatus,
@@ -33,6 +34,7 @@ import {
   PHOTO_ID_CARD_CODE,
   ROOM_EXTENSION_URL,
   Secrets,
+  SecretsKeys,
   SMSModel,
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
@@ -526,7 +528,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-get-appointments', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error getting patient appointments' }),

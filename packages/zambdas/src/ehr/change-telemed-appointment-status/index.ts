@@ -88,7 +88,8 @@ export const performEffect = async (
   const currentStatus = mapStatusToTelemed(encounter.status, appointment.status);
   if (currentStatus) {
     const myPractId = await getMyPractitionerId(oystehrCurrentUser);
-    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await changeStatusIfPossible(oystehr, visitResources, currentStatus, newStatus, myPractId, ENVIRONMENT);
   }
 
   console.debug(`Status has been changed.`);

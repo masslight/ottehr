@@ -13,6 +13,7 @@ import {
   getPatientContactEmail,
   getPatientFirstName,
   getRelatedPersonForPatient,
+  getSecret,
   getSMSNumberForIndividual,
   isAppointmentVirtual,
   isPostTelemedAppointment,
@@ -23,11 +24,11 @@ import {
   SCHEDULE_NOT_FOUND_ERROR,
   ScheduleType,
   Secrets,
+  SecretsKeys,
   UpdateAppointmentParameters,
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   configSentry,
   createAuditEvent,
   createOystehrClient,
@@ -243,6 +244,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('update-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('update-appointment', error, ENVIRONMENT, true);
   }
 });

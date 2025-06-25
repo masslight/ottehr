@@ -83,7 +83,7 @@
           "linkId": "patient-last-name",
           "answer": [
             {
-              "valueString": "Ottehrpus"
+              "valueString": "OttehrPus"
             }
           ]
         },
@@ -237,7 +237,7 @@
           "linkId": "policy-holder-last-name",
           "answer": [
             {
-              "valueString": "Picklesworth"
+              "valueString": "PicklesWorth"
             }
           ]
         },
@@ -280,7 +280,7 @@
           "linkId": "policy-holder-city",
           "answer": [
             {
-              "valueString": "Deliciousville"
+              "valueString": "DeliciousVilla"
             }
           ]
         },
@@ -378,7 +378,7 @@
               "linkId": "insurance-member-id-2",
               "answer": [
                 {
-                  "valueString": "fdfdfdfdfdfh7897"
+                  "valueString": "FdfDfdFdfDfh7897"
                 }
               ]
             },
@@ -402,7 +402,7 @@
               "linkId": "policy-holder-last-name-2",
               "answer": [
                 {
-                  "valueString": "Picklesworth"
+                  "valueString": "PicklesWorth"
                 }
               ]
             },
@@ -555,7 +555,7 @@
           "linkId": "responsible-party-city",
           "answer": [
             {
-              "valueString": "fakeplace"
+              "valueString": "fakePlace"
             }
           ]
         },

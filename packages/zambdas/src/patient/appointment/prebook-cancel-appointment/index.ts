@@ -29,7 +29,6 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   checkIsEHRUser,
   configSentry,
   createAuditEvent,
@@ -37,6 +36,7 @@ import {
   getAuth0Token,
   getEncounterDetails,
   getUser,
+  sendErrors,
   topLevelCatch,
   validateBundleAndExtractAppointment,
   ZambdaInput,
@@ -268,6 +268,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             });
           } catch (e) {
             console.log('failing silently, error sending cancellation text message');
+            const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+            void sendErrors(e, ENVIRONMENT);
           }
         } else {
           console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
@@ -289,7 +291,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('cancel-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('cancel-appointment', error, ENVIRONMENT, true);
   }
 });
 
