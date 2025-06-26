@@ -25,7 +25,6 @@ export const useMedicationAPI = (): MedicationAPI => {
   const searchBy: GetMedicationOrdersInput['searchBy'] = { field: 'encounterId', value: encounter.id || '' };
 
   const { data: medications, isLoading } = useGetMedicationOrders(searchBy);
-  console.log('medications', medications);
 
   const invalidateCache = async (): Promise<void> => {
     return await queryClient.invalidateQueries({
