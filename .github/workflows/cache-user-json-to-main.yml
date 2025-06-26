@@ -1,0 +1,48 @@
+name: User.json Cache Receiver
+on:
+  repository_dispatch:
+    types: [cache-user-json-to-main]
+
+jobs:
+  save-cache-to-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Decrypt and save user.json
+        run: |
+          if [ -z "${{ secrets.DEPLOY_OTTEHR_KEY }}" ]; then
+            echo "ERROR: DEPLOY_OTTEHR_KEY secret is empty or missing"
+            exit 1
+          fi
+          
+          echo '${{ github.event.client_payload.encrypted_content }}' > user.json.enc
+          
+          if openssl enc -aes-256-cbc -d -a \
+              -pass pass:"${{ secrets.DEPLOY_OTTEHR_KEY }}" \
+              -in user.json.enc \
+              -out user.json; then
+            echo "File decrypted successfully"
+            echo "File size: $(wc -c < user.json)"
+          else
+            echo "ERROR: Failed to decrypt user.json"
+            exit 1
+          fi
+          
+          rm -f user.json.enc
+
+      - name: Save to main branch cache
+        uses: actions/cache/save@v4
+        with:
+          path: user.json
+          key: ${{ github.event.client_payload.cache_key }}
+
+      - name: Report success
+        run: |
+          echo "Successfully cached user.json to main branch"
+          echo "Cache key: ${{ github.event.client_payload.cache_key }}"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f user.json
+          echo "Cleanup completed"
