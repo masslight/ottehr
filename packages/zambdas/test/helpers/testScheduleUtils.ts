@@ -1486,6 +1486,7 @@ export const persistTestPatient = async (input: PersistTestPatientInput, oystehr
       name: [
         {
           family: 'Horseman',
+          // cSpell:disable-next Bojack
           given: ['Bojack'],
         },
       ],

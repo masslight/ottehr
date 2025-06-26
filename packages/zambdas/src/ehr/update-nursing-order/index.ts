@@ -14,7 +14,7 @@ import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`update-nursing-order started, input: ${JSON.stringify(input)}`);
@@ -35,8 +35,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   try {
     const { userToken, serviceRequestId, action, secrets } = validatedParameters;
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const _practitionerIdFromCurrentUser = await getMyPractitionerId(oystehrCurrentUser);

@@ -56,7 +56,7 @@ describe.skip('paperwork validation tests', () => {
 
   const incompleteFormsError = `These fields are required: "forms.fullName", "forms.HIPAA", "forms.consentToTreat", "forms.signature", "forms.relationship"`;
 
-  // const incompleteReponsiblePartyError = `These fields are required: "responsiblePartyInfo.relationship", "responsiblePartyInfo.firstName", "responsiblePartyInfo.lastName", "responsiblePartyInfo.dateOfBirth"`;
+  // const incompleteResponsiblePartyError = `These fields are required: "responsiblePartyInfo.relationship", "responsiblePartyInfo.firstName", "responsiblePartyInfo.lastName", "responsiblePartyInfo.dateOfBirth"`;
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
   beforeAll(async () => {
     // token = await getAuth0Token({
@@ -427,7 +427,7 @@ describe.skip('paperwork validation tests', () => {
         appointmentID: appointment,
       })
     ).rejects.toEqual({
-      error: `"forms.HIPAA" and "forms.consentToTreat" agreeement must be accepted`,
+      error: `"forms.HIPAA" and "forms.consentToTreat" agreement must be accepted`,
     });
   });
 

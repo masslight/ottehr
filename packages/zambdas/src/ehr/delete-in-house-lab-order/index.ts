@@ -11,7 +11,7 @@ import {
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mtoken: string;
+let m2mToken: string;
 
 const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
   method: 'DELETE',
@@ -120,8 +120,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const { serviceRequest, task, provenance } = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
 

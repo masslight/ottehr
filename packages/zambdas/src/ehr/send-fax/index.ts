@@ -6,7 +6,7 @@ import { checkOrCreateM2MClientToken } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -19,8 +19,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('faxNumber', faxNumber);
 
     console.group('checkOrCreateM2MClientToken() then createOystehrClient()');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     console.groupEnd();
     console.debug('checkOrCreateM2MClientToken() then createOystehrClient() success');
 
