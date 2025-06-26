@@ -33,6 +33,7 @@ interface Input {
 }
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
+const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let zapehrToken: string;
 

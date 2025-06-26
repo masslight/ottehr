@@ -90,6 +90,8 @@ async function createM2M(
               `Z3:${projectId}-visit-notes/*`,
               `Z3:${projectId}-receipts/*`,
               `Z3:${projectId}-school-work-notes/*`,
+              `Z3:${projectId}-privacy-policy/*`,
+              `Z3:${projectId}-exported-questionnaires/*`,
             ],
             action: ['Z3:PutObject', 'Z3:GetObject'],
             effect: 'Allow',
