@@ -1,4 +1,5 @@
 import { useAuth0 } from '@auth0/auth0-react';
+import { otherColors } from '@ehrTheme/colors';
 import CircleIcon from '@mui/icons-material/Circle';
 import ContentPasteOffIcon from '@mui/icons-material/ContentPasteOff';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -7,6 +8,7 @@ import { LoadingButton } from '@mui/lab';
 import {
   Box,
   Button,
+  capitalize,
   CircularProgress,
   FormControl,
   Grid,
@@ -15,7 +17,6 @@ import {
   Skeleton,
   TextField,
   Typography,
-  capitalize,
   useTheme,
 } from '@mui/material';
 import Alert, { AlertColor } from '@mui/material/Alert';
@@ -42,10 +43,6 @@ import { useParams } from 'react-router-dom';
 import {
   CONSENT_CODE,
   FhirAppointmentType,
-  INSURANCE_CARD_CODE,
-  PHOTO_ID_CARD_CODE,
-  PRIVACY_POLICY_CODE,
-  VisitStatusLabel,
   flattenItems,
   formatPhoneNumber,
   getFullName,
@@ -53,17 +50,16 @@ import {
   getUnconfirmedDOBForAppointment,
   getUnconfirmedDOBIdx,
   getVisitStatus,
+  INSURANCE_CARD_CODE,
+  PHOTO_ID_CARD_CODE,
+  PRIVACY_POLICY_CODE,
+  VisitStatusLabel,
 } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
 import { getAppointmentStatusChip } from '../components/AppointmentTableRow';
 import CardGridItem from '../components/CardGridItem';
 import CustomBreadcrumbs from '../components/CustomBreadcrumbs';
 import DateSearch from '../components/DateSearch';
-import ImageCarousel, { ImageCarouselObject } from '../components/ImageCarousel';
-import PaperworkFlagIndicator from '../components/PaperworkFlagIndicator';
-import PatientInformation, { IconProps } from '../components/PatientInformation';
-import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import {
   ActivityLogDialog,
   CancellationReasonDialog,
@@ -71,6 +67,11 @@ import {
   EditPatientInfoDialog,
   ReportIssueDialog,
 } from '../components/dialogs';
+import ImageCarousel, { ImageCarouselObject } from '../components/ImageCarousel';
+import PaperworkFlagIndicator from '../components/PaperworkFlagIndicator';
+import PatientInformation, { IconProps } from '../components/PatientInformation';
+import PatientPaymentList from '../components/PatientPaymentsList';
+import { PriorityIconWithBorder } from '../components/PriorityIconWithBorder';
 import { HOP_QUEUE_URI } from '../constants';
 import { dataTestIds } from '../constants/data-test-ids';
 import { ChangeStatusDropdown } from '../features/css-module/components/ChangeStatusDropdown';
@@ -78,13 +79,13 @@ import { formatLastModifiedTag } from '../helpers';
 import {
   ActivityLogData,
   ActivityName,
-  NoteHistory,
   cleanUpStaffHistoryTag,
   formatActivityLogs,
   formatNotesHistory,
   formatPaperworkStartedLog,
   getAppointmentAndPatientHistory,
   getCriticalUpdateTagOp,
+  NoteHistory,
   sortLogs,
 } from '../helpers/activityLogsUtils';
 import { getPatchBinary } from '../helpers/fhir';
@@ -94,8 +95,7 @@ import { useApiClients } from '../hooks/useAppClients';
 import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 import { PencilIconButton } from '../telemed';
-import { DocumentInfo, DocumentType, appointmentTypeLabels } from '../types/types';
-import PatientPaymentList from '../components/PatientPaymentsList';
+import { appointmentTypeLabels, DocumentInfo, DocumentType } from '../types/types';
 
 interface Documents {
   photoIdCards: DocumentInfo[];
@@ -233,7 +233,6 @@ export default function AppointmentPage(): ReactElement {
     ) as unknown as RelatedPerson;
     if (fhirRelatedPerson) {
       const isUserRelatedPerson = fhirRelatedPerson.relationship?.find(
-        // cSpell:disable-next relatedperson
         (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {

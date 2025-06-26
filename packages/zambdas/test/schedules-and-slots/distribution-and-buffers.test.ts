@@ -1,3 +1,12 @@
+import { DateTime } from 'luxon';
+import {
+  getAllSlotsAsCapacityMap,
+  getAvailableSlots,
+  GetAvailableSlotsInput,
+  getPostTelemedSlots,
+  getScheduleExtension,
+  getTimezone,
+} from 'utils';
 import { assert, vi } from 'vitest';
 import { DEFAULT_TEST_TIMEOUT } from '../appointment-validation.test';
 import {
@@ -8,15 +17,6 @@ import {
   setSlotLengthInMinutes,
   startOfDayWithTimezone,
 } from '../helpers/testScheduleUtils';
-import {
-  getAllSlotsAsCapacityMap,
-  getAvailableSlots,
-  GetAvailableSlotsInput,
-  getPostTelemedSlots,
-  getScheduleExtension,
-  getTimezone,
-} from 'utils';
-import { DateTime } from 'luxon';
 
 describe('slot availability tests', () => {
   vi.setConfig({ testTimeout: DEFAULT_TEST_TIMEOUT });
@@ -58,7 +58,7 @@ describe('slot availability tests', () => {
     expect(expectedList.length).toEqual(96);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -77,7 +77,7 @@ describe('slot availability tests', () => {
       now = now.plus({ minutes: 15 });
     }
 
-    // double the capicity and do the same checks
+    // double the capacity and do the same checks
     const scheduleExtensionDoubleCapacity = changeAllCapacities(scheduleExtension, 8);
     const doubleCapacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -186,7 +186,7 @@ describe('slot availability tests', () => {
     expect(expectedList.length).toEqual(94);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -262,7 +262,7 @@ describe('slot availability tests', () => {
   });
 
   it('24/7 schedule where 4 % capacity == 1 && capacity < 4 will skip the slot on the 45th minute when distributing the last 3 slots', () => {
-    // if we have capacity = 3 and need to distribute those slots in 15 minute windows accross a single hour
+    // if we have capacity = 3 and need to distribute those slots in 15 minute windows across a single hour
     const scheduleAdjusted = changeAllCapacities(DEFAULT_SCHEDULE_JSON, 3);
     const schedule = makeSchedule({ scheduleObject: scheduleAdjusted });
     expect(schedule).toBeDefined();
@@ -303,7 +303,7 @@ describe('slot availability tests', () => {
     expect(expectedList.length).toEqual(72);
     expect(availableSlots).toEqual(expectedList);
 
-    // slots are de-duplicated before beinf returned by getAvailableSlots, so we check the capacity map
+    // slots are de-duplicated before being returned by getAvailableSlots, so we check the capacity map
     // to verify that the number of slots in each time slot is correct
     const capacityMap = getAllSlotsAsCapacityMap({
       now: startDate,
@@ -324,7 +324,7 @@ describe('slot availability tests', () => {
   });
 
   it('24/7 schedule where 4 % capacity == 1 && capacity > 4 will skip the slot on the 45th minute when distributing the last 3 slots', () => {
-    // if we have capacity = 7 and need to distribute the last 3 slots in 15 minute windows accross a single hour
+    // if we have capacity = 7 and need to distribute the last 3 slots in 15 minute windows across a single hour
     const timezone = 'America/New_York';
     const startDate = startOfDayWithTimezone({ timezone });
     const tomorrow = startDate.plus({ days: 1 });

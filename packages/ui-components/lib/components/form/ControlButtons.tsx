@@ -1,9 +1,9 @@
-import { FC } from 'react';
-import { CustomLoadingButton } from '../CustomLoadingButton';
 import { Box, Button } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
+import { FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { ControlButtonsProps } from '../../types';
+import { CustomLoadingButton } from '../CustomLoadingButton';
 
 /**
  * Navigation Buttons.

@@ -1,8 +1,8 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
-import { dataTestIds } from '../configurations/data-test-ids';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { dataTestIds } from '../configurations/data-test-ids';
 // import { LanguagePicker } from './LanguagePicker';
 
 export interface ContainerProps {
@@ -44,7 +44,7 @@ export const CustomContainerFactory = ({
 }: CustomContainerFactoryProps): FC<WrappedContainerProps> => {
   const CustomContainerWrapped: FC<WrappedContainerProps> = (props) => {
     const passThroughProps = {
-      ...props, // factory args will overwrrite anything passed through
+      ...props, // factory args will overwrite anything passed through
       logo,
       showLanguagePicker,
       alt,

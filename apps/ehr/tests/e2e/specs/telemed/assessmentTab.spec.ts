@@ -1,4 +1,5 @@
 import { BrowserContext, expect, Locator, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
 import { waitForChartDataDeletion, waitForSaveChartDataResponse } from 'test-utils';
 import { MDM_FIELD_DEFAULT_TEXT, TelemedAppointmentVisitTabs } from 'utils';
 import { dataTestIds } from '../../../../src/constants/data-test-ids';
@@ -6,7 +7,6 @@ import { assignAppointmentIfNotYetAssignedToMeAndVerifyPreVideo } from '../../..
 import { ResourceHandler } from '../../../e2e-utils/resource-handler';
 import { TelemedAssessmentPage } from '../../page/telemed/TelemedAssessmentPage';
 import { TelemedProgressNotePage } from '../../page/telemed/TelemedProgressNotePage';
-import { DateTime } from 'luxon';
 
 const PROCESS_ID = `assessmentTab.spec.ts-telemed-${DateTime.now().toMillis()}`;
 const resourceHandler = new ResourceHandler(PROCESS_ID, 'telemed');

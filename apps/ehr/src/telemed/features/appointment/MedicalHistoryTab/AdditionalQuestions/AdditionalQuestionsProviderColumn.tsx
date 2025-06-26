@@ -1,11 +1,11 @@
-import React, { FC } from 'react';
 import { Box, Divider, Skeleton, TextField } from '@mui/material';
-import { AdditionalQuestionEdit, AdditionalQuestionView } from '../components';
+import React, { FC } from 'react';
+import { ObservationBooleanFieldDTO } from 'utils';
 import { ADDITIONAL_QUESTIONS } from '../../../../../constants';
 import { getSelectors } from '../../../../../shared/store/getSelectors';
-import { useAppointmentStore } from '../../../../state';
 import { useGetAppointmentAccessibility } from '../../../../hooks';
-import { ObservationBooleanFieldDTO } from 'utils';
+import { useAppointmentStore } from '../../../../state';
+import { AdditionalQuestionEdit, AdditionalQuestionView } from '../components';
 
 export const AdditionalQuestionsProviderColumn: FC = () => {
   const { chartData, isChartDataLoading } = getSelectors(useAppointmentStore, ['chartData', 'isChartDataLoading']);

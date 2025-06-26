@@ -1,5 +1,5 @@
+import { alpha, Box, useTheme } from '@mui/material';
 import React from 'react';
-import { Box, useTheme, alpha } from '@mui/material';
 
 export const BoxStyled: React.FC<React.ComponentProps<typeof Box>> = ({ children, ...props }) => {
   const theme = useTheme();

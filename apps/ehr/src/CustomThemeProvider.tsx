@@ -1,7 +1,7 @@
+import * as defaults from '@ehrDefaultTheme/index';
+import * as customTheme from '@ehrTheme/index';
 import { createTheme, ThemeProvider } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
-import * as customTheme from '@ehrTheme/index';
-import * as defaults from '@ehrDefaultTheme/index';
 import React from 'react';
 
 const textFonts = ['Rubik', 'sans-serif'];

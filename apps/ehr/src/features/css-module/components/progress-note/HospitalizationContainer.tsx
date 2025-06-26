@@ -1,5 +1,5 @@
-import { FC } from 'react';
 import { Box, Typography, useTheme } from '@mui/material';
+import { FC } from 'react';
 import { getSelectors } from 'utils';
 import { useAppointmentStore } from '../../../../telemed';
 

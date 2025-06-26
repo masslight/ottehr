@@ -1,6 +1,6 @@
+import Oystehr from '@oystehr/sdk';
 import fs from 'fs';
 import config from './deploy-config.json';
-import Oystehr from '@oystehr/sdk';
 
 const projectConfig: any = config;
 const environment = projectConfig.environment;

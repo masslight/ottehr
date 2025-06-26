@@ -1,4 +1,4 @@
-import { Avatar, Theme, SxProps } from '@mui/material';
+import { Avatar, SxProps, Theme } from '@mui/material';
 import { FC, useMemo, useState } from 'react';
 import { useGetSignedPatientProfilePhotoUrlQuery } from '../../../features/css-module/queries/css.queries';
 import { useGetPatient } from '../../../hooks/useGetPatient';

@@ -1,16 +1,16 @@
-import React, { useMemo } from 'react';
-import { TableCell, TableRow, Box } from '@mui/material';
+import { Box, TableCell, TableRow } from '@mui/material';
 import TouchRipple from '@mui/material/ButtonBase/TouchRipple';
-import useTouchRipple from '@mui/material/useTouchRipple';
-import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
-import { MedicationBarcodeScan } from './MedicationBarcodeScan';
-import { MedicationActions } from './MedicationActions';
-import { useNavigate, useParams } from 'react-router-dom';
-import { getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
 import { alpha, styled, useTheme } from '@mui/material/styles';
-import { ExtendedMedicationDataForResponse, searchRouteByCode } from 'utils';
+import useTouchRipple from '@mui/material/useTouchRipple';
 import { DateTime } from 'luxon';
+import React, { useMemo } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ExtendedMedicationDataForResponse, searchRouteByCode } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { getInHouseMedicationDetailsUrl } from '../../../routing/helpers';
+import { MedicationStatusChip } from '../statuses/MedicationStatusChip';
+import { MedicationActions } from './MedicationActions';
+import { MedicationBarcodeScan } from './MedicationBarcodeScan';
 
 interface MarTableRowProps {
   medication: ExtendedMedicationDataForResponse;

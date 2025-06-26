@@ -1,11 +1,11 @@
 import { Box, Divider, Typography, useTheme } from '@mui/material';
 import { FC } from 'react';
+import { AiObservationField, ObservationTextFieldDTO } from 'utils';
+import AiSuggestion from '../../../../components/AiSuggestion';
 import { getSelectors } from '../../../../shared/store/getSelectors';
 import { useAppointmentStore } from '../../../../telemed';
 import { PatientSideListSkeleton } from '../../../../telemed/features/appointment';
 import { useAppointment } from '../../hooks/useAppointment';
-import { AiObservationField, ObservationTextFieldDTO } from 'utils';
-import AiSuggestion from '../../../../components/AiSuggestion';
 
 export const HospitalizationPatientComponent: FC = () => {
   const theme = useTheme();

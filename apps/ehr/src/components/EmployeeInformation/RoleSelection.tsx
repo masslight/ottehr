@@ -1,8 +1,8 @@
 import { Box, Checkbox, FormControl, FormControlLabel, FormGroup, FormLabel, Typography } from '@mui/material';
 import { AVAILABLE_EMPLOYEE_ROLES, RoleType } from 'utils';
+import { dataTestIds } from '../../constants/data-test-ids';
 import useEvolveUser from '../../hooks/useEvolveUser';
 import { RoleSelectionProps } from './types';
-import { dataTestIds } from '../../constants/data-test-ids';
 
 export function RoleSelection({ errors, isActive, getValues, setValue }: RoleSelectionProps): JSX.Element {
   const currentUser = useEvolveUser();

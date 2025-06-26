@@ -1,17 +1,17 @@
 import fontkit from '@pdf-lib/fontkit';
 import fs from 'fs';
 import { PageSizes, PDFDocument, PDFFont, StandardFonts } from 'pdf-lib';
+import { Secrets } from 'utils';
+import { makeZ3Url } from '../presigned-file-urls';
 import { createPresignedUrl, uploadObjectToZ3 } from '../z3Utils';
 import { PdfInfo } from './pdf-utils';
 import { LabsData } from './types';
-import { Secrets } from 'utils';
-import { makeZ3Url } from '../presigned-file-urls';
 
 async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint8Array> {
   if (!data.orderName) {
     throw new Error('Order name is required');
   }
-  console.log('drawing pdf for ', data.reqId, data.orderName);
+  console.log('drawing pdf for ', data.orderNumber, data.orderName);
 
   const pdfDoc = await PDFDocument.create();
   pdfDoc.registerFontkit(fontkit);
@@ -272,16 +272,16 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
 
   // Location details
   drawSubHeader(data?.locationName || '');
-  drawFieldLineRight('Req ID:', data.reqId);
+  drawFieldLineRight('Order Number: ', data.orderNumber);
   addNewLine();
   if (hadSomeAddressInfo) await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.locationStreetAddress?.toUpperCase() || '');
-  drawRegularTextRight(`${data.providerName}, ${data.providerTitle}`, styles.regularTextBold.font);
+  drawRegularTextRight(data.providerName, styles.regularTextBold.font);
   addNewLine();
   currXPos = styles.margin.x + imageWidth + regularTextWidth;
   drawRegularTextLeft(locationCityStateZip);
-  drawFieldLineRight('NPI:', data.providerNPI || '');
+  drawFieldLineRight('NPI: ', data.providerNPI || '');
   addNewLine();
   currXPos = styles.margin.x;
   if (data.locationPhone) await addLocationPhoneInfo();
@@ -306,11 +306,10 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   drawRegularTextLeft(`${data.patientSex},`);
   currXPos += styles.subHeader.font.widthOfTextAtSize(data.patientSex, styles.regularText.fontSize) + regularTextWidth;
   drawRegularTextLeft(`${data.patientDOB},`);
-  drawFieldLineRight(`Today's Date: `, data.todayDate);
   addNewLine();
   currXPos = styles.margin.x;
   drawFieldLineLeft('ID:', data.patientId);
-  drawFieldLineRight('Order Create Date:', data.orderCreateDate);
+  drawFieldLineRight('Order Date: ', data.orderCreateDate);
   addNewLine();
   await drawImage(locationIcon);
   currXPos += imageWidth + regularTextWidth;
@@ -321,10 +320,8 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   currXPos += imageWidth + regularTextWidth;
   drawRegularTextLeft(data.patientPhone);
   if (data.sampleCollectionDate) {
-    drawFieldLineRight('Sample Collection Date:  ', data.sampleCollectionDate);
-    addNewLine();
+    drawFieldLineRight('Collection Date: ', data.sampleCollectionDate);
   }
-  drawFieldLineRight('Order Submit Date: ', data.orderSubmitDate);
   currXPos = styles.margin.x;
   addNewLine();
   drawSeparatorLine();
@@ -398,10 +395,7 @@ async function createExternalLabsOrderFormPdfBytes(data: LabsData): Promise<Uint
   addNewLine(undefined, 4);
 
   // Signature
-  drawRegularTextLeft(
-    `Electronically signed by: ${data.providerName}, ${data.providerTitle}`,
-    styles.regularTextBold.font
-  );
+  drawRegularTextLeft(`Electronically signed by: ${data.providerName}`, styles.regularTextBold.font);
   addNewLine();
   drawSeparatorLine();
   addNewLine();

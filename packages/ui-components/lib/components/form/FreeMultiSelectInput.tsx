@@ -1,14 +1,14 @@
-import { FC, useContext, useState, ReactNode } from 'react';
-import { Autocomplete, Box, Chip, FormControl, SelectProps, TextField, Typography, useTheme } from '@mui/material';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Autocomplete, Box, Chip, FormControl, SelectProps, TextField, Typography, useTheme } from '@mui/material';
+import { FC, ReactNode, useContext, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { IntakeThemeContext, usePageFormContext } from '../../contexts';
+import { SelectInputOption } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { LightToolTip } from './LightToolTip';
 import { VirtualizedListboxComponent } from './VirtualizedListboxComponent';
-import { IntakeThemeContext, usePageFormContext } from '../../contexts';
-import { SelectInputOption } from '../../types';
-import { useTranslation } from 'react-i18next';
 
 type FreeMultiSelectOptions = string[] | SelectInputOption[];
 
@@ -127,6 +127,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               onChange={(_, options) => {
                 // The problem is this dictates what renderTags takes, and if we provide only strings then we can't use
                 // the label/value combo like in SelectInput. It might be easier to just send the entire long string to
+                // cSpell:disable-next PTSD
                 // the backend e.g. 'PTSD (Post-traumatic Stress Disorder)'
 
                 if (Array.isArray(options)) {

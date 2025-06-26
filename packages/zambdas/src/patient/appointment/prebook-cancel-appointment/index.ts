@@ -7,6 +7,7 @@ import { DateTime } from 'luxon';
 import {
   APPOINTMENT_NOT_FOUND_ERROR,
   CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
   CancellationReasonCodesInPerson,
   CANT_CANCEL_CHECKED_IN_APT_ERROR,
   DATETIME_FULL_NO_YEAR,
@@ -28,7 +29,6 @@ import {
 } from 'utils';
 import {
   AuditableZambdaEndpoints,
-  captureSentryException,
   checkIsEHRUser,
   configSentry,
   createAuditEvent,
@@ -36,6 +36,7 @@ import {
   getAuth0Token,
   getEncounterDetails,
   getUser,
+  sendErrors,
   topLevelCatch,
   validateBundleAndExtractAppointment,
   ZambdaInput,
@@ -111,7 +112,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     // stamp critical update tag so this event can be surfaced in activity logs
     const formattedUserNumber = formatPhoneNumberDisplay(user?.name.replace('+1', ''));
     const cancelledBy = isEHRUser
-      ? `Staff ${user?.email} via QRS`
+      ? `Staff ${user?.email}`
       : `Patient${formattedUserNumber ? ` ${formattedUserNumber}` : ''}`;
     const criticalUpdateOp = getCriticalUpdateTagOp(appointment, cancelledBy);
 
@@ -267,6 +268,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
             });
           } catch (e) {
             console.log('failing silently, error sending cancellation text message');
+            const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+            void sendErrors(e, ENVIRONMENT);
           }
         } else {
           console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
@@ -281,12 +284,15 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     await createAuditEvent(AuditableZambdaEndpoints.appointmentCancel, oystehr, input, patient.id || '', secrets);
 
+    const response: CancelAppointmentZambdaOutput = {};
+
     return {
       statusCode: 200,
-      body: JSON.stringify({}),
+      body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('cancel-appointment', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('cancel-appointment', error, ENVIRONMENT, true);
   }
 });
 

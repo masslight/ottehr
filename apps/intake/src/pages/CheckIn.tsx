@@ -7,32 +7,19 @@ import { DateTime } from 'luxon';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useUCZambdaClient } from 'ui-components';
-import {
-  APIError,
-  APPOINTMENT_NOT_FOUND_ERROR,
-  AvailableLocationInformation,
-  DATETIME_FULL_NO_YEAR,
-  VisitType,
-} from 'utils';
-import { otherColors, palette } from '../IntakeThemeProvider';
+import { APIError, APPOINTMENT_NOT_FOUND_ERROR, CheckInZambdaOutput, DATETIME_FULL_NO_YEAR, VisitType } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
+import { otherColors, palette } from '../IntakeThemeProvider';
 import i18n from '../lib/i18n';
 import { useVisitContext } from './ThankYou';
-
-interface CheckInInformation {
-  location: AvailableLocationInformation;
-  visitType: VisitType;
-  start: string;
-  paperworkCompleted: boolean;
-}
 
 const CheckIn = (): JSX.Element => {
   const zambdaClient = useUCZambdaClient({ tokenless: true });
   const { id: appointmentID } = useParams();
-  const [checkIn, setCheckIn] = useState<CheckInInformation | undefined>(undefined);
+  const [checkIn, setCheckIn] = useState<CheckInZambdaOutput | undefined>(undefined);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState<boolean>(false);
   const { appointmentData } = useVisitContext();
@@ -54,8 +41,11 @@ const CheckIn = (): JSX.Element => {
       if (!zambdaClient) {
         throw new Error('zambda client is undefined');
       }
+      if (!appointmentID) {
+        throw new Error('appointmentID is undefined');
+      }
       if (!checkIn) {
-        setCheckIn(await ottehrApi.checkIn(zambdaClient, appointmentID || ''));
+        setCheckIn(await ottehrApi.checkIn(zambdaClient, { appointmentId: appointmentID }));
       }
       setLoading(false);
     }

@@ -1,17 +1,17 @@
 import { Alert, Box, Button, Tab, Tabs, Typography, useMediaQuery, useTheme } from '@mui/material';
-import { DateTime } from 'luxon';
-import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { ControlButtons, ErrorDialog, ErrorDialogConfig, breakpoints } from 'ui-components';
-import { DATETIME_FULL_NO_YEAR, DATE_FULL_NO_YEAR, PROJECT_NAME, createLocalDateTime, nextAvailableFrom } from 'utils';
-import { SelectSlot } from '.';
-import { otherColors } from '../IntakeThemeProvider';
-import { getLocaleDateTimeString } from '../helpers/dateUtils';
-import i18n from '../lib/i18n';
-import { dataTestIds } from '../helpers/data-test-ids';
 import { LocalizationProvider, StaticDatePicker } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { Slot } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { FormEvent, ReactNode, SyntheticEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { breakpoints, ControlButtons, ErrorDialog, ErrorDialogConfig } from 'ui-components';
+import { createLocalDateTime, DATE_FULL_NO_YEAR, DATETIME_FULL_NO_YEAR, nextAvailableFrom, PROJECT_NAME } from 'utils';
+import { dataTestIds } from '../helpers/data-test-ids';
+import { getLocaleDateTimeString } from '../helpers/dateUtils';
+import { otherColors } from '../IntakeThemeProvider';
+import i18n from '../lib/i18n';
+import { SelectSlot } from '.';
 
 interface TabPanelProps {
   children?: ReactNode;
@@ -140,7 +140,7 @@ const Schedule = ({
   const [firstAvailableDay, secondAvailableDay] = useMemo(() => {
     const firstAvailableDay = createLocalDateTime(DateTime.fromISO(slotsList[0]?.start), timezone);
     const secondAvailableDay = nextAvailableFrom(firstAvailableDay, slotsList, timezone);
-    console.log(5, firstAvailableDay?.toISO());
+
     return [firstAvailableDay, secondAvailableDay];
   }, [slotsList, timezone]);
 

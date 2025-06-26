@@ -1,18 +1,3 @@
-import { ReactElement, useEffect, useMemo, useState } from 'react';
-import { PageTitle } from 'src/telemed/components/PageTitle';
-import {
-  AccordionCard,
-  ActionsList,
-  DeleteIconButton,
-  useAppointmentStore,
-  useDebounce,
-  useDeleteChartData,
-  useGetAppointmentAccessibility,
-  useGetIcd10Search,
-  useSaveChartData,
-} from 'src/telemed';
-import { Box, Stack, useTheme } from '@mui/system';
-import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
 import {
   Autocomplete,
   Backdrop,
@@ -31,8 +16,32 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { RoundedButton } from 'src/components/RoundedButton';
+import { Box, Stack, useTheme } from '@mui/system';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
+import { DatePicker, LocalizationProvider, TimePicker } from '@mui/x-date-pickers-pro';
+import Oystehr from '@oystehr/sdk';
+import { ValueSet } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
+import { ReactElement, useEffect, useMemo, useState } from 'react';
+import { useQuery, UseQueryResult } from 'react-query';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { RoundedButton } from 'src/components/RoundedButton';
+import { QUERY_STALE_TIME } from 'src/constants';
+import { useApiClients } from 'src/hooks/useAppClients';
+import {
+  AccordionCard,
+  ActionsList,
+  DeleteIconButton,
+  useAppointmentStore,
+  useDebounce,
+  useDeleteChartData,
+  useGetAppointmentAccessibility,
+  useGetIcd10Search,
+  useSaveChartData,
+} from 'src/telemed';
+import { PageTitle } from 'src/telemed/components/PageTitle';
+import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
 import {
   BODY_SIDES_VALUE_SET_URL,
   BODY_SITES_VALUE_SET_URL,
@@ -40,31 +49,22 @@ import {
   CPTCodeDTO,
   DiagnosisDTO,
   getSelectors,
+  getVisitStatus,
   IcdSearchResponse,
   MEDICATIONS_USED_VALUE_SET_URL,
   PATIENT_RESPONSES_VALUE_SET_URL,
   POST_PROCEDURE_INSTRUCTIONS_VALUE_SET_URL,
+  PROCEDURE_TYPE_CPT_EXTENSION_URL,
   PROCEDURE_TYPES_VALUE_SET_URL,
   REQUIRED_FIELD_ERROR_MESSAGE,
   SUPPLIES_VALUE_SET_URL,
   TECHNIQUES_VALUE_SET_URL,
-  TIME_SPENT_VALUE_SET_URL,
-  getVisitStatus,
   TelemedAppointmentStatusEnum,
-  PROCEDURE_TYPE_CPT_EXTENSION_URL,
+  TIME_SPENT_VALUE_SET_URL,
 } from 'utils';
-import { DiagnosesField } from 'src/telemed/features/appointment/AssessmentTab';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ROUTER_PATH } from '../routing/routesCSS';
 import { InfoAlert } from '../components/InfoAlert';
-import { enqueueSnackbar } from 'notistack';
-import { DateTime } from 'luxon';
-import { useQuery, UseQueryResult } from 'react-query';
-import { useApiClients } from 'src/hooks/useAppClients';
-import Oystehr from '@oystehr/sdk';
-import { ValueSet } from 'fhir/r4b';
-import { QUERY_STALE_TIME } from 'src/constants';
 import { useFeatureFlags } from '../context/featureFlags';
+import { ROUTER_PATH } from '../routing/routesCSS';
 
 const OTHER = 'Other';
 const PERFORMED_BY = ['Clinical support staff', 'Provider', 'Both'];
@@ -172,19 +172,19 @@ export default function ProceduresNew(): ReactElement {
       procedureTime: procedureDateTime,
       performerType: procedure.performerType,
       medicationUsed: procedure.medicationUsed,
-      bodySite: getValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
-      otherBodySite: getOtherValueForOtherable(procedure.bodySite, selectOptions?.bodySites),
+      bodySite: getPredefinedValueOrOther(procedure.bodySite, selectOptions?.bodySites),
+      otherBodySite: getPredefinedValueIfOther(procedure.bodySite, selectOptions?.bodySites),
       bodySide: procedure.bodySide,
       technique: procedure.technique,
-      suppliesUsed: getValueForOtherable(procedure.suppliesUsed, selectOptions?.supplies),
-      otherSuppliesUsed: getOtherValueForOtherable(procedure.suppliesUsed, selectOptions?.supplies),
+      suppliesUsed: getPredefinedValueOrOther(procedure.suppliesUsed, selectOptions?.supplies),
+      otherSuppliesUsed: getPredefinedValueIfOther(procedure.suppliesUsed, selectOptions?.supplies),
       procedureDetails: procedure.procedureDetails,
       specimenSent: procedure.specimenSent,
-      complications: getValueForOtherable(procedure.complications, selectOptions?.complications),
-      otherComplications: getOtherValueForOtherable(procedure.complications, selectOptions?.complications),
+      complications: getPredefinedValueOrOther(procedure.complications, selectOptions?.complications),
+      otherComplications: getPredefinedValueIfOther(procedure.complications, selectOptions?.complications),
       patientResponse: procedure.patientResponse,
-      postInstructions: getValueForOtherable(procedure.postInstructions, selectOptions?.postProcedureInstructions),
-      otherPostInstructions: getOtherValueForOtherable(
+      postInstructions: getPredefinedValueOrOther(procedure.postInstructions, selectOptions?.postProcedureInstructions),
+      otherPostInstructions: getPredefinedValueIfOther(
         procedure.postInstructions,
         selectOptions?.postProcedureInstructions
       ),
@@ -664,14 +664,17 @@ export default function ProceduresNew(): ReactElement {
   );
 }
 
-function getValueForOtherable(value: string | undefined, predefinedValues: string[] | undefined): string | undefined {
+function getPredefinedValueOrOther(
+  value: string | undefined,
+  predefinedValues: string[] | undefined
+): string | undefined {
   if (value != null && predefinedValues?.includes(value)) {
     return value;
   }
   return value != null ? OTHER : undefined;
 }
 
-function getOtherValueForOtherable(
+function getPredefinedValueIfOther(
   value: string | undefined,
   predefinedValues: string[] | undefined
 ): string | undefined {

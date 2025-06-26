@@ -1,6 +1,6 @@
-import { FC } from 'react';
-import { Dialog, DialogProps, IconButton, Paper } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import { Dialog, DialogProps, IconButton, Paper } from '@mui/material';
+import { FC } from 'react';
 
 export const CustomDialog: FC<DialogProps> = (props) => {
   return (

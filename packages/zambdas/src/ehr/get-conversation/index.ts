@@ -5,6 +5,7 @@ import { Bundle, Communication, Device, Patient, Practitioner, RelatedPerson } f
 import { DateTime } from 'luxon';
 import {
   chunkThings,
+  GetConversationInput,
   getFirstName,
   getFullestAvailableName,
   getLastName,
@@ -18,10 +19,8 @@ import {
 import { getAuth0Token, topLevelCatch, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 
-export interface GetConversationInput {
-  secrets: Secrets | null;
-  smsNumbers: string[];
-  timezone: string;
+export interface GetConversationInputValidated extends GetConversationInput {
+  secrets: Secrets;
 }
 
 interface ProtoConversationItem {
@@ -179,7 +178,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(allMessages),
     };
   } catch (error: any) {
-    await topLevelCatch('get-conversation', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-conversation', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),
@@ -187,7 +187,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   }
 });
 
-function validateRequestParameters(input: ZambdaInput): GetConversationInput {
+function validateRequestParameters(input: ZambdaInput): GetConversationInputValidated {
   if (!input.body) {
     throw new Error('No request body provided');
   }
@@ -218,6 +218,10 @@ function validateRequestParameters(input: ZambdaInput): GetConversationInput {
       throw new Error('smsNumber must be of the form "+1", followed by 10 digits');
     }
   });
+
+  if (!input.secrets) {
+    throw new Error('No secrets provided');
+  }
 
   return {
     smsNumbers: Array.from(new Set(smsNumbers)),

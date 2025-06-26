@@ -1,38 +1,42 @@
 import Oystehr, { BatchInputGetRequest } from '@oystehr/sdk';
 import {
-  ServiceRequest,
-  QuestionnaireResponse,
-  Practitioner,
-  Task,
-  Patient,
   Account,
-  Coverage,
-  Organization,
-  Appointment,
-  Encounter,
-  DiagnosticReport,
-  Observation,
-  FhirResource,
-  DocumentReference,
   ActivityDefinition,
+  Appointment,
+  Coverage,
+  DiagnosticReport,
+  DocumentReference,
+  Encounter,
+  FhirResource,
+  Observation,
+  Organization,
+  Patient,
+  Practitioner,
+  QuestionnaireResponse,
+  Schedule,
+  ServiceRequest,
   Specimen,
+  Task,
 } from 'fhir/r4b';
 import {
   EncounterExternalLabResult,
+  EncounterInHouseLabResult,
   ExternalLabOrderResult,
   ExternalLabOrderResultConfig,
-  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
-  LAB_RESULT_DOC_REF_CODING_CODE,
-  OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
   getPresignedURL,
-  LAB_DR_TYPE_TAG,
-  nameLabTest,
-  IN_HOUSE_TEST_CODE_SYSTEM,
-  EncounterInHouseLabResult,
-  LabType,
-  InHouseLabResult,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
+  IN_HOUSE_TEST_CODE_SYSTEM,
+  InHouseLabResult,
+  LAB_DR_TYPE_TAG,
+  LAB_ORDER_DOC_REF_CODING_CODE,
+  LAB_RESULT_DOC_REF_CODING_CODE,
+  LabOrderPDF,
+  LabResultPDF,
+  LabType,
+  nameLabTest,
+  OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  OYSTEHR_LAB_ORDER_PLACER_ID_SYSTEM,
 } from 'utils';
 
 export type LabOrderResources = {
@@ -43,6 +47,7 @@ export type LabOrderResources = {
   task: Task;
   organization: Organization | undefined;
   diagnosticReports: DiagnosticReport[];
+  schedule?: Schedule;
   appointment: Appointment;
   encounter: Encounter;
   observations: Observation[];
@@ -63,6 +68,7 @@ export async function getExternalLabOrderResources(
       | Organization
       | DiagnosticReport
       | Appointment
+      | Schedule
       | Encounter
       | Observation
       | Specimen
@@ -104,6 +110,14 @@ export async function getExternalLabOrderResources(
         {
           name: '_include:iterate',
           value: 'Encounter:appointment',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Appointment:slot',
+        },
+        {
+          name: '_include:iterate',
+          value: 'Slot:schedule',
         },
         {
           name: '_include:iterate',
@@ -149,6 +163,10 @@ export async function getExternalLabOrderResources(
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.system,
         OYSTEHR_LAB_DIAGNOSTIC_REPORT_CATEGORY.code
       )
+  );
+
+  const schedulesTemp: Schedule[] | undefined = serviceRequestTemp?.filter(
+    (resourceTemp): resourceTemp is Schedule => resourceTemp.resourceType === 'Schedule'
   );
 
   const appointmentsTemp: Appointment[] | undefined = serviceRequestTemp?.filter(
@@ -202,6 +220,7 @@ export async function getExternalLabOrderResources(
   const task = tasksTemp?.[0];
   const organization = orgsTemp?.[0];
   const diagnosticReports = diagnosticReportsTemp;
+  const schedule = schedulesTemp?.[0];
   const appointment = appointmentsTemp?.[0];
   const encounter = encountersTemp?.[0];
   const observations = observationsTemp;
@@ -214,6 +233,7 @@ export async function getExternalLabOrderResources(
     task,
     organization,
     diagnosticReports,
+    schedule,
     appointment,
     encounter,
     observations,
@@ -254,7 +274,7 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
 
 export const makeEncounterLabResults = async (
   resources: FhirResource[],
-  m2mtoken: string
+  m2mToken: string
 ): Promise<{
   externalLabResultConfig: EncounterExternalLabResult;
   inHouseLabResultConfig: EncounterInHouseLabResult;
@@ -276,7 +296,7 @@ export const makeEncounterLabResults = async (
       if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
           resource: resource as ServiceRequest,
-          type: isExternalLabServiceRequest ? LabType.external : LabType.inhouse,
+          type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
           if (isExternalLabServiceRequest) activeExternalLabServiceRequests.push(resource);
@@ -332,7 +352,7 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
-          const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mtoken, {
+          const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
             orderNumber,
           });
@@ -341,14 +361,14 @@ export const makeEncounterLabResults = async (
           } else {
             externalLabOrderResults.push(...externalResultConfigs);
           }
-        } else if (relatedSRDetail.type === LabType.inhouse) {
+        } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
-            m2mtoken,
-            { type: LabType.inhouse }
+            m2mToken,
+            { type: LabType.inHouse }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -397,14 +417,14 @@ export const makeEncounterLabResults = async (
 const getLabOrderResultPDFConfig = async (
   docRef: DocumentReference,
   formattedName: string,
-  m2mtoken: string,
+  m2mToken: string,
   resultDetails:
     | {
         type: LabType.external;
         orderNumber?: string;
       }
     | {
-        type: LabType.inhouse;
+        type: LabType.inHouse;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -413,7 +433,7 @@ const getLabOrderResultPDFConfig = async (
   for (const content of docRef.content) {
     const z3Url = content.attachment.url;
     if (z3Url) {
-      const url = await getPresignedURL(z3Url, m2mtoken);
+      const url = await getPresignedURL(z3Url, m2mToken);
       if (resultDetails.type === LabType.external) {
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
@@ -421,7 +441,7 @@ const getLabOrderResultPDFConfig = async (
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
-      } else if (resultDetails.type === LabType.inhouse) {
+      } else if (resultDetails.type === LabType.inHouse) {
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
@@ -453,4 +473,75 @@ export const configLabRequestsForGetChartData = (encounterId: string): BatchInpu
 
 const diagnosticReportIncludesCategory = (diagnosicReport: DiagnosticReport, system: string, code: string): boolean => {
   return !!diagnosicReport.category?.find((cat) => cat?.coding?.find((c) => c.system === system && c.code === code));
+};
+
+const getDocRefRelatedId = (
+  docRef: DocumentReference,
+  relatedResourceType: FhirResource['resourceType']
+): string | undefined => {
+  const reference = docRef.context?.related?.find((rel) => rel.reference?.startsWith(`${relatedResourceType}/`))
+    ?.reference;
+  return reference?.split('/')[1];
+};
+
+type fetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
+export const fetchLabOrderPDFsPresignedUrls = async (
+  documentReferences: DocumentReference[],
+  m2mToken: string
+): Promise<fetchLabOrderPDFRes | undefined> => {
+  if (!documentReferences.length) {
+    return;
+  }
+  const pdfPromises: Promise<LabResultPDF | LabOrderPDF | null>[] = [];
+
+  for (const docRef of documentReferences) {
+    const diagnosticReportId = getDocRefRelatedId(docRef, 'DiagnosticReport');
+    const serviceRequestId = getDocRefRelatedId(docRef, 'ServiceRequest');
+    const isLabOrderDoc = docRef.type?.coding?.find(
+      (code) => code.system === LAB_ORDER_DOC_REF_CODING_CODE.system && code.code === LAB_ORDER_DOC_REF_CODING_CODE.code
+    );
+    const docRefId = docRef.id;
+
+    for (const content of docRef.content) {
+      const z3Url = content.attachment?.url;
+      if (z3Url) {
+        pdfPromises.push(
+          getPresignedURL(z3Url, m2mToken)
+            .then((presignedURL) => {
+              if (diagnosticReportId) {
+                return { presignedURL, diagnosticReportId } as LabResultPDF;
+              } else if (serviceRequestId && isLabOrderDoc) {
+                return { presignedURL, serviceRequestId, docRefId } as LabOrderPDF;
+              }
+              return null;
+            })
+            .catch((error) => {
+              console.error(`Failed to get presigned URL for document ${docRef.id}:`, error);
+              return null;
+            })
+        );
+      }
+    }
+  }
+
+  const pdfs = await Promise.allSettled(pdfPromises);
+
+  const { resultPDFs, orderPDF } = pdfs
+    .filter(
+      (result): result is PromiseFulfilledResult<LabResultPDF | LabOrderPDF> =>
+        result.status === 'fulfilled' && result.value !== null
+    )
+    .reduce(
+      (acc: fetchLabOrderPDFRes, result) => {
+        if ('diagnosticReportId' in result.value) {
+          acc.resultPDFs.push(result.value);
+        } else if ('serviceRequestId' in result.value) {
+          acc.orderPDF = result.value;
+        }
+        return acc;
+      },
+      { resultPDFs: [], orderPDF: undefined }
+    );
+
+  return { resultPDFs, orderPDF };
 };

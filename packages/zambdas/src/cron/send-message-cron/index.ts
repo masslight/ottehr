@@ -3,11 +3,11 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter, Location, Patient, QuestionnaireResponse } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, getSecret, Secrets, SecretsKeys } from 'utils';
-import { topLevelCatch, ZambdaInput } from '../../shared';
-import { captureSentryException, createOystehrClient, configSentry, getAuth0Token } from '../../shared';
-import { getMessageRecipientForAppointment } from '../../shared/communication';
+import { DATETIME_FULL_NO_YEAR, getSecret, SecretsKeys } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../common';
+import { sendErrors, topLevelCatch, ZambdaInput } from '../../shared';
+import { configSentry, createOystehrClient, getAuth0Token } from '../../shared';
+import { getMessageRecipientForAppointment } from '../../shared/communication';
 
 let zapehrToken: string;
 
@@ -96,7 +96,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         /*`${i18n.t('textComms.checkIn1')} ${fhirLocation.name} ${i18n.t(
           'textComms.checkIn2'
         )} ${startTimeFormatted}${i18n.t('textComms.checkIn3')}`;*/
-        await sendAutomatedText(fhirAppointment, oystehr, secrets, message);
+        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+        await sendAutomatedText(fhirAppointment, oystehr, ENVIRONMENT, message);
       }
     });
 
@@ -132,7 +133,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         const fhirPatient = allResources.find((resourceTemp) => resourceTemp.id === patientID) as Patient;
         const WEBSITE_URL = getSecret(SecretsKeys.WEBSITE_URL, secrets);
         const message = `To prevent delays, please complete your paperwork prior to arrival. For ${fhirPatient.name?.[0].given?.[0]}, click here: ${WEBSITE_URL}/paperwork/${fhirAppointment?.id}`;
-        await sendAutomatedText(fhirAppointment, oystehr, secrets, message);
+        const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+        await sendAutomatedText(fhirAppointment, oystehr, ENVIRONMENT, message);
       }
     });
 
@@ -145,7 +147,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify({ status: 'hola' }),
     };
   } catch (error: any) {
-    return topLevelCatch('send-message-cron', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('send-message-cron', error, ENVIRONMENT, true);
   }
 });
 
@@ -159,7 +162,7 @@ function roundToNearestQuarterHour(date: DateTime): DateTime {
 async function sendAutomatedText(
   fhirAppointment: Appointment,
   oystehr: Oystehr,
-  secrets: Secrets | null,
+  ENVIRONMENT: string,
   message: string
 ): Promise<void> {
   try {
@@ -173,10 +176,9 @@ async function sendAutomatedText(
       });
     } else {
       console.log('no conversationSID returned for appointment:', fhirAppointment.id);
-      // should we alert slack in this instance ?
+      void sendErrors('no conversationSID when sending automated text', ENVIRONMENT);
     }
   } catch (e) {
     console.log('error trying to send message: ', e, JSON.stringify(e));
-    // should we alert slack in this instance ?
   }
 }

@@ -1,3 +1,4 @@
+import { otherColors } from '@ehrTheme/colors';
 import { Error as ErrorIcon } from '@mui/icons-material';
 import AddIcon from '@mui/icons-material/Add';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -9,8 +10,9 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
+import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
 import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
-import { otherColors } from '@ehrTheme/colors';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -25,8 +27,6 @@ import PageContainer from '../layout/PageContainer';
 import { useDebounce } from '../telemed/hooks';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
-import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
-import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -223,13 +223,13 @@ export default function Appointments(): ReactElement {
 
       if (
         (locationID || locationSelected?.id || providers.length > 0 || groups.length > 0) &&
-        (searchDate || appointmentDate) &&
+        searchDate &&
         Array.isArray(visitType)
       ) {
         const searchResults = await getAppointments(client, {
           locationID: locationID || locationSelected?.id || undefined,
           searchDate,
-          visitType: visitType || [],
+          visitType: visitType,
           providerIDs: providers,
           groupIDs: groups,
         });

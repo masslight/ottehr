@@ -3,7 +3,7 @@ import mixpanel from 'mixpanel-browser';
 import { useEffect } from 'react';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { MixpanelContextProps, ScrollToTop, setupMixpanel, setupSentry } from 'ui-components';
 import { TestErrorPage } from './components/TestErrorPage';
 import { IntakeThemeProvider } from './IntakeThemeProvider';

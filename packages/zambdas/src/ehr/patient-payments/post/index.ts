@@ -1,15 +1,8 @@
+import Oystehr from '@oystehr/sdk';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import {
-  createOystehrClient,
-  getAuth0Token,
-  getStripeClient,
-  getUser,
-  lambdaResponse,
-  makeBusinessIdentifierForCandidPayment,
-  makeBusinessIdentifierForStripePayment,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+import { Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import { DateTime } from 'luxon';
+import Stripe from 'stripe';
 import {
   FHIR_RESOURCE_NOT_FOUND,
   getSecret,
@@ -27,11 +20,18 @@ import {
   STRIPE_CUSTOMER_ID_NOT_FOUND_ERROR,
   TIMEZONES,
 } from 'utils';
-import { Identifier, Money, PaymentNotice, PaymentReconciliation, Reference } from 'fhir/r4b';
+import {
+  createOystehrClient,
+  getAuth0Token,
+  getStripeClient,
+  getUser,
+  lambdaResponse,
+  makeBusinessIdentifierForCandidPayment,
+  makeBusinessIdentifierForStripePayment,
+  topLevelCatch,
+  ZambdaInput,
+} from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
-import Stripe from 'stripe';
-import { DateTime } from 'luxon';
-import Oystehr from '@oystehr/sdk';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let oystehrM2MClientToken: string;
@@ -92,7 +92,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     return lambdaResponse(200, { notice, patientId, encounterId });
   } catch (error: any) {
     console.error(error);
-    return topLevelCatch('patient-payments-post', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('patient-payments-post', error, ENVIRONMENT);
   }
 };
 

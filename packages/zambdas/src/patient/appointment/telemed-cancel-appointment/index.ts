@@ -193,7 +193,8 @@ async function performEffect(props: PerformEffectInput): Promise<APIGatewayProxy
   if (relatedPerson) {
     const message = `Sorry to see you go. Questions? Call 202-555-1212 `;
 
-    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
+    await sendSms(message, `RelatedPerson/${relatedPerson.id}`, oystehr, ENVIRONMENT);
   } else {
     console.log(`No RelatedPerson found for patient ${patient.id} not sending text message`);
   }

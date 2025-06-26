@@ -1,18 +1,18 @@
 // cSpell:ignore IPPPS
 import { BrowserContext, expect, Page, test } from '@playwright/test';
 import { chooseJson, CreateAppointmentResponse } from 'utils';
-import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { CommonLocatorsHelper } from '../../utils/CommonLocatorsHelper';
 import { FillingInfo } from '../../utils/in-person/FillingInfo';
+import { PrebookInPersonFlow } from '../../utils/in-person/PrebookInPersonFlow';
 import { Locators } from '../../utils/locators';
 import {
+  CARD_NUMBER,
   Paperwork,
   PATIENT_ADDRESS,
   PATIENT_ADDRESS_LINE_2,
   PATIENT_CITY,
   PATIENT_ZIP,
   RELATIONSHIP_RESPONSIBLE_PARTY_SELF,
-  CARD_NUMBER,
 } from '../../utils/Paperwork';
 
 let page: Page;
@@ -31,9 +31,9 @@ test.beforeAll(async ({ browser }) => {
   page = await context.newPage();
   page.on('response', async (response) => {
     if (response.url().includes('/create-appointment/')) {
-      const { appointment } = chooseJson(await response.json()) as CreateAppointmentResponse;
-      if (appointment && !appointmentIds.includes(appointment)) {
-        appointmentIds.push(appointment);
+      const { appointmentId } = chooseJson(await response.json()) as CreateAppointmentResponse;
+      if (!appointmentIds.includes(appointmentId)) {
+        appointmentIds.push(appointmentId);
       }
     }
   });

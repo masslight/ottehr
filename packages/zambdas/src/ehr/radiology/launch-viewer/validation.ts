@@ -1,8 +1,8 @@
 import Oystehr from '@oystehr/sdk';
 import { ServiceRequest } from 'fhir/r4b';
 import { isValidUUID, Secrets } from 'utils';
-import { ValidatedInput } from '.';
 import { validateJsonBody, ZambdaInput } from '../../../shared';
+import { ValidatedInput } from '.';
 
 export const validateInput = async (input: ZambdaInput, oystehr: Oystehr): Promise<ValidatedInput> => {
   const serviceRequest = await validateBody(input, oystehr);

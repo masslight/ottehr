@@ -1,9 +1,9 @@
-import fs from 'fs';
-import { getAuth0Token } from '../shared';
 // import { fhirApiUrlFromAuth0Audience } from './helpers';
 import Oystehr from '@oystehr/sdk';
 import { InsurancePlan, Organization } from 'fhir/r4b';
+import fs from 'fs';
 import { INSURANCE_PLAN_PAYER_META_TAG_CODE } from 'utils';
+import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience } from './helpers';
 
 async function getPayerOrganizations(oystehr: Oystehr): Promise<Organization[]> {

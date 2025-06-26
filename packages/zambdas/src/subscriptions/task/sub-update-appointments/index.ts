@@ -6,17 +6,12 @@ import {
   addWaitingMinutesToAppointment,
   DATETIME_FULL_NO_YEAR,
   getPatientContactEmail,
+  getSecret,
   getWaitingMinutesAtSchedule,
+  SecretsKeys,
   TaskStatus,
 } from 'utils';
-import {
-  captureSentryException,
-  createOystehrClient,
-  configSentry,
-  getAuth0Token,
-  topLevelCatch,
-  ZambdaInput,
-} from '../../../shared';
+import { configSentry, createOystehrClient, getAuth0Token, topLevelCatch, ZambdaInput } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
 
@@ -78,7 +73,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         ],
       })
     ).unbundle();
-    console.log(`number of reasources returned ${allResources.length}`);
+    console.log(`number of resources returned ${allResources.length}`);
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
@@ -149,6 +144,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-update-appointments', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('sub-update-appointments', error, ENVIRONMENT);
   }
 });

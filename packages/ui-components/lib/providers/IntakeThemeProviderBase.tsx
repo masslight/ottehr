@@ -1,5 +1,3 @@
-import { FC } from 'react';
-import { i18n } from 'i18next';
 import {
   BreakpointsOptions,
   Components,
@@ -9,8 +7,10 @@ import {
   ThemeProvider,
 } from '@mui/material';
 import { TypographyOptions } from '@mui/material/styles/createTypography';
-import { PropsWithChildren } from '../types';
+import { i18n } from 'i18next';
+import { FC } from 'react';
 import { IntakeThemeContext } from '../contexts';
+import { PropsWithChildren } from '../types';
 
 export const breakpoints: BreakpointsOptions = {
   values: {

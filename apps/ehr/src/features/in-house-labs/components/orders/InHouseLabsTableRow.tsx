@@ -1,10 +1,10 @@
-import { ReactElement } from 'react';
-import { TableCell, TableRow, Box, Typography, Tooltip, useTheme, Button } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/DeleteOutlined';
-import { InHouseLabsTableColumn } from './InHouseLabsTable';
-import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
 import { otherColors } from '@ehrTheme/colors';
-import { InHouseOrderListPageItemDTO, formatDateForLabs } from 'utils';
+import DeleteIcon from '@mui/icons-material/DeleteOutlined';
+import { Box, Button, TableCell, TableRow, Tooltip, Typography, useTheme } from '@mui/material';
+import { ReactElement } from 'react';
+import { formatDateForLabs, InHouseOrderListPageItemDTO } from 'utils';
+import { InHouseLabsStatusChip } from '../InHouseLabsStatusChip';
+import { InHouseLabsTableColumn } from './InHouseLabsTable';
 
 interface InHouseLabsTableRowProps {
   columns: InHouseLabsTableColumn[];

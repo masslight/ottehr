@@ -3,16 +3,16 @@ import { APIGatewayProxyResult } from 'aws-lambda';
 import { BundleLink, FhirResource, QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import {
   ANSWER_OPTION_FROM_RESOURCE_UNDEFINED,
-  APIError,
   AnswerOptionSource,
-  MALFORMED_GET_ANSWER_OPTIONS_INPUT,
-  MISSING_REQUEST_BODY,
-  SecretsKeys,
+  APIError,
   createOystehrClient,
   getSecret,
   isApiError,
+  MALFORMED_GET_ANSWER_OPTIONS_INPUT,
+  MISSING_REQUEST_BODY,
+  SecretsKeys,
 } from 'utils';
-import { ZambdaInput, getAuth0Token } from '../../shared';
+import { getAuth0Token, ZambdaInput } from '../../shared';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let zapehrToken: string;

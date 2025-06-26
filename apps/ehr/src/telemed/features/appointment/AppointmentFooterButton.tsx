@@ -5,7 +5,8 @@ import { enqueueSnackbar } from 'notistack';
 import { FC, useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from 'react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { TelemedAppointmentStatusEnum, mapStatusToTelemed } from 'utils';
+import { mapStatusToTelemed, TelemedAppointmentStatusEnum } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import useEvolveUser from '../../../hooks/useEvolveUser';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ConfirmationDialog } from '../../components';
@@ -19,7 +20,6 @@ import {
   useVideoCallStore,
 } from '../../state';
 import { updateEncounterStatusHistory } from '../../utils';
-import { dataTestIds } from '../../../constants/data-test-ids';
 
 const FooterButton = styled(LoadingButton)(({ theme }) => ({
   textTransform: 'none',

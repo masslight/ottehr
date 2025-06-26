@@ -1,5 +1,5 @@
+import { Box, Divider, Stack, Typography } from '@mui/material';
 import React from 'react';
-import { Stack, Box, Typography, Divider } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { OrderToolTipConfig } from 'utils';
 

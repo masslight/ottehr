@@ -1,9 +1,8 @@
-import React, { JSX, useMemo, useState } from 'react';
-import { useTheme, Box, Typography, Skeleton, IconButton } from '@mui/material';
-import ErrorIcon from '@mui/icons-material/Error';
 import { DeleteOutlined as DeleteIcon } from '@mui/icons-material';
+import ErrorIcon from '@mui/icons-material/Error';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-
+import { Box, IconButton, Skeleton, Typography, useTheme } from '@mui/material';
+import React, { JSX, useMemo, useState } from 'react';
 import { VitalsObservationDTO } from 'utils';
 import { DeleteVitalModal } from '../DeleteVitalModal';
 import { VitalsOxygenSatHistoryEntry } from './VitalsOxygenSatHistoryEntry';

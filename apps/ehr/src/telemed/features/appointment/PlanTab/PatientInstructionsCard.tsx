@@ -1,15 +1,15 @@
-import React, { FC, useState } from 'react';
-import { Box, TextField, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DoneIcon from '@mui/icons-material/Done';
-import { CommunicationDTO, PROJECT_NAME } from 'utils';
-import { AccordionCard, ActionsList, DeleteIconButton } from '../../../components';
-import { PatientInstructionsTemplatesDialog } from './components';
-import { useAppointmentStore, useDeleteChartData, useSaveChartData, useSavePatientInstruction } from '../../../state';
-import { getSelectors } from '../../../../shared/store/getSelectors';
+import { Box, TextField, Typography } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
+import React, { FC, useState } from 'react';
+import { CommunicationDTO, PROJECT_NAME } from 'utils';
 import { RoundedButton } from '../../../../components/RoundedButton';
+import { getSelectors } from '../../../../shared/store/getSelectors';
+import { AccordionCard, ActionsList, DeleteIconButton } from '../../../components';
 import { useGetAppointmentAccessibility } from '../../../hooks';
+import { useAppointmentStore, useDeleteChartData, useSaveChartData, useSavePatientInstruction } from '../../../state';
+import { PatientInstructionsTemplatesDialog } from './components';
 
 export const PatientInstructionsCard: FC = () => {
   const [collapsed, setCollapsed] = useState(false);

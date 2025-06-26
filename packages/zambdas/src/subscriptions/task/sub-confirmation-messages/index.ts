@@ -2,15 +2,22 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, HealthcareService, Location, Patient, Practitioner, RelatedPerson } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import { DATETIME_FULL_NO_YEAR, TaskStatus, VisitType, getPatientContactEmail, getPatientFirstName } from 'utils';
 import {
-  ZambdaInput,
+  DATETIME_FULL_NO_YEAR,
+  getPatientContactEmail,
+  getPatientFirstName,
+  getSecret,
+  SecretsKeys,
+  TaskStatus,
+  VisitType,
+} from 'utils';
+import {
   configSentry,
+  createOystehrClient,
   getAuth0Token,
   sendInPersonMessages,
   topLevelCatch,
-  captureSentryException,
-  createOystehrClient,
+  ZambdaInput,
 } from '../../../shared';
 import { patchTaskStatus } from '../../helpers';
 import { validateRequestParameters } from '../validateRequestParameters';
@@ -81,7 +88,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         ],
       })
     ).unbundle();
-    console.log(`number of reasources returned ${allResources.length}`);
+    console.log(`number of resources returned ${allResources.length}`);
 
     allResources.forEach((resource) => {
       if (resource.resourceType === 'Appointment') {
@@ -177,6 +184,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('sub-confirmation-messages', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('sub-confirmation-messages', error, ENVIRONMENT);
   }
 });

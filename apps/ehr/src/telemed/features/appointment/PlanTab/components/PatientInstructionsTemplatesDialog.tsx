@@ -1,5 +1,4 @@
-import React, { FC, useState } from 'react';
-import { useQueryClient } from 'react-query';
+import CloseIcon from '@mui/icons-material/Close';
 import {
   Box,
   CircularProgress,
@@ -11,11 +10,12 @@ import {
   Typography,
   useTheme,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import React, { FC, useState } from 'react';
+import { useQueryClient } from 'react-query';
 import { CommunicationDTO, InstructionType, PROJECT_NAME } from 'utils';
-import { useDeletePatientInstruction, useGetPatientInstructions } from '../../../../state';
-import { ActionsList, DeleteIconButton } from '../../../../components';
 import { RoundedButton } from '../../../../../components/RoundedButton';
+import { ActionsList, DeleteIconButton } from '../../../../components';
+import { useDeletePatientInstruction, useGetPatientInstructions } from '../../../../state';
 
 type MyTemplatesDialogProps = {
   open: boolean;

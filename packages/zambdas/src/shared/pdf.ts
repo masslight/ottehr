@@ -2,7 +2,7 @@ import fontkit from '@pdf-lib/fontkit';
 import { remove as removeDiacritics } from 'diacritics';
 import { Patient } from 'fhir/r4b';
 import fs from 'fs';
-import { Color, PDFDocument, PDFFont, PDFPage, PageSizes, StandardFonts, rgb } from 'pdf-lib';
+import { Color, PageSizes, PDFDocument, PDFFont, PDFPage, rgb, StandardFonts } from 'pdf-lib';
 import { ConsentSigner, formatDateTimeToLocaleString, getSecret, Secrets } from 'utils';
 import { triggerSlackAlarm } from './lambda';
 
@@ -10,8 +10,8 @@ type PdfInfo = { uploadURL: string; copyFromPath: string; formTitle: string; res
 type SectionDetail = { label: string; value: string; valueFont?: PDFFont };
 type Section = { header: string; body: SectionDetail[] };
 enum ConsentDetailLabel {
-  lastName = 'Patient lastname',
-  firstName = 'Patient firstname',
+  lastName = 'Patient last name',
+  firstName = 'Patient first name',
   dob = 'Date of birth',
   signedBy = 'Signed by',
   signature = 'Signature',
@@ -152,7 +152,7 @@ async function drawFirstPage({
           numOutOfRange++;
           console.warn('no code point found for character: ', detailValueChars[i]);
         } else if (!supportedChars.includes(codePoint)) {
-          // Replace unsupported diacritics and cyrillic characters with thier english equivalent
+          // Replace unsupported diacritics and cyrillic characters with their english equivalent
           let newChar = removeDiacritics(detailValueChars[i]);
           const newCharCodePoint = [...newChar][0].codePointAt(0);
           if (newCharCodePoint === undefined) {

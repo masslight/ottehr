@@ -1,14 +1,5 @@
 import { BrowserContext, Page, test } from '@playwright/test';
-import {
-  PATIENT_BIRTH_DATE_SHORT,
-  PATIENT_EMAIL,
-  PATIENT_FIRST_NAME,
-  PATIENT_GENDER,
-  PATIENT_LAST_NAME,
-  PATIENT_PHONE_NUMBER,
-  ResourceHandler,
-} from '../../e2e-utils/resource-handler';
-
+import { DateTime } from 'luxon';
 import { waitForResponseWithData } from 'test-utils';
 import {
   CreateAppointmentResponse,
@@ -37,14 +28,22 @@ import {
   DEMO_VISIT_ZIP,
   unpackFhirResponse,
 } from 'utils';
+import { dataTestIds } from '../../../src/constants/data-test-ids';
 import { ENV_LOCATION_NAME } from '../../e2e-utils/resource/constants';
+import {
+  PATIENT_BIRTH_DATE_SHORT,
+  PATIENT_EMAIL,
+  PATIENT_FIRST_NAME,
+  PATIENT_GENDER,
+  PATIENT_LAST_NAME,
+  PATIENT_PHONE_NUMBER,
+  ResourceHandler,
+} from '../../e2e-utils/resource-handler';
 import { openAddPatientPage } from '../page/AddPatientPage';
+import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
 import { expectPatientInformationPage, Field, openPatientInformationPage } from '../page/PatientInformationPage';
 import { expectPatientRecordPage } from '../page/PatientRecordPage';
 import { expectPatientsPage } from '../page/PatientsPage';
-import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { expectDiscardChangesDialog } from '../page/patient-information/DiscardChangesDialog';
-import { DateTime } from 'luxon';
 
 const NEW_PATIENT_LAST_NAME = 'Test_last_name';
 const NEW_PATIENT_FIRST_NAME = 'Test_first_name';
@@ -810,7 +809,7 @@ test.describe('Patient Record Page tests with zero patient data filled in', asyn
     await addPatientPage.clickAddButton();
 
     const response = await unpackFhirResponse<CreateAppointmentResponse>(await appointmentCreationResponse);
-    const appointmentId = response.appointment;
+    const appointmentId = response.appointmentId;
     if (!appointmentId) {
       throw new Error('Appointment ID should be present in the response');
     }

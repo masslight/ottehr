@@ -2,9 +2,13 @@
 import { Consent, QuestionnaireResponse, Slot } from 'fhir/r4b';
 import { ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
-  AvailableLocationInformation,
+  CancelAppointmentZambdaInput,
+  CancelAppointmentZambdaOutput,
+  CheckInInput,
+  CheckInZambdaOutput,
   chooseJson,
   CreateAppointmentInputParams,
+  CreateAppointmentResponse,
   CreateSlotParams,
   GetAppointmentDetailsResponse,
   GetEligibilityParameters,
@@ -25,11 +29,11 @@ import {
   SubmitPaperworkParameters,
   UCGetPaperworkResponse,
   UpdateAppointmentParameters,
-  VisitType,
+  UpdateAppointmentZambdaOutput,
   WalkinAvailabilityCheckParams,
   WalkinAvailabilityCheckResult,
 } from 'utils';
-import { CancelAppointmentParameters, GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
+import { GetAppointmentParameters, GetPaperworkParameters } from '../types/types';
 import { apiErrorToThrow } from './errorHelpers';
 
 export interface ZapehrSearchParameter {
@@ -38,52 +42,37 @@ export interface ZapehrSearchParameter {
 }
 
 const REACT_APP_IS_LOCAL = import.meta.env.VITE_APP_IS_LOCAL;
-const CHECK_IN_ZAMBDA_ID = import.meta.env.VITE_APP_CHECK_IN_ZAMBDA_ID;
-const CREATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CREATE_APPOINTMENT_ZAMBDA_ID;
+const CHECK_IN_ZAMBDA_ID = 'check-in';
+const CREATE_APPOINTMENT_ZAMBDA_ID = 'create-appointment';
 const CANCEL_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_CANCEL_APPOINTMENT_ZAMBDA_ID;
-const UPDATE_APPOINTMENT_ZAMBDA_ID = import.meta.env.VITE_APP_UPDATE_APPOINTMENT_ZAMBDA_ID;
-const GET_PATIENTS_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PATIENTS_ZAMBDA_ID;
-const GET_SCHEDULE_ZAMBDA_ID = import.meta.env.VITE_APP_GET_SCHEDULE_ZAMBDA_ID;
-const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = import.meta.env.VITE_APP_TELEMED_GET_APPOINTMENTS_ZAMBDA_ID;
-const GET_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_GET_PAPERWORK_ZAMBDA_ID;
-const GET_PRESIGNED_FILE_URL = import.meta.env.VITE_APP_GET_PRESIGNED_FILE_URL_ZAMBDA_ID;
-const GET_APPOINTMENT_DETAILS = import.meta.env.VITE_APP_GET_APPOINTMENT_DETAILS;
-const PATCH_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_PATCH_PAPERWORK_ZAMBDA_ID;
-const SUBMIT_PAPERWORK_ZAMBDA_ID = import.meta.env.VITE_APP_SUBMIT_PAPERWORK_ZAMBDA_ID;
-const GET_ELIGIBILITY_ZAMBDA_ID = import.meta.env.VITE_APP_GET_ELIGIBILITY_ZAMBDA_ID;
-const AI_INTERVIEW_START_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_START_ZAMBDA_ID;
-const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID;
-const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = import.meta.env.VITE_APP_AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID;
+const UPDATE_APPOINTMENT_ZAMBDA_ID = 'update-appointment';
+const GET_PATIENTS_ZAMBDA_ID = 'get-patients';
+const GET_SCHEDULE_ZAMBDA_ID = 'get-schedule';
+const TELEMED_GET_APPOINTMENTS_ZAMBDA_ID = 'telemed-get-appointments';
+const GET_PAPERWORK_ZAMBDA_ID = 'get-paperwork';
+const GET_PRESIGNED_FILE_URL = 'get-presigned-file-url';
+const GET_APPOINTMENT_DETAILS = 'get-appointment-details';
+const PATCH_PAPERWORK_ZAMBDA_ID = 'patch-paperwork';
+const SUBMIT_PAPERWORK_ZAMBDA_ID = 'submit-paperwork';
+const GET_ELIGIBILITY_ZAMBDA_ID = 'get-eligibility';
+const AI_INTERVIEW_START_ZAMBDA_ID = 'ai-interview-start';
+const AI_INTERVIEW_HANDLE_ANSWER_ZAMBDA_ID = 'ai-interview-handle-answer';
+const AI_INTERVIEW_PERSIST_CONSENT_ZAMBDA_ID = 'ai-interview-persist-consent';
 const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 
-export interface AppointmentBasicInfo {
-  start: string;
-  location: AvailableLocationInformation;
-  visitType: string;
-  status?: string;
-}
-
-export interface CreateAppointmentResponse {
-  message: string;
-  appointment: string;
-  fhirPatientId: string;
-}
-
-export interface CancelAppointmentResponse {
-  appointment: string | null;
-  location: AvailableLocationInformation;
-  visitType: VisitType;
-}
-
 class API {
-  async checkIn(zambdaClient: ZambdaClient, appointmentID: string, throwError = true): Promise<any> {
+  async checkIn(
+    zambdaClient: ZambdaClient,
+    parameters: CheckInInput,
+    throwError = true
+  ): Promise<CheckInZambdaOutput | undefined> {
     try {
       if (CHECK_IN_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('check in environment variable could not be loaded');
       }
-      const response = await zambdaClient.executePublic(CHECK_IN_ZAMBDA_ID, { appointment: appointmentID });
+      const response = await zambdaClient.executePublic(CHECK_IN_ZAMBDA_ID, parameters);
       const jsonToUse = chooseJson(response);
       return jsonToUse;
     } catch (error: any) {
@@ -91,7 +80,8 @@ class API {
         throw apiErrorToThrow(error, !isApiError(error));
       } else {
         // Fail silently
-        console.error('Error checking in appointment', error);
+        console.error('Error checking in appointment', error); // TODO this can't be a good thing why fail silently?
+        return undefined;
       }
     }
   }
@@ -117,9 +107,9 @@ class API {
 
   async cancelAppointment(
     zambdaClient: ZambdaClient,
-    parameters: CancelAppointmentParameters,
+    parameters: CancelAppointmentZambdaInput,
     throwError = true
-  ): Promise<CancelAppointmentResponse | void> {
+  ): Promise<CancelAppointmentZambdaOutput | void> {
     try {
       if (CANCEL_APPOINTMENT_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('cancel appointment environment variable could not be loaded');
@@ -139,7 +129,10 @@ class API {
     }
   }
 
-  async updateAppointment(zambdaClient: ZambdaClient, parameters: UpdateAppointmentParameters): Promise<any> {
+  async updateAppointment(
+    zambdaClient: ZambdaClient,
+    parameters: UpdateAppointmentParameters
+  ): Promise<UpdateAppointmentZambdaOutput> {
     try {
       if (UPDATE_APPOINTMENT_ZAMBDA_ID == null || REACT_APP_IS_LOCAL == null) {
         throw new Error('update appointment environment variable could not be loaded');

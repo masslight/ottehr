@@ -1,10 +1,8 @@
-import { MedicationAdministration, MedicationStatement } from 'fhir/r4b';
-import { ExtendedMedicationData } from './index';
-import { createReference } from 'utils';
+import { CodeableConcept, Medication, MedicationAdministration, MedicationStatement } from 'fhir/r4b';
+import { createReference, IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData } from 'utils';
 import {
   DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
   getCreatedTheOrderProviderId,
-  IN_HOUSE_MEDICATION_STATEMENT_MEDICATION_SYSTEM,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
   MEDICATION_ADMINISTRATION_CSS_RESOURCE_SYSTEM,
   MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
@@ -19,19 +17,37 @@ import {
   TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
 } from 'utils';
 
-export function createMedicationAdministrationResource(
-  data: ExtendedMedicationData,
-  status: MedicationAdministration['status'],
-  route: MedicationApplianceRoute,
-  location: MedicationApplianceLocation | undefined,
-  existedResource?: MedicationAdministration
-): MedicationAdministration {
+export interface MedicationAdministrationData {
+  orderData: MedicationData;
+  status: MedicationAdministration['status'];
+  route: MedicationApplianceRoute;
+  location?: MedicationApplianceLocation;
+  createdProviderId?: string;
+  administeredProviderId?: string;
+  existedMA?: MedicationAdministration;
+  dateTimeCreated?: string;
+  medicationResource?: Medication;
+}
+
+export function createMedicationAdministrationResource(data: MedicationAdministrationData): MedicationAdministration {
+  const {
+    orderData,
+    status,
+    route,
+    location,
+    createdProviderId,
+    administeredProviderId,
+    existedMA,
+    dateTimeCreated,
+    medicationResource,
+  } = data;
   // we can set existed resource as base for new resource
-  const resource: MedicationAdministration = existedResource
-    ? { ...existedResource }
+  const resource: MedicationAdministration = existedMA
+    ? { ...existedMA }
     : {
         resourceType: 'MedicationAdministration',
-        subject: { reference: `Patient/${data.patient}` },
+        subject: { reference: `Patient/${orderData.patient}` },
+        medicationReference: { reference: `#${IN_HOUSE_CONTAINED_MEDICATION_ID}` },
         status,
       };
 
@@ -44,12 +60,12 @@ export function createMedicationAdministrationResource(
       },
     ],
   };
-  if (data.patient) resource.subject = { reference: `Patient/${data.patient}` };
-  if (data.encounter) resource.context = { reference: `Encounter/${data.encounter}` };
-  if (data.providerCreatedTheOrder) {
+  if (orderData.patient) resource.subject = { reference: `Patient/${orderData.patient}` };
+  if (orderData.encounter) resource.context = { reference: `Encounter/${orderData.encounter}` };
+  if (createdProviderId) {
     resource.performer = [
       {
-        actor: { reference: `Practitioner/${data.providerCreatedTheOrder}` },
+        actor: { reference: `Practitioner/${createdProviderId}` },
         function: {
           coding: [
             {
@@ -61,13 +77,15 @@ export function createMedicationAdministrationResource(
       },
     ];
   }
-  if (data.orderDateTimeCreated) resource.effectiveDateTime = data.orderDateTimeCreated ?? undefined;
-  if (data.medicationCopyId) resource.medicationReference = { reference: `Medication/${data.medicationCopyId}` };
-  if (data.dose && data.units) {
+  if (dateTimeCreated) resource.effectiveDateTime = dateTimeCreated;
+  if (medicationResource) {
+    resource.contained = [{ ...medicationResource, id: IN_HOUSE_CONTAINED_MEDICATION_ID }];
+  }
+  if (orderData.dose && orderData.units) {
     resource.dosage = {
       dose: {
-        unit: data.units,
-        value: data.dose,
+        unit: orderData.units,
+        value: orderData.dose,
         system: MEDICATION_ADMINISTRATION_UNITS_SYSTEM,
       },
       route: {
@@ -82,23 +100,23 @@ export function createMedicationAdministrationResource(
     };
   }
 
-  if (data.reason) {
+  if (orderData.reason) {
     if (!resource.note) resource.note = [];
     resource.note.push({
       authorString: MEDICATION_ADMINISTRATION_REASON_CODE,
-      text: data.reason,
+      text: orderData.reason,
     });
   }
-  if (data.otherReason) {
+  if (orderData.otherReason) {
     if (!resource.note) resource.note = [];
     resource.note.push({
       authorString: MEDICATION_ADMINISTRATION_OTHER_REASON_CODE,
-      text: data.otherReason,
+      text: orderData.otherReason,
     });
   }
-  if (data.administeredProvider && data.dateGiven && data.timeGiven)
+  if (administeredProviderId && orderData.dateGiven && orderData.timeGiven)
     resource.performer?.push({
-      actor: { reference: `Practitioner/${data.administeredProvider}` },
+      actor: { reference: `Practitioner/${administeredProviderId}` },
       function: {
         coding: [
           {
@@ -110,15 +128,15 @@ export function createMedicationAdministrationResource(
       extension: [
         {
           url: DATE_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueDate: data.dateGiven,
+          valueDate: orderData.dateGiven,
         },
         {
           url: TIME_OF_MEDICATION_ADMINISTERED_SYSTEM,
-          valueTime: data.timeGiven,
+          valueTime: orderData.timeGiven,
         },
       ],
     });
-  if (data.instructions && resource.dosage) resource.dosage.text = data.instructions;
+  if (orderData.instructions && resource.dosage) resource.dosage.text = orderData.instructions;
   if (location && resource.dosage)
     resource.dosage.site = {
       coding: [
@@ -129,29 +147,19 @@ export function createMedicationAdministrationResource(
         },
       ],
     };
-  if (data.associatedDx) resource.reasonReference = [{ reference: `Condition/${data.associatedDx}` }];
+  if (orderData.associatedDx) resource.reasonReference = [{ reference: `Condition/${orderData.associatedDx}` }];
   return resource;
 }
 
 export function createMedicationStatementResource(
   medicationAdministration: MedicationAdministration,
-  medicationCopyId: string,
-  medicationCopyName: string
+  medicationCodeableConcept: CodeableConcept
 ): MedicationStatement {
   return {
     resourceType: 'MedicationStatement',
     status: 'active',
     partOf: [createReference(medicationAdministration)],
-    medicationCodeableConcept: {
-      coding: [
-        {
-          // i think this is not the right code for this particular statement
-          system: IN_HOUSE_MEDICATION_STATEMENT_MEDICATION_SYSTEM,
-          code: medicationCopyId,
-          display: medicationCopyName,
-        },
-      ],
-    },
+    medicationCodeableConcept,
     dosage: [
       {
         text: medicationAdministration.dosage?.text,

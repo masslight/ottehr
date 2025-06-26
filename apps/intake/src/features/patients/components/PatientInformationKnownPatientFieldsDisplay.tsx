@@ -1,12 +1,12 @@
 import { Typography } from '@mui/material';
 import { DateTime } from 'luxon';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { isoStringFromDateComponents, yupDateTransform } from 'utils';
-import { otherColors } from '../../../IntakeThemeProvider';
-import { PatientInfoInProgress } from '../types';
 import { useGetFullName } from '../../../hooks/useGetFullName';
-import { useTranslation } from 'react-i18next';
+import { otherColors } from '../../../IntakeThemeProvider';
 import i18n from '../../../lib/i18n';
+import { PatientInfoInProgress } from '../types';
 
 export const PatientInformationKnownPatientFieldsDisplay = ({
   patientInfo,

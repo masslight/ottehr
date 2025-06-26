@@ -1,8 +1,8 @@
-import { Typography, Grid, FormControlLabel, Radio, RadioGroup, Checkbox, Box, SxProps, Theme } from '@mui/material';
-import { CodeableConceptComponent } from 'utils';
-import { Controller, useFormContext } from 'react-hook-form';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import RadioButtonCheckedIcon from '@mui/icons-material/RadioButtonChecked';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import { Box, Checkbox, FormControlLabel, Grid, Radio, RadioGroup, SxProps, Theme, Typography } from '@mui/material';
+import { Controller, useFormContext } from 'react-hook-form';
+import { CodeableConceptComponent } from 'utils';
 
 interface ResultEntryRadioButtonProps {
   testItemComponent: CodeableConceptComponent;

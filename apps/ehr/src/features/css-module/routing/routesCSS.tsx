@@ -1,3 +1,9 @@
+import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
+import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
+import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPage';
+import { NursingOrderCreatePage } from 'src/features/nursing-orders/pages/NursingOrderCreatePage';
+import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/NursingOrderDetailsPage';
+import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
 import { FEATURE_FLAGS } from '../../../constants/feature-flags';
 import { AssessmentCard } from '../../../telemed/features/appointment/AssessmentTab';
 import { CreateExternalLabOrder } from '../../external-labs/pages/CreateExternalLabOrder';
@@ -20,17 +26,11 @@ import { OttehrAi } from '../pages/OttehrAi';
 import { PatientInfo } from '../pages/PatientInfo';
 import { PatientVitals } from '../pages/PatientVitals';
 import { Plan } from '../pages/Plan';
+import Procedures from '../pages/Procedures';
+import ProceduresNew from '../pages/ProceduresNew';
 import { ProgressNote } from '../pages/ProgressNote';
 import { Screening } from '../pages/Screening';
 import { SurgicalHistory } from '../pages/SurgicalHistory';
-import Procedures from '../pages/Procedures';
-import ProceduresNew from '../pages/ProceduresNew';
-import { InHouseLabOrderCreatePage } from 'src/features/in-house-labs/pages/InHouseLabOrderCreatePage';
-import { InHouseLabsPage } from 'src/features/in-house-labs/pages/InHouseLabsPage';
-import { InHouseLabTestDetailsPage } from 'src/features/in-house-labs/pages/InHouseLabOrderDetailsPage';
-import { NursingOrderCreatePage } from 'src/features/nursing-orders/pages/NursingOrderCreatePage';
-import { NursingOrdersPage } from 'src/features/nursing-orders/pages/NursingOrdersPage';
-import { NursingOrderDetailsPage } from 'src/features/nursing-orders/pages/NursingOrderDetailsPage';
 
 export enum ROUTER_PATH {
   PROGRESS_NOTE = 'progress-note',

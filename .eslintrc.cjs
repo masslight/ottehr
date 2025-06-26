@@ -14,7 +14,7 @@ module.exports = {
     project: './tsconfig.base.json',
     tsconfigRootDir: __dirname,
   },
-  plugins: ['@typescript-eslint'],
+  plugins: ['@typescript-eslint', 'simple-import-sort'],
   root: true,
   rules: {
     '@typescript-eslint/explicit-function-return-type': [
@@ -35,6 +35,14 @@ module.exports = {
       },
     ],
     'prefer-promise-reject-errors': 'error',
+    'import/order': 'off',
+    'sort-imports': 'off',
+    'simple-import-sort/imports': [
+      'error',
+      {
+        groups: [['^\\u0000', '^node:', '^@?\\w', '^', '^\\.']],
+      },
+    ],
   },
   overrides: [
     {

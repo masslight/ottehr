@@ -1,62 +1,62 @@
 {
-    "resourceType": "ValueSet",
-    "url": "https://fhir.ottehr.com/ValueSet/procedure-body-sites",
-    "version": "1.0.0",
-    "name": "Procedures - Body site",
-    "status": "active",
-    "expansion": {
-        "timestamp": "2025-06-10T11:36:51.034Z",
-        "contains": [
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "head",
-                "display": "Head"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "face",
-                "display": "Face"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "arm",
-                "display": "Arm"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "leg",
-                "display": "Leg"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "torso",
-                "display": "Torso"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "genital",
-                "display": "Genital"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "ear",
-                "display": "Ear"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "nose",
-                "display": "Nose"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "eye",
-                "display": "Eye"
-            },
-            {
-                "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
-                "code": "other",
-                "display": "Other"
-            }
-        ]
-    }
+  "resourceType": "ValueSet",
+  "url": "https://fhir.ottehr.com/ValueSet/procedure-body-sites",
+  "version": "1.0.0",
+  "name": "Procedures - Body site",
+  "status": "active",
+  "expansion": {
+    "timestamp": "2025-06-10T11:36:51.034Z",
+    "contains": [
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "head",
+        "display": "Head"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "face",
+        "display": "Face"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "arm",
+        "display": "Arm"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "leg",
+        "display": "Leg"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "torso",
+        "display": "Torso"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "genital",
+        "display": "Genital"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "ear",
+        "display": "Ear"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "nose",
+        "display": "Nose"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "eye",
+        "display": "Eye"
+      },
+      {
+        "system": "https://fhir.ottehr.com/CodeSystem/procedure-body-sites",
+        "code": "other",
+        "display": "Other"
+      }
+    ]
+  }
 }

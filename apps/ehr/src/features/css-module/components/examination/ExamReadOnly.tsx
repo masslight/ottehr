@@ -1,8 +1,8 @@
-import React, { FC } from 'react';
 import { Box } from '@mui/material';
+import React, { FC } from 'react';
+import { IN_PERSON_EXAM_CARDS, inPersonExamObservationFieldsDetailsArray } from 'utils';
 import { AccordionCard, useInPersonExamObservationsStore } from '../../../../telemed';
 import { ExamReviewComment, ExamReviewGroup } from '../../../../telemed/features/appointment/ReviewTab';
-import { IN_PERSON_EXAM_CARDS, inPersonExamObservationFieldsDetailsArray } from 'utils';
 
 export const ExamReadOnly: FC = () => {
   return (

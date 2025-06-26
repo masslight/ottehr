@@ -18,10 +18,12 @@ import {
   AppointmentRelatedResources,
   appointmentTypeForAppointment,
   flattenItems,
+  GetAppointmentsZambdaInput,
   getChatContainsUnreadMessages,
   getMiddleName,
   getPatientFirstName,
   getPatientLastName,
+  getSecret,
   getSMSNumberForIndividual,
   getUnconfirmedDOBForAppointment,
   getVisitStatus,
@@ -32,6 +34,7 @@ import {
   PHOTO_ID_CARD_CODE,
   ROOM_EXTENSION_URL,
   Secrets,
+  SecretsKeys,
   SMSModel,
   SMSRecipient,
   ZAP_SMS_MEDIUM_CODE,
@@ -57,16 +60,11 @@ import {
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-export interface GetAppointmentsInput {
-  searchDate: string;
-  locationID?: string;
-  providerIDs?: string[];
-  groupIDs?: string[];
-  visitType: string[];
+export interface GetAppointmentsZambdaInputValidated extends GetAppointmentsZambdaInput {
   secrets: Secrets | null;
 }
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -85,8 +83,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     console.time('get_active_encounters + get_appointment_data');
 
@@ -530,7 +528,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-get-appointments', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-appointments', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: 'Error getting patient appointments' }),

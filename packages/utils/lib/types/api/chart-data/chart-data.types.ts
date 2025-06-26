@@ -15,6 +15,7 @@ import {
   Resource,
   ServiceRequest,
 } from 'fhir/r4b';
+import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 import {
   AiObservationField,
   ASQ_FIELD,
@@ -36,7 +37,6 @@ import {
   InPersonExamCardsNames,
   InPersonExamFieldsNames,
 } from './save-chart-data.types';
-import { EncounterExternalLabResult, EncounterInHouseLabResult } from '../lab';
 
 export interface ChartDataFields {
   chiefComplaint?: FreeTextNoteDTO;

@@ -1,19 +1,19 @@
-import React from 'react';
 import {
-  TextField,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  FormHelperText,
-  Skeleton,
   Autocomplete,
+  FormControl,
+  FormHelperText,
+  InputLabel,
+  MenuItem,
+  Select,
+  Skeleton,
+  TextField,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
-import { MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
-import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
+import React from 'react';
+import { IN_HOUSE_CONTAINED_MEDICATION_ID, MedicationData, REQUIRED_FIELD_ERROR_MESSAGE } from 'utils';
 import { dataTestIds } from '../../../../../constants/data-test-ids';
+import { OrderFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { InHouseMedicationFieldType, medicationOrderFieldsWithOptions } from './utils';
 
 interface MedicationCardFieldProps {
   field: keyof MedicationData;
@@ -68,17 +68,19 @@ export const MedicationCardField: React.FC<MedicationCardFieldProps> = ({
     const mappedLabel = label === 'medicationId' ? 'Medication' : label;
 
     const options = selectsOptions[field as keyof OrderFieldsSelectsOptions].options;
+    const foundOption =
+      options.find((option) => option.value === value) ?? options.find((option) => option.value === '');
     const isOptionsLoaded = selectsOptions[field as keyof OrderFieldsSelectsOptions].status === 'loaded';
-    const currentValue = renderValue
-      ? options.find((option) => option.label === renderValue)
-      : options.find((option) => option.value === value);
+    const currentValue = renderValue ? { value: IN_HOUSE_CONTAINED_MEDICATION_ID, label: renderValue } : foundOption;
 
     const autocomplete = isOptionsLoaded ? (
       <Autocomplete
         disabled={!isOptionsLoaded}
         options={options}
-        isOptionEqualToValue={(option, value) => option.value === value.value}
-        value={currentValue ?? null}
+        isOptionEqualToValue={(option, value) =>
+          option.value === value.value || value.value === IN_HOUSE_CONTAINED_MEDICATION_ID
+        }
+        value={currentValue}
         getOptionLabel={(option) => option.label}
         onChange={(_e, val) => handleChange(val?.value)}
         renderInput={(params) => (

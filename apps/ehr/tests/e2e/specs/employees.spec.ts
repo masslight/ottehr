@@ -1,15 +1,15 @@
 import { expect, Page, test } from '@playwright/test';
+import { DateTime } from 'luxon';
+import { AVAILABLE_EMPLOYEE_ROLES, PractitionerQualificationCode, RoleType } from 'utils';
 import { dataTestIds } from '../../../src/constants/data-test-ids';
-import { ResourceHandler } from '../../e2e-utils/resource-handler';
+import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
 import {
   TEST_EMPLOYEE_1_UPDATED_INFO,
   TestEmployee,
   testEmployeeGivenNamePattern,
   TestEmployeeInviteParams,
 } from '../../e2e-utils/resource/employees';
-import { AVAILABLE_EMPLOYEE_ROLES, PractitionerQualificationCode, RoleType } from 'utils';
-import { waitForSnackbar } from '../../e2e-utils/helpers/tests-utils';
-import { DateTime } from 'luxon';
+import { ResourceHandler } from '../../e2e-utils/resource-handler';
 
 // We may create new instances for the tests with mutable operations, and keep parallel tests isolated
 const PROCESS_ID = `employees.spec.ts-${DateTime.now().toMillis()}`;

@@ -20,6 +20,7 @@ import {
 import Oystehr from '@oystehr/sdk';
 import { Location, Patient, Person, RelatedPerson, Schedule, Slot } from 'fhir/r4b';
 import { DateTime } from 'luxon';
+import { enqueueSnackbar } from 'notistack';
 import { useEffect, useState } from 'react';
 import { PatternFormat } from 'react-number-format';
 import { useNavigate } from 'react-router-dom';
@@ -48,7 +49,6 @@ import { dataTestIds } from '../constants/data-test-ids';
 import { useApiClients } from '../hooks/useAppClients';
 import PageContainer from '../layout/PageContainer';
 import { EmailUserValue, PersonSex, VisitType } from '../types/types';
-import { enqueueSnackbar } from 'notistack';
 
 const mapSelectedPatientEmailUser = (selectedPatientEmailUser: string | undefined): EmailUserValue | undefined => {
   if (!selectedPatientEmailUser) {
@@ -295,7 +295,6 @@ export default function AddPatient(): JSX.Element {
           },
           {
             name: '_include',
-            // cSpell:disable-next relatedperson
             value: 'Person:relatedperson',
           },
           {

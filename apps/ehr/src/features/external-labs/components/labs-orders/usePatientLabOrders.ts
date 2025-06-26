@@ -1,23 +1,23 @@
-import { useCallback, useState, ReactElement, useMemo, useRef, useEffect } from 'react';
-import {
-  EMPTY_PAGINATION,
-  LabOrderDTO,
-  DEFAULT_LABS_ITEMS_PER_PAGE,
-  GetLabOrdersParameters,
-  DeleteLabOrderParams,
-  LabOrdersSearchBy,
-  TaskReviewedParameters,
-  SpecimenDateChangedParameters,
-  tryFormatDateToISO,
-  PatientLabItem,
-  PaginatedResponse,
-} from 'utils';
-import { useApiClients } from '../../../../hooks/useAppClients';
-import { getExternalLabOrders, deleteLabOrder, updateLabOrderResources } from '../../../../api/api';
 import { DateTime } from 'luxon';
-import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
-import { getExternalLabOrdersUrl } from 'src/features/css-module/routing/helpers';
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getExternalLabOrdersUrl } from 'src/features/css-module/routing/helpers';
+import {
+  DEFAULT_LABS_ITEMS_PER_PAGE,
+  DeleteLabOrderZambdaInput,
+  EMPTY_PAGINATION,
+  GetLabOrdersParameters,
+  LabOrderDTO,
+  LabOrdersSearchBy,
+  PaginatedResponse,
+  PatientLabItem,
+  SpecimenDateChangedParameters,
+  TaskReviewedParameters,
+  tryFormatDateToISO,
+} from 'utils';
+import { deleteLabOrder, getExternalLabOrders, updateLabOrderResources } from '../../../../api/api';
+import { useApiClients } from '../../../../hooks/useAppClients';
+import { useDeleteCommonLabOrderDialog } from '../../../common/useDeleteCommonLabOrderDialog';
 
 interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   labOrders: LabOrderDTO<SearchBy>[];
@@ -34,7 +34,7 @@ interface UsePatientLabOrdersResult<SearchBy extends LabOrdersSearchBy> {
   visitDateFilter: DateTime | null;
   fetchLabOrders: (params: GetLabOrdersParameters) => Promise<void>;
   showPagination: boolean;
-  deleteLabOrder: (params: DeleteLabOrderParams) => Promise<boolean>;
+  deleteLabOrder: (params: DeleteLabOrderZambdaInput) => Promise<boolean>;
   showDeleteLabOrderDialog: ({
     serviceRequestId,
     testItemName,
@@ -177,7 +177,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
   }, [fetchLabOrders, page, memoizedSearchBy]);
 
   const handleDeleteLabOrder = useCallback(
-    async ({ serviceRequestId }: DeleteLabOrderParams): Promise<boolean> => {
+    async ({ serviceRequestId }: DeleteLabOrderZambdaInput): Promise<boolean> => {
       if (!serviceRequestId) {
         console.error('Cannot delete lab order: Missing service request ID');
         setError(new Error('Missing service request ID'));
@@ -194,7 +194,7 @@ export const usePatientLabOrders = <SearchBy extends LabOrdersSearchBy>(
       setError(null);
 
       try {
-        const deleteParams: DeleteLabOrderParams = {
+        const deleteParams: DeleteLabOrderZambdaInput = {
           serviceRequestId,
         };
 

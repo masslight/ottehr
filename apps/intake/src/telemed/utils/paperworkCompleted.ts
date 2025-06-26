@@ -1,5 +1,5 @@
 import { FormInputType } from 'ui-components';
-import { FileURLs, PaperworkPage, Question, SCHOOL_WORK_NOTE, checkEnable } from 'utils';
+import { checkEnable, FileURLs, PaperworkPage, Question, SCHOOL_WORK_NOTE } from 'utils';
 
 interface CompletedPaperwork {
   [fieldName: string]: any;
