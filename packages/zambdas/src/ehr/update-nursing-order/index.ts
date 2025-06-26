@@ -9,6 +9,8 @@ import {
   SecretsKeys,
   UpdateNursingOrderInputValidated,
 } from 'utils';
+import { ZodError } from 'zod';
+import { fromZodError } from 'zod-validation-error';
 import { getMyPractitionerId, topLevelCatch, ZambdaInput } from '../../shared';
 import { checkOrCreateM2MClientToken, createOystehrClient } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
@@ -24,11 +26,19 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   try {
     validatedParameters = validateRequestParameters(input);
   } catch (error: any) {
+    let message = 'Invalid request parameters.';
+
+    if (error instanceof ZodError) {
+      message = fromZodError(error).message;
+    } else if (error instanceof Error) {
+      message += ` ${error.message}`;
+    } else if (typeof error === 'string') {
+      message += ` ${error}`;
+    }
+
     return {
       statusCode: 400,
-      body: JSON.stringify({
-        message: `Invalid request parameters. ${error.message || error}`,
-      }),
+      body: JSON.stringify({ message }),
     };
   }
 
@@ -72,29 +82,32 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       userPractitionerIdRequest(),
     ]);
 
-    const { serviceReqestSearchResults, taskSerchResults } = orderResources.reduce(
+    const { serviceRequestSearchResults, taskSearchResults } = orderResources.reduce(
       (acc, resource) => {
-        if (resource.resourceType === 'ServiceRequest') acc.serviceReqestSearchResults.push(resource as ServiceRequest);
+        if (resource.resourceType === 'ServiceRequest')
+          acc.serviceRequestSearchResults.push(resource as ServiceRequest);
 
-        if (resource.resourceType === 'Task') acc.taskSerchResults.push(resource as Task);
+        if (resource.resourceType === 'Task') acc.taskSearchResults.push(resource as Task);
 
         return acc;
       },
       {
-        serviceReqestSearchResults: [] as ServiceRequest[],
-        taskSerchResults: [] as Task[],
+        serviceRequestSearchResults: [] as ServiceRequest[],
+        taskSearchResults: [] as Task[],
       }
     );
 
     const serviceRequest = (() => {
-      const targetEncounter = serviceReqestSearchResults.find((serviceReqest) => serviceReqest.id === serviceRequestId);
+      const targetEncounter = serviceRequestSearchResults.find(
+        (serviceRequest) => serviceRequest.id === serviceRequestId
+      );
       if (!targetEncounter) throw Error('Encounter not found');
       return targetEncounter;
     })();
 
     const locationRef: string | undefined = serviceRequest.locationReference?.[0].reference;
 
-    const relatedTask = taskSerchResults[0];
+    const relatedTask = taskSearchResults[0];
     if (!relatedTask.id) throw Error('related Task not found');
 
     const taskStatus = getTaskStatusForAction(action);

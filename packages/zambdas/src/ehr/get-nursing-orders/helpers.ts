@@ -91,7 +91,7 @@ const parseOrderData = ({
   return listDTO;
 };
 
-export const getNoursingOrderResources = async (
+export const getNursingOrderResources = async (
   oystehr: Oystehr,
   params: GetNursingOrdersInputValidated
 ): Promise<{
