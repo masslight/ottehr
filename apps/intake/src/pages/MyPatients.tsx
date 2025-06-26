@@ -5,12 +5,13 @@ import { useMemo, useState } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { useQuery } from 'react-query';
 import { generatePath, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom';
-import { ErrorDialog, useUCZambdaClient } from 'ui-components';
 import { APIError, getPatientInfoFullName, isApiError, PatientInfo } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
+import { ErrorDialog } from '../components/ErrorDialog';
 import PatientList from '../features/patients/components/selectable-list';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 const MyPatients = (): JSX.Element => {
   const navigate = useNavigate();

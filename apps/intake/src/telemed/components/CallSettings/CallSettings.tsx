@@ -1,8 +1,8 @@
 import { Box, Button, Typography } from '@mui/material';
 import { ConsoleLogger, DefaultDeviceController } from 'amazon-chime-sdk-js';
 import { FC, useCallback, useEffect, useRef, useState } from 'react';
-import { CustomDialog } from 'ui-components';
 import { getSelectors } from 'utils';
+import { CustomDialog } from '../../../components/CustomDialog';
 import { useIntakeCommonStore } from '../../features/common';
 import { useCallSettingsStore } from '../../features/video-call';
 import { CameraSettings } from './CameraSettings';

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { getZapEHRAPI, useOystehrClient } from 'ui-components';
+import { getZapEHRAPI } from '../../data';
+import { useOystehrClient } from '../../hooks/zambdaClient';
 
 let _apiClient: ReturnType<typeof getZapEHRAPI> | null;
 
