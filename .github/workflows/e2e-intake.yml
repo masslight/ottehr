@@ -274,7 +274,7 @@ jobs:
             exit 1
           fi
           
-          ENCRYPTED_CONTENT=$(cat user.json.enc)
+          ENCRYPTED_CONTENT=$(cat user.json.enc | tr -d '\n')
           echo "encrypted_content<<EOF" >> $GITHUB_OUTPUT
           echo "$ENCRYPTED_CONTENT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
