@@ -21,8 +21,6 @@ import {
   PRACTITIONER_CODINGS,
   SecretsKeys,
 } from 'utils';
-import { ZodError } from 'zod';
-import { fromZodError } from 'zod-validation-error';
 import {
   checkOrCreateM2MClientToken,
   createOystehrClient,
@@ -44,19 +42,11 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
   try {
     validatedParameters = validateRequestParameters(input);
   } catch (error: any) {
-    let message = 'Invalid request parameters.';
-
-    if (error instanceof ZodError) {
-      message = fromZodError(error).message;
-    } else if (error instanceof Error) {
-      message += ` ${error.message}`;
-    } else if (typeof error === 'string') {
-      message += ` ${error}`;
-    }
-
     return {
       statusCode: 400,
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message: `Invalid request parameters. ${error.message || error}`,
+      }),
     };
   }
 
