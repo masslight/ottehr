@@ -12,7 +12,6 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import {
   configSentry,
   createOystehrClient,
