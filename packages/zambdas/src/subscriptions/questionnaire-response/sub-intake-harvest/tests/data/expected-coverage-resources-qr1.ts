@@ -7,7 +7,7 @@ export const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
   name: [
     {
       given: ['Barnabas', 'Thaddeus'],
-      family: 'Picklesworth',
+      family: 'PicklesWorth',
     },
   ],
   birthDate: '1982-02-23',
@@ -27,7 +27,7 @@ export const expectedPrimaryPolicyHolderFromQR1: RelatedPerson = {
   address: [
     {
       line: ['317 Mustard Street', 'Unit 2'],
-      city: 'Deliciousville',
+      city: 'DeliciousVilla',
       state: 'DE',
       postalCode: '20001',
     },
@@ -40,7 +40,7 @@ export const expectedSecondaryPolicyHolderFromQR1: RelatedPerson = {
   name: [
     {
       given: ['Jennifer', 'Celeste'],
-      family: 'Picklesworth',
+      family: 'PicklesWorth',
     },
   ],
   birthDate: '1983-02-23',
@@ -76,7 +76,7 @@ export const expectedAccountGuarantorFromQR1: RelatedPerson = {
   patient: { reference: '{{PATIENT_REF}}' }, // newPatient1
   address: [
     {
-      city: 'fakeplace',
+      city: 'fakePlace',
       line: ['123 test lane'],
       postalCode: '11111',
       state: 'NY',
@@ -165,7 +165,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     identifier: [
       {
         ...COVERAGE_MEMBER_IDENTIFIER_BASE, // this holds the 'type'
-        value: 'fdfdfdfdfdfh7897',
+        value: 'FdfDfdFdfDfh7897',
         assigner: {
           reference: '{{ORGANIZATION_REF}}',
           display: 'Aetna',
@@ -176,7 +176,7 @@ export const expectedCoverageResources: { primary: Coverage; secondary: Coverage
     status: 'active',
     beneficiary: { reference: '{{PATIENT_REF}}', type: 'Patient' },
     payor: [{ reference: '{{ORGANIZATION_REF}}' }],
-    subscriberId: 'fdfdfdfdfdfh7897',
+    subscriberId: 'FdfDfdFdfDfh7897',
     subscriber: { reference: '#coverageSubscriber' },
     relationship: {
       coding: [

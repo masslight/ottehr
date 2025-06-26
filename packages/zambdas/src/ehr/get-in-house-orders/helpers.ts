@@ -32,10 +32,9 @@ import {
   LabResultPDF,
   Pagination,
   PRACTITIONER_CODINGS,
-  Secrets,
   TestStatus,
 } from 'utils';
-import { captureSentryException, createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
+import { createOystehrClient, getMyPractitionerId, sendErrors } from '../../shared';
 import {
   buildOrderHistory,
   determineOrderStatus,
@@ -67,7 +66,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
   observations: Observation[],
   diagnosticReports: DiagnosticReport[],
   resultsPDFs: LabResultPDF[],
-  secrets: Secrets | null,
+  ENVIRONMENT: string,
   currentPractitioner?: Practitioner,
   timezone?: string
 ): InHouseGetOrdersResponseDTO<SearchBy>['data'] => {
@@ -111,7 +110,7 @@ export const mapResourcesToInHouseOrderDTOs = <SearchBy extends InHouseOrdersSea
       );
     } catch (error) {
       console.error(`Error parsing order data for service request ${serviceRequest.id}:`, error, JSON.stringify(error));
-      void sendErrors('get-in-house-orders', error, secrets, captureSentryException);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
 
@@ -245,7 +244,7 @@ export const getInHouseResources = async (
   params: GetZambdaInHouseOrdersParams,
   searchBy: InHouseOrdersSearchBy,
   userToken: string,
-  m2mtoken: string
+  m2mToken: string
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -320,7 +319,7 @@ export const getInHouseResources = async (
 
     if (diagnosticReports.length > 0) {
       const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
-      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mtoken);
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mToken);
       if (pdfs) resultsPDFs = pdfs.resultPDFs;
     }
   }

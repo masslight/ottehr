@@ -1,7 +1,7 @@
 {
   "name": "ui-components",
   "private": true,
-  "version": "1.11.20",
+  "version": "1.12.2",
   "main": "lib/main.ts",
   "types": "lib/main.ts",
   "engines": {
@@ -13,7 +13,6 @@
     "build": "tsc && vite build",
     "lint": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 .",
     "lint:fix": "NODE_OPTIONS='--max-old-space-size=8192' eslint --ext .ts,.tsx,.js,.jsx --report-unused-disable-directives --max-warnings 0 --fix .",
-    "prettier": "prettier --write .",
     "preview": "vite preview",
     "test": "vitest --silent",
     "coverage": "vitest run --coverage"

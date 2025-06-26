@@ -14,16 +14,16 @@ export interface GetOrUploadPatientProfilePhotoZambdaInputValidated extends GetO
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const { secrets, patientID, action, z3PhotoUrl } = validateRequestParameters(input);
     logIt(`Parameters VALIDATED patId=[${patientID}] :: action=[${action}]`);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     logIt(`Got m2mToken`);
 
-    const token = m2mtoken;
+    const token = m2mToken;
 
     let resolvedPresignedUrl = undefined;
     let resolvedZ3ImageFileUrl = undefined;
@@ -54,7 +54,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('update-patient-profile-photo', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('update-patient-profile-photo', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ error: error.message }),

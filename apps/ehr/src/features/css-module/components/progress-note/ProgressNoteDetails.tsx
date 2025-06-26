@@ -109,7 +109,7 @@ export const ProgressNoteDetails: FC = () => {
     showCptCodes && <CPTCodesContainer />,
     showInHouseLabsResultsContainer && (
       <LabResultsReviewContainer
-        resultDetails={{ type: LabType.inhouse, results: inHouseLabResults.labOrderResults }}
+        resultDetails={{ type: LabType.inHouse, results: inHouseLabResults.labOrderResults }}
         resultsPending={inHouseLabResults.resultsPending}
       />
     ),

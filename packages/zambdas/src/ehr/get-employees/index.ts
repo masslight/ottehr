@@ -8,11 +8,13 @@ import {
   GetEmployeesResponse,
   getProviderNotificationSettingsForPractitioner,
   getResourcesFromBatchInlineRequests,
+  getSecret,
   PractitionerLicense,
   PractitionerQualificationCode,
   PromiseInnerType,
   RoleType,
   Secrets,
+  SecretsKeys,
   standardizePhoneNumber,
 } from 'utils';
 import { getAuth0Token, getRoleMembers, lambdaResponse, topLevelCatch, ZambdaInput } from '../../shared';
@@ -144,7 +146,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     return lambdaResponse(200, response);
   } catch (error: any) {
-    await topLevelCatch('admin-get-employee-details', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-employee-details', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return lambdaResponse(500, error.message);
   }

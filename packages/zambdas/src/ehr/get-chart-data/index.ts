@@ -17,17 +17,17 @@ import {
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
     const { encounterId, secrets, requestedFields } = validateRequestParameters(input);
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const output = (await getChartData(oystehr, m2mtoken, encounterId, requestedFields)).response;
+    const output = (await getChartData(oystehr, m2mToken, encounterId, requestedFields)).response;
 
     return {
       body: JSON.stringify(output),
@@ -44,7 +44,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
 export async function getChartData(
   oystehr: Oystehr,
-  m2mtoken: string,
+  m2mToken: string,
   encounterId: string,
   requestedFields?: ChartDataRequestedFields
 ): Promise<{
@@ -222,7 +222,7 @@ export async function getChartData(
   console.timeLog('check', 'after fetch, before converting chart data to response');
   const chartDataResult = await convertSearchResultsToResponse(
     result,
-    m2mtoken,
+    m2mToken,
     patient.id!,
     encounterId,
     requestedFields ? (Object.keys(requestedFields) as (keyof ChartDataFields)[]) : undefined

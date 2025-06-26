@@ -6,6 +6,7 @@ import {
   AUDIT_EVENT_OUTCOME_CODE,
   checkBundleOutcomeOk,
   FHIR_RESOURCE_NOT_FOUND,
+  getSecret,
   getVersionedReferencesFromBundleResources,
   INVALID_RESOURCE_ID_ERROR,
   isValidUUID,
@@ -13,11 +14,12 @@ import {
   MISSING_REQUIRED_PARAMETERS,
   NOT_AUTHORIZED,
   Secrets,
+  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../../shared';
 import { getAccountAndCoverageResourcesForPatient } from '../../shared/harvest';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -26,8 +28,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.groupEnd();
     console.debug('validateRequestParameters success');
     const { secrets } = validatedParameters;
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const effectInput = await complexValidation(validatedParameters, oystehr);
 
@@ -39,7 +41,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.log('Error: ', JSON.stringify(error.message));
-    return topLevelCatch('remove-coverage', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('remove-coverage', error, ENVIRONMENT);
   }
 };
 

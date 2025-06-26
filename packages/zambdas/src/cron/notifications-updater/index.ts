@@ -10,6 +10,7 @@ import {
   getPatchBinary,
   getPatchOperationForNewMetaTag,
   getProviderNotificationSettingsForPractitioner,
+  getSecret,
   mapStatusToTelemed,
   OTTEHR_MODULE,
   PROVIDER_NOTIFICATION_TAG_SYSTEM,
@@ -18,6 +19,7 @@ import {
   ProviderNotificationSettings,
   RoleType,
   Secrets,
+  SecretsKeys,
   TelemedAppointmentStatus,
   TelemedAppointmentStatusEnum,
 } from 'utils';
@@ -40,7 +42,7 @@ export function validateRequestParameters(input: ZambdaInput): { secrets: Secret
 }
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   const sendSMSPractitionerCommunications: {
@@ -86,8 +88,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     console.log('Created zapToken and fhir client');
 
     const [readyOrUnsignedVisitPackages, assignedOrInProgressVisitPackages, statePractitionerMap] = await Promise.all([
@@ -447,7 +449,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: 'Successfully processed provider notifications',
     };
   } catch (error: any) {
-    await topLevelCatch('Notification-updater', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('Notification-updater', error, ENVIRONMENT);
     console.log('Error: ', JSON.stringify(error.message));
     return {
       statusCode: 500,

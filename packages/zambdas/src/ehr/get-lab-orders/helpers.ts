@@ -49,10 +49,9 @@ import {
   QuestionnaireData,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
   sampleDTO,
-  Secrets,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
-import { captureSentryException, sendErrors } from '../../shared';
+import { sendErrors } from '../../shared';
 import { fetchLabOrderPDFsPresignedUrls } from '../shared/labs';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 
@@ -77,7 +76,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   resultPDFs: LabResultPDF[],
   orderPDF: LabOrderPDF | undefined,
   specimens: Specimen[],
-  secrets: Secrets | null
+  ENVIRONMENT: string
 ): LabOrderDTO<SearchBy>[] => {
   console.log('mapResourcesToLabOrderDTOs');
   const result: LabOrderDTO<SearchBy>[] = [];
@@ -114,7 +113,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
       );
     } catch (error) {
       console.error(`Error parsing service request ${serviceRequest.id}:`, error);
-      void sendErrors('get-lab-orders', error, secrets, captureSentryException);
+      void sendErrors(error, ENVIRONMENT);
     }
   }
   return result;
@@ -389,7 +388,7 @@ export const parseResults = (
 export const getLabResources = async (
   oystehr: Oystehr,
   params: GetZambdaLabOrdersParams,
-  m2mtoken: string,
+  m2mToken: string,
   searchBy: LabOrdersSearchBy
 ): Promise<{
   serviceRequests: ServiceRequest[];
@@ -475,7 +474,7 @@ export const getLabResources = async (
       fetchAppointmentsForServiceRequests(oystehr, serviceRequests, encounters),
       fetchFinalAndPrelimAndCorrectedTasks(oystehr, diagnosticReports),
       executeByCondition(isDetailPageRequest, () =>
-        fetchQuestionnaireForServiceRequests(m2mtoken, serviceRequests, questionnaireResponses)
+        fetchQuestionnaireForServiceRequests(m2mToken, serviceRequests, questionnaireResponses)
       ),
     ]);
 
@@ -484,7 +483,7 @@ export const getLabResources = async (
   let resultPDFs: LabResultPDF[] = [];
   let orderPDF: LabOrderPDF | undefined;
   if (isDetailPageRequest) {
-    const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mtoken);
+    const pdfs = await fetchLabOrderPDFsPresignedUrls(documentReferences, m2mToken);
     if (pdfs) {
       resultPDFs = pdfs.resultPDFs;
       orderPDF = pdfs.orderPDF;
@@ -717,7 +716,7 @@ export const extractLabResources = (
       specimens.push(resource);
     } else if (resource.resourceType === 'Practitioner') {
       practitioners.push(resource);
-    } else if (resource.resourceType === 'DocumentReference') {
+    } else if (resource.resourceType === 'DocumentReference' && resource.status === 'current') {
       documentReferences.push(resource);
     }
   }
@@ -901,7 +900,7 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
 };
 
 export const fetchQuestionnaireForServiceRequests = async (
-  m2mtoken: string,
+  m2mToken: string,
   serviceRequests: ServiceRequest[],
   questionnaireResponses: QuestionnaireResponse[]
 ): Promise<QuestionnaireData[]> => {
@@ -932,7 +931,7 @@ export const fetchQuestionnaireForServiceRequests = async (
     results.map(async (result) => {
       const questionnaireRequest = await fetch(result.questionnaireUrl, {
         headers: {
-          Authorization: `Bearer ${m2mtoken}`,
+          Authorization: `Bearer ${m2mToken}`,
         },
       });
 

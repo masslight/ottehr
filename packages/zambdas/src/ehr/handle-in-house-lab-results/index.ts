@@ -28,6 +28,7 @@ import {
   extractAbnormalValueSetValues,
   extractQuantityRange,
   getFullestAvailableName,
+  getSecret,
   HandleInHouseLabResultsZambdaOutput,
   IN_HOUSE_DIAGNOSTIC_REPORT_CATEGORY_CONFIG,
   IN_HOUSE_LAB_OD_NULL_OPTION_CONFIG,
@@ -38,6 +39,7 @@ import {
   NORMAL_OBSERVATION_INTERPRETATION,
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   ResultEntryInput,
+  SecretsKeys,
 } from 'utils';
 import {
   checkOrCreateM2MClientToken,
@@ -54,7 +56,7 @@ import {
 } from '../shared/inhouse-labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -64,10 +66,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.log('validateRequestParameters success');
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
     const curUserPractitionerId = await getMyPractitionerId(oystehrCurrentUser);
 
@@ -146,7 +148,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         observations,
         diagnosticReport,
         secrets,
-        m2mtoken,
+        m2mToken,
         activityDefinition,
         serviceRequestsRelatedViaRepeat,
         specimen
@@ -164,7 +166,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     };
   } catch (error: any) {
     console.error('Error handling in-house lab results:', error);
-    await topLevelCatch('handle-in-house-lab-results', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('handle-in-house-lab-results', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

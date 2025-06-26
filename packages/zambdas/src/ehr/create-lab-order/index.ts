@@ -26,6 +26,7 @@ import {
   EXTERNAL_LAB_ERROR,
   FHIR_IDC10_VALUESET_SYSTEM,
   flattenBundleResources,
+  getSecret,
   isApiError,
   LAB_ORDER_TASK,
   OrderableItemSearchResult,
@@ -34,6 +35,7 @@ import {
   PROVENANCE_ACTIVITY_CODING_ENTITY,
   PSC_HOLD_CONFIG,
   RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  SecretsKeys,
   SPECIMEN_CODING_CONFIG,
 } from 'utils';
 import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch } from '../../shared';
@@ -42,7 +44,7 @@ import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -52,8 +54,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const userToken = input.headers.Authorization.replace('Bearer ', '');
     const oystehrCurrentUser = createOystehrClient(userToken, secrets);
@@ -282,7 +284,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    await topLevelCatch('admin-create-lab-order', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-create-lab-order', error, ENVIRONMENT);
     let body = JSON.stringify({ message: `Error creating external lab order: ${error}` });
     if (isApiError(error)) {
       const { code, message } = error as APIError;

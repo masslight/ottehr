@@ -9,14 +9,16 @@ import {
   getPatientFirstName,
   getPatientLastName,
   getPresignedURL,
+  getSecret,
   isApiError,
+  SecretsKeys,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { createVisitLabelPDF, VISIT_LABEL_DOC_REF_DOCTYPE, VisitLabelConfig } from '../../shared/pdf/visit-label-pdf';
 import { validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -25,10 +27,10 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const { encounterId, secrets } = validateRequestParameters(input);
 
     console.log('Getting token');
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    console.log('token', m2mtoken);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    console.log('token', m2mToken);
 
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const labelDocRefs = (
       await oystehr.fhir.search<DocumentReference>({
@@ -94,7 +96,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         labelConfig,
         encounterId,
         secrets,
-        m2mtoken,
+        m2mToken,
         oystehr
       );
 
@@ -117,7 +119,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
         body: JSON.stringify([
           {
             documentReference: labelDocRef,
-            presignedURL: await getPresignedURL(url, m2mtoken),
+            presignedURL: await getPresignedURL(url, m2mToken),
           },
         ]),
         statusCode: 200,
@@ -127,7 +129,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     throw new Error(`Got ${labelDocRefs.length} docRefs for Encounter/${encounterId}. Expected 0 or 1`);
   } catch (error: any) {
     console.error('get or create visit label pdf error:', JSON.stringify(error));
-    await topLevelCatch('admin-get-or-create-visit-label-pdf', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('admin-get-or-create-visit-label-pdf', error, ENVIRONMENT);
     let body = JSON.stringify({ message: 'Error fetching or creating visit label pdf' });
     if (isApiError(error)) {
       const { code, message } = error as APIError;

@@ -4,15 +4,16 @@ import { Appointment as FhirAppointment, Encounter, Location, Patient, Questionn
 import { DateTime } from 'luxon';
 import {
   getPatientsForUser,
+  getSecret,
   getVisitStatus,
   NO_READ_ACCESS_TO_PATIENT_ERROR,
   Secrets,
+  SecretsKeys,
   SLUG_SYSTEM,
   VisitStatusLabel,
 } from 'utils';
 import { isNonPaperworkQuestionnaireResponse } from '../../../common';
 import {
-  captureSentryException,
   checkPaperworkComplete,
   configSentry,
   createOystehrClient,
@@ -227,6 +228,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       body: JSON.stringify(response),
     };
   } catch (error: any) {
-    return topLevelCatch('get-appointments', error, input.secrets, captureSentryException);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    return topLevelCatch('get-appointments', error, ENVIRONMENT, true);
   }
 });

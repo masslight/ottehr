@@ -1,11 +1,11 @@
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { EMPTY_PAGINATION } from 'utils';
+import { EMPTY_PAGINATION, getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { getLabResources, mapResourcesToLabOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
@@ -16,8 +16,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     console.groupEnd();
     console.debug('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const {
       serviceRequests,
@@ -35,7 +35,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       orderPDF,
       specimens,
       patientLabItems,
-    } = await getLabResources(oystehr, validatedParameters, m2mtoken, {
+    } = await getLabResources(oystehr, validatedParameters, m2mToken, {
       searchBy: validatedParameters.searchBy,
     });
 
@@ -50,6 +50,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
 
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, secrets);
     const labOrders = mapResourcesToLabOrderDTOs(
       { searchBy },
       serviceRequests,
@@ -65,7 +66,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       resultPDFs,
       orderPDF,
       specimens,
-      secrets
+      ENVIRONMENT
     );
 
     return {
@@ -77,7 +78,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       }),
     };
   } catch (error: any) {
-    await topLevelCatch('get-lab-orders', error, input.secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('get-lab-orders', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({ message: `Error fetching external lab orders: ${error}` }),

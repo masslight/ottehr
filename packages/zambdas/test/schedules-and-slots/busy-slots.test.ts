@@ -188,7 +188,7 @@ describe('busy slots tests', () => {
     const ownerLocation: Location = {
       resourceType: 'Location',
       status: 'active',
-      name: 'BusySlotsTestLcocation',
+      name: 'BusySlotsTestLocation',
       description: 'We only just met but I will be gone soon',
       address: {
         use: 'work',
@@ -344,7 +344,7 @@ describe('busy slots tests', () => {
     const ownerLocation: Location = {
       resourceType: 'Location',
       status: 'active',
-      name: 'BusySlotsTestLcocation',
+      name: 'BusySlotsTestLocation',
       description: 'We only just met but I will be gone soon',
       address: {
         use: 'work',
@@ -460,7 +460,7 @@ describe('busy slots tests', () => {
     const ownerLocation: Location = {
       resourceType: 'Location',
       status: 'active',
-      name: 'BusySlotsTestLcocation',
+      name: 'BusySlotsTestLocation',
       description: 'We only just met but I will be gone soon',
       address: {
         use: 'work',

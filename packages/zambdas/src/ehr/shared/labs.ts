@@ -274,7 +274,7 @@ export const getPrimaryInsurance = (account: Account, coverages: Coverage[]): Co
 
 export const makeEncounterLabResults = async (
   resources: FhirResource[],
-  m2mtoken: string
+  m2mToken: string
 ): Promise<{
   externalLabResultConfig: EncounterExternalLabResult;
   inHouseLabResultConfig: EncounterInHouseLabResult;
@@ -296,7 +296,7 @@ export const makeEncounterLabResults = async (
       if (isExternalLabServiceRequest || isInHouseLabServiceRequest) {
         serviceRequestMap[`ServiceRequest/${resource.id}`] = {
           resource: resource as ServiceRequest,
-          type: isExternalLabServiceRequest ? LabType.external : LabType.inhouse,
+          type: isExternalLabServiceRequest ? LabType.external : LabType.inHouse,
         };
         if (resource.status === 'active') {
           if (isExternalLabServiceRequest) activeExternalLabServiceRequests.push(resource);
@@ -352,7 +352,7 @@ export const makeEncounterLabResults = async (
             formattedName = nameLabTest(reflexTestName, labName, true);
           }
 
-          const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mtoken, {
+          const { externalResultConfigs } = await getLabOrderResultPDFConfig(docRef, formattedName, m2mToken, {
             type: LabType.external,
             orderNumber,
           });
@@ -361,14 +361,14 @@ export const makeEncounterLabResults = async (
           } else {
             externalLabOrderResults.push(...externalResultConfigs);
           }
-        } else if (relatedSRDetail.type === LabType.inhouse) {
+        } else if (relatedSRDetail.type === LabType.inHouse) {
           const sr = relatedSRDetail.resource;
           const testName = sr.code?.text;
           const { inHouseResultConfigs } = await getLabOrderResultPDFConfig(
             docRef,
             testName || 'missing test details',
-            m2mtoken,
-            { type: LabType.inhouse }
+            m2mToken,
+            { type: LabType.inHouse }
           );
           inHouseLabOrderResults.push(...inHouseResultConfigs);
         }
@@ -417,14 +417,14 @@ export const makeEncounterLabResults = async (
 const getLabOrderResultPDFConfig = async (
   docRef: DocumentReference,
   formattedName: string,
-  m2mtoken: string,
+  m2mToken: string,
   resultDetails:
     | {
         type: LabType.external;
         orderNumber?: string;
       }
     | {
-        type: LabType.inhouse;
+        type: LabType.inHouse;
         simpleResultValue?: string; // todo not implemented, displaying this is a post mvp feature
       }
 ): Promise<{ externalResultConfigs: ExternalLabOrderResultConfig[]; inHouseResultConfigs: InHouseLabResult[] }> => {
@@ -433,7 +433,7 @@ const getLabOrderResultPDFConfig = async (
   for (const content of docRef.content) {
     const z3Url = content.attachment.url;
     if (z3Url) {
-      const url = await getPresignedURL(z3Url, m2mtoken);
+      const url = await getPresignedURL(z3Url, m2mToken);
       if (resultDetails.type === LabType.external) {
         const labResult: ExternalLabOrderResultConfig = {
           name: formattedName,
@@ -441,7 +441,7 @@ const getLabOrderResultPDFConfig = async (
           orderNumber: resultDetails?.orderNumber,
         };
         externalResults.push(labResult);
-      } else if (resultDetails.type === LabType.inhouse) {
+      } else if (resultDetails.type === LabType.inHouse) {
         const labResult: InHouseLabResult = {
           name: formattedName,
           url,
@@ -484,11 +484,11 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-type fetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
+type FetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
 export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
-  m2mtoken: string
-): Promise<fetchLabOrderPDFRes | undefined> => {
+  m2mToken: string
+): Promise<FetchLabOrderPDFRes | undefined> => {
   if (!documentReferences.length) {
     return;
   }
@@ -506,7 +506,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
       const z3Url = content.attachment?.url;
       if (z3Url) {
         pdfPromises.push(
-          getPresignedURL(z3Url, m2mtoken)
+          getPresignedURL(z3Url, m2mToken)
             .then((presignedURL) => {
               if (diagnosticReportId) {
                 return { presignedURL, diagnosticReportId } as LabResultPDF;
@@ -532,7 +532,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
-      (acc: fetchLabOrderPDFRes, result) => {
+      (acc: FetchLabOrderPDFRes, result) => {
         if ('diagnosticReportId' in result.value) {
           acc.resultPDFs.push(result.value);
         } else if ('serviceRequestId' in result.value) {

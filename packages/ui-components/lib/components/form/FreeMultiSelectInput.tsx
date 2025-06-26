@@ -127,6 +127,7 @@ const FreeMultiSelectInput: FC<FreeMultiSelectInputProps> = ({
               onChange={(_, options) => {
                 // The problem is this dictates what renderTags takes, and if we provide only strings then we can't use
                 // the label/value combo like in SelectInput. It might be easier to just send the entire long string to
+                // cSpell:disable-next PTSD
                 // the backend e.g. 'PTSD (Post-traumatic Stress Disorder)'
 
                 if (Array.isArray(options)) {

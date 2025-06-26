@@ -7,9 +7,11 @@ import { DateTime } from 'luxon';
 import {
   CollectInHouseLabSpecimenParameters,
   CollectInHouseLabSpecimenZambdaOutput,
+  getSecret,
   IN_HOUSE_LAB_TASK,
   PRACTITIONER_CODINGS,
   Secrets,
+  SecretsKeys,
   SPECIMEN_COLLECTION_CUSTOM_SOURCE_SYSTEM,
 } from 'utils';
 import {
@@ -20,7 +22,7 @@ import {
   ZambdaInput,
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`collect-in-house-lab-specimen started, input: ${JSON.stringify(input)}`);
@@ -44,8 +46,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const { encounterId, serviceRequestId, data } = validatedParameters;
@@ -210,7 +212,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     console.error('Error collecting in-house lab specimen:', error);
-    await topLevelCatch('collect-in-house-lab-specimen', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('collect-in-house-lab-specimen', error, ENVIRONMENT);
     return {
       statusCode: 500,
       body: JSON.stringify({

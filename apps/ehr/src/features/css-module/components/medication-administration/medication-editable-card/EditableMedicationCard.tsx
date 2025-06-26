@@ -212,7 +212,8 @@ export const EditableMedicationCard: React.FC<{
         }
       });
     }
-  }, [getFieldValue, selectsOptions, type]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>

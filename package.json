@@ -1,6 +1,6 @@
 {
   "name": "ottehr",
-  "version": "1.11.20",
+  "version": "1.12.2",
   "private": true,
   "engines": {
     "node": ">=20.0.0",
@@ -12,8 +12,7 @@
     "lint": "npm run lint:eslint && npm run lint:prettier",
     "lint:eslint": "turbo lint",
     "lint:eslint:fix": "turbo lint:fix",
-    "lint:prettier": "prettier --check .",
-    "lint:fix": "npm run lint:eslint:fix & npm run lint:prettier -- --write",
+    "lint:fix": "npm run lint:eslint:fix",
     "intake:start": "turbo start --filter=intake-ui",
     "intake:e2e:local": "tsx scripts/run-e2e.ts --app=intake",
     "intake:e2e:local:ui": "tsx scripts/run-e2e.ts --app=intake --ui",
@@ -58,7 +57,8 @@
     "apps:start": "turbo start --filter=intake-ui --filter=ehr-ui --filter=zambdas",
     "integration:zambdas": "npm run build && ENV=local && cd packages/zambdas && DEBUG=start-server-and-test && npm run test:integration:ci",
     "test": "turbo test",
-    "prepare": "husky"
+    "prepare": "husky",
+    "spellcheck": "cspell ."
   },
   "workspaces": [
     "packages/**/*",

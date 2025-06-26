@@ -2,10 +2,16 @@ import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Bundle, FhirResource, Provenance, ServiceRequest, Task } from 'fhir/r4b';
-import { DeleteInHouseLabOrderParameters, DeleteInHouseLabOrderZambdaOutput, Secrets } from 'utils';
+import {
+  DeleteInHouseLabOrderParameters,
+  DeleteInHouseLabOrderZambdaOutput,
+  getSecret,
+  Secrets,
+  SecretsKeys,
+} from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mtoken: string;
+let m2mToken: string;
 
 const makeDeleteResourceRequest = (resourceType: string, id: string): BatchInputDeleteRequest => ({
   method: 'DELETE',
@@ -114,8 +120,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
 
     const { serviceRequest, task, provenance } = await getInHouseLabOrderRelatedResources(oystehr, serviceRequestId);
 
@@ -172,7 +178,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     };
   } catch (error: any) {
     console.error('Error deleting in-house lab order:', error);
-    await topLevelCatch('delete-in-house-lab-order', error, secrets);
+    const ENVIRONMENT = getSecret(SecretsKeys.ENVIRONMENT, input.secrets);
+    await topLevelCatch('delete-in-house-lab-order', error, ENVIRONMENT);
     return {
       statusCode: error.statusCode || 500,
       body: JSON.stringify({
