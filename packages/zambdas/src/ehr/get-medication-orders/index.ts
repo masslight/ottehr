@@ -52,7 +52,7 @@ async function performEffect(
   oystehr: Oystehr,
   validatedParameters: GetMedicationOrdersInput
 ): Promise<GetMedicationOrdersResponse> {
-  const orderPackages = await getOrderPackages(oystehr, validatedParameters.encounterId);
+  const orderPackages = await getOrderPackages(oystehr, validatedParameters.searchBy);
   const result = orderPackages?.map((pkg) => mapMedicalAdministrationToDTO(pkg));
   return {
     orders: result ?? [],
@@ -71,7 +71,7 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
     id: medicationAdministration.id ?? '',
     status: mapFhirToOrderStatus(medicationAdministration) ?? 'pending',
     patient: medicationAdministration.subject.reference?.replace('Patient/', '') ?? '',
-    encounter: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
+    encounterId: medicationAdministration.context?.reference?.replace('Encounter/', '') ?? '',
     medicationId: medication?.id,
     medicationName: (medication && getMedicationName(medication)) ?? '',
     dose: dosageUnitsRoute.dose ?? -1,
@@ -101,27 +101,36 @@ function mapMedicalAdministrationToDTO(orderPackage: OrderPackage): ExtendedMedi
   };
 }
 
-async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<OrderPackage[] | undefined> {
+async function getOrderPackages(
+  oystehr: Oystehr,
+  searchBy: GetMedicationOrdersInput['searchBy']
+): Promise<OrderPackage[] | undefined> {
+  const searchParams = [
+    {
+      name: '_tag',
+      value: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:subject',
+    },
+    {
+      name: '_include',
+      value: 'MedicationAdministration:performer',
+    },
+  ];
+
+  if (searchBy.field === 'encounterId') {
+    searchParams.push({ name: 'context', value: searchBy.value });
+  } else if (searchBy.field === 'encounterIds') {
+    searchParams.push({ name: 'context', value: searchBy.value.join(',') });
+  }
+
+  console.log('searchParams for MedicationAdministration', searchParams);
+
   const bundle = await oystehr.fhir.search({
     resourceType: 'MedicationAdministration',
-    params: [
-      {
-        name: 'context',
-        value: encounterId,
-      },
-      {
-        name: '_tag',
-        value: MEDICATION_ADMINISTRATION_CSS_RESOURCE_CODE,
-      },
-      {
-        name: '_include',
-        value: 'MedicationAdministration:subject',
-      },
-      {
-        name: '_include',
-        value: 'MedicationAdministration:performer',
-      },
-    ],
+    params: searchParams,
   });
   const resources = bundle.unbundle();
   const medicationAdministrations = resources.filter(

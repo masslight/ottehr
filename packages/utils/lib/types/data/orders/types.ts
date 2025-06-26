@@ -41,7 +41,9 @@ export interface OrderToolTipConfig {
   title: string;
   tableUrl: string;
   orders: {
-    serviceRequestId: string;
+    // lab orders & nursing orders use ServiceRequests
+    // inHouse Medications use MedicationAdministration
+    fhirResourceId: string;
     testItemName: string;
     detailPageUrl: string;
     statusChip: JSX.Element;

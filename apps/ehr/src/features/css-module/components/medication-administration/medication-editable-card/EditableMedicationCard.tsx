@@ -96,6 +96,7 @@ export const EditableMedicationCard: React.FC<{
      * will be sent to the endpoint and saved.
      * We can't use async useState value here, because we should save value synchronously after user confirmation.
      */
+
     confirmedMedicationUpdateRequestRef.current = {
       ...(updatedRequestInput.orderId ? { orderId: updatedRequestInput.orderId } : {}),
 
@@ -107,7 +108,7 @@ export const EditableMedicationCard: React.FC<{
         ...(medication ? medicationExtendedToMedicationData(medication) : {}),
         ...updatedRequestInput.orderData,
         patient: resources.patient?.id || '',
-        encounter: appointmentId,
+        encounterId: resources.encounter?.id || '',
       } as MedicationData,
     };
 
