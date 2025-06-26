@@ -230,7 +230,7 @@ export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_DAY = '13';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_MONTH = '05';
 export const DEMO_VISIT_RESPONSIBLE_DATE_OF_BIRTH_YEAR = '1900';
 export const DEMO_VISIT_RESPONSIBLE_BIRTH_SEX = 'Intersex';
-export const DEMO_VISIT_RESPONSIBLE_PHONE = '(244) 333-3333';
+export const DEMO_VISIT_RESPONSIBLE_PHONE = '(240) 333-3333';
 export const DEMO_VISIT_RESPONSIBLE_ADDRESS1 = '333 test street';
 export const DEMO_VISIT_RESPONSIBLE_CITY = 'Cleveland';
 export const DEMO_VISIT_RESPONSIBLE_STATE = 'OH';
@@ -244,7 +244,7 @@ export const DEMO_VISIT_PROVIDER_FIRST_NAME = 'Provider first name';
 export const DEMO_VISIT_PROVIDER_LAST_NAME = 'Provider last name';
 export const DEMO_VISIT_PRACTICE_NAME = 'Practice name';
 export const DEMO_VISIT_PHYSICIAN_ADDRESS = '441 4th Street, NW';
-export const DEMO_VISIT_PHYSICIAN_MOBILE = '(123) 456-7890';
+export const DEMO_VISIT_PHYSICIAN_MOBILE = '(202) 456-7890';
 
 export function getContactInformationAnswers({
   willBe18 = false,
