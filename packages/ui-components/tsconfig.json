@@ -7,5 +7,5 @@
       "@defaultTheme/*": ["../../apps/intake/src/themes/ottehr/*"]
     }
   },
-  "include": ["lib", ".eslintrc.cjs"]
+  "include": [".", ".eslintrc.cjs"]
 }
