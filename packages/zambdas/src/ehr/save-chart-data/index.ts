@@ -347,11 +347,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
       }
       for (const element of diagnosis) {
-        console.log(`changing diagnosis: ${element.resourceId}`);
-        if (!element.code || !element.display) {
-          console.log(`can't create diagnosis, element don't have code or display values`);
-          continue;
-        }
         const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
         const condition = element.resourceId
           ? await oystehr.fhir.update(conditionResource)
