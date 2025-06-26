@@ -107,7 +107,7 @@ export async function getSchedules(
   console.log('searching for resource with search params: ', searchParams);
   const scheduleResources = (
     await oystehr.fhir.search<Location | Practitioner | HealthcareService | Schedule | PractitionerRole>({
-      resourceType,
+      resourceType: resourceType as 'Location' | 'Practitioner' | 'HealthcareService' | 'Schedule' | 'PractitionerRole',
       params: searchParams,
     })
   ).unbundle();

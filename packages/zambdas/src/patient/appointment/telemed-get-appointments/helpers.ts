@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, Encounter, Location, Patient, RelatedPerson, Resource } from 'fhir/r4b';
 import { getVideoRoomResourceExtension, OTTEHR_MODULE, removePrefix } from 'utils';
 
@@ -22,7 +22,7 @@ export async function getFhirResources(
   patientIDs: string[],
   patientID?: string
 ): Promise<Resource[]> {
-  const fhirSearchParams = {
+  const fhirSearchParams: FhirSearchParams<Appointment | Encounter | Location | Patient | RelatedPerson> = {
     resourceType: 'Appointment',
     params: [
       { name: '_tag', value: OTTEHR_MODULE.TM },
