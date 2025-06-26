@@ -10,7 +10,7 @@
     "remove-insurances-and-payer-orgs": "tsx src/scripts/remove-insurances-and-payer-orgs.ts",
     "update-insurances-and-payer-orgs": "tsx src/scripts/update-insurances-and-payer-orgs.ts",
     "update-insurances-and-payer-orgs-debug": "node --inspect --import tsx src/scripts/update-insurances-and-payer-orgs.ts",
-    "create-update-in-house-medications-list": "tsx src/scripts/create-update-in-house-medications-list.ts local",
+    "recreate-in-house-medications-list": "tsx src/scripts/recreate-in-house-medications-list.ts local",
     "delete-in-house-medications-list": "tsx src/scripts/delete-in-house-medications-list.ts local",
     "log-in-house-medications-list": "tsx src/scripts/log-in-house-medications-list.ts local",
     "setup-document-explorer": "tsx src/scripts/setup-document-explorer.ts $npm_config_env",
