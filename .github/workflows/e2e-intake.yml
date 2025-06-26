@@ -144,7 +144,7 @@ jobs:
 
   intake-login:
     needs: [check-changes, check-token-validity]
-    if: needs.check-changes.outputs.should-run == 'true' && needs.check-token-validity.outputs.needs-login == 'true'
+    #if: needs.check-changes.outputs.should-run == 'true' && needs.check-token-validity.outputs.needs-login == 'true'
     concurrency: # to prevent parallel login jobs; we can optimize it and eliminate user.json related steps when we have email login
       group: intake-login
       cancel-in-progress: false
@@ -274,9 +274,10 @@ jobs:
             exit 1
           fi
           
-          ENCRYPTED_CONTENT=$(cat user.json.enc | tr -d '\n')
+          # Convert to hex to avoid JSON escaping issues
+          ENCRYPTED_HEX=$(xxd -p user.json.enc | tr -d '\n')
           echo "encrypted_content<<EOF" >> $GITHUB_OUTPUT
-          echo "$ENCRYPTED_CONTENT" >> $GITHUB_OUTPUT
+          echo "$ENCRYPTED_HEX" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           
           rm -f user.json.enc
