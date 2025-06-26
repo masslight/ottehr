@@ -1,7 +1,6 @@
 import Oystehr from '@oystehr/sdk';
 import { Medication } from 'fhir/r4b';
 import {
-  CODE_SYSTEM_CPT,
   CODE_SYSTEM_NDC,
   getMedicationName,
   InHouseMedicationInfo,
@@ -14,7 +13,7 @@ import {
 import { getAuth0Token } from '../shared';
 import { fhirApiUrlFromAuth0Audience, getInHouseInventoryMedications, performEffectWithEnvFile } from './helpers';
 
-const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {
+const recreateInHouseMedications = async (config: any): Promise<void> => {
   const token = await getAuth0Token(config);
   if (!token) throw new Error('Failed to fetch auth token.');
   const oystehr = new Oystehr({
@@ -23,17 +22,19 @@ const checkAndUpdateInHouseMedications = async (config: any): Promise<void> => {
   });
   const medicationsResources = await getInHouseInventoryMedications(oystehr);
 
+  console.log('\n--------- Deleting old medications ---------\n');
+
+  for (const resource of medicationsResources) {
+    console.log(`Deleted FHIR Medication: ${getMedicationName(resource)}, with id: ${resource.id}`);
+    await oystehr.fhir.delete({ resourceType: 'Medication', id: resource.id! });
+  }
+
+  console.log('\n--------- Creating new medications ---------\n');
+
   for (const jsonMedication of InHouseMedications) {
-    const existedMedication = medicationsResources.find((medRes) => getMedicationName(medRes) === jsonMedication.name);
     const newMedication = createMedicationResource(jsonMedication);
-    if (existedMedication) {
-      newMedication.id = existedMedication.id;
-      await oystehr.fhir.update(newMedication);
-      console.log(`Updated FHIR Medication: ${getMedicationName(newMedication)}, with id: ${newMedication.id}`);
-    } else {
-      const resultResource = await oystehr.fhir.create(newMedication);
-      console.log(`Created FHIR Medication: ${getMedicationName(newMedication)}, with id: ${resultResource.id}`);
-    }
+    const newResource = await oystehr.fhir.create(newMedication);
+    console.log(`Created FHIR Medication: ${getMedicationName(newResource)}, with id: ${newResource.id}`);
   }
 };
 
@@ -53,17 +54,12 @@ function createMedicationResource(inHouseMedInfo: InHouseMedicationInfo): Medica
     code: {
       coding: [
         {
-          system: CODE_SYSTEM_CPT,
-          code: inHouseMedInfo.CPT,
-        },
-        {
           system: CODE_SYSTEM_NDC,
           code: inHouseMedInfo.NDC,
         },
         {
           system: MEDICATION_DISPENSABLE_DRUG_ID,
           code: `${inHouseMedInfo.erxData.id}`, // drug id from erx medication search
-          display: inHouseMedInfo.erxData.name,
         },
       ],
     },
@@ -72,7 +68,7 @@ function createMedicationResource(inHouseMedInfo: InHouseMedicationInfo): Medica
 
 const main = async (): Promise<void> => {
   try {
-    await performEffectWithEnvFile(checkAndUpdateInHouseMedications);
+    await performEffectWithEnvFile(recreateInHouseMedications);
   } catch (e) {
     console.log('Catch some error while running all effects: ', e);
     console.log('Stringifies: ', JSON.stringify(e));

@@ -254,6 +254,46 @@ jobs:
           path: ${{ env.USER_JSON_PATH }}
           key: ${{ env.USER_JSON_CACHE_KEY }}
 
+      - name: Encrypt user.json for main branch
+        if: steps.validate.outcome == 'success' && github.ref != 'refs/heads/main'
+        id: encrypt
+        continue-on-error: true
+        run: |
+          if [ -z "${{ secrets.DEPLOY_OTTEHR_KEY }}" ]; then
+            echo "ERROR: DEPLOY_OTTEHR_KEY secret is empty or missing"
+            exit 1
+          fi
+          
+          if openssl enc -aes-256-cbc -a -salt \
+              -pass pass:"${{ secrets.DEPLOY_OTTEHR_KEY }}" \
+              -in ${{ env.USER_JSON_PATH }} \
+              -out user.json.enc; then
+            echo "File encrypted successfully"
+          else
+            echo "ERROR: Failed to encrypt user.json"
+            exit 1
+          fi
+          
+          ENCRYPTED_CONTENT=$(cat user.json.enc | tr -d '\n')
+          echo "encrypted_content<<EOF" >> $GITHUB_OUTPUT
+          echo "$ENCRYPTED_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          rm -f user.json.enc
+
+      - name: Send to main branch for caching
+        if: steps.encrypt.outcome == 'success'
+        continue-on-error: true
+        uses: peter-evans/repository-dispatch@ff45666b9427631e3450c54a1bcbee4d9ff4d7c0  # v3.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: cache-user-json-to-main
+          client-payload: |
+            {
+              "encrypted_content": "${{ steps.encrypt.outputs.encrypted_content }}",
+              "cache_key": "${{ env.USER_JSON_CACHE_KEY }}"
+            }    
+
       - name: Upload login test results
         if: steps.login.outcome == 'success' || steps.login.outcome == 'failure' # log on success needed for investigate false success caces, we can remove it if login will work stable
         uses: actions/upload-artifact@v4

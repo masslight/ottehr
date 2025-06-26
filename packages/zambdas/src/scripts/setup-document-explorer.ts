@@ -63,8 +63,8 @@ const checkAndUpdateListResources = async (config: any, oystehr?: Oystehr): Prom
       }
     }
 
-    console.log('TESTING: Stopping after first batch');
-    break;
+    // console.log('TESTING: Stopping after first batch');
+    // break;
 
     offset += BATCH_SIZE;
   }
