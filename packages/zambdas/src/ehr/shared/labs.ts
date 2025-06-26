@@ -484,11 +484,11 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-type fetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
+type FetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
 export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
   m2mToken: string
-): Promise<fetchLabOrderPDFRes | undefined> => {
+): Promise<FetchLabOrderPDFRes | undefined> => {
   if (!documentReferences.length) {
     return;
   }
@@ -532,7 +532,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
-      (acc: fetchLabOrderPDFRes, result) => {
+      (acc: FetchLabOrderPDFRes, result) => {
         if ('diagnosticReportId' in result.value) {
           acc.resultPDFs.push(result.value);
         } else if ('serviceRequestId' in result.value) {

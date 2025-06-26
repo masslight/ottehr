@@ -545,7 +545,7 @@
         "resourceType": "List",
         "status": "current",
         "mode": "working",
-        "title": "school-work-note",
+        "title": "school-work-notes",
         "code": {
           "coding": [
             {
@@ -569,7 +569,7 @@
                 }
               ]
             },
-            "value": "school-work-note"
+            "value": "school-work-notes"
           }
         ]
       }
@@ -782,7 +782,7 @@
         "resourceType": "List",
         "status": "current",
         "mode": "working",
-        "title": "photo-ids",
+        "title": "photo-id-cards",
         "code": {
           "coding": [
             {
@@ -806,7 +806,7 @@
                 }
               ]
             },
-            "value": "photo-ids"
+            "value": "photo-id-cards"
           }
         ]
       }

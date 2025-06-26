@@ -159,8 +159,8 @@ jobs:
           ENV:  ${{ env.ENVIRONMENT }}
         run: cd packages/zambdas && npm run setup-deployed-resources
 
-      - name: Create/update in-house medication resources
-        run: cd packages/zambdas && npm run create-update-in-house-medications-list --env=${{ env.ENVIRONMENT }}
+      - name: Recreate in-house medication resources
+        run: cd packages/zambdas && npm run recreate-in-house-medications-list --env=${{ env.ENVIRONMENT }}
 
       - name: Setup Document explorer resources
         run: cd packages/zambdas && npm run setup-document-explorer --env=${{ env.ENVIRONMENT }}
