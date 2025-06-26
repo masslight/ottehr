@@ -59,7 +59,7 @@ export interface LineStyle {
 export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
-  drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>, leftIndentationXPos?: number) => void;
   drawStartXPosSpecifiedText: (
     text: string,
     textStyle: TextStyle,
@@ -158,6 +158,7 @@ export interface ExternalLabResult {
   resultInterpretationDisplay?: string;
   resultValue: string;
   referenceRangeText?: string;
+  resultNotes?: string[];
 }
 
 export interface InHouseLabResult {
