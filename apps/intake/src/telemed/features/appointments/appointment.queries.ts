@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon';
 import { useMutation, useQuery } from 'react-query';
+import { ZapEHRAPIClient } from 'ui-components';
 import {
   BookableItemListResponse,
   GetBookableItemListParams,
@@ -8,7 +9,6 @@ import {
   GetTelemedLocationsResponse,
   PatientInfo,
 } from 'utils';
-import { ZapEHRAPIClient } from '../../../data';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateAppointmentMutation = () =>

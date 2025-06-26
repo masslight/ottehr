@@ -1,7 +1,7 @@
 import { QuestionnaireItemAnswerOption, QuestionnaireResponseItem } from 'fhir/r4b';
 import { useMutation, useQuery } from 'react-query';
+import { ZapEHRAPIClient } from 'ui-components';
 import { GetAnswerOptionsRequest, isNullOrUndefined, PromiseReturnType } from 'utils';
-import { ZapEHRAPIClient } from '../../../data';
 import { useZapEHRAPIClient } from '../../utils';
 import { useAppointmentStore } from '../appointments';
 

@@ -1,5 +1,5 @@
 import { useMutation } from 'react-query';
-import { ZapEHRAPIClient } from '../../../data';
+import { ZapEHRAPIClient } from 'ui-components';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const useCreateZ3ObjectMutation = () =>

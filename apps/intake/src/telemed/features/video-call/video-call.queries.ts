@@ -1,6 +1,6 @@
 import { useQuery } from 'react-query';
+import { ZapEHRAPIClient } from 'ui-components';
 import { PromiseReturnType } from 'utils';
-import { ZapEHRAPIClient } from '../../../data';
 import { useAppointmentStore } from '../appointments';
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type

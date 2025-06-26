@@ -8,4 +8,4 @@ export * from './props-with-children';
 
 export * from './form';
 
-export * from './data';
+export * from 'ui-components/lib/types/data';

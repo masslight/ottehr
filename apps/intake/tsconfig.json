@@ -9,5 +9,5 @@
       "@defaultTheme/*": ["src/themes/ottehr/*"]
     }
   },
-  "include": [".", ".eslintrc.cjs"]
+  "include": [".", ".eslintrc.cjs", "../../packages/ui-components/lib/types/data"]
 }
