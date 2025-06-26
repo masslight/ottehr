@@ -9,8 +9,8 @@ import { DateTime } from 'luxon';
 import React, { ReactElement, useEffect, useMemo, useState } from 'react';
 import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation } from 'utils';
-import { otherColors } from '@theme/colors';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
+import { otherColors } from '@ehrTheme/colors';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
 import CreateDemoVisits from '../components/CreateDemoVisits';
@@ -26,6 +26,7 @@ import { useDebounce } from '../telemed/hooks';
 import { VisitType, VisitTypeToLabel } from '../types/types';
 import { LocationWithWalkinSchedule } from './AddPatient';
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
+import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 
 type LoadingState = { status: 'loading' | 'initial'; id?: string | undefined } | { status: 'loaded'; id: string };
 
@@ -58,7 +59,7 @@ export default function Appointments(): ReactElement {
       queryParams?.set('searchDate', value?.toISODate() ?? appointmentDate?.toISODate() ?? '');
     } else if (field === 'location') {
       queryParams?.set('locationID', value?.id ?? '');
-    } else if (field === 'visittypes') {
+    } else if (field === 'visitTypes') {
       const appointmentTypesString = value.join(',');
       queryParams.set('visitType', appointmentTypesString);
     } else if (field === 'providers') {
@@ -102,12 +103,26 @@ export default function Appointments(): ReactElement {
     activeApptDatesBeforeToday = [],
   } = searchResults || {};
 
-  const encountersIdToShowInInHouseLabs = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const inOfficeEncounterIds = inOfficeAppointments.map((appointment) => appointment.encounterId);
+  const completedEncounterIds = completedAppointments.map((appointment) => appointment.encounterId);
+  const encountersIdsEligibleForOrders = [...inOfficeEncounterIds, ...completedEncounterIds];
+
+  const externalLabOrders = usePatientLabOrders({
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+  });
+  const externalLabOrdersByAppointmentId = useMemo(() => {
+    return externalLabOrders?.labOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, LabOrderListPageDTO[]>
+    );
+  }, [externalLabOrders?.labOrders]);
 
   const inHouseOrders = useInHouseLabOrders({
-    searchBy: { field: 'encounterIds', value: encountersIdToShowInInHouseLabs },
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
   });
-
   const inHouseLabOrdersByAppointmentId = useMemo(() => {
     return inHouseOrders?.labOrders?.reduce(
       (acc, order) => {
@@ -119,9 +134,12 @@ export default function Appointments(): ReactElement {
   }, [inHouseOrders?.labOrders]);
 
   useEffect(() => {
-    if (localStorage.getItem('selectedVisitTypes')) {
-      queryParams?.set('visitType', JSON.parse(localStorage.getItem('selectedVisitTypes') ?? '') ?? '');
+    const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
+    if (selectedVisitTypes) {
+      queryParams?.set('visitType', JSON.parse(selectedVisitTypes) ?? '');
       navigate(`?${queryParams?.toString()}`);
+    } else {
+      queryParams?.set('visitType', Object.keys(VisitTypeToLabel).join(','));
     }
   }, [navigate, queryParams]);
 
@@ -172,14 +190,14 @@ export default function Appointments(): ReactElement {
       }
     }
 
-    async function getHealthcareServices(osytehrClient: Oystehr): Promise<void> {
+    async function getHealthcareServices(oystehrClient: Oystehr): Promise<void> {
       if (!oystehrZambda) {
         return;
       }
 
       try {
         const healthcareServicesTemp: HealthcareService[] = (
-          await osytehrClient.fhir.search<HealthcareService>({
+          await oystehrClient.fhir.search<HealthcareService>({
             resourceType: 'HealthcareService',
             params: [
               { name: '_count', value: '1000' },
@@ -230,7 +248,7 @@ export default function Appointments(): ReactElement {
       loadingState.status !== 'loading' &&
       pageIsVisible
     ) {
-      // send searchDate without timezone, in get-appointments zamdba we apply appointment timezone to it to find appointments for that day
+      // send searchDate without timezone, in get-appointments zambda we apply appointment timezone to it to find appointments for that day
       // looks like searchDate is always exists, and we can remove rest options
       const searchDateToUse = searchDate || appointmentDate?.toISO?.() || '';
       void fetchStuff(oystehrZambda, searchDateToUse);
@@ -273,6 +291,7 @@ export default function Appointments(): ReactElement {
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
       inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+      externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -306,6 +325,7 @@ interface AppointmentsBodyProps {
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
+  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -329,6 +349,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     updateAppointments,
     setEditingComment,
     inHouseLabOrdersByAppointmentId,
+    externalLabOrdersByAppointmentId,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -387,14 +408,14 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                     </Grid>
                     <Grid item md={4.7} xs={12}>
                       <Autocomplete
-                        id="visittypes"
+                        id="visitTypes"
                         sx={{
                           '.MuiButtonBase-root.MuiChip-root': {
                             width: { xs: '100%', sm: '120px' },
                             textAlign: 'start',
                           },
                         }}
-                        value={visitType?.length > 0 ? [...visitType] : Object.keys(VisitTypeToLabel)}
+                        value={visitType}
                         options={Object.keys(VisitTypeToLabel)}
                         getOptionLabel={(option) => {
                           return VisitTypeToLabel[option as VisitType];
@@ -407,12 +428,12 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
                           }
 
                           if (handleSubmit) {
-                            handleSubmit(event as any, value, 'visittypes');
+                            handleSubmit(event as any, value, 'visitTypes');
                           }
                         }}
                         multiple
                         renderInput={(params) => (
-                          <TextField name="visittypes" {...params} label="Visit type" required={false} />
+                          <TextField name="visitTypes" {...params} label="Visit type" required={false} />
                         )}
                       />
                     </Grid>
@@ -517,6 +538,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
               inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
+              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}

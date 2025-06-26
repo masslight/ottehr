@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { ReactElement, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 import { Add } from '@mui/icons-material';
 import Oystehr from '@oystehr/sdk';
@@ -75,7 +75,7 @@ export const ScheduleInformation = ({ scheduleType }: ScheduleInformationProps):
   })();
 
   const { isLoading, isFetching, isRefetching, data } = useQuery(
-    [`list-scehdule-owners + ${scheduleType}`, { zambdaClient: oystehrZambda }],
+    [`list-schedule-owners + ${scheduleType}`, { zambdaClient: oystehrZambda }],
     () => (oystehrZambda ? listScheduleOwners({ ownerType }, oystehrZambda) : null),
     {
       onError: (e) => {

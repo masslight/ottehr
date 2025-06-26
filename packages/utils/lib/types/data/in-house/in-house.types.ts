@@ -15,7 +15,10 @@ export interface QuantityRange {
 }
 
 export type ObservationCode = (typeof OBSERVATION_CODES)[keyof typeof OBSERVATION_CODES];
-
+export interface LabComponentValueSetConfig {
+  code: string; // this should remain constant, changing it could cause backward compatibility issues
+  display: string;
+}
 export interface TestComponentResult {
   entry: string;
   interpretationCode: ObservationCode;
@@ -29,15 +32,15 @@ export interface BaseComponent {
 
 export interface CodeableConceptComponent extends BaseComponent {
   dataType: 'CodeableConcept';
-  valueSet: string[];
-  abnormalValues: string[];
+  valueSet: LabComponentValueSetConfig[];
+  abnormalValues: LabComponentValueSetConfig[];
   displayType: 'Radio' | 'Select';
   nullOption?: {
     text: string;
     code: string;
   };
   unit?: string;
-  referenceRangeValues?: string[];
+  referenceRangeValues?: LabComponentValueSetConfig[];
 }
 
 export interface QuantityComponent extends BaseComponent {
@@ -60,6 +63,8 @@ export interface TestItem {
     groupedComponents: TestItemComponent[];
     radioComponents: CodeableConceptComponent[];
   };
+  adUrl: string;
+  adVersion: string;
   note?: string;
 }
 
@@ -179,5 +184,4 @@ export type MarkAsCollectedData = {
     collectedBy: { id: string; name: string };
     collectionDate: string;
   };
-  notes: string;
 };

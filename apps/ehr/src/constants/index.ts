@@ -77,7 +77,7 @@ export const MOBILE_MODAL_STYLE = {
 };
 
 export const NEXT_WIDTH = '14px';
-export const TYPE_WIDTH = '10%';
+export const TYPE_WIDTH = '12%';
 export const TYPE_WIDTH_MIN = '150px';
 export const TIME_WIDTH = '8%';
 export const TIME_WIDTH_MIN = '120px';
@@ -86,16 +86,16 @@ export const ROOM_WIDTH = '7%';
 export const ROOM_WIDTH_MIN = '100px';
 export const PROVIDER_WIDTH = '9%';
 export const PROVIDER_WIDTH_MIN = '120px';
-export const GROUP_WIDTH = '8%';
-export const GROUP_WIDTH_MIN = '100px';
-export const VISIT_ICONS_WIDTH = '10%';
+export const VISIT_ICONS_WIDTH = '12%';
 export const VISIT_ICONS_WIDTH_MIN = '150px';
-export const NOTES_WIDTH = '12%';
+export const NOTES_WIDTH = '16%';
 export const NOTES_WIDTH_MIN = '170px';
 export const CHAT_WIDTH = '6%';
 export const CHAT_WIDTH_MIN = '80px';
-export const GO_TO_WIDTH = '12%';
-export const GO_TO_WIDTH_MIN = '180px';
+export const GO_TO_ONE_BUTTON_WIDTH = '6%';
+export const GO_TO_TWO_BUTTON_WIDTH = '12%';
+export const GO_TO_ONE_BUTTON_WIDTH_MIN = '90px';
+export const GO_TO_TWO_BUTTON_WIDTH_MIN = '180px';
 export const ACTION_WIDTH = '8%';
 export const ACTION_WIDTH_MIN = '110px';
 
@@ -582,7 +582,7 @@ export const FormFields = {
     pronouns: { key: 'patient-pronouns', type: 'String' },
   },
   patientDetails: {
-    ethinicity: { key: 'patient-ethnicity' },
+    ethnicity: { key: 'patient-ethnicity' },
     race: { key: 'patient-race' },
     sexualOrientation: { key: 'patient-sexual-orientation' },
     genderIdentity: { key: 'patient-gender-identity' },
@@ -654,8 +654,8 @@ export const FormFields = {
     birthDate: { key: 'responsible-party-date-of-birth', type: 'String', label: 'Date of birth' },
     birthSex: { key: 'responsible-party-birth-sex', type: 'String', label: 'Birth sex' },
     phone: { key: 'responsible-party-number', type: 'String', label: 'Phone' },
-    addressLine1: { key: 'responsible-party-address', type: 'String', label: 'Street Addresss' },
-    addressLine2: { key: 'responsible-party-address-2', type: 'String', label: 'Addresss line 2' },
+    addressLine1: { key: 'responsible-party-address', type: 'String', label: 'Street Address' },
+    addressLine2: { key: 'responsible-party-address-2', type: 'String', label: 'Address line 2' },
     city: { key: 'responsible-party-city', type: 'String', label: 'City' },
     state: { key: 'responsible-party-state', type: 'String', label: 'State' },
     zip: { key: 'responsible-party-zip', type: 'String', label: 'Zip' },

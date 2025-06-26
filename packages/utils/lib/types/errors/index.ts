@@ -7,7 +7,7 @@ export enum APIErrorCode {
   DOB_UNCONFIRMED = 4002,
   NO_READ_ACCESS_TO_PATIENT = 4003,
   APPOINTMENT_NOT_FOUND = 4004,
-  CANT_CANCEL_CHECKEDIN_APT = 4005,
+  CANT_CANCEL_CHECKED_IN_APT = 4005,
   APPOINTMENT_CANT_BE_CANCELED = 4006,
   PATIENT_TOO_OLD = 4007,
   PATIENT_NOT_BORN = 4008,
@@ -45,6 +45,9 @@ export enum APIErrorCode {
   EXTERNAL_LAB_GENERAL = 4400,
   MISSING_NLM_API_KEY_ERROR = 4401,
   IN_HOUSE_LAB_GENERAL = 4402,
+
+  // 50xx
+  MISCONFIGURED_ENVIRONMENT = 5000,
 }
 
 export interface APIError {
@@ -121,8 +124,8 @@ export const APPOINTMENT_NOT_FOUND_ERROR = {
   message: 'Appointment is not found',
 };
 
-export const CANT_CANCEL_CHECKEDIN_APT_ERROR = {
-  code: APIErrorCode.CANT_CANCEL_CHECKEDIN_APT,
+export const CANT_CANCEL_CHECKED_IN_APT_ERROR = {
+  code: APIErrorCode.CANT_CANCEL_CHECKED_IN_APT,
   message: 'You cannot cancel a checked-in appointment',
 };
 
@@ -304,6 +307,13 @@ export const EXTERNAL_LAB_ERROR = (message: string): APIError => {
 export const IN_HOUSE_LAB_ERROR = (message: string): APIError => {
   return {
     code: APIErrorCode.IN_HOUSE_LAB_GENERAL,
+    message,
+  };
+};
+
+export const MISCONFIGURED_ENVIRONMENT_ERROR = (message: string): APIError => {
+  return {
+    code: APIErrorCode.MISCONFIGURED_ENVIRONMENT,
     message,
   };
 };

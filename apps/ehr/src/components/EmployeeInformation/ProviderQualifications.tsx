@@ -23,9 +23,9 @@ import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterLuxon } from '@mui/x-date-pickers/AdapterLuxon';
 import { RoundedButton } from '../RoundedButton';
 import { DateTime } from 'luxon';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
-const displaystates = AllStates.map((state) => state.value);
+const displayStates = AllStates.map((state) => state.value);
 
 interface ProviderQualificationsProps {
   control: Control<any>;
@@ -125,7 +125,7 @@ export function ProviderQualifications({
                   {...field}
                   fullWidth
                   size="small"
-                  options={displaystates}
+                  options={displayStates}
                   getOptionLabel={(option: string) => option}
                   renderInput={(params) => (
                     <TextField

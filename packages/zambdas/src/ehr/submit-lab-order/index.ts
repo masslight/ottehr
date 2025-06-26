@@ -13,7 +13,8 @@ import {
   getPatientLastName,
   isPSCOrder,
   getTimezone,
-  allLicensesForPractitioner,
+  getFullestAvailableName,
+  FHIR_IDENTIFIER_NPI,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared';
@@ -23,7 +24,7 @@ import { DateTime } from 'luxon';
 import { uuid } from 'short-uuid';
 import { createExternalLabsOrderFormPDF } from '../../shared/pdf/external-labs-order-form-pdf';
 import { makeLabPdfDocumentReference } from '../../shared/pdf/labs-results-form-pdf';
-import { getLabOrderResources } from '../shared/labs';
+import { getExternalLabOrderResources } from '../shared/labs';
 import { AOEDisplayForOrderForm, populateQuestionnaireResponseItems } from './helpers';
 import { BatchInputPatchRequest } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
@@ -37,7 +38,13 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
-    const { serviceRequestID, accountNumber, data, secrets } = validateRequestParameters(input);
+    const {
+      serviceRequestID,
+      accountNumber,
+      data,
+      secrets,
+      specimens: specimensFromSubmit,
+    } = validateRequestParameters(input);
 
     console.log('Getting token');
     m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
@@ -56,9 +63,10 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       task,
       appointment,
       encounter,
+      schedule,
       organization: labOrganization,
-      specimens,
-    } = await getLabOrderResources(oystehr, 'external', serviceRequestID);
+      specimens: specimenResourses,
+    } = await getExternalLabOrderResources(oystehr, serviceRequestID);
 
     const locationID = serviceRequest.locationReference?.[0].reference?.replace('Location/', '');
 
@@ -146,59 +154,54 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     }
 
     const now = DateTime.now();
-    let timezone = undefined;
-    if (location) {
-      timezone = getTimezone(location);
+    let timezone;
+    if (schedule) {
+      timezone = getTimezone(schedule);
     }
+
     const sampleCollectionDates: DateTime[] = [];
 
     const specimenPatchOperations: BatchInputPatchRequest<FhirResource>[] =
-      specimens.length > 0
-        ? specimens.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
+      specimenResourses.length > 0
+        ? specimenResourses.reduce<BatchInputPatchRequest<FhirResource>[]>((acc, specimen) => {
             if (!specimen.id) {
               return acc;
             }
 
-            /**
-             * Editable samples are presented on the submit page and on pages with subsequent statuses. To unify the
-             * functionality of the samples - when editing data in date fields, they are saved immediately. Therefore,
-             * if the user has selected a date, we keep the selected one. And if they haven't selected a date, then
-             * upon submission we should set the current date.
-             */
-            const specimenDateTime = specimen.collection?.collectedDateTime;
-            console.log('specimenDateTime', specimenDateTime);
-
+            // There is an option to edit the date through the update-lab-order-resources zambda as well.
+            const specimenFromSubmitDate = specimensFromSubmit?.[specimen.id]?.date
+              ? DateTime.fromISO(specimensFromSubmit[specimen.id].date)
+              : undefined;
+            const specimeCollection = specimen.collection;
+            const collectedDateTime = specimeCollection?.collectedDateTime;
+            const collector = specimeCollection?.collector;
             const specimenCollector = { reference: currentUser?.profile };
-
             const requests: Operation[] = [];
 
-            if (!specimenDateTime) {
-              sampleCollectionDates.push(now);
-              if (specimen.collection) {
-                requests.push(
-                  {
-                    path: '/collection/collectedDateTime',
-                    op: 'add',
-                    value: now,
-                  },
-                  {
-                    path: '/collection/collector',
-                    op: 'add',
-                    value: specimenCollector,
-                  }
-                );
-              } else {
-                requests.push({
-                  path: '/collection',
-                  op: 'add',
-                  value: {
-                    collectedDateTime: now,
-                    collector: specimenCollector,
-                  },
-                });
-              }
+            specimenFromSubmitDate && sampleCollectionDates.push(specimenFromSubmitDate);
+
+            if (specimeCollection) {
+              requests.push(
+                {
+                  path: '/collection/collectedDateTime',
+                  op: collectedDateTime ? 'replace' : 'add',
+                  value: specimenFromSubmitDate,
+                },
+                {
+                  path: '/collection/collector',
+                  op: collector ? 'replace' : 'add',
+                  value: specimenCollector,
+                }
+              );
             } else {
-              sampleCollectionDates.push(DateTime.fromISO(specimenDateTime));
+              requests.push({
+                path: '/collection',
+                op: 'add',
+                value: {
+                  collectedDateTime: specimenFromSubmitDate,
+                  collector: specimenCollector,
+                },
+              });
             }
 
             if (requests.length) {
@@ -358,7 +361,6 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
           })
         : undefined;
 
-    const allPractitionerLicenses = allLicensesForPractitioner(provider);
     const orderFormPdfDetail = await createExternalLabsOrderFormPDF(
       {
         locationName: location?.name,
@@ -371,10 +373,8 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         labOrganizationName: labOrganization?.name || ORDER_ITEM_UNKNOWN,
         serviceRequestID: serviceRequest.id || ORDER_ITEM_UNKNOWN,
         reqId: orderID || ORDER_ITEM_UNKNOWN,
-        providerName: provider.name ? oystehr.fhir.formatHumanName(provider.name[0]) : ORDER_ITEM_UNKNOWN,
-        // if there are multiple titles, use the first one https://github.com/masslight/ottehr/issues/2184
-        providerTitle: allPractitionerLicenses.length ? allPractitionerLicenses[0].code : '',
-        providerNPI: 'test',
+        providerName: getFullestAvailableName(provider) || ORDER_ITEM_UNKNOWN,
+        providerNPI: provider.identifier?.find((id) => id?.system === FHIR_IDENTIFIER_NPI)?.value,
         patientFirstName: patient.name?.[0].given?.[0] || ORDER_ITEM_UNKNOWN,
         patientMiddleName: patient.name?.[0].given?.[1],
         patientLastName: patient.name?.[0].family || ORDER_ITEM_UNKNOWN,

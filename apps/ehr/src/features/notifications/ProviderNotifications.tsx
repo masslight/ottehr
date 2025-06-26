@@ -12,7 +12,7 @@ import useEvolveUser from '../../hooks/useEvolveUser';
 import { IconButtonContained } from '../../telemed/components/IconButtonContained';
 import { useGetProviderNotifications, useUpdateProviderNotificationsMutation } from './notifications.queries';
 import { useProviderNotificationsStore } from './notifications.store';
-import { notificationSound } from '@theme/index';
+import { notificationSound } from '@ehrTheme/index';
 
 type ProviderNotificationDisplay = {
   id: string;
@@ -59,7 +59,7 @@ export const ProviderNotifications: FC = memo(() => {
     ).sort((a, b) => (a.sent && b.sent && DateTime.fromISO(a.sent) > DateTime.fromISO(b.sent) ? -1 : 0));
   }, [notificationsData]);
 
-  const hasUnread = notifications.some((notif) => notif.isUnread);
+  const hasUnread = notifications.some((notification) => notification.isUnread);
 
   useEffect(() => {
     useProviderNotificationsStore.setState({ notificationsEnabled, notificationMethod: notificationMethod });
@@ -92,7 +92,7 @@ export const ProviderNotifications: FC = memo(() => {
     setNotificationsElement(event.currentTarget);
     if (hasUnread) {
       void updateNotifications.mutateAsync({
-        ids: notifications.filter((notif) => notif.isUnread).map((notif) => notif.id),
+        ids: notifications.filter((notification) => notification.isUnread).map((notification) => notification.id),
         status: 'completed',
       });
     }

@@ -1,8 +1,8 @@
 import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
+import { dataTestIds } from '../configurations/data-test-ids';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { dataTestIds } from '../../../../apps/intake/src/helpers/data-test-ids';
 // import { LanguagePicker } from './LanguagePicker';
 
 export interface ContainerProps {
@@ -104,7 +104,11 @@ export const CustomContainer: FC<ContainerProps> = ({
         justifyContent: 'space-between',
       }}
     >
-      <AppBar position="static" sx={{ backgroundColor: theme.palette.primary.dark }}>
+      <AppBar
+        data-testid={isAuthenticated ? dataTestIds.header.authenticated : dataTestIds.header.unauthenticated} // used in e2e login test, dont remove
+        position="static"
+        sx={{ backgroundColor: theme.palette.primary.dark }}
+      >
         <Grid container justifyContent="center" alignItems="center" sx={{ position: 'relative' }}>
           <Grid item>
             <Box
@@ -137,7 +141,6 @@ export const CustomContainer: FC<ContainerProps> = ({
           )}
         </Grid>
       </AppBar>
-
       <Box
         display="flex"
         flexDirection="column"
@@ -171,7 +174,7 @@ export const CustomContainer: FC<ContainerProps> = ({
                           }}
                           variant={isFirstPage ? 'h1' : 'h2'}
                           color="primary.main"
-                          data-testid={isFirstPage ? dataTestIds.firstFlowPageTitle : dataTestIds.flowPageTitle}
+                          data-testid={isFirstPage ? 'first-flow-page-title' : 'flow-page-title'}
                         >
                           {title}
                         </Typography>

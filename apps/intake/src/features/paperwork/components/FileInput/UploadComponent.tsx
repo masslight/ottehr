@@ -2,7 +2,8 @@ import { Box, Button, Container, Typography, useTheme } from '@mui/material';
 import { ChangeEvent, FC, useContext, RefObject } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
-import { IntakeThemeContext, DescriptionRenderer, AttachmentType } from 'ui-components';
+import { IntakeThemeContext, DescriptionRenderer } from 'ui-components';
+import { AttachmentType } from '.';
 
 interface UploadComponentProps {
   name: string;
@@ -71,7 +72,7 @@ const UploadComponent: FC<UploadComponentProps> = ({
           render={({ field: { value, ...field } }) => (
             <input
               {...field}
-              name={`name.valueAttachement.url`}
+              name={`name.valueAttachment.url`}
               ref={inputRef}
               value={value?.filename}
               type="file"

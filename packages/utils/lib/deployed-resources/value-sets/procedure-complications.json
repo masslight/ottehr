@@ -1,0 +1,37 @@
+{
+    "resourceType": "ValueSet",
+    "url": "https://fhir.ottehr.com/ValueSet/procedure-complications",
+    "version": "1.0.0",
+    "name": "Procedures - Complications",
+    "status": "active",
+    "expansion": {
+        "timestamp": "2025-06-10T11:36:51.034Z",
+        "contains": [
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "none",
+                "display": "None"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "bleeding",
+                "display": "Bleeding"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "incomplete-removal",
+                "display": "Incomplete Removal"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "allergic-reaction",
+                "display": "Allergic Reaction"
+            },
+            {
+                "system": "https://fhir.ottehr.com/CodeSystem/procedure-complications",
+                "code": "other",
+                "display": "Other"
+            }
+        ]
+    }
+}

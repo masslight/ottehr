@@ -1,10 +1,10 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { GetTelemedLocationsResponse, SecretsKeys, createOystehrClient, getSecret, getTelemedLocations } from 'utils';
-import { ZambdaInput } from '../../shared';
-import { getAuth0Token } from '../../shared';
+import { ZambdaInput, getAuth0Token } from '../../shared';
 
 let zapehrToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const fhirAPI = getSecret(SecretsKeys.FHIR_API, input.secrets);
     const projectAPI = getSecret(SecretsKeys.PROJECT_API, input.secrets);
@@ -42,4 +42,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ error: 'Internal error while fetching telemed states' }),
     };
   }
-};
+});

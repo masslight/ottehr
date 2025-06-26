@@ -1,49 +1,49 @@
+import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
+import { randomUUID } from 'crypto';
 import {
-  OrderableItemSearchResult,
-  PSC_HOLD_CONFIG,
-  LAB_ORDER_TASK,
-  OYSTEHR_LAB_OI_CODE_SYSTEM,
-  FHIR_IDC10_VALUESET_SYSTEM,
-  flattenBundleResources,
-  PRACTITIONER_CODINGS,
-  PROVENANCE_ACTIVITY_CODING_ENTITY,
-  EXTERNAL_LAB_ERROR,
-  isApiError,
-  APIError,
-  SPECIMEN_CODING_CONFIG,
-  RELATED_SPECIMEN_DEFINITION_SYSTEM,
-} from 'utils';
-import { validateRequestParameters } from './validateRequestParameters';
-import {
-  Encounter,
-  Location,
-  ServiceRequest,
-  QuestionnaireResponse,
-  Task,
-  Organization,
-  Coding,
-  FhirResource,
-  Coverage,
-  ActivityDefinition,
-  Patient,
   Account,
+  ActivityDefinition,
+  Coding,
+  Coverage,
+  Encounter,
+  FhirResource,
+  Location,
+  Organization,
+  Patient,
   Provenance,
-  SpecimenDefinition,
+  QuestionnaireResponse,
+  ServiceRequest,
   Specimen,
+  SpecimenDefinition,
+  Task,
 } from 'fhir/r4b';
 import { DateTime } from 'luxon';
-import Oystehr, { BatchInputRequest, Bundle } from '@oystehr/sdk';
-import { randomUUID } from 'crypto';
+import {
+  APIError,
+  EXTERNAL_LAB_ERROR,
+  FHIR_IDC10_VALUESET_SYSTEM,
+  flattenBundleResources,
+  isApiError,
+  LAB_ORDER_TASK,
+  OrderableItemSearchResult,
+  OYSTEHR_LAB_OI_CODE_SYSTEM,
+  PRACTITIONER_CODINGS,
+  PROVENANCE_ACTIVITY_CODING_ENTITY,
+  PSC_HOLD_CONFIG,
+  RELATED_SPECIMEN_DEFINITION_SYSTEM,
+  SPECIMEN_CODING_CONFIG,
+} from 'utils';
+import { checkOrCreateM2MClientToken, getMyPractitionerId, topLevelCatch } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
-import { checkOrCreateM2MClientToken, topLevelCatch } from '../../shared';
 import { ZambdaInput } from '../../shared/types';
 import { getPrimaryInsurance } from '../shared/labs';
-import { getMyPractitionerId } from '../../shared';
+import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     const validatedParameters = validateRequestParameters(input);
@@ -290,7 +290,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body,
     };
   }
-};
+});
 
 const formatAoeQR = (
   serviceRequestFullUrl: string,

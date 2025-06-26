@@ -1,9 +1,11 @@
 import Oystehr, { BatchInputGetRequest, Bundle } from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { FhirResource, Resource } from 'fhir/r4b';
 import { ChartDataFields, ChartDataRequestedFields, GetChartDataResponse } from 'utils';
 import { checkOrCreateM2MClientToken, getPatientEncounter, ZambdaInput } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
+import { configLabRequestsForGetChartData } from '../shared/labs';
 import {
   configProceduresRequestsForGetChartData,
   convertSearchResultsToResponse,
@@ -13,12 +15,11 @@ import {
   SupportedResourceType,
 } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { configLabRequestsForGetChartData } from '../shared/labs';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.log(`Input: ${JSON.stringify(input)}`);
     console.log('Validating input');
@@ -39,7 +40,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       statusCode: 500,
     };
   }
-};
+});
 
 export async function getChartData(
   oystehr: Oystehr,
@@ -195,7 +196,7 @@ export async function getChartData(
     });
   }
 
-  if (requestedFields?.labResults && encounter.id) {
+  if ((requestedFields?.externalLabResults || requestedFields?.inHouseLabResults) && encounter.id) {
     const labRequests = configLabRequestsForGetChartData(encounter.id);
     chartDataRequests.push(...labRequests);
   }

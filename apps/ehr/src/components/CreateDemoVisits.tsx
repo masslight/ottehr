@@ -2,8 +2,8 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { LoadingButton } from '@mui/lab';
 import { Alert, Snackbar, TextField, Typography } from '@mui/material';
 import { Box } from '@mui/system';
-import { otherColors } from '@theme/colors';
-import { createDemoVisits } from '@theme/icons';
+import { otherColors } from '@ehrTheme/colors';
+import { createDemoVisits } from '@ehrTheme/icons';
 import { Location } from 'fhir/r4b';
 import React, { ReactElement, useState } from 'react';
 import { ServiceMode } from 'utils';
@@ -121,6 +121,7 @@ const CreateDemoVisits = (): ReactElement => {
   };
 
   const handleCloseSnackbar = (event?: React.SyntheticEvent | Event, reason?: string): void => {
+    // cSpell:disable-next clickaway
     if (reason === 'clickaway') {
       return;
     }

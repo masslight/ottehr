@@ -4,7 +4,7 @@ import { ClaimCard } from './ClaimCard';
 import { BillingModal } from './modals';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { useClaimStore } from '../../state';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 
 export const BillingCard: FC = () => {
   const { organizations, facilities, claimData, coverageData } = getSelectors(useClaimStore, [
@@ -37,8 +37,10 @@ export const BillingCard: FC = () => {
               <TableRow>
                 <TableCell>A. Date</TableCell>
                 <TableCell>B. Place</TableCell>
+                {/* cSpell:disable-next Emerg-(enc)y */}
                 <TableCell>C. Emerg-y</TableCell>
                 <TableCell>D. Code & Modifiers</TableCell>
+                {/* cSpell:disable-next Diagn.(ostic) */}
                 <TableCell>E. Diagn. pointers</TableCell>
                 <TableCell>F. Charges, $</TableCell>
                 <TableCell>G. Units / Days</TableCell>

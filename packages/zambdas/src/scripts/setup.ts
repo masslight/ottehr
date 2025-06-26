@@ -6,6 +6,7 @@ import { promisify } from 'node:util';
 import path from 'path';
 import {
   FHIR_BASE_URL,
+  FOLDERS_CONFIG,
   PROJECT_DOMAIN,
   PROJECT_NAME,
   PROJECT_NAME_LOWER,
@@ -16,8 +17,6 @@ import {
 } from 'utils';
 import { inviteUser } from './invite-user';
 import { defaultGroup } from './setup-default-locations';
-
-export const BUCKET_PAPERWORK_PDF = 'paperwork-pdf';
 
 async function createApplication(oystehr: Oystehr, applicationName: string): Promise<[string, string]> {
   const application = await oystehr.application.create({
@@ -344,17 +343,8 @@ export async function setupEHR(
   const envPath2 = createFrontEndEnvFile(clientId, environment, projectId, applicationId);
   console.log('Created environment file:', envPath2);
 
-  const bucketNames = [
-    'photo-id-cards',
-    'insurance-cards',
-    'school-work-note-templates',
-    'school-work-notes',
-    'visit-notes',
-    'consent-forms',
-    'receipts',
-    'patient-photos',
-    BUCKET_PAPERWORK_PDF,
-  ];
+  const documentExplorerFolders = FOLDERS_CONFIG.map((folder) => folder.title);
+  const bucketNames = [...documentExplorerFolders];
 
   await createZ3(oystehr, bucketNames);
 

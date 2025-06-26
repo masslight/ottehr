@@ -14,7 +14,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { Location, Practitioner, Schedule } from 'fhir/r4b';
 import { enqueueSnackbar } from 'notistack';
 import { ReactElement, useEffect, useState } from 'react';
@@ -265,7 +265,7 @@ export default function SchedulePage(): ReactElement {
             {/* Breadcrumbs */}
             <CustomBreadcrumbs
               chain={[
-                { link: '/schedules', children: 'Schedules' },
+                { link: '/schedules', state: { defaultTab: scheduleType }, children: 'Schedules' },
                 { link: '#', children: item?.owner?.name || <Skeleton width={150} /> },
               ]}
             />

@@ -1,12 +1,13 @@
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
-import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
-import { getStripeClient, validateUserHasAccessToPatienAccount } from '../helpers';
-import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 import { STRIPE_RESOURCE_ACCESS_NOT_AUTHORIZED_ERROR } from 'utils';
+import { createOystehrClient, getAuth0Token, lambdaResponse, topLevelCatch, ZambdaInput } from '../../../shared';
+import { getStripeClient, validateUserHasAccessToPatientAccount } from '../helpers';
+import { complexValidation, validateRequestParameters } from './validateRequestParameters';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2MClientToken: string;
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     console.group('validateRequestParameters');
     let validatedParameters: ReturnType<typeof validateRequestParameters>;
@@ -31,7 +32,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
 
     const oystehrClient = createOystehrClient(m2MClientToken, secrets);
 
-    void (await validateUserHasAccessToPatienAccount(
+    void (await validateUserHasAccessToPatientAccount(
       { beneficiaryPatientId, secrets, zambdaInput: input },
       oystehrClient
     ));
@@ -59,4 +60,4 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
     console.error(error);
     return topLevelCatch('payment-methods-delete', error, input.secrets);
   }
-};
+});

@@ -35,7 +35,7 @@ export const WalkinLanding: FC = () => {
   );
   const somethingIsLoadingInSomeWay = isLoading || isFetching || isRefetching;
 
-  // todo: actuallly check error type
+  // todo: actually check error type
   const pageNotFound = error && isRefetching === false && !isLoading && !isFetching;
   if (pageNotFound) {
     return (
@@ -69,7 +69,7 @@ export const WalkinLanding: FC = () => {
                   const createSlotInput: CreateSlotParams = {
                     scheduleId: data.scheduleId,
                     startISO: DateTime.now().toISO(),
-                    serviceModality: data.serviceMode as ServiceMode,
+                    serviceModality: data.serviceMode ?? ServiceMode['in-person'],
                     lengthInMinutes: 15,
                     status: 'busy-tentative',
                     walkin: true,
@@ -113,7 +113,7 @@ export const WalkinLanding: FC = () => {
             </Typography>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2.5 }}>
               <Link to="https://ottehr.com" aria-label="Ottehr website" target="_blank">
-                <Button variant="contained" color="primary" data-testid="loadin-button">
+                <Button variant="contained" color="primary" data-testid="loading-button">
                   {t('welcome.goToWebsite', { PROJECT_NAME })}
                 </Button>
               </Link>

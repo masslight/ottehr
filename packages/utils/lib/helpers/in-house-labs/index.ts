@@ -14,12 +14,13 @@ import {
   IN_HOUSE_UNIT_OF_MEASURE_SYSTEM,
   REPEATABLE_TEXT_EXTENSION_CONFIG,
   DiagnosisDTO,
+  LabComponentValueSetConfig,
 } from 'utils';
 
 export const extractAbnormalValueSetValues = (
   obsDef: ObservationDefinition,
   containedResources: (ObservationDefinition | ValueSet)[]
-): string[] => {
+): LabComponentValueSetConfig[] => {
   const abnormalValueSetRef = obsDef.abnormalCodedValueSet?.reference?.substring(1);
   const abnormalValueSet = containedResources.find(
     (res) => res.resourceType === 'ValueSet' && res.id === abnormalValueSetRef
@@ -28,12 +29,14 @@ export const extractAbnormalValueSetValues = (
   return abnormalValues;
 };
 
-const extractValueSetValues = (valueSet: ValueSet): string[] => {
+const extractValueSetValues = (valueSet: ValueSet): LabComponentValueSetConfig[] => {
   if (!valueSet.compose?.include?.[0]?.concept) {
     return [];
   }
 
-  return valueSet.compose.include[0].concept.map((concept) => concept.code || '').filter(Boolean);
+  return valueSet.compose.include[0].concept
+    .map((concept) => (concept as LabComponentValueSetConfig) || '')
+    .filter(Boolean);
 };
 
 export const extractQuantityRange = (
@@ -125,6 +128,7 @@ const processObservationDefinition = (
     ) as ValueSet | undefined;
 
     const valueSet = validValueSet ? extractValueSetValues(validValueSet) : [];
+    console.log('valueSet check', valueSet);
     const abnormalValues = extractAbnormalValueSetValues(obsDef, containedResources);
 
     const refRangeValueSet = containedResources.find(
@@ -256,6 +260,12 @@ export const convertActivityDefinitionToTestItem = (
     }
   }
 
+  if (!activityDef.url || !activityDef.version) {
+    throw new Error(
+      `ActivityDefinition is misconfigured and is missing either its url or version property: ${activityDef.url}, ${activityDef.version}. AD id is ${activityDef.id}`
+    );
+  }
+
   const testItem: TestItem = {
     name,
     methods,
@@ -269,8 +279,11 @@ export const convertActivityDefinitionToTestItem = (
       groupedComponents,
       radioComponents,
     },
+    adUrl: activityDef.url,
+    adVersion: activityDef.version,
   };
 
+  console.log('successfully converted activity ActivityDefinition to testItem format for', testItem.name);
   return testItem;
 };
 
@@ -292,7 +305,7 @@ const getResult = (
     entry = observation.valueString;
   } else {
     const entryValue = observation?.valueQuantity?.value;
-    if (entryValue) entry = entryValue.toString();
+    if (entryValue !== undefined) entry = entryValue.toString();
   }
   const interpretationCoding = observation.interpretation?.find(
     (i) => i?.coding?.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
@@ -302,7 +315,7 @@ const getResult = (
     interpretationCode = interpretationCoding.find((c) => c.system === OBSERVATION_INTERPRETATION_SYSTEM)
       ?.code as ObservationCode;
   }
-  if (entry && interpretationCode) {
+  if (entry !== undefined && interpretationCode) {
     result = {
       entry,
       interpretationCode,

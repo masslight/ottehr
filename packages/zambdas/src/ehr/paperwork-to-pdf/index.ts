@@ -4,7 +4,6 @@ import Oystehr from '@oystehr/sdk';
 import { createDocument } from './document';
 import { generatePdf } from './draw';
 import { DocumentReference, List, QuestionnaireResponse } from 'fhir/r4b';
-import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import { DateTime } from 'luxon';
 import {
   addOperation,
@@ -33,6 +32,7 @@ interface Input {
 }
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
+const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let zapehrToken: string;
 

@@ -14,7 +14,8 @@ export enum ReasonListCodes {
   PATIENT_REFUSED = 'patient-refused',
   CARE_GIVER_REFUSED = 'caregiver-refused',
   NOT_APPROPRIATE_AT_THIS_TIME = 'not-appropriate-at-this-time',
-  PATIENT_DIDNT_TOLERATE_MEDICATION = 'patient-didnt-tolerate-medication',
+  // cSpell:disable-next didnt
+  PATIENT_DID_NOT_TOLERATE_MEDICATION = 'patient-didnt-tolerate-medication',
   OTHER = 'other',
 }
 
@@ -22,7 +23,7 @@ export const reasonListValues: Record<ReasonListCodes, string> = {
   [ReasonListCodes.PATIENT_REFUSED]: 'Patient refused',
   [ReasonListCodes.CARE_GIVER_REFUSED]: 'Caregiver refused',
   [ReasonListCodes.NOT_APPROPRIATE_AT_THIS_TIME]: 'Not appropriate at this time',
-  [ReasonListCodes.PATIENT_DIDNT_TOLERATE_MEDICATION]: "Patient didn't tolerate medication",
+  [ReasonListCodes.PATIENT_DID_NOT_TOLERATE_MEDICATION]: "Patient didn't tolerate medication",
   [ReasonListCodes.OTHER]: 'Other',
 };
 

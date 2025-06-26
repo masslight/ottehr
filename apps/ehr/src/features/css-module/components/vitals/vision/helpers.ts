@@ -1,7 +1,6 @@
 import {
   isVisionVitalObservation,
   parseVisionExtraOptions,
-  parseVisionValue,
   VitalsObservationDTO,
   VitalsVisionObservationDTO,
 } from 'utils';
@@ -22,8 +21,8 @@ export const composeVisionVitalsHistoryEntries = (
     isVisionVitalObservation,
     (observation) => {
       return {
-        leftEyeVision: parseVisionValue(observation.leftEyeVisionValue),
-        rightEyeVision: parseVisionValue(observation.rightEyeVisionValue),
+        leftEyeVision: observation.leftEyeVisionValue?.toString(),
+        rightEyeVision: observation.rightEyeVisionValue?.toString(),
         extraOptions: parseVisionExtraOptions(observation.extraVisionOptions),
       };
     }

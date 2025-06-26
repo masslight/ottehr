@@ -54,7 +54,7 @@ import {
   getUnconfirmedDOBIdx,
   getVisitStatus,
 } from 'utils';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import AppointmentNotesHistory from '../components/AppointmentNotesHistory';
 import { getAppointmentStatusChip } from '../components/AppointmentTableRow';
 import CardGridItem from '../components/CardGridItem';
@@ -82,7 +82,7 @@ import {
   cleanUpStaffHistoryTag,
   formatActivityLogs,
   formatNotesHistory,
-  formatPapeworkStartedLog,
+  formatPaperworkStartedLog,
   getAppointmentAndPatientHistory,
   getCriticalUpdateTagOp,
   sortLogs,
@@ -95,6 +95,7 @@ import useEvolveUser from '../hooks/useEvolveUser';
 import PageContainer from '../layout/PageContainer';
 import { PencilIconButton } from '../telemed';
 import { DocumentInfo, DocumentType, appointmentTypeLabels } from '../types/types';
+import PatientPaymentList from '../components/PatientPaymentsList';
 
 interface Documents {
   photoIdCards: DocumentInfo[];
@@ -232,6 +233,7 @@ export default function AppointmentPage(): ReactElement {
     ) as unknown as RelatedPerson;
     if (fhirRelatedPerson) {
       const isUserRelatedPerson = fhirRelatedPerson.relationship?.find(
+        // cSpell:disable-next relatedperson
         (relationship) => relationship.coding?.find((code) => code.code === 'user-relatedperson')
       );
       if (isUserRelatedPerson) {
@@ -636,7 +638,7 @@ export default function AppointmentPage(): ReactElement {
     try {
       interval = setInterval(async () => {
         if (encounter?.id && oystehr) {
-          const { startedFlag, inProgressFlag } = await checkInProgressFlag(encounter.id, oystehr);
+          const { startedFlag, inProgressFlag } = await checkInProgressFlag(encounter?.id, oystehr);
           setPaperworkInProgressFlag(inProgressFlag);
           if (!paperworkStartedFlag) setPaperworkStartedFlag(startedFlag);
         }
@@ -749,7 +751,6 @@ export default function AppointmentPage(): ReactElement {
       return documents;
     }
 
-    console.log('z3Documents', z3Documents);
     if (z3Documents.length) {
       documents.photoIdCards = z3Documents
         .filter((doc) => [DocumentType.PhotoIdFront, DocumentType.PhotoIdBack].includes(doc.type))
@@ -784,12 +785,12 @@ export default function AppointmentPage(): ReactElement {
         getAnswerStringFor('patient-state', flattenedItems) || ''
       }, ${getAnswerStringFor('patient-zip', flattenedItems) || ''}`
     : '';
-  const policyHoldercityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
+  const policyHolderCityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
     ? `${getAnswerStringFor('policy-holder-city', flattenedItems) || ''}, ${
         getAnswerStringFor('policy-holder-state', flattenedItems) || ''
       }, ${getAnswerStringFor('policy-holder-zip', flattenedItems) || ''}`
     : '';
-  const secondaryPolicyHoldercityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
+  const secondaryPolicyHolderCityStateZipString = getAnswerStringFor('patient-city', flattenedItems)
     ? `${getAnswerStringFor('policy-holder-city-2', flattenedItems) || ''}, ${
         getAnswerStringFor('policy-holder-state-2', flattenedItems) || ''
       }, ${getAnswerStringFor('policy-holder-zip-2', flattenedItems) || ''}`
@@ -879,7 +880,7 @@ export default function AppointmentPage(): ReactElement {
 
   useEffect(() => {
     if (paperworkStartedFlag) {
-      const paperworkStartedActivityLog = formatPapeworkStartedLog(paperworkStartedFlag, locationTimeZone);
+      const paperworkStartedActivityLog = formatPaperworkStartedLog(paperworkStartedFlag, locationTimeZone);
       setActivityLogs((prevLogs) => {
         const logsContainPaperworkStarted = prevLogs?.find((log) => log.activityName === ActivityName.paperworkStarted);
         if (logsContainPaperworkStarted) {
@@ -992,10 +993,10 @@ export default function AppointmentPage(): ReactElement {
       "Policy holder's sex": getAnswerStringFor('policy-holder-birth-sex', flattenedItems),
       'Street address': getAnswerStringFor('policy-holder-address', flattenedItems),
       'Address line 2': getAnswerStringFor('policy-holder-address-additional-line', flattenedItems),
-      'City, State, ZIP': policyHoldercityStateZipString,
+      'City, State, ZIP': policyHolderCityStateZipString,
       "Patient's relationship to the insured": getAnswerStringFor('patient-relationship-to-insured', flattenedItems),
     };
-  }, [policyHolderFullName, flattenedItems, policyHoldercityStateZipString]);
+  }, [policyHolderFullName, flattenedItems, policyHolderCityStateZipString]);
 
   const secondaryPolicyHolderDetails = useMemo(() => {
     return {
@@ -1008,10 +1009,10 @@ export default function AppointmentPage(): ReactElement {
       "Policy holder's sex": getAnswerStringFor('policy-holder-birth-sex-2', flattenedItems),
       'Street address': getAnswerStringFor('policy-holder-address-2', flattenedItems),
       'Address line 2': getAnswerStringFor('policy-holder-address-additional-line-2', flattenedItems),
-      'City, State, ZIP': secondaryPolicyHoldercityStateZipString,
+      'City, State, ZIP': secondaryPolicyHolderCityStateZipString,
       "Patient's relationship to the insured": getAnswerStringFor('patient-relationship-to-insured-2', flattenedItems),
     };
-  }, [flattenedItems, secondaryPolicyHolderFullName, secondaryPolicyHoldercityStateZipString]);
+  }, [flattenedItems, secondaryPolicyHolderFullName, secondaryPolicyHolderCityStateZipString]);
   const reasonForVisit = useMemo(() => {
     const complaints = (appointment?.description ?? '').split(',');
     return complaints.map((complaint) => complaint.trim()).join(', ');
@@ -1398,6 +1399,10 @@ export default function AppointmentPage(): ReactElement {
                 />
               </Grid>
               <Grid item xs={12} sm={6} paddingLeft={{ xs: 0, sm: 2 }}>
+                {/* credit cards and copay */}
+                {appointmentID && patient && (
+                  <PatientPaymentList patient={patient} loading={loading} encounterId={encounter.id ?? ''} />
+                )}
                 {/* Insurance information */}
                 {!selfPay && (
                   <PatientInformation

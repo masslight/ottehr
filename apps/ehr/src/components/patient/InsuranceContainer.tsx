@@ -157,7 +157,6 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
 
   const recheckEligibility = useMutation(async () => {
     // todo: show an alert when form has unsaved changes?
-    console.log('patient id', patientId);
     const coverageToCheck = insurancePriority?.toLowerCase();
     try {
       return oystehrZambda?.zambda
@@ -218,12 +217,12 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
           options={INSURANCE_COVERAGE_OPTIONS}
           rules={{
             required: REQUIRED_FIELD_ERROR_MESSAGE,
-            validate: (value, ctxt) => {
+            validate: (value, context) => {
               // todo: this validation concept would be good to lift into the paperwork validation engine
               const otherGroupKey = InsurancePriorityOptions.find((key) => key !== FormFields.insurancePriority.key);
               let otherGroupValue: 'Primary' | 'Secondary' | undefined;
               if (otherGroupKey) {
-                otherGroupValue = ctxt[otherGroupKey];
+                otherGroupValue = context[otherGroupKey];
               }
               if (otherGroupValue === value) {
                 return `Account may not have two ${value.toLowerCase()} insurance plans`;
@@ -370,7 +369,7 @@ export const InsuranceContainer: FC<InsuranceContainerProps> = ({
                     control={
                       <Checkbox
                         {...field}
-                        data-testid={dataTestIds.insuranceContainer.policyHolderAdrressCheckbox}
+                        data-testid={dataTestIds.insuranceContainer.policyHolderAddressCheckbox}
                         checked={value}
                         onChange={(e) => {
                           const checked = (e.target as HTMLInputElement).checked;

@@ -19,7 +19,21 @@ export default defineConfig({
   /* Retry on CI only */
   // retries: process.env.CI ? 2 : 0,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [['html'], ['list'], ['junit', { outputFile: 'test-results/results.xml' }]],
+  reporter: [
+    [
+      'html',
+      {
+        outputFolder: `playwright-report${process.env.PLAYWRIGHT_REPORT_SUFFIX || ''}`,
+      },
+    ],
+    ['list'],
+    [
+      'junit',
+      {
+        outputFile: `test-results${process.env.PLAYWRIGHT_REPORT_SUFFIX || ''}/results.xml`,
+      },
+    ],
+  ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL: process.env.WEBSITE_URL,
@@ -34,8 +48,10 @@ export default defineConfig({
     timeout: 30000,
   },
   retries: process.env.CI ? 2 : 0,
-  outputDir: 'test-results/',
+  outputDir: `test-results${process.env.PLAYWRIGHT_REPORT_SUFFIX || ''}/`,
   workers: process.env.CI ? 6 : undefined,
+  globalSetup: './tests/global-setup/index.ts',
+  globalTeardown: './tests/global-teardown/index.ts',
 
   /* Configure projects for major browsers */
   projects: [

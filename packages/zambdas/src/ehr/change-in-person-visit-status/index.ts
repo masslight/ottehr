@@ -1,22 +1,29 @@
 import Oystehr from '@oystehr/sdk';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, Encounter } from 'fhir/r4b';
 import {
   ChangeInPersonVisitStatusInput,
   ChangeInPersonVisitStatusResponse,
+  Secrets,
   User,
   VisitStatusWithoutUnknown,
 } from 'utils';
+import { checkOrCreateM2MClientToken } from '../../shared';
 import { createOystehrClient } from '../../shared/helpers';
 import { getVisitResources } from '../../shared/practitioner/helpers';
+import { ZambdaInput } from '../../shared/types';
 import { changeInPersonVisitStatusIfPossible } from './helpers/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
-import { checkOrCreateM2MClientToken } from '../../shared';
-import { ZambdaInput } from '../../shared/types';
+
+export interface ChangeInPersonVisitStatusInputValidated extends ChangeInPersonVisitStatusInput {
+  secrets: Secrets;
+  userToken: string;
+}
 
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -40,7 +47,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error updating in person visit status' }),
     };
   }
-};
+});
 
 export const complexValidation = async (
   oystehr: Oystehr,
@@ -85,7 +92,5 @@ export const performEffect = async (
 
   await changeInPersonVisitStatusIfPossible(oystehr, { encounter, appointment }, user, updatedStatus);
 
-  return {
-    message: `updated in person visit status to ${updatedStatus}`,
-  };
+  return {};
 };

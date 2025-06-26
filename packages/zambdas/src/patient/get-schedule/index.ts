@@ -18,6 +18,7 @@ import {
   isLocationVirtual,
   SecretsKeys,
   SlotListItem,
+  Timezone,
 } from 'utils';
 import {
   captureSentryException,
@@ -127,8 +128,13 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     const waitingMinutes = await getWaitingMinutesAtSchedule(oystehr, now, scheduleOwner);
     console.timeEnd('get_waiting_minutes');
 
-    // const walkinOpen = isWalkinOpen(locationInformationWithClosures, now);
-    // const openTime = walkinOpen ? undefined : getNextOpeningDateTime(oystehr, now, scheduleOwner);
+    let timezone: Timezone | undefined;
+    if (scheduleList.length === 1) {
+      const schedule = scheduleList[0].schedule;
+      if (schedule) {
+        timezone = getTimezone(schedule);
+      }
+    }
 
     const response: GetScheduleResponse = {
       message: 'Successfully retrieved all available slot times',
@@ -137,8 +143,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       location: locationInformationWithClosures,
       displayTomorrowSlotsAtHour: DISPLAY_TOMORROW_SLOTS_AT_HOUR,
       waitingMinutes,
-      walkinOpen: true,
-      openTime: undefined,
+      timezone,
     };
 
     console.log('response to return: ', response);

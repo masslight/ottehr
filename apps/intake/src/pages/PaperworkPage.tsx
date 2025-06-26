@@ -1,3 +1,4 @@
+// cSpell:ignore tokenful
 import { Close } from '@mui/icons-material';
 import {
   Box,
@@ -17,14 +18,13 @@ import { t } from 'i18next';
 import { FC, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { PaperworkContext, usePaperworkContext } from 'ui-components';
 import { useUCZambdaClient, ZambdaClient } from 'ui-components/lib/hooks/useUCZambdaClient';
 import {
   APIError,
   ComplexValidationResult,
   ComplexValidationResultFailureCase,
   convertQRItemToLinkIdMap,
-  convertQuesitonnaireItemToQRLinkIdMap,
+  convertQuestionnaireItemToQRLinkIdMap,
   evalComplexValidationTrigger,
   evalEnableWhen,
   findQuestionnaireResponseItemLinkId,
@@ -46,6 +46,7 @@ import { PageContainer } from '../components';
 import PagedQuestionnaire from '../features/paperwork/PagedQuestionnaire';
 import useAppointmentNotFoundInformation from '../helpers/information';
 import { useGetFullName } from '../hooks/useGetFullName';
+import { PaperworkContext, usePaperworkContext } from 'src/features/paperwork';
 
 enum AuthedLoadingState {
   initial,
@@ -360,7 +361,7 @@ export const PaperworkPage: FC = () => {
   );
 
   const paperworkGroupDefaults = useMemo(() => {
-    const currentPageFields = convertQuesitonnaireItemToQRLinkIdMap(currentPage?.item);
+    const currentPageFields = convertQuestionnaireItemToQRLinkIdMap(currentPage?.item);
     const currentPageEntries = completedPaperwork.find((item) => item.linkId === currentPage?.linkId)?.item;
     const inProgress = paperworkInProgress[currentPage?.linkId ?? ''] ?? {};
     if (!currentPageEntries && !inProgress) {

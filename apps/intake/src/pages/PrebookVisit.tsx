@@ -103,8 +103,6 @@ const useBookingData = (
 } => {
   const apiClient = useZapEHRAPIClient({ tokenless: true });
 
-  console.log('apiClient', apiClient);
-
   const { data: inPersonData, status: inPersonStatus } = useGetBookableItems(
     apiClient,
     Boolean(apiClient) && serviceMode === 'in-person',
@@ -292,7 +290,7 @@ const PrebookVisit: FC = () => {
               slotData={(slotData?.available ?? []).map((sli) => sli.slot)}
               slotsLoading={false}
               existingSelectedSlot={findSelectedSlotFromAvailable(slotData?.available ?? [], selectedSlot)}
-              timezone={selectedLocation?.timezone ?? 'America/New_York'}
+              timezone={selectedLocation?.timezone ?? slotData?.timezone ?? 'America/New_York'}
               forceClosedToday={false}
               forceClosedTomorrow={false}
               handleSlotSelected={noop}

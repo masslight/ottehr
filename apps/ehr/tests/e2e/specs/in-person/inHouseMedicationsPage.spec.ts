@@ -6,9 +6,12 @@ import { expectAssessmentPage } from '../../page/in-person/InPersonAssessmentPag
 import { expectInPersonProgressNotePage } from '../../page/in-person/InPersonProgressNotePage';
 import { expectEditOrderPage, OrderMedicationPage } from '../../page/OrderMedicationPage';
 import { expectPatientInfoPage } from '../../page/PatientInfo';
+import { DateTime } from 'luxon';
 
-const resourceHandler = new ResourceHandler('in-person');
+const PROCESS_ID = `inHouseMedicationsPage.spec.ts-${DateTime.now().toMillis()}`;
+const resourceHandler = new ResourceHandler(PROCESS_ID, 'in-person');
 
+// cSpell:disable-next inversus
 const DIAGNOSIS = 'Situs inversus';
 const MEDICATION = '0.9% Sodium Chloride IV (1000cc)';
 const DOSE = '2';
@@ -41,8 +44,7 @@ test.afterEach(async () => {
 
 test('Open Order Medication screen, check all fields are required', async ({ page }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
-  await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
-  await orderMedicationPage.editMedicationCard.selectAssociatedDx(DIAGNOSIS);
+  // we have selected dx by default now so we can proceed to verification
   await orderMedicationPage.clickOrderMedicationButton();
   await orderMedicationPage.editMedicationCard.verifyValidationErrorShown(Field.MEDICATION);
   await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
@@ -65,10 +67,17 @@ test('Open Order Medication screen, check all fields are required', async ({ pag
   await orderMedicationPage.editMedicationCard.verifyValidationErrorNotShown(Field.INSTRUCTIONS);
 });
 
+test('"Order" button is disabled when all fields are empty', async ({ page }) => {
+  const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
+  await orderMedicationPage.editMedicationCard.selectAssociatedDx('Select associatedDx');
+  await orderMedicationPage.verifyFillOrderToSaveButtonDisabled();
+});
+
 test('Non-selected diagnosis on Assessment page is not present in Order Medication screen on associatedDx dropdown', async ({
   page,
 }) => {
   const orderMedicationPage = await prepareAndOpenOrderMedicationPage(page);
+  // cSpell:disable-next Loiasis
   await orderMedicationPage.editMedicationCard.verifyDiagnosisNotAllowed('Loiasis');
 });
 

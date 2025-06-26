@@ -23,17 +23,30 @@ export interface LabQuestionnaireResponse {
 
 export type LabQuestionnaireResponseItem = (string | number | boolean | undefined)[] | undefined;
 
-export interface LabOrderResultPDFConfig {
+interface LabOrderPDFDetail {
   name: string;
   url: string;
+}
+export interface ExternalLabOrderResultConfig extends LabOrderPDFDetail {
   orderNumber?: string;
 }
 
-export interface LabOrderResult extends LabOrderResultPDFConfig {
-  reflexResults?: LabOrderResultPDFConfig[];
+export interface ExternalLabOrderResult extends ExternalLabOrderResultConfig {
+  reflexResults?: ExternalLabOrderResultConfig[];
 }
 
-export interface EncounterLabResult {
+export interface EncounterExternalLabResult {
   resultsPending: boolean;
-  labOrderResults: LabOrderResult[];
+  labOrderResults: ExternalLabOrderResult[];
+}
+
+export interface InHouseLabResult extends LabOrderPDFDetail {
+  // if the test has one result, we can display what was recorded
+  // if more than one result (like Urinalysis) no result value will be displayed
+  // todo not implemented, displaying this is a post mvp feature
+  simpleResultValue?: string;
+}
+export interface EncounterInHouseLabResult {
+  resultsPending: boolean;
+  labOrderResults: InHouseLabResult[];
 }

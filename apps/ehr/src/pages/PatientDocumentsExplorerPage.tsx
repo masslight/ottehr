@@ -176,6 +176,8 @@ const PatientDocumentsExplorerPage: FC = () => {
         fileName: fileName,
         fileFolderId: folderId,
       });
+
+      event.target.value = '';
     },
     [documentActions, selectedFolder?.id]
   );
@@ -327,7 +329,7 @@ const PatientDocumentsExplorerPage: FC = () => {
                   >
                     Upload New Doc
                     <FileAttachmentHiddenInput
-                      onChange={(e) => handleDocumentUploadInputChange(e)}
+                      onChange={handleDocumentUploadInputChange}
                       type="file"
                       capture="environment"
                     />

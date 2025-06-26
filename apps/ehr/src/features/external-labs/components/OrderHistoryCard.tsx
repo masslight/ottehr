@@ -3,16 +3,22 @@ import { AccordionCard } from '../../../telemed/components/AccordionCard';
 import React, { useState } from 'react';
 import { LabOrderHistoryRow } from 'utils/lib/types/data/labs/labs.types';
 import { LabsOrderStatusChip } from './ExternalLabsStatusChip';
-import { formatDateForLabs } from 'utils';
+import { formatDateForLabs, PSC_HOLD_LOCALE } from 'utils';
 
 interface OrderHistoryProps {
   isLoading?: boolean;
   isCollapsed?: boolean;
   orderHistory?: LabOrderHistoryRow[];
   timezone: string | undefined;
+  isPSCPerformed?: boolean;
 }
 
-export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = false, orderHistory = [], timezone }) => {
+export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({
+  isCollapsed = false,
+  orderHistory = [],
+  timezone,
+  isPSCPerformed,
+}) => {
   const [collapsed, setCollapsed] = useState(isCollapsed);
 
   return (
@@ -35,7 +41,13 @@ export const OrderHistoryCard: React.FC<OrderHistoryProps> = ({ isCollapsed = fa
                   {<LabsOrderStatusChip status={row.action} />}
                   {isReviewOrReceiveAction ? ` (${row.testType})` : ''}
                 </TableCell>
-                <TableCell>{row.performer ? `by ${row.performer}` : ''}</TableCell>
+                <TableCell>
+                  {row.action === 'performed' && isPSCPerformed
+                    ? PSC_HOLD_LOCALE
+                    : row.performer
+                    ? `by ${row.performer}`
+                    : ''}
+                </TableCell>
                 <TableCell>{formatDateForLabs(row.date, timezone)}</TableCell>
               </TableRow>
             );

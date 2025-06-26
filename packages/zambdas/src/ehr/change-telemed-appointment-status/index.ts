@@ -12,7 +12,7 @@ import {
   telemedProgressNoteChartDataRequestedFields,
 } from 'utils';
 
-import { getChartData } from '../get-chart-data';
+import { wrapHandler } from '@sentry/aws-serverless';
 import { checkOrCreateM2MClientToken, parseCreatedResourcesBundle, saveResourceRequest } from '../../shared';
 import { CANDID_ENCOUNTER_ID_IDENTIFIER_SYSTEM, createCandidEncounter } from '../../shared/candid';
 import { createOystehrClient } from '../../shared/helpers';
@@ -20,16 +20,17 @@ import { getVideoResources } from '../../shared/pdf/visit-details-pdf/get-video-
 import { makeVisitNotePdfDocumentReference } from '../../shared/pdf/visit-details-pdf/make-visit-note-pdf-document-reference';
 import { composeAndCreateVisitNotePdf } from '../../shared/pdf/visit-details-pdf/visit-note-pdf-creation';
 import { getMyPractitionerId } from '../../shared/practitioners';
+import { ZambdaInput } from '../../shared/types';
+import { getChartData } from '../get-chart-data';
 import { getInsurancePlan } from './helpers/fhir-utils';
 import { changeStatusIfPossible, makeAppointmentChargeItem, makeReceiptPdfDocumentReference } from './helpers/helpers';
 import { composeAndCreateReceiptPdf, getPaymentDataRequest, postChargeIssueRequest } from './helpers/payments';
 import { validateRequestParameters } from './validateRequestParameters';
-import { ZambdaInput } from '../../shared/types';
 
 // Lifting up value to outside of the handler allows it to stay in memory across warm lambda invocations
 let m2mtoken: string;
 
-export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
+export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
@@ -52,7 +53,7 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
       body: JSON.stringify({ message: 'Error changing appointment status and creating a charge.' }),
     };
   }
-};
+});
 
 export const performEffect = async (
   oystehr: Oystehr,

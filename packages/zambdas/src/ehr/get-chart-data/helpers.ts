@@ -9,7 +9,7 @@ import {
   SearchParams,
 } from 'utils';
 import { handleCustomDTOExtractions, mapResourceToChartDataResponse } from '../../shared/chart-data';
-import { makeEncounterLabResult } from '../shared/labs';
+import { makeEncounterLabResults } from '../shared/labs';
 
 type RequestOptions = ChartDataRequestedFields[keyof ChartDataRequestedFields];
 
@@ -218,10 +218,11 @@ export async function convertSearchResultsToResponse(
   });
 
   getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
-  if (getChartDataResponse.labResults) {
-    console.log('constructing lab result config');
-    const labResultConfig = await makeEncounterLabResult(resources, m2mtoken);
-    getChartDataResponse.labResults = labResultConfig;
+  if (getChartDataResponse.externalLabResults || getChartDataResponse.inHouseLabResults) {
+    console.log('constructing lab result configs');
+    const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(resources, m2mtoken);
+    if (getChartDataResponse.externalLabResults) getChartDataResponse.externalLabResults = externalLabResultConfig;
+    if (getChartDataResponse.inHouseLabResults) getChartDataResponse.inHouseLabResults = inHouseLabResultConfig;
   }
 
   return {

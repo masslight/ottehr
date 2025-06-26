@@ -1,8 +1,8 @@
-import { VitalsVisionObservationDTO, VitalVisionExtraOption, VitalVisionUnit } from 'utils';
+import { VitalsVisionObservationDTO, VitalVisionExtraOption } from 'utils';
 import { VitalHistoryEntry } from '../types';
 
 export type VitalVisionHistoryEntry = {
-  leftEyeVision?: VitalVisionUnit;
-  rightEyeVision?: VitalVisionUnit;
+  leftEyeVision?: string;
+  rightEyeVision?: string;
   extraOptions?: VitalVisionExtraOption[];
 } & VitalHistoryEntry<VitalsVisionObservationDTO>;

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ExtendedMedicationDataForResponse,
@@ -8,7 +8,7 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { useAppointment } from '../../../hooks/useAppointment';
-import { useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
+import { OrderFieldsSelectsOptions, useFieldsSelectsOptions } from '../../../hooks/useGetFieldOptions';
 import { useMedicationManagement } from '../../../hooks/useMedicationManagement';
 import { useReactNavigationBlocker } from '../../../hooks/useReactNavigationBlocker';
 import { getEditOrderUrl } from '../../../routing/helpers';
@@ -94,7 +94,7 @@ export const EditableMedicationCard: React.FC<{
      *
      * This approach ensures that the exact data shown to and confirmed by the user
      * will be sent to the endpoint and saved.
-     * We can't use async useState value here, becuse we should save value synchronously after user confirmation.
+     * We can't use async useState value here, because we should save value synchronously after user confirmation.
      */
     confirmedMedicationUpdateRequestRef.current = {
       ...(updatedRequestInput.orderId ? { orderId: updatedRequestInput.orderId } : {}),
@@ -177,8 +177,8 @@ export const EditableMedicationCard: React.FC<{
   const getFieldValue = <Field extends keyof MedicationData>(
     field: Field,
     type = 'text'
-  ): MedicationData[Field] | '' => {
-    return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : '');
+  ): MedicationData[Field] | '' | undefined => {
+    return localValues[field] ?? (medication ? getMedicationFieldValue(medication || {}, field, type) : undefined);
   };
 
   const isUnsavedData = isUnsavedMedicationData(
@@ -201,6 +201,18 @@ export const EditableMedicationCard: React.FC<{
 
   const isModalSaveButtonDisabled =
     confirmedMedicationUpdateRequestRef.current.newStatus === 'administered' ? false : isReasonSelected;
+
+  useEffect(() => {
+    if (type === 'order-new') {
+      Object.entries(fieldsConfig[type]).map(([field]) => {
+        const defaultOption = selectsOptions[field as keyof OrderFieldsSelectsOptions]?.defaultOption?.value;
+        if (defaultOption) {
+          const value = getFieldValue(field as keyof MedicationData);
+          if (!value || value < 0) setLocalValues((prev) => ({ ...prev, [field]: defaultOption }));
+        }
+      });
+    }
+  }, [type]);
 
   return (
     <>

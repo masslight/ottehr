@@ -18,6 +18,7 @@ import {
   QuestionnaireResponseItem,
   Location,
   Specimen,
+  Bundle,
 } from 'fhir/r4b';
 import {
   compareDates,
@@ -43,6 +44,8 @@ import {
   fetchDocumentReferencesForDiagnosticReports,
   fetchLabOrderPDFs,
   Secrets,
+  PatientLabItem,
+  getFullestAvailableName,
 } from 'utils';
 import { GetZambdaLabOrdersParams } from './validateRequestParameters';
 import { DiagnosisDTO, LabOrderDTO, ExternalLabsStatus, LAB_ORDER_TASK, PSC_HOLD_CONFIG } from 'utils';
@@ -71,6 +74,7 @@ export const mapResourcesToLabOrderDTOs = <SearchBy extends LabOrdersSearchBy>(
   specimens: Specimen[],
   secrets: Secrets | null
 ): LabOrderDTO<SearchBy>[] => {
+  console.log('mapResourcesToLabOrderDTOs');
   const result: LabOrderDTO<SearchBy>[] = [];
 
   for (const serviceRequest of serviceRequests) {
@@ -141,6 +145,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   specimens: Specimen[];
   cache?: Cache;
 }): LabOrderDTO<SearchBy> => {
+  console.log('parsing external lab order data');
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -149,7 +154,9 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
+  console.log('external lab orderStatus parsed', orderStatus);
 
+  console.log('formatting external lab listPageDTO');
   const listPageDTO: LabOrderListPageDTO = {
     appointmentId,
     testItem,
@@ -169,6 +176,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
   };
 
   if (searchBy.searchBy.field === 'serviceRequestId') {
+    console.log('formatting external lab detailedPageDTO for service request', serviceRequest.id);
     const detailedPageDTO: LabOrderDetailedPageDTO = {
       ...listPageDTO,
       history: parseLabOrdersHistory(
@@ -230,6 +238,8 @@ export const parseTasks = ({
     };
   }
 
+  console.log('parsing tasks for service request', serviceRequest.id);
+
   const PST = parseTaskPST(tasks, serviceRequest.id);
 
   // parseResults returns filtered prelim results if there are final results with the same code
@@ -261,6 +271,8 @@ export const parseTasks = ({
     compareDates(a.authoredOn, b.authoredOn)
   );
 
+  console.log('successfully parsed tasks');
+
   return {
     taskPST: PST,
     orderedPrelimTasks,
@@ -285,6 +297,7 @@ export const parseResults = (
   orderedPrelimResults: DiagnosticReport[];
   reflexPrelimResults: DiagnosticReport[];
 } => {
+  console.log('parsing results for serviceRequest', serviceRequest.id);
   if (!serviceRequest.id) {
     throw new Error('ServiceRequest ID is required');
   }
@@ -376,14 +389,30 @@ export const getLabResources = async (
   questionnaires: QuestionnaireData[];
   labPDFs: LabOrderPDF[];
   specimens: Specimen[];
+  patientLabItems: PatientLabItem[];
 }> => {
   const labServiceRequestSearchParams = createLabServiceRequestSearchParams(params);
   console.log('labServiceRequestSearchParams', JSON.stringify(labServiceRequestSearchParams));
 
-  const labOrdersResponse = await oystehr.fhir.search({
+  const labOrdersResponsePromise = oystehr.fhir.search({
     resourceType: 'ServiceRequest',
     params: labServiceRequestSearchParams,
   });
+
+  const patientLabItemsPromise = (async (): Promise<PatientLabItem[]> => {
+    if (searchBy.searchBy.field === 'patientId') {
+      try {
+        const allServiceRequestsForPatient = await getAllServiceRequestsForPatient(oystehr, searchBy.searchBy.value);
+        return parsePatientLabItems(allServiceRequestsForPatient);
+      } catch (error) {
+        console.error('Error fetching all service requests for patient:', error);
+        return [] as PatientLabItem[];
+      }
+    }
+    return [] as PatientLabItem[];
+  })();
+
+  const [labOrdersResponse, patientLabItems] = await Promise.all([labOrdersResponsePromise, patientLabItemsPromise]);
 
   const labResources =
     labOrdersResponse.entry
@@ -418,6 +447,7 @@ export const getLabResources = async (
   } = extractLabResources(labResources);
 
   const isDetailPageRequest = searchBy.searchBy.field === 'serviceRequestId';
+  console.log('isDetailPageRequest', isDetailPageRequest);
 
   const [
     serviceRequsetPractitioners,
@@ -458,6 +488,7 @@ export const getLabResources = async (
     labPDFs,
     specimens,
     pagination,
+    patientLabItems,
   };
 };
 
@@ -529,6 +560,14 @@ export const createLabServiceRequestSearchParams = (params: GetZambdaLabOrdersPa
     searchParams.push({
       name: 'encounter',
       value: `Encounter/${searchBy.value}`,
+    });
+  }
+
+  // tracking board case
+  if (searchBy.field === 'encounterIds') {
+    searchParams.push({
+      name: 'encounter',
+      value: searchBy.value.map((id) => `Encounter/${id}`).join(','),
     });
   }
 
@@ -797,7 +836,7 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
     }
 
     // if there is a corrected result, we may need to take a cancelled RFRT, but only the latest one for that result.
-    // this happens in cases where a RCRT comes in and cancels the RFRT before a review has occured
+    // this happens in cases where a RCRT comes in and cancels the RFRT before a review has occurred
     if (task.id) {
       const drIdForTask = taskIdToResultIdMap.get(task.id);
       if (
@@ -1078,13 +1117,13 @@ export const parsePractitionerName = (practitionerId: string | undefined, practi
     return NOT_FOUND;
   }
 
-  const name = practitioner.name?.[0];
+  const providerName = getFullestAvailableName(practitioner);
 
-  if (!name) {
+  if (!providerName) {
     return NOT_FOUND;
   }
 
-  return [name.prefix, name.given, name.family].flat().filter(Boolean).join(' ') || NOT_FOUND;
+  return providerName;
 };
 
 export const parseLabInfo = (serviceRequest: ServiceRequest): { testItem: string; fillerLab: string } => {
@@ -1123,6 +1162,7 @@ export const parseReflexTestsCount = (
 };
 
 export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]): string => {
+  console.log('parsing performed by for specimen', specimen.id);
   const NOT_FOUND = '';
 
   const collectedById = specimen.collection?.collector?.reference?.replace('Practitioner/', '');
@@ -1134,6 +1174,7 @@ export const parsePerformed = (specimen: Specimen, practitioners: Practitioner[]
 };
 
 export const parsePerformedDate = (specimen: Specimen): string => {
+  console.log('parsing performed date for specimen', specimen.id);
   return specimen.collection?.collectedDateTime || '-';
 };
 
@@ -1197,6 +1238,7 @@ export const parsePaginationFromResponse = (data: {
 };
 
 export const parseAppointmentId = (serviceRequest: ServiceRequest, encounters: Encounter[]): string => {
+  console.log('getting appointment id for service request', serviceRequest.id);
   const encounterId = parseEncounterId(serviceRequest);
   const NOT_FOUND = '';
 
@@ -1344,6 +1386,7 @@ export const parseLabOrdersHistory = (
   specimens: Specimen[],
   cache?: Cache
 ): LabOrderHistoryRow[] => {
+  console.log('building order history for external lab service request', serviceRequest.id);
   const { orderedFinalTasks, reflexFinalTasks, orderedCorrectedTasks, reflexCorrectedTasks } =
     cache?.parsedTasks ||
     parseTasks({
@@ -1365,21 +1408,25 @@ export const parseLabOrdersHistory = (
 
   if (orderStatus === ExternalLabsStatus.pending) return history;
 
-  let performedBy = '';
-  let performedByDate = '-';
-  if (parseIsPSC(serviceRequest)) {
-    performedBy = 'psc';
-  } else if (specimens.length > 0) {
-    // todo update in the future when we are handling multiple specimens
-    const specimen = specimens[0];
-    performedBy = parsePerformed(specimen, practitioners);
-    performedByDate = parsePerformedDate(specimen);
-  }
-  history.push({
-    action: 'performed',
-    performer: performedBy,
-    date: performedByDate,
-  });
+  const isPSC = parseIsPSC(serviceRequest);
+
+  const pushPerformedHistory = (specimen: Specimen): void => {
+    history.push({
+      action: 'performed',
+      performer: isPSC ? '' : parsePerformed(specimen, practitioners),
+      date: isPSC ? '-' : parsePerformedDate(specimen),
+    });
+  };
+
+  // only push performed to order history if this is a psc order or there is a specimen to parse data from
+  // not having a specimen for a non psc order is probably an edge case but was causing issues for autolab
+  (isPSC || specimens[0]) && pushPerformedHistory(specimens[0]);
+
+  // todo: design is required https://github.com/masslight/ottehr/issues/2177
+  // handle if there are multiple specimens (the first one is handled above)
+  // specimens.slice(1).forEach((specimen) => {
+  //   pushPerformedHistory(specimen);
+  // });
 
   const taggedReflexTasks = [...reflexFinalTasks, ...reflexCorrectedTasks].map(
     (task) => ({ ...task, testType: 'reflex' }) as const
@@ -1533,6 +1580,7 @@ export const parseLResultsDetails = (
   labPDFs: LabOrderPDF[],
   cache?: Cache
 ): LabOrderResultDetails[] => {
+  console.log('parsing external lab order results for service request', serviceRequest.id);
   if (!serviceRequest.id) {
     return [];
   }
@@ -1822,6 +1870,7 @@ export const parseQuestionnaireResponseItems = (
 };
 
 export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen[]): sampleDTO[] => {
+  console.log('parsing samples for service request & specimen', serviceRequest.id, specimens?.length);
   const NOT_FOUND = 'Not specified';
 
   if (!serviceRequest.contained || !serviceRequest.contained.length) {
@@ -1954,4 +2003,97 @@ export const parseSamples = (serviceRequest: ServiceRequest, specimens: Specimen
   }
 
   return result;
+};
+
+export const parsePatientLabItems = (serviceRequests: ServiceRequest[]): PatientLabItem[] => {
+  const labItemsMap = new Map<string, PatientLabItem>();
+
+  serviceRequests.forEach((serviceRequest) => {
+    const activityDefinition = serviceRequest.contained?.find(
+      (resource) => resource.resourceType === 'ActivityDefinition'
+    ) as ActivityDefinition | undefined;
+
+    if (activityDefinition?.code?.coding) {
+      activityDefinition.code.coding.forEach((coding) => {
+        if (coding.code && coding.display && coding.system === OYSTEHR_LAB_OI_CODE_SYSTEM) {
+          labItemsMap.set(coding.code, {
+            code: coding.code,
+            display: coding.display,
+          });
+        }
+      });
+    }
+  });
+
+  return Array.from(labItemsMap.values()).sort((a, b) => a.display.localeCompare(b.display));
+};
+
+export const getAllServiceRequestsForPatient = async (
+  oystehr: Oystehr,
+  patientId: string
+): Promise<ServiceRequest[]> => {
+  console.log('Fetching ALL service requests for patient:', patientId);
+
+  const baseSearchParams: SearchParam[] = [
+    {
+      name: 'subject',
+      value: `Patient/${patientId}`,
+    },
+    {
+      name: 'code',
+      value: `${OYSTEHR_LAB_OI_CODE_SYSTEM}|`,
+    },
+    {
+      name: 'code:missing',
+      value: 'false',
+    },
+    {
+      name: '_count',
+      value: '100',
+    },
+    {
+      name: '_sort',
+      value: '-_lastUpdated',
+    },
+  ];
+
+  let offset = 0;
+  const serviceRequestsMap = new Map<string, ServiceRequest>();
+  let bundle = await oystehr.fhir.search<ServiceRequest>({
+    resourceType: 'ServiceRequest',
+    params: [...baseSearchParams, { name: '_offset', value: offset.toString() }],
+  });
+
+  const processPageResults = (pageBundle: Bundle<ServiceRequest>): void => {
+    pageBundle.entry
+      ?.map((entry) => entry.resource as ServiceRequest)
+      .filter((sr) => {
+        return sr.contained?.some((contained) => contained.resourceType === 'ActivityDefinition');
+      })
+      .forEach((sr) => {
+        if (sr.id) {
+          serviceRequestsMap.set(sr.id, sr);
+        }
+      });
+  };
+
+  processPageResults(bundle);
+
+  while (bundle.link?.find((link) => link.relation === 'next')) {
+    offset += 100;
+
+    bundle = await oystehr.fhir.search<ServiceRequest>({
+      resourceType: 'ServiceRequest',
+      params: [
+        ...baseSearchParams.filter((param) => param.name !== '_offset'),
+        { name: '_offset', value: offset.toString() },
+      ],
+    });
+
+    processPageResults(bundle);
+  }
+
+  const allServiceRequests = Array.from(serviceRequestsMap.values());
+  console.log(`Found ${allServiceRequests.length} unique service requests for patient`);
+  return allServiceRequests;
 };

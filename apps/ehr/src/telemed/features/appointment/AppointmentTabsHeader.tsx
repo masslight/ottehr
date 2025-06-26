@@ -1,13 +1,14 @@
+import { ottehrAiIcon } from '@ehrTheme/icons';
 import AssignmentIndOutlinedIcon from '@mui/icons-material/AssignmentIndOutlined';
 import { TabContext, TabList } from '@mui/lab';
-import { Box, Tab, Typography } from '@mui/material';
+import { Box, ListItemIcon, Tab, Typography } from '@mui/material';
 import React, { FC } from 'react';
+import { sidebarMenuIcons } from 'src/features/css-module/components/Sidebar';
+import { TelemedAppointmentVisitTabs } from 'utils';
+import { dataTestIds } from '../../../constants/data-test-ids';
 import { getSelectors } from '../../../shared/store/getSelectors';
 import { ContractEditIcon, DiagnosisIcon, PatientListIcon, StethoscopeIcon } from '../../assets';
 import { useAppointmentStore } from '../../state';
-import { dataTestIds } from '../../../constants/data-test-ids';
-import { TelemedAppointmentVisitTabs } from 'utils';
-import { ottehrAiIcon } from '@theme/icons';
 
 export const AppointmentTabsHeader: FC = () => {
   const { currentTab, chartData } = getSelectors(useAppointmentStore, ['currentTab', 'chartData']);
@@ -30,6 +31,16 @@ export const AppointmentTabsHeader: FC = () => {
           }
           data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.hpi)}
           value={TelemedAppointmentVisitTabs.hpi}
+        />
+        <Tab
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <ListItemIcon sx={{ height: 24, width: 24, minWidth: 24 }}>{sidebarMenuIcons.Vitals}</ListItemIcon>
+              <Typography sx={{ textTransform: 'none', fontWeight: 500, fontSize: '14px' }}>Vitals</Typography>
+            </Box>
+          }
+          data-testid={dataTestIds.telemedEhrFlow.appointmentVisitTabs(TelemedAppointmentVisitTabs.vitals)}
+          value={TelemedAppointmentVisitTabs.vitals}
         />
         <Tab
           label={

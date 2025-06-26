@@ -1,3 +1,4 @@
+// cSpell:ignore Español
 import ChatOutlineIcon from '@mui/icons-material/ChatOutlined';
 import { LoadingButton } from '@mui/lab';
 import {
@@ -13,7 +14,7 @@ import {
   capitalize,
   useTheme,
 } from '@mui/material';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { DateTime } from 'luxon';
 import { FC, ReactElement, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';

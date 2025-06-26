@@ -1,3 +1,4 @@
+// cSpell:ignore tokenful
 import { FieldValues } from 'react-hook-form';
 import { generatePath, Outlet, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import PatientList from '../features/patients/components/selectable-list';

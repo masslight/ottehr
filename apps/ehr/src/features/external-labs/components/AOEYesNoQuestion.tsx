@@ -1,12 +1,12 @@
 import { FormLabel, RadioGroup, FormControlLabel, Radio } from '@mui/material';
-import { otherColors } from '@theme/colors';
+import { otherColors } from '@ehrTheme/colors';
 import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-form';
 
 interface YesNoQuestionProps {
   questionText: string;
   linkId: string;
-  answer?: string;
   required: boolean;
+  isReadOnly?: boolean;
   field: ControllerRenderProps<FieldValues, string>;
 }
 
@@ -28,24 +28,19 @@ const labelStyles = {
   },
 };
 
+// cSpell:disable-next AOEYes
 export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
   const {
     formState: { errors: _ },
   } = useFormContext();
 
-  const { questionText, linkId, answer, required, field } = props;
-  const isReadOnly = answer !== undefined;
+  const { questionText, linkId, required, isReadOnly, field } = props;
+
   const labelId = `boolean-${linkId}-label`;
   return (
     <>
       <FormLabel id={labelId}>{questionText}</FormLabel>
-      <RadioGroup
-        {...field}
-        row
-        aria-labelledby={labelId}
-        name={`${labelId}-row-radio-buttons-group`}
-        defaultValue={answer}
-      >
+      <RadioGroup {...field} row aria-labelledby={labelId} name={`${labelId}-row-radio-buttons-group`}>
         <FormControlLabel
           value="true"
           control={<Radio disabled={isReadOnly} inputProps={{ required: required }} sx={radioStyles} />}

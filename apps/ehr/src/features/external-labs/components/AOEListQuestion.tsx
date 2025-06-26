@@ -5,9 +5,9 @@ import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 interface ListQuestionProps {
   questionText: string;
   linkId: string;
-  answer?: string;
   answerOption: QuestionnaireItemAnswerOption[];
   required: boolean;
+  isReadOnly?: boolean;
   field: ControllerRenderProps<FieldValues, string>;
 }
 
@@ -17,7 +17,7 @@ export const AOEListQuestion: React.FC<ListQuestionProps> = (props) => {
     formState: { errors },
   } = useFormContext();
 
-  const { questionText, linkId, answer, answerOption, field } = props;
+  const { questionText, linkId, answerOption, isReadOnly, field } = props;
 
   const labelId = `select-${linkId}-label`;
   return (
@@ -29,8 +29,7 @@ export const AOEListQuestion: React.FC<ListQuestionProps> = (props) => {
         id={`select-${linkId}`}
         label={questionText}
         error={!!errors[linkId]}
-        value={answer}
-        readOnly={answer !== undefined}
+        readOnly={isReadOnly}
       >
         {answerOption.map((option, idx) => (
           <MenuItem key={idx} value={option.valueString}>

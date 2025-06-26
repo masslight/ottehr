@@ -30,6 +30,7 @@ import { enqueueSnackbar } from 'notistack';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
 import { InHouseLabsBreadcrumbs } from '../components/InHouseLabsBreadcrumbs';
+import { InHouseLabsNotesCard } from '../components/details/InHouseLabsNotesCard';
 
 export const InHouseLabOrderCreatePage: React.FC = () => {
   const theme = useTheme();
@@ -472,8 +473,8 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                         return;
                       }
                       const alreadySelected =
-                        selectedNewDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code) ||
-                        selectedAssessmentDiagnoses.find((tempdx) => tempdx.code === selectedDx?.code);
+                        selectedNewDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code) ||
+                        selectedAssessmentDiagnoses.find((tempDx) => tempDx.code === selectedDx?.code);
                       if (!alreadySelected) {
                         setSelectedNewDiagnoses((diagnoses) => [
                           ...diagnoses,
@@ -545,7 +546,7 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                   </Grid>
                 )}
 
-                <Grid item xs={12}>
+                {/* <Grid item xs={12}>
                   <TextField
                     fullWidth
                     id="notes"
@@ -554,6 +555,17 @@ export const InHouseLabOrderCreatePage: React.FC = () => {
                     rows={4}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
+                  />
+                </Grid> */}
+
+                <Grid item xs={12}>
+                  <InHouseLabsNotesCard
+                    notes={notes}
+                    notesLabel={'Notes (optional)'}
+                    readOnly={false}
+                    additionalBoxSxProps={{ mb: 3 }}
+                    additionalTextFieldProps={{ rows: 4 }}
+                    handleNotesUpdate={(newNote: string) => setNotes(newNote)}
                   />
                 </Grid>
 

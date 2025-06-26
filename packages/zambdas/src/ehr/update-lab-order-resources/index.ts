@@ -24,7 +24,7 @@ import {
 } from '../../shared';
 import { validateRequestParameters } from './validateRequestParameters';
 import { DateTime } from 'luxon';
-import { createLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
+import { createExternalLabResultPDF } from '../../shared/pdf/labs-results-form-pdf';
 
 let m2mtoken: string;
 
@@ -237,7 +237,7 @@ const handleReviewedEvent = async ({
     requests,
   });
 
-  await createLabResultPDF(oystehr, 'external', serviceRequestId, diagnosticReport, true, secrets, m2mtoken);
+  await createExternalLabResultPDF(oystehr, serviceRequestId, diagnosticReport, true, secrets, m2mtoken);
 
   return updateTransactionRequest;
 };

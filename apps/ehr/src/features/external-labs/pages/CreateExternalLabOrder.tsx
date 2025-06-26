@@ -27,7 +27,7 @@ import {
   useGetCreateExternalLabResources,
 } from '../../../telemed';
 import { getSelectors } from '../../../shared/store/getSelectors';
-import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS } from 'utils';
+import { DiagnosisDTO, OrderableItemSearchResult, PRACTITIONER_CODINGS, PSC_HOLD_LOCALE } from 'utils';
 import { useApiClients } from '../../../hooks/useAppClients';
 import { LabsAutocomplete } from '../components/LabsAutocomplete';
 import { createExternalLabOrder } from '../../../api/api';
@@ -36,6 +36,7 @@ import { enqueueSnackbar } from 'notistack';
 import { LabBreadcrumbs } from '../components/labs-orders/LabBreadcrumbs';
 import { OystehrSdkError } from '@oystehr/sdk/dist/cjs/errors';
 import DetailPageContainer from 'src/features/common/DetailPageContainer';
+
 interface CreateExternalLabOrdersProps {
   appointmentID?: string;
 }
@@ -216,7 +217,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                         const selectedDxCode = e.target.value;
                         const selectedDx = diagnosis?.find((tempDx) => tempDx.code === selectedDxCode);
                         if (selectedDx) {
-                          const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                          const alreadySelected = orderDx.find((tempDx) => tempDx.code === selectedDx.code);
                           if (!alreadySelected) {
                             setOrderDx([...orderDx, selectedDx]);
                           } else {
@@ -260,7 +261,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                     value={null}
                     isOptionEqualToValue={(option, value) => value.code === option.code}
                     onChange={(event: any, selectedDx: any) => {
-                      const alreadySelected = orderDx.find((tempdx) => tempdx.code === selectedDx.code);
+                      const alreadySelected = orderDx.find((tempDx) => tempDx.code === selectedDx.code);
                       if (!alreadySelected) {
                         setOrderDx([...orderDx, selectedDx]);
                       } else {
@@ -326,7 +327,7 @@ export const CreateExternalLabOrder: React.FC<CreateExternalLabOrdersProps> = ()
                   <FormControlLabel
                     sx={{ fontSize: '14px' }}
                     control={<Switch checked={psc} onChange={() => setPsc((psc) => !psc)} />}
-                    label={<Typography variant="body2">PSC</Typography>}
+                    label={<Typography variant="body2">{PSC_HOLD_LOCALE}</Typography>}
                   />
                 </Grid>
                 <Grid item xs={6}>
