@@ -58,7 +58,7 @@ export const OrdersToolTip: React.FC<{
               style={{ textDecoration: 'none' }}
             >
               <Box display="flex" alignItems="center" gap="8px" color="text.primary">
-                <Typography variant="body2">{order.testItemName}</Typography>
+                <Typography variant="body2">{order.itemDescription}</Typography>
                 {order.statusChip}
               </Box>
             </Link>

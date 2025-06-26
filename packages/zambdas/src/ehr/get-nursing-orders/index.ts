@@ -2,7 +2,7 @@ import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { getSecret, SecretsKeys } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, topLevelCatch, ZambdaInput } from '../../shared';
-import { getNoursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
+import { getNursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -16,7 +16,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequests, tasks, practitioners, provenances } = await getNoursingOrderResources(
+    const { serviceRequests, tasks, practitioners, provenances, encounters } = await getNursingOrderResources(
       oystehr,
       validatedParameters
     );
@@ -31,7 +31,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
 
-    const nursingOrders = mapResourcesNursingOrderDTOs(serviceRequests, tasks, practitioners, provenances, searchBy);
+    const nursingOrders = mapResourcesNursingOrderDTOs(
+      serviceRequests,
+      tasks,
+      practitioners,
+      provenances,
+      encounters,
+      searchBy
+    );
 
     return {
       statusCode: 200,
