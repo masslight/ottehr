@@ -1,11 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { FormProvider, useForm } from 'react-hook-form';
-import { describe, it, expect, vi } from 'vitest';
-import { PrimaryCareContainer } from './PrimaryCareContainer';
-import { dataTestIds } from 'src/constants/data-test-ids';
 import type { InputHTMLAttributes } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 import { FormFields } from 'src/constants';
+import { dataTestIds } from 'src/constants/data-test-ids';
+import { describe, expect, it, vi } from 'vitest';
+import { PrimaryCareContainer } from './PrimaryCareContainer';
 
 vi.mock('../InputMask', async () => {
   const React = await import('react');
