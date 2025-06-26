@@ -22,10 +22,10 @@ import {
   SCHOOL_WORK_NOTE,
   SNOMEDCodeConceptInterface,
 } from 'utils';
-import { ZambdaInput } from '../../shared';
-import { checkOrCreateM2MClientToken, saveOrUpdateResourceRequest } from '../../shared';
 import {
+  checkOrCreateM2MClientToken,
   createDispositionServiceRequest,
+  createOystehrClient,
   createProcedureServiceRequest,
   followUpToPerformerMap,
   makeAllergyResource,
@@ -42,13 +42,14 @@ import {
   makeProcedureResource,
   makeSchoolWorkDR,
   makeServiceRequestResource,
+  saveOrUpdateResourceRequest,
   updateEncounterAddendumNote,
   updateEncounterAddToVisitNote,
   updateEncounterDiagnosis,
   updateEncounterDischargeDisposition,
   updateEncounterPatientInfoConfirmed,
+  ZambdaInput,
 } from '../../shared';
-import { createOystehrClient } from '../../shared';
 import { PdfDocumentReferencePublishedStatuses } from '../../shared/pdf/pdf-utils';
 import { createSchoolWorkNotePDF } from '../../shared/pdf/school-work-note-pdf';
 import { deleteResourceRequest } from '../delete-chart-data/helpers';
@@ -346,6 +347,11 @@ export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> 
         updateEncounterOperations.push(addEmptyArrOperation('/diagnosis'));
       }
       for (const element of diagnosis) {
+        console.log(`changing diagnosis: ${element.resourceId}`);
+        if (!element.code || !element.display) {
+          console.log(`can't create diagnosis, element don't have code or display values`);
+          continue;
+        }
         const conditionResource = makeDiagnosisConditionResource(encounterId, patient.id!, element, 'diagnosis');
         const condition = element.resourceId
           ? await oystehr.fhir.update(conditionResource)
