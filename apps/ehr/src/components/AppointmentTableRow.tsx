@@ -28,15 +28,12 @@ import React, { ReactElement, useCallback, useEffect, useMemo, useState } from '
 import { Link, useNavigate } from 'react-router-dom';
 import { otherColors } from 'src/themes/ottehr/colors';
 import {
-  ExtendedMedicationDataForResponse,
   formatMinutes,
   getDurationOfStatus,
   getPatchBinary,
   getVisitTotalTime,
-  InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
-  LabOrderListPageDTO,
-  NursingOrder,
+  OrdersForTrackingBoardRow,
   PRACTITIONER_CODINGS,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
@@ -73,10 +70,7 @@ interface AppointmentTableProps {
   tab: ApptTab;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
-  externalLabOrders: LabOrderListPageDTO[] | undefined;
-  nursingOrders: NursingOrder[] | undefined;
-  inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
+  orders: OrdersForTrackingBoardRow;
 }
 
 const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
@@ -241,10 +235,7 @@ export default function AppointmentTableRow({
   tab,
   updateAppointments,
   setEditingComment,
-  inHouseLabOrders,
-  externalLabOrders,
-  nursingOrders,
-  inHouseMedications,
+  orders,
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -257,6 +248,7 @@ export default function AppointmentTableRow({
   const [chatModalOpen, setChatModalOpen] = useState<boolean>(false);
   const [hasUnread, setHasUnread] = useState<boolean>(appointment.smsModel?.hasUnreadMessages || false);
   const user = useEvolveUser();
+  const { inHouseLabOrders, externalLabOrders, nursingOrders, inHouseMedications } = orders;
 
   if (!user) {
     throw new Error('User is not defined');

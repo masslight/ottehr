@@ -20,6 +20,7 @@ import {
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
   NursingOrder,
+  OrdersForTrackingBoardTable,
 } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
@@ -169,6 +170,13 @@ export default function Appointments(): ReactElement {
       {} as Record<string, ExtendedMedicationDataForResponse[]>
     );
   }, [inHouseMedications?.orders]);
+
+  const orders: OrdersForTrackingBoardTable = {
+    externalLabOrdersByAppointmentId,
+    inHouseLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
+    inHouseMedicationsByEncounterId,
+  };
 
   useEffect(() => {
     const selectedVisitTypes = localStorage.getItem('selectedVisitTypes');
@@ -327,10 +335,7 @@ export default function Appointments(): ReactElement {
       completedAppointments={completedAppointments}
       cancelledAppointments={cancelledAppointments}
       inOfficeAppointments={inOfficeAppointments}
-      inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-      externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-      nursingOrdersByAppointmentId={nursingOrdersByAppointmentId}
-      inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
+      orders={orders}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
       practitioners={practitioners}
@@ -363,10 +368,7 @@ interface AppointmentsBodyProps {
   setAppointmentDate: (date: DateTime | null) => void;
   updateAppointments: () => void;
   setEditingComment: (editingComment: boolean) => void;
-  inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
-  externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
-  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
-  inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
+  orders: OrdersForTrackingBoardTable;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
   const {
@@ -389,10 +391,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     handleSubmit,
     updateAppointments,
     setEditingComment,
-    inHouseLabOrdersByAppointmentId,
-    externalLabOrdersByAppointmentId,
-    nursingOrdersByAppointmentId,
-    inHouseMedicationsByEncounterId,
+    orders,
   } = props;
 
   const [displayFilters, setDisplayFilters] = useState<boolean>(true);
@@ -580,10 +579,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               cancelledAppointments={cancelledAppointments}
               completedAppointments={completedAppointments}
               inOfficeAppointments={inOfficeAppointments}
-              inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
-              externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
-              nursingLabOrdersByAppointmentId={nursingOrdersByAppointmentId}
-              inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
+              orders={orders}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
               setEditingComment={setEditingComment}
