@@ -175,7 +175,7 @@ function parseBundleResources(bundle: Bundle<FhirResource>): FhirResource[] {
 
 export async function convertSearchResultsToResponse(
   bundle: Bundle<FhirResource>,
-  m2mtoken: string,
+  m2mToken: string,
   patientId: string,
   encounterId: string,
   fields?: (keyof ChartDataFields)[]
@@ -220,7 +220,7 @@ export async function convertSearchResultsToResponse(
   getChartDataResponse = handleCustomDTOExtractions(getChartDataResponse, resources) as GetChartDataResponse;
   if (getChartDataResponse.externalLabResults || getChartDataResponse.inHouseLabResults) {
     console.log('constructing lab result configs');
-    const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(resources, m2mtoken);
+    const { externalLabResultConfig, inHouseLabResultConfig } = await makeEncounterLabResults(resources, m2mToken);
     if (getChartDataResponse.externalLabResults) getChartDataResponse.externalLabResults = externalLabResultConfig;
     if (getChartDataResponse.inHouseLabResults) getChartDataResponse.inHouseLabResults = inHouseLabResultConfig;
   }

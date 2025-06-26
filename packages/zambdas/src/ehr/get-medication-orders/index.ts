@@ -23,14 +23,14 @@ import { checkOrCreateM2MClientToken } from '../../shared';
 import { getMedicationFromMA } from '../create-update-medication-order/helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, validatedParameters.secrets);
-    const oystehr = createOystehrClient(m2mtoken, validatedParameters.secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, validatedParameters.secrets);
+    const oystehr = createOystehrClient(m2mToken, validatedParameters.secrets);
     console.log('Created zapToken, fhir and clients.');
 
     const response = await performEffect(oystehr, validatedParameters);

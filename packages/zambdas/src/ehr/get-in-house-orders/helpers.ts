@@ -244,7 +244,7 @@ export const getInHouseResources = async (
   params: GetZambdaInHouseOrdersParams,
   searchBy: InHouseOrdersSearchBy,
   userToken: string,
-  m2mtoken: string
+  m2mToken: string
 ): Promise<{
   serviceRequests: ServiceRequest[];
   tasks: Task[];
@@ -319,7 +319,7 @@ export const getInHouseResources = async (
 
     if (diagnosticReports.length > 0) {
       const resultsDocumentReferences = await fetchDocumentReferencesForDiagnosticReports(oystehr, diagnosticReports); // todo i think we can get this from the big query
-      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mtoken);
+      const pdfs = await fetchLabOrderPDFsPresignedUrls(resultsDocumentReferences, m2mToken);
       if (pdfs) resultsPDFs = pdfs.resultPDFs;
     }
   }

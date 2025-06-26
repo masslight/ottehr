@@ -37,7 +37,7 @@ import {
 import { getAttendingPractionerId } from '../shared/inhouse-labs';
 import { getPrimaryInsurance } from '../shared/labs';
 import { validateRequestParameters } from './validateRequestParameters';
-let m2mtoken: string;
+let m2mToken: string;
 
 export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   console.log(`create-in-house-lab-order started, input: ${JSON.stringify(input)}`);
@@ -61,8 +61,8 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
 
     console.log('validateRequestParameters success');
 
-    m2mtoken = await checkOrCreateM2MClientToken(m2mtoken, secrets);
-    const oystehr = createOystehrClient(m2mtoken, secrets);
+    m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
+    const oystehr = createOystehrClient(m2mToken, secrets);
     const oystehrCurrentUser = createOystehrClient(validatedParameters.userToken, validatedParameters.secrets);
 
     const {
