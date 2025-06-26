@@ -76,18 +76,13 @@ const makeFormDefaults = (currentItemValues: QuestionnaireResponseItem[]): any =
   }, {});
 };
 
-const filterPCPFieldsIfInactive = (values: Record<string, any>): Record<string, any> => {
-  const result = { ...values };
-
-  if (!result['pcp-active']) {
-    Object.keys(result).forEach((key) => {
-      if (key.startsWith('pcp-') && key !== 'pcp-active') {
-        result[key] = '';
-      }
-    });
-  }
-
-  return result;
+const clearPCPFieldsIfInactive = (values: Record<string, any>): Record<string, any> => {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      !values['pcp-active'] && key.startsWith('pcp-') && key !== 'pcp-active' ? '' : value,
+    ])
+  );
 };
 
 const PatientInformationPage: FC = () => {
@@ -216,7 +211,7 @@ const PatientInformationPage: FC = () => {
       return;
     }
 
-    const filteredValues = filterPCPFieldsIfInactive(values);
+    const filteredValues = clearPCPFieldsIfInactive(values);
 
     const qr = pruneEmptySections(structureQuestionnaireResponse(questionnaire, filteredValues, patient.id));
     submitQR.mutate(qr);
