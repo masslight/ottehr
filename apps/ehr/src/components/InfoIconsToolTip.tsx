@@ -10,6 +10,7 @@ import {
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
+  NursingOrder,
 } from 'utils';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
@@ -20,6 +21,7 @@ interface InfoIconsToolTipProps {
   tab: ApptTab;
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
   externalLabOrders: LabOrderListPageDTO[] | undefined;
+  nursingOrders: NursingOrder[] | undefined;
   inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
 }
 export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
@@ -27,6 +29,7 @@ export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
   tab,
   inHouseLabOrders,
   externalLabOrders,
+  nursingOrders,
   inHouseMedications,
 }) => {
   const ordersToolTip = displayOrdersToolTip(appointment, tab);
@@ -38,6 +41,7 @@ export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
           appointment={appointment}
           externalLabOrders={externalLabOrders}
           inHouseLabOrders={inHouseLabOrders}
+          nursingOrders={nursingOrders}
           inHouseMedications={inHouseMedications}
         />
       ) : (

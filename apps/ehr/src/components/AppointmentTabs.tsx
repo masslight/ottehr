@@ -10,6 +10,7 @@ import {
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
+  NursingOrder,
 } from 'utils';
 import { dataTestIds } from '../constants/data-test-ids';
 import AppointmentTable from './AppointmentTable';
@@ -35,6 +36,7 @@ interface AppointmentsTabProps {
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
   externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingLabOrdersByAppointmentId: Record<string, NursingOrder[]>;
   inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
 }
 
@@ -51,6 +53,7 @@ export default function AppointmentTabs({
   setEditingComment,
   inHouseLabOrdersByAppointmentId,
   externalLabOrdersByAppointmentId,
+  nursingLabOrdersByAppointmentId,
   inHouseMedicationsByEncounterId,
 }: AppointmentsTabProps): ReactElement {
   const [value, setValue] = useState<ApptTab>(ApptTab['in-office']);
@@ -146,6 +149,7 @@ export default function AppointmentTabs({
                 // todo we dont need orders on the prebooked tab, think about making optional, maybe
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
                 location={location}
                 tab={value}
@@ -161,6 +165,7 @@ export default function AppointmentTabs({
                 appointments={inOfficeAppointments}
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
                 location={location}
                 tab={value}
@@ -176,6 +181,7 @@ export default function AppointmentTabs({
                 appointments={completedAppointments}
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
                 location={location}
                 tab={value}
@@ -191,6 +197,7 @@ export default function AppointmentTabs({
                 appointments={cancelledAppointments}
                 inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
                 externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+                nursingOrdersByAppointmentId={nursingLabOrdersByAppointmentId}
                 inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
                 location={location}
                 tab={value}

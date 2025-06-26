@@ -21,6 +21,7 @@ import {
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
+  NursingOrder,
 } from 'utils';
 import {
   ACTION_WIDTH,
@@ -60,6 +61,7 @@ interface AppointmentTableProps {
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
   externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
   inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
 }
 
@@ -72,6 +74,7 @@ export default function AppointmentTable({
   setEditingComment,
   inHouseLabOrdersByAppointmentId,
   externalLabOrdersByAppointmentId,
+  nursingOrdersByAppointmentId,
   inHouseMedicationsByEncounterId,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
@@ -202,6 +205,7 @@ export default function AppointmentTable({
                             tab={tab}
                             inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                             externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                            nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                             inHouseMedications={inHouseMedicationsByEncounterId[appointment.encounterId]}
                           ></AppointmentTableRow>
                         );
@@ -222,6 +226,7 @@ export default function AppointmentTable({
                       tab={tab}
                       inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                       externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                      nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                       inHouseMedications={inHouseMedicationsByEncounterId[appointment.encounterId]}
                     ></AppointmentTableRow>
                   );
@@ -298,6 +303,7 @@ export default function AppointmentTable({
                           tab={tab}
                           inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                           externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                          nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                           inHouseMedications={inHouseMedicationsByEncounterId[appointment.encounterId]}
                         ></AppointmentTableRow>
                       );

@@ -12,12 +12,14 @@ import { usePageVisibility } from 'react-page-visibility';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { usePatientLabOrders } from 'src/features/external-labs/components/labs-orders/usePatientLabOrders';
 import { useInHouseLabOrders } from 'src/features/in-house-labs/components/orders/useInHouseLabOrders';
+import { useGetNursingOrders } from 'src/features/nursing-orders/components/orders/useNursingOrders';
 import { useGetMedicationOrders } from 'src/telemed';
 import {
   ExtendedMedicationDataForResponse,
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
+  NursingOrder,
 } from 'utils';
 import { getAppointments } from '../api/api';
 import AppointmentTabs from '../components/AppointmentTabs';
@@ -138,6 +140,19 @@ export default function Appointments(): ReactElement {
       {} as Record<string, InHouseOrderListPageItemDTO[]>
     );
   }, [inHouseOrders?.labOrders]);
+
+  const { nursingOrders } = useGetNursingOrders({
+    searchBy: { field: 'encounterIds', value: encountersIdsEligibleForOrders },
+  });
+  const nursingOrdersByAppointmentId: Record<string, NursingOrder[]> = useMemo(() => {
+    return nursingOrders?.reduce(
+      (acc, order) => {
+        acc[order.appointmentId] = [...(acc[order.appointmentId] || []), order];
+        return acc;
+      },
+      {} as Record<string, NursingOrder[]>
+    );
+  }, [nursingOrders]);
 
   const { data: inHouseMedications } = useGetMedicationOrders({
     field: 'encounterIds',
@@ -314,6 +329,7 @@ export default function Appointments(): ReactElement {
       inOfficeAppointments={inOfficeAppointments}
       inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
       externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+      nursingOrdersByAppointmentId={nursingOrdersByAppointmentId}
       inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
       locationSelected={locationSelected}
       setLocationSelected={setLocationSelected}
@@ -349,6 +365,7 @@ interface AppointmentsBodyProps {
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
   externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
   inHouseMedicationsByEncounterId: Record<string, ExtendedMedicationDataForResponse[]>;
 }
 function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
@@ -374,6 +391,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
     setEditingComment,
     inHouseLabOrdersByAppointmentId,
     externalLabOrdersByAppointmentId,
+    nursingOrdersByAppointmentId,
     inHouseMedicationsByEncounterId,
   } = props;
 
@@ -564,6 +582,7 @@ function AppointmentsBody(props: AppointmentsBodyProps): ReactElement {
               inOfficeAppointments={inOfficeAppointments}
               inHouseLabOrdersByAppointmentId={inHouseLabOrdersByAppointmentId}
               externalLabOrdersByAppointmentId={externalLabOrdersByAppointmentId}
+              nursingLabOrdersByAppointmentId={nursingOrdersByAppointmentId}
               inHouseMedicationsByEncounterId={inHouseMedicationsByEncounterId}
               loading={loadingState.status === 'loading'}
               updateAppointments={updateAppointments}
