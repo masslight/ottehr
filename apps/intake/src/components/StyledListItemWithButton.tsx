@@ -9,7 +9,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { FC } from 'react';
-import { PropsWithChildren } from 'ui-components/lib/types';
+import { PropsWithChildren } from '../types';
 
 type StyledListItemWithButtonProps = PropsWithChildren<{
   primaryText: string;

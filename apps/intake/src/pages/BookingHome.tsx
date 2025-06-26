@@ -4,15 +4,15 @@ import { FC, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from 'react-query';
 import { generatePath, Navigate, Outlet, useLocation, useOutletContext, useParams } from 'react-router-dom';
-import { useUCZambdaClient } from 'src/hooks/useUCZambdaClient';
-import { ErrorDialog, ErrorDialogConfig } from 'ui-components';
 import { getSelectors, PatientInfo, ServiceMode, Timezone, TIMEZONES, VisitType } from 'utils';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import ottehrApi from '../api/ottehrApi';
 import { BOOKING_SLOT_ID_PARAM, bookingBasePath } from '../App';
 import { PageContainer } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { PatientInfoInProgress } from '../features/patients/types';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 
 type BookingState = {
   patientInfo: PatientInfoInProgress | undefined;

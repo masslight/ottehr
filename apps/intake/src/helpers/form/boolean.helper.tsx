@@ -3,7 +3,7 @@ import CheckCircle from '@mui/icons-material/CheckCircle';
 import { Chip } from '@mui/material';
 import { ReactNode, useContext } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from '../../../../../apps/intake/src/contexts';
+import { IntakeThemeContext } from '../../contexts';
 
 export function getValueBoolean(value: boolean): ReactNode {
   // eslint-disable-next-line react-hooks/rules-of-hooks

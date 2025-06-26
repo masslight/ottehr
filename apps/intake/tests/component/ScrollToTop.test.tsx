@@ -1,7 +1,7 @@
 import { render, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { ScrollToTop } from 'src/components/ScrollToTop';
 import { describe, expect, test, vi } from 'vitest';
+import { ScrollToTop } from '../../src/components/ScrollToTop';
 
 describe('ScrollToTop', () => {
   vi.spyOn(document.documentElement, 'scrollTo');

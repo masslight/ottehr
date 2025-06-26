@@ -2,8 +2,7 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { AppBar, Box, Button, Card, Container, Grid, Typography, useTheme } from '@mui/material';
 import { FC, ReactElement, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { dataTestIds } from 'ui-components/lib/configurations/data-test-ids';
-// import { LanguagePicker } from './LanguagePicker';
+import { dataTestIds } from '../helpers/data-test-ids';
 
 export interface ContainerProps {
   title?: string;

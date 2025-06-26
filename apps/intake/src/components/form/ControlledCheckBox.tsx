@@ -2,7 +2,7 @@ import { Checkbox, FormControlLabel } from '@mui/material';
 import { FC, useContext } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import Markdown from 'react-markdown';
-import { IntakeThemeContext } from 'src/contexts';
+import { IntakeThemeContext } from '../../contexts';
 import { DescriptionRenderer } from './DescriptionRenderer';
 import { LinkRenderer } from './LinkRenderer';
 

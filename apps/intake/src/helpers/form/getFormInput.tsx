@@ -2,9 +2,6 @@ import { Box, Button, Grid, Typography } from '@mui/material';
 import { ReactElement } from 'react';
 import { FieldValues } from 'react-hook-form';
 import { FileURLs } from 'utils';
-import CoalescedDateInput from '../../../../../apps/intake/src/components/form/CoalescedDateInput';
-import { DateFieldMap } from '../../../../../apps/intake/src/components/form/DateInput';
-import { PhotosUpload } from '../../../../../apps/intake/src/components/form/PhotosUpload';
 import {
   ControlledCheckBox,
   DateInput,
@@ -16,7 +13,10 @@ import {
   RadioListInput,
   SelectInput,
   YearInput,
-} from '../../components';
+} from '../../components/form';
+import CoalescedDateInput from '../../components/form/CoalescedDateInput';
+import { DateFieldMap } from '../../components/form/DateInput';
+import { PhotosUpload } from '../../components/form/PhotosUpload';
 import { FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../../types';
 
 function checkRequire(item: FormInputTypeField, values: FieldValues): boolean {

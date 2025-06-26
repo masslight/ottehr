@@ -13,8 +13,8 @@ import {
 import { FC, ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import i18n from 'ui-components/lib/i18n';
 import { PROJECT_WEBSITE } from 'utils';
+import i18n from '../lib/i18n';
 
 export interface ErrorDialogConfig {
   title: string;

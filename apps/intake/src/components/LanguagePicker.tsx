@@ -4,8 +4,8 @@ import { Box, useTheme } from '@mui/system';
 import mixpanel from 'mixpanel-browser';
 import { FC, MouseEvent, useContext, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from 'src/contexts';
-import { languages } from 'ui-components/lib/i18n';
+import { IntakeThemeContext } from '../contexts';
+import { languages } from '../lib/i18n';
 
 export const LanguagePicker: FC = () => {
   const theme = useTheme();

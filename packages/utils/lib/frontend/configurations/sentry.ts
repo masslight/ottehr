@@ -1,5 +1,4 @@
 import * as Sentry from '@sentry/react';
-import { captureException } from '@sentry/react';
 
 export function setupSentry(
   options: Partial<Sentry.BrowserOptions> & {
@@ -23,11 +22,4 @@ export function setupSentry(
     replaysOnErrorSampleRate: 1.0, // If you're not already sampling the entire session, change the sample rate to 100% when sampling sessions where errors occur.
     ...options,
   });
-}
-
-export function safelyCaptureException(error: unknown): void {
-  const { MODE: environment } = import.meta.env;
-  if (['dev', 'testing', 'staging', 'training', 'production'].includes(environment)) {
-    captureException(error);
-  }
 }

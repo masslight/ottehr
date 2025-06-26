@@ -1,4 +1,4 @@
-import { ErrorDialogConfig, UnexpectedErrorDescription } from 'ui-components';
+import { ErrorDialogConfig } from '../components/ErrorDialog';
 
 export const getParentAndPatientOption = (t: (key: string) => string): { value: string; label: string }[] => {
   return [

@@ -12,9 +12,9 @@ import {
 import { FC, SyntheticEvent, useContext, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { IntakeThemeContext } from 'src/contexts';
-import { useLabelDimensions } from 'ui-components';
-import { RadioOption } from 'ui-components/lib/types';
+import { IntakeThemeContext } from '../../contexts';
+import { useLabelDimensions } from '../../hooks/useLabelDimensions';
+import { RadioOption } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import { InputHelperText } from './InputHelperText';
 import { LightToolTip } from './LightToolTip';

@@ -4,15 +4,6 @@ import { DateTime } from 'luxon';
 import React, { memo, ReactElement, useMemo, useRef } from 'react';
 import { FieldValues, FormProvider, FormState, SubmitHandler, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { PageFormContext } from 'src/contexts';
-import { filterFormInputFields } from 'ui-components/lib/helpers';
-import {
-  ControlButtonsProps,
-  FormInputType,
-  FormInputTypeField,
-  FormInputTypeGroup,
-  OverrideValues,
-} from 'ui-components/lib/types';
 import {
   checkEnable,
   DATE_ERROR_MESSAGE,
@@ -25,6 +16,9 @@ import {
   zipRegex,
 } from 'utils';
 import * as Yup from 'yup';
+import { PageFormContext } from '../contexts';
+import { filterFormInputFields } from '../helpers/form';
+import { ControlButtonsProps, FormInputType, FormInputTypeField, FormInputTypeGroup, OverrideValues } from '../types';
 import { ControlButtons } from './form';
 
 export const PAGE_FORM_INNER_FORM_ID = 'page-form-inner-form';

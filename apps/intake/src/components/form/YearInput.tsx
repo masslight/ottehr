@@ -21,7 +21,7 @@ const years = Array.from({ length: currentYear - startYear + 1 }, (_, index) => 
   return { value: `${year}`, label: `${year}` };
 }).reverse();
 
-const CoalescedDateInput = ({
+const YearInput = ({
   name,
   required,
   defaultValue,
@@ -51,4 +51,4 @@ const CoalescedDateInput = ({
   );
 };
 
-export default CoalescedDateInput;
+export default YearInput;

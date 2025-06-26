@@ -1,7 +1,6 @@
 // cSpell:ignore fhirify
 import Oystehr, { ZambdaExecuteResult } from '@oystehr/sdk';
 import { QuestionnaireItemAnswerOption, QuestionnaireResponse } from 'fhir/r4b';
-import { GetZapEHRAPIParams } from 'src/types/data';
 import {
   APIError,
   BookableItemListResponse,
@@ -49,6 +48,7 @@ import {
   WaitingRoomInput,
   WaitingRoomResponse,
 } from 'utils';
+import { GetZapEHRAPIParams } from '../types';
 
 enum ZambdaNames {
   'cancel appointment' = 'cancel appointment',

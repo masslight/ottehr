@@ -1,8 +1,8 @@
 import { Box, CircularProgress, Typography, useTheme } from '@mui/material';
 import { ChangeEvent, FC, useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { safelyCaptureException } from 'ui-components/lib/helpers';
-import { FileUploadOptions } from 'ui-components/lib/types';
+import { safelyCaptureException } from '../../helpers/sentry';
+import { FileUploadOptions } from '../../types';
 import { BoldPurpleInputLabel } from './BoldPurpleInputLabel';
 import CardComponent from './CardComponent';
 import NonImageCardComponent from './NonImageCardComponent';
