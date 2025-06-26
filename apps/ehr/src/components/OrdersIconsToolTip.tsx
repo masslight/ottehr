@@ -50,7 +50,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
       tableUrl: getExternalLabOrdersUrl(appointment.id),
       orders: externalLabOrders.map((order) => ({
         serviceRequestId: order.serviceRequestId,
-        testItemName: order.testItem,
+        itemDescription: order.testItem,
         detailPageUrl: getExternalLabOrderEditUrl(appointment.id, order.serviceRequestId),
         statusChip: <LabsOrderStatusChip status={order.orderStatus} />,
       })),
@@ -65,7 +65,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
       tableUrl: getInHouseLabsUrl(appointment.id),
       orders: inHouseLabOrders.map((order) => ({
         serviceRequestId: order.serviceRequestId,
-        testItemName: order.testItemName,
+        itemDescription: order.testItemName,
         detailPageUrl: getInHouseLabOrderDetailsUrl(appointment.id, order.serviceRequestId),
         statusChip: <InHouseLabsStatusChip status={order.status} />,
       })),
@@ -80,7 +80,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
       tableUrl: getNursingOrdersUrl(appointment.id),
       orders: nursingOrders.map((order) => ({
         serviceRequestId: order.serviceRequestId,
-        testItemName: order.note, // todo maybe update testItemName to be more generic
+        itemDescription: order.note,
         detailPageUrl: getNursingOrderDetailsUrl(appointment.id, order.serviceRequestId),
         statusChip: <NursingOrdersStatusChip status={order.status} />,
       })),

@@ -45,7 +45,7 @@ export interface OrderToolTipConfig {
   tableUrl: string;
   orders: {
     serviceRequestId: string;
-    testItemName: string;
+    itemDescription: string;
     detailPageUrl: string;
     statusChip: JSX.Element;
   }[];

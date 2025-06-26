@@ -549,10 +549,10 @@ export const fetchLabOrderPDFsPresignedUrls = async (
 export const parseAppointmentIdForServiceRequest = (
   serviceRequest: ServiceRequest,
   encounters: Encounter[]
-): string => {
+): string | undefined => {
   console.log('getting appointment id for service request', serviceRequest.id);
   const encounterId = serviceRequest.encounter?.reference?.split('/').pop();
-  const NOT_FOUND = '';
+  const NOT_FOUND = undefined;
 
   if (!encounterId) {
     return NOT_FOUND;

@@ -76,7 +76,7 @@ const parseOrderData = ({
 
   const orderingPhysician = parsePractitionerNameFromProvenance(createOrderProvenance, practitioners);
 
-  const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters);
+  const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
 
   const listDTO: NursingOrder = {
     serviceRequestId: serviceRequest.id,

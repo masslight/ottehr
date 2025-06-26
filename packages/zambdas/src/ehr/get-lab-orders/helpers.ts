@@ -157,7 +157,7 @@ export const parseOrderData = <SearchBy extends LabOrdersSearchBy>({
     throw new Error('ServiceRequest ID is required');
   }
 
-  const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters);
+  const appointmentId = parseAppointmentIdForServiceRequest(serviceRequest, encounters) || '';
   const appointment = appointments.find((a) => a.id === appointmentId);
   const { testItem, fillerLab } = parseLabInfo(serviceRequest);
   const orderStatus = parseLabOrderStatus(serviceRequest, tasks, results, cache);
