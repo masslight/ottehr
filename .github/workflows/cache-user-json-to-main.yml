@@ -15,7 +15,8 @@ jobs:
             exit 1
           fi
           
-          echo '${{ github.event.client_payload.encrypted_content }}' > user.json.enc
+          # Convert hex back to binary and save as encrypted file
+          echo '${{ github.event.client_payload.encrypted_content }}' | xxd -r -p > user.json.enc
           
           if openssl enc -aes-256-cbc -d -a \
               -pass pass:"${{ secrets.DEPLOY_OTTEHR_KEY }}" \
