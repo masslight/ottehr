@@ -12,45 +12,30 @@ import {
   getInHouseMedicationMARUrl,
   getNursingOrderDetailsUrl,
   getNursingOrdersUrl,
+  getRadiologyOrderEditUrl,
+  getRadiologyUrl,
 } from 'src/features/css-module/routing/helpers';
 import { LabsOrderStatusChip } from 'src/features/external-labs/components/ExternalLabsStatusChip';
 import { InHouseLabsStatusChip } from 'src/features/in-house-labs/components/InHouseLabsStatusChip';
 import { NursingOrdersStatusChip } from 'src/features/nursing-orders/components/NursingOrdersStatusChip';
-import {
-  ExtendedMedicationDataForResponse,
-  InHouseOrderListPageItemDTO,
-  InPersonAppointmentInformation,
-  LabOrderListPageDTO,
-  NursingOrder,
-  OrderToolTipConfig,
-} from 'utils';
+import { RadiologyTableStatusChip } from 'src/features/radiology/components/RadiologyTableStatusChip';
+import { hasAtLeastOneOrder } from 'src/helpers';
+import { InPersonAppointmentInformation, OrdersForTrackingBoardRow, OrderToolTipConfig } from 'utils';
 import { GenericToolTip } from './GenericToolTip';
 
 interface OrdersIconsToolTipProps {
   appointment: InPersonAppointmentInformation;
-  inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
-  externalLabOrders: LabOrderListPageDTO[] | undefined;
-  nursingOrders: NursingOrder[] | undefined;
-  inHouseMedications: ExtendedMedicationDataForResponse[] | undefined;
+  orders: OrdersForTrackingBoardRow;
 }
-export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
-  appointment,
-  inHouseLabOrders,
-  externalLabOrders,
-  nursingOrders,
-  inHouseMedications,
-}) => {
-  const hasInHouseOrders = !!inHouseLabOrders?.length;
-  const hasExternalOrders = !!externalLabOrders?.length;
-  const hasNursingOrders = !!nursingOrders?.length;
-  const hasInHouseMedications = !!inHouseMedications?.length;
-  const ordersExistForAppointment = hasInHouseOrders || hasExternalOrders || hasNursingOrders || hasInHouseMedications;
-
+export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({ appointment, orders }) => {
+  const ordersExistForAppointment = hasAtLeastOneOrder(orders);
   if (!ordersExistForAppointment) return null;
+
+  const { externalLabOrders, inHouseLabOrders, nursingOrders, inHouseMedications, radiologyOrders } = orders;
 
   const orderConfigs: OrderToolTipConfig[] = [];
 
-  if (hasExternalOrders) {
+  if (externalLabOrders?.length) {
     const externalLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['External Labs'],
       title: 'External Labs',
@@ -65,7 +50,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
     orderConfigs.push(externalLabOrderConfig);
   }
 
-  if (hasInHouseOrders) {
+  if (inHouseLabOrders?.length) {
     const inHouseLabOrderConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['In-house Labs'],
       title: 'In-House Labs',
@@ -80,7 +65,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
     orderConfigs.push(inHouseLabOrderConfig);
   }
 
-  if (hasNursingOrders) {
+  if (nursingOrders?.length) {
     const nursingOrdersConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Nursing Orders'],
       title: 'Nursing Orders',
@@ -95,7 +80,7 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
     orderConfigs.push(nursingOrdersConfig);
   }
 
-  if (hasInHouseMedications) {
+  if (inHouseMedications?.length) {
     const inHouseMedicationConfig: OrderToolTipConfig = {
       icon: sidebarMenuIcons['Med. Administration'],
       title: 'In-House Medications',
@@ -108,6 +93,21 @@ export const OrdersIconsToolTip: React.FC<OrdersIconsToolTipProps> = ({
       })),
     };
     orderConfigs.push(inHouseMedicationConfig);
+  }
+
+  if (radiologyOrders?.length) {
+    const radiologyOrdersConfig: OrderToolTipConfig = {
+      icon: sidebarMenuIcons['Radiology'],
+      title: 'Radiology Orders',
+      tableUrl: getRadiologyUrl(appointment.id),
+      orders: radiologyOrders.map((order) => ({
+        fhirResourceId: order.serviceRequestId,
+        itemDescription: order.studyType,
+        detailPageUrl: getRadiologyOrderEditUrl(appointment.id, order.serviceRequestId),
+        statusChip: <RadiologyTableStatusChip status={order.status} />,
+      })),
+    };
+    orderConfigs.push(radiologyOrdersConfig);
   }
 
   return (

@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getRadiologyUrl } from 'src/features/css-module/routing/helpers';
 import { CPTCodeDTO, DiagnosisDTO } from 'utils';
 import { createRadiologyOrder } from '../../../api/api';
 import { useApiClients } from '../../../hooks/useAppClients';
@@ -88,7 +89,7 @@ export const CreateRadiologyOrder: React.FC<CreateRadiologyOrdersProps> = () => 
           encounterId: encounter.id,
           stat: stat,
         });
-        navigate(`/in-person/${appointment?.id}/radiology`);
+        navigate(getRadiologyUrl(appointment?.id || ''));
       } catch (e) {
         const error = e as any;
         console.log('error', JSON.stringify(error));
