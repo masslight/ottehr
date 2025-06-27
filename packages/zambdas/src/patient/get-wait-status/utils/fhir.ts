@@ -1,4 +1,4 @@
-import Oystehr from '@oystehr/sdk';
+import Oystehr, { FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, Location } from 'fhir/r4b';
 import { isLocationVirtual, OTTEHR_MODULE } from 'utils';
 
@@ -50,7 +50,7 @@ export const convertStatesAbbreviationsToLocationIds = async (
   statesAbbreviations: string[]
 ): Promise<string[]> => {
   const statesLocationIds: string[] = [];
-  const searchParams = {
+  const searchParams: FhirSearchParams<Location> = {
     resourceType: 'Location',
     params: [
       {

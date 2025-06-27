@@ -182,7 +182,7 @@ const getBatchParams = (batchNo: number, params: SearchParam[]): SearchParam[] =
 };
 
 export const getAll = async <T extends FhirResource>(
-  resourceType: string,
+  resourceType: T['resourceType'],
   params: SearchParam[],
   oystehr: Oystehr
 ): Promise<T[]> => {

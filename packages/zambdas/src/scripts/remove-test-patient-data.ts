@@ -1,5 +1,6 @@
 import { exec as execCb } from 'node:child_process';
 import { promisify } from 'node:util';
+import { FhirSearchParams } from '@oystehr/sdk';
 import { Appointment, Patient } from 'fhir/r4b';
 import { createOystehrClientFromConfig, performEffectWithEnvFile } from './helpers';
 
@@ -13,7 +14,7 @@ const deleteTestPatientsData = async (config: any): Promise<void> => {
   let hasMoreAppointments = true;
 
   while (hasMoreAppointments) {
-    const fhirSearchParams = {
+    const fhirSearchParams: FhirSearchParams<Patient | Appointment> = {
       resourceType: 'Patient',
       params: [
         {

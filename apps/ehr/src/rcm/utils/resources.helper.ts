@@ -92,7 +92,7 @@ export const getCoverageRelatedResources = async (
   if (subscriberReference) {
     const subscriberResource = (
       await oystehr.fhir.search<Patient | RelatedPerson>({
-        resourceType: subscriberReference.split('/')[0],
+        resourceType: subscriberReference.split('/')[0] as 'Patient' | 'RelatedPerson',
         params: [{ name: '_id', value: subscriberReference.split('/')[1] }],
       })
     ).unbundle();
