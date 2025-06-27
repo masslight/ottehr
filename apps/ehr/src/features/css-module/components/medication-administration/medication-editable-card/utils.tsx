@@ -105,7 +105,7 @@ export const getSaveButtonText = (
   selectedStatus: MedicationOrderStatusesType | undefined,
   isUnsavedData: boolean
 ): string => {
-  if (type === 'dispense' && currentStatus === 'pending' && selectedStatus) {
+  if ((type === 'dispense' || type === 'dispense-not-administered') && currentStatus === 'pending' && selectedStatus) {
     return `Mark as ${selectedStatus
       .toLocaleLowerCase()
       .split(' ')
