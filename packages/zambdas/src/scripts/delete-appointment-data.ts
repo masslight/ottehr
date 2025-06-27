@@ -1,4 +1,4 @@
-import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
 import {
   Appointment,
@@ -172,7 +172,9 @@ const generateDeleteRequestsAndPerson = (
 };
 
 const getAppointmentById = async (oystehr: Oystehr, appointmentId: string): Promise<FhirResource[]> => {
-  const fhirSearchParams = {
+  const fhirSearchParams: FhirSearchParams<
+    Appointment | DocumentReference | Encounter | Patient | RelatedPerson | QuestionnaireResponse | Person
+  > = {
     resourceType: 'Appointment',
     params: [
       {

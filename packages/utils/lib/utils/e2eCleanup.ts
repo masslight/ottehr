@@ -1,6 +1,6 @@
-import Oystehr, { BatchInputDeleteRequest } from '@oystehr/sdk';
+import Oystehr, { BatchInputDeleteRequest, FhirSearchParams } from '@oystehr/sdk';
 import { Operation } from 'fast-json-patch';
-import { Coding, FhirResource, Observation, Person } from 'fhir/r4b';
+import { Appointment, Coding, FhirResource, Observation, Patient, Person } from 'fhir/r4b';
 import { chunkThings, getAllFhirSearchPages } from '../fhir';
 import { sleep } from '../helpers';
 
@@ -146,7 +146,7 @@ const patchPerson = async (oystehr: Oystehr, person: Person, allResources: FhirR
 
 const getAppointmentGraphByTag = async (oystehr: Oystehr, tag: Coding): Promise<FhirResource[]> => {
   const { system, code } = tag;
-  const appointmentSearchParams = {
+  const appointmentSearchParams: FhirSearchParams<Appointment | Patient> = {
     resourceType: 'Appointment',
     params: [
       {
