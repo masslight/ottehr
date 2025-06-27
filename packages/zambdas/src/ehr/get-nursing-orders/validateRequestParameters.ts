@@ -10,13 +10,12 @@ export function validateRequestParameters(input: ZambdaInput): GetNursingOrdersI
 
   const parsedJSON = JSON.parse(input.body) as unknown;
 
-  const { encounterId, searchBy } = safeValidate(GetNursingOrdersInputSchema, parsedJSON);
+  const { searchBy } = safeValidate(GetNursingOrdersInputSchema, parsedJSON);
 
   console.groupEnd();
   console.debug('validateRequestParameters success');
   return {
     searchBy,
-    encounterId,
     secrets: input.secrets,
   };
 }

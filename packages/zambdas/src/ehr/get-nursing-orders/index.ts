@@ -29,7 +29,7 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequests, tasks, practitioners, provenances } = await getNursingOrderResources(
+    const { serviceRequests, tasks, practitioners, provenances, encounters } = await getNursingOrderResources(
       oystehr,
       validatedParameters
     );
@@ -44,7 +44,14 @@ export const index = wrapHandler(async (input: ZambdaInput): Promise<APIGatewayP
       };
     }
 
-    const nursingOrders = mapResourcesNursingOrderDTOs(serviceRequests, tasks, practitioners, provenances, searchBy);
+    const nursingOrders = mapResourcesNursingOrderDTOs(
+      serviceRequests,
+      tasks,
+      practitioners,
+      provenances,
+      encounters,
+      searchBy
+    );
 
     return {
       statusCode: 200,

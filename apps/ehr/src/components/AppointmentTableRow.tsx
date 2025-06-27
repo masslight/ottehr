@@ -35,6 +35,7 @@ import {
   InHouseOrderListPageItemDTO,
   InPersonAppointmentInformation,
   LabOrderListPageDTO,
+  NursingOrder,
   PRACTITIONER_CODINGS,
   PROJECT_NAME,
   ROOM_EXTENSION_URL,
@@ -73,6 +74,7 @@ interface AppointmentTableProps {
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
   externalLabOrders: LabOrderListPageDTO[] | undefined;
+  nursingOrders: NursingOrder[] | undefined;
 }
 
 const VITE_APP_QRS_URL = import.meta.env.VITE_APP_QRS_URL;
@@ -239,6 +241,7 @@ export default function AppointmentTableRow({
   setEditingComment,
   inHouseLabOrders,
   externalLabOrders,
+  nursingOrders,
 }: AppointmentTableProps): ReactElement {
   const { oystehr, oystehrZambda } = useApiClients();
   const theme = useTheme();
@@ -654,7 +657,7 @@ export default function AppointmentTableRow({
   // if orders tooltip is displayed, we check if there are any orders - if no orders the cell will be empty and it doesn't make sense to have the pointer hand
   // if visit components, there is always something in this cell, hence the default to true
   const showPointerForInfoIcons = displayOrdersToolTip(appointment, tab)
-    ? inHouseLabOrders?.length || externalLabOrders?.length
+    ? inHouseLabOrders?.length || externalLabOrders?.length || nursingOrders?.length
     : true;
 
   return (
@@ -832,6 +835,7 @@ export default function AppointmentTableRow({
           tab={tab}
           inHouseLabOrders={inHouseLabOrders}
           externalLabOrders={externalLabOrders}
+          nursingOrders={nursingOrders}
         />
       </TableCell>
       <TableCell sx={{ verticalAlign: 'center' }}>

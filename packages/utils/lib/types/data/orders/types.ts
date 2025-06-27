@@ -30,16 +30,26 @@ export const UpdateNursingOrderInputValidatedSchema = UpdateNursingOrderInputSch
 
 export type UpdateNursingOrderInputValidated = z.infer<typeof UpdateNursingOrderInputValidatedSchema>;
 
-export const NursingOrdersSearchBySchema = z.object({
-  field: z.literal('serviceRequestId'),
-  value: z.string(),
-});
+export const NursingOrdersSearchBySchema = z.discriminatedUnion('field', [
+  z.object({
+    field: z.literal('encounterId'),
+    value: z.string(),
+  }),
+  z.object({
+    field: z.literal('encounterIds'),
+    value: z.array(z.string()),
+  }),
+  z.object({
+    field: z.literal('serviceRequestId'),
+    value: z.string(),
+  }),
+]);
 
 export type NursingOrdersSearchBy = z.infer<typeof NursingOrdersSearchBySchema>;
 
 export const GetNursingOrdersInputSchema = z.object({
   encounterId: z.string().uuid(),
-  searchBy: NursingOrdersSearchBySchema.optional(),
+  searchBy: NursingOrdersSearchBySchema,
 });
 
 export type GetNursingOrdersInput = z.infer<typeof GetNursingOrdersInputSchema>;
@@ -52,6 +62,7 @@ export type GetNursingOrdersInputValidated = z.infer<typeof GetNursingOrdersInpu
 
 export interface NursingOrder {
   serviceRequestId: string;
+  appointmentId: string;
   note: string;
   status: NursingOrdersStatus;
   orderAddedDate: string;
@@ -75,7 +86,7 @@ export interface OrderToolTipConfig {
   tableUrl: string;
   orders: {
     serviceRequestId: string;
-    testItemName: string;
+    itemDescription: string;
     detailPageUrl: string;
     statusChip: JSX.Element;
   }[];

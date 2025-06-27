@@ -484,11 +484,11 @@ const getDocRefRelatedId = (
   return reference?.split('/')[1];
 };
 
-type fetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
+type FetchLabOrderPDFRes = { resultPDFs: LabResultPDF[]; orderPDF: LabOrderPDF | undefined };
 export const fetchLabOrderPDFsPresignedUrls = async (
   documentReferences: DocumentReference[],
   m2mToken: string
-): Promise<fetchLabOrderPDFRes | undefined> => {
+): Promise<FetchLabOrderPDFRes | undefined> => {
   if (!documentReferences.length) {
     return;
   }
@@ -532,7 +532,7 @@ export const fetchLabOrderPDFsPresignedUrls = async (
         result.status === 'fulfilled' && result.value !== null
     )
     .reduce(
-      (acc: fetchLabOrderPDFRes, result) => {
+      (acc: FetchLabOrderPDFRes, result) => {
         if ('diagnosticReportId' in result.value) {
           acc.resultPDFs.push(result.value);
         } else if ('serviceRequestId' in result.value) {
@@ -544,4 +544,25 @@ export const fetchLabOrderPDFsPresignedUrls = async (
     );
 
   return { resultPDFs, orderPDF };
+};
+
+export const parseAppointmentIdForServiceRequest = (
+  serviceRequest: ServiceRequest,
+  encounters: Encounter[]
+): string | undefined => {
+  console.log('getting appointment id for service request', serviceRequest.id);
+  const encounterId = serviceRequest.encounter?.reference?.split('/').pop();
+  const NOT_FOUND = undefined;
+
+  if (!encounterId) {
+    return NOT_FOUND;
+  }
+
+  const relatedEncounter = encounters.find((encounter) => encounter.id === encounterId);
+
+  if (relatedEncounter?.appointment?.length) {
+    return relatedEncounter.appointment[0]?.reference?.split('/').pop() || NOT_FOUND;
+  }
+
+  return NOT_FOUND;
 };

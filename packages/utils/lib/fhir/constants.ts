@@ -352,7 +352,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: INSURANCE_CARD_CODE,
   },
   {
-    title: 'photo-ids',
+    title: 'photo-id-cards',
     display: 'Photo ID',
     documentTypeCode: PHOTO_ID_CARD_CODE,
   },
@@ -362,7 +362,7 @@ export const FOLDERS_CONFIG: ListConfig[] = [
     documentTypeCode: PATIENT_PHOTO_CODE,
   },
   {
-    title: 'school-work-note',
+    title: 'school-work-notes',
     display: 'School/Work Notes',
     documentTypeCode: SCHOOL_WORK_NOTE_CODE,
   },
