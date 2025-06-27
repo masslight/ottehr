@@ -48,7 +48,6 @@ export const NursingOrdersSearchBySchema = z.discriminatedUnion('field', [
 export type NursingOrdersSearchBy = z.infer<typeof NursingOrdersSearchBySchema>;
 
 export const GetNursingOrdersInputSchema = z.object({
-  encounterId: z.string().uuid(),
   searchBy: NursingOrdersSearchBySchema,
 });
 
