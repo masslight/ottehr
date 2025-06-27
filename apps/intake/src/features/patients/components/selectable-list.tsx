@@ -2,10 +2,11 @@ import { Box } from '@mui/system';
 import { DateTime } from 'luxon';
 import { useMemo } from 'react';
 import { FieldValues } from 'react-hook-form';
-import { FormInputType, PageForm } from 'ui-components';
 import { getPatientInfoFullName, PatientInfo } from 'utils';
+import PageForm from '../../../components/PageForm';
 import { otherColors } from '../../../IntakeThemeProvider';
 import { DIFFERENT_FAMILY_MEMBER_DATA } from '../../../telemed/utils/constants';
+import { FormInputType } from '../../../types';
 
 interface PatientListProps {
   patients: PatientInfo[];

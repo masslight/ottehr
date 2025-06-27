@@ -5,7 +5,6 @@ import { DateTime } from 'luxon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ErrorDialog, ErrorDialogConfig, useUCZambdaClient } from 'ui-components';
 import {
   APIError,
   AvailableLocationInformation,
@@ -19,8 +18,10 @@ import {
 } from 'utils';
 import ottehrApi from '../api/ottehrApi';
 import { PageContainer, Schedule } from '../components';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
 import { useCheckOfficeOpen } from '../hooks/useCheckOfficeOpen';
 import { useTrackMixpanelEvents } from '../hooks/useTrackMixpanelEvents';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import i18n from '../lib/i18n';
 import { ottehrLightBlue } from '../themes/ottehr/icons';
 import { useVisitContext } from './ThankYou';

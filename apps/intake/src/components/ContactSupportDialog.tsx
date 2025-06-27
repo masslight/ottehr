@@ -1,6 +1,7 @@
 import { Box, Typography } from '@mui/material';
 import { FC } from 'react';
-import { CustomDialog, PageForm } from 'ui-components';
+import { CustomDialog } from './CustomDialog';
+import PageForm from './PageForm';
 
 type ContactSupportDialogProps = { onClose: () => void };
 
