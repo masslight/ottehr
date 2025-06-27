@@ -16,7 +16,7 @@ import {
 import { Location } from 'fhir/r4b';
 import { DateTime } from 'luxon';
 import { ReactElement, useState } from 'react';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
 import {
   ACTION_WIDTH,
   ACTION_WIDTH_MIN,
@@ -55,6 +55,7 @@ interface AppointmentTableProps {
   setEditingComment: (editingComment: boolean) => void;
   inHouseLabOrdersByAppointmentId: Record<string, InHouseOrderListPageItemDTO[]>;
   externalLabOrdersByAppointmentId: Record<string, LabOrderListPageDTO[]>;
+  nursingOrdersByAppointmentId: Record<string, NursingOrder[]>;
 }
 
 export default function AppointmentTable({
@@ -66,6 +67,7 @@ export default function AppointmentTable({
   setEditingComment,
   inHouseLabOrdersByAppointmentId,
   externalLabOrdersByAppointmentId,
+  nursingOrdersByAppointmentId,
 }: AppointmentTableProps): ReactElement {
   const theme = useTheme();
   const actionButtons = tab === ApptTab.prebooked ? true : false;
@@ -195,6 +197,7 @@ export default function AppointmentTable({
                             tab={tab}
                             inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                             externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                            nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                           ></AppointmentTableRow>
                         );
                       })}
@@ -214,6 +217,7 @@ export default function AppointmentTable({
                       tab={tab}
                       inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                       externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                      nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                     ></AppointmentTableRow>
                   );
                 })
@@ -289,6 +293,7 @@ export default function AppointmentTable({
                           tab={tab}
                           inHouseLabOrders={inHouseLabOrdersByAppointmentId[appointment.id]}
                           externalLabOrders={externalLabOrdersByAppointmentId[appointment.id]}
+                          nursingOrders={nursingOrdersByAppointmentId[appointment.id]}
                         ></AppointmentTableRow>
                       );
                     })}
