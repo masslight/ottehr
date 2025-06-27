@@ -2,10 +2,10 @@ import { useAuth0 } from '@auth0/auth0-react';
 import { t } from 'i18next';
 import { useEffect } from 'react';
 import { Navigate, Outlet, useBeforeUnload, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ErrorDialog, UnexpectedErrorDescription } from 'ui-components';
 import { getSelectors, PROJECT_WEBSITE } from 'utils';
 import { useIntakeCommonStore } from '../features/common';
 import { getRedirectPath } from '../helpers';
+import { ErrorDialog, UnexpectedErrorDescription } from './ErrorDialog';
 
 function IntakeFlow(): JSX.Element {
   const { pathname } = useLocation();

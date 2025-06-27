@@ -62,7 +62,6 @@ import {
   LabelPdf,
   ListScheduleOwnersParams,
   ListScheduleOwnersResponse,
-  NursingOrdersSearchBy,
   PaginatedResponse,
   RadiologyLaunchViewerZambdaInput,
   RadiologyLaunchViewerZambdaOutput,
@@ -913,10 +912,7 @@ export const deleteInHouseLabOrder = async (
   }
 };
 
-export const getNursingOrders = async (
-  oystehr: Oystehr,
-  parameters: GetNursingOrdersInput & { searchBy?: NursingOrdersSearchBy }
-): Promise<any> => {
+export const getNursingOrders = async (oystehr: Oystehr, parameters: GetNursingOrdersInput): Promise<any> => {
   try {
     if (GET_NURSING_ORDERS_ZAMBDA_ID == null) {
       throw new Error('get nursing orders zambda environment variable could not be loaded');

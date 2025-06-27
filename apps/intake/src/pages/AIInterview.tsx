@@ -5,10 +5,10 @@ import { Box, Stack } from '@mui/system';
 import { Questionnaire, QuestionnaireResponse } from 'fhir/r4b';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useUCZambdaClient } from 'ui-components';
 import api from '../api/ottehrApi';
 import { PageContainer } from '../components';
 import { AiChatHistory } from '../components/AiChatHistory';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { useVisitContext } from './ThankYou';
 
 const AIInterview = (): JSX.Element => {

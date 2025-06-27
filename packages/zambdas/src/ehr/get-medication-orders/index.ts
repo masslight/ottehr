@@ -106,7 +106,7 @@ async function getOrderPackages(oystehr: Oystehr, encounterId: string): Promise<
     params: [
       {
         name: 'context',
-        value: encounterId,
+        value: `Encounter/${encounterId}`,
       },
       {
         name: '_tag',

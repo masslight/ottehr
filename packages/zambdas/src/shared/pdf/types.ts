@@ -59,7 +59,7 @@ export interface LineStyle {
 export interface PdfClient {
   addNewPage: (styles: PageStyles) => void;
   drawText: (text: string, textStyle: TextStyle) => void;
-  drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>) => void;
+  drawTextSequential: (text: string, textStyle: Exclude<TextStyle, 'side'>, leftIndentationXPos?: number) => void;
   drawStartXPosSpecifiedText: (
     text: string,
     textStyle: TextStyle,
@@ -125,7 +125,7 @@ export interface LabsData {
   locationFax?: string;
   labOrganizationName: string; // this is only mapped for order pdf
   serviceRequestID: string;
-  reqId: string; // this is only for external
+  orderNumber: string; // this is only for external
   providerName: string;
   providerNPI: string | undefined;
   patientFirstName: string;
@@ -158,6 +158,7 @@ export interface ExternalLabResult {
   resultInterpretationDisplay?: string;
   resultValue: string;
   referenceRangeText?: string;
+  resultNotes?: string[];
 }
 
 export interface InHouseLabResult {
@@ -179,23 +180,25 @@ export interface LabResultsData
   extends Omit<
     LabsData,
     | 'aoeAnswers'
-    | 'reqId'
+    | 'orderNumber'
     | 'labOrganizationName'
     | 'orderSubmitDate'
     | 'providerTitle'
     | 'providerNPI'
     | 'patientAddress'
+    | 'sampleCollectionDate'
   > {
   testName: string;
   resultStatus: string;
   abnormalResult?: boolean;
 }
 export interface ExternalLabResultsData extends LabResultsData {
-  reqId: string;
+  orderNumber: string;
   accessionNumber: string;
   orderSubmitDate: string;
   collectionDate: string;
   resultPhase: string;
+  resultsRecievedDate: string;
   reviewed?: boolean;
   reviewingProvider: Practitioner | undefined;
   reviewDate: string | undefined;
@@ -203,15 +206,10 @@ export interface ExternalLabResultsData extends LabResultsData {
   externalLabResults: ExternalLabResult[];
   testItemCode: string;
   performingLabName: string;
-  performingLabStreetAddress: string;
-  performingLabCity: string;
-  performingLabState: string;
-  performingLabZip: string;
+  performingLabAddress?: string;
   performingLabDirector?: string;
-  performingLabPhone: string;
-  performingLabDirectorFirstName: string;
-  performingLabDirectorLastName: string;
-  performingLabDirectorTitle: string;
+  performingLabPhone?: string;
+  performingLabDirectorFullName?: string;
 }
 export interface InHouseLabResultsData extends LabResultsData {
   inHouseLabResults: InHouseLabResultConfig[];

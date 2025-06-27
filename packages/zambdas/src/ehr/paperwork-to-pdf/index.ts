@@ -11,7 +11,6 @@ import {
   Secrets,
   SecretsKeys,
 } from 'utils';
-import { BUCKET_PAPERWORK_PDF } from '../../scripts/setup';
 import {
   createOystehrClient,
   getAuth0Token,
@@ -31,6 +30,7 @@ interface Input {
 }
 
 const ZAMBDA_NAME = 'paperwork-to-pdf';
+const BUCKET_PAPERWORK_PDF = 'exported-questionnaires';
 
 let zapehrToken: string;
 

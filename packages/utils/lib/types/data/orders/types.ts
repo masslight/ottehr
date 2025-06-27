@@ -10,15 +10,18 @@ export type UpdateNursingOrderParameters = {
   action: 'CANCEL ORDER' | 'COMPLETE ORDER';
 };
 
-export type NursingOrdersSearchBy = { field: 'serviceRequestId'; value: string };
+export type NursingOrdersSearchBy =
+  | { field: 'encounterId'; value: string }
+  | { field: 'encounterIds'; value: string[] }
+  | { field: 'serviceRequestId'; value: string };
 
 export type GetNursingOrdersInput = {
-  encounterId: string;
-  searchBy?: NursingOrdersSearchBy;
+  searchBy: NursingOrdersSearchBy;
 };
 
 export interface NursingOrder {
   serviceRequestId: string;
+  appointmentId: string;
   note: string;
   status: NursingOrdersStatus;
   orderAddedDate: string;
@@ -42,7 +45,7 @@ export interface OrderToolTipConfig {
   tableUrl: string;
   orders: {
     serviceRequestId: string;
-    testItemName: string;
+    itemDescription: string;
     detailPageUrl: string;
     statusChip: JSX.Element;
   }[];

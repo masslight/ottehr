@@ -5,7 +5,7 @@ import HealthAndSafetyOutlinedIcon from '@mui/icons-material/HealthAndSafetyOutl
 import { Box } from '@mui/material';
 import { displayOrdersToolTip } from 'src/helpers';
 import { otherColors } from 'src/themes/ottehr/colors';
-import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO } from 'utils';
+import { InHouseOrderListPageItemDTO, InPersonAppointmentInformation, LabOrderListPageDTO, NursingOrder } from 'utils';
 import { ApptTab } from './AppointmentTabs';
 import { GenericToolTip, PaperworkToolTipContent } from './GenericToolTip';
 import { OrdersIconsToolTip } from './OrdersIconsToolTip';
@@ -15,12 +15,14 @@ interface InfoIconsToolTipProps {
   tab: ApptTab;
   inHouseLabOrders: InHouseOrderListPageItemDTO[] | undefined;
   externalLabOrders: LabOrderListPageDTO[] | undefined;
+  nursingOrders: NursingOrder[] | undefined;
 }
 export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
   appointment,
   tab,
   inHouseLabOrders,
   externalLabOrders,
+  nursingOrders,
 }) => {
   const ordersToolTip = displayOrdersToolTip(appointment, tab);
 
@@ -31,6 +33,7 @@ export const InfoIconsToolTip: React.FC<InfoIconsToolTipProps> = ({
           appointment={appointment}
           externalLabOrders={externalLabOrders}
           inHouseLabOrders={inHouseLabOrders}
+          nursingOrders={nursingOrders}
         />
       ) : (
         // Visit Components

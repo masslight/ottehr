@@ -1,9 +1,11 @@
 import LoadingButton from '@mui/lab/LoadingButton';
 import { Alert, Box, Snackbar, Typography } from '@mui/material';
 import { FC, useContext, useMemo, useState } from 'react';
-import { ConfirmationDialog, IntakeThemeContext, PageForm } from 'ui-components';
 import { InvitedParticipantInfo } from 'utils';
 import { dataTestIds } from '../../../../src/helpers/data-test-ids';
+import { ConfirmationDialog } from '../../../components/ConfirmationDialog';
+import PageForm from '../../../components/PageForm';
+import { IntakeThemeContext } from '../../../contexts';
 import { useCancelInviteMutation } from '../waiting-room';
 
 type InvitedParticipantListProps = {

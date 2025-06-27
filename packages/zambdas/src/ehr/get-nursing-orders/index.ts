@@ -7,7 +7,7 @@ import {
   wrapHandler,
   ZambdaInput,
 } from '../../shared';
-import { getNoursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
+import { getNursingOrderResources, mapResourcesNursingOrderDTOs } from './helpers';
 import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
@@ -20,7 +20,7 @@ export const index = wrapHandler('get-nursing-orders', async (input: ZambdaInput
     m2mToken = await checkOrCreateM2MClientToken(m2mToken, secrets);
     const oystehr = createOystehrClient(m2mToken, secrets);
 
-    const { serviceRequests, tasks, practitioners, provenances } = await getNoursingOrderResources(
+    const { serviceRequests, tasks, practitioners, provenances, encounters } = await getNursingOrderResources(
       oystehr,
       validatedParameters
     );
@@ -35,7 +35,14 @@ export const index = wrapHandler('get-nursing-orders', async (input: ZambdaInput
       };
     }
 
-    const nursingOrders = mapResourcesNursingOrderDTOs(serviceRequests, tasks, practitioners, provenances, searchBy);
+    const nursingOrders = mapResourcesNursingOrderDTOs(
+      serviceRequests,
+      tasks,
+      practitioners,
+      provenances,
+      encounters,
+      searchBy
+    );
 
     return {
       statusCode: 200,

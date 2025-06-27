@@ -5,7 +5,6 @@ import { ControllerRenderProps, FieldValues, useFormContext } from 'react-hook-f
 interface YesNoQuestionProps {
   questionText: string;
   linkId: string;
-  answer?: string;
   required: boolean;
   isReadOnly?: boolean;
   field: ControllerRenderProps<FieldValues, string>;
@@ -35,19 +34,13 @@ export const AOEYesNoQuestion: React.FC<YesNoQuestionProps> = (props) => {
     formState: { errors: _ },
   } = useFormContext();
 
-  const { questionText, linkId, answer, required, isReadOnly, field } = props;
+  const { questionText, linkId, required, isReadOnly, field } = props;
 
   const labelId = `boolean-${linkId}-label`;
   return (
     <>
       <FormLabel id={labelId}>{questionText}</FormLabel>
-      <RadioGroup
-        {...field}
-        row
-        aria-labelledby={labelId}
-        name={`${labelId}-row-radio-buttons-group`}
-        defaultValue={answer}
-      >
+      <RadioGroup {...field} row aria-labelledby={labelId} name={`${labelId}-row-radio-buttons-group`}>
         <FormControlLabel
           value="true"
           control={<Radio disabled={isReadOnly} inputProps={{ required: required }} sx={radioStyles} />}

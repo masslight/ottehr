@@ -46,7 +46,12 @@ export const NursingOrdersPage: React.FC = () => {
           </ButtonRounded>
         </Stack>
       </Box>
-      <NursingOrdersTable columns={nursingOrdersColumns} allowDelete={true} />
+      <NursingOrdersTable
+        columns={nursingOrdersColumns}
+        searchBy={{ field: 'encounterId', value: encounterId }}
+        appointmentId={appointmentId}
+        allowDelete={true}
+      />
     </Box>
   );
 };

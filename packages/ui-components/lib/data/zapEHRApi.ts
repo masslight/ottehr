@@ -48,7 +48,7 @@ import {
   WaitingRoomInput,
   WaitingRoomResponse,
 } from 'utils';
-import { GetZapEHRAPIParams } from '../types/data';
+import { GetZapEHRAPIParams } from '../main';
 
 enum ZambdaNames {
   'cancel appointment' = 'cancel appointment',

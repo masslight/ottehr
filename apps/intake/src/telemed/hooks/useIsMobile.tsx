@@ -1,6 +1,6 @@
 import { useMediaQuery } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { breakpoints } from 'ui-components';
+import { breakpoints } from '../../providers';
 
 export const useIsMobile = (): boolean => {
   const isMobileMediaQuery = useMediaQuery(`(max-width: ${breakpoints.values?.sm}px)`);

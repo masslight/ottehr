@@ -5,14 +5,6 @@ import { DateTime } from 'luxon';
 import { useMemo, useState } from 'react';
 import { generatePath, useNavigate } from 'react-router-dom';
 import {
-  BoldPurpleInputLabel,
-  CustomTooltip,
-  ErrorDialog,
-  ErrorDialogConfig,
-  PageForm,
-  useUCZambdaClient,
-} from 'ui-components';
-import {
   APIError,
   CreateSlotParams,
   getHoursOfOperationForToday,
@@ -27,6 +19,11 @@ import {
 import ottehrApi from '../api/ottehrApi';
 import { bookingBasePath, intakeFlowPageRoute } from '../App';
 import { PageContainer } from '../components';
+import { CustomTooltip } from '../components/CustomTooltip';
+import { ErrorDialog, ErrorDialogConfig } from '../components/ErrorDialog';
+import { BoldPurpleInputLabel } from '../components/form';
+import PageForm from '../components/PageForm';
+import { useUCZambdaClient } from '../hooks/useUCZambdaClient';
 import { otherColors } from '../IntakeThemeProvider';
 import { useGetTelemedStates } from '../telemed/features/appointments';
 import { useZapEHRAPIClient } from '../telemed/utils';
