@@ -62,7 +62,7 @@ const GET_WALKIN_AVAILABILITY_ZAMBDA_ID = 'walkin-check-availability';
 const CREATE_SLOT_ZAMBDA_ID = 'create-slot';
 const GET_SLOT_DETAILS_ZAMBDA_ID = 'get-slot-details';
 
-class API {
+export class API {
   async checkIn(
     zambdaClient: ZambdaClient,
     parameters: CheckInInput,
