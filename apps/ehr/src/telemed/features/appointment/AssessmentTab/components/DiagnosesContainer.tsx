@@ -109,12 +109,13 @@ export const DiagnosesContainer: FC = () => {
 
   const onMakePrimary = (resourceId: string): void => {
     const value = diagnoses.find((item) => item.resourceId === resourceId)!;
-    const preparedValue = { ...value, isPrimary: true };
-    const previousPrimary = { ...primaryDiagnosis!, isPrimary: false };
+    const previousAndNewValues = [];
+    previousAndNewValues.push({ ...value, isPrimary: true }); // prepared diagnosis
+    if (primaryDiagnosis) previousAndNewValues.push({ ...primaryDiagnosis, isPrimary: false }); // previous diagnosis
 
     saveChartData(
       {
-        diagnosis: [preparedValue, previousPrimary],
+        diagnosis: previousAndNewValues,
       },
       {
         onError: () => {
