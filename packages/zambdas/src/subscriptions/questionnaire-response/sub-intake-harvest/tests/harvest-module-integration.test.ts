@@ -311,7 +311,10 @@ describe('Harvest Module Integration Tests', () => {
     let foundGuarantor: RelatedPerson | Patient | undefined;
     if (guarantorRef && !guarantorRef.startsWith('#')) {
       const [resourceType, resourceId] = guarantorRef.split('/');
-      foundGuarantor = await oystehrClient.fhir.get<RelatedPerson | Patient>({ resourceType, id: resourceId });
+      foundGuarantor = await oystehrClient.fhir.get<RelatedPerson | Patient>({
+        resourceType: resourceType as 'RelatedPerson' | 'Patient',
+        id: resourceId,
+      });
     }
     const foundAccountResources = foundAccounts.filter((res) => res.resourceType === 'Account') as Account[];
     expect(foundAccountResources.length).toBe(1);

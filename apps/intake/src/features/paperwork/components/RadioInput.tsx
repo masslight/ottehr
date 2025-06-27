@@ -2,8 +2,9 @@ import { FormControlLabel, Grid, Icon, Radio, RadioGroup, RadioGroupProps, Typog
 import { QuestionnaireItemAnswerOption } from 'fhir/r4b';
 import { FC, SyntheticEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CustomRadioButtonIcon, RadioStyling } from 'ui-components';
+import { CustomRadioButtonIcon } from '../../../components/form';
 import { otherColors } from '../../../IntakeThemeProvider';
+import { RadioStyling } from '../../../types';
 
 interface RadioInputProps extends RadioGroupProps {
   name: string;

@@ -1,4 +1,4 @@
-import Oystehr, { User } from '@oystehr/sdk';
+import Oystehr, { FhirPatchParams, User } from '@oystehr/sdk';
 import { wrapHandler } from '@sentry/aws-serverless';
 import { APIGatewayProxyResult } from 'aws-lambda';
 import { Appointment, ContactPoint, Encounter, Patient, RelatedPerson } from 'fhir/r4b';
@@ -241,7 +241,7 @@ async function addParticipantToEncounterIfNeeded(
         },
       });
 
-      const patch = {
+      const patch: FhirPatchParams<Encounter> = {
         resourceType: 'Encounter',
         id: encounter.id ?? '',
         operations: [

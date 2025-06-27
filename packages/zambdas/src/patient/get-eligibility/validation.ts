@@ -350,7 +350,7 @@ export const getDefaultBillingProviderResource = async (
   }
 
   const fetchedResources = await oystehrClient.fhir.search<BillingProviderResource>({
-    resourceType: defaultBillingResourceType,
+    resourceType: defaultBillingResourceType as BillingProviderResource['resourceType'],
     params: [
       {
         name: '_id',

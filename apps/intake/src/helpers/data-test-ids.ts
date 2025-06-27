@@ -30,4 +30,8 @@ export const dataTestIds = {
   wrInviteeContact: 'wr-invitee-contact',
   cardNumber: 'card-number',
   itemAddedValue: 'item-added-value',
+  header: {
+    authenticated: 'header-for-authenticated-user',
+    unauthenticated: 'header-for-unauthenticated-user',
+  },
 };
