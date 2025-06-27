@@ -121,9 +121,10 @@ async function getOrderPackages(
   ];
 
   if (searchBy.field === 'encounterId') {
-    searchParams.push({ name: 'context', value: searchBy.value });
+    searchParams.push({ name: 'context', value: `Encounter/${searchBy.value}` });
   } else if (searchBy.field === 'encounterIds') {
-    searchParams.push({ name: 'context', value: searchBy.value.join(',') });
+    const encounterRefs = searchBy.value.map((id) => `Encounter/${id}`).join(',');
+    searchParams.push({ name: 'context', value: encounterRefs });
   }
 
   console.log('searchParams for MedicationAdministration', searchParams);
