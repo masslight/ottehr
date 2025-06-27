@@ -388,20 +388,6 @@ const formatSpecimenResources = (
     const specimenDefitionConfig: SpecimenDefinition = {
       resourceType: 'SpecimenDefinition',
       id: specimenDefinitionId,
-      typeTested: [
-        {
-          preference: 'preferred',
-          container: {
-            description: specimen.container ?? undefined,
-            minimumVolumeString: specimen.minimumVolume ?? undefined,
-          },
-          handling: [
-            {
-              instruction: specimen.storageRequirements ?? undefined,
-            },
-          ],
-        },
-      ],
       collection: [
         collectionInstructionsCoding,
         {
@@ -414,7 +400,27 @@ const formatSpecimenResources = (
           text: specimen.volume ?? undefined,
         },
       ],
+      typeTested: [
+        {
+          preference: 'preferred',
+          container:
+            !!specimen.container || !!specimen.minimumVolume
+              ? {
+                  description: specimen.container ?? undefined,
+                  minimumVolumeString: specimen.minimumVolume ?? undefined,
+                }
+              : undefined,
+          handling: specimen.storageRequirements
+            ? [
+                {
+                  instruction: specimen.storageRequirements,
+                },
+              ]
+            : undefined,
+        },
+      ],
     };
+
     specimenDefinitionConfigs.push(specimenDefitionConfig);
     const specimenConfig: Specimen = {
       resourceType: 'Specimen',
