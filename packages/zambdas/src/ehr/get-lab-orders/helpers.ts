@@ -777,7 +777,10 @@ export const fetchFinalAndPrelimAndCorrectedTasks = async (
   oystehr: Oystehr,
   results: DiagnosticReport[]
 ): Promise<Task[]> => {
-  const resultsIds = results.map((result) => result.id).filter(Boolean);
+  const resultsIds = results.reduce(
+    (acc: string[], result) => (result?.id ? [...acc, `DiagnosticReport/${result.id}`] : acc),
+    []
+  );
 
   if (!resultsIds.length) {
     return [];
