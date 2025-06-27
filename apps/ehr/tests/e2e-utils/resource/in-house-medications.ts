@@ -25,7 +25,7 @@ export async function getInHouseMedicationsResources(
   } else {
     params.params.push({
       name: 'context',
-      value: id,
+      value: `Encounter/${id}`,
     });
   }
   return (await apiClient.fhir.search<FhirResource>(params)).unbundle();
