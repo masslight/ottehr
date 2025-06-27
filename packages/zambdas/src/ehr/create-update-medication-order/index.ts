@@ -20,8 +20,6 @@ import {
   UpdateMedicationOrderInput,
 } from 'utils';
 import { checkOrCreateM2MClientToken, createOystehrClient, ZambdaInput } from '../../shared';
-import { createOystehrClient } from '../../shared/helpers';
-import { ZambdaInput } from '../../shared/types';
 import { createMedicationAdministrationResource, createMedicationStatementResource } from './fhir-recources-creation';
 import {
   createMedicationCopy,
@@ -35,9 +33,7 @@ import { validateRequestParameters } from './validateRequestParameters';
 
 let m2mToken: string;
 
-export const index = wrapHandler('create-update-medication-order', async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
-  console.log(`create-update-medication-order, input: ${JSON.stringify(input)}`);
-  configSentry('create-update-medication-order', input.secrets);
+export const index = async (input: ZambdaInput): Promise<APIGatewayProxyResult> => {
   try {
     const validatedParameters = validateRequestParameters(input);
 
